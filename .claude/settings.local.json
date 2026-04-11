@@ -8,7 +8,29 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/signup)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/pricing)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/macro)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/stock/005930)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/stock/005930)",
+      "WebSearch",
+      "WebFetch(domain:www.whois.com)",
+      "WebFetch(domain:play.google.com)",
+      "WebFetch(domain:jookook.com)",
+      "WebFetch(domain:jooduck.com)",
+      "WebFetch(domain:stockdotbogi.com)",
+      "WebFetch(domain:dotbogi.com)",
+      "WebFetch(domain:joodoc.com)",
+      "WebFetch(domain:whois.kisa.or.kr)",
+      "WebFetch(domain:whois.kr)",
+      "WebFetch(domain:uspto.report)",
+      "WebFetch(domain:kpat.kipris.or.kr)",
+      "WebFetch(domain:rdap.verisign.com)",
+      "WebFetch(domain:joopick.com)",
+      "WebFetch(domain:jupick.com)",
+      "WebFetch(domain:jupic.com)",
+      "WebFetch(domain:rdap.publicinterestregistry.net)",
+      "WebFetch(domain:xn--3e0b707e.kr)",
+      "WebFetch(domain:www.chungoose.kr)",
+      "WebFetch(domain:eiec.kdi.re.kr)",
+      "WebFetch(domain:thevc.kr)",
+      "WebFetch(domain:www.tosspayments.com)"
     ]
   }
 }

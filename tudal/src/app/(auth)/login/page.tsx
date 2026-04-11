@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TrendingUp, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { JoopickLogo } from "@/components/layout/logo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -44,12 +45,11 @@ export default function LoginPage() {
         <CardContent className="pt-8 pb-8 px-8">
           {/* 로고 */}
           <div className="flex flex-col items-center mb-8">
-            <Link href="/" className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold tracking-tight">투달</span>
+            <Link href="/" className="mb-2">
+              <JoopickLogo size="lg" />
             </Link>
             <p className="text-sm text-muted-foreground">
-              투자의 달인에 오신 것을 환영합니다
+              주픽에 오신 것을 환영합니다
             </p>
           </div>
 

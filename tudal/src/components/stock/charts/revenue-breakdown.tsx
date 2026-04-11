@@ -205,7 +205,7 @@ export function RevenueBreakdown({ segments, level }: RevenueBreakdownProps) {
 
           {/* 전망 코멘트 */}
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-xs font-medium mb-1">투달 AI 코멘트</p>
+            <p className="text-xs font-medium mb-1">주픽 AI 코멘트</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
               {activeDetail.outlookComment}
             </p>

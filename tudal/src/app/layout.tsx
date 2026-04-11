@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "투달 - 투자의 달인 | AI 기반 주식 분석 플랫폼",
+  title: "주픽 JooPick - 똑똑한 주식 픽 | AI 기반 주식 분석 플랫폼",
   description:
     "초보부터 전문가까지, 누구나 쉽게 이해할 수 있는 AI 주식 분석 리포트. Fundamental, Technical 분석과 Peer Group 비교까지.",
-  keywords: ["주식", "투자", "분석", "AI", "투달", "TUDAL", "주식분석"],
+  keywords: ["주식", "투자", "분석", "AI", "주픽", "JooPick", "주식분석", "주식픽"],
 };
 
 export default function RootLayout({

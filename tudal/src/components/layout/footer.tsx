@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { TrendingUp } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { JoopickLogo } from "@/components/layout/logo";
 
 export function Footer() {
   return (
@@ -9,12 +9,9 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* 브랜드 */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold">투달</span>
-            </div>
+            <JoopickLogo size="md" />
             <p className="text-sm text-muted-foreground leading-relaxed">
-              투자의 달인
+              똑똑한 주식 픽
               <br />
               AI 기반 주식 분석 플랫폼
             </p>
@@ -64,10 +61,10 @@ export function Footer() {
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; 2026 투달(TUDAL). All rights reserved.
+            &copy; 2026 주픽(JooPick). All rights reserved.
           </p>
           <p className="text-xs text-muted-foreground text-center md:text-right leading-relaxed">
-            투달에서 제공하는 정보는 투자 참고용이며, 투자 판단의 최종 책임은 이용자 본인에게 있습니다.
+            주픽에서 제공하는 정보는 투자 참고용이며, 투자 판단의 최종 책임은 이용자 본인에게 있습니다.
           </p>
         </div>
       </div>

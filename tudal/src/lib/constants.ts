@@ -1,9 +1,9 @@
-// 투달 서비스 상수
+// 주픽 서비스 상수
 
-export const SITE_NAME = "투달";
-export const SITE_NAME_EN = "TUDAL";
-export const SITE_DESCRIPTION = "투자의 달인 - AI 기반 주식 분석 플랫폼";
-export const SITE_URL = "https://tudal.co.kr";
+export const SITE_NAME = "주픽";
+export const SITE_NAME_EN = "JooPick";
+export const SITE_DESCRIPTION = "똑똑한 주식 픽 - AI 기반 주식 분석 플랫폼";
+export const SITE_URL = "https://joopick.com";
 
 // 구독 플랜
 export const PLANS = {

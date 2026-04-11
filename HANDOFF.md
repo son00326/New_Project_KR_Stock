@@ -1,329 +1,312 @@
-# HANDOFF — 투달(TUDAL) 프로젝트
+# HANDOFF — 주픽 (JooPick) 프로젝트
 
 Last updated: 2026-04-11
+이 문서만 읽으면 다음 세션에서 즉시 이어서 진행 가능합니다.
 
 ---
 
-## 프로젝트 개요
+## 🚨 상시 준수 지침 (매 세션 필수 적용, 업데이트 시에도 보존)
 
-- **서비스명**: 투달 (TUDAL) — "투자의 달인"
-- **목표**: 초보~전문가 모두를 위한 AI 기반 국내/해외 주식 분석 플랫폼
-- **팀**: 2인 (기획/투자 전문가 + 개발자), 공동창업 5:5
-- **현재 단계**: MVP 프레임워크 완성 (mock 데이터 기반)
-- **Repository**: `son00326/New_Project_KR_Stock` (Private)
-- **코드 위치**: `/Users/kevinoh/Work/Work 1/tudal/`
+### 규칙 1 — 세션 시작 자동 워크플로우
 
----
-
-## 기술 스택
-
-| 영역 | 기술 | 비고 |
-|------|------|------|
-| Framework | Next.js 16 (App Router, Turbopack) | TypeScript |
-| UI | TailwindCSS v4 + shadcn/ui | 12개 컴포넌트 |
-| 차트 | Recharts | 캔들/라인/영역, 볼린저밴드, 이평선 |
-| 아이콘 | Lucide React | |
-| Auth/DB | Supabase (SSR) | 코드 준비 완료, 키 미입력 |
-| 배포 | Vercel (무료 티어) | 미배포 |
-| 패키지 매니저 | npm | Node 24 |
-
----
-
-## 수익 모델 (확정)
-
-| 등급 | 월간 | 연간 |
-|------|------|------|
-| Free | 0원 | - |
-| Standard | 14,900원 | 119,000원 (33% 할인) |
-| Pro | 34,900원 | 299,000원 (33% 할인) |
-
-등급별 기능 제한은 `src/lib/constants.ts`의 `PLANS` 객체에 정의.
-
----
-
-## 완료된 것
-
-### 페이지 (7개 라우트)
-
-| 경로 | 페이지 | 상태 |
-|------|--------|------|
-| `/` | 랜딩 (Hero 검색 + 특징 + 매크로 미리보기 + 요금제 + CTA) | 완료 |
-| `/login` | 로그인 (이메일 + Google + 카카오) | UI 완료, Supabase 연동 대기 |
-| `/signup` | 회원가입 (비밀번호 검증 + 약관 동의) | UI 완료, Supabase 연동 대기 |
-| `/pricing` | 요금제 (월간/연간 토글 + 기능 비교표 + FAQ) | 완료 |
-| `/macro` | 매크로 현황판 JARVIS (16개 지표 + 종합 판단 + 캘린더) | 완료 (mock) |
-| `/stock/[ticker]` | 종목 분석 (차트/Fundamental/Technical/기업정보 4개 탭) | 완료 (mock) |
-| 404 | 커스텀 Not Found | 완료 |
-
-### 종목 분석 — 차트 탭
-
-- 차트 타입 선택: **캔들** / **라인** / **영역**
-- 기간: 1개월 / 3개월 / 6개월 / 1년
-- 보조지표 on/off: MA5, MA20, MA60, MA120, 볼린저밴드(20,2)
-- 거래량 차트 (양봉/음봉 색상 구분)
-- 기간 수익률 표시
-- 호버 툴팁 (시가/고가/저가/종가/거래량/BB)
-
-### 종목 분석 — Fundamental 탭 (9개 섹션)
-
-1. **핵심 지표 한눈에 보기** — 시총, 매출, 영업이익, 직원수, R&D, 글로벌 거점 카드
-2. **회사 개요** — 초보/중급 레벨별 설명 + 용어 박스 (반도체가 뭔가요?)
-3. **매출 구성 (인터랙티브)** — 파이차트 + 사업부 클릭 시 상세 패널
-   - 사업부 정식 명칭, 설명, 시장 포지션, 전망
-   - **제품 용어 툴팁**: DRAM/NAND/HBM/파운드리 등 클릭 시 쉬운 설명 + 예시 + 시장 사이클(업/다운) 표시
-4. **실적 추이** — **4년/10년 기간 선택** + 매출/영업이익/순이익 바차트 + 영업이익률 곡선 + 인사이트 카드
-5. **재무제표 상세** — 손익계산서 / 재무상태표 탭 전환 (항목별 풀 데이터)
-6. **사업 히스토리 타임라인** — 1969~현재, 컬러 코딩 (설립/성과/제품/위기/확장)
-7. **경쟁 포지셔닝** — SWOT (강점/약점) + 경쟁사 포지션 테이블
-8. **미래 전망** — 핵심 투자 포인트 + 기회/리스크 구조화 카드 (중요도 태그)
-9. 초보 레벨 전용 해석 박스 ("차트 읽는 법", "한마디 정리" 등)
-
-### 종목 분석 — Technical 탭 (8개 섹션)
-
-1. **매출 구성** — 파이차트
-2. **분기별 실적** — 2023 Q1~2024 Q4, 매출/영업이익/순이익 선택 + **YoY%** 표시
-3. **연간 실적 추이** — 바차트 + 수익률 곡선
-4. **재무제표 상세** — 4개년 테이블 (YoY 변동 포함)
-5. **투자 지표 (Valuation)**
-   - **Trailing(2024) vs Forward(2025E, 2026E)** PER/PBR/PSR/EV-EBITDA/ROE 비교
-   - 각 지표별 "의미" 해석 컬럼
-   - PER/PBR 5개년+Forward 라인차트
-   - **글로벌 Peer 비교**: 삼성전자 vs Micron/TSMC/Intel/NVIDIA/Qualcomm (Trailing+Forward PER, PBR, EV/EBITDA, ROE, 배당)
-6. **애널리스트 TP 컨센서스**
-   - 국내 8개 + 해외 6개 = 14개 기관
-   - 날짜/기관/애널리스트/TP/변동/의견 테이블
-   - 국내/해외 필터
-   - 컨센서스 평균 TP, 현재가 대비 상승 여력(%), TP 분포 바
-7. **국내 Peer Group** — 테이블 + PER/PBR 바차트
-8. **밸류에이션 진단** — 저평가/적정/고평가 판정 + 근거
-
-### 종목 분석 — 기업 정보 탭 (5개 섹션)
-
-1. **주주 구성** — 도넛 차트 + 주주 테이블 (지분율, 주식수) + 외국인 비중 코멘트
-2. **지배구조 트리** — 자회사/관계회사/그룹계열사 3단 트리 다이어그램
-   - 상장 계열사 **클릭 시 해당 종목 분석 페이지로 이동**
-   - 지분율, 사업영역, 시가총액, 상장여부 표시
-3. **경영진 + 신용등급** — 임원 5명 + 국내외 신용등급 4개
-4. **수주 추이** — 수주/매출 바차트 + 수주잔고/B/B Ratio 복합차트 + 인사이트
-5. **배당 이력** — 4개년 DPS/배당수익률/배당성향 차트 + 글로벌 비교 해석
-
-### 매크로 현황판 (JARVIS)
-
-- 종합 투자 판단 스코어(0~100) + 5개 카테고리별 시그널
-- 공포·탐욕 게이지 (반원형 바늘 시각화)
-- 16개 매크로 지표 (CPI, PPI, 실업률, GDP, 기준금리, 국채, 유가, 금, 환율 등)
-- 경제 이벤트 캘린더 (FOMC, 옵션만기일, CPI 발표 등)
-- 각 지표별 호재/악재/중립 시그널 + 해석
-
-### 공통
-
-- **검색 엔진**: 자동완성 + 최근검색(localStorage) + 인기종목 + 키보드 네비게이션
-- **구독 게이트**: 블러 오버레이 + 잠금 UI (`SubscriptionGate` 컴포넌트)
-- **리포트 제한 배너**: Free 유저 잔여 횟수 표시
-- **반응형**: 모바일/태블릿/데스크탑 대응
-- **Header**: 로고 + 검색 + 매크로현황판 + 요금제 + 로그인 + 모바일 Sheet 메뉴
-- **Footer**: 브랜드 + 서비스 + 고객지원 + 법적고지 + 면책조항
-
----
-
-## 아직 안 한 것 (우선순위순)
-
-### P0 — 다음 작업
-
-- [ ] **Supabase 연동**: 프로젝트 생성 → `.env.local`에 키 입력 → 회원가입/로그인 활성화
-- [ ] **실제 데이터 연동**: DART API 키 발급 → mock 데이터를 실제 API 호출로 교체
-  - DART 전자공시 (재무제표, 주주현황, 임원, 공시)
-  - KRX 시세 데이터 (주가, 거래량, 시가총액)
-- [ ] **AI 리포트 생성 파이프라인**: Claude API 연동 → Fundamental 분석 자동 생성
-- [ ] **Vercel 배포**: 도메인 연결 (tudal.co.kr 또는 tudal.kr)
-
-### P1 — 핵심 기능
-
-- [ ] My Portfolio (보유 종목 관리, 수익률 대시보드, 평단가 시뮬레이터)
-- [ ] 실시간 뉴스 피드 (종목별/섹터별 호재·악재 분류)
-- [ ] AI 애널리스트 (월간/분기 리포트 자동 발간, TP 산출)
-- [ ] 실시간 TP 조정 (매크로 이벤트 → TP 변동 + 사유 설명)
-- [ ] 결제 연동 (Toss Payments 또는 Stripe → 구독 관리)
-- [ ] 국내 전 종목 확장 (현재 8개 mock → KOSPI/KOSDAQ 전체)
-
-### P2 — 확장
-
-- [ ] 해외 주식 지원 (미국 NYSE/NASDAQ)
-- [ ] Quant 자동 매매 시스템 + 전략 마켓플레이스
-- [ ] 커뮤니티 / 소셜 기능
-- [ ] 모바일 앱 (React Native 또는 Flutter)
-- [ ] 투자자문업 등록 (법무팀)
-
----
-
-## 프로젝트 구조
+**매 세션 시작 시 반드시 다음 순서로 진행:**
 
 ```
-tudal/
-├── middleware.ts                    ← Supabase 인증 미들웨어
-├── .env.local                       ← 환경변수 (Supabase URL/Key, DART API Key)
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx               ← 루트 레이아웃 (Header + Footer, 메타데이터)
-│   │   ├── page.tsx                 ← 랜딩 페이지
-│   │   ├── not-found.tsx            ← 커스텀 404
-│   │   ├── (auth)/
-│   │   │   ├── layout.tsx
-│   │   │   ├── login/page.tsx       ← 로그인
-│   │   │   └── signup/page.tsx      ← 회원가입
-│   │   ├── (main)/
-│   │   │   ├── macro/page.tsx       ← 매크로 현황판
-│   │   │   ├── pricing/page.tsx     ← 요금제
-│   │   │   └── stock/[ticker]/page.tsx ← 종목 분석
-│   │   └── api/                     ← API 라우트 (미구현)
-│   │       ├── auth/
-│   │       └── stocks/
-│   │
-│   ├── components/
-│   │   ├── common/
-│   │   │   ├── report-limit-banner.tsx   ← Free 유저 리포트 제한 배너
-│   │   │   └── subscription-gate.tsx     ← 구독 등급별 접근 제어 (블러+잠금)
-│   │   ├── layout/
-│   │   │   ├── header.tsx           ← 글로벌 Header (검색 + 네비게이션)
-│   │   │   └── footer.tsx           ← 글로벌 Footer
-│   │   ├── macro/
-│   │   │   ├── macro-dashboard.tsx  ← 매크로 현황판 메인
-│   │   │   ├── verdict-panel.tsx    ← 종합 투자 판단 (스코어 + 카테고리별 시그널)
-│   │   │   ├── indicator-card.tsx   ← 개별 지표 카드
-│   │   │   ├── fear-greed-gauge.tsx ← 공포·탐욕 게이지 (SVG 반원)
-│   │   │   └── event-calendar.tsx   ← 경제 이벤트 캘린더
-│   │   ├── stock/
-│   │   │   ├── stock-search.tsx     ← 검색 엔진 (자동완성, 최근검색, 인기종목)
-│   │   │   ├── stock-header.tsx     ← 종목 상단 (이름, 가격, 등락률, 시총)
-│   │   │   ├── stock-tabs.tsx       ← 탭 컨트롤러 (차트/Fundamental/Technical/기업정보)
-│   │   │   ├── fundamental-tab.tsx  ← Fundamental 분석 탭 (9개 섹션)
-│   │   │   ├── technical-tab.tsx    ← Technical 분석 탭 (8개 섹션)
-│   │   │   ├── corporate-tab.tsx    ← 기업 정보 탭 (5개 섹션)
-│   │   │   └── charts/
-│   │   │       ├── stock-price-chart.tsx    ← 주가 차트 (캔들/라인/영역, MA, BB)
-│   │   │       ├── revenue-breakdown.tsx    ← 매출 구성 (인터랙티브 사업부 상세)
-│   │   │       ├── revenue-chart.tsx        ← 매출 구성 파이차트 (심플)
-│   │   │       ├── revenue-trend-chart.tsx  ← 연간 실적 추이 (바+라인)
-│   │   │       ├── quarterly-financials.tsx ← 분기별 실적 + YoY
-│   │   │       ├── financial-table.tsx      ← 연간 재무 테이블
-│   │   │       ├── full-financials.tsx      ← 풀 재무제표 (손익계산서/재무상태표)
-│   │   │       ├── multiples-history.tsx    ← Trailing/Forward 멀티플 + 글로벌 Peer
-│   │   │       ├── multiples-comparison.tsx ← 국내 Peer PER/PBR 바차트
-│   │   │       ├── analyst-consensus.tsx    ← 애널리스트 TP 컨센서스
-│   │   │       ├── peer-group-table.tsx     ← 국내 Peer 비교 테이블
-│   │   │       ├── key-metrics-cards.tsx    ← 핵심 지표 6개 카드
-│   │   │       ├── business-timeline.tsx    ← 사업 히스토리 타임라인
-│   │   │       ├── competitive-map.tsx      ← SWOT + 경쟁사 포지셔닝
-│   │   │       ├── future-outlook-visual.tsx← 미래 전망 (기회/리스크)
-│   │   │       ├── product-tooltip.tsx      ← 제품 용어 툴팁 + 시장 사이클
-│   │   │       ├── governance-tree.tsx      ← 지배구조 트리 (클릭→종목 이동)
-│   │   │       ├── governance-chart.tsx     ← 지배구조 카드 (레거시)
-│   │   │       ├── shareholder-chart.tsx    ← 주주 구성 도넛차트
-│   │   │       ├── order-backlog-chart.tsx  ← 수주 추이 + B/B Ratio
-│   │   │       ├── dividend-chart.tsx       ← 배당 이력 차트
-│   │   │       └── executive-info.tsx       ← 경영진 + 신용등급
-│   │   └── ui/                      ← shadcn/ui 컴포넌트 (12개)
-│   │
-│   ├── lib/
-│   │   ├── constants.ts             ← 서비스 상수 (PLANS, 포맷 유틸)
-│   │   ├── utils.ts                 ← shadcn/ui cn 유틸
-│   │   ├── supabase/
-│   │   │   ├── client.ts            ← 브라우저 클라이언트
-│   │   │   ├── server.ts            ← 서버 클라이언트
-│   │   │   └── middleware.ts        ← 세션 관리 미들웨어
-│   │   └── data/                    ← Mock 데이터 (실제 API 교체 예정)
-│   │       ├── mock-stocks.ts       ← 종목 8개 + 재무/멀티플/검색
-│   │       ├── mock-corporate.ts    ← 계열사/주주/수주/배당/임원/신용등급
-│   │       ├── mock-financials-extended.ts ← 10개년 재무 + 풀 손익계산서/재무상태표
-│   │       ├── mock-quarterly.ts    ← 분기별 실적 + 애널리스트 TP + Forward 멀티플 + 글로벌 Peer + 시장 사이클
-│   │       ├── mock-macro.ts        ← 매크로 16개 지표 + 경제 캘린더 + 종합 판단
-│   │       └── mock-ohlcv.ts        ← 주가 OHLCV 생성 + MA/BB 계산
-│   │
-│   └── types/
-│       ├── stock.ts                 ← Stock, Financial, Multiples, Peer, Report, User 타입
-│       ├── corporate.ts             ← Subsidiary, Shareholder, OrderBacklog, Dividend, Executive, CreditRating 타입
-│       └── macro.ts                 ← MacroIndicator, EconomicEvent, MarketVerdict 타입
+[1] 에이전트·스킬 추천
+    ├── 현재 작업 유형 파악 (기획 / 구현 / 리서치 / 리뷰 / 디버깅 / 문서 / 배포)
+    ├── 가장 적합한 OMC 에이전트 선택
+    │   - 기획·전략 → planner, architect, /omc-plan
+    │   - 구현 → executor (복잡 시 model=opus)
+    │   - 리서치 → scientist, document-specialist
+    │   - 디자인 → designer, /design-consultation
+    │   - 리뷰 → critic, code-reviewer, verifier
+    │   - 디버깅 → debugger, tracer
+    │   - 문서 → writer
+    │   - 배포 → /ship, /land-and-deploy
+    └── 사용자에게 "이 작업은 X 에이전트로 진행합니다" 고지
+
+[2] 분석
+    ├── 작업 맥락 파악 (PLAN.md, 최근 git log, 관련 코드 읽기)
+    ├── 목표와 제약 조건 명확화
+    └── 숨은 요구사항·리스크 식별
+
+[3] 실행
+    ├── 선정된 에이전트·스킬로 작업 수행
+    ├── 병렬 가능한 작업은 multi-agent 병렬 호출
+    └── TaskCreate/TaskUpdate로 진도 추적
+
+[4] 검증
+    ├── code-reviewer 또는 verifier 에이전트로 품질 검토
+    ├── 빌드·테스트·린트 통과 확인 (npm run build 등)
+    └── 사용자 요구사항 충족 여부 점검
+
+[5] 검증 확인
+    ├── 사용자에게 검증 결과 보고
+    ├── 추가 수정 사항 확인
+    └── 다음 단계 제안
+```
+
+### 규칙 2 — 도구 사용 우선순위
+
+**반드시 OMC / gstack 도구·에이전트·스킬 우선 사용.**
+기본 Read/Edit/Write/Bash는 **OMC/gstack 대체재가 없을 때만** 사용.
+
+### 규칙 3 — 의사결정 기록
+
+모든 중요 결정은 PLAN.md의 "핵심 의사결정 기록" 섹션에 추가.
+결정 근거와 날짜를 함께 남길 것.
+
+### 규칙 4 — HANDOFF.md 갱신
+
+세션 종료 시 반드시 이 문서를 갱신:
+- 완료한 작업
+- 남은 작업
+- 새로 발생한 미결정 사항
+- 규칙 1~4는 **절대 삭제하지 말 것**
+
+---
+
+## 📍 현재 단계
+
+```
+Stage: 기획 확정 → 실행 착수 대기
+Phase: Pre-Implementation (Planning Complete)
+
+확정 완료: Q1~Q11 사업 기획 (PLAN.md 참조)
+대기 중:   Q13 (코드베이스 재활용 방식), Q14 (기능 우선순위)
+다음 액션: Q13, Q14 답변 → 즉시 실행 착수
 ```
 
 ---
 
-## 데이터 현황
+## ✅ 완료된 작업 (직전 세션)
 
-| 종목 | Fundamental | Technical | 기업 정보 | 차트 |
-|------|------------|-----------|----------|------|
-| 삼성전자 (005930) | **풀 데이터** (10개년+분기) | **풀 데이터** (Forward+글로벌Peer+TP) | **풀 데이터** (계열사11개+주주+수주+배당) | **180일** |
-| SK하이닉스 (000660) | 기본 (mock) | 멀티플만 | - | - |
-| NAVER (035420) | 기본 (mock) | 멀티플만 | - | - |
-| 기타 5개 종목 | 기본 (mock) | - | - | - |
+### 사업 기획 (Phase 1~4)
+- [x] 3개 병렬 리서치 (planner + analyst + document-specialist)
+- [x] architect 시스템 아키텍처 설계 (Opus)
+- [x] critic 적대적 검토
+- [x] 사용자 피드백 반영하여 "자산운용 피벗" 방향 전환
+- [x] 2026년 한국 시장 실증 데이터 확보
+- [x] 30개 허들 매트릭스 작성
+- [x] Q1~Q11 사용자 답변 수집 및 확정
+- [x] PLAN.md 작성 (확정 기획 사항)
+- [x] HANDOFF.md 재작성 (현재 문서)
 
-→ 실제 데이터 연동 시 `src/lib/data/mock-*.ts` 파일들을 API 호출로 교체하면 됨.
+### 네이밍 & 브랜드
+- [x] '투달' → '주픽 (JooPick)' 리브랜딩
+- [x] KIPRIS 상표 검증 완료
+- [x] 프로젝트 전체 코드베이스 리네이밍
+- [x] 로고 재설계 (빨간 배경 + 캔들 + 스파클)
+
+### 기존 MVP 프레임워크
+- [x] Next.js 16 + TypeScript + TailwindCSS + shadcn/ui 세팅
+- [x] 7개 라우트 (랜딩/로그인/회원가입/요금제/매크로/종목/404)
+- [x] 종목 분석 4개 탭 (차트/Fundamental/Technical/기업정보)
+- [x] 매크로 현황판 (16개 지표)
+- [x] 차트 (캔들/라인/영역 + MA + 볼린저밴드)
+- [x] Mock 데이터 기반 전체 UI 완성
 
 ---
 
-## 실행 방법
+## 🔴 다음 세션 즉시 해야 할 일 (우선순위)
 
-```bash
-cd /Users/kevinoh/Work/Work\ 1/tudal
-npm install
-npm run dev        # http://localhost:3000
-npm run build      # 프로덕션 빌드
+### 🥇 P0 — 지금 즉시 (세션 시작하자마자)
+
+**1. 사용자 Q13, Q14 답변 수집**
+
+> **Q13. 기존 코드베이스 재활용 방식**  
+> (A) 완전 재활용 (최소 수정)  
+> (B) 선별 재활용 + 대폭 간소화 ← **권장**  
+> (C) 완전 재시작  
+> (D) 병렬 운영  
+
+> **Q14. 플랫폼 필수 기능 우선순위**  
+> 14개 기능 후보를 🔴 Must Have (6개월) / 🟡 Should Have (12개월) / 🟢 Nice to Have (Y2+) 로 분류  
+> 
+> 기능 후보:  
+> ① 실시간 종목 검색 ② 실시간 시세·차트 ③ Fundamental 분석 ④ Technical 분석 ⑤ 기업정보  
+> ⑥ My Portfolio ⑦ TP 자동 추적 ⑧ 매매 의사결정 로그 ⑨ 리스크 대시보드 ⑩ 월간/분기 리포트  
+> ⑪ 매크로 현황판 ⑫ 공시·뉴스 자동 수집 ⑬ 애널리스트 리포트 집계 ⑭ 섹터별 트렌드
+
+### 🥈 P1 — Q13, Q14 답변 후 즉시 실행
+
+**Q13이 (B) 선별 재활용인 경우:**
+
+1. **executor (Opus) 에이전트로 코드베이스 정리**
+   - 랜딩 페이지 → 홈 대시보드로 변경
+   - 요금제 페이지 숨김 처리
+   - 구독 게이트 제거
+   - 초보 레벨 분석 제거 (전문가 레벨만)
+   - 로그인 → 초대 코드 기반으로 변경
+   - 검증: code-reviewer 에이전트
+
+2. **executor 에이전트로 실데이터 연결**
+   - Supabase 프로젝트 생성 및 .env.local 설정
+   - 한국투자증권 OpenAPI 연동 (무료)
+   - pykrx 또는 DART OpenAPI 연동 (백업)
+   - KOSPI/KOSDAQ 전종목 데이터 파이프라인
+   - 검증: verifier 에이전트
+
+3. **architect 에이전트로 데이터 스키마 설계**
+   - users (user_id, role, invited_by, invited_at)
+   - trades (user_id, ticker, action, price, quantity, reason, timestamp)
+   - positions (user_id, ticker, avg_price, quantity, current_value)
+   - judgments (user_id, ticker, thesis, target_price, horizon, created_at)
+   - 검증: critic 에이전트 (스키마 취약점)
+
+### 🥉 P2 — Stage 2 준비 (M3-6 시점)
+
+1. **법무 자문 준비**
+   - document-specialist 에이전트로 법무법인 후보 리서치 (세움, 디라이트 등)
+   - 이용약관 + 면책 동의서 초안 작성
+   - 스팟 자문 50만원 이내 예산
+
+2. **초대 기반 배포 설계**
+   - designer 에이전트로 초대 코드 발급 UX
+   - 지인용 온보딩 플로우
+
+---
+
+## 🟡 미결정 사항 (유보)
+
+다음 결정은 **현재 실행에 필수 아님**. 해당 시점 도달 시 다시 논의.
+
+| # | 질문 | 필요 시점 |
+|---|------|----------|
+| Q3 | 목표 최종 규모 | Y1 말 (플랫폼 output 보고 결정) |
+| Q4 | 법적 등록 시점·종류 | Y1 말 Decision Tree 적용 시 |
+| Q11 Vesting | 지분 Vesting 조항 | 플랫폼 품질 안정화 후 |
+| Q12 | 공동창업자 피벗 합의 | git push 후 R&R 정의 시 |
+| Q14 Must/Should/Nice | 기능 우선순위 | **지금 답변 필요** |
+| Q15 | 플랫폼 외부 공개 세부 | 배포 시점 |
+| Q16 | 법무 자문 이력 | Stage 2 진입 전 |
+| Q17 | 계약서 준비 | Stage 3 직전 |
+| Q18 | 손실 시 책임 | Y1 말 Layer 3 결정 시 |
+| Q19 | 창업 동기 재점검 | 심리 상태 점검 필요 시 |
+| Q20 | 5년 후 이상적 모습 | 비전 정립 필요 시 |
+
+---
+
+## 🗂 핵심 참조 파일
+
+- **PLAN.md** — 확정된 기획 사항 (Q1~Q11 답변, 사업 구조, 재무, 법적 원칙)
+- **tudal/** — 현재 Next.js 코드베이스 (폴더명은 '주픽' 리네이밍 미완, 그대로 유지)
+- **tudal/src/app/** — 라우트 및 페이지
+- **tudal/src/components/** — UI 컴포넌트 (stock, macro, layout, common, ui)
+- **tudal/src/lib/data/** — Mock 데이터 (실데이터 연결 대상)
+- **tudal/src/lib/supabase/** — Supabase SSR 구조 (미연동)
+- **tudal/src/lib/constants.ts** — 서비스 상수 (주픽 브랜드 적용 완료)
+- **tudal/src/components/layout/logo.tsx** — 로고 컴포넌트 (커스텀 SVG)
+
+---
+
+## 🧠 중요한 사업 프레임 (절대 잊지 말 것)
+
+### 본질의 재정의
+```
+주픽은 "자산운용 사업"이 아님.
+주픽은 "매일 쓸 최고 품질 플랫폼 + 본인 자금 실전 검증 + 신뢰 배포" 프로젝트.
+실패 개념 자체가 없음 (최악 시 개인 도구로 계속 사용).
 ```
 
-## 환경 변수 (.env.local)
-
+### 3층 구조
 ```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-DART_API_KEY=your-dart-api-key
+L1 플랫폼    ← 본질, 개인용 + 지인 배포 (30~500명)
+L2 운용      ← 본인 15억 자금, 공동창업자 별도, 각자 독립
+L3 확장      ← Y1 말 성과 기반 동적 결정 (가족→친지→LP)
+```
+
+### 재무 제약
+```
+운용 자본: 15억 (본인)
+운영비: 월 100만 MAX
+생활비: 12개월 여유
+외부 투자: 0
+과금 철학: 비용 충당 수준, 이익 X
+```
+
+### 법적 원칙
+```
+1. 배포 500명 이하
+2. AI 판단 금지 (데이터·분석만)
+3. 신원 확인 (초대 기반)
+4. 면책 문구 필수
+5. 자기 자금만 운용 (Y1까지)
 ```
 
 ---
 
-## 다음 세션에서 할 일
+## 🛠 사용해야 할 OMC 에이전트·스킬 (작업 유형별)
 
-### 즉시 착수 가능
+### 작업별 에이전트 매핑 (필수 참고)
 
-| 순서 | 할 일 | 파일 | 비고 |
-|------|-------|------|------|
-| 1 | Supabase 프로젝트 생성 + 키 입력 | `.env.local` | supabase.com에서 무료 생성 |
-| 2 | DB 스키마 생성 (users, portfolios, subscriptions) | Supabase Dashboard | SQL 실행 |
-| 3 | 회원가입/로그인 실제 연동 | `login/page.tsx`, `signup/page.tsx` | TODO 주석 위치 참고 |
-| 4 | DART API 연동 (재무제표) | `src/lib/data/` → API 라우트 | API 키 필요 |
-| 5 | 전 종목 확장 (mock → API) | `mock-stocks.ts` 교체 | KRX 데이터 |
-| 6 | Vercel 배포 | `vercel deploy` | 도메인 연결 |
+| 작업 유형 | 1순위 에이전트 | 2순위 | 스킬 |
+|----------|-------------|-------|------|
+| 전략 기획 | planner (opus) | architect | /omc-plan, /autoplan |
+| 시스템 설계 | architect (opus) | planner | - |
+| 코드 구현 | executor (opus for complex) | - | /autopilot, /ralph |
+| 리서치·조사 | scientist, document-specialist | Explore | - |
+| 웹 검색 기반 리서치 | document-specialist | scientist | - |
+| 적대적 검토 | critic | code-reviewer | /plan-ceo-review (no-skill, use planner) |
+| 코드 리뷰 | code-reviewer | verifier | /review |
+| 검증 | verifier | code-reviewer | /health |
+| 디버깅 | debugger | tracer | /investigate |
+| 디자인 (UI/UX) | designer | - | /design-consultation, /design-html |
+| 디자인 리뷰 | designer | - | /design-review |
+| 문서 작성 | writer | - | - |
+| 보안 검토 | security-reviewer | - | /cso |
+| 테스트 전략 | test-engineer | - | /qa |
+| 배포 | - | - | /ship, /land-and-deploy |
+| 심플화/리팩토링 | code-simplifier | - | /simplify |
+| 스킬 발견 | - | - | omc-reference |
 
-### 기능 확장 로드맵
+### 병렬 실행 원칙
+- **독립 리서치 작업은 반드시 병렬** (한 메시지에 multiple Agent tool calls)
+- **의존성 있는 작업만 순차**
+- **품질 검증은 마지막에 verifier/critic 병렬**
 
-| 기능 | 의존성 | 난이도 |
-|------|--------|--------|
-| My Portfolio | Supabase Auth + DB | ★★★ |
-| 실시간 뉴스 | 뉴스 API (네이버/구글) | ★★ |
-| AI 리포트 자동 생성 | Claude API | ★★★★ |
-| 결제 연동 | Toss Payments | ★★★ |
-| 실시간 주가 | WebSocket + KRX | ★★★ |
-
----
-
-## 주요 의사결정 기록
-
-| 날짜 | 결정 사항 |
-|------|----------|
-| 2026-04-10 | 서비스명 "투달", 공동창업 5:5 |
-| 2026-04-10 | Phase 1 국내 → 중장기 해외 확장 |
-| 2026-04-10 | 구독 3단계 (Free/Standard 14,900/Pro 34,900) |
-| 2026-04-10 | 초기 예산 월 30만원 내외 (Claude/GPT 구독 별도) |
-| 2026-04-10 | Git repo: `New_Project_KR_Stock` (추후 TUDAL로 변경) |
-| 2026-04-11 | 기술 스택: Next.js 16 + Supabase + Recharts |
-| 2026-04-11 | 차트 타입 선택 (캔들/라인/영역) 추가 |
-| 2026-04-11 | Trailing/Forward 멀티플 구분, 해외 Peer 포함 |
-| 2026-04-11 | 제품 용어 툴팁 + 시장 사이클 표시 추가 |
+### 금지 사항
+- ❌ OMC 에이전트 없이 직접 복잡한 작업 수행
+- ❌ 기획 → 바로 실행 (반드시 분석 단계 거칠 것)
+- ❌ 실행 → 바로 완료 선언 (반드시 검증 거칠 것)
+- ❌ HANDOFF.md의 상시 지침 삭제
 
 ---
 
-## 법률 참고 (반드시 확인)
+## 📋 다음 세션 시작 체크리스트
 
-- **투자자문업 등록**: TP 제공, 매수/매도 판단 보조 시 금융위 등록 필요 (자본금 2.5억+)
-- **면책 조항**: 모든 분석 페이지 하단에 "투자 판단의 최종 책임은 이용자 본인" 문구 삽입 완료
-- **개인정보보호법**: 포트폴리오 데이터 암호화 저장 필요
-- **저작권**: 증권사 리포트 원문 인용 불가, 요약/분석만 가능
-- 초기 단계에서는 "정보 제공" 범위로 운영, 투자자문업 등록 후 TP 기능 활성화 권장
+세션 시작 시 다음 순서로 수행:
+
+- [ ] HANDOFF.md 읽기 (이 문서)
+- [ ] PLAN.md 읽기 (확정 기획 사항 복습)
+- [ ] `cd /Users/kevinoh/Work/Work\ 1 && git log --oneline -5` (최근 커밋)
+- [ ] `cd /Users/kevinoh/Work/Work\ 1/tudal && ls src/` (코드베이스 확인)
+- [ ] "다음 세션 즉시 해야 할 일 (P0)" 확인
+- [ ] 적절한 OMC 에이전트 선정 고지
+- [ ] 사용자에게 진행 방향 승인 요청
+- [ ] TaskCreate로 진도 추적 시작
+- [ ] 자동 워크플로우 (추천→분석→실행→검증→검증확인) 적용
+
+---
+
+## 💬 직전 세션 마지막 상태
+
+**사용자 마지막 요청**:
+> "PLAN.md에는 정해진 기획 사항만, HANDOFF.md에는 다음 진행 사항 + 매 세션 상시 지침 (에이전트·스킬 추천→분석→실행→검증→검증확인 워크플로우, OMC·gstack 우선 사용) 을 포함하여 정리"
+
+**Assistant 마지막 상태**:
+- PLAN.md 작성 완료
+- HANDOFF.md 작성 완료 (본 문서)
+- 대기 중: 사용자가 Q13, Q14 답변하면 즉시 executor 에이전트로 실행 착수
+
+**다음 세션 첫 메시지 권장**:
+```
+"HANDOFF.md를 읽고 다음 세션을 이어서 진행하겠습니다.
+현재 Q13(코드베이스 재활용 방식)과 Q14(기능 우선순위) 답변이 필요합니다.
+답변 주시면 executor 에이전트로 즉시 실행 착수하겠습니다."
+```
+
+---
+
+**이 문서는 다음 세션의 "단일 진입점"입니다. 이 문서만 읽으면 즉시 작업 재개 가능해야 합니다.**
+**상시 지침 섹션(🚨)은 절대 삭제하지 마시고, 업데이트 시에도 반드시 보존하세요.**

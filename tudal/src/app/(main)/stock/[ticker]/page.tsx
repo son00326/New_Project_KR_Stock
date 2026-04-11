@@ -11,10 +11,10 @@ interface StockPageProps {
 export async function generateMetadata({ params }: StockPageProps) {
   const { ticker } = await params;
   const stock = getStockByTicker(ticker);
-  if (!stock) return { title: "종목을 찾을 수 없습니다 | 투달" };
+  if (!stock) return { title: "종목을 찾을 수 없습니다 | 주픽" };
 
   return {
-    title: `${stock.name} (${stock.ticker}) 분석 | 투달`,
+    title: `${stock.name} (${stock.ticker}) 분석 | 주픽`,
     description: `${stock.name}의 Fundamental, Technical 분석 리포트. ${stock.description}`,
   };
 }

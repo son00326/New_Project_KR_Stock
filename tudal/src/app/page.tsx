@@ -12,8 +12,8 @@ export default function Home() {
         <div className="container mx-auto px-4 text-center">
           <div className="mx-auto max-w-3xl space-y-6">
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">
-              투자, 이제
-              <span className="text-primary"> 투달</span>과 함께
+              똑똑한 주식 픽,
+              <span className="text-primary"> 주픽</span>
             </h1>
             <p className="text-lg text-muted-foreground md:text-xl leading-relaxed">
               초보부터 전문가까지, 누구나 쉽게 이해할 수 있는
@@ -54,7 +54,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              왜 투달인가요?
+              왜 주픽인가요?
             </h2>
             <p className="mt-4 text-muted-foreground text-lg">
               복잡한 주식 분석을 누구나 이해할 수 있게
@@ -240,7 +240,7 @@ export default function Home() {
             지금 바로 시작하세요
           </h2>
           <p className="mt-4 text-muted-foreground text-lg">
-            투달과 함께 더 나은 투자 결정을 내리세요
+            주픽과 함께 더 나은 투자 결정을 내리세요
           </p>
           <div className="mt-8">
             <Link href="/signup">

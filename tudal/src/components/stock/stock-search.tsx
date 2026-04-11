@@ -9,7 +9,7 @@ import { searchStocks, MOCK_STOCKS } from "@/lib/data/mock-stocks";
 import { formatKRW, formatPercent } from "@/lib/constants";
 import type { Stock } from "@/types/stock";
 
-const RECENT_SEARCH_KEY = "tudal_recent_searches";
+const RECENT_SEARCH_KEY = "joopick_recent_searches";
 const MAX_RECENT = 5;
 
 function getRecentSearches(): string[] {
