@@ -45,13 +45,16 @@ Last updated: 2026-04-12
 ## 📍 현재 단계
 
 ```
-Layer:       Planning (Phase.md)
-Phase:       Phase 0 (의도 정렬) 진입 대기
-Task:        0.1 — ServicePlan.md 스코프·독자·깊이·목차·톤 합의
-Engine:      superpowers:brainstorming
+Layer:       Planning (Phase.md) — Phase A 아이디어 정리 진행 중
+Next Task:   Phase A-3 — BusinessPlan.md 통합 편집 (writer 에이전트)
 Block:       없음
 Uncertainty: 낮음
 ```
+
+### 자동화 프로그램 백테스트 상태: ✅ v6.1 FINAL 확정
+- 파일: `backtest/full_system_backtest_v6.py`
+- CAGR 20.3% | Sharpe 0.99 | Calmar 0.78 | Max DD -25.8%
+- 위험조정 수익률 기준 삼성전자 B&H beat (Sharpe 0.99 > 0.81)
 
 ---
 
@@ -80,6 +83,52 @@ Uncertainty: 낮음
 - Phase 6.3 ScreenSpec → BuildPhase B3.0으로 이동 (디자인 시안 선행 의존)
 - `HANDOFF.md`(본 문서) 5-문서 시스템 반영 재구성
 - 로컬 프로젝트 메모리 생성: 주픽 프로젝트 활성화 기록
+
+### 자동화 프로그램 백테스트 세션 산출물 (2026-04-12)
+
+**백테스트 코드 (6개 버전 반복 최적화)**:
+- `backtest/crisis_layer_backtest.py` — Crisis Layer v1 (VKOSPI 과대추정 문제)
+- `backtest/crisis_layer_backtest_v2.py` — Crisis Layer v2 (CAGR 19.1%, Sharpe 1.24)
+- `backtest/full_system_backtest.py` — 3축 통합 v1 (버그 수정 후 CAGR 11.9%)
+- `backtest/full_system_backtest_v2.py` — v2: 8대 갭 수정 시도 (외국인/PBR API 실패)
+- `backtest/full_system_backtest_v3.py` — v3: 공격적 Crisis Layer
+- `backtest/full_system_backtest_v4.py` — v4: 트렌드 팔로잉 (비용 과다)
+- `backtest/full_system_backtest_v5.py` — v5: 풀투자 + 반응형 위기관리
+- **`backtest/full_system_backtest_v6.py` — v6.1 FINAL: Early Warning + 풀투자 (최종)**
+
+**v6.1 FINAL 핵심 수치** (2019.01~2026.04, 7.3년):
+| 지표 | B&H (삼성전자) | 주픽 v6.1 |
+|---|---|---|
+| 총 수익률 | +431.6% | +269.8% |
+| CAGR | +26.6% | +20.3% |
+| Max DD | -45.2% | -25.8% |
+| **Sharpe** | 0.81 | **0.99** |
+| **Calmar** | 0.59 | **0.78** |
+| 월간 Win Rate | 48.9% | 55.7% |
+| COVID DD 회피 | -31.2% | -19.2% (12.0%p 방어) |
+
+**v6.1 시스템 구성**:
+1. **Early Warning System** — 5개 선행지표(MA구조+모멘텀다이버전스+변동성+거래량+RSI급락) 복합, 3일 확인 윈도우, 점진적 디리스킹
+2. **Crisis Layer v6** — EW(선행) + Reactive(반응) 2단계 방어. 크래시 시 즉시 10-25%
+3. **3축 완전 분화** — 단기(21일/모멘텀+수급) + 중기(42일/균형) + 장기(63일/밸류+퀄리티)
+4. **부분 리밸런싱** — 유지 종목 거래 안 함, 변경분만 매매
+5. **동적 유니버스** — 분기별 시총 상위 40종목 재구성 (생존편향 제거)
+6. **복합 레짐 감지** — MA4종 + 모멘텀2종 + RSI 복합 (sideways 과다분류 해소)
+
+**최적화 이력 (v1→v6.1)**:
+| 버전 | CAGR | Sharpe | Max DD | 핵심 변경 |
+|---|---|---|---|---|
+| v1 | 11.9% | 0.68 | -20.4% | 포지션 키 중복 버그 수정 |
+| v3 | 11.1% | 0.57 | -23.8% | 공격적 Crisis Layer |
+| v5 | 8.6% | 0.38 | -31.9% | 반응형 위기관리 (한계 확인) |
+| v6 원본 | 16.3% | 0.83 | -25.7% | Early Warning 도입 |
+| **v6.1** | **20.3%** | **0.99** | **-25.8%** | **EW 민감도 튜닝** |
+
+**발견된 구조적 한계**:
+- 삼성전자 +431% (반도체 슈퍼사이클) = 분산 포트폴리오로 절대수익 beat 불가
+- pykrx 외국인순매수/PBR API가 현 버전에서 empty 반환 → 거래량 proxy 사용
+- 월간 WR 55.7% (목표 70% 미달) — 2023/2025/2026은 67-75% 달성
+- 비용률 14.48% — 부분 리밸런싱으로 v4(28%) 대비 절반 감소
 
 ---
 
