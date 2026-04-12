@@ -127,13 +127,14 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 - **Uncertainty**: 낮음.
 - **Output**: DART API key → env
 
-### Task B2.5 — pykrx 파이프라인 구조 결정
+### Task B2.5 — pykrx + Quant 런타임 인프라 구조 결정
 - **Primary**: `architect` 에이전트 + `document-specialist` 에이전트 (pykrx 문서)
 - **Rationale**: pykrx는 Python — Next.js 서버에서 직접 호출 불가. Python 사이드카 vs Supabase Edge Function 결정 필요.
 - **Alternatives**:
   - `scientist` 에이전트 — 데이터 분석만.
 - **Uncertainty**: **중간** — 사이드카 vs Edge Function은 운영비·복잡도 트레이드.
 - **Output**: `.omc/research/pykrx-architecture.md`
+- **스코프 확장 (2026-04-12)**: pykrx 단독이 아닌, 3축 Quant 시스템 전체 런타임 인프라를 함께 결정. 포함 대상: Quant Board 실행 인프라(리밸런싱 스케줄러 21/42/63일 주기), 팩터 계산 엔진(모멘텀·밸류·퀄리티·수급·저변동성), Early Warning 트리거(5개 선행지표 복합 점수), Crisis Layer 레짐 감지(Bull/Sideways/Bear). `backtest/full_system_backtest_v6.py`의 로직을 서비스 런타임으로 이식하는 방법도 이 Task에서 결정. Phase 1.8 리서치("무슨 데이터가 필요한가")의 결과를 입력으로 받아 "어떻게 전달할 것인가"를 확정.
 
 ### Task B2.6 — DB 스키마 설계 + 마이그레이션
 - **Primary**: `architect` 에이전트 (opus)
@@ -165,6 +166,7 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 - **구성**: `document-specialist` + `scientist` + 한투 OpenAPI/DART/pykrx 문서 컨텍스트 프리셋 + 속도 제한·토큰 갱신 규칙
 - **Uncertainty**: 낮음.
 - **Output**: `.omc/harnesses/joopick-data.yaml`
+- **컨텍스트 추가 (2026-04-12)**: `backtest/` Python 코드(특히 `backtest/full_system_backtest_v6.py`)를 하네스 참조 컨텍스트에 포함 — v6.1 시스템 구성(Early Warning 5개 선행지표, Crisis Layer 2단계, 3축 팩터 가중치, Quant Board 10명 투표 로직) 이해용. 서비스 런타임에서 동일 로직을 재구현할 때 참조 기준.
 
 ---
 
@@ -195,6 +197,7 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 - **보조**: `superpowers:test-driven-development` — 테스트 러너 도입 시에만 (현재는 build/lint로 대체)
 - **Uncertainty**: **중간** — 호출 빈도 제한·토큰 갱신 주기는 런타임 판단.
 - **Output**: `tudal/src/lib/data/*` 실데이터 어댑터 + Supabase 캐시 레이어
+- **데이터 소스 확대 (2026-04-12)**: 기존 "KRX/한투/DART/pykrx" 범위에 투심위 8-Section 보고서 데이터 소스 추가 — Earnings Model(한투 실적 API + DART 공시), Valuation(PER/PBR/EV 계산 엔진), Industry Fundamentals(산업 리서치 외부 API 또는 수동 입력), Macro Sensitivity(거시지표 API: 환율/금리/원자재), Catalyst Calendar(실적 발표·정책 일정 API), Risk Quantification(변동성·Beta·VaR 계산 엔진). Phase 1.7/1.8 리서치 결과에서 구체 API 매핑 확정.
 
 ### Tasks B3.3~B3.N — Must 기능 구현 (TBD — Phase 3.1 완료 후 세분화)
 - **Primary**: 기능 수·독립성에 따라 분기 (skill-routing.md §Execution Engines)
@@ -212,6 +215,7 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 - **Uncertainty**: **높음** — 런타임 분기.
 - **Output**: 기능별 commit, ServicePlan §0 체크박스 업데이트
 - **주의**: 이 블록은 Phase 3.1 완료 전까지 TBD 플레이스홀더. 완료 시 **1 Must 기능 = 1 Task**로 세분화해 여기 추가한다.
+- **규모 예측 (2026-04-12)**: BusinessPlan §8~§9 기반 feature 후보 — 투심위(A1~A7: 7개), Quant(B1~B6: 6개), 매크로(C1~C2: 2개), 인증(D1~D4: 4개), 운용(E1~E3: 3개), 과금(F1: 1개) = 최대 23개. Phase 3.1 Must 분류 후 실제 Task 수 확정. Must가 10개 이상이면 `/oh-my-claudecode:ultrawork`(4+ 병렬) 또는 `/oh-my-claudecode:team`(N-agent) 우선 고려.
 
 ### Task B3.N+1 — Integration Smoke
 - **Primary**: `/gstack:qa` 스킬
@@ -240,7 +244,7 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 - **Primary**: `/gstack:security-review` 스킬 + `security-reviewer` 에이전트
 - **Alternatives**:
   - `/oh-my-claudecode:cso` — 인프라 중심.
-- **범위**: OWASP Top 10 / 초대 코드 플로우 / Supabase RLS / 면책 문구 존재 확인 / AI 출력 "사세요/파세요" 탐지
+- **범위**: OWASP Top 10 / 초대 코드 플로우 / Supabase RLS / 면책 문구 존재 확인 / AI 출력 "사세요/파세요" 탐지 / **투심위 컴플라이언스 검증** — Committee Votes 최종 의견이 "분석 의견"을 넘어 투자 권유로 해석될 수 있는 경계선 탐지, Bull/Base/Bear Target Price 표현이 "사세요/파세요" 원칙(BusinessPlan §7.2)을 위반하지 않는지 검증
 - **Uncertainty**: 낮음.
 - **Output**: `.omc/security/review.md`
 

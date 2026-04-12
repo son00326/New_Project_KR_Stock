@@ -32,6 +32,8 @@ Status: 초기화 (Phase 0 진입 대기)
 - [ ] **1.4** 고객 여정 (`pm-market-research:customer-journey-map`)
 - [ ] **1.5** Core JTBD (`pm-product-strategy:value-proposition`) — 1.3 이후
 - [ ] **1.6** 기능 브레인스톰 (`pm-product-discovery:brainstorm-ideas-existing`)
+- [ ] **1.7** 투심위 UX 패턴 리서치 (`document-specialist` 에이전트)
+- [ ] **1.8** Quant 시스템 서비스 데이터 플로우 리서치 (`architect` 에이전트)
 
 #### Phase 2 — 전략 골격
 - [ ] **2.1** Product Vision (`pm-product-strategy:product-vision`)
@@ -146,6 +148,9 @@ _(아직 없음 — Phase 0 합의 완료 시 첫 항목 추가 예정)_
 - **Must Features**: _Phase 3.1_
 - **IA**: _Phase 3.5_
 - **Design System**: _Stage B1_
+- **AI 투심위**: 2026-04-12 확정 · 2-Layer (Core Committee 11명 + Sector Board 14개×10명) · 8-Section 보고서 프레임워크 · BusinessPlan §8
+- **3축 Quant 시스템**: 2026-04-12 확정 · 단기30%/중기40%/장기30% · Quant Board 10명(70% 컨센서스) · Early Warning + Crisis Layer 2단계 · BusinessPlan §9
+- **백테스트 검증**: 2026-04-12 v6.1 FINAL 확정 · Sharpe 0.99 / Calmar 0.78 / Max DD -25.8% · 삼성전자 B&H 위험조정 수익률 beat · BusinessPlan §9.3
 
 ---
 
@@ -208,6 +213,13 @@ _(아직 없음 — Phase 0 합의 완료 시 첫 항목 추가 예정)_
 - **Supabase**: B2.2 프로젝트 생성 + `.env.local`.
 - **Vercel**: B5.2 배포 대상.
 - **법무 자문**: Phase 6 완료 직후 스팟 50만원.
+
+### 2.6 백테스트 코드 위치 및 역할
+- **경로**: `backtest/` (프로젝트 루트)
+- **최종 버전**: `backtest/full_system_backtest_v6.py` (v6.1 FINAL)
+- **역할**: 3축 Quant 시스템 검증용 Python 코드. 서비스 런타임과는 별개 — 전략 로직 레퍼런스로 참조.
+- **B2.5 연결**: pykrx 아키텍처 결정 시, 이 코드의 팩터 계산·리밸런싱·EW/Crisis 로직을 서비스 런타임으로 이식하는 방법을 함께 결정.
+- **B2.9 연결**: 주픽-데이터 하네스 구성 시 `backtest/` 코드를 참조 컨텍스트에 포함 — v6.1 시스템 구성(EW+Crisis+3축) 이해용.
 
 ---
 
@@ -275,6 +287,44 @@ _Stage B1 결과 편입_
 - **shadcn base-nova Component Overrides** (B1.3)
 - **Design Source** — Figma 링크 또는 `.omc/design/` 경로 (B1.7)
 
+### 3.19 AI 투심위 시스템
+> Phase 1.7 리서치 + Phase 4.1 PRD에서 채움. BusinessPlan §8 구조를 서비스 UX로 풀어낸 설계.
+
+- **2-Layer Architecture**: Core Committee (11명: 국내5+해외5+위원장) + Sector Board (14개 섹터 × 10명)
+- **8-Section 보고서 뷰어**: Earnings / Valuation / Industry / Macro / Scenario / Catalyst / Risk / Votes
+- **핵심 UX 컴포넌트** _(Phase 1.7 리서치 후 확정)_:
+  - 보고서 Summary 1페이지 + In-depth 섹션별 상세
+  - Bull/Base/Bear 시나리오 비교 차트
+  - 위원회 투표 결과 시각화 (찬/반/보류 + 컨센서스율)
+  - 촉매 이벤트 캘린더 타임라인
+- **법적 제약**: AI 출력은 데이터·분석만. "사세요/파세요" 표현 금지 (BusinessPlan §7.2). Committee Votes 최종 의견도 "분석 의견"으로만 프레이밍.
+
+### 3.20 자동화 Quant 시스템
+> Phase 1.8 리서치 + Phase 4.1 PRD에서 채움. BusinessPlan §9 구조를 서비스 대시보드로 풀어낸 설계.
+
+- **3축 포트폴리오 구조**: 단기 30%(21일/모멘텀+수급/KOSDAQ) + 중기 40%(42일/균형멀티팩터/KOSPI) + 장기 30%(63일/밸류+퀄리티/대형가치주)
+- **Quant Board (10명)**: Simons/Harding/Brown/Thorp/문병로/Asness/Taleb/Dalio/Lo/Griffin — 70% 컨센서스 투표
+- **Early Warning System**: MA구조 + 모멘텀다이버전스 + 변동성 + 거래량 + RSI 급락 → 크래시 7~15일 전 선행 감지 → 점진적 디리스킹
+- **Crisis Management Layer**: Layer 1(선행/점진적 축소) + Layer 2(반응/즉시 10~25% 축소) + 복합 레짐 감지(Bull/Sideways/Bear)
+- **핵심 UX 컴포넌트** _(Phase 1.8 리서치 후 확정)_:
+  - 3축 배분 현황판 (축별 종목·비중·수익률)
+  - Quant Board 투표 뷰 (멤버별 가중치·투표 결과)
+  - Early Warning 알림 (선행지표 복합 점수)
+  - 레짐 인디케이터 (현재 Bull/Sideways/Bear)
+  - 리밸런싱 이력 타임라인
+- **데이터 플로우** _(Phase 1.8에서 상세화)_: `backtest/` Python 로직 → 서비스 런타임(B2.5 결정) → 프론트엔드 대시보드
+
+### 3.21 백테스트 검증 결과
+> BusinessPlan §9.3 결과 요약. 서비스 내 "성과 검증" 페이지 또는 투명성 공개용.
+
+- **v6.1 FINAL 핵심 지표** (2019.01~2026.04, 삼성전자 벤치마크):
+  - Sharpe 0.99 (B&H 0.81) · Calmar 0.78 (B&H 0.59) · Max DD -25.8% (B&H -45.2%)
+  - CAGR 20.3% (B&H 26.6%) — 절대수익은 B&H 우위, 위험조정 수익률은 모델 우위
+  - COVID DD 방어: -19.2% (B&H -31.2%, 12.0%p 방어)
+- **20% 보수적 할인 적용 시**: 실효 CAGR ~16.2%, Sharpe ~0.79
+- **구조적 한계**: 삼성전자 반도체 슈퍼사이클(2025 +124.5%) = 분산 포트폴리오로 절대수익 beat 불가 / pykrx 외국인순매수·PBR API empty → 거래량 proxy 사용
+- **서비스 노출 여부** _(Phase 3.1에서 Must/Should 판정)_: 백테스트 결과 대시보드, 전략별 성과 비교 차트
+
 ---
 
 ## 4. Revision History
@@ -284,6 +334,7 @@ _Stage B1 결과 편입_
 | 2026-04-12 | ServicePlan.md 초기 스캐폴드 | 4-문서 구조 전환 |
 | 2026-04-12 | 범위 재조정: Phase 6.4 + Phase 7 트래커 제거, §3 본문 14→17 섹션 확장, Task 2.3 → product-strategy | 사용자 Q3/Q4/Q5 승인 |
 | 2026-04-12 | **BuildPhase.md 도입**: §0 트래커가 Planning + Build 통합. §3.18 Design System 신규. Phase 6.3 ScreenSpec → BuildPhase B3.0 이동. 하네스 4개 정의 (디자인/구현/데이터/기획-선택). Infrastructure §2를 BuildPhase Task ID로 링크 | 사용자 전면 승인 — "누락 없이 추적 가능하게" |
+| 2026-04-12 | **BusinessPlan §8~§9 동기화**: §1.2에 투심위·Quant·백테스트 확정 기록. §3.19 AI 투심위 시스템 / §3.20 자동화 Quant 시스템 / §3.21 백테스트 검증 결과 3개 섹션 신설 (18→21 섹션). §2.6 백테스트 코드 위치 추가. §0 트래커에 Task 1.7/1.8 추가. Phase.md Task 1.7/1.8 신규 + 기존 Task 스코프 확장 연동 | BusinessPlan §8 투심위 + §9 Quant 확정에 따른 하위 문서 동기화 |
 
 ---
 

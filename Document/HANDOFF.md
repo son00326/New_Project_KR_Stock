@@ -45,10 +45,11 @@ Last updated: 2026-04-12
 ## 📍 현재 단계
 
 ```
-Layer:       Planning (Phase.md) — Phase A 아이디어 정리 진행 중
-Next Task:   Phase A-3 — BusinessPlan.md 통합 편집 (writer 에이전트)
+Layer:       Planning (Phase.md) — Phase 0 진입 대기
+Next Task:   Phase 0 Task 0.1 — ServicePlan 스코프·독자·깊이·톤 합의 (superpowers:brainstorming)
 Block:       없음
 Uncertainty: 낮음
+Note:        BusinessPlan §8~§9 → 하위 4개 문서 동기화 완료 (2026-04-12)
 ```
 
 ### 자동화 프로그램 백테스트 상태: ✅ v6.1 FINAL 확정
@@ -73,6 +74,11 @@ Uncertainty: 낮음
 - `tudal/middleware.ts` Supabase 세션 갱신 훅 (env 미연결)
 
 ### 현 세션 산출물 (전부)
+- **BusinessPlan §8~§9 → 하위 문서 동기화 (2026-04-12)**:
+  - ServicePlan.md: §1.2에 투심위·Quant·백테스트 확정 기록, §3.19/§3.20/§3.21 신설(18→21 섹션), §2.6 백테스트 코드 위치, §0 트래커에 Task 1.7/1.8 추가, §4 Revision History 갱신
+  - Phase.md: Task 1.7(투심위 UX 리서치/document-specialist) + 1.8(Quant 데이터 플로우/architect) 신규, Task 1.1/1.6/2.3/3.1 스코프 노트, 병렬 디스패치 5→7개, 소스별 스킬 요약·Phase Gate 갱신
+  - BuildPhase.md: B2.5 Quant 런타임 스코프 확장, B2.9 backtest/ 컨텍스트, B3.2 투심위 데이터 소스, B3.3~N 규모 예측(23개), B4.2 투심위 컴플라이언스 검증
+  - HANDOFF.md: 현재 단계·다음 단계·성공 블록 동기화
 - `CLAUDE.md` 프로젝트 루트 작성 → 5-문서 시스템 인식 규칙 포함
 - `PLAN.md` → `BusinessPlan.md` git mv (SHA 동일성 검증 완료)
 - `Phase.md` 작성 → 범위 Phase 0~6으로 축소 (6.4/Phase 7 제거), Task 2.3 재결정, Uncertainty 플래그
@@ -169,11 +175,14 @@ Uncertainty: 낮음
 
 ## 🔴 다음 단계 (Next Steps)
 
+### STEP 0 — 문서 동기화 ✅ 완료 (2026-04-12)
+BusinessPlan §8 투심위 + §9 Quant + §9.3 백테스트 → ServicePlan/Phase/BuildPhase/HANDOFF 4개 문서 동기화. Phase.md Task 1.7/1.8 신규 추가, ServicePlan §3.19~§3.21 신설, BuildPhase 스코프 확장.
+
 ### STEP 1 — 지금 즉시: Phase 0 Task 0.1
 **`superpowers:brainstorming` 스킬을 기동해 사용자와 아래 4개 합의**:
 1. **ServicePlan.md 독자** — 본인 전용 / 공동창업자 공유 / 미래 개발 레퍼런스 중 어디까지?
 2. **깊이** — 한 장 전략 요약 / 8-section PRD / FRD 수준 화면별 기능 중 택
-3. **목차** — ServicePlan §3 본문 **18 섹션** 골격 승인 여부
+3. **목차** — ServicePlan §3 본문 **21 섹션** 골격 승인 여부 (§3.19 투심위 / §3.20 Quant / §3.21 백테스트 포함)
 4. **톤** — 한국어·존댓말 기본 / 기술 용어 비율 / 다이어그램 포함 여부
 
 합의 완료 시:
@@ -184,19 +193,23 @@ Uncertainty: 낮음
 ### STEP 2 — Phase 0 Task 0.3 게이팅
 잔여 모호성 있으면 `oh-my-claudecode:deep-interview` 에스컬레이션, 없으면 STEP 3 진입.
 
-### STEP 3 — Phase 1 병렬 디스패치 (한 메시지 5 에이전트)
+### STEP 3 — Phase 1 병렬 디스패치 (한 메시지 7 에이전트)
 ```
-• analyst                                                → 1.1 BusinessPlan 갭 분석
+• analyst                                                → 1.1 BusinessPlan 갭 분석 (§8~§9 포함)
 • document-specialist + pm-market-research:competitor-analysis → 1.2 경쟁 스캔
 • pm-market-research:user-personas                       → 1.3 페르소나
 • pm-market-research:customer-journey-map                → 1.4 고객 여정
-• pm-product-discovery:brainstorm-ideas-existing         → 1.6 기능 풀
+• pm-product-discovery:brainstorm-ideas-existing         → 1.6 기능 풀 (23개 feature 후보 입력)
+• document-specialist                                    → 1.7 투심위 UX 패턴 리서치
+• architect (opus) + scientist (보조)                    → 1.8 Quant 데이터 플로우 리서치
 ```
 1.5 Core JTBD(`pm-product-strategy:value-proposition`)는 1.3 이후 순차.
 
 **주의**:
 - 1.2 document-specialist vs researcher: Uncertainty 중간, 실행 직전 확인
 - 1.6 existing vs new: Uncertainty 중간, mock 스캐폴드 해석 재확인
+- 1.7 document-specialist: Uncertainty 중간, 한국 금융 UX 레퍼런스 가용성 확인. 조사 대상 4개 이상 시 `oh-my-claudecode:external-context` 승격 고려
+- 1.8 architect + scientist: Uncertainty 중간, Python↔Next.js 브릿지가 B2.5와 상호 의존
 
 ### STEP 4~7 — Phase 2~5
 Phase.md §진입 조건 따라 순차. Phase 5 v1.0 확정 전까지 BuildPhase 진입 금지.
