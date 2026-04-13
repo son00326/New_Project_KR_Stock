@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>알테오젠 (196170) 투자위원회 보고서 | JooPick</title>
+<style>
+:root {
+  --navy: #0a1628;
+  --navy-mid: #112240;
+  --navy-light: #1a3a6b;
+  --accent: #1e6bff;
+  --accent-bright: #4d8eff;
+  --buy: #22c55e;
+  --hold: #f59e0b;
+  --sell: #ef4444;
+  --text-primary: #1a2236;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --border: #e2e8f0;
+  --bg: #f8fafc;
+  --bg-white: #ffffff;
+  --bg-section: #f0f4f8;
+  --gold: #d4a843;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── TOP NAV ── */
+#topnav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--navy);
+  border-bottom: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#topnav::-webkit-scrollbar { display: none; }
+#topnav a {
+  color: #a0b4d0;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 11px 14px;
+  white-space: nowrap;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  transition: color 0.2s, background 0.2s;
+}
+#topnav a:first-child { color: var(--gold); font-size: 13px; padding-left: 20px; }
+#topnav a:hover { color: #fff; background: rgba(255,255,255,0.06); }
+
+/* ── HEADER ── */
+header {
+  background: linear-gradient(160deg, var(--navy) 0%, var(--navy-mid) 60%, #0d2444 100%);
+  color: #fff;
+  padding: 40px 40px 36px;
+  position: relative;
+  overflow: hidden;
+}
+header::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(30,107,255,0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--buy) 50%, var(--gold) 100%);
+}
+.header-tag {
+  display: inline-block;
+  background: rgba(30,107,255,0.25);
+  border: 1px solid rgba(30,107,255,0.5);
+  color: var(--accent-bright);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+header h1 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+header h1 span { color: var(--accent-bright); }
+.header-sub {
+  color: #8ba7cc;
+  font-size: 13px;
+  margin-bottom: 20px;
+  line-height: 1.8;
+}
+.header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.header-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #c5d8f0;
+}
+.header-badge strong { color: #fff; }
+.verdict-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.08));
+  border: 1.5px solid var(--buy);
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--buy);
+  letter-spacing: 0.05em;
+  margin-top: 18px;
+}
+.verdict-pill .dot {
+  width: 8px; height: 8px;
+  background: var(--buy);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+/* ── MAIN LAYOUT ── */
+.main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+
+/* ── SECTIONS ── */
+.section {
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  background: var(--navy);
+  color: #fff;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-num {
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+}
+.section-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.section-body { padding: 24px; }
+.section-body h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  margin: 20px 0 12px;
+}
+.section-body h3:first-child { margin-top: 0; }
+
+/* ── TABLES ── */
+.tbl-wrap { overflow-x: auto; margin-bottom: 16px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+thead tr { background: var(--navy); color: #fff; }
+thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid #edf2f7; }
+tbody tr:nth-child(even) { background: #f7fafd; }
+tbody tr:hover { background: #ebf4ff; }
+tbody td {
+  padding: 9px 12px;
+  vertical-align: top;
+  line-height: 1.5;
+}
+tbody td strong { color: var(--navy); }
+
+/* ── SUMMARY GRID ── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.metric-card {
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.metric-card .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.metric-card .value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--navy);
+  letter-spacing: -0.02em;
+}
+.metric-card .sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.metric-card.pos .value { color: var(--buy); }
+.metric-card.neg .value { color: var(--sell); }
+.metric-card.warn .value { color: var(--hold); }
+
+/* ── VOTE BARS ── */
+.vote-visual {
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.vote-visual h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 14px;
+}
+.vote-row { margin-bottom: 10px; }
+.vote-row-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.vote-bar-track {
+  height: 12px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+}
+.vote-bar-buy { background: var(--buy); transition: width 0.6s ease; }
+.vote-bar-hold { background: var(--hold); transition: width 0.6s ease; }
+.vote-bar-sell { background: var(--sell); transition: width 0.6s ease; }
+.vote-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+.vote-legend span { display: flex; align-items: center; gap: 4px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+/* ── SCENARIO BARS ── */
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.scenario-card {
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.scenario-card.bull { background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.04)); border: 1.5px solid rgba(34,197,94,0.4); }
+.scenario-card.base { background: linear-gradient(135deg, rgba(30,107,255,0.1), rgba(30,107,255,0.04)); border: 1.5px solid rgba(30,107,255,0.3); }
+.scenario-card.bear { background: linear-gradient(135deg, rgba(239,68,68,0.1), rgba(239,68,68,0.04)); border: 1.5px solid rgba(239,68,68,0.3); }
+.scenario-label { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.scenario-card.bull .scenario-label { color: var(--buy); }
+.scenario-card.base .scenario-label { color: var(--accent); }
+.scenario-card.bear .scenario-label { color: var(--sell); }
+.scenario-tp { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+.scenario-card.bull .scenario-tp { color: var(--buy); }
+.scenario-card.base .scenario-tp { color: var(--accent); }
+.scenario-card.bear .scenario-tp { color: var(--sell); }
+.scenario-pct { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.scenario-prob {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.prob-bar-track { height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 4px; }
+.prob-bar-fill { height: 100%; border-radius: 3px; }
+.scenario-card.bull .prob-bar-fill { background: var(--buy); width: 20%; }
+.scenario-card.base .prob-bar-fill { background: var(--accent); width: 50%; }
+.scenario-card.bear .prob-bar-fill { background: var(--sell); width: 30%; }
+
+/* ── CALLOUT BOX ── */
+.callout {
+  background: var(--navy);
+  color: #c5ddf7;
+  border-radius: 6px;
+  padding: 18px 20px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  margin: 14px 0;
+  overflow-x: auto;
+  white-space: pre;
+  position: relative;
+}
+.callout strong, .callout b { color: var(--buy); }
+
+/* ── VERDICT BOX ── */
+.verdict-box {
+  background: linear-gradient(135deg, rgba(34,197,94,0.06), rgba(30,107,255,0.04));
+  border: 2px solid var(--buy);
+  border-radius: 10px;
+  padding: 22px 24px;
+  margin: 20px 0;
+}
+.verdict-box-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--buy);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.verdict-box ul { padding-left: 18px; }
+.verdict-box li { margin-bottom: 6px; font-size: 13px; line-height: 1.6; }
+
+/* ── RISK CHIPS ── */
+.risk-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+.risk-high { color: var(--sell); background: rgba(239,68,68,0.08); }
+.risk-med { color: var(--hold); background: rgba(245,158,11,0.08); }
+.risk-low { color: var(--buy); background: rgba(34,197,94,0.08); }
+
+/* ── MEMBER VOTE BADGE ── */
+.badge-buy { display:inline-block; background:var(--buy); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:3px; }
+.badge-hold { display:inline-block; background:var(--hold); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:3px; }
+.badge-sell { display:inline-block; background:var(--sell); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:3px; }
+
+/* ── CATALYST TIMELINE ── */
+.catalyst-row { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid #edf2f7; align-items:flex-start; }
+.catalyst-row:last-child { border-bottom:none; }
+.catalyst-date { font-size:11px; font-weight:700; color:var(--text-muted); min-width:90px; padding-top:2px; }
+.catalyst-content { flex:1; }
+.catalyst-title { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:2px; }
+.catalyst-dir { font-size:11px; font-weight:600; }
+.catalyst-dir.pos { color:var(--buy); }
+.catalyst-dir.neg { color:var(--sell); }
+.catalyst-dir.key { color:var(--accent); }
+.done-badge { font-size:10px; font-weight:600; color:var(--text-muted); background:#edf2f7; border-radius:3px; padding:1px 6px; margin-left:6px; }
+
+/* ── VALUATION COMPARE ── */
+.val-compare {
+  background: var(--bg-section);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin: 14px 0;
+}
+.val-compare-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; font-size:13px; }
+.val-compare-label { min-width:160px; font-weight:600; color:var(--text-secondary); }
+.val-compare-bar-wrap { flex:1; }
+.val-compare-bar-track { height:10px; background:#e2e8f0; border-radius:5px; position:relative; }
+.val-compare-bar-fill { height:100%; border-radius:5px; background:var(--accent); }
+.val-compare-val { min-width:100px; text-align:right; font-weight:700; color:var(--navy); }
+
+/* ── MA INDICATORS ── */
+.ma-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin:12px 0; }
+.ma-card { background:var(--bg-section); border:1px solid var(--border); border-radius:6px; padding:10px 14px; }
+.ma-card .ma-label { font-size:11px; color:var(--text-muted); font-weight:600; }
+.ma-card .ma-val { font-size:15px; font-weight:800; }
+.ma-card .ma-diff { font-size:11px; margin-top:2px; }
+.ma-above .ma-val { color:var(--buy); }
+.ma-below .ma-val { color:var(--sell); }
+
+/* ── FOOTER ── */
+footer {
+  background: var(--navy);
+  color: #5a7490;
+  font-size: 11.5px;
+  padding: 28px 40px;
+  line-height: 1.8;
+  border-top: 2px solid var(--accent);
+  margin-top: 40px;
+}
+footer strong { color: #8ba7cc; }
+.footer-sources { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.07); }
+
+/* ── INFO NOTE ── */
+.info-note {
+  background: rgba(30,107,255,0.06);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 12px 0;
+}
+
+/* ── PRINT ── */
+@media print {
+  body { background:#fff; font-size:11pt; }
+  #topnav { display:none; }
+  header { background:#0a1628 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .section { break-inside:avoid; box-shadow:none; }
+  .main { padding:0; max-width:100%; }
+  a { color:inherit; text-decoration:none; }
+  .scenario-grid { grid-template-columns:repeat(3,1fr); }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width:768px) {
+  header { padding:28px 20px 24px; }
+  header h1 { font-size:24px; }
+  .section-body { padding:16px; }
+  .scenario-grid { grid-template-columns:1fr; }
+  .summary-grid { grid-template-columns:repeat(2,1fr); }
+  .ma-grid { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav id="topnav">
+  <a href="#top">알테오젠 196170</a>
+  <a href="#summary">요약</a>
+  <a href="#earnings">이익 모델</a>
+  <a href="#valuation">밸류에이션</a>
+  <a href="#industry">산업</a>
+  <a href="#macro">거시</a>
+  <a href="#scenario">시나리오</a>
+  <a href="#catalyst">촉매</a>
+  <a href="#risk">리스크</a>
+  <a href="#votes">투심위</a>
+</nav>
+
+<!-- HEADER -->
+<header id="top">
+  <div class="header-tag">JooPick AI Investment Committee · 주픽 투자위원회</div>
+  <h1>알테오젠 <span>(196170)</span> 풀 투심보고서</h1>
+  <div class="header-sub">
+    보고 경로: 바이오 섹터 보드(10명) → Core Committee(11명) → 위원장 최종 결정<br>
+    발행일: 2026-04-12 &nbsp;|&nbsp; 데이터 기준: 2026-04-10 &nbsp;|&nbsp; <strong style="color:#ffca64">본 보고서는 정보 제공 목적이며, 투자 자문이 아닙니다.</strong>
+  </div>
+  <div class="header-meta">
+    <div class="header-badge"><span>현재가</span><strong>361,500원</strong></div>
+    <div class="header-badge"><span>시가총액</span><strong>~28.2조원</strong></div>
+    <div class="header-badge"><span>컨센서스 TP</span><strong>435,000원 (+20.3%)</strong></div>
+    <div class="header-badge"><span>YTD</span><strong style="color:#ef4444">-20.9%</strong></div>
+    <div class="header-badge"><span>확률가중 TP</span><strong style="color:#4d8eff">409,000원 (+13.1%)</strong></div>
+  </div>
+  <div class="verdict-pill">
+    <span class="dot"></span>
+    투심위 최종 권고: BUY &nbsp;·&nbsp; 65.0% 컨센서스 (20명 기준)
+  </div>
+</header>
+
+<div class="main">
+
+<!-- SUMMARY -->
+<section class="section" id="summary">
+  <div class="section-header">
+    <span class="section-num">SUMMARY</span>
+    <h2>핵심 지표 요약 &amp; 투심위 최종 의견</h2>
+  </div>
+  <div class="section-body">
+
+    <div class="summary-grid">
+      <div class="metric-card"><div class="label">현재가</div><div class="value">361,500원</div><div class="sub">2026-04-10 기준</div></div>
+      <div class="metric-card"><div class="label">52주 범위</div><div class="value" style="font-size:14px">315,500 ~ 569,000원</div><div class="sub">52주 저점 ~ 고점</div></div>
+      <div class="metric-card"><div class="label">시가총액</div><div class="value">28.2조원</div><div class="sub">코스닥</div></div>
+      <div class="metric-card"><div class="label">컨센서스 TP</div><div class="value pos">435,000원</div><div class="sub">+20.3% upside</div></div>
+      <div class="metric-card warn"><div class="label">Forward PER (2026E)</div><div class="value">~103배</div><div class="sub">Trailing PER ~195배</div></div>
+      <div class="metric-card"><div class="label">RSI (14)</div><div class="value">58.9</div><div class="sub">중립~약강세</div></div>
+      <div class="metric-card neg"><div class="label">YTD 수익률</div><div class="value">-20.9%</div><div class="sub">조정 국면</div></div>
+      <div class="metric-card neg"><div class="label">52주 MDD</div><div class="value">-40.9%</div><div class="sub">연간 변동성 60.7%</div></div>
+    </div>
+
+    <h3>투심위 최종 의견</h3>
+    <div class="vote-visual">
+      <h4>바이오 섹터 보드 (10명) — BUY 70%</h4>
+      <div class="vote-row">
+        <div class="vote-bar-track">
+          <div class="vote-bar-buy" style="width:70%"></div>
+          <div class="vote-bar-hold" style="width:20%"></div>
+          <div class="vote-bar-sell" style="width:10%"></div>
+        </div>
+        <div class="vote-row-label" style="margin-top:4px">
+          <span style="color:var(--buy)">BUY 7명 (70%)</span>
+          <span style="color:var(--hold)">HOLD 2명 (20%)</span>
+          <span style="color:var(--sell)">SELL 1명 (10%)</span>
+        </div>
+      </div>
+      <h4 style="margin-top:16px">Core Committee (11명, 위원장 제외) — BUY 55%</h4>
+      <div class="vote-row">
+        <div class="vote-bar-track">
+          <div class="vote-bar-buy" style="width:55%"></div>
+          <div class="vote-bar-hold" style="width:27%"></div>
+          <div class="vote-bar-sell" style="width:9%"></div>
+        </div>
+        <div class="vote-row-label" style="margin-top:4px">
+          <span style="color:var(--buy)">BUY 6명 (55%)</span>
+          <span style="color:var(--hold)">HOLD 3명 (27%)</span>
+          <span style="color:var(--sell)">SELL 1명 (9%)</span>
+        </div>
+      </div>
+      <h4 style="margin-top:16px">종합 (위원장 제외 20명) — BUY 65%</h4>
+      <div class="vote-row">
+        <div class="vote-bar-track">
+          <div class="vote-bar-buy" style="width:65%"></div>
+          <div class="vote-bar-hold" style="width:25%"></div>
+          <div class="vote-bar-sell" style="width:10%"></div>
+        </div>
+        <div class="vote-row-label" style="margin-top:4px">
+          <span style="color:var(--buy)">BUY 13명 (65%)</span>
+          <span style="color:var(--hold)">HOLD 5명 (25%)</span>
+          <span style="color:var(--sell)">SELL 2명 (10%)</span>
+        </div>
+      </div>
+      <div class="vote-legend">
+        <span><span class="legend-dot" style="background:var(--buy)"></span>BUY</span>
+        <span><span class="legend-dot" style="background:var(--hold)"></span>HOLD</span>
+        <span><span class="legend-dot" style="background:var(--sell)"></span>SELL</span>
+      </div>
+    </div>
+
+    <h3>시나리오별 Target Price</h3>
+    <div class="scenario-grid">
+      <div class="scenario-card bull">
+        <div class="scenario-label">Bull Case</div>
+        <div class="scenario-tp">550,000원</div>
+        <div class="scenario-pct" style="color:var(--buy)">+52.1%</div>
+        <div class="scenario-prob">
+          <span>확률: 20%</span>
+          <div class="prob-bar-track"><div class="prob-bar-fill"></div></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#555">매출 12,000억 / OP 5,500억</div>
+      </div>
+      <div class="scenario-card base">
+        <div class="scenario-label">Base Case</div>
+        <div class="scenario-tp">430,000원</div>
+        <div class="scenario-pct" style="color:var(--accent)">+18.9%</div>
+        <div class="scenario-prob">
+          <span>확률: 50%</span>
+          <div class="prob-bar-track"><div class="prob-bar-fill"></div></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#555">매출 9,000억 / OP 3,500억</div>
+      </div>
+      <div class="scenario-card bear">
+        <div class="scenario-label">Bear Case</div>
+        <div class="scenario-tp">280,000원</div>
+        <div class="scenario-pct" style="color:var(--sell)">-22.6%</div>
+        <div class="scenario-prob">
+          <span>확률: 30%</span>
+          <div class="prob-bar-track"><div class="prob-bar-fill"></div></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#555">매출 6,000억 / OP 1,800억</div>
+      </div>
+    </div>
+    <div style="background:var(--navy);color:#fff;border-radius:6px;padding:12px 18px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <span>확률가중 Target Price</span>
+      <span style="color:#4d8eff;font-size:18px">409,000원 <span style="font-size:13px;color:#8ba7cc">(+13.1%)</span></span>
+    </div>
+
+    <h3>핵심 리스크 3가지</h3>
+    <div class="risk-pills">
+      <span class="risk-pill risk-high">① 로열티 쇼크: MSD 키트루다SC 2% (시장 기대 5% 대비 60% 하회)</span>
+      <span class="risk-pill risk-high">② 특허 분쟁: Halozyme IPR 청구 + 독일 가처분</span>
+      <span class="risk-pill risk-med">③ 오버행: 최대주주 배우자·자녀 매도 수급 압박</span>
+    </div>
+  </div>
+</section>
+
+<!-- EARNINGS MODEL -->
+<section class="section" id="earnings">
+  <div class="section-header">
+    <span class="section-num">S1</span>
+    <h2>Earnings Model — 이익 모델</h2>
+  </div>
+  <div class="section-body">
+    <h3>수익 구조</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>수익 유형</th><th>설명</th><th>인식 시점</th></tr></thead>
+        <tbody>
+          <tr><td><strong>업프론트 (계약일시금)</strong></td><td>기술이전 계약 체결 시 수령</td><td>계약 시점 일시 인식</td></tr>
+          <tr><td><strong>마일스톤</strong></td><td>임상/허가/상업화 목표 달성 시 수령</td><td>달성 시점 인식</td></tr>
+          <tr><td><strong>로열티</strong></td><td>파트너사 제품 순매출의 일정 비율</td><td>매출 발생 시 지속 인식</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>확정 기술이전 딜 (8건, 누적 74억달러+ / ~9.85조원+)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>파트너</th><th>품목</th><th>총 규모</th><th>업프론트</th><th>로열티</th><th>계약일</th></tr></thead>
+        <tbody>
+          <tr><td><strong>MSD</strong></td><td>키트루다SC (독점)</td><td>최대 10억$</td><td>4,000만$</td><td style="color:var(--sell)"><strong>순매출 2%</strong>, 2043년까지</td><td>2020.06→2024.02 독점변경</td></tr>
+          <tr><td><strong>AstraZeneca</strong></td><td>임핀지+2품목 (3품목)</td><td>13.5억$ (~1.96조)</td><td>4,500만$</td><td>비공개</td><td>2025.03</td></tr>
+          <tr><td><strong>다이이찌산쿄</strong></td><td>엔허투SC (독점)</td><td>3억$</td><td>2,000만$</td><td>별도 비공개</td><td>2024.11</td></tr>
+          <tr><td><strong>GSK</strong></td><td>도스탈리맙SC (독점)</td><td>2.85억$ (~4,200억)</td><td>2,000만$</td><td>비공개</td><td>2026.01.20</td></tr>
+          <tr><td><strong>바이오젠</strong></td><td>2품목 SC (독점)</td><td>5.69억$ (~8,226억)</td><td>2,000만$+1,000만$</td><td>별도</td><td>2026.03.25</td></tr>
+          <tr><td><strong>산도즈</strong></td><td>바이오시밀러 1품목</td><td>1.45억$</td><td>비공개</td><td>최대 두자릿수%</td><td>2022→2024재계약</td></tr>
+          <tr><td><strong>인타스</strong></td><td>2품목 SC</td><td>1.09억$</td><td>비공개</td><td>비공개</td><td>2021</td></tr>
+          <tr><td><strong>비공개</strong></td><td>비공개</td><td>비공개</td><td>비공개</td><td>비공개</td><td>2019</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-note">누적 수령액 ~3,500억원. 파트너 8개사. AZ 계약(13.5억$)이 단일 최대 규모.</div>
+
+    <h3>키트루다SC 로열티 분석</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td><strong>제품명</strong></td><td>KEYTRUDA QLEX</td></tr>
+          <tr><td><strong>FDA 승인</strong></td><td>2025.09.19 (38개 고형암)</td></tr>
+          <tr><td><strong>유럽 EC 승인</strong></td><td>2025.11.19</td></tr>
+          <tr><td><strong>로열티율</strong></td><td><strong style="color:var(--sell)">순매출 2%</strong> (MSD 10-Q 공개, 확정)</td></tr>
+          <tr><td><strong>계약 기간</strong></td><td>2043년까지</td></tr>
+          <tr><td><strong>FDA 마일스톤</strong></td><td>2,500만$(351억) 수령 (2025.10)</td></tr>
+          <tr><td><strong>EC 마일스톤</strong></td><td>1,500만$(219억) 수령 (2025.11)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">시장 기대 로열티: 5%
+실제 로열티: 2% → 기대 대비 60% 하회
+2026.01.21 공개 당일 주가: <span style="color:#ef4444">-19% 급락</span>
+
+회사측 해명: "MSD는 최초 비독점→독점 전환 계약이라 낮음.
+             이후 계약은 4~6%"</div>
+
+    <h3>연간 실적 (확정)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>2023</th><th>2024</th><th>2025</th></tr></thead>
+        <tbody>
+          <tr><td><strong>매출</strong></td><td>965억</td><td>1,029억</td><td><strong style="color:var(--buy)">2,159억</strong></td></tr>
+          <tr><td><strong>영업이익</strong></td><td style="color:var(--sell)">-97억</td><td>254억</td><td><strong style="color:var(--buy)">1,069억 (OPM 50%)</strong></td></tr>
+          <tr><td><strong>순이익</strong></td><td style="color:var(--sell)">-36억</td><td>607억</td><td><strong style="color:var(--buy)">1,443억</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-note">2025년 사상 최대 실적. 매출 YoY +110%, 영업이익 흑자전환 후 OPM 50% 달성. 마일스톤(FDA+EC) 인식이 핵심 드라이버.</div>
+
+    <h3>2026E 컨센서스</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>컨센서스</th><th>범위</th></tr></thead>
+        <tbody>
+          <tr><td><strong>매출</strong></td><td>~9,000억</td><td>8,000~10,000억</td></tr>
+          <tr><td><strong>영업이익</strong></td><td>~3,000~3,914억</td><td>OPM 35~45%</td></tr>
+          <tr><td><strong>투자의견</strong></td><td><span class="badge-buy">전원 BUY</span></td><td>—</td></tr>
+          <tr><td><strong>목표주가 평균</strong></td><td>435,000원</td><td>250,000~580,000원</td></tr>
+          <tr><td><strong>목표주가 최고</strong></td><td>580,000원 (하나증권)</td><td>—</td></tr>
+          <tr><td><strong>목표주가 최저</strong></td><td>250,000원</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>핵심 드라이버</h3>
+    <ul style="padding-left:18px;line-height:2;font-size:13px;">
+      <li><strong>신규 딜 파이프라인</strong>: 10개사+ 추가 논의 중 → 2026년 1~2건 추가 체결 기대</li>
+      <li><strong>AZ 마일스톤</strong>: 13.5억$ 계약 중 임상/허가 마일스톤 순차 인식 예상</li>
+      <li><strong>키트루다SC 로열티 시작</strong>: 2026년부터 글로벌 매출 본격화 → 2% 로열티 유입 개시</li>
+      <li><strong>코스피 이전</strong>: 2026 Q3 목표 → 지수편입 효과 기대</li>
+    </ul>
+  </div>
+</section>
+
+<!-- VALUATION -->
+<section class="section" id="valuation">
+  <div class="section-header">
+    <span class="section-num">S2</span>
+    <h2>Valuation — 밸류에이션</h2>
+  </div>
+  <div class="section-body">
+    <h3>현재 밸류에이션</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>지표</th><th>수치</th><th>근거</th><th>판단</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Trailing PER</strong></td><td>~195배</td><td>2025 순이익 1,443억 vs 시총 28.2조</td><td>마일스톤 일시인식 특성상 높음 — Forward PER로 판단 권장</td></tr>
+          <tr><td><strong>Forward PER (2026E)</strong></td><td>~103배</td><td>2026E 순이익 ~2,730억, 시총 28.2조</td><td>바이오 성장주 프리미엄, 파이프라인 가치 반영</td></tr>
+          <tr><td><strong>PSR (2026E)</strong></td><td>~3.1배</td><td>2026E 매출 9,000억 기반</td><td>글로벌 바이오텍 대비 저평가</td></tr>
+          <tr><td><strong>PBR</strong></td><td>높음 [추정]</td><td>자산 경량 바이오텍 특성</td><td>해당없음 (기술기업)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>증권사 목표가 분포</h3>
+    <div class="val-compare">
+      <div class="val-compare-row">
+        <div class="val-compare-label">현재가 361,500원</div>
+        <div class="val-compare-bar-wrap"><div class="val-compare-bar-track"><div class="val-compare-bar-fill" style="width:57%;background:var(--text-muted)"></div></div></div>
+        <div class="val-compare-val">361,500원</div>
+      </div>
+      <div class="val-compare-row">
+        <div class="val-compare-label">최저 TP 250,000원</div>
+        <div class="val-compare-bar-wrap"><div class="val-compare-bar-track"><div class="val-compare-bar-fill" style="width:40%;background:var(--sell)"></div></div></div>
+        <div class="val-compare-val" style="color:var(--sell)">-30.8%</div>
+      </div>
+      <div class="val-compare-row">
+        <div class="val-compare-label">컨센서스 TP 435,000원</div>
+        <div class="val-compare-bar-wrap"><div class="val-compare-bar-track"><div class="val-compare-bar-fill" style="width:69%;background:var(--buy)"></div></div></div>
+        <div class="val-compare-val" style="color:var(--buy)">+20.3%</div>
+      </div>
+      <div class="val-compare-row">
+        <div class="val-compare-label">DCF 적정가 420,000원</div>
+        <div class="val-compare-bar-wrap"><div class="val-compare-bar-track"><div class="val-compare-bar-fill" style="width:67%;background:var(--accent)"></div></div></div>
+        <div class="val-compare-val" style="color:var(--accent)">+16.2%</div>
+      </div>
+      <div class="val-compare-row">
+        <div class="val-compare-label">확률가중 TP 409,000원</div>
+        <div class="val-compare-bar-wrap"><div class="val-compare-bar-track"><div class="val-compare-bar-fill" style="width:65%;background:var(--accent-bright)"></div></div></div>
+        <div class="val-compare-val" style="color:var(--accent)">+13.1%</div>
+      </div>
+      <div class="val-compare-row">
+        <div class="val-compare-label">최고 TP 580,000원 (하나)</div>
+        <div class="val-compare-bar-wrap"><div class="val-compare-bar-track"><div class="val-compare-bar-fill" style="width:92%;background:#d4a843"></div></div></div>
+        <div class="val-compare-val" style="color:var(--gold)">+60.4%</div>
+      </div>
+    </div>
+
+    <h3>밸류에이션 히스토리</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>수치</th><th>맥락</th></tr></thead>
+        <tbody>
+          <tr><td><strong>52주 최고</strong></td><td>569,000원</td><td>로열티 쇼크 전 피크</td></tr>
+          <tr><td><strong>52주 최저</strong></td><td>315,500원</td><td>로열티 2% 확정 + 특허 분쟁 우려 바닥</td></tr>
+          <tr><td><strong>현재</strong></td><td>361,500원</td><td>52주 고점 대비 -36.5%, MDD -40.9%</td></tr>
+          <tr><td><strong>YTD</strong></td><td style="color:var(--sell)">-20.9%</td><td>2024년(+238.3%), 2025년(+49.8%) 대비 조정 국면</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>DCF 간이 추정 [추정]</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>수치</th></tr></thead>
+        <tbody>
+          <tr><td><strong>FCF 2026E</strong></td><td>~2,200억 [추정: OP 3,500억 × (1-22%) - 운전자본 변동 ~300억]</td></tr>
+          <tr><td><strong>WACC</strong></td><td>12.0% (바이오 고위험 반영)</td></tr>
+          <tr><td><strong>영구성장률</strong></td><td>3.0%</td></tr>
+          <tr><td><strong>DCF 적정가</strong></td><td><strong style="color:var(--accent)">~420,000원 [추정]</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- INDUSTRY -->
+<section class="section" id="industry">
+  <div class="section-header">
+    <span class="section-num">S3</span>
+    <h2>Industry Fundamentals — 산업 기초</h2>
+  </div>
+  <div class="section-body">
+    <h3>SC(피하주사) 제형 전환 시장</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">항체의약품의 IV(정맥주사) → SC(피하주사) 전환은 글로벌 바이오 메가트렌드:</p>
+    <div class="risk-pills">
+      <span class="risk-pill risk-low">환자 편의성: 병원 방문 2~4시간 → 5~10분</span>
+      <span class="risk-pill risk-low">의료비 절감: 주사실·간호 인건비 절감</span>
+      <span class="risk-pill risk-low">시장 규모: SC 전환 가능 시장 $100B+ [추정]</span>
+    </div>
+
+    <h3>알테오젠 vs Halozyme (핵심 경쟁 비교)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>Halozyme</th><th>알테오젠</th></tr></thead>
+        <tbody>
+          <tr><td><strong>기술</strong></td><td>ENHANZE (히알루로니다제)</td><td>ALT-B4 (히알루로니다제)</td></tr>
+          <tr><td><strong>2025 매출</strong></td><td>$1.4B (~2조)</td><td>2,159억 (~$0.15B)</td></tr>
+          <tr><td><strong>파트너</strong></td><td>13개사+</td><td>8개사</td></tr>
+          <tr><td><strong>상업화 제품</strong></td><td>10개</td><td>1개 (키트루다SC)</td></tr>
+          <tr><td><strong>시가총액</strong></td><td>~$18B (26조)</td><td>28.2조</td></tr>
+          <tr><td><strong>특허 분쟁</strong></td><td>원고 (IPR 청구)</td><td>피고</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-note">알테오젠 시총이 Halozyme 대비 높음에도 매출/상업화 제품 수에서 크게 열위. 시장이 알테오젠의 딜 파이프라인과 성장성에 프리미엄을 부여한 상태. 이 프리미엄의 지속 여부가 핵심.</div>
+
+    <h3>키트루다SC 상업화 현황</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td><strong>FDA 승인</strong></td><td>2025.09.19 (38개 고형암)</td></tr>
+          <tr><td><strong>유럽 EC 승인</strong></td><td>2025.11.19</td></tr>
+          <tr><td><strong>키트루다 연간 매출</strong></td><td>~$25B (MSD, 2025)</td></tr>
+          <tr><td><strong>SC 전환율 (시장 전망)</strong></td><td>40~60% (3~5년 내)</td></tr>
+          <tr><td><strong>알테오젠 로열티</strong></td><td>순매출 2% → SC 매출 $10B 시 연 $200M (~2,800억)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- MACRO -->
+<section class="section" id="macro">
+  <div class="section-header">
+    <span class="section-num">S4</span>
+    <h2>Macro Sensitivity — 거시 민감도</h2>
+  </div>
+  <div class="section-body">
+    <h3>핵심 거시 변수 영향도</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>변수</th><th>민감도</th><th>현재 방향</th><th>알테오젠 영향</th></tr></thead>
+        <tbody>
+          <tr><td><strong>FDA 규제 환경</strong></td><td>매우 높음</td><td>우호적 (SC 전환 가속)</td><td style="color:var(--buy)">추가 딜 촉매 (긍정)</td></tr>
+          <tr><td><strong>원/달러 환율</strong></td><td>높음</td><td>약달러 추세</td><td style="color:var(--sell)">달러 계약 → 원화 환산 감소 (부정적)</td></tr>
+          <tr><td><strong>미국 금리</strong></td><td>중간</td><td>인하 사이클</td><td style="color:var(--buy)">바이오텍 밸류에이션 상승 (긍정적)</td></tr>
+          <tr><td><strong>바이오 섹터 심리</strong></td><td>높음</td><td>중립~약세</td><td style="color:var(--sell)">XBI 약세 시 외국인 이탈 (부정적)</td></tr>
+          <tr><td><strong>빅파마 M&amp;A 환경</strong></td><td>중간</td><td>활발 (IRA 대응)</td><td style="color:var(--buy)">알테오젠 인수/추가 딜 가능성 (긍정적)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>환율 시나리오 (달러 계약 100%)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>원/달러</th><th>마일스톤/로열티 환산 영향</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1,450원</strong></td><td style="color:var(--buy)">+7~10%</td><td>원화 약세 수혜</td></tr>
+          <tr><td><strong>1,400원</strong></td><td style="color:var(--buy)">+3~5%</td><td>약달러 반전 시</td></tr>
+          <tr><td><strong>1,350원</strong></td><td>기준선</td><td>중립</td></tr>
+          <tr><td><strong>1,300원</strong></td><td style="color:var(--sell)">-3~5%</td><td>원화 강세</td></tr>
+          <tr><td><strong>1,250원</strong></td><td style="color:var(--sell)">-7~10%</td><td>급격한 원화 강세</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>바이오 섹터 특수 변수</h3>
+    <ul style="padding-left:18px;line-height:2.2;font-size:13px;">
+      <li><strong>IRA (인플레이션 감축법)</strong>: 빅파마 약가 인하 압력 → SC 전환으로 원가 절감 동기 강화 (알테오젠 수혜)</li>
+      <li><strong>키트루다 물질특허 2028년 만료</strong>: 바이오시밀러 진입 시 SC 로열티 베이스 축소 리스크</li>
+      <li><strong>GLP-1 버블 vs 항암제 전환</strong>: 바이오 자금 흐름이 GLP-1에 집중, 항암 바이오텍 상대적 소외 가능</li>
+    </ul>
+  </div>
+</section>
+
+<!-- SCENARIO -->
+<section class="section" id="scenario">
+  <div class="section-header">
+    <span class="section-num">S5</span>
+    <h2>Scenario Analysis — 시나리오 분석</h2>
+  </div>
+  <div class="section-body">
+    <h3>Bull Case (확률 20%) — TP 550,000원</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>가정</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td>2026E 매출</td><td><strong>12,000억</strong></td></tr>
+          <tr><td>2026E OP</td><td><strong>5,500억</strong></td></tr>
+          <tr><td>추가 딜</td><td>대형 2건 (업프론트 각 $50M+)</td></tr>
+          <tr><td>로열티</td><td>키트루다SC 로열티 + AZ/다이이찌산쿄 마일스톤 동시 인식</td></tr>
+          <tr><td>임상</td><td>엔허투SC 임상 성공 → 가치 재평가</td></tr>
+          <tr><td>특허 분쟁</td><td>Halozyme IPR 기각 또는 합의</td></tr>
+          <tr><td>EPS</td><td>~15,000원 [추정]</td></tr>
+          <tr><td>밸류에이션</td><td>Forward PER 37x (바이오 프리미엄) → 550,000원</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Base Case (확률 50%) — TP 430,000원</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>가정</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td>2026E 매출</td><td><strong>9,000억</strong></td></tr>
+          <tr><td>2026E OP</td><td><strong>3,500억</strong></td></tr>
+          <tr><td>추가 딜</td><td>1건 (컨센서스 수준)</td></tr>
+          <tr><td>로열티</td><td>키트루다SC 로열티 본격 유입 시작</td></tr>
+          <tr><td>마일스톤</td><td>AZ 임상 마일스톤 1~2건 인식</td></tr>
+          <tr><td>특허 분쟁</td><td>진행 중, 결론 미도출</td></tr>
+          <tr><td>EPS</td><td>~11,500원 [추정]</td></tr>
+          <tr><td>밸류에이션</td><td>Forward PER 37x → 430,000원</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Bear Case (확률 30%) — TP 280,000원</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>가정</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td>2026E 매출</td><td><strong>6,000억</strong></td></tr>
+          <tr><td>2026E OP</td><td><strong>1,800억</strong></td></tr>
+          <tr><td>추가 딜</td><td>신규 딜 지연 (0건)</td></tr>
+          <tr><td>로열티</td><td>2% 로열티 기대 하회 + SC 전환율 저조</td></tr>
+          <tr><td>특허 분쟁</td><td>Halozyme 승소 → 유럽 판매 제한 확대</td></tr>
+          <tr><td>오버행</td><td>추가 내부자 매도</td></tr>
+          <tr><td>EPS</td><td>~7,500원 [추정]</td></tr>
+          <tr><td>밸류에이션</td><td>Forward PER 37x → 280,000원</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>확률가중 TP 산출 (확정)</h3>
+    <div class="callout">Bull  550,000원 × 20% = 110,000원
+Base  430,000원 × 50% = 215,000원
+Bear  280,000원 × 30% =  84,000원
+─────────────────────────────────
+확률가중 TP = 550,000 × 0.20 + 430,000 × 0.50 + 280,000 × 0.30 = <b>409,000원</b> (+13.1%)
+(Bear 확률 30%로 높게 책정 — 로열티 쇼크+특허 분쟁 반영)</div>
+  </div>
+</section>
+
+<!-- CATALYST -->
+<section class="section" id="catalyst">
+  <div class="section-header">
+    <span class="section-num">S6</span>
+    <h2>Catalyst Calendar — 촉매 일정</h2>
+  </div>
+  <div class="section-body">
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026-01-20</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">GSK 4,200억 계약 체결 (완료) <span class="done-badge">완료</span></div>
+        <div class="catalyst-dir pos">긍정 — 신규 딜 모멘텀</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026-01-21</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">로열티 2% 공개 → 주가 19% 급락 (완료) <span class="done-badge">소화 완료</span></div>
+        <div class="catalyst-dir neg">부정 — 기대치 하향 조정</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026-02-27</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">2025 사상최대 실적 발표 (완료) <span class="done-badge">완료</span></div>
+        <div class="catalyst-dir pos">긍정 — 펀더멘탈 확인</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026-03-25</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">바이오젠 8,226억 계약 (완료) <span class="done-badge">완료</span></div>
+        <div class="catalyst-dir pos">강한 긍정 — 최대 규모급 딜 추가</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026-04초</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">독일 가처분 (할로자임 특허) (완료) <span class="done-badge">완료</span></div>
+        <div class="catalyst-dir neg">부정 (제한적) — 회사측 "독일 한정, 무관"</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026 Q2</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">Q1 실적 발표</div>
+        <div class="catalyst-dir key">핵심 — 바이오젠/GSK 업프론트 인식 확인</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026 Q2~Q3</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">10개사+ 추가 딜 논의 결과</div>
+        <div class="catalyst-dir pos">긍정 — 신규 계약 1~2건 기대</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026 Q3</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">코스피 이전 상장</div>
+        <div class="catalyst-dir key">핵심 — 지수편입 → 패시브 자금 유입 vs 유통물량 확대</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026 H2</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">Halozyme IPR 심판 진행</div>
+        <div class="catalyst-dir key">핵심 — 특허 분쟁 향방 → 플랫폼 리스크 판가름</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2026 H2</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">엔허투SC 임상 데이터</div>
+        <div class="catalyst-dir pos">긍정 — 다이이찌산쿄 딜 가치 재평가</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">2028</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">키트루다 물질특허 만료</div>
+        <div class="catalyst-dir neg">장기 부정 — 바이오시밀러 진입 → SC 로열티 베이스 축소</div>
+      </div>
+    </div>
+    <div class="catalyst-row">
+      <div class="catalyst-date">상시</div>
+      <div class="catalyst-content">
+        <div class="catalyst-title">추가 기술이전 계약</div>
+        <div class="catalyst-dir pos">강한 긍정 — 딜당 $2~15억 규모</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RISK -->
+<section class="section" id="risk">
+  <div class="section-header">
+    <span class="section-num">S7</span>
+    <h2>Risk Quantification — 리스크 정량화</h2>
+  </div>
+  <div class="section-body">
+    <h3>기술적 지표 (pykrx 실데이터 기반, 확정)</h3>
+    <div class="ma-grid">
+      <div class="ma-card ma-above"><div class="ma-label">현재가 vs MA20</div><div class="ma-val">+0.7%</div><div class="ma-diff">359,000원 | 단기 이평선 겨우 회복</div></div>
+      <div class="ma-card ma-below"><div class="ma-label">현재가 vs MA60</div><div class="ma-val">-6.9%</div><div class="ma-diff">388,325원 | 중기 이평선 하회</div></div>
+      <div class="ma-card ma-below"><div class="ma-label">현재가 vs MA120</div><div class="ma-val">-17.3%</div><div class="ma-diff">437,308원 | 장기 하락 추세</div></div>
+      <div class="ma-card ma-below"><div class="ma-label">현재가 vs MA200</div><div class="ma-val">-17.8%</div><div class="ma-diff">439,848원 | 장기 이평선 대폭 하회</div></div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>지표</th><th>수치</th><th>해석</th></tr></thead>
+        <tbody>
+          <tr><td><strong>연간 변동성</strong></td><td style="color:var(--sell)"><strong>60.7%</strong></td><td>매우 높음 (코스닥 바이오 특성)</td></tr>
+          <tr><td><strong>2년 변동성</strong></td><td style="color:var(--sell)"><strong>71.5%</strong></td><td>극단적 (대형주 평균 25~30% 대비 2배+)</td></tr>
+          <tr><td><strong>52주 MDD</strong></td><td style="color:var(--sell)"><strong>-40.9%</strong></td><td>고점 대비 최대 낙폭 심각</td></tr>
+          <tr><td><strong>RSI (14)</strong></td><td>58.9</td><td>중립~약강세 (과매수 70 미만)</td></tr>
+          <tr><td><strong>YTD 수익률</strong></td><td style="color:var(--sell)">-20.9%</td><td>연초 대비 하락 (조정 국면)</td></tr>
+          <tr><td><strong>1개월 수익률</strong></td><td style="color:var(--sell)">-3.0%</td><td>약세 지속</td></tr>
+          <tr><td><strong>3개월 수익률</strong></td><td style="color:var(--sell)">-22.8%</td><td>중기 하락 추세</td></tr>
+          <tr><td><strong>6개월 수익률</strong></td><td style="color:var(--sell)">-25.0%</td><td>하락 추세 뚜렷</td></tr>
+          <tr><td><strong>5일 모멘텀</strong></td><td style="color:var(--sell)">-1.1%</td><td>단기 약세</td></tr>
+          <tr><td><strong>20일 모멘텀</strong></td><td>0.0%</td><td>단기 횡보</td></tr>
+          <tr><td><strong>60일 모멘텀</strong></td><td style="color:var(--sell)">-24.0%</td><td>중기 강한 하락</td></tr>
+          <tr><td><strong>단기/중기 변동성 비율</strong></td><td>0.82 (5일/20일)</td><td>변동성 수렴 → 방향성 결정 임박</td></tr>
+          <tr><td><strong>평균 거래량</strong></td><td>690,525주</td><td>높은 유동성</td></tr>
+          <tr><td><strong>최근 거래량</strong></td><td style="color:var(--hold)">197,687주</td><td>평균 대비 -71% → 관망세</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>리스크 매트릭스</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>리스크</th><th>발생 확률</th><th>영향도</th><th>예상 주가 영향</th><th>모니터링 지표</th></tr></thead>
+        <tbody>
+          <tr><td><strong>로열티 추가 실망</strong> (타 계약도 2~3%)</td><td>25%</td><td>매우 높음</td><td style="color:var(--sell)">-20~30%</td><td>향후 딜 로열티율 공개</td></tr>
+          <tr><td><strong>특허 분쟁 패소</strong> (유럽 전역 확대)</td><td>30%</td><td>높음</td><td style="color:var(--sell)">-25~35%</td><td>IPR 심판 결과, 독일 본안</td></tr>
+          <tr><td><strong>오버행</strong> (내부자 추가 매도)</td><td>40%</td><td>중간</td><td style="color:var(--hold)">-10~15%</td><td>대량 보유 보고, 장내 매도 공시</td></tr>
+          <tr><td><strong>키트루다 물질특허 만료</strong> (2028)</td><td>확정</td><td>높음 (장기)</td><td style="color:var(--sell)">-15~20% (2028~)</td><td>바이오시밀러 FDA 신청</td></tr>
+          <tr><td><strong>신규 딜 지연</strong> (2026 체결 0건)</td><td>20%</td><td>높음</td><td style="color:var(--sell)">-15~25%</td><td>기술이전 공시</td></tr>
+          <tr><td><strong>바이오 섹터 디레이팅</strong></td><td>30%</td><td>중간</td><td style="color:var(--hold)">-10~20%</td><td>XBI, 코스닥 바이오 지수</td></tr>
+          <tr><td><strong>글로벌 경기 침체</strong></td><td>15%</td><td>중간</td><td style="color:var(--hold)">-15~25%</td><td>PMI, 미국 GDP</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>VaR (95%, 일간) [추정]</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>수치</th><th>해석</th></tr></thead>
+        <tbody>
+          <tr><td><strong>일간 VaR</strong></td><td>~3.8% (~13,800원/주)</td><td>20일 중 1일은 13,800원 이상 하락 가능</td></tr>
+          <tr><td><strong>월간 VaR</strong></td><td>~17.6% (~63,600원/주)</td><td>월 1회 수준의 극단 낙폭</td></tr>
+          <tr><td><strong>연간 VaR</strong></td><td>~60.7% (~219,400원/주)</td><td>최악 시나리오 하한 ~142,000원</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>삼성전자 대비 비교</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>알테오젠</th><th>삼성전자</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td><strong>연간 변동성</strong></td><td style="color:var(--sell)"><strong>60.7%</strong></td><td>49.6%</td><td>알테오젠 +11.1%p 높음</td></tr>
+          <tr><td><strong>52주 MDD</strong></td><td style="color:var(--sell)"><strong>-40.9%</strong></td><td>-23.3%</td><td>알테오젠 낙폭 1.76배</td></tr>
+          <tr><td><strong>RSI (14)</strong></td><td>58.9</td><td>59.8</td><td>유사 (중립~약강세)</td></tr>
+          <tr><td><strong>YTD</strong></td><td style="color:var(--sell)"><strong>-20.9%</strong></td><td style="color:var(--buy)">+285.8% [참고값]</td><td>극명한 대비</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- COMMITTEE VOTES -->
+<section class="section" id="votes">
+  <div class="section-header">
+    <span class="section-num">S8</span>
+    <h2>Committee Votes — 투심위 투표 전원 의견</h2>
+  </div>
+  <div class="section-body">
+
+    <h3>Part A. 바이오 섹터 보드 (10명: 국내 5 + 해외 5)</h3>
+
+    <h3 style="border-color:var(--text-muted);color:var(--text-secondary);font-size:12px">보드 구성</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>멤버</th><th>소속/전문성</th><th>국적</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>오상훈</strong></td><td>前 삼성바이오에피스 CSO</td><td>🇰🇷</td></tr>
+          <tr><td>2</td><td><strong>이상훈</strong></td><td>한국투자증권 바이오 수석</td><td>🇰🇷</td></tr>
+          <tr><td>3</td><td><strong>김태한</strong></td><td>삼성바이오로직스 前 대표</td><td>🇰🇷</td></tr>
+          <tr><td>4</td><td><strong>박영호</strong></td><td>의사 출신 바이오 투자자</td><td>🇰🇷</td></tr>
+          <tr><td>5</td><td><strong>김선영</strong></td><td>한국생명공학연구원</td><td>🇰🇷</td></tr>
+          <tr><td>6</td><td><strong>Geoffrey Porges</strong></td><td>SVB Leerink</td><td>🇺🇸</td></tr>
+          <tr><td>7</td><td><strong>Karen Chen</strong></td><td>JP Morgan</td><td>🇺🇸</td></tr>
+          <tr><td>8</td><td><strong>Helen Torley</strong></td><td>Halozyme 前 CEO</td><td>🇺🇸</td></tr>
+          <tr><td>9</td><td><strong>John Maraganore</strong></td><td>Alnylam 前 CEO</td><td>🇺🇸</td></tr>
+          <tr><td>10</td><td><strong>Siddharth Kunte</strong></td><td>바이오시밀러 펀드 PM</td><td>🇮🇳</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="border-color:var(--text-muted);color:var(--text-secondary);font-size:12px">투표 결과</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>멤버 (스타일)</th><th>의견</th><th>TP</th><th>핵심 논리</th><th>최대 리스크</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1</td><td><strong>오상훈</strong> (바이오 R&amp;D)</td>
+            <td><span class="badge-buy">BUY</span></td><td>480,000원</td>
+            <td>ALT-B4 플랫폼은 Halozyme ENHANZE 대비 동등 이상의 기술력. 8건 누적 74억$ 딜이 플랫폼 가치를 증명. 2% 로열티는 최초 비독점→독점 전환 특수 상황이며, AZ/바이오젠 딜은 4~6% 로열티 기대 가능. 코스피 이전은 기업 가치 재평가 촉매</td>
+            <td>특허 분쟁 전면 패소 시 플랫폼 리스크</td>
+          </tr>
+          <tr>
+            <td>2</td><td><strong>이상훈</strong> (증권 리서치)</td>
+            <td><span class="badge-buy">BUY</span></td><td>450,000원</td>
+            <td>2026E 매출 9,000억은 보수적. 바이오젠(3/25) + GSK(1/20) 업프론트만 합산 $50M+ 인식. 추가 딜 1건 시 매출 1조 돌파 가능. 컨센서스 TP 435,000원(+20.3%)은 합리적. 전원 BUY 컨센서스가 방향성 지지</td>
+            <td>로열티 기대 재하향</td>
+          </tr>
+          <tr>
+            <td>3</td><td><strong>김태한</strong> (CDMO 전문)</td>
+            <td><span class="badge-buy">BUY</span></td><td>440,000원</td>
+            <td>CDMO 사업자 관점에서 알테오젠 플랫폼은 독보적. 빅파마 8개사가 선택한 기술 = 검증 완료. 2025년 OPM 50%는 플랫폼 비즈니스의 마진 파워 증명. 9,000억 매출 시 OPM 35~45% 유지 가능</td>
+            <td>딜 파이프라인 고갈</td>
+          </tr>
+          <tr>
+            <td>4</td><td><strong>박영호</strong> (의사/투자자)</td>
+            <td><span class="badge-buy">BUY</span></td><td>420,000원</td>
+            <td>임상의 관점: SC 제형 전환은 불가역적 트렌드. 환자 편의성 + 의료비 절감 = 규제기관도 지지. 키트루다SC FDA 38개 고형암 승인은 SC 플랫폼의 최대 PoC. 다만 로열티 2%는 낮음 인정</td>
+            <td>키트루다 바이오시밀러 2028년</td>
+          </tr>
+          <tr>
+            <td>5</td><td><strong>김선영</strong> (연구기관)</td>
+            <td><span class="badge-hold">HOLD</span></td><td>370,000원</td>
+            <td>ALT-B4와 Halozyme ENHANZE 간 특허 분쟁은 과학적으로 핵심 쟁점. IPR 결과가 나오기 전까지 플랫폼 리스크 해소 불가. 독일 가처분은 "독일 한정"이라지만 유럽 전역 확대 가능성 존재. 특허 분쟁 결론까지 관망</td>
+            <td>IPR 패소 → 로열티 재협상</td>
+          </tr>
+          <tr>
+            <td>6</td><td><strong>Geoffrey Porges</strong> (미국 바이오 리서치)</td>
+            <td><span class="badge-buy">BUY</span></td><td>460,000원</td>
+            <td>Halozyme 시총 $18B 대비 알테오젠 28.2조(~$20B)는 프리미엄이나, 딜 파이프라인 성장률이 더 높다. AZ 13.5억$ 단일 계약이 Halozyme 최대 딜 규모를 상회. 8건 74억$에서 100억$ 돌파는 시간 문제</td>
+            <td>미국 시장 인지도 부족</td>
+          </tr>
+          <tr>
+            <td>7</td><td><strong>Karen Chen</strong> (투자은행)</td>
+            <td><span class="badge-buy">BUY</span></td><td>470,000원</td>
+            <td>M&amp;A 관점: 알테오젠은 빅파마 인수 타깃 1순위. 플랫폼 기술 + 8건 딜 트랙레코드 + 한국 바이오 프리미엄. 코스피 이전 시 글로벌 기관 접근성 확대. 현 주가 -40.9% MDD는 매수 기회</td>
+            <td>글로벌 바이오 펀딩 위축</td>
+          </tr>
+          <tr>
+            <td>8</td><td><strong>Helen Torley</strong> (Halozyme 前 CEO)</td>
+            <td><span class="badge-sell">SELL</span></td><td>250,000원</td>
+            <td>Halozyme 경영자 관점에서 직언: ALT-B4 특허는 ENHANZE를 침해. IPR 승소 시 알테오젠은 로열티 지급 의무 발생 또는 기술 사용 제한. 현 시총 28.2조는 상업화 제품 1개 기업에 과도. Halozyme는 10개 상업화 제품으로 $18B. 밸류에이션 괴리 심각</td>
+            <td>(반대 의견) 특허 분쟁 합의 시 기회비용</td>
+          </tr>
+          <tr>
+            <td>9</td><td><strong>John Maraganore</strong> (바이오텍 CEO 경험)</td>
+            <td><span class="badge-buy">BUY</span></td><td>430,000원</td>
+            <td>플랫폼 바이오텍의 가치는 파이프라인 확장성에 있다. Alnylam도 초기 1~2개 제품에서 시작해 플랫폼 가치를 증명했다. 알테오젠은 8건 74억$로 이미 플랫폼 검증 완료. 핵심은 "다음 5건"이 언제 오느냐. 2026년 추가 딜 1건이면 Base 달성</td>
+            <td>딜 간격 장기화</td>
+          </tr>
+          <tr>
+            <td>10</td><td><strong>Siddharth Kunte</strong> (바이오시밀러 전문)</td>
+            <td><span class="badge-hold">HOLD</span></td><td>350,000원</td>
+            <td>바이오시밀러 관점: 키트루다 물질특허 2028년 만료가 최대 장기 리스크. SC 로열티 베이스(키트루다 매출)가 바이오시밀러 진입으로 2030년부터 -30~50% 축소 가능. 산도즈 딜(바이오시밀러)은 이 흐름의 양면. 로열티 스트림 지속성에 의문</td>
+            <td>바이오시밀러 조기 진입</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">BUY:  7명 (오상훈, 이상훈, 김태한, 박영호, Geoffrey Porges,
+            Karen Chen, John Maraganore)                        = 70%
+HOLD: 2명 (김선영, Siddharth Kunte)                             = 20%
+SELL: 1명 (Helen Torley)                                        = 10%
+─────────────────────────────────────────────────────────────
+평균 TP: 412,000원 (BUY 평균 464,286원 / HOLD 360,000원 / SELL 250,000원)
+
+섹터 보드 결론: ✅ <b>BUY (70% 컨센서스 달성)</b>
+→ Core Committee에 "BUY" 의견으로 상정</div>
+
+    <h3>Part B. Core Committee (11명: 국내 5 + 해외 5 + 위원장)</h3>
+
+    <h3 style="border-color:var(--text-muted);color:var(--text-secondary);font-size:12px">Core Committee 구성</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>멤버</th><th>역할/스타일</th><th>국적</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>강방천</strong></td><td>에셋플러스 회장, 장기 가치투자</td><td>🇰🇷</td></tr>
+          <tr><td>2</td><td><strong>이채원</strong></td><td>한국밸류자산운용 前 CIO, 가치주</td><td>🇰🇷</td></tr>
+          <tr><td>3</td><td><strong>박현주</strong></td><td>미래에셋 회장, 글로벌 성장 투자</td><td>🇰🇷</td></tr>
+          <tr><td>4</td><td><strong>최윤식</strong></td><td>미래학자/트렌드 애널리스트</td><td>🇰🇷</td></tr>
+          <tr><td>5</td><td><strong>홍춘욱</strong></td><td>이코노미스트, 매크로 기반 투자</td><td>🇰🇷</td></tr>
+          <tr><td>6</td><td><strong>Warren Buffett</strong></td><td>Berkshire Hathaway, 가치투자의 대가</td><td>🇺🇸</td></tr>
+          <tr><td>7</td><td><strong>Ray Dalio</strong></td><td>Bridgewater, 리스크 패리티/올웨더</td><td>🇺🇸</td></tr>
+          <tr><td>8</td><td><strong>Stanley Druckenmiller</strong></td><td>글로벌 매크로, 트렌드 추종</td><td>🇺🇸</td></tr>
+          <tr><td>9</td><td><strong>Howard Marks</strong></td><td>Oaktree, 사이클/리스크 관리</td><td>🇺🇸</td></tr>
+          <tr><td>10</td><td><strong>Cathie Wood</strong></td><td>ARK Invest, 파괴적 혁신/성장주</td><td>🇺🇸</td></tr>
+          <tr><td>—</td><td><strong>위원장 (사용자)</strong></td><td>최종 Veto권, 포트폴리오 총괄</td><td>🇰🇷</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="border-color:var(--text-muted);color:var(--text-secondary);font-size:12px">투표 결과</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>멤버 (스타일)</th><th>의견</th><th>TP</th><th>핵심 논리</th><th>최대 리스크</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>1</td><td><strong>강방천</strong> (장기 가치)</td>
+            <td><span class="badge-buy">BUY</span></td><td>420,000원</td>
+            <td>"좋은 기업을 좋은 가격에" — 8건 74억$ 딜 트랙레코드는 플랫폼의 질을 증명. MDD -40.9% 조정 후 현 주가는 장기 투자자에게 진입 기회. 2025년 OPM 50%는 "이익의 질"이 높음을 보여준다. 로열티 2%는 실망이나 플랫폼 전체 가치에서 일부</td>
+            <td>특허 분쟁 + 로열티 이중 리스크</td>
+          </tr>
+          <tr>
+            <td>2</td><td><strong>이채원</strong> (가치주)</td>
+            <td><span class="badge-hold">HOLD</span></td><td>360,000원</td>
+            <td>가치투자자로서: 마일스톤 일시 인식에 의존하는 이익 구조는 "반복 가능한 이익"이 아니다. 2025년 순이익 1,443억 중 마일스톤 비중이 과대. 로열티 스트림이 본격화되기 전까지 실질 수익력 검증 미완. PER 103배는 바이오 프리미엄 감안해도 비싸지 않으나, 이익의 질 할인 필요</td>
+            <td>마일스톤 인식 변동성</td>
+          </tr>
+          <tr>
+            <td>3</td><td><strong>박현주</strong> (글로벌 성장)</td>
+            <td><span class="badge-buy">BUY</span></td><td>500,000원</td>
+            <td>SC 제형 전환은 10년 메가트렌드. 알테오젠은 Halozyme와 함께 글로벌 듀오폴리. 8건 74억$ 딜에서 100억$ 돌파 후 빅파마 M&amp;A 타깃 가능성. 코스피 이전 + 글로벌 ADR 상장 시 밸류에이션 리레이팅</td>
+            <td>글로벌 바이오 침체</td>
+          </tr>
+          <tr>
+            <td>4</td><td><strong>최윤식</strong> (미래 트렌드)</td>
+            <td><span class="badge-buy">BUY</span></td><td>520,000원</td>
+            <td>의약품 투여 경로의 패러다임 전환: IV→SC→경구. 알테오젠은 첫 번째 전환의 핵심 인에이블러. AI 신약개발 + SC 전환 = 복합 성장 가능. 2028~2030년 로열티 복수 스트림 형성 시 플랫폼 가치 재평가. "파괴적 혁신의 초기"</td>
+            <td>AI 신약개발이 SC 수요를 대체</td>
+          </tr>
+          <tr>
+            <td>5</td><td><strong>홍춘욱</strong> (매크로)</td>
+            <td><span class="badge-hold">HOLD</span></td><td>380,000원</td>
+            <td>매크로 관점: 금리 인하 사이클은 바이오에 우호적이나, 한국 바이오는 글로벌 자금 흐름에서 소외되기 쉽다. 원/달러 약달러 추세는 달러 계약 환산에 부정적. 외국인 바이오 비중 축소 추세 + 오버행 = 수급 불안. 펀더멘탈은 인정하나 매크로 환경이 비우호</td>
+            <td>외국인 이탈 + 환율 역풍</td>
+          </tr>
+          <tr>
+            <td>6</td><td><strong>Warren Buffett</strong> (가치투자)</td>
+            <td><span class="badge-sell">SELL</span></td><td>280,000원</td>
+            <td>"내가 이해하지 못하는 사업에는 투자하지 않는다." 바이오 플랫폼의 특허 분쟁은 결과를 예측할 수 없다. 로열티 2%로 확인된 수익성은 시총 28.2조를 정당화하기에 부족하다. 상업화 제품 1개로 Halozyme($18B) 대비 프리미엄? 안전마진이 보이지 않는다</td>
+            <td>(반대 의견) 딜 가속 시 기회비용</td>
+          </tr>
+          <tr>
+            <td>7</td><td><strong>Ray Dalio</strong> (리스크 패리티)</td>
+            <td><span class="badge-hold">HOLD</span></td><td>350,000원</td>
+            <td>변동성 60.7%, MDD -40.9%의 자산을 올웨더 포트폴리오에 넣기 어렵다. 포트폴리오 비중 3% 이하 제한. 특허 분쟁은 "알 수 없는 것(unknowable)"에 해당 → 리스크 프라이싱 불가. 펀더멘탈 매력은 인정하나 위험 조정 수익률 관점에서 중립</td>
+            <td>테일 리스크 (특허 + 로열티 동시 악화)</td>
+          </tr>
+          <tr>
+            <td>8</td><td><strong>Stanley Druckenmiller</strong> (매크로 트렌드)</td>
+            <td><span class="badge-buy">BUY</span></td><td>430,000원</td>
+            <td>기술적으로: RSI 58.9, MA20 겨우 회복, MA60 하회 = 아직 하락 추세. 그러나 바이오젠 8,226억 계약(3/25)이 "뉴스 플로우 반전" 신호. MDD -40.9%에서 반등 초기 = 추세 전환 포착 가능. "큰 돈은 바닥에서 산다." 단, MA60(388,325원) 돌파 확인 필요</td>
+            <td>MA60 돌파 실패 → 추가 하락</td>
+          </tr>
+          <tr>
+            <td>9</td><td><strong>Howard Marks</strong> (사이클/리스크)</td>
+            <td><span class="badge-buy">BUY</span></td><td>400,000원</td>
+            <td>"남들이 두려워할 때 탐욕스러워라" — 로열티 쇼크, 특허 분쟁, 오버행으로 시장이 과도하게 비관적. MDD -40.9%는 펀더멘탈 대비 과매도. 8건 74억$ 딜 + 2026E 매출 9,000억인 기업이 52주 고점 대비 -36.5%? 리스크 프리미엄이 과도. 역발상 매수 구간</td>
+            <td>리스크 프리미엄이 정당한 경우</td>
+          </tr>
+          <tr>
+            <td>10</td><td><strong>Cathie Wood</strong> (파괴적 혁신)</td>
+            <td><span class="badge-buy">BUY</span></td><td>550,000원</td>
+            <td>SC 제형 전환은 "파괴적 혁신(disruption)"의 교과서적 사례. 알테오젠은 플랫폼 인에이블러 = Shopify와 같은 포지션. 8건 딜은 시작일 뿐. 5년 후 20건+ 딜, 로열티 복수 스트림으로 연 매출 3~5조 가능. 현 주가는 시장이 단기 노이즈(로열티 2%, 특허)에 과잉 반응한 결과</td>
+            <td>파괴적 혁신 thesis 실패</td>
+          </tr>
+          <tr style="background:rgba(30,107,255,0.04)">
+            <td>—</td><td><strong>위원장</strong></td>
+            <td style="color:var(--text-muted)">결정 대기</td><td>—</td>
+            <td>섹터 보드(BUY) + Core Committee 의견 종합 후 최종 판단</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">BUY:  6명 (강방천, 박현주, 최윤식, Druckenmiller, Marks, Cathie Wood) = 55%
+HOLD: 3명 (이채원, 홍춘욱, Dalio)                                    = 27%
+SELL: 1명 (Buffett)                                                  = 9%
+위원장: 결정 대기
+─────────────────────────────────────────────────────────────
+평균 TP: 419,000원 (BUY 평균 470,000원 / HOLD 363,333원 / SELL 280,000원)
+
+Core Committee 결론: ✅ <b>BUY (55% 컨센서스, 최소 과반)</b>
+→ 섹터 보드 대비 신중하나 방향성은 일치</div>
+
+    <h3>투심위 종합 (섹터 보드 + Core Committee)</h3>
+
+    <h3 style="border-color:var(--text-muted);color:var(--text-secondary);font-size:12px">전체 21명 집계 (위원장 제외 20명)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>구분</th><th>BUY</th><th>HOLD</th><th>SELL</th><th>합계</th></tr></thead>
+        <tbody>
+          <tr><td>바이오 섹터 보드</td><td style="color:var(--buy)"><strong>7</strong></td><td style="color:var(--hold)">2</td><td style="color:var(--sell)">1</td><td>10</td></tr>
+          <tr><td>Core Committee</td><td style="color:var(--buy)"><strong>6</strong></td><td style="color:var(--hold)">3</td><td style="color:var(--sell)">1</td><td>10</td></tr>
+          <tr style="background:var(--navy);color:#fff"><td><strong>합계</strong></td><td style="color:#4ade80"><strong>13</strong></td><td style="color:#fbbf24"><strong>5</strong></td><td style="color:#f87171"><strong>2</strong></td><td><strong>20</strong></td></tr>
+          <tr><td><strong>비율</strong></td><td style="color:var(--buy)"><strong>65.0%</strong></td><td style="color:var(--hold)"><strong>25.0%</strong></td><td style="color:var(--sell)"><strong>10.0%</strong></td><td>100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="border-color:var(--text-muted);color:var(--text-secondary);font-size:12px">TP 통계</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>수치</th></tr></thead>
+        <tbody>
+          <tr><td>전체 평균 TP</td><td><strong>415,500원 (+14.9%)</strong></td></tr>
+          <tr><td>BUY 평균 TP</td><td style="color:var(--buy)"><strong>467,692원 (+29.4%)</strong></td></tr>
+          <tr><td>HOLD 평균 TP</td><td style="color:var(--hold)">362,000원 (+0.1%)</td></tr>
+          <tr><td>SELL 평균 TP</td><td style="color:var(--sell)">265,000원 (-26.7%)</td></tr>
+          <tr><td>최고 TP</td><td>550,000원 (Cathie Wood)</td></tr>
+          <tr><td>최저 TP</td><td>250,000원 (Helen Torley)</td></tr>
+          <tr><td>확률가중 TP (시나리오)</td><td><strong style="color:var(--accent)">409,000원 (+13.1%)</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="verdict-box">
+      <div class="verdict-box-title">
+        <span style="background:var(--buy);color:#fff;border-radius:4px;padding:2px 10px;font-size:13px">★ 최종 권고: BUY (단, 비중 제한)</span>
+      </div>
+      <div class="callout">┌──────────────────────────────────────────────────────────────────┐
+│  바이오 섹터 보드 (10명)                                          │
+│  BUY 7 : HOLD 2 : SELL 1 → ✅ BUY (70% 컨센서스)               │
+│  핵심 논리: 8건 74억$ 딜 = 플랫폼 검증, MDD -40.9% = 매수 기회  │
+│  평균 TP: 412,000원 (+14.0%)                                     │
+├──────────────────────────────────────────────────────────────────┤
+│  Core Committee (10명, 위원장 제외)                               │
+│  BUY 6 : HOLD 3 : SELL 1 → ✅ BUY (55% 컨센서스, 최소 과반)    │
+│  핵심 쟁점: 플랫폼 성장(BUY) vs 이익의 질+특허 리스크(HOLD/SELL)│
+│  평균 TP: 419,000원 (+15.9%)                                     │
+├──────────────────────────────────────────────────────────────────┤
+│  ★ 최종 권고: BUY (단, 비중 제한)                                │
+│                                                                   │
+│  근거:                                                            │
+│  ① 섹터 보드 70% + Core 55% = 전체 65% BUY 컨센서스              │
+│  ② 8건 누적 74억$ 딜 + 2026E 매출 9,000억 = 플랫폼 가치 확인    │
+│  ③ MDD -40.9% 조정 후 RSI 58.9 = 과매도 해소, 반등 초기         │
+│  ④ 컨센서스 전원 BUY + TP 435,000원(+20.3%) = 시장 방향성 지지  │
+│  ⑤ 바이오젠(3/25) + GSK(1/20) 계약으로 딜 모멘텀 건재           │
+│                                                                   │
+│  확률가중 TP: 409,000원 (+13.1%)                                   │
+│  전체 평균 TP: 415,500원 (+14.9%)                                 │
+│                                                                   │
+│  주의 사항 (SELL 2명, HOLD 5명의 경고):                           │
+│  - 로열티 2% 쇼크 → 타 딜도 저로열티 가능성 (Buffett, Torley)   │
+│  - 특허 분쟁 미해결 → 플랫폼 리스크 잠재 (김선영, Torley)       │
+│  - 변동성 60.7%, MDD -40.9% → 포트폴리오 비중 제한 필수 (Dalio) │
+│  - 마일스톤 의존 이익 구조 → 분기별 변동 극심 (이채원)           │
+│  - 키트루다 물질특허 2028년 만료 → 장기 로열티 축소 (Kunte)      │
+│                                                                   │
+│  비중 축소 트리거:                                                │
+│  ① 종가 < MA20 (359,000원) 5일 연속 이탈                         │
+│  ② Halozyme IPR 승소 판정                                        │
+│  ③ 추가 딜 6개월 이상 공백                                       │
+│  ④ 내부자 대량 매도 공시                                         │
+│                                                                   │
+│  위원장 결정 대기 → 사용자 최종 Veto/승인 필요                    │
+└──────────────────────────────────────────────────────────────────┘</div>
+    </div>
+
+    <h3>위원장 의사결정 참고</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>권장 사항</th></tr></thead>
+        <tbody>
+          <tr><td><strong>투자 의견</strong></td><td><span class="badge-buy">BUY</span> 확률가중 TP 409,000원, +13.1%</td></tr>
+          <tr><td><strong>진입 전략</strong></td><td>기존 보유 시 유지, 신규 시 분할 매수 3회 (361,500 / 340,000 / 315,000원)</td></tr>
+          <tr><td><strong>포트폴리오 비중</strong></td><td>최대 8% (변동성 60.7% + 특허 리스크 감안 제한)</td></tr>
+          <tr><td><strong>손절 기준</strong></td><td>315,500원(52주 저점) 하향 이탈 + IPR 패소 동시 확인 시 비중 50% 축소</td></tr>
+          <tr><td><strong>1차 익절</strong></td><td>Base TP 430,000원 도달 시 20% 부분 익절</td></tr>
+          <tr><td><strong>2차 익절</strong></td><td>Bull TP 550,000원 접근 시 30% 추가 익절</td></tr>
+          <tr><td><strong>리뷰 주기</strong></td><td>격주 1회 (특허 분쟁 + 딜 뉴스 모니터링), 분기 실적 전후 집중</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</div><!-- /main -->
+
+<footer>
+  <strong>Sources (출처)</strong>
+  <div class="footer-sources">
+    MSD 10-Q SEC Filing: 키트루다SC 로열티 2% 확인 &nbsp;|&nbsp;
+    FDA Approval Letter (2025.09.19): KEYTRUDA QLEX 38개 고형암 승인 &nbsp;|&nbsp;
+    European Commission (2025.11.19): 키트루다SC 유럽 승인 &nbsp;|&nbsp;
+    알테오젠 공시 (DART): GSK 계약 (2026.01.20), 바이오젠 계약 (2026.03.25) &nbsp;|&nbsp;
+    알테오젠 2025 사업보고서 (2026.02.27): 실적 데이터 &nbsp;|&nbsp;
+    Halozyme SEC Filings: ENHANZE 플랫폼 비교 데이터 &nbsp;|&nbsp;
+    증권사 리포트: 하나증권(TP 580,000), 한국투자증권, NH투자증권, 삼성증권 등 &nbsp;|&nbsp;
+    pykrx (2026-04-10): 기술적 지표 전체 데이터
+  </div>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.07);line-height:2">
+    <strong style="color:#ef4444">면책 고지</strong><br>
+    본 보고서는 주픽(JooPick) AI 투자위원회가 생성한 정보 제공 자료입니다.<br>
+    투자 판단의 참고 자료로만 활용하시기 바라며, 최종 투자 결정은 투자자 본인의 판단과 책임하에 이루어져야 합니다.<br>
+    본 보고서는 투자 자문, 매수/매도 추천이 아닙니다. 주식 투자는 원금 손실의 위험이 있습니다.<br><br>
+    투심위 위원들의 의견 및 TP는 각 투자 철학에 기반한 AI 시뮬레이션 결과이며, 실제 인물의 의견이 아닙니다.<br>
+    실명은 투자 스타일 시뮬레이션의 이해를 돕기 위한 목적으로만 사용되었습니다.
+  </div>
+  <div style="margin-top:16px;font-size:11px;color:#3a5570">
+    JooPick AI Investment Committee &nbsp;|&nbsp; 발행일: 2026-04-12 &nbsp;|&nbsp; 데이터 기준: 2026-04-10
+  </div>
+</footer>
+
+</body>
+</html>

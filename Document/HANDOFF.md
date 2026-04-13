@@ -49,7 +49,7 @@ Layer:       Planning (Phase.md) — Phase 0 진입 대기
 Next Task:   Phase 0 Task 0.1 — ServicePlan 스코프·독자·깊이·톤 합의 (superpowers:brainstorming)
 Block:       없음
 Uncertainty: 낮음
-Note:        BusinessPlan §8~§9 → 하위 4개 문서 동기화 완료 (2026-04-12)
+Note:        Manual 투자 트랙 설계 확정 (2026-04-13) → BusinessPlan §10, ServicePlan §3.22 반영 완료
 ```
 
 ### 자동화 프로그램 백테스트 상태: ✅ v6.1 FINAL 확정
@@ -89,6 +89,21 @@ Note:        BusinessPlan §8~§9 → 하위 4개 문서 동기화 완료 (2026-
 - Phase 6.3 ScreenSpec → BuildPhase B3.0으로 이동 (디자인 시안 선행 의존)
 - `HANDOFF.md`(본 문서) 5-문서 시스템 반영 재구성
 - 로컬 프로젝트 메모리 생성: 주픽 프로젝트 활성화 기록
+
+### 2026-04-13 세션 산출물
+- **Manual 투자 트랙 설계 확정** (사용자 인터뷰 6단계):
+  - AI 전종목 스캔 → Short List 30개 (단기10/중장기10/장기10) 추천
+  - 업황 사이클 기반 2단계 스크리닝 (AI 자동, 전문가 수준 매크로→섹터 분석)
+  - 리포트 3-Tier 체계 (Short List 풀 리포트 / 스크리닝 상위 풀 리포트 / 전종목 정량 프로필)
+  - 어드민 전용 (권한 부여 가능), BUY 의견만, 예상 수익률 기반 우선순위
+  - 월간 리밸런싱 + 이벤트 수시 갱신 + 긴급 변동 시 이메일/텔레그램 알림
+  - 자동화 트랙과 완전 독립 (추후 모델 검증 후 연동 판단)
+  - 월간 비용 ~49만원 → AI API 예산 조정 검토 필요
+- **문서 반영**:
+  - BusinessPlan.md: §10 Manual 투자 트랙 신설, §10~§13 → §11~§14 재번호, §14 의사결정 기록 추가
+  - ServicePlan.md: §1.2 확정 기록 추가, §3.22 Manual 투자 트랙 신설 (21→22 섹션), §4 Revision History 갱신
+  - HANDOFF.md: 현재 단계 + 성공 블록 갱신
+- **알테오젠 투심보고서 HTML 변환**: `backtest/alteogen_report.html` (78KB, Bloomberg 스타일)
 
 ### 자동화 프로그램 백테스트 세션 산출물 (2026-04-12)
 
