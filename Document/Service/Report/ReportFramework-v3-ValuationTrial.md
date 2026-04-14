@@ -1,5 +1,7 @@
 # Report-Alteogen §4 v3 Trial — 밸류에이션 재작성본
 
+> **[v3.0 확정 전 중간 산출물. v3.0 확정 시 본 문서는 아카이브 예정]**
+
 > **이 문서의 목적**: ReportFramework v3.0 P8 채택안 결정을 위한 **시범 재작성**. document-specialist(opus) 도출 10기법 + Investment Thesis Bridge 3 narrative + 사업모델 차이 해석 규칙 + 현재/2028E 3Y 병기를 모두 적용하여 "실제로 가치가 있는 기법은 무엇인가"를 critic 검증을 통해 empirical 판단하기 위한 샘플.
 >
 > 본 문서는 **기존 Report-Alteogen_196170_v2.md §4 (50줄)만 대체**하는 드롭인 교체본이며, v2의 다른 섹션은 그대로 둡니다.

@@ -157,7 +157,7 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 
 ### Task B2.8 — 주픽-구현 하네스 구성
 - **Primary**: `oh-my-claudecode:harness` 스킬
-- **구성**: `executor`(opus) + `code-reviewer` + `verifier` + tudal 컨벤션(Next.js 16 경고, 브랜드 규칙, legacy pricing 금지, "사세요/파세요" 금지, 500명 cap) 강제 규칙
+- **구성**: `executor`(opus) + `code-reviewer` + `verifier` + tudal 컨벤션(Next.js 16 경고, 브랜드 규칙, legacy pricing 금지, 법적 제약 → BusinessPlan §7 참조) 강제 규칙
 - **Uncertainty**: 낮음.
 - **Output**: `.omc/harnesses/joopick-build.yaml`
 
@@ -183,7 +183,7 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 
 ### Task B3.1 — 코드베이스 간소화 (legacy 제거)
 - **Primary**: `oh-my-claudecode:ai-slop-cleaner` 스킬 + `code-simplifier` 에이전트
-- **Rationale**: "Clean AI-generated code slop with a regression-safe, deletion-first workflow" — 삭제 우선 안전 워크플로. 대상: 3tier pricing, 초보 레벨 분석, 구독 게이트, 공개형 login.
+- **Rationale**: "Clean AI-generated code slop with a regression-safe, deletion-first workflow" — 삭제 우선 안전 워크플로. 대상: 3tier pricing, 초보 레벨 분석 `[TBD — 멤버 페이지 정의(ServicePlan §2) 후 결정]`, 구독 게이트, 공개형 login.
 - **실행 엔진**: `/oh-my-claudecode:ralph` 또는 `/oh-my-claudecode:autopilot`
 - **검증**: 삭제 단위마다 `npm run build && npm run lint`
 - **커밋**: `commit-commands:commit` (1 Task = 1 commit 원칙)

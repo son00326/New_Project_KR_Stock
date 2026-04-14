@@ -1,6 +1,6 @@
 # BigFinance 경쟁사 분석 — Research Handoff
 
-> ⚠️ 이 문서는 `Document/HANDOFF.md`와 **별개**다. BigFinance(bigfinance.co.kr) 경쟁사 리서치 전용 세션 핸드오프.
+> ⚠️ 이 문서는 `Document/Process/HANDOFF.md`와 **별개**다. BigFinance(bigfinance.co.kr) 경쟁사 리서치 전용 세션 핸드오프.
 > 다음 세션은 이 파일 + `Document/Research/BigFinance/` 폴더만 읽어도 이어받을 수 있어야 한다.
 
 **최종 업데이트**: 2026-04-14

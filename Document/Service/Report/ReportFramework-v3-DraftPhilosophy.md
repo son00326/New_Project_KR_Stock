@@ -1,5 +1,7 @@
 # ReportFramework v3 — Design Philosophy (2-Layer Framework)
 
+> **[v3.0 확정 전 중간 산출물. v3.0 확정 시 본 문서는 아카이브 예정]**
+
 > **이 문서의 역할**: v3.0 전면 개정의 **설계 철학**. "체크리스트 프레임워크 → 독자 서사 프레임워크" 전환의 원칙을 박제.
 > Narrative Design (`ReportFramework-v3-NarrativeDesign.md`)은 이 철학의 **구현 규격**이며, 이 문서는 **Why·When·충돌 시 우선순위**를 정한다.
 
@@ -10,7 +12,7 @@
 ### 1.1 사용자 피드백 (2026-04-14)
 > "너 사용자가 초보야… 내 산업군이 예를들어 건설인데, 바이오 내용 저렇게 두서없이 말하면 너 알아들어?"
 
-### 1.2 실패 사례 진단 (`Report-Alteogen_196170_v3-Section4-Trial.md`)
+### 1.2 실패 사례 진단 (`Document/Service/Report/ReportFramework-v3-ValuationTrial.md`)
 250줄 §4 시범본에서 확인된 3대 실패 패턴:
 
 | 패턴 | 사례 | 초보가 겪는 결과 |
