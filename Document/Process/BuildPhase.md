@@ -1,21 +1,30 @@
 # BuildPhase.md — 주픽 실행 단계 방법론
 
-Last updated: 2026-04-12
-Purpose: Phase.md(기획 단계) 완료 후 **ServicePlan.md v1.0 + FRD + Scenarios 기반으로 실제 서비스를 구축·검증·배포**하는 단계별 방법론.
-Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA → 배포 → 반복.
+Last updated: 2026-04-15
+Purpose: Phase.md(기획 단계) 완료 후 **ServicePlan-Admin.md / ServicePlan-Member.md v1.0 + FRD + Scenarios 기반으로 실제 서비스를 구축·검증·배포**하는 단계별 방법론.
+Scope: 디자인→코드 전환(P8 산출물 기반) → 인프라 세팅 → 코드 구현 → QA → 배포 → 반복. 디자인 **제작**은 Phase.md P7·P8에서 완료.
 각 Stage Task는 Phase.md와 **동일 포맷**: Primary / Alternatives / Rationale / Uncertainty / Output / Execution Notes(선택).
 
 > 이 문서를 보는 법
-> - **산출 라우팅 원칙**: 모든 결과는 ServicePlan.md §3 본문(영구) 또는 `tudal/` 실제 코드로 라우팅. 본 문서엔 **방법론만**.
-> - **Phase.md와의 관계**: Phase.md는 기획 방법론, BuildPhase.md는 실행 방법론. 두 문서의 모든 Task 상태는 **ServicePlan.md §0 통합 트래커**에서 관리.
-> - **진입 전제**: ServicePlan.md v1.0 확정, FRD.md 확정, Scenarios.md 확정.
+> - **산출 라우팅 원칙**: 모든 결과는 **해당 sub-doc(Admin/Member)** 또는 `tudal/` 실제 코드로 라우팅. 디자인 시스템 공통 사항은 **ServicePlan.md §3**. 본 문서엔 **방법론만**.
+> - **Phase.md와의 관계**: Phase.md는 기획 방법론, BuildPhase.md는 실행 방법론. Task 진행 상태는 **각 sub-doc의 진행 트래커**에서 관리.
+> - **진입 전제**: ServicePlan-Admin.md 또는 ServicePlan-Member.md v1.0 확정, FRD 확정, Scenarios 확정.
+>
+> **⚠️ Output 라우팅 변경 (2026-04-15)**
+> 이 문서의 Task Output에 적힌 `ServicePlan §X.X` 참조는 **리셋 이전 구조의 섹션 번호**이다.
+>
+> **라우팅 규칙**:
+> - `ServicePlan §3.18` (디자인 시스템) → **`ServicePlan.md §3`** 공통 원칙 디자인 시스템 항목
+> - `ServicePlan §3.X` (서비스 기획 관련) → **`ServicePlan-Admin.md`** 또는 **`ServicePlan-Member.md`** 해당 섹션
+> - `ServicePlan §0` (트래커) → **각 sub-doc의 진행 트래커**
+> - 코드 변경 스냅샷 → **`CodebaseStatus.md`**
 
 ---
 
 ## 🗺 Stage 맵 (한눈에)
 
 ```
-[B1] Design Execution       → 디자인 하네스·시각 디자인·토큰·목업·Review
+[B1] Design → Code          → P8 목업·토큰 → 코드 컴포넌트 전환·Review
 [B2] Pre-Implementation     → deepinit·구현/데이터 하네스·env·DB 스키마·초대 인증
 [B3] Implementation         → ScreenSpec → 간소화 → 실데이터 → Must 기능 → Smoke
 [B4] QA & Hardening         → QA 루프·보안·성능·접근성·리뷰·버그
@@ -27,66 +36,42 @@ Scope: 디자인 시안 제작 → 인프라 세팅 → 코드 구현 → QA →
 
 ---
 
-## Stage B1 — Design Execution
+## Stage B1 — Design → Code 전환
 
-목표: Phase 6 FRD/Scenarios를 **시각적 디자인 시안(Figma 또는 동등)**으로 풀어내기. 디자인 토큰·컴포넌트 오버라이드 계획·목업·Review까지.
+> **⚠️ 스코프 조정 (2026-04-15)**
+> 디자인 **제작**(원칙·토큰·와이어프레임·목업·리뷰)은 **Phase.md P7(UX Design) + P8(UI Design)**에서 완료.
+> B1은 P8 산출물(목업·토큰·컴포넌트 계획)을 **실제 코드 컴포넌트로 전환**하고 리뷰하는 단계만 담당.
+> 아래 B1.0~B1.7 Task는 P7·P8로 이동된 항목이며, **B1 진입 시 P8 완료가 전제**. 코드 전환 상세 Task는 BuildPhase 실행 직전에 재정의.
 
-### Task B1.0 — 주픽-디자인 하네스 구성
-- **Primary**: `oh-my-claudecode:harness` 스킬
-- **Rationale**: "전문 에이전트 + 전용 스킬 조합을 반복 자동화용으로 구성". B1 전체에서 재사용.
-- **구성**: `designer` 에이전트 + `frontend-design:design-consultation/design-shotgun/frontend-design/design-review/visual-verdict/plan-design-review` 스킬 묶음 + 주픽 브랜드 규칙(빨간 상승 캔들 + 노란 스파클 + Korean-first UI + 면책 문구)
-- **Uncertainty**: 낮음.
-- **Output**: `.omc/harnesses/joopick-design.yaml`
+목표: P8 디자인 산출물(목업·토큰·컴포넌트 오버라이드 계획)을 **코드 컴포넌트로 구현**하고 Design Review 통과.
 
-### Task B1.1 — 디자인 원칙·Voice·Tone 정립
-- **Primary**: `designer` 에이전트 + `frontend-design:design-consultation` 스킬
-- **Rationale**: `design-consultation`은 "understands your product, researches the landscape, proposes a comp..." — 프로덕트 이해·경쟁 리서치·방향 제안 통합.
-- **Alternatives**:
-  - `designer` 에이전트 단독 — 경쟁 리서치는 이미 ServicePlan §3.4에 있어 경량 경로.
-- **Uncertainty**: 낮음.
-- **Output**: ServicePlan.md §3.18 Design System의 "Voice & Tone"
+> **아래 B1.0~B1.6은 Phase.md P7(UX)·P8(UI)로 이동됨.** 매핑: B1.0→P8.0, B1.1→P8.1, B1.2→P8.2, B1.3→P8.3, B1.4→P7.2, B1.5→P8.4, B1.6→P8.5. B1 진입 시 이 Task들은 이미 완료 상태. 아래는 이력 보존용.
 
-### Task B1.2 — 디자인 시스템 토큰 결정
-- **Primary**: `designer` 에이전트
-- **Rationale**: 컬러/타이포/스페이싱/쉐도우/라운드 토큰 정의. shadcn base-nova 위에 주픽 브랜드 적용.
-- **Docs**: context7 MCP "tailwindcss v4" 스킴 — CSS 변수 기반 최신 토큰 패턴
-- **Alternatives**:
-  - `frontend-design:design-html` — Pretext HTML/CSS 생성. 토큰은 부산물.
-- **Uncertainty**: 낮음.
-- **Output**: `tudal/src/app/globals.css` 토큰 정의 + ServicePlan §3.18 기록
+<details>
+<summary>B1.0~B1.6 (→ Phase.md P7·P8로 이동됨, 접기)</summary>
 
-### Task B1.3 — shadcn base-nova 컴포넌트 오버라이드 계획
-- **Primary**: `designer` 에이전트
-- **Rationale**: `components.json` `style="base-nova"` 베이스에 Button/Card/Dialog/Tabs/Input 등의 브랜드 적용 오버라이드 포인트 식별.
-- **Docs**: context7 MCP "shadcn" 스킴으로 최신 커스터마이징 패턴
-- **Uncertainty**: 낮음.
-- **Output**: ServicePlan §3.18 "Component Overrides 리스트"
+### Task B1.0 → Phase.md P8.0
+- 디자인 하네스 구성 (`oh-my-claudecode:harness`)
 
-### Task B1.4 — 핵심 플로우 와이어프레임
-- **Primary**: `frontend-design:design-shotgun` 스킬
-- **Rationale**: "generate multiple AI design variants, open a comparison board, collect s..." — 다변형 생성 + 비교 보드. 초기 와이어프레임 이터레이션에 최적.
-- **Alternatives**:
-  - `designer` 에이전트 단독 — 단일안 수동.
-  - `playground:playground` — 인터랙티브 HTML 탐색기 (경량).
-- **Uncertainty**: **중간** — design-shotgun이 한국어 금융 UI에 적합한지 실행 직전 확인 필요.
-- **Output**: `.omc/design/wireframes/` 또는 Figma 링크
+### Task B1.1 → Phase.md P8.1
+- 디자인 원칙·Voice·Tone (`designer` + `design-consultation`)
 
-### Task B1.5 — 고품질 목업 생성
-- **Primary**: `frontend-design:frontend-design` 스킬
-- **Rationale**: "Create distinctive, production-grade frontend interfaces with high design quality". B1.4 피드백 반영본.
-- **Alternatives**:
-  - `frontend-design:design-html` — 최종 HTML/CSS 출력. 구현에 더 가까움.
-- **Uncertainty**: 낮음.
-- **Output**: `.omc/design/mockups/` 또는 Figma 링크
+### Task B1.2 → Phase.md P8.2
+- 디자인 토큰 (`designer`)
 
-### Task B1.6 — Design Review
-- **Primary**: `frontend-design:design-review` 스킬
-- **Rationale**: "Designer's eye QA: finds visual inconsistency, spacing issues, hierarchy problems, AI slop" — 디자인 소각 QA.
-- **Alternatives**:
-  - `frontend-design:plan-design-review` — 플랜 레벨 인터랙티브 검토.
-  - `frontend-design:visual-verdict` — 구조화 verdict (목업 ↔ 기준 비교).
-- **Uncertainty**: 낮음.
-- **Output**: `.omc/design/review-report.md`
+### Task B1.3 → Phase.md P8.3
+- shadcn 컴포넌트 오버라이드 계획 (`designer`)
+
+### Task B1.4 → Phase.md P7.2
+- 핵심 화면 와이어프레임 (`design-shotgun`)
+
+### Task B1.5 → Phase.md P8.4
+- 고품질 목업 (`frontend-design`)
+
+### Task B1.6 → Phase.md P8.5
+- Design Review (`design-review` + `visual-verdict`)
+
+</details>
 
 ### Task B1.7 — 디자인 아카이브 저장
 - **Primary**: 직접 Write (Figma 링크·파일 경로 기록)

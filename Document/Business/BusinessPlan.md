@@ -484,3 +484,6 @@ Tier 3 최소 기준 = 가격 차트 + 기업 개요 + 재무 요약 + 기술적
 | 2026-04-13 | **업황 판단 AI 방법론 리서치 완료** — 하이브리드 스코어링(70%)+LLM 해석(30%) 권장, 14개 섹터(WICS 기반), 무료 데이터만 MVP 가능, 사용자 재검토 후 확정 예정 |
 | 2026-04-13 | **보고서 프레임워크 v2.0 고도화** — 8-Section → Section 0~8 + Appendix 구조 변경, 투자 서사/회사 개요 신설, 촉매+리스크 통합, 투심위 "쟁점별 찬반 대결" 구조 도입, Core Committee 투자 철학 매핑, Sector Board 14개 섹터 선정 가이드, 용어/독자수준/비교분석 가이드라인 추가. `Document/Service/Report/ReportFramework.md` 신규 작성 |
 | 2026-04-14 | **Document/ 5-버킷 재구성** (Business/Service/Process/Research/Outputs) + 문서 경계 정리. BusinessPlan §9.3 백테스트 결과는 ServicePlan §3.21 포인터로 축소, §12 기술 스택은 ServicePlan §2.7로 이관, §13 코드베이스 상태는 `Document/Process/CodebaseStatus.md` 신규 파일로 이관. HANDOFF.md는 "미래 지향"(다음 할 일), CodebaseStatus.md는 "현재 지향"(지금 있는 것)으로 역할 분리. |
+| 2026-04-15 | **어드민 면책 경계 완화** — 어드민 전용이므로 AI가 포트폴리오 비중까지 결정·추천. 멤버 대상은 여전히 "데이터·분석만" 원칙 유지. §7 법적 원칙의 "판단 금지"는 멤버·외부 노출 한정, 어드민 내부 도구에서는 완화. |
+| 2026-04-15 | **Top30 재선정 배치 = 스케줄러 자동** — 월 1회 자동 실행. 수동 트리거 아님. §10.6 재선정 주기 구체화. |
+| 2026-04-15 | **Phase.md P7(UX Design) + P8(UI Design) 추가** — 서비스 기획에 UX/UI 포함. BuildPhase B1은 디자인→코드 전환으로 스코프 축소. |
