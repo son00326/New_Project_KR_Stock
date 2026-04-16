@@ -97,6 +97,8 @@ current_progress: 0%
 - **BL-13** (High): 뉴스 벤더 선택 — M12 의존
 - **BL-14** (Medium): 한투 API WebSocket vs 1분 폴링 — S5 실데이터 연결 단계에서 결정
 - **BL-15** (High): 배치 실행 환경 선택 — M10 의존
+- **[G-3]** (Major — S5 킥오프 전): 신규 엔티티 `pipeline_health` 스키마가 ServicePlan-Admin §4.2에 미정의. S5a M18 헬스체크 구현 시 필드/타입/인덱스 결정 필요. S5 킥오프 시 §4.2 보충 또는 슬라이스 내부 인라인 정의.
+- **[G-6]** (Major — S5 킥오프 전): 배포 플랫폼 미결정 (Vercel? self-hosted?). BL-15(배치 환경)와 동시 결정 필요 — Vercel Cron은 Vercel 배포 전제, Supabase Edge Functions은 Supabase 전제. BusinessPlan §10 "인프라 15만(Vercel, Supabase)" 암시하나 공식 결정 아님.
 
 ---
 

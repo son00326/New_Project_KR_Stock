@@ -65,8 +65,11 @@ current_progress: 0%
 ```
 Phase ① 클린업 (세션 1 전반)
   T0.1 Legacy 제거 ─────────────────── 직접 실행 (trivial)
+    └─ [G-7] legacy 타입(SubscriptionTier 등)도 함께 정리
   T0.8 deepinit ─────────────────────── oh-my-claudecode:deepinit
     └─ T0.1 이후 실행 = clean 코드 기반으로 컨벤션 분석
+    └─ [G-1] 상태 관리 방침 3줄 AGENTS.md에 박제
+    └─ [G-2] 에러 핸들링·로딩 패턴 AGENTS.md에 박제
 
 Phase ② 인프라 (세션 1 후반)
   T0.2 Supabase env ─────────────────── executor (sonnet) + context7
@@ -77,7 +80,9 @@ Phase ② 인프라 (세션 1 후반)
 
 Phase ③ UI + 구조 (세션 2, 병렬 가능)
   ┌─ T0.5 Admin layout ──────────────── executor (sonnet) + context7
-  ├─ T0.6 디자인 토큰 seed ──────────── designer 또는 직접 실행
+  ├─ T0.6a 디자인 방향 결정 ─────────── 사용자 Q&A (45분, deep-interview 또는 직접)
+  │   └─ [G-8] shadcn 커스텀 수준·아이콘셋·반응형 breakpoint도 함께 결정
+  ├─ T0.6b 디자인 토큰 구현 ─────────── designer 에이전트 (T0.6a 결정 기반)
   └─ T0.7 Mock data 구조 ────────────── executor (sonnet)
     ↑ 3개 독립 → 병렬 디스패치 가능 (superpowers:dispatching-parallel-agents)
 
@@ -95,7 +100,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 
 | 항목 | 값 |
 |---|---|
-| **작업** | `app/(main)/pricing` 라우트·`PLANS` 상수·`subscription-gate.tsx`·`report-limit-banner.tsx` 삭제 |
+| **작업** | `app/(main)/pricing` 라우트·`PLANS` 상수·`subscription-gate.tsx`·`report-limit-banner.tsx` 삭제 + **[G-7]** `types/stock.ts`의 `SubscriptionTier`·`UserProfile.reportViewsRemaining` 등 legacy pricing 타입 정리 |
 | **Primary** | 직접 실행 (trivial deletion) |
 | **Skill** | 없음 |
 | **Pre-check** | `npm run build` 현재 통과 확인 → 삭제 → `npm run build` 재확인 |
@@ -106,7 +111,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 
 | 항목 | 값 |
 |---|---|
-| **작업** | repo 컨벤션·AGENTS.md 계층화·import alias·타입 규칙 박제 |
+| **작업** | repo 컨벤션·AGENTS.md 계층화·import alias·타입 규칙 박제 + **[G-1]** 상태 관리 방침(Server Components 우선 / 클라이언트=useState·useReducer / 공유=React Context, 라이브러리 추가 불필요) + **[G-2]** 에러 핸들링 패턴(`error.tsx`·`loading.tsx` 글로벌 + 컴포넌트 레벨 loading/error/empty 3상태 + Server Action 반환 `{success, error?}`) |
 | **Primary** | `oh-my-claudecode:deepinit` (스킬) |
 | **Timing** | T0.1 직후 (legacy 제거된 clean 코드 기반으로 분석) |
 | **Rationale** | deepinit은 기존 코드를 분석해 컨벤션을 추출 → clean 상태에서 실행해야 legacy 패턴이 컨벤션으로 오인식되지 않음 |
@@ -160,17 +165,30 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | **기각 후보** | designer(빈 페이지에 디자인 불필요), frontend-design(목업이 아님) |
 | **병렬**: T0.6·T0.7과 독립 → 동시 실행 가능 |
 
-### T0.6 디자인 토큰 seed
+### T0.6a 디자인 방향 결정 (신규)
 
 | 항목 | 값 |
 |---|---|
-| **작업** | `globals.css` CSS 변수 — color 6종(primary·bg·text·border·success·danger)·typography 3단계·spacing 4단계. Tailwind v4 `@theme` 블록. |
-| **Primary** | **designer** 에이전트 또는 직접 실행 |
-| **Skill** | `frontend-design:frontend-design`은 과잉 (목업 제작용). 직접 CSS 변수 정의가 효율적. |
-| **Input** | ServicePlan.md §3 (base-nova), 한국 증시 관례(빨강=상승·파랑=하락) |
-| **Rationale** | 토큰 6+3+4 = 13개 변수. designer 에이전트가 배색 조화를 잡아주면 좋지만, 최소본이므로 직접 실행도 충분. 사용자 선호에 따라 결정. |
-| **기각 후보** | frontend-design(프로덕션 목업 스킬, 토큰 13개에 과잉), autopilot(과잉) |
-| **병렬**: T0.5·T0.7과 독립 → 동시 실행 가능 |
+| **작업** | 레퍼런스 2~3개 합의 · 다크모드 여부 · 한국 증시 관례(빨강=상승·파랑=하락) 확인 · Voice/Tone 3줄 박제 · **[G-8]** shadcn 커스텀 수준(변수만 vs 컴포넌트 래핑) · 아이콘셋(Lucide 단독 vs 추가) · 반응형 breakpoint 1개 확정(<768px 단일 컬럼) |
+| **Primary** | 사용자 Q&A (직접 대화) 또는 `oh-my-claudecode:deep-interview` |
+| **Skill** | `deep-interview` — 모호한 디자인 선호를 구조화된 결정으로 수렴 |
+| **산출물** | S0 의사결정 로그에 5~10줄 박제 (레퍼런스·다크모드·색상관례·Voice/Tone) |
+| **소요** | 30분 |
+| **Rationale** | 이 결정 없이 T0.6b 토큰을 만들면 임의 선택 → S1~S6 전체 UI 일관성 붕괴. P8 폐기 시 빠진 "디자인 원칙 결정" 역할을 S0 안에서 경량 수행. |
+| **기각 후보** | superpowers:brainstorming(디자인 방향은 사용자 선호 의존, 창의 탐색 아님), frontend-design(결정이 선행되어야 목업 가능) |
+| **선행**: 없음. Phase ③ 첫 번째. T0.6b·T0.5·T0.7보다 먼저 실행. |
+
+### T0.6b 디자인 토큰 구현
+
+| 항목 | 값 |
+|---|---|
+| **작업** | T0.6a 결정 기반으로 `globals.css` CSS 변수 — color 6종(primary·bg·text·border·success·danger)·typography 3단계·spacing 4단계. Tailwind v4 `@theme` 블록. |
+| **Primary** | **designer** 에이전트 |
+| **Skill** | `frontend-design:frontend-design`은 과잉 (목업 제작용). designer가 배색 조화 + CSS 변수 정의. |
+| **Input** | T0.6a 결정(레퍼런스·다크모드·관례·Voice/Tone) + ServicePlan.md §3 (base-nova) |
+| **Rationale** | T0.6a 근거가 있으므로 designer가 일관된 토큰을 생성 가능. 임의 선택 제거. |
+| **기각 후보** | 직접 실행(T0.6a 결정이 있으면 designer가 더 나은 배색 생산), frontend-design(토큰 13개에 과잉) |
+| **병렬**: T0.5·T0.7과 독립 → 동시 실행 가능 (T0.6a 완료 후) |
 
 ### T0.7 Mock data 구조
 
@@ -245,7 +263,8 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 - [ ] `/admin` 경로: admin role 없는 인증 유저 접근 시 403/리다이렉트
 - [ ] `app/(admin)/layout.tsx` 존재 + 면책 Footer 문구 포함
 - [ ] 10 라우트 전부 빈 페이지로 200 응답
-- [ ] `globals.css` CSS 변수 정의됨 (최소 color 6 · font-size 3 · spacing 4)
+- [ ] T0.6a 디자인 방향 결정 박제됨 (레퍼런스·다크모드·색상관례·Voice/Tone, 의사결정 로그에 5줄+)
+- [ ] `globals.css` CSS 변수 정의됨 (T0.6a 근거 기반, 최소 color 6 · font-size 3 · spacing 4)
 - [ ] `mock-admin-*.ts` 파일 구조 확정 (빈 배열이라도 export shape + 타입 존재)
 - [ ] `npm run build` 오류 0
 - [ ] `npm run lint` 경고 0

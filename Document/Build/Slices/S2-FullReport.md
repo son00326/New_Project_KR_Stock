@@ -75,6 +75,8 @@ current_progress: 0%
 
 - **BL-4** (Medium): Section 0~8 mock 원고 작성 책임자 — writer 에이전트 선행 vs AI codegen 중 선택. T2.1 mock fixture 품질에 직접 영향 — ProgressDashboard §5 참조
 - **BL-5** (Low — P7 이관 가능): `report.view` dedupe 정책 — 동일 어드민이 같은 날 재진입 시 +1 카운트할지. 2인 게이팅(BL-7)과 연동. MVP는 "진입마다 +1"로 단순화 가능
+- **[G-5]** (Major — S2 킥오프 시 설계 결정): `report_view_count` int 필드는 "유니크 어드민 수"와 "총 진입 횟수"를 구분 불가. 1인이 2번 열면 D15 2인 게이팅 통과 → 의도 무효화. 해소 옵션: (a) `report_viewers` jsonb 배열로 변경, (b) 별도 `report_view_log` 테이블 + 유니크 집계, (c) E4에 `distinct_viewer_count` 컬럼 추가.
+- **[G-11]** (Minor — S2 킥오프 시 설계 결정): S2에서 E4 `report_view_count`에 +1 write하는데, E4 Row는 S3(승인)에서 최초 생성됨. S2 시점에 해당 month E4 Row 부재 시 에러 발생. 해소 옵션: (a) S2에서 E4 스키마 함께 생성(report_view_count 전용 행 선생성), (b) report_view를 별도 테이블에 기록 후 S3에서 집계(권장), (c) Short List 생성 시점(S1/S5)에 E4 Row 초기화.
 
 ---
 

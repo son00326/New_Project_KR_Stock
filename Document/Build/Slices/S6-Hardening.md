@@ -79,7 +79,8 @@ Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent H
 
 - **BL-16** (Medium): AI 비용 수집 방식 — Anthropic `/messages` 응답 usage 파싱 + per-persona·per-section 태깅 전략. 수집 방식 확정 전 cost_log 스키마 설계 불가 — ProgressDashboard §5 참조
 - **BL-17** (Low): override 토글 권한 — 어드민 3인 모두 vs 대표 1인
-- **BL-18** (High — S6 진입 전 필수): P5 I-03 박제된 B3.3 직전 토큰 dry-run 타이밍. S6 진입 전 실측해야 경보 임계치(35만·40만) 검증 가능
+- **BL-18** (High — S6 진입 전 필수): P5 I-03 박제된 토큰 dry-run 타이밍. S6 진입 전 실측해야 경보 임계치(35만·40만) 검증 가능
+- **[G-3]** (Major — S6 킥오프 전): 신규 엔티티 `cost_log`·`heartbeat_log` 스키마가 ServicePlan-Admin §4.2에 미정의. M17 비용 모니터·M19 하트비트 구현 시 필드/타입 결정 필요. S6 킥오프 시 §4.2 보충 또는 슬라이스 내부 인라인 정의.
 
 ---
 
