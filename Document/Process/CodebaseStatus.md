@@ -20,7 +20,7 @@
 
 ### 규모
 - 총 **48개** TypeScript 파일
-- **7개** 라우트: 랜딩 / 로그인 / 회원가입 / 요금제(legacy) `[레거시 - B3.1 제거 확정]` / 매크로 / 종목 / 404
+- **7개** 라우트: 랜딩 / 로그인 / 회원가입 / 요금제(legacy) `[레거시 - S0 Foundation에서 제거]` / 매크로 / 종목 / 404
 
 ### 기술 스택
 - Next.js 16.2.3 + React 19 + TypeScript + Tailwind v4
@@ -32,12 +32,12 @@
 
 ### 데이터 레이어
 - **mock 데이터 기반 MVP 프레임워크 완성** (`tudal/src/lib/data/*`)
-- 실데이터: 0 (KRX·한투·DART·pykrx 미연결, BuildPhase B3.2 대기)
-- 인증: Supabase SSR 준비, `.env.local` 미세팅 (B2.2 대기)
+- 실데이터: 0 (KRX·한투·DART·pykrx 미연결, 슬라이스별 실데이터 연결 단계 대기)
+- 인증: Supabase SSR 준비, `.env.local` 미세팅 (S0 Foundation 대기)
 - 유저: 0
 
 ### 레거시 제거 대상
-- `constants.ts` 3tier `PLANS`, `(main)/pricing` 라우트 `[레거시 - B3.1 제거 확정]` → BuildPhase **B3.1**에서 제거
+- `constants.ts` 3tier `PLANS`, `(main)/pricing` 라우트 `[레거시 - S0 Foundation에서 제거]` → **S0 Foundation**에서 제거
 
 ### 다음 작업 방향
 Option B (선별 재활용 + 대폭 간소화) 기준으로 재정비.

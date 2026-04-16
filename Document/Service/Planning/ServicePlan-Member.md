@@ -1,8 +1,10 @@
 # ServicePlan-Member.md — 멤버 페이지 기획
 
 Last updated: 2026-04-15
-Status: **스켈레톤 (2순위, Research 보강 블로커 해소 후 착수)**
+Status: **스켈레톤 · 스코프 축소 대기 (D13, 2026-04-15 P5)**
 Parent: → `ServicePlan.md` (인덱스·공통 원칙)
+
+> **[D13 스코프 재정의 — 2026-04-15]** 멤버 페이지는 **"법적 문제 없는 선의 리서치 웹페이지 수준"**으로 축소. 당분간 어드민 3명 전용 운영 중심. 어드민 운영 체제 안정화 후 재착수. 기존 "500cap 초대·월 19,900원·Research 형식 메인" 스켈레톤은 이 축소 방침에 맞춰 향후 전면 재정의 필요. Short List·풀 리포트·포트폴리오·Exit 시그널 등 어드민 전용 데이터 노출 금지. (상세: BusinessPlan §12 D13)
 
 ---
 
@@ -19,7 +21,7 @@ Parent: → `ServicePlan.md` (인덱스·공통 원칙)
 
 ## 진행 트래커
 
-### Planning (Phase.md 방법론 기준)
+### Planning (기획 완료 후 슬라이스 방식으로 전환 — `ExecutionPlaybook.md` 기준)
 - [ ] P0 — 스코프·JTBD 확정
 - [ ] P1 — 리서치 병렬 (경쟁 스캔 / 페르소나 / 여정 / JTBD / 기능 후보)
 - [ ] P2 — 전략 골격 (비전 / VP / 가격 / NSM)
@@ -28,7 +30,7 @@ Parent: → `ServicePlan.md` (인덱스·공통 원칙)
 - [ ] P5 — 검증 (적대적 / UX / Pre-mortem) → v1.0
 - [ ] P6 — 사양화 (FRD-Member / Scenarios-Member)
 
-### Build (BuildPhase.md 방법론 기준)
+### Build (슬라이스 기반 — `Document/Process/ExecutionPlaybook.md` 기준)
 - [ ] B1 — 디자인 (하네스 / 토큰 / 와이어프레임 / 목업 / 리뷰)
 - [ ] B2 — 인프라 (Supabase / 초대 코드 / DB / 하네스)
 - [ ] B3 — 구현 (ScreenSpec / 기능 / Smoke)
@@ -81,7 +83,7 @@ Parent: → `ServicePlan.md` (인덱스·공통 원칙)
 
 > **[스켈레톤]**
 
-- **저장**: Supabase (공통, BuildPhase B2.2)
+- **저장**: Supabase (공통, S0 Foundation)
 - **핵심 엔티티** (확정 대기): Member / InviteCode / Subscription / MemberSession
 - **어드민 데이터 격리**: 멤버는 Short List·리포트·포트폴리오 테이블에 RLS로 접근 차단
 
@@ -118,5 +120,6 @@ Parent: → `ServicePlan.md` (인덱스·공통 원칙)
 | 날짜 | 확정 항목 | 방법 | 링크 |
 |---|---|---|---|
 | 2026-04-15 | 문서 스켈레톤 신설 | 사용자 지시 (기획 분리) | HANDOFF 2026-04-15 |
+| 2026-04-15 | **D13 스코프 축소** — 멤버 = 법적 문제 없는 선의 리서치 웹페이지 수준. 어드민 전용 데이터 노출 금지. 재착수 유보. | P5 검증 critic I-11 대응 + 사용자 결정 | BusinessPlan §12 D13 / ServicePlan-Admin.md §5 |
 
 > 섹션별 확정 시마다 행 추가.
