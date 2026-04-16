@@ -116,8 +116,8 @@ S6 Hardening (3세션) — M17·M19
 | BL-ID | 슬라이스 | 의제 | 해소 시점 |
 |---|---|---|---|
 | **BL-1** | S0 | Supabase 프로젝트 키·env 세팅 | S0 착수 전 필수 |
-| **BL-2** | S0 | admin role 정의 (email allowlist vs role claim) | S0 착수 전 필수 |
-| **BL-6** | S5 | `/admin/health` 라우트 승격 vs `/admin/settings/health` 서브라우트 결정 | S5 진입 전 필수 (S0 시점 권장) |
+| **BL-2** | S0 | ✅ 해소 — (A) email allowlist 채택 (2026-04-16) | S0 착수 전 필수 |
+| **BL-6** | S5 | ✅ 해소 — (B) `/admin/settings/health` 서브라우트 채택 (2026-04-16) | S5 진입 전 필수 (S0 시점 권장) |
 | **BL-11** | S5 | 이메일 벤더 선택 (SendGrid/Resend/AWS SES) | S5 진입 전 필수 |
 | **BL-13** | S5 | 뉴스 벤더 선택 (구체 업체 미정) | S5 진입 전 필수 |
 | **BL-15** | S5 | 배치 실행 환경 (Vercel Cron vs Supabase Edge vs GitHub Actions) | S5 진입 전 필수 |
@@ -125,7 +125,7 @@ S6 Hardening (3세션) — M17·M19
 | **BL-19** | S3 | [G-4] 한국 영업일 캘린더 데이터 소스 (pykrx 역산 / KRX 하드코딩 / 외부 API) | S3 킥오프 전 필수 |
 | **BL-20** | S3 | [G-9] R8 "1인 어드민 7일 연속" 2인 게이팅 예외 룰 (자동 바이패스 / 수동 오버라이드 / 예외 없음) | S3 킥오프 전 필수 |
 
-**S0 진입 전 필수 해소**: BL-1, BL-2
+**S0 진입 전 필수 해소**: BL-1 (미해소), ~~BL-2~~ (해소)
 **S0 시점 권장 (S5 전 필수)**: BL-6
 **S3 킥오프 전 필수 해소**: BL-19, BL-20
 **S5 진입 전 필수 해소**: BL-6, BL-11, BL-13, BL-15

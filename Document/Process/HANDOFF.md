@@ -15,9 +15,9 @@ Last updated: 2026-04-16 (14차 — Waterfall→Slice 전환, 문서 재편)
 상태: ⚪ 대기 (BL-1·BL-2 해소 필요)
 
 ### 🔴 S0 착수 전 필수
-1. **BL-1**: Supabase 프로젝트 생성 + `.env.local` 키 확보 (사용자)
-2. **BL-2**: admin role 정의 — email allowlist vs Supabase role claim (사용자)
-3. **BL-6**: `/admin/health` 라우트를 §2 공식 11번째로 승격 vs `/admin/settings/health` 서브라우트 (S5 진입 전까지 결정)
+1. **BL-1**: Supabase 프로젝트 생성 + `.env.local` 키 확보 (사용자) — ⏳ 대기
+2. ~~**BL-2**~~: ✅ **(A) email allowlist** 확정 (2026-04-16)
+3. ~~**BL-6**~~: ✅ **(B) `/admin/settings/health` 서브라우트** 확정 (2026-04-16)
 
 ### 🚀 S0 착수 시 첫 행동
 ```

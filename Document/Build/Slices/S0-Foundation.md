@@ -280,8 +280,8 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 ## 블로커 / 사용자 결정 필요
 
 - **BL-1** (High — S0 착수 전 필수): Supabase 프로젝트 키·URL·Anon Key 세팅 (S0 Foundation 인프라 단계) — ProgressDashboard §5 참조
-- **BL-2** (High — S0 착수 전 필수): admin role 정의 방식 결정 — email allowlist (`ADMIN_EMAILS` env) vs Supabase user_metadata role claim 중 택 1
-- **BL-6** (High — S0 착수 후 S5 진입 전까지 확정 필수. S0 시점엔 권장): `/admin/health` 라우트를 IA 11번째 독립 라우트로 승격할지 vs `/admin/settings/health` 서브라우트로 편입할지 결정 (S5 진입 전 IA 재협상 방지)
+- **BL-2** ✅ 해소 (2026-04-16): **(A) email allowlist** 채택. `ADMIN_EMAILS` env에 3명 이메일 등록, 미들웨어에서 비교.
+- **BL-6** ✅ 해소 (2026-04-16): **(B) `/admin/settings/health` 서브라우트** 채택. 기존 10개 라우트 IA 유지, settings 하위 편입.
 
 ---
 
@@ -296,6 +296,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 
 - 2026-04-16: 슬라이스 파일 생성. BL-1·BL-2 해소 후 착수 예정.
 - 2026-04-16: Task별 에이전트·스킬 상세 매핑 + 전소스 비교 보강. deepinit 순서 = T0.1 직후(clean code 기반).
+- 2026-04-16: **BL-2 해소** — (A) email allowlist 확정. **BL-6 해소** — (B) `/admin/settings/health` 서브라우트 확정.
 
 ---
 
