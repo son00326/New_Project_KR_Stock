@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>삼천당제약 (000250) 투심보고서 | JooPick</title>
+<style>
+:root {
+  --navy: #0a1628;
+  --navy-mid: #112240;
+  --navy-light: #1a3a6b;
+  --accent: #1e6bff;
+  --accent-bright: #4d8eff;
+  --buy: #22c55e;
+  --hold: #f59e0b;
+  --sell: #ef4444;
+  --text-primary: #1a2236;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --border: #e2e8f0;
+  --bg: #f8fafc;
+  --bg-white: #ffffff;
+  --bg-section: #f0f4f8;
+  --gold: #d4a843;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+#topnav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--navy);
+  border-bottom: 2px solid var(--accent);
+  display: flex; align-items: center;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+#topnav::-webkit-scrollbar { display: none; }
+#topnav a {
+  color: #a0b4d0; text-decoration: none; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.03em; padding: 10px 12px; white-space: nowrap;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  transition: color 0.2s, background 0.2s;
+}
+#topnav a:first-child { color: var(--gold); font-size: 12px; padding-left: 18px; }
+#topnav a:hover { color: #fff; background: rgba(255,255,255,0.06); }
+header {
+  background: linear-gradient(160deg, var(--navy) 0%, var(--navy-mid) 60%, #0d2444 100%);
+  color: #fff; padding: 40px 40px 36px; position: relative; overflow: hidden;
+}
+header::before {
+  content: ''; position: absolute; top: -60px; right: -60px;
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(30,107,255,0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+header::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--hold) 50%, var(--gold) 100%);
+}
+.header-tag {
+  display: inline-block;
+  background: rgba(30,107,255,0.25); border: 1px solid rgba(30,107,255,0.5);
+  color: var(--accent-bright); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em; padding: 4px 10px; border-radius: 3px;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.header-title { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.header-subtitle { font-size: 14px; color: rgba(255,255,255,0.65); margin-bottom: 20px; }
+.header-meta { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 16px; }
+.header-meta-item { display: flex; flex-direction: column; }
+.header-meta-label { font-size: 10px; color: rgba(255,255,255,0.45); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+.header-meta-value { font-size: 18px; font-weight: 700; }
+.header-meta-value.buy { color: var(--buy); }
+.header-meta-value.hold { color: var(--hold); }
+.header-meta-value.sell { color: var(--sell); }
+.verdict-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(245,158,11,0.15); border: 2px solid var(--hold);
+  border-radius: 8px; padding: 10px 20px; margin-top: 18px;
+}
+.verdict-badge .verdict-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+.verdict-badge .verdict-value { font-size: 22px; font-weight: 900; color: var(--hold); letter-spacing: 0.05em; }
+.verdict-badge .verdict-tp { font-size: 14px; color: rgba(255,255,255,0.8); font-weight: 600; }
+main { max-width: 1100px; margin: 0 auto; padding: 0 20px 60px; }
+section { margin-top: 40px; }
+.section-title {
+  font-size: 18px; font-weight: 800; color: var(--navy); margin-bottom: 4px;
+  padding-bottom: 10px; border-bottom: 2px solid var(--accent);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-num {
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 3px; letter-spacing: 0.05em;
+}
+.section-desc {
+  font-size: 13px; color: var(--text-muted); margin-bottom: 18px;
+  padding: 8px 14px; background: #f0f4f8; border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+.subsection-title { font-size: 15px; font-weight: 700; color: var(--navy); margin: 22px 0 10px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+thead th {
+  background: var(--navy); color: #fff; padding: 10px 12px;
+  text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
+}
+tbody tr:nth-child(even) { background: #f7f9fc; }
+tbody tr:hover { background: #eef2f8; }
+tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody td strong { color: var(--navy); }
+.table-wrap { overflow-x: auto; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 18px; }
+.highlight-row td { background: #fffbeb !important; font-weight: 600; border-left: 3px solid var(--gold); }
+.highlight-row:hover td { background: #fef3c7 !important; }
+.tag-buy { background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+.tag-hold { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+.tag-sell { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+.callout {
+  background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;
+  padding: 14px 18px; margin: 12px 0; font-size: 13px; color: #0c4a6e;
+}
+.callout-warn {
+  background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px;
+  padding: 14px 18px; margin: 12px 0; font-size: 13px; color: #78350f;
+}
+.callout-warn .warn-icon { color: #d97706; font-weight: 700; margin-right: 6px; }
+pre, .code-block {
+  background: #1e2a3a; color: #c9d8ef; font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px; padding: 18px; border-radius: 6px; overflow-x: auto;
+  white-space: pre; margin: 12px 0; line-height: 1.7;
+}
+/* Section 0 hero */
+.narrative-hero {
+  background: linear-gradient(135deg, #0a1628 0%, #0f2550 60%, #0a1e40 100%);
+  border-radius: 10px; padding: 36px 40px; margin-bottom: 28px;
+  position: relative; overflow: hidden;
+}
+.narrative-hero::before {
+  content: ''; position: absolute; top: -80px; right: -80px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(30,107,255,0.15) 0%, transparent 60%);
+}
+.narrative-hero h3 { color: var(--accent-bright); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.narrative-hero p { color: rgba(255,255,255,0.85); font-size: 14px; line-height: 1.8; margin-bottom: 14px; }
+.narrative-hero p strong { color: #fff; }
+.narrative-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 24px; }
+.narrative-card {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 16px;
+}
+.narrative-card .card-num { font-size: 20px; font-weight: 800; color: var(--accent-bright); margin-bottom: 4px; }
+.narrative-card .card-label { font-size: 11px; color: rgba(255,255,255,0.6); letter-spacing: 0.05em; }
+.narrative-card .card-desc { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 6px; line-height: 1.5; }
+/* Timeline */
+.timeline { list-style: none; position: relative; padding-left: 30px; }
+.timeline::before {
+  content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+  width: 2px; background: linear-gradient(180deg, var(--accent), var(--buy));
+}
+.timeline li {
+  position: relative; padding: 10px 0 10px 20px; border-bottom: none;
+}
+.timeline li::before {
+  content: ''; position: absolute; left: -25px; top: 14px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.timeline li.highlight::before { background: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+.timeline li.milestone::before { background: var(--buy); box-shadow: 0 0 0 2px var(--buy); }
+.timeline-year { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; margin-bottom: 2px; }
+.timeline-event { font-size: 13px; color: var(--text-primary); }
+/* Vote bars */
+.vote-section { background: var(--bg-white); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 16px 0; }
+.vote-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 14px; }
+.vote-bar-group { margin-bottom: 10px; }
+.vote-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.vote-bar-track { height: 20px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+.vote-bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 700; color: #fff; transition: width 0.8s ease; }
+.vote-bar-fill.buy { background: var(--buy); }
+.vote-bar-fill.hold { background: var(--hold); }
+.vote-bar-fill.sell { background: var(--sell); }
+/* Scenario bars */
+.scenario-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 16px 0; }
+.scenario-card { border-radius: 8px; padding: 18px; border: 2px solid; }
+.scenario-card.bull { border-color: var(--buy); background: #f0fdf4; }
+.scenario-card.base { border-color: var(--accent); background: #eff6ff; }
+.scenario-card.bear { border-color: var(--sell); background: #fef2f2; }
+.scenario-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.scenario-card.bull .scenario-label { color: var(--buy); }
+.scenario-card.base .scenario-label { color: var(--accent); }
+.scenario-card.bear .scenario-label { color: var(--sell); }
+.scenario-tp { font-size: 24px; font-weight: 900; margin-bottom: 4px; }
+.scenario-card.bull .scenario-tp { color: var(--buy); }
+.scenario-card.base .scenario-tp { color: var(--accent); }
+.scenario-card.bear .scenario-tp { color: var(--sell); }
+.scenario-prob { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+.scenario-detail { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+/* Debate rounds */
+.debate-round { border-radius: 8px; overflow: hidden; margin: 16px 0; border: 1px solid var(--border); }
+.debate-header { background: var(--navy); color: #fff; padding: 10px 16px; font-size: 13px; font-weight: 700; }
+.debate-arg { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.debate-arg:last-child { border-bottom: none; }
+.debate-arg.pro { border-left: 4px solid var(--buy); background: #f9fef9; }
+.debate-arg.con { border-left: 4px solid var(--sell); background: #fff9f9; }
+.debate-arg.med { border-left: 4px solid #9ca3af; background: #f9fafb; }
+.debate-arg-role { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+.debate-arg.pro .debate-arg-role { color: var(--buy); }
+.debate-arg.con .debate-arg-role { color: var(--sell); }
+.debate-arg.med .debate-arg-role { color: #6b7280; }
+.debate-arg-author { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.debate-arg blockquote { font-size: 13px; color: var(--text-primary); font-style: normal; line-height: 1.7; }
+.debate-result { background: #f8fafc; padding: 12px 18px; border-top: 2px solid var(--border); font-size: 13px; color: var(--text-secondary); }
+/* Pre-mortem */
+.premortem { background: #fffbeb; border: 2px solid #fcd34d; border-radius: 8px; padding: 20px 24px; margin: 16px 0; }
+.premortem-title { font-size: 14px; font-weight: 800; color: #92400e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.premortem-icon { background: #fbbf24; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; }
+.premortem-scenario { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #fde68a; }
+.premortem-scenario:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.premortem-scenario h4 { font-size: 13px; font-weight: 700; color: #b45309; margin-bottom: 8px; }
+.premortem-scenario p { font-size: 13px; color: #78350f; line-height: 1.7; }
+/* DCF table gradient */
+.dcf-high { background: #dcfce7 !important; color: #15803d; font-weight: 700; }
+.dcf-mid { background: #fef9c3 !important; color: #854d0e; font-weight: 600; }
+.dcf-low { background: #fee2e2 !important; color: #991b1b; font-weight: 700; }
+/* Revenue roadmap bars */
+.roadmap-bar-wrap { margin: 6px 0; }
+.roadmap-bar-label { font-size: 12px; color: var(--text-secondary); display: flex; justify-content: space-between; margin-bottom: 3px; }
+.roadmap-bar-track { height: 24px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+.roadmap-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-bright)); border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 700; color: #fff; }
+/* Appendix collapsible */
+details { border: 1px solid var(--border); border-radius: 6px; margin: 12px 0; }
+details > summary { padding: 12px 18px; background: var(--bg-section); cursor: pointer; font-weight: 600; font-size: 13px; border-radius: 6px; user-select: none; }
+details[open] > summary { border-radius: 6px 6px 0 0; border-bottom: 1px solid var(--border); }
+details > div { padding: 18px; }
+/* Summary grid */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.summary-card { background: var(--bg-white); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+.summary-card-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.summary-card-value { font-size: 18px; font-weight: 800; color: var(--navy); }
+.summary-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+/* Final verdict box */
+.final-verdict {
+  background: var(--navy); color: #fff; border-radius: 10px; padding: 28px 32px; margin: 24px 0;
+  position: relative; overflow: hidden;
+}
+.final-verdict::before {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--hold), var(--accent), var(--gold));
+}
+.final-verdict h3 { font-size: 13px; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.final-verdict .fv-main { font-size: 32px; font-weight: 900; color: var(--hold); letter-spacing: 0.05em; margin-bottom: 6px; }
+.final-verdict .fv-tp { font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.9); margin-bottom: 16px; }
+.final-verdict .fv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.final-verdict .fv-item { border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 12px; }
+.final-verdict .fv-item-label { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.final-verdict .fv-item-value { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9); }
+footer { background: var(--navy); color: rgba(255,255,255,0.4); font-size: 11px; text-align: center; padding: 24px 20px; margin-top: 60px; line-height: 1.8; }
+footer a { color: rgba(255,255,255,0.5); }
+@media (max-width: 768px) {
+  header { padding: 28px 20px 24px; }
+  .header-title { font-size: 22px; }
+  main { padding: 0 12px 40px; }
+  .scenario-grid { grid-template-columns: 1fr; }
+  .narrative-hero { padding: 24px 20px; }
+  thead th, tbody td { padding: 7px 8px; font-size: 12px; }
+}
+@media print {
+  #topnav { display: none; }
+  header { padding: 20px; }
+  .narrative-hero { background: #f0f4f8 !important; color: #000 !important; }
+  .narrative-hero p, .narrative-hero h3 { color: #000 !important; }
+  .narrative-card { border: 1px solid #ccc !important; background: #f8f8f8 !important; }
+  .final-verdict { background: #f0f4f8 !important; color: #000 !important; }
+  .final-verdict .fv-main { color: #b45309 !important; }
+  details[open] > div { display: block !important; }
+  .premortem { background: #fff8e1 !important; }
+  @page { margin: 15mm; }
+}
+</style>
+</head>
+<body>
+<nav id="topnav">
+  <a href="#">JooPick</a>
+  <a href="#sec-summary">Summary</a>
+  <a href="#sec-0">&#167;0 투자서사</a>
+  <a href="#sec-1">&#167;1 산업기초</a>
+  <a href="#sec-2">&#167;2 회사개요</a>
+  <a href="#sec-3">&#167;3 이익모델</a>
+  <a href="#sec-4">&#167;4 밸류에이션</a>
+  <a href="#sec-5">&#167;5 거시민감도</a>
+  <a href="#sec-6">&#167;6 시나리오</a>
+  <a href="#sec-7">&#167;7 촉매&amp;리스크</a>
+  <a href="#sec-8">&#167;8 투자위원회</a>
+  <a href="#appendix">Appendix</a>
+</nav>
+
+<header>
+  <div class="header-tag">JooPick Investment Committee &middot; ReportFramework v2.1</div>
+  <div class="header-title">삼천당제약 (000250) 풀 투심보고서</div>
+  <div class="header-subtitle">제약/바이오 섹터 보드(10명) &rarr; Core Committee(10명) &rarr; 위원장 최종 결정 | 발행일: 2026-04-13 | 데이터 기준: 2026-04-10</div>
+  <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div class="verdict-badge">
+      <div>
+        <div class="verdict-label">투심위 권고</div>
+        <div class="verdict-value">HOLD</div>
+      </div>
+      <div>
+        <div class="verdict-label">확률가중 TP</div>
+        <div class="verdict-tp">388,500원 <span style="color:var(--sell)">-23.1%</span></div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div class="header-meta-item">
+        <div class="header-meta-label">현재가</div>
+        <div class="header-meta-value">505,000원</div>
+      </div>
+      <div class="header-meta-item">
+        <div class="header-meta-label">시가총액</div>
+        <div class="header-meta-value">~11.85조원</div>
+      </div>
+      <div class="header-meta-item">
+        <div class="header-meta-label">컨센서스 TP</div>
+        <div class="header-meta-value hold">405,000원</div>
+      </div>
+      <div class="header-meta-item">
+        <div class="header-meta-label">52주 MDD(최대낙폭)</div>
+        <div class="header-meta-value sell">-59.0%</div>
+      </div>
+      <div class="header-meta-item">
+        <div class="header-meta-label">YTD 수익률</div>
+        <div class="header-meta-value buy">+106.5%</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- SUMMARY -->
+<section id="sec-summary">
+  <div class="section-title"><span class="section-num">SUMMARY</span> 1페이지 요약</div>
+
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-card-label">현재가</div><div class="summary-card-value">505,000원</div><div class="summary-card-sub">2026-04-10 기준</div></div>
+    <div class="summary-card"><div class="summary-card-label">52주 범위</div><div class="summary-card-value" style="font-size:14px">127,600 ~ 1,233,000</div><div class="summary-card-sub">원</div></div>
+    <div class="summary-card"><div class="summary-card-label">시가총액</div><div class="summary-card-value">~11.85조원</div></div>
+    <div class="summary-card"><div class="summary-card-label">컨센서스 TP(목표주가)</div><div class="summary-card-value" style="color:var(--hold)">405,000원</div><div class="summary-card-sub">비공식 추정 (커버리지 1곳)</div></div>
+    <div class="summary-card"><div class="summary-card-label">Trailing PER(주가수익비율)</div><div class="summary-card-value">~1,036배</div><div class="summary-card-sub">EPS 224원 기준, 사실상 무의미</div></div>
+    <div class="summary-card"><div class="summary-card-label">PBR(주가순자산비율)</div><div class="summary-card-value">~42.8배</div><div class="summary-card-sub">BPS 11,791원</div></div>
+    <div class="summary-card"><div class="summary-card-label">RSI(상대강도지수, 14일)</div><div class="summary-card-value" style="color:var(--sell)">30.9</div><div class="summary-card-sub">과매도 근접</div></div>
+    <div class="summary-card"><div class="summary-card-label">연간 변동성</div><div class="summary-card-value" style="color:var(--sell)">94.3%</div></div>
+  </div>
+
+  <div class="subsection-title">투심위 최종 의견</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>단계</th><th>BUY</th><th>HOLD</th><th>SELL</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td><strong>제약/바이오 섹터 보드</strong> (10명)</td><td style="color:var(--buy);font-weight:700">4명</td><td style="color:var(--hold);font-weight:700">3명</td><td style="color:var(--sell);font-weight:700">3명</td><td><span class="tag-hold">의견 분열 (BUY 40%)</span></td></tr>
+      <tr><td><strong>Core Committee</strong> (10명)</td><td style="color:var(--buy);font-weight:700">3명</td><td style="color:var(--hold);font-weight:700">3명</td><td style="color:var(--sell);font-weight:700">4명</td><td><span class="tag-sell">SELL 우세 (40%)</span></td></tr>
+      <tr><td><strong>종합</strong> (위원장 제외 20명)</td><td style="color:var(--buy);font-weight:700">7명</td><td style="color:var(--hold);font-weight:700">6명</td><td style="color:var(--sell);font-weight:700">7명</td><td><span class="tag-hold">HOLD (BUY 35%, HOLD 30%, SELL 35%)</span></td></tr>
+      <tr><td><strong>위원장 (사용자)</strong></td><td>-</td><td>-</td><td>-</td><td style="color:var(--hold);font-weight:700">결정 대기</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="vote-section">
+    <div class="vote-title">전체 투표 분포 (위원장 제외 20명)</div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>BUY &mdash; 7명</span><span style="color:var(--buy);font-weight:700">35.0%</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill buy" style="width:35%">7</div></div>
+    </div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>HOLD &mdash; 6명</span><span style="color:var(--hold);font-weight:700">30.0%</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill hold" style="width:30%">6</div></div>
+    </div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>SELL &mdash; 7명</span><span style="color:var(--sell);font-weight:700">35.0%</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill sell" style="width:35%">7</div></div>
+    </div>
+  </div>
+
+  <div class="subsection-title">시나리오별 Target Price</div>
+  <div class="scenario-grid">
+    <div class="scenario-card bull">
+      <div class="scenario-label">Bull Case</div>
+      <div class="scenario-tp">1,000,000원</div>
+      <div class="scenario-prob">+98.0% | 확률 15%</div>
+      <div class="scenario-detail">S-PASS 성공 + 바이오시밀러 글로벌 확대<br>2028E 매출 2조+<br>영업이익 3,000억+ (OPM 15%+)</div>
+    </div>
+    <div class="scenario-card base">
+      <div class="scenario-label">Base Case</div>
+      <div class="scenario-tp">450,000원</div>
+      <div class="scenario-prob">-10.9% | 확률 40%</div>
+      <div class="scenario-detail">바이오시밀러 안정 성장, S-PASS 지연<br>2027E 매출 4,000~5,000억<br>영업이익 300~500억</div>
+    </div>
+    <div class="scenario-card bear">
+      <div class="scenario-label">Bear Case</div>
+      <div class="scenario-tp">130,000원</div>
+      <div class="scenario-prob">-74.3% | 확률 45%</div>
+      <div class="scenario-detail">S-PASS 실패 + 공시 제재 + 경쟁 심화<br>2027E 매출 2,500~3,000억<br>S-PASS 프리미엄 소멸</div>
+    </div>
+  </div>
+  <div class="callout">
+    <strong>확률가중 TP: 388,500원 (-23.1%)</strong> &mdash; Bull 1,000,000&times;15% + Base 450,000&times;40% + Bear 130,000&times;45% = 388,500원. Bear 확률 45%로 가장 높게 책정 (S-PASS 미검증 + 공시 논란 + CEO 담보대출 반영).
+  </div>
+
+  <div class="subsection-title">핵심 리스크 3가지</div>
+  <div class="callout-warn"><span class="warn-icon">&#9888;</span><strong>공시 신뢰성 위기</strong>: 유럽 GLP-1 계약 공시 508억원 vs 회사 발표 5.3조원의 극심한 괴리. 불성실공시법인 지정 예고(2026.04.23 결정). 시장 신뢰 회복에 수년 소요 가능.</div>
+  <div class="callout-warn"><span class="warn-icon">&#9888;</span><strong>S-PASS 기술 미검증</strong>: PCT 국제조사에서 2020년 "진보성 부정" 판단 전력. BE 시험 결과 미공개. 임상 데이터 없이 대형 계약 체결 &rarr; 기술 실패 시 성장 스토리 전면 붕괴.</div>
+  <div class="callout-warn"><span class="warn-icon">&#9888;</span><strong>CEO 주담보대출 2,335억원</strong>: 전인석 대표의 대규모 담보대출은 주가 하락 시 반대매매(마진콜) &rarr; 추가 매도 압력 &rarr; 주가 하락의 악순환 가능성.</div>
+</section>
+
+<!-- SECTION 0 -->
+<section id="sec-0">
+  <div class="section-title"><span class="section-num">&#167; 0</span> 투자 서사 (Investment Narrative)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 삼천당제약이 무엇을 하는 회사이고, 왜 주목받았으며, 왜 지금 논란의 중심에 있는지.</div>
+
+  <div class="narrative-hero">
+    <h3>이 회사는 무엇을 하는가</h3>
+    <p>삼천당제약은 <strong>80년 넘게 눈에 넣는 약(점안액)을 만들어온 회사</strong>입니다. 인공눈물, 안구건조증 치료제 같은 안과용 의약품이 매출의 약 59%를 차지하는 안정적인 본업을 갖고 있습니다. 비유하자면, 동네에서 오래된 빵집을 운영하며 꾸준히 단골을 확보해온 회사인데, 최근 두 가지 새로운 사업에 뛰어들었습니다. 하나는 <strong>눈 치료 주사약의 복제약(바이오시밀러)을 만들어 해외에 파는 것</strong>, 다른 하나는 <strong>주사로만 맞을 수 있던 비만/당뇨 치료제를 먹는 약으로 바꾸는 기술(S-PASS 플랫폼)을 개발하는 것</strong>입니다.</p>
+    <h3 style="margin-top:20px">왜 매력적인가</h3>
+    <p>전 세계가 열광하고 있는 비만 치료제 시장(GLP-1 시장)의 규모는 2025년 약 80조원이며, 2030년에는 150조원 이상으로 성장할 것으로 전망됩니다. 현재 오젬픽/위고비는 <strong>매주 주사</strong>를 맞아야 합니다. 만약 이것을 <strong>하루 한 알 먹는 약</strong>으로 바꿀 수 있다면, 시장이 폭발적으로 확대됩니다. 삼천당의 S-PASS 기술은 바로 이 &ldquo;주사 &rarr; 알약&rdquo; 전환을 시도하고 있습니다.</p>
+    <h3 style="margin-top:20px">왜 지금인가 &mdash; 그리고 왜 위험한가</h3>
+    <p>2026년 2월, 경구 GLP-1 유럽 11개국 계약 발표 후 주가가 300% 이상 급등하여 52주 최고가 1,233,000원을 기록했습니다. 그러나 3월 말, <strong>계약 규모 부풀리기 의혹</strong>이 터졌습니다. 회사가 발표한 &ldquo;5.3조원&rdquo;은 10년간 미래 예상 매출을 역산한 수치였고, 공시상 확정금은 <strong>508억원</strong>에 불과했습니다. 하루 만에 하한가(-29.98%)를 기록했고, 불성실공시법인 지정 예고까지 받았습니다. <strong>이것이 바닥인지, 추가 하락의 시작인지가 핵심 판단 포인트입니다.</strong></p>
+    <div class="narrative-cards">
+      <div class="narrative-card">
+        <div class="card-num">YTD +106.5%</div>
+        <div class="card-label">연초 대비 수익률</div>
+        <div class="card-desc">급등+급락에도 불구하고 연초 대비 2배 이상 상승. 변동성의 극단</div>
+      </div>
+      <div class="narrative-card">
+        <div class="card-num">11.85조 vs 85억</div>
+        <div class="card-label">시총 vs 영업이익</div>
+        <div class="card-desc">PER 1,000배+. 현재 실적으로는 정당화 불가. 100% 미래 기대</div>
+      </div>
+      <div class="narrative-card">
+        <div class="card-num">MDD -59.0%</div>
+        <div class="card-label">52주 최대낙폭</div>
+        <div class="card-desc">고점에서 6할이 빠졌다. 1,233,000원 &rarr; 505,000원</div>
+      </div>
+      <div class="narrative-card">
+        <div class="card-num">508억 vs 5.3조</div>
+        <div class="card-label">공시 확정금 vs 회사 발표</div>
+        <div class="card-desc">100배 괴리. 공시 신뢰성의 핵심 쟁점</div>
+      </div>
+      <div class="narrative-card">
+        <div class="card-num">OPM 59%</div>
+        <div class="card-label">캐나다 바이오시밀러</div>
+        <div class="card-desc">바이오시밀러 사업의 수익성은 이미 입증. 확대가 관건</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 1 -->
+<section id="sec-1">
+  <div class="section-title"><span class="section-num">&#167; 1</span> 산업 기초 (Industry Fundamentals)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 삼천당이 진출한 GLP-1 비만 치료제 시장과 바이오시밀러 시장의 구조, 규모, 경쟁 환경.</div>
+
+  <div class="subsection-title">GLP-1 비만/당뇨 치료제란?</div>
+  <p style="margin-bottom:12px;font-size:13px;line-height:1.8;color:var(--text-secondary)">GLP-1(글루카곤유사펩타이드-1)은 우리 몸이 식사 후 자연스럽게 분비하는 호르몬입니다. 이 호르몬은 뇌에 &ldquo;배부르다&rdquo;는 신호를 보내고, 혈당을 낮추는 역할을 합니다. GLP-1 치료제는 이 호르몬을 인위적으로 투여하여 <strong>식욕을 줄이고 체중을 감량</strong>시킵니다. 마치 &ldquo;포만감 스위치&rdquo;를 인공적으로 켜는 것과 같습니다.</p>
+
+  <div class="subsection-title">현재 대표적인 GLP-1 치료제</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>제품명</th><th>제조사</th><th>적응증</th><th>투여 방식</th></tr></thead>
+    <tbody>
+      <tr><td><strong>오젬픽(Ozempic)</strong></td><td>노보 노디스크</td><td>당뇨</td><td>매주 주사</td></tr>
+      <tr><td><strong>위고비(Wegovy)</strong></td><td>노보 노디스크</td><td>비만</td><td>매주 주사</td></tr>
+      <tr><td><strong>마운자로(Mounjaro)/젭바운드(Zepbound)</strong></td><td>일라이 릴리</td><td>당뇨/비만</td><td>매주 주사 (GIP/GLP-1 이중)</td></tr>
+      <tr><td><strong>리벨서스(Rybelsus)</strong></td><td>노보 노디스크</td><td>당뇨</td><td>하루 1알 (SNAC 기술)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">왜 "경구 GLP-1"이 중요한가?</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>관점</th><th>현재 주류 (주사)</th><th>경구 (먹는 약)</th><th>전환 동기</th></tr></thead>
+    <tbody>
+      <tr><td><strong>환자</strong></td><td>매주 주사, 통증/불편</td><td>하루 1알, 간편</td><td>복약 순응도 향상 &rarr; 시장 확대</td></tr>
+      <tr><td><strong>보험/정부</strong></td><td>주사 약가 높음</td><td>제네릭 가능 &rarr; 약가 하락</td><td>의료비 절감</td></tr>
+      <tr><td><strong>시장 규모</strong></td><td>주사만으로 ~80조원</td><td>경구 진입 시 2~3배 확대</td><td>주사 거부 환자 + 경증 비만 포함</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout">현재 경구 GLP-1은 노보 노디스크의 리벨서스(Rybelsus)가 유일하며, <strong>SNAC</strong>이라는 흡수 촉진제를 사용합니다. SNAC의 특허는 2039년까지 유효. 삼천당의 S-PASS는 <strong>SNAC 없이</strong> 경구 흡수를 달성하겠다는 기술로, 특허 회피가 핵심 차별점입니다.</div>
+
+  <div class="subsection-title">TAM(전체시장규모) / SAM(접근가능시장) 산출</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>구분</th><th>산출 과정</th><th>금액</th></tr></thead>
+    <tbody>
+      <tr><td>글로벌 GLP-1 시장 (2025년)</td><td>오젬픽+위고비+마운자로+기타 합산</td><td>~$60B (80조원+)</td></tr>
+      <tr><td>2030년 전망</td><td>비만 인구 확대 + 경구 진입 시</td><td>~$110~150B (150~200조원)</td></tr>
+      <tr><td>경구 GLP-1 제네릭 접근 시장</td><td>물질특허 만료 지역의 경구 전환 가능 시장</td><td>~$10~20B (13~27조원)</td></tr>
+      <tr class="highlight-row"><td><strong>삼천당 SAM</strong></td><td>S-PASS 계약 지역(유럽11+미국+일본) 제네릭 경구 시장</td><td><strong>~$5~10B (7~13조원) [추정]</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout-warn"><strong>핵심</strong>: S-PASS가 성공하면 삼천당은 수십조원 시장에 진입할 수 있지만, <strong>아직 기술 검증이 완료되지 않았다</strong>는 점이 최대 변수.</div>
+
+  <div class="subsection-title">아일리아 바이오시밀러 시장</div>
+  <p style="margin-bottom:12px;font-size:13px;line-height:1.8;color:var(--text-secondary)">아일리아(Aflibercept, 리제네론/바이어)는 습성 황반변성(눈의 망막에 비정상 혈관이 자라 시력을 잃는 질환) 치료제로, 글로벌 매출 약 13~14조원의 블록버스터입니다. 바이오시밀러(복제 바이오의약품)는 오리지널보다 20~40% 저렴하게 공급하며, 2026년부터 본격적인 경쟁이 시작됩니다.</p>
+
+  <div class="subsection-title">경쟁 포지션</div>
+  <div class="code-block">GLP-1 시장 구조 (삼천당의 위치)
+
+노보 노디스크 (오리지널, $60B+)
+  |  특허 보유, 경구 SNAC 독점
+  v
+경구 GLP-1 제네릭 경쟁자
+  +-- 삼천당 S-PASS (SNAC 프리, 임상 초기)
+  +-- 텔로바이오사이언스 (위장 타겟, 미국)
+  +-- Viking Therapeutics (VK2735, 경구 GLP-1)
+  +-- 다수 인도 제네릭 업체 (물질특허 만료 후)
+
+아일리아 바이오시밀러 경쟁자
+  +-- 삼천당 SCD411/비젠프리 (캐나다/유럽/일본/한국 허가)
+  +-- 삼성바이오에피스 SB15/오퓨비즈 (유럽 2026 출시)
+  +-- 바이오콘 Yesafili (미국 승인)
+  +-- 산도즈 (개발 중)
+  +-- 셀트리온 CT-P42 (개발 중)</div>
+
+  <div class="subsection-title">업황 사이클</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>시장</th><th>현재 위치</th><th>특징</th></tr></thead>
+    <tbody>
+      <tr><td><strong>GLP-1 시장</strong></td><td>폭발적 성장기</td><td>2025~2030년이 가장 가파른 성장 구간</td></tr>
+      <tr><td><strong>아일리아 바이오시밀러</strong></td><td>상업화 초기</td><td>2026년 하반기부터 다수 경쟁자 진입 &rarr; 가격 경쟁 본격화</td></tr>
+      <tr><td><strong>경구 GLP-1 제네릭</strong></td><td>태동기</td><td>물질특허 만료(지역별 2026~2029)를 기다리는 단계</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+
+<!-- SECTION 2 -->
+<section id="sec-2">
+  <div class="section-title"><span class="section-num">&#167; 2</span> 회사 개요 (Company Overview)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 삼천당의 80년 역사, 경영진, 지분 구조, 재무 안정성, S-PASS 기술의 본질.</div>
+
+  <div class="subsection-title">히스토리 타임라인</div>
+  <ul class="timeline">
+    <li><div class="timeline-year">1943</div><div class="timeline-event">삼천당제약 설립. 국내 최초 점안액(눈에 넣는 약) 제조</div></li>
+    <li><div class="timeline-year">1985</div><div class="timeline-event">화성 향남 KGMP 인증 공장 건설</div></li>
+    <li><div class="timeline-year">2013</div><div class="timeline-event">옵투스제약 인수 &rarr; 일회용 점안제 생산 국내 1위</div></li>
+    <li><div class="timeline-year">2018</div><div class="timeline-event">전인석 대표이사 취임 (오너 2세 사위)</div></li>
+    <li><div class="timeline-year">2022</div><div class="timeline-event">윤대인 회장 경영 일선 퇴진 &rarr; 전인석 단독 경영 체제</div></li>
+    <li><div class="timeline-year">2025.02</div><div class="timeline-event">경구 세마글루타이드 BE(생물학적동등성) 시험 개시</div></li>
+    <li class="milestone"><div class="timeline-year">2025.08</div><div class="timeline-event">SCD411(아일리아 바이오시밀러) EMA 허가 취득</div></li>
+    <li class="milestone"><div class="timeline-year">2025.09</div><div class="timeline-event">캐나다 아일리아 시밀러 보험약가 등재 &rarr; 3개월 매출 97억</div></li>
+    <li class="milestone"><div class="timeline-year">2025.12</div><div class="timeline-event">한국 + 일본 아일리아 시밀러 허가 취득</div></li>
+    <li><div class="timeline-year">2026.01</div><div class="timeline-event">일본 다이이치산쿄에스파와 경구 세마글루타이드 공동개발 계약</div></li>
+    <li class="highlight"><div class="timeline-year">2026.02</div><div class="timeline-event"><strong>유럽 11개국 경구 GLP-1 라이선스 계약 발표 &rarr; 주가 300%+ 급등</strong></div></li>
+    <li><div class="timeline-year">2026.03.19</div><div class="timeline-event">경구 인슐린 유럽 임상 1/2상 CTA 제출</div></li>
+    <li class="highlight"><div class="timeline-year">2026.03.24</div><div class="timeline-event"><strong>52주 최고가 1,233,000원</strong></div></li>
+    <li><div class="timeline-year">2026.03.30</div><div class="timeline-event">미국 경구 세마글루타이드 독점 계약 + 경구 인슐린 미국 라이선스 공시</div></li>
+    <li class="highlight"><div class="timeline-year">2026.03.31</div><div class="timeline-event"><strong>계약 부풀리기 의혹 &rarr; 하한가 (-29.98%)</strong></div></li>
+    <li><div class="timeline-year">2026.04</div><div class="timeline-event">불성실공시법인 지정 예고 (4/23 결정) + 금감원 바이오 공시 TF 출범</div></li>
+  </ul>
+
+  <div class="subsection-title">성장 배경 추적 (Track Record) &mdash; "말한 대로 하는 회사인가"</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>시점</th><th>가이던스/발표</th><th>실제 결과</th><th>달성 여부</th></tr></thead>
+    <tbody>
+      <tr><td>2023~2024</td><td>아일리아 바이오시밀러 글로벌 허가 추진</td><td>캐나다/유럽/일본/한국 허가 취득</td><td><span class="tag-buy">달성</span></td></tr>
+      <tr><td>2025</td><td>캐나다 상업화 개시</td><td>3개월 매출 97억, OPM 59%</td><td><span class="tag-buy">달성</span></td></tr>
+      <tr><td>2025.02</td><td>경구 세마글루타이드 BE "2025 Q4 규제 신청 목표"</td><td>2026.04 현재 BE 결과 미공개</td><td><span class="tag-hold">미확인</span></td></tr>
+      <tr><td>2026.02</td><td>유럽 계약 "5.3조원 규모"</td><td>공시 확정금 508억원. 5.3조는 미래 추정치</td><td><span class="tag-sell">과대 발표</span></td></tr>
+      <tr><td>2026.03</td><td>미국 계약 "마일스톤 1억 달러 + 15조원 매출의 90%"</td><td>확정금과 상세 조건 불명확</td><td><span class="tag-sell">신뢰도 낮음</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout-warn"><strong>경영진 가이던스 신뢰도: 매우 낮음.</strong> 바이오시밀러 허가/상업화는 약속대로 이행했으나, S-PASS 관련 공시에서 확정금과 미래 추정치를 구분하지 않고 발표하여 시장 신뢰를 심각하게 훼손. <strong>&ldquo;508억 vs 5.3조&rdquo;는 100배 차이.</strong></div>
+
+  <div class="subsection-title">경영진</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>이름</th><th>직함</th><th>경력 하이라이트</th><th>평가</th></tr></thead>
+    <tbody>
+      <tr><td><strong>전인석</strong></td><td>대표이사 사장 (1974년생)</td><td>미국 오리건대 석사 &rarr; 상명대 박사 &rarr; LG전자 멕시코 전략기획 &rarr; 삼정KPMG &rarr; 2014년 삼천당 입사 &rarr; 2018년 대표이사. 오너 2세 사위.</td><td>강점: 해외 사업 확장(바이오시밀러 글로벌 허가). 약점: S-PASS 공시 논란으로 시장 신뢰 실추. <strong>주담보대출 2,335억원</strong></td></tr>
+      <tr><td><strong>윤대인</strong></td><td>회장 (1950년생)</td><td>2022년 경영 일선 퇴진. 2025년 보유 지분 6.9% 전량을 장녀/사위에게 증여</td><td>현재 경영 관여 미미</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">지분 구조</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>주주</th><th>지분율</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td><strong>(주)소화</strong> (지배회사)</td><td><strong>30.69%</strong></td><td>윤대인 56.52% + 인산엠티에스(아들 윤희제 100%) 43.48%</td></tr>
+      <tr><td><strong>윤은화</strong> (장녀)</td><td>3.41%</td><td>전인석 대표 배우자</td></tr>
+      <tr><td><strong>전인석</strong> (대표이사)</td><td>3.41%</td><td>사위 경영인. 주담보대출 2,335억</td></tr>
+      <tr><td><strong>외국인</strong></td><td>6.31%</td><td>비교적 낮은 외국인 비중</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout-warn"><strong>지배구조 특이사항</strong>: 소유(아들 윤희제 &rarr; 소화 &rarr; 삼천당)와 경영(사위 전인석)이 분리된 가족 경영 구조. 잠재적 가족 간 갈등 가능성. 전인석 대표의 <strong>주담보대출 2,335억원</strong>은 주가 급락 시 반대매매(마진콜) 리스크.</div>
+
+  <div class="subsection-title">재무 안정성</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>항목</th><th>수치</th><th>판단</th></tr></thead>
+    <tbody>
+      <tr><td>부채비율</td><td>54.36%</td><td>양호 (100% 이하)</td></tr>
+      <tr><td>유보율</td><td>2,258.20%</td><td>높음 (과거 축적 이익 충분)</td></tr>
+      <tr><td>영업이익 (2025)</td><td>85억원</td><td>매우 낮음 (시총 대비 극소)</td></tr>
+      <tr><td>ROE(자기자본이익률)</td><td>1.94%</td><td>매우 낮음 (은행 예금 수익률 이하)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout" style="background:#f0fdf4;border-color:#86efac;color:#14532d"><strong>자금이 마를 위험: 당장은 낮음.</strong> 안과용제 본업이 연 2,300억 매출을 안정적으로 창출. 그러나 S-PASS R&D 비용 확대 시 현금 유출 증가 가능.</div>
+
+  <div class="subsection-title">핵심 기술: S-PASS (비유 설명)</div>
+  <div class="callout">S-PASS는 <strong>&lsquo;약의 택배 방식을 바꾸는 기술&rsquo;</strong>입니다. 현재 GLP-1 비만 치료제(세마글루타이드)는 주사로만 투여합니다. 노보 노디스크의 경구 버전(리벨서스)은 SNAC이라는 특수 포장재(흡수 촉진제)를 사용하는데, 이 포장재에 특허(2039년까지)가 걸려 있습니다.<br><br>삼천당의 S-PASS는 마치 <strong>포장재 없이 택배를 보내는 새로운 배송 방법</strong>을 개발한 것입니다. 나노 에멀전화(초미세 입자로 만들기) + 푸코스(해조류 유래 다당류)를 이용한 이중 흡수 경로로, SNAC 특허를 우회합니다.<br><br><strong>이 기술이 왜 논란인가</strong>: PCT 국제조사기구가 2020년에 &ldquo;진보성이 없다&rdquo;는 부정적 판단을 내린 전력이 있습니다. 진보성이란 &ldquo;기존 기술과 비교해 충분히 새로운가&rdquo;라는 특허의 핵심 요건입니다. 이 판단이 뒤집히지 않으면 특허 보호가 약해져, 경쟁사가 쉽게 모방할 수 있습니다.</div>
+</section>
+
+<!-- SECTION 3 -->
+<section id="sec-3">
+  <div class="section-title"><span class="section-num">&#167; 3</span> 이익 모델 (Earnings Model)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 삼천당이 어떻게 돈을 버는지, 앞으로 얼마나 벌 수 있는지, 그리고 얼마나 불확실한지.</div>
+
+  <div class="subsection-title">수익 구조 비유</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>층</th><th>사업</th><th>비유</th><th>현재 상태</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1층 (본업)</strong></td><td>안과용제</td><td>"오래된 1층 가게 &mdash; 매달 월세가 꼬박꼬박 들어오는 동네 맛집"</td><td><span class="tag-buy">실현 (확정)</span>: 매출 ~1,300억/년, 안정적</td></tr>
+      <tr><td><strong>2층 (신규)</strong></td><td>아일리아 바이오시밀러</td><td>"2층 새 임차인이 입주 시작 &mdash; 아직 자리 잡는 중이지만 월세가 오르는 중"</td><td><span class="tag-hold">실현 (초기)</span>: 캐나다 매출 개시, 유럽/일본 확대 중</td></tr>
+      <tr><td><strong>3층 (미래)</strong></td><td>S-PASS 경구 GLP-1/인슐린</td><td>"3층을 신축 중인데, 완공 여부가 아직 불확실"</td><td><span class="tag-sell">미실현</span>: BE 결과 미공개, 임상 초기</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">과거 실적 (연결기준, 단위: 억원)</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>항목</th><th>2021</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th></tr></thead>
+    <tbody>
+      <tr><td><strong>매출액</strong></td><td>1,673</td><td>1,773</td><td>1,927</td><td>2,109</td><td style="color:var(--buy);font-weight:700">2,318</td></tr>
+      <tr><td><strong>영업이익</strong></td><td style="color:var(--sell)">-153</td><td>122</td><td>96</td><td>26</td><td>85</td></tr>
+      <tr><td><strong>당기순이익</strong></td><td style="color:var(--sell)">-104</td><td>88</td><td style="color:var(--sell)">-42</td><td style="color:var(--sell)">-51</td><td style="color:var(--buy);font-weight:700">120</td></tr>
+      <tr><td><strong>OPM(영업이익률)</strong></td><td style="color:var(--sell)">-9.1%</td><td>6.9%</td><td>5.0%</td><td>1.2%</td><td>3.7%</td></tr>
+      <tr><td><strong>YoY 매출 성장</strong></td><td>-</td><td>+6.0%</td><td>+8.7%</td><td>+9.4%</td><td>+9.9%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout-warn"><strong>핵심 관찰</strong>: 매출은 연 6~10% 꾸준히 성장하지만, 영업이익은 극도로 불안정. <strong>시가총액 11.85조원 대비 영업이익 85억원</strong> &mdash; 이 괴리가 삼천당 밸류에이션의 핵심 문제.</div>
+
+  <div class="subsection-title">당해 컨센서스 (2026E)</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>항목</th><th>추정치</th><th>신뢰도</th><th>출처</th></tr></thead>
+    <tbody>
+      <tr><td><strong>매출</strong></td><td>5,000억+</td><td><span class="tag-sell">낮음</span></td><td>IR 자료 + 언론 추정. 공식 컨센서스 아님</td></tr>
+      <tr><td><strong>영업이익</strong></td><td>563억</td><td><span class="tag-sell">매우 낮음</span></td><td>개별 추정치. IR에서 2,907억 관측도 있으나 미확인</td></tr>
+      <tr><td><strong>아일리아 매출</strong></td><td>2,150억</td><td><span class="tag-hold">중간</span></td><td>캐나다+유럽+일본 본격화 가정</td></tr>
+      <tr><td><strong>S-PASS 매출</strong></td><td>880억</td><td><span class="tag-sell">매우 낮음</span></td><td>수출 반영 시. BE 성공 전제</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout-warn"><strong>경고</strong>: 삼천당은 정식 증권사 커버리지가 <strong>한국투자증권 1곳</strong>에 불과합니다. 알테오젠의 &ldquo;컨센서스 전원 BUY&rdquo;와는 완전히 다른 상황. 위 추정치는 공식 컨센서스가 아닙니다.</div>
+
+  <div class="subsection-title">핵심 드라이버: 실현 vs 미실현</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>드라이버</th><th>구분</th><th>실현 확률</th><th>2026E 기여</th></tr></thead>
+    <tbody>
+      <tr><td>안과용제 본업</td><td><span class="tag-buy">실현 (확정)</span></td><td>~100%</td><td>~1,300억 매출</td></tr>
+      <tr><td>아일리아 바이오시밀러 (캐나다+유럽+일본)</td><td><span class="tag-buy">실현 (초기)</span></td><td>80%</td><td>~1,500~2,000억</td></tr>
+      <tr><td>S-PASS 경구 세마글루타이드 매출</td><td><span class="tag-sell">미실현 (기대)</span></td><td>30%</td><td>~500~1,000억 (BE 성공 전제)</td></tr>
+      <tr><td>S-PASS 경구 인슐린 마일스톤</td><td><span class="tag-sell">미실현 (기대)</span></td><td>25%</td><td>~200~500억</td></tr>
+      <tr><td>유럽/미국 계약 업프론트 인식</td><td><span class="tag-hold">미실현 (기대)</span></td><td>50%</td><td>508억 (유럽 확정분) + 미국 미확인</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">"508억 vs 5.3조" 정직하게 이해하기</div>
+  <div class="callout-warn">
+    <strong>유럽 11개국 계약의 구조:</strong><br><br>
+    &bull; <strong>확정금</strong>: 3,000만 유로(~508억원) &mdash; 공시에 기재된 금액<br>
+    &bull; <strong>5.3조원</strong>: 10년간 파트너사의 예상 매출에서 삼천당 배분율(순이익의 60%)을 역산한 금액<br>
+    &bull; <strong>현실</strong>: 5.3조원이 실현되려면 (1) BE 시험 성공, (2) 규제 허가, (3) 상업화 성공, (4) 시장 점유율 달성, (5) 10년간 지속 &mdash; 모든 조건이 충족되어야 함<br>
+    &bull; <strong>비유</strong>: &ldquo;이 가게를 10년 운영하면 매출 53억이 될 거야&rdquo;라고 하면서 실제 계약금은 5,000만원인 것과 같음
+  </div>
+
+  <div class="subsection-title">중장기 매출 로드맵 [추정, 불확실성 매우 높음]</div>
+  <div class="roadmap-bar-wrap"><div class="roadmap-bar-label"><span>2026E</span><span>기본 3,500억</span></div><div class="roadmap-bar-track"><div class="roadmap-bar-fill" style="width:23%">바이오시밀러 + 안과 본업 + 계약금</div></div></div>
+  <div class="roadmap-bar-wrap"><div class="roadmap-bar-label"><span>2027E</span><span>기본 4,500억</span></div><div class="roadmap-bar-track"><div class="roadmap-bar-fill" style="width:30%">바이오시밀러 확대 + S-PASS 부분 반영</div></div></div>
+  <div class="roadmap-bar-wrap"><div class="roadmap-bar-label"><span>2028E</span><span>기본 6,000억</span></div><div class="roadmap-bar-track"><div class="roadmap-bar-fill" style="width:40%">S-PASS 성공 시 본격 매출 기여 시작</div></div></div>
+  <div class="roadmap-bar-wrap"><div class="roadmap-bar-label"><span>2030E</span><span>기본 8,000억</span></div><div class="roadmap-bar-track"><div class="roadmap-bar-fill" style="width:53%">글로벌 바이오시밀러 + 경구 GLP-1 복합 성장</div></div></div>
+  <div class="table-wrap" style="margin-top:14px">
+  <table>
+    <thead><tr><th>연도</th><th>낙관</th><th>기본</th><th>비관</th></tr></thead>
+    <tbody>
+      <tr><td>2026E</td><td>5,000억+</td><td>3,500억</td><td>2,500억</td></tr>
+      <tr><td>2027E</td><td>8,000억+</td><td>4,500억</td><td>2,800억</td></tr>
+      <tr><td>2028E</td><td>1.5조+</td><td>6,000억</td><td>2,500억</td></tr>
+      <tr><td>2030E</td><td>2조+</td><td>8,000억</td><td>2,000억</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout">낙관: S-PASS 성공 + 바이오시밀러 글로벌 확대. 기본: 바이오시밀러만 성장, S-PASS 지연. 비관: S-PASS 실패, 바이오시밀러 경쟁 심화로 마진 하락.</div>
+</section>
+
+
+<!-- SECTION 4 -->
+<section id="sec-4">
+  <div class="section-title"><span class="section-num">&#167; 4</span> 밸류에이션 (Valuation)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 삼천당의 현재 주가가 비싼지 싼지.</div>
+
+  <div class="subsection-title">Peer 비교 (국내 + 해외)</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>기업</th><th>국가</th><th>시총</th><th>2025 매출</th><th>PER</th><th>PBR</th><th>핵심 사업</th><th>한 줄 특징</th></tr></thead>
+    <tbody>
+      <tr class="highlight-row"><td><strong>삼천당제약</strong></td><td>한국</td><td>11.85조</td><td>2,318억</td><td>~1,036x</td><td>~42.8x</td><td>안과+바이오시밀러+S-PASS</td><td>극단적 미래 기대치 반영</td></tr>
+      <tr><td>셀트리온</td><td>한국</td><td>~40조</td><td>3.5조+</td><td>~18x</td><td>~4x</td><td>바이오시밀러 글로벌 리더</td><td>검증된 매출+이익, 안정</td></tr>
+      <tr><td>삼성바이오로직스</td><td>한국</td><td>~70조</td><td>4조+</td><td>~50x</td><td>~8x</td><td>CDMO + 바이오시밀러</td><td>대형 CMO, 안정적 성장</td></tr>
+      <tr><td>한미약품</td><td>한국</td><td>~5조</td><td>1.2조+</td><td>N/A</td><td>~5x</td><td>GLP-1 라이선스 보유</td><td>국내 GLP-1 관련주</td></tr>
+      <tr><td>알테오젠</td><td>한국</td><td>~28조</td><td>2,159억</td><td>~195x</td><td>~30x+</td><td>SC 제형 플랫폼</td><td>검증된 플랫폼, 높은 프리미엄</td></tr>
+      <tr><td>Teva</td><td>이스라엘</td><td>$20B(27조)</td><td>$16B+</td><td>~8x</td><td>~2x</td><td>세계 최대 제네릭</td><td>성숙 단계, 안정 이익</td></tr>
+      <tr><td>Dr. Reddy's</td><td>인도</td><td>$12B(16조)</td><td>$3.5B+</td><td>~20x</td><td>~4x</td><td>글로벌 제네릭/바이오시밀러</td><td>인도 기반 글로벌 확장</td></tr>
+      <tr><td>바이오콘</td><td>인도</td><td>$7B(9.5조)</td><td>$1.5B+</td><td>~30x</td><td>~3x</td><td>바이오시밀러(아일리아 포함)</td><td>삼천당의 직접 경쟁사</td></tr>
+      <tr><td>노보 노디스크</td><td>덴마크</td><td>$420B(570조)</td><td>$40B+</td><td>~30x</td><td>~30x+</td><td>GLP-1 오리지널</td><td>S-PASS의 궁극적 경쟁 상대</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">밸류에이션 지표별 해석</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>지표</th><th>수치</th><th>의미 해석</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Trailing PER</strong></td><td>~1,036배</td><td>현재 이익 기준 투자금 회수에 1,036년. 이 숫자는 사실상 무의미. 현재 이익이 아니라 미래 기대로 거래되는 주식.</td></tr>
+      <tr><td><strong>Forward PER (2026E)</strong></td><td>~107배</td><td>2026년 추정 이익 기준 107배. 셀트리온(18배), 삼성바이오(50배) 대비 극단적으로 높음. S-PASS 성공을 전제한 밸류에이션.</td></tr>
+      <tr><td><strong>PBR</strong></td><td>~42.8배</td><td>장부가(순자산) 대비 42.8배. BPS 11,791원 대비 주가 505,000원. 한국 제약사 중 역대급 프리미엄.</td></tr>
+      <tr><td><strong>PSR(주가매출비율)</strong></td><td>~5.1배</td><td>매출 대비 5.1배. 셀트리온(~11배), 삼성바이오(~17배)와 비교하면 극단적이지 않으나, 삼천당 매출 규모(2,318억)가 이들의 1/10~1/20 수준이라는 점에 주의.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">DCF(현금흐름할인법) Sensitivity Table [추정]</div>
+  <div class="callout" style="font-size:12px;margin-bottom:10px"><strong>바이오텍 DCF의 한계</strong>: S-PASS 성공 여부에 따라 FCF가 극단적으로 달라지므로 참고 수준으로만 활용.<br>가정: S-PASS 부분 성공(경구 세마글루타이드 1개 지역 출시) + 바이오시밀러 안정 성장. WACC를 12~16%로 높게 잡은 이유: 기술 리스크 + 공시 리스크 + 높은 변동성(94.3%) 반영.</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th></th><th>영구성장률 2%</th><th>영구성장률 3%</th><th>영구성장률 4%</th></tr></thead>
+    <tbody>
+      <tr><td><strong>WACC 12%</strong></td><td class="dcf-mid">320,000원</td><td class="dcf-mid">380,000원</td><td class="dcf-high">460,000원</td></tr>
+      <tr><td><strong>WACC 14%</strong></td><td class="dcf-low">250,000원</td><td class="dcf-low">300,000원</td><td class="dcf-mid">370,000원</td></tr>
+      <tr><td><strong>WACC 16%</strong></td><td class="dcf-low">200,000원</td><td class="dcf-low">240,000원</td><td class="dcf-low">300,000원</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">증권사 TP 분포</div>
+  <div class="code-block">현재가 505,000원
+  +-- 한국투자증권 추정: ~405,000원 (-19.8%) [비공식, 블로그 추정]
+  +-- 기타 증권사: 정식 커버리지 없음
+
+  * 알테오젠(컨센서스 전원 BUY, TP 435,000원)과 완전히 다른 상황.
+    커버리지 부재는 그 자체로 기관 투자자의 확신 부족을 시사.</div>
+
+  <div class="callout-warn"><strong>"비싼가 싼가" &mdash; 정직한 답</strong><br><br><strong>극단적으로 비쌉니다.</strong> 현재 실적 기준으로는 어떤 방법론으로도 현 주가를 정당화할 수 없습니다. PER 1,036배, PBR 42.8배는 한국 주식시장 역사상 가장 높은 수준에 속합니다. 현 주가가 정당화되려면:<br><br>1. S-PASS 경구 GLP-1이 글로벌 시장에서 성공해야 하고,<br>2. 아일리아 바이오시밀러가 글로벌 주요 시장을 확보해야 하며,<br>3. 2028~2030년까지 매출이 현재의 5~10배로 성장해야 합니다.<br><br>이 세 조건이 모두 충족될 확률은 높지 않습니다. 그러나 GLP-1 경구 제네릭 시장 자체의 크기가 워낙 방대하므로, S-PASS가 성공하면 현 주가조차 저평가로 전환될 수 있다는 것이 Bull Case입니다.</div>
+</section>
+
+<!-- PART 2 STARTS HERE -->
+
+<!-- SECTION 5 -->
+<section id="sec-5">
+  <div class="section-title"><span class="section-num">&#167; 5</span> 거시 민감도 (Macro Sensitivity)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 금리, 환율 등 거시 환경이 삼천당에 미치는 영향.</div>
+
+  <div class="subsection-title">매크로 민감도 매트릭스</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>변수</th><th>민감도</th><th>현재 방향</th><th>삼천당 영향</th><th>구체적 전달 경로</th></tr></thead>
+    <tbody>
+      <tr><td><strong>바이오 규제 환경</strong></td><td><span class="tag-sell">매우 높음</span></td><td>강화 (공시 규제)</td><td><span class="tag-sell">부정</span></td><td>금감원 공시 TF &rarr; 바이오 기업 공시 기준 강화 &rarr; 삼천당 직접 대상. 불성실공시법인 지정 시 거래 제한</td></tr>
+      <tr><td><strong>원/달러 환율</strong></td><td><span class="tag-hold">높음</span></td><td>약달러 추세</td><td><span class="tag-sell">부정</span></td><td>해외 매출 100% 외화 &rarr; 원화 강세 시 환산 매출 -5~10%. 바이오시밀러 마진 압박</td></tr>
+      <tr><td><strong>미국 금리</strong></td><td><span class="tag-hold">중간</span></td><td>인하 사이클</td><td><span class="tag-buy">긍정</span></td><td>금리 -50bp &rarr; 바이오 할인율 하락 &rarr; 성장주 밸류에이션 지지 +5~8%</td></tr>
+      <tr><td><strong>GLP-1 시장 성장</strong></td><td><span class="tag-sell">매우 높음</span></td><td>폭발적 성장</td><td><span class="tag-buy">긍정</span></td><td>GLP-1 시장 확대 &rarr; 경구 제네릭 수요 증가 &rarr; S-PASS 가치 상승</td></tr>
+      <tr><td><strong>한국 코스닥 심리</strong></td><td><span class="tag-hold">높음</span></td><td>약세~중립</td><td><span class="tag-sell">부정</span></td><td>코스닥 바이오 디레이팅 + 삼천당 공시 논란 &rarr; 섹터 전체 투자심리 악화</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">바이오 섹터 특수 변수</div>
+  <div class="callout">
+    <strong>세마글루타이드 물질특허</strong>: 유럽은 2026년부터, 미국은 2030년 이후 만료. 특허 만료 시기가 S-PASS 제네릭 출시 타이밍을 결정.<br><br>
+    <strong>노보 노디스크 자체 경구 제형</strong>: 경구 세마글루타이드 고용량(50mg)이 Phase 3 완료. 오리지널 대비 제네릭의 경쟁력은 가격뿐.<br><br>
+    <strong>인도 제네릭 업체</strong>: 물질특허 만료 후 인도 대형 제네릭 업체(Teva, Sun Pharma 등)의 대규모 진입 예상 &rarr; 가격 경쟁 심화.
+  </div>
+
+  <div class="subsection-title">섹터 자금 흐름</div>
+  <div class="callout-warn">
+    <span class="warn-icon">&#9888;</span> 외국인 삼천당 지분율 6.31% &rarr; <strong>매우 낮음</strong>. 기관 확신 부족의 시그널.<br>
+    코스닥 바이오 지수: 삼천당 공시 논란 이후 전반적 투자심리 위축.<br>
+    GLP-1 관련 자금이 한미약품, 펩트론 등 국내 경쟁주로 분산.
+  </div>
+</section>
+
+
+<!-- SECTION 6 -->
+<section id="sec-6">
+  <div class="section-title"><span class="section-num">&#167; 6</span> 시나리오 분석 (Scenario Analysis)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 최선/기본/최악 시나리오별 목표 주가와 핵심 가정.</div>
+
+  <div class="scenario-grid">
+    <div class="scenario-card bull">
+      <div class="scenario-label">Bull Case</div>
+      <div class="scenario-tp">1,000,000원</div>
+      <div class="scenario-prob">확률 15% &middot; 현재가 대비 +98.0%</div>
+      <div class="scenario-detail">
+        <strong>S-PASS</strong>: 경구 세마글루타이드 BE 성공 + 유럽/미국/일본 순차 출시<br>
+        <strong>바이오시밀러</strong>: 아일리아 미국 허가 + 글로벌 연 매출 3,000억+<br>
+        <strong>매출 2028E</strong>: 2조원+ (OPM 15%+)<br>
+        <strong>밸류에이션</strong>: 매출 2조 x PSR 5배 = 시총 10조 &rarr; Forward PER ~33배 수준으로 수렴<br>
+        <strong>트리거</strong>: BE 성공 + FDA 승인 + 글로벌 GLP-1 시장 지속 성장
+      </div>
+    </div>
+    <div class="scenario-card base">
+      <div class="scenario-label">Base Case</div>
+      <div class="scenario-tp">450,000원</div>
+      <div class="scenario-prob">확률 40% &middot; 현재가 대비 -10.9%</div>
+      <div class="scenario-detail">
+        <strong>S-PASS</strong>: BE 시험 지연 또는 부분 성공. 유럽 1~2개국만 소규모 출시<br>
+        <strong>바이오시밀러</strong>: 캐나다/유럽/일본에서 안정적 성장. 미국은 2027년 이후<br>
+        <strong>매출 2027E</strong>: 4,000~5,000억 (영업이익 300~500억)<br>
+        <strong>트리거</strong>: 불성실공시 제재 경미 + 바이오시밀러 실적 달성
+      </div>
+    </div>
+    <div class="scenario-card bear">
+      <div class="scenario-label">Bear Case</div>
+      <div class="scenario-tp">130,000원</div>
+      <div class="scenario-prob">확률 45% &middot; 현재가 대비 -74.3%</div>
+      <div class="scenario-detail">
+        <strong>S-PASS</strong>: BE 실패 또는 특허 문제 &rarr; 핵심 성장 스토리 소멸<br>
+        <strong>공시</strong>: 불성실공시법인 지정 &rarr; 거래 제한 + 기관 투자 제약<br>
+        <strong>바이오시밀러</strong>: 경쟁 심화로 OPM 20% 이하<br>
+        <strong>CEO 리스크</strong>: 주담보대출 반대매매 &rarr; 수급 악화<br>
+        <strong>트리거</strong>: BE 실패 공시 또는 특허 무효 확정
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection-title">확률가중 TP 산출</div>
+  <div class="code-block">Bull  1,000,000원 x 15% = 150,000원
+Base    450,000원 x 40% = 180,000원
+Bear    130,000원 x 45% =  58,500원
+──────────────────────────────────
+확률가중 TP = 388,500원 (-23.1%)
+
+&#9733; Bear 확률 45%로 가장 높게 책정
+  &rarr; S-PASS 미검증 + 공시 논란 + CEO 담보대출 반영
+&#9733; 확률가중 TP가 현재가 하회 &rarr; 중립~부정적 시그널</div>
+
+  <div class="subsection-title">시나리오 전환 트리거</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>전환</th><th>트리거 이벤트</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Base &rarr; Bull</strong></td><td>BE 시험 성공 발표 + 미국/유럽 규제 신청 개시</td></tr>
+      <tr><td><strong>Base &rarr; Bear</strong></td><td>BE 실패 또는 6개월 이상 결과 미공개 + 불성실공시 제재 확정</td></tr>
+      <tr><td><strong>Bear &rarr; Base</strong></td><td>S-PASS 임상 데이터 공개 + 불성실공시 제재 경미</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="premortem">
+    <div class="premortem-title"><span class="premortem-icon">!</span> Pre-Mortem: "BUY 판단이 완전히 틀리는 3가지 시나리오"</div>
+    <div class="premortem-scenario">
+      <h4>1. S-PASS BE 실패 &rarr; 핵심 성장 스토리 전면 붕괴</h4>
+      <p>경구 세마글루타이드 BE(생물학적동등성) 시험에서 기준치 미달. SNAC 없는 경구 흡수율이 충분하지 않음이 입증. 유럽/미국/일본 계약의 전제 조건 소멸.<br><br>
+      <strong>발생 시 손실 추정</strong>: TP 100,000~130,000원 (-74~80%). S-PASS 프리미엄(시총의 80% 이상)이 즉시 소멸.<br>
+      <strong>조기 감지 신호</strong>: BE 결과 발표 지연(현재도 예정 대비 지연 중), 회사 IR에서 S-PASS 언급 감소, 파트너사 계약 해지 공시.</p>
+    </div>
+    <div class="premortem-scenario">
+      <h4>2. 불성실공시법인 지정 + 추가 공시 스캔들 &rarr; 영구적 시장 신뢰 훼손</h4>
+      <p>2026.04.23 불성실공시법인 지정 확정 &rarr; 거래 제한 &rarr; 기관투자자 강제 매도 &rarr; 추가 공시 허위 발견. 금감원 조사 확대.<br><br>
+      <strong>발생 시 손실 추정</strong>: TP 80,000~120,000원 (-76~84%). "삼천당 = 공시 신뢰 불가" 낙인.<br>
+      <strong>조기 감지 신호</strong>: 4/23 지정 확정, 금감원 추가 조사 공시, 형사 고소 패소.</p>
+    </div>
+    <div class="premortem-scenario">
+      <h4>3. CEO 반대매매 + 경쟁 심화 &rarr; 수급 붕괴 + 사업 경쟁력 하락 동시 발생</h4>
+      <p>주가 추가 하락 &rarr; 전인석 대표 담보대출 2,335억 반대매매 발동 &rarr; 대량 매도 &rarr; 주가 급락. 동시에 아일리아 바이오시밀러 시장에 셀트리온/삼성바이오에피스/산도즈 진입 &rarr; 가격 경쟁으로 OPM 20% 이하.<br><br>
+      <strong>발생 시 손실 추정</strong>: TP 100,000~150,000원 (-70~80%). 수급+펀더멘탈 동시 악화.<br>
+      <strong>조기 감지 신호</strong>: 대표이사 담보 비율 공시(150% 이하), 바이오시밀러 경쟁사 대폭 할인 판매 개시.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- SECTION 7 -->
+<section id="sec-7">
+  <div class="section-title"><span class="section-num">&#167; 7</span> 촉매 &amp; 리스크 (Catalyst &amp; Risk)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 주가를 움직일 이벤트 일정과 투자 위험 요소.</div>
+
+  <div class="subsection-title">촉매 캘린더</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>시점</th><th>이벤트</th><th>영향</th><th>방향</th></tr></thead>
+    <tbody>
+      <tr class="highlight-row"><td><strong>2026.04.23</strong></td><td>불성실공시법인 지정 여부 결정</td><td><span class="tag-sell">결정적</span></td><td>핵심 (지정 시 강한 부정)</td></tr>
+      <tr><td>2026.05</td><td>경구 인슐린 유럽 IND 승인 예상</td><td><span class="tag-hold">높음</span></td><td>긍정</td></tr>
+      <tr class="highlight-row"><td><strong>2026.H1</strong></td><td>경구 세마글루타이드 BE 시험 결과</td><td><span class="tag-sell">결정적</span></td><td>핵심 (성패에 따라 주가 +/-50%)</td></tr>
+      <tr><td>2026.H2</td><td>경구 인슐린 임상 1/2상 결과</td><td><span class="tag-hold">높음</span></td><td>긍정 (데이터 확인 시)</td></tr>
+      <tr><td>2026.H2</td><td>아일리아 바이오시밀러 미국 허가 신청/진행</td><td><span class="tag-hold">높음</span></td><td>긍정</td></tr>
+      <tr><td>2026.H2</td><td>아일리아 경쟁사 다수 진입 (셀트리온, 삼성바이오에피스 등)</td><td><span class="tag-hold">중간</span></td><td>부정 (가격 경쟁)</td></tr>
+      <tr><td>2027</td><td>미국 아일리아 바이오시밀러 판매 개시 목표</td><td><span class="tag-hold">높음</span></td><td>긍정</td></tr>
+      <tr><td>2027~2028</td><td>경구 세마글루타이드 물질특허 만료 지역 순차 출시</td><td><span class="tag-sell">결정적</span></td><td>핵심</td></tr>
+      <tr><td>상시</td><td>전인석 대표 주담보대출 반대매매 여부</td><td><span class="tag-hold">높음</span></td><td>부정 (발생 시)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">리스크 매트릭스</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>리스크</th><th>발생 확률</th><th>영향도</th><th>예상 주가 영향</th><th>모니터링 지표</th></tr></thead>
+    <tbody>
+      <tr><td><strong>S-PASS BE 실패</strong></td><td>35%</td><td><span class="tag-sell">매우 높음</span></td><td>-60~80%</td><td>BE 결과 공시, 회사 IR 톤 변화</td></tr>
+      <tr><td><strong>불성실공시법인 지정</strong></td><td>50%</td><td><span class="tag-hold">높음</span></td><td>-20~30%</td><td>4/23 결정 결과, 거래소 공시</td></tr>
+      <tr><td><strong>CEO 반대매매</strong></td><td>25%</td><td><span class="tag-hold">높음</span></td><td>-20~40%</td><td>주가 수준, 담보비율 공시</td></tr>
+      <tr><td><strong>바이오시밀러 경쟁 심화</strong></td><td>70%</td><td><span class="tag-hold">중간</span></td><td>-10~20%</td><td>경쟁사 허가/가격 공시</td></tr>
+      <tr><td><strong>S-PASS 특허 문제</strong> (PCT 진보성)</td><td>40%</td><td><span class="tag-hold">높음</span></td><td>-30~50%</td><td>특허 심사 결과, 경쟁사 특허 도전</td></tr>
+      <tr><td><strong>추가 공시 스캔들</strong></td><td>20%</td><td><span class="tag-hold">높음</span></td><td>-25~35%</td><td>금감원 조사 결과, 언론 보도</td></tr>
+      <tr><td><strong>SNAC 특허 회피 실패</strong></td><td>30%</td><td><span class="tag-sell">매우 높음</span></td><td>-50~70%</td><td>특허 소송, 노보 노디스크 대응</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">기술적 지표 핵심 요약 (5개)</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>지표</th><th>수치</th><th>한 문장 요약</th></tr></thead>
+    <tbody>
+      <tr><td><strong>RSI (14일)</strong></td><td>30.9</td><td>과매도 근접(30 이하 = 과매도). 단기 반등 가능성이 있으나, 펀더멘탈 악재 동반 시 과매도가 더 심화될 수 있음.</td></tr>
+      <tr><td><strong>MA 위치</strong></td><td>MA20(-36.3%), MA60(-18.8%), MA120(+19.3%)</td><td>단기/중기 이평선을 대폭 하회. MA120 위에 있는 것은 YTD +106%의 잔여 상승분. 모든 단기 추세가 하방.</td></tr>
+      <tr><td><strong>52주 MDD</strong></td><td>-59.0%</td><td>고점 1,233,000원에서 6할 하락. 극단적 변동성. 바이오 공시 스캔들의 파괴력을 보여줌.</td></tr>
+      <tr><td><strong>거래량 추이</strong></td><td>506,803주 / 20일 평균 564,612주</td><td>평균 대비 약 90% 수준. 급락 이후 거래량이 줄어드는 것은 패닉셀링 후 관망세 전환 시그널.</td></tr>
+      <tr><td><strong>연간 변동성</strong></td><td>94.3%</td><td>KOSPI 평균(~20%)의 약 5배. KOSDAQ 바이오 중에서도 극단적. 포트폴리오 비중 3% 이하 제한 필수.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout" style="font-size:12px">나머지 기술적 지표(볼린저밴드, MACD, 스토캐스틱, OBV, ADX 등)는 <a href="#appendix" style="color:#0369a1;font-weight:600">Appendix</a> 참조.</div>
+
+  <div class="subsection-title">비중 축소/손절 트리거</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>조건</th><th>대응</th></tr></thead>
+    <tbody>
+      <tr><td>불성실공시법인 지정 확정 (4/23)</td><td>비중 50% 이상 축소 고려</td></tr>
+      <tr class="highlight-row"><td><strong>BE 시험 실패 공시</strong></td><td><strong>즉시 전량 매도 고려</strong> (핵심 thesis 붕괴)</td></tr>
+      <tr><td>주가 300,000원 이하 하락 (MA120 하회)</td><td>비중 30% 축소</td></tr>
+      <tr><td>전인석 대표 반대매매 공시</td><td>비중 50% 축소 + 추가 매도 관망</td></tr>
+      <tr><td>6개월 내 S-PASS 관련 신규 공시 전무</td><td>성장 thesis 재검토</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+
+<!-- SECTION 8 -->
+<section id="sec-8">
+  <div class="section-title"><span class="section-num">&#167; 8</span> 투자위원회 (Committee Votes)</div>
+  <div class="section-desc">이 섹션에서 알 수 있는 것: 다양한 투자 철학을 가진 전문가들의 찬반 토론과 최종 투표 결과.</div>
+  <div class="callout" style="font-size:12px">투심위 위원들의 의견 및 TP(목표주가)는 각 투자 철학에 기반한 <strong>AI 시뮬레이션 결과</strong>이며, 실제 인물의 의견이 아닙니다. 실명은 투자 스타일 시뮬레이션의 이해를 돕기 위한 목적으로만 사용되었습니다.</div>
+
+  <!-- Part A: Sector Board -->
+  <div class="subsection-title">Part A. 제약/바이오 섹터 보드 투표 (10명: 국내 5 + 해외 5)</div>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>멤버</th><th>소속/전문성</th><th>국적</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>서정진</strong></td><td>셀트리온 前 회장, 바이오시밀러 상업화 전문</td><td>한국</td></tr>
+      <tr><td>2</td><td><strong>이상훈</strong></td><td>한국투자증권 바이오 수석 애널리스트</td><td>한국</td></tr>
+      <tr><td>3</td><td><strong>김성진</strong></td><td>녹십자 前 CEO, 제약 경영 전문</td><td>한국</td></tr>
+      <tr><td>4</td><td><strong>이왕준</strong></td><td>의사 출신 바이오 투자자, GLP-1 처방 경험</td><td>한국</td></tr>
+      <tr><td>5</td><td><strong>최강석</strong></td><td>한국생명공학연구원 DDS 전문 연구원</td><td>한국</td></tr>
+      <tr><td>6</td><td><strong>Geoffrey Porges</strong></td><td>SVB Leerink 바이오 섹터 헤드</td><td>미국</td></tr>
+      <tr><td>7</td><td><strong>Ronny Gal</strong></td><td>Bernstein 제네릭/바이오시밀러 수석 애널리스트</td><td>미국</td></tr>
+      <tr><td>8</td><td><strong>Flemming Ornskov</strong></td><td>Galderma 前 CEO, 글로벌 제약 경영</td><td>덴마크</td></tr>
+      <tr><td>9</td><td><strong>Kiran Mazumdar-Shaw</strong></td><td>바이오콘 창업자, 바이오시밀러 글로벌 사업화</td><td>인도</td></tr>
+      <tr><td>10</td><td><strong>Jean-Pierre Garnier</strong></td><td>GSK 前 CEO, 글로벌 제약 전략/M&amp;A</td><td>프랑스</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">섹터 보드 독립 의견</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>멤버</th><th>의견</th><th>TP</th><th>핵심 논리</th><th>최대 리스크</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>서정진</strong></td><td><span class="tag-hold">HOLD</span></td><td>400,000원</td><td>SCD411 OPM 59% 인상적이나, 경쟁자 진입 시 가격 30~50% 하락 예상. 바이오시밀러만으로 시총 정당화 부족</td><td>바이오시밀러 가격 경쟁 심화</td></tr>
+      <tr><td>2</td><td><strong>이상훈</strong></td><td><span class="tag-buy">BUY</span></td><td>700,000원</td><td>2027년 사업 가치 약 9.5조. S-PASS TAM 방대하여 BE 성공 시 밸류에이션 재평가 불가피</td><td>BE 실패 시 핵심 프리미엄 소멸</td></tr>
+      <tr><td>3</td><td><strong>김성진</strong></td><td><span class="tag-sell">SELL</span></td><td>200,000원</td><td>OPM 3.7%, ROE 1.94%는 매우 낮음. PCT 진보성 부정 치명적. 시총 12조는 터무니없는 가격</td><td>S-PASS 성공 시 기회비용</td></tr>
+      <tr><td>4</td><td><strong>이왕준</strong></td><td><span class="tag-buy">BUY</span></td><td>600,000원</td><td>환자들이 주사를 극도로 싫어함. 경구 GLP-1 수요 확실. S-PASS 생체이용률 2~3%면 충분</td><td>BE 시험에서 생체이용률 기준 미달</td></tr>
+      <tr><td>5</td><td><strong>최강석</strong></td><td><span class="tag-sell">SELL</span></td><td>150,000원</td><td>나노 에멀전화+푸코스 조합은 학술적 미검증. 임상 데이터 없이 5.3조 계약 자체가 비정상</td><td>예상 외 BE 성공 시 판단 착오</td></tr>
+      <tr><td>6</td><td><strong>Geoffrey Porges</strong></td><td><span class="tag-hold">HOLD</span></td><td>350,000원</td><td>임상 데이터 없이 대형 계약은 RED FLAG. 커버리지 1곳, 외국인 6.3%는 기관 확신 부족의 증거</td><td>S-PASS 데이터가 예상 외로 강력한 경우</td></tr>
+      <tr><td>7</td><td><strong>Ronny Gal</strong></td><td><span class="tag-buy">BUY</span></td><td>550,000원</td><td>경구 GLP-1 제네릭 TAM $10B+. First-to-File 180일 독점 가능. BE만 통과하면 표준 경로</td><td>SNAC 특허 회피 실패</td></tr>
+      <tr><td>8</td><td><strong>Flemming Ornskov</strong></td><td><span class="tag-hold">HOLD</span></td><td>380,000원</td><td>SCD411 잘 실행된 사업이나 경쟁 심화 확실. S-PASS는 본업과 시너지 없어 경영 집중도 분산 우려</td><td>바이오시밀러 가격 하락이 예상보다 심한 경우</td></tr>
+      <tr><td>9</td><td><strong>Kiran Mazumdar-Shaw</strong></td><td><span class="tag-sell">SELL</span></td><td>250,000원</td><td>바이오콘 Yesafili 이미 미국 승인. 인도 제조 원가 기반 경쟁력은 한국이 따라오기 어려움</td><td>삼천당 비용 구조 개선 시</td></tr>
+      <tr><td>10</td><td><strong>Jean-Pierre Garnier</strong></td><td><span class="tag-buy">BUY</span></td><td>500,000원</td><td>S-PASS 성공 시 빅파마 인수 타깃. 파트너사 계약 자체가 기술 가능성 인정의 증거</td><td>M&amp;A 시장 위축 + S-PASS 실패 동시</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Sector Board Votes -->
+  <div class="vote-section">
+    <div class="vote-title">섹터 보드 최종 집계 (10명)</div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>BUY &mdash; 4명 (40%)</span><span>평균 TP 587,500원</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill buy" style="width:40%">40%</div></div>
+    </div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>HOLD &mdash; 3명 (30%)</span><span>평균 TP 376,667원</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill hold" style="width:30%">30%</div></div>
+    </div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>SELL &mdash; 3명 (30%)</span><span>평균 TP 200,000원</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill sell" style="width:30%">30%</div></div>
+    </div>
+    <div class="debate-result"><strong>섹터 보드 결론: 의견 분열</strong> &mdash; BUY 40% / HOLD 30% / SELL 30%. BUY 과반 미달. "조건부 긍정" &mdash; S-PASS BE 결과에 따라 판단 변경. &rarr; Core Committee에 "의견 분열" 상태로 상정.</div>
+  </div>
+
+  <!-- Debate Round 1 -->
+  <div class="subsection-title">쟁점 토론</div>
+
+  <div class="debate-round">
+    <div class="debate-header">쟁점 1: S-PASS 기술 &mdash; "혁신인가, 과대포장인가?"</div>
+    <div class="debate-arg pro">
+      <div class="debate-arg-role">찬성</div>
+      <div class="debate-arg-author">이왕준 (임상의/투자자)</div>
+      <blockquote>"경구 GLP-1의 핵심 허들은 생체이용률이다. 리벨서스(SNAC)가 1%에 불과한 상황에서 S-PASS가 2~3%만 달성해도 제네릭 승인 기준(BE 80~125%)을 충족할 수 있다. PCT 진보성 판단은 특허 심사 과정의 하나일 뿐 기술 자체의 실패를 의미하지 않는다. 파트너사가 계약한 것은 데이터를 보고 판단한 결과다."</blockquote>
+    </div>
+    <div class="debate-arg con">
+      <div class="debate-arg-role">반대</div>
+      <div class="debate-arg-author">최강석 (DDS 연구)</div>
+      <blockquote>"PCT 진보성 부정은 '이 기술이 기존 기술 대비 충분히 새롭지 않다'는 국제 심사관의 판단이다. 학술적으로 나노 에멀전화+푸코스 조합의 경구 흡수 촉진 효과는 동물 실험에서도 재현성이 부족하다. 파트너사가 계약한 것은 '성공 시' 수익이 크기 때문이지, 기술을 검증했기 때문이 아닐 수 있다."</blockquote>
+    </div>
+    <div class="debate-arg med">
+      <div class="debate-arg-role">중재</div>
+      <div class="debate-arg-author">Geoffrey Porges (미국 바이오 리서치)</div>
+      <blockquote>"미국 시장에서는 Phase 1 데이터 없이 대형 라이선스 계약을 체결하는 것이 극히 드물다. BE 결과가 모든 것을 결정하므로, 결과 발표 전까지는 기술 가치를 0도 100도 아닌 옵션으로 취급해야 한다."</blockquote>
+    </div>
+    <div class="debate-result"><strong>결론</strong>: S-PASS는 "성공 시 혁신, 실패 시 과대포장"이라는 바이너리 리스크. BE 결과가 유일한 판단 기준이며, 결과 전까지 확정적 평가 불가.</div>
+  </div>
+
+  <div class="debate-round">
+    <div class="debate-header">쟁점 2: 공시 신뢰성 &mdash; "실수인가, 문화인가?"</div>
+    <div class="debate-arg pro">
+      <div class="debate-arg-role">찬성</div>
+      <div class="debate-arg-author">Jean-Pierre Garnier (전략/M&amp;A)</div>
+      <blockquote>"바이오 기업의 계약 발표 관행은 글로벌적으로도 과장되는 경향이 있다. '총 계약 규모'에 마일스톤+로열티를 모두 포함시키는 것은 미국에서도 흔하다. 삼천당의 문제는 확정금과 총 추정치를 명확히 구분하지 않은 것이지, 계약 자체가 허위는 아니다."</blockquote>
+    </div>
+    <div class="debate-arg con">
+      <div class="debate-arg-role">반대</div>
+      <div class="debate-arg-author">김성진 (제약 경영)</div>
+      <blockquote>"100배 차이를 '관행'으로 설명하는 것은 무리다. 508억 확정인데 5.3조를 발표한 것은 시장을 오도한 것이며, CEO가 주담보대출 2,335억을 보유한 상태에서 주가 부양 동기가 존재한다. 이것은 실수가 아니라 이해상충의 구조적 문제."</blockquote>
+    </div>
+    <div class="debate-arg med">
+      <div class="debate-arg-role">중재</div>
+      <div class="debate-arg-author">이상훈 (증권 리서치)</div>
+      <blockquote>"증권사 관점에서 삼천당의 공시 방식은 명백히 부적절했다. 그러나 '의도적 사기'와 '미숙한 공시'는 구분해야 한다. 불성실공시 지정의 수준(경고 vs 제재)에 따라 판단이 달라진다."</blockquote>
+    </div>
+    <div class="debate-result"><strong>결론</strong>: 공시 관행이 부적절했다는 점은 전원 동의. 의도성 판단은 4/23 결정과 금감원 조사 결과에 따라 결론.</div>
+  </div>
+
+  <div class="debate-round">
+    <div class="debate-header">쟁점 3: 바이오시밀러만의 가치</div>
+    <div class="debate-arg pro">
+      <div class="debate-arg-role">찬성</div>
+      <div class="debate-arg-author">Ronny Gal (제네릭/바이오시밀러)</div>
+      <blockquote>"S-PASS를 제외하고 아일리아 바이오시밀러만 볼 때: 캐나다 OPM 59%, 유럽/일본/한국 허가 완료, 미국 신청 진행 중. 글로벌 아일리아 시장 14조원의 5~10% 점유 가정 시 연 매출 7,000억~1.4조. 이 경우 적정 시총 2~4조원. 현 시총 12조의 1/3~1/5 수준."</blockquote>
+    </div>
+    <div class="debate-arg con">
+      <div class="debate-arg-role">반대</div>
+      <div class="debate-arg-author">Kiran Mazumdar-Shaw (바이오콘)</div>
+      <blockquote>"아일리아 바이오시밀러 시장에 5개 이상 경쟁자가 진입한다. 삼천당은 선행 허가 이점이 있으나, 규모/브랜드/유통에서 셀트리온/삼성바이오에피스에 열위. 장기 점유율 3~5%가 현실적이고, 연 매출 4,000~7,000억 수준. 적정 시총 1.5~2.5조원."</blockquote>
+    </div>
+    <div class="debate-arg med">
+      <div class="debate-arg-role">중재</div>
+      <div class="debate-arg-author">서정진 (바이오시밀러)</div>
+      <blockquote>"바이오시밀러만으로 적정 시총은 2~3조원. 현 시총 12조에서 S-PASS 프리미엄은 9~10조원, 즉 시총의 75~85%가 미검증 기술에 의존. 이는 극도로 위험한 구조."</blockquote>
+    </div>
+    <div class="debate-result"><strong>결론</strong>: S-PASS 프리미엄이 시총의 75~85%를 차지한다는 것이 전원 합의. 바이오시밀러만으로는 시총 2~3조원이 적정.</div>
+  </div>
+
+  <!-- Part B: Core Committee -->
+  <div class="subsection-title" style="margin-top:32px">Part B. Core Committee 투표 (10명 + 위원장)</div>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>멤버</th><th>역할/투자 철학</th><th>국적</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Warren Buffett</strong></td><td>장기 가치투자 &mdash; "이해할 수 있는 사업인가, 안전마진이 있는가"</td><td>미국</td></tr>
+      <tr><td>2</td><td><strong>Howard Marks</strong></td><td>역발상/사이클 &mdash; "시장이 과도하게 비관적인가"</td><td>미국</td></tr>
+      <tr><td>3</td><td><strong>Ray Dalio</strong></td><td>글로벌 매크로 &mdash; "매크로가 우호적인가, 포트폴리오 관점"</td><td>미국</td></tr>
+      <tr><td>4</td><td><strong>Stanley Druckenmiller</strong></td><td>트렌드 추종 &mdash; "큰 추세를 타는가, 타이밍"</td><td>미국</td></tr>
+      <tr><td>5</td><td><strong>Cathie Wood</strong></td><td>파괴적 혁신 &mdash; "5년 후 이 시장은 얼마나 커지는가"</td><td>미국</td></tr>
+      <tr><td>6</td><td><strong>강방천</strong></td><td>한국 장기 가치 &mdash; "좋은 기업을 합리적 가격에, 이익의 질"</td><td>한국</td></tr>
+      <tr><td>7</td><td><strong>이채원</strong></td><td>한국 가치주/저평가 &mdash; "자산 대비 싼가, 이익이 반복 가능한가"</td><td>한국</td></tr>
+      <tr><td>8</td><td><strong>박현주</strong></td><td>한국 글로벌 성장 &mdash; "글로벌 확장성, M&amp;A 가능성"</td><td>한국</td></tr>
+      <tr><td>9</td><td><strong>최윤식</strong></td><td>미래 트렌드 &mdash; "10년 메가트렌드에 올라탄 회사인가"</td><td>한국</td></tr>
+      <tr><td>10</td><td><strong>홍춘욱</strong></td><td>한국 매크로 &mdash; "한국 매크로가 이 섹터에 우호적인가"</td><td>한국</td></tr>
+      <tr style="background:#f0f4f8"><td>&mdash;</td><td><strong>위원장 (사용자)</strong></td><td>최종 Veto권, 포트폴리오 총괄</td><td>한국</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="subsection-title">Core Committee 독립 의견</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>멤버</th><th>의견</th><th>TP</th><th>핵심 논리</th><th>최대 리스크</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Warren Buffett</strong></td><td><span class="tag-sell">SELL</span></td><td>130,000원</td><td>"이해할 수 없는 사업에는 투자하지 않는다." PER 1,036배는 투기. 안전마진 전무. 경영진 숫자를 신뢰할 수 없다. 이것은 투자가 아니라 도박</td><td>S-PASS 대성공 시 기회비용</td></tr>
+      <tr><td>2</td><td><strong>Howard Marks</strong></td><td><span class="tag-hold">HOLD</span></td><td>400,000원</td><td>MDD -59%, RSI 30.9 &mdash; 역발상 매수 조건처럼 보이지만, 핵심 기술 자체가 미검증. 공포의 원인이 해소되지 않은 상태. BE 결과 확인 후 재판단</td><td>과매도 상태에서 반등 놓침</td></tr>
+      <tr><td>3</td><td><strong>Ray Dalio</strong></td><td><span class="tag-sell">SELL</span></td><td>200,000원</td><td>변동성 94.3%는 단일 주식 중 최상위. 1억 투자 시 5,900만원 손실 경험. 리스크 패리티 관점에서 포트폴리오에 포함 불가</td><td>금리 인하 사이클 바이오 랠리 소외</td></tr>
+      <tr><td>4</td><td><strong>Stanley Druckenmiller</strong></td><td><span class="tag-sell">SELL</span></td><td>300,000원</td><td>기술적으로 모든 신호가 하방. "떨어지는 칼날을 잡지 마라." 4/23 확정 악재 앞에서 매수할 이유 없음. 트렌드 상방 전환 후 진입해도 늦지 않다</td><td>과매도 반등 초기 수익 놓침</td></tr>
+      <tr><td>5</td><td><strong>Cathie Wood</strong></td><td><span class="tag-buy">BUY</span></td><td>1,200,000원</td><td>경구 GLP-1은 파괴적 혁신. 80조 시장이 200조+로 확대 가능. S-PASS가 성공하면 제네릭이 아니라 플랫폼. 5년 후 시총 50조도 가능. 지금이 가장 싸다</td><td>S-PASS 기술 자체 실패</td></tr>
+      <tr><td>6</td><td><strong>강방천</strong></td><td><span class="tag-sell">SELL</span></td><td>200,000원</td><td>OPM 3.7%, ROE 1.94%는 매우 낮다. 508억을 5.3조로 발표 &mdash; 진정성에 의문. PBR 42.8배는 어떤 기준으로도 합리적이지 않다</td><td>경영진 교체 + 기술 성공</td></tr>
+      <tr><td>7</td><td><strong>이채원</strong></td><td><span class="tag-hold">HOLD</span></td><td>250,000원</td><td>PER 1,036배는 분석 불가 영역. 반복 가능한 이익은 안과 본업뿐. S-PASS 옵션 가치를 0으로 볼 수는 없으므로 HOLD. 단 신규 매수는 불가</td><td>시장 비합리성 장기 지속</td></tr>
+      <tr><td>8</td><td><strong>박현주</strong></td><td><span class="tag-buy">BUY</span></td><td>600,000원</td><td>경구 GLP-1 제네릭 First Mover는 글로벌 제네릭 대기업의 인수 대상. 한국 바이오 기업 중 경구 DDS 플랫폼 보유 유일한 기업이라는 희소성</td><td>M&amp;A 시장 냉각 + S-PASS 실패</td></tr>
+      <tr><td>9</td><td><strong>최윤식</strong></td><td><span class="tag-buy">BUY</span></td><td>800,000원</td><td>GLP-1 비만 치료는 10년 메가트렌드. 주사&rarr;경구 전환 흐름에서 S-PASS가 핵심 인에이블러 가능. 공시 스캔들은 "성장통"</td><td>경구 DDS 경쟁자 대거 진입</td></tr>
+      <tr><td>10</td><td><strong>홍춘욱</strong></td><td><span class="tag-hold">HOLD</span></td><td>300,000원</td><td>외국인 6.31% = 관심 부족. 불성실공시 지정 시 기관 매수 제한. 수급 3축(외국인/기관/개인) 모두 비우호적. 매크로 우호적이나 개별 리스크 압도</td><td>규제 우려 해소 + 외국인 유입</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Core Committee Votes -->
+  <div class="vote-section">
+    <div class="vote-title">Core Committee 최종 집계 (10명, 위원장 제외)</div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>BUY &mdash; 3명 (30%)</span><span>평균 TP 866,667원</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill buy" style="width:30%">30%</div></div>
+    </div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>HOLD &mdash; 3명 (30%)</span><span>평균 TP 316,667원</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill hold" style="width:30%">30%</div></div>
+    </div>
+    <div class="vote-bar-group">
+      <div class="vote-bar-label"><span>SELL &mdash; 4명 (40%)</span><span>평균 TP 207,500원</span></div>
+      <div class="vote-bar-track"><div class="vote-bar-fill sell" style="width:40%">40%</div></div>
+    </div>
+    <div class="debate-result"><strong>Core Committee 결론: SELL 우세 (40%)</strong> &mdash; BUY 과반 미달. 섹터 보드(분열)와 결합 시 전체 방향성은 "HOLD (관망)".</div>
+  </div>
+
+  <!-- 2nd Round Debates -->
+  <div class="subsection-title">2차 토론 (Core Committee)</div>
+
+  <div class="debate-round">
+    <div class="debate-header">쟁점 1 (2차): S-PASS &mdash; 옵션 가치를 어떻게 평가할 것인가</div>
+    <div class="debate-arg pro">
+      <div class="debate-arg-role">찬성</div>
+      <div class="debate-arg-author">Cathie Wood (파괴적 혁신)</div>
+      <blockquote>"S-PASS를 '옵션'으로 보면 가격이 합리적이다. 경구 GLP-1 시장이 $50B+에 달할 수 있고, 삼천당이 5%만 점유해도 연 매출 $2.5B(3.5조). 이 옵션의 가치가 시총 12조의 75%인 9조라면, 옵션 행사 확률 30%만 적용해도 기대 가치 $7.5B(10조). 옵션 관점에서 현재 가격은 합리적."</blockquote>
+    </div>
+    <div class="debate-arg con">
+      <div class="debate-arg-role">반대</div>
+      <div class="debate-arg-author">Warren Buffett (가치투자)</div>
+      <blockquote>"옵션에는 만기가 있다. BE 실패 시 이 '옵션'의 가치는 0이 된다. 9조원짜리 옵션을 사는데, 기초자산(S-PASS)의 성공 확률이 30%라면, 기대 손실은 6.3조원이다. 이것은 합리적 투자가 아니라 카지노다."</blockquote>
+    </div>
+    <div class="debate-arg med">
+      <div class="debate-arg-role">중재</div>
+      <div class="debate-arg-author">이채원 (가치주)</div>
+      <blockquote>"옵션 관점은 이론적으로 맞지만, 개인 투자자가 감내할 수 있는 옵션 비용은 포트폴리오의 1~2%가 한계다. 시총 12조 중 9조가 옵션이라면, 전체 포트폴리오에서 비중 1% 이하가 적정."</blockquote>
+    </div>
+    <div class="debate-result"><strong>결론</strong>: S-PASS의 옵션 가치는 인정하되, 비중 제한(1~2%) 필수라는 것이 다수 합의.</div>
+  </div>
+
+  <div class="debate-round">
+    <div class="debate-header">쟁점 추가: CEO 주담보대출 &mdash; 이해상충인가, 확신의 표시인가?</div>
+    <div class="debate-arg pro">
+      <div class="debate-arg-role">찬성</div>
+      <div class="debate-arg-author">박현주 (글로벌 성장)</div>
+      <blockquote>"CEO가 자기 회사 주식을 담보로 대출받은 것은 자신의 회사에 대한 확신의 표시일 수 있다. 주가가 올라갈 것이라고 믿기 때문에 주식을 팔지 않고 대출로 자금을 조달한 것. 실리콘밸리에서도 흔한 관행이다."</blockquote>
+    </div>
+    <div class="debate-arg con">
+      <div class="debate-arg-role">반대</div>
+      <div class="debate-arg-author">강방천 (장기 가치)</div>
+      <blockquote>"2,335억원은 삼천당의 연간 영업이익(85억)의 27배다. CEO 개인의 대출이 회사 영업이익의 27배라면, 주가 유지에 대한 개인적 동기가 경영 판단을 왜곡할 수 있다. 공시를 과대 발표한 동기와 무관하지 않을 수 있다."</blockquote>
+    </div>
+    <div class="debate-arg med">
+      <div class="debate-arg-role">중재</div>
+      <div class="debate-arg-author">Howard Marks (역발상)</div>
+      <blockquote>"담보대출 자체는 중립이지만, 공시 스캔들과 결합되면 시장은 최악의 시나리오(이해상충)를 가정한다. 이것은 리스크 프리미엄의 일부로 주가에 반영되어야 한다."</blockquote>
+    </div>
+    <div class="debate-result"><strong>결론</strong>: 담보대출은 그 자체로 문제가 아니지만, 공시 스캔들과의 결합이 시장 신뢰를 추가 훼손. 리스크 요인으로 포함.</div>
+  </div>
+
+  <!-- Final Summary -->
+  <div class="subsection-title" style="margin-top:32px">투심위 종합 (섹터 보드 + Core Committee)</div>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>구분</th><th>BUY</th><th>HOLD</th><th>SELL</th><th>합계</th></tr></thead>
+    <tbody>
+      <tr><td>제약/바이오 섹터 보드</td><td>4</td><td>3</td><td>3</td><td>10명</td></tr>
+      <tr><td>Core Committee</td><td>3</td><td>3</td><td>4</td><td>10명</td></tr>
+      <tr class="highlight-row"><td><strong>합계</strong></td><td><strong>7</strong></td><td><strong>6</strong></td><td><strong>7</strong></td><td><strong>20</strong></td></tr>
+      <tr class="highlight-row"><td><strong>비율</strong></td><td><strong>35.0%</strong></td><td><strong>30.0%</strong></td><td><strong>35.0%</strong></td><td>100%</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-card-label">전체 평균 TP</div><div class="summary-card-value">408,000원</div><div class="summary-card-sub">현재가 대비 -19.2%</div></div>
+    <div class="summary-card"><div class="summary-card-label">BUY 평균 TP</div><div class="summary-card-value" style="color:var(--buy)">707,143원</div><div class="summary-card-sub">+40.0%</div></div>
+    <div class="summary-card"><div class="summary-card-label">HOLD 평균 TP</div><div class="summary-card-value" style="color:var(--hold)">346,667원</div><div class="summary-card-sub">-31.4%</div></div>
+    <div class="summary-card"><div class="summary-card-label">SELL 평균 TP</div><div class="summary-card-value" style="color:var(--sell)">204,286원</div><div class="summary-card-sub">-59.5%</div></div>
+    <div class="summary-card"><div class="summary-card-label">확률가중 TP</div><div class="summary-card-value" style="color:var(--gold)">388,500원</div><div class="summary-card-sub">-23.1%</div></div>
+  </div>
+
+  <div class="final-verdict">
+    <h3>최종 권고</h3>
+    <div class="fv-main">HOLD</div>
+    <div class="fv-tp">확률가중 TP 388,500원 (-23.1%) &middot; 전체 평균 TP 408,000원 (-19.2%)</div>
+    <p style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.8;margin-bottom:16px">
+      BUY 35% = SELL 35%. 투심위 역사상 가장 분열된 결과.<br>
+      S-PASS BE 결과 발표 전까지 기술 가치를 확정할 수 없음.<br>
+      불성실공시법인 지정(4/23) 결과 미확인.<br>
+      시총의 75~85%가 미검증 기술에 의존하는 극단적 구조.<br>
+      CEO 담보대출 + 공시 스캔들로 경영진 신뢰도 매우 낮음.
+    </p>
+    <div class="fv-grid">
+      <div class="fv-item">
+        <div class="fv-item-label">BUY로 전환 조건</div>
+        <div class="fv-item-value">(a) S-PASS BE 시험 성공 발표<br>(b) 불성실공시 제재 경미 (경고 수준)</div>
+      </div>
+      <div class="fv-item">
+        <div class="fv-item-label">즉시 SELL 전환 트리거</div>
+        <div class="fv-item-value">(a) S-PASS BE 실패 공시<br>(b) 불성실공시법인 지정 확정 + CEO 반대매매</div>
+      </div>
+      <div class="fv-item">
+        <div class="fv-item-label">포트폴리오 비중</div>
+        <div class="fv-item-value">최대 2% (변동성 94.3% + 바이너리 리스크)</div>
+      </div>
+      <div class="fv-item">
+        <div class="fv-item-label">리뷰 주기</div>
+        <div class="fv-item-value">4/23 불성실공시 &middot; BE 결과 &middot; 바이오시밀러 분기 실적</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection-title">위원장 의사결정 참고</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>항목</th><th>권장 사항</th></tr></thead>
+    <tbody>
+      <tr><td><strong>투자 의견</strong></td><td>HOLD (관망). 확률가중 TP 388,500원(-23.1%) &mdash; 현재가 대비 하방 우세</td></tr>
+      <tr><td><strong>기존 보유 시</strong></td><td>4/23 결정 전까지 비중 유지, 결과에 따라 대응. BE 결과까지 인내 필요</td></tr>
+      <tr><td><strong>신규 진입 시</strong></td><td>비권장. BE 결과 확인 후 진입해도 늦지 않음</td></tr>
+      <tr><td><strong>포트폴리오 비중</strong></td><td>최대 2% (변동성 94.3% + 바이너리 리스크 감안, 극소 비중만 허용)</td></tr>
+      <tr><td><strong>진입 전략 (관심 시)</strong></td><td>BE 성공 확인 후 분할 매수 3회. 현재가에서 매수는 비권장</td></tr>
+      <tr><td><strong>손절 기준</strong></td><td>300,000원 이하 + 불성실공시 확정 시 전량 매도 고려</td></tr>
+      <tr><td><strong>리뷰 주기</strong></td><td>4/23(불성실공시), BE 결과 발표, 바이오시밀러 분기 실적 &mdash; 3개 이벤트 중심 모니터링</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+
+<!-- APPENDIX -->
+<section id="appendix">
+  <div class="section-title"><span class="section-num">APP</span> Appendix</div>
+
+  <details>
+    <summary>기술적 지표 상세 (pykrx 실데이터, 2026-04-10)</summary>
+    <div>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>지표</th><th>수치</th><th>해석</th></tr></thead>
+        <tbody>
+          <tr><td>연간 변동성</td><td>94.3%</td><td>극단적 (KOSPI 평균 ~20%의 약 5배)</td></tr>
+          <tr><td>2년 변동성</td><td>86.7%</td><td>매우 높음</td></tr>
+          <tr><td>52주 MDD</td><td>-59.0%</td><td>고점 대비 6할 하락</td></tr>
+          <tr><td>2년 MDD</td><td>-59.0%</td><td>52주와 동일</td></tr>
+          <tr><td>RSI (14)</td><td>30.9</td><td>과매도 근접 (30 이하 = 과매도)</td></tr>
+          <tr><td>YTD 수익률</td><td>+106.5%</td><td>급등+급락에도 연초 대비 2배+</td></tr>
+          <tr><td>1개월 수익률</td><td>-34.6%</td><td>극심한 하락</td></tr>
+          <tr><td>3개월 수익률</td><td>+106.1%</td><td>급등 잔여분</td></tr>
+          <tr><td>6개월 수익률</td><td>+139.3%</td><td>장기적으로는 여전히 상승 상태</td></tr>
+          <tr><td>현재가 vs MA20</td><td>-36.3% (793,050원)</td><td>단기 이평선 대폭 하회 &rarr; 극단적 약세</td></tr>
+          <tr><td>현재가 vs MA60</td><td>-18.8% (621,742원)</td><td>중기 이평선 하회 &rarr; 강한 약세</td></tr>
+          <tr><td>현재가 vs MA120</td><td>+19.3% (423,288원)</td><td>장기 이평선 상회 &rarr; 장기 상승 추세 유지</td></tr>
+          <tr><td>현재가 vs MA200</td><td>+53.0% (330,058원)</td><td>초장기 이평선 대폭 상회 &rarr; 장기 강세</td></tr>
+          <tr><td>최근 거래량</td><td>506,803주</td><td>20일 평균(564,612) 대비 약 90%</td></tr>
+          <tr><td>발행주식수</td><td>23,457,472주</td><td>&mdash;</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>VaR (최대예상손실, Value at Risk, 95%, 일간) [추정]</summary>
+    <div>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>수치</th><th>해석</th></tr></thead>
+        <tbody>
+          <tr><td>일간 VaR</td><td>~5.9% (~29,800원/주)</td><td>20일 중 1일은 약 30,000원 이상 하락 가능</td></tr>
+          <tr><td>월간 VaR</td><td>~27.3% (~137,900원/주)</td><td>월 최악 케이스 14만원 하락 가능</td></tr>
+          <tr><td>연간 VaR</td><td>~94.3% (~476,200원/주)</td><td>이론적 최악 시나리오 하한 ~28,800원</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>재무제표 요약 (연결기준, 억원)</summary>
+    <div>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>2021</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th></tr></thead>
+        <tbody>
+          <tr><td><strong>매출액</strong></td><td>1,673</td><td>1,773</td><td>1,927</td><td>2,109</td><td>2,318</td></tr>
+          <tr><td><strong>영업이익</strong></td><td>-153</td><td>122</td><td>96</td><td>26</td><td>85</td></tr>
+          <tr><td><strong>당기순이익</strong></td><td>-104</td><td>88</td><td>-42</td><td>-51</td><td>120</td></tr>
+          <tr><td>OPM</td><td>-9.1%</td><td>6.9%</td><td>5.0%</td><td>1.2%</td><td>3.7%</td></tr>
+          <tr><td>ROE</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td><td>1.94%</td></tr>
+          <tr><td>부채비율</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td><td>54.36%</td></tr>
+          <tr><td>EPS</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td><td>224원</td></tr>
+          <tr><td>BPS</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td><td>11,791원</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>S-PASS 파이프라인 전체</summary>
+    <div>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>개발명</th><th>성분</th><th>적응증</th><th>단계</th><th>파트너/지역</th></tr></thead>
+        <tbody>
+          <tr><td>경구 세마글루타이드</td><td>GLP-1 제네릭</td><td>비만/당뇨</td><td>BE 시험 중</td><td>유럽 11개국, 미국, 일본(다이이치산쿄에스파)</td></tr>
+          <tr><td>SCD0503</td><td>경구 인슐린</td><td>당뇨병</td><td>임상 1/2상 CTA 제출(유럽) + 미국 계약</td><td>유럽/미국</td></tr>
+          <tr><td>SCD0506, SCD0507</td><td>경구 삭센다(리라글루타이드)</td><td>비만</td><td>전임상 [추정]</td><td>미확인</td></tr>
+          <tr><td>SCD0509</td><td>경구 엔브렐(에타너셉트)</td><td>자가면역질환</td><td>전임상 [추정]</td><td>미확인</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>아일리아 바이오시밀러 (SCD411) 글로벌 현황</summary>
+    <div>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>지역</th><th>상태</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td>캐나다</td><td><span class="tag-buy">판매 중</span></td><td>3개월 매출 97억, OPM 59%</td></tr>
+          <tr><td>유럽 (EMA)</td><td><span class="tag-buy">허가 완료</span></td><td>'VGENFLI', 프랑스+동유럽 8개국 독점 공급</td></tr>
+          <tr><td>일본</td><td><span class="tag-buy">허가 완료</span></td><td>PMDA 승인</td></tr>
+          <tr><td>한국</td><td><span class="tag-buy">허가 완료</span></td><td>'비젠프리'</td></tr>
+          <tr><td>중동 6개국</td><td><span class="tag-hold">판매 계약</span></td><td>아포텍스(Apotex) 파트너</td></tr>
+          <tr><td>라틴아메리카 6개국</td><td><span class="tag-hold">계약 체결</span></td><td>브라질, 멕시코 등</td></tr>
+          <tr><td>미국</td><td><span class="tag-hold">허가 신청 진행 중</span></td><td>2026~2027년 판매 목표</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>용어 해설 (Glossary)</summary>
+    <div>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>약어/용어</th><th>한글 풀이</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td>GLP-1</td><td>글루카곤유사펩타이드-1</td><td>식욕 억제/혈당 조절 호르몬. 비만/당뇨 치료제의 핵심</td></tr>
+          <tr><td>SNAC</td><td>나트륨 N-[8-(2-하이드록시벤조일)아미노]카프릴레이트</td><td>노보 노디스크의 경구 흡수 촉진제 (2039년까지 특허)</td></tr>
+          <tr><td>BE</td><td>생물학적동등성 (Bioequivalence)</td><td>제네릭 약물이 오리지널과 동일한 효과를 내는지 증명하는 시험</td></tr>
+          <tr><td>PCT</td><td>특허협력조약 (Patent Cooperation Treaty)</td><td>국제 특허 출원 제도. 진보성 심사 포함</td></tr>
+          <tr><td>CTA</td><td>임상시험 신청서 (Clinical Trial Application)</td><td>유럽에서 임상시험을 시작하기 위한 승인 신청</td></tr>
+          <tr><td>IND</td><td>임상시험계획 승인 (Investigational New Drug)</td><td>미국 FDA에 임상시험 개시를 신청하는 것</td></tr>
+          <tr><td>FDA</td><td>미국 식품의약국</td><td>미국 의약품 허가 기관</td></tr>
+          <tr><td>EMA</td><td>유럽의약품청</td><td>유럽 의약품 허가 기관</td></tr>
+          <tr><td>MFDS</td><td>식품의약품안전처</td><td>한국 의약품 허가 기관</td></tr>
+          <tr><td>DDS</td><td>약물전달시스템 (Drug Delivery System)</td><td>약물을 체내 목표 부위에 효과적으로 전달하는 기술</td></tr>
+          <tr><td>OPM</td><td>영업이익률</td><td>매출 대비 영업이익 비율</td></tr>
+          <tr><td>PER</td><td>주가수익비율</td><td>주가 / 주당순이익. 투자금 회수 기간</td></tr>
+          <tr><td>PBR</td><td>주가순자산비율</td><td>주가 / 주당순자산. 청산가치 대비 평가</td></tr>
+          <tr><td>PSR</td><td>주가매출비율</td><td>주가 / 주당매출. 이익 없는 성장주 평가에 활용</td></tr>
+          <tr><td>MDD</td><td>최대낙폭 (Maximum Drawdown)</td><td>고점에서 저점까지 최대 하락률</td></tr>
+          <tr><td>RSI</td><td>상대강도지수</td><td>과매수/과매도 판단 (70+ 과매수, 30- 과매도)</td></tr>
+          <tr><td>VaR</td><td>최대예상손실 (Value at Risk)</td><td>일정 확률에서 예상되는 최대 손실</td></tr>
+          <tr><td>TAM</td><td>전체시장규모</td><td>목표 시장의 전체 크기</td></tr>
+          <tr><td>SAM</td><td>접근가능시장</td><td>실제로 공략 가능한 시장</td></tr>
+          <tr><td>IPR</td><td>당사자계 특허심판</td><td>미국 특허청에서 특허 유효성을 재심사하는 절차</td></tr>
+          <tr><td>WACC</td><td>가중평균자본비용</td><td>투자 시 요구하는 최소 수익률, 할인율로 사용</td></tr>
+          <tr><td>DCF</td><td>현금흐름할인법</td><td>미래 현금흐름을 현재 가치로 환산하는 밸류에이션 방법</td></tr>
+          <tr><td>FCF</td><td>잉여현금흐름</td><td>영업으로 벌어들인 현금에서 투자를 뺀 나머지</td></tr>
+          <tr><td>TP</td><td>목표주가 (Target Price)</td><td>분석 결과 적정하다고 판단하는 주가 수준</td></tr>
+          <tr><td>EPS</td><td>주당순이익</td><td>주식 1주가 벌어들이는 순이익</td></tr>
+          <tr><td>BPS</td><td>주당순자산</td><td>주식 1주의 장부가치(순자산)</td></tr>
+          <tr><td>ROE</td><td>자기자본이익률</td><td>주주 자본 대비 순이익률</td></tr>
+          <tr><td>KGMP</td><td>우수의약품 제조관리기준</td><td>한국 의약품 제조 품질 인증</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+</section>
+
+
+<!-- SOURCES -->
+<section style="margin-top:40px">
+  <div class="section-title"><span class="section-num">SRC</span> Sources (출처)</div>
+  <div style="font-size:12px;color:var(--text-muted);line-height:1.9;padding:8px 0">
+    FnGuide 기업정보 (삼천당제약 000250): 재무제표, 주가 데이터<br>
+    DART 전자공시시스템: 삼천당제약 사업보고서, 계약 공시<br>
+    pykrx (2026-04-10): 기술적 지표 전체 데이터<br>
+    약업신문, 팜뉴스, 데일리팜, 약사공론: 산업 뉴스 및 계약 상세<br>
+    한국투자증권 리서치: 유일한 정식 커버리지<br>
+    디지털타임스, MTN, 히트뉴스: SCD411 허가/상업화 뉴스<br>
+    팜이데일리: PCT 진보성 판단, CEO 담보대출 보도<br>
+    뉴스1, MBC, 파이낸셜뉴스: 공시 논란 및 금감원 대응 보도<br>
+    알파스퀘어, FnGuide: 밸류에이션 데이터<br>
+    노보 노디스크 Annual Report 2025: GLP-1 시장 규모
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div style="margin-bottom:8px;font-weight:600;color:rgba(255,255,255,0.6)">면책 고지</div>
+  본 보고서는 주픽(JooPick) AI 투자위원회가 생성한 정보 제공 자료입니다.<br>
+  투자 판단의 참고 자료로만 활용하시기 바라며, 최종 투자 결정은 투자자 본인의 판단과 책임하에 이루어져야 합니다.<br>
+  <strong>본 보고서는 투자 자문, 매수/매도 추천이 아닙니다.</strong> 주식 투자는 원금 손실의 위험이 있습니다.<br><br>
+  투심위 위원들의 의견 및 TP(목표주가)는 각 투자 철학에 기반한 AI 시뮬레이션 결과이며, <strong>실제 인물의 의견이 아닙니다</strong>.<br>
+  실명은 투자 스타일 시뮬레이션의 이해를 돕기 위한 목적으로만 사용되었습니다.<br><br>
+  <span style="color:rgba(255,255,255,0.25)">JooPick Investment Committee &middot; ReportFramework v2.1 &middot; 2026-04-13</span>
+</footer>
+
+</body>
+</html>

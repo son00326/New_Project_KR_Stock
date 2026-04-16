@@ -70,6 +70,12 @@ AutoTrading.md (리서치)  →  이 문서 (설계 결정)  →  ServicePlan/Bu
 
 > TradingAgents + Ray Fu 5단계 파이프라인 + tradermonty 스킬 아키텍처를 조합한 구조 후보
 
+> **━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**
+> **본 파이프라인은 자동매매 트랙(독립).**
+> 리포트 트랙(어드민 메인 서비스 / 투심위 Section 0~8)과 분리 운영.
+> 리포트 결과물은 외부 입력으로만 참조하며 재호출하지 않는다.
+> **━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**
+
 ### 2.1 파이프라인 흐름
 
 ```
@@ -112,6 +118,7 @@ LLM: quick_think (Haiku/Flash) — 뉴스 요약, 센티먼트 분류
 #### PREDICT — 투심위 토론
 
 > TradingAgents의 토론→심판 구조 참고, BusinessPlan §8 투심위 구조 적용
+> ※ 투심위 구조(Core 11 + Sector 14×10)·토론 규칙의 단일 출처는 `Document/Service/Report/ReportFramework.md` §5~§7. 본 트랙은 리포트 트랙 투심위와 동일 구조이나 **외부 입력으로만 참조(재호출하지 않음)**.
 
 ```
 입력: RESEARCH 결과 (종목별 데이터 패키지)
@@ -127,8 +134,8 @@ Step 2 — Core Committee (11명)
   가중 투표 → 컨센서스 도출
   → Brier Score로 각 위원 예측 정확도 추적
 
-Step 3 — 사용자 Veto
-  위원장(사용자)이 최종 승인/거부
+Step 3 — 어드민 Veto
+  어드민(사용자 본인)이 최종 승인/거부
 
 출력: 종목별 투자 의견 + 신뢰도 + 보고서
 LLM: deep_think (Opus/GPT) — 일 5~10회
@@ -160,8 +167,8 @@ LLM: deep_think (Opus/GPT) — 일 5~10회
 정량적:
   Riskfolio-Lib: VaR, CVaR, MDD, 섹터집중도
   Position Sizer: Fractional Kelly (×0.25~0.50) + ATR + 2% Rule
-  3축 배분: 단기30% / 중기40% / 장기30% (BusinessPlan §9.1)
-  Quant Board 70% 컨센서스 (BusinessPlan §9.2)
+  3축 배분: → BusinessPlan §9.1 참조 (단일 출처)
+  Quant Board 70% 컨센서스: → BusinessPlan §9.2 참조
 
 안전장치 체크:
   Circuit Breaker: DD > 8%이면 차단
