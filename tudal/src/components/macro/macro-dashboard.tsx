@@ -1,9 +1,7 @@
 "use client";
 
-import { Activity, TrendingUp, TrendingDown, Minus, Calendar, Shield, AlertTriangle, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { MOCK_INDICATORS, MOCK_EVENTS, MOCK_VERDICT } from "@/lib/data/mock-macro";
 import { VerdictPanel } from "@/components/macro/verdict-panel";
 import { IndicatorCard } from "@/components/macro/indicator-card";
@@ -76,7 +74,7 @@ export function MacroDashboard() {
 
       {/* 경제 지표 */}
       <div>
-        <SectionHeader title="경제 지표" icon="chart" />
+        <SectionHeader title="경제 지표" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {economicIndicators.map((indicator) => (
             <IndicatorCard key={indicator.id} indicator={indicator} />
@@ -86,7 +84,7 @@ export function MacroDashboard() {
 
       {/* 금리 */}
       <div>
-        <SectionHeader title="금리" icon="rates" />
+        <SectionHeader title="금리" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {ratesIndicators.map((indicator) => (
             <IndicatorCard key={indicator.id} indicator={indicator} />
@@ -97,7 +95,7 @@ export function MacroDashboard() {
       {/* 원자재 + 환율 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <SectionHeader title="원자재" icon="commodities" />
+          <SectionHeader title="원자재" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {commoditiesIndicators.map((indicator) => (
               <IndicatorCard key={indicator.id} indicator={indicator} />
@@ -105,7 +103,7 @@ export function MacroDashboard() {
           </div>
         </div>
         <div>
-          <SectionHeader title="환율" icon="fx" />
+          <SectionHeader title="환율" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {fxIndicators.map((indicator) => (
               <IndicatorCard key={indicator.id} indicator={indicator} />
@@ -116,7 +114,7 @@ export function MacroDashboard() {
 
       {/* 경제 캘린더 */}
       <div>
-        <SectionHeader title="경제 이벤트 캘린더" icon="calendar" />
+        <SectionHeader title="경제 이벤트 캘린더" />
         <EventCalendar events={MOCK_EVENTS} />
       </div>
 
@@ -129,7 +127,7 @@ export function MacroDashboard() {
   );
 }
 
-function SectionHeader({ title, icon }: { title: string; icon: string }) {
+function SectionHeader({ title }: { title: string }) {
   return (
     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
       {title}

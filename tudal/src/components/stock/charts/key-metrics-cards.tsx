@@ -1,7 +1,6 @@
 "use client";
 
-import { TrendingUp, TrendingDown, DollarSign, Users, Factory, Globe } from "lucide-react";
-import { formatKRW } from "@/lib/constants";
+import { TrendingUp, DollarSign, Users, Factory, Globe } from "lucide-react";
 
 interface KeyMetric {
   label: string;

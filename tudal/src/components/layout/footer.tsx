@@ -24,9 +24,6 @@ export function Footer() {
               <Link href="/stock" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 종목 분석
               </Link>
-              <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                요금제
-              </Link>
             </nav>
           </div>
 

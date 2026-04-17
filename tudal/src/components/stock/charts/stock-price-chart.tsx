@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell, Rectangle,
+  Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { LineChart as LineChartIcon, CandlestickChart, AreaChart as AreaChartIcon } from "lucide-react";
-import { SAMSUNG_OHLCV, calcMA, calcBollingerBands, type OHLCV } from "@/lib/data/mock-ohlcv";
+import { SAMSUNG_OHLCV, calcMA, calcBollingerBands } from "@/lib/data/mock-ohlcv";
 
 interface StockPriceChartProps {
   ticker: string;
@@ -25,58 +25,6 @@ const CHART_TYPE_LABELS: Record<ChartType, { label: string; icon: typeof LineCha
 
 interface Indicator { key: string; label: string; active: boolean; }
 
-// 커스텀 캔들스틱 바 렌더러
-function CandleBar(props: any) {
-  const { x, y, width, height, payload } = props;
-  if (!payload) return null;
-
-  const isUp = payload.close >= payload.open;
-  const fill = isUp ? "#ef4444" : "#3b82f6";     // 빨강=상승, 파랑=하락
-  const stroke = isUp ? "#dc2626" : "#2563eb";
-
-  // 캔들 몸통
-  const bodyTop = Math.min(payload.open, payload.close);
-  const bodyBottom = Math.max(payload.open, payload.close);
-
-  // 위치 계산 - props에서 y좌표 사용
-  const barX = x;
-  const barWidth = Math.max(width, 2);
-
-  return (
-    <g>
-      {/* 위꼬리 (high → body top) */}
-      <line
-        x1={barX + barWidth / 2}
-        y1={y}
-        x2={barX + barWidth / 2}
-        y2={y + height * 0.1}
-        stroke={stroke}
-        strokeWidth={1}
-      />
-      {/* 몸통 */}
-      <rect
-        x={barX}
-        y={y + height * 0.1}
-        width={barWidth}
-        height={height * 0.8}
-        fill={isUp ? fill : fill}
-        stroke={stroke}
-        strokeWidth={1}
-        rx={1}
-      />
-      {/* 아래꼬리 */}
-      <line
-        x1={barX + barWidth / 2}
-        y1={y + height * 0.9}
-        x2={barX + barWidth / 2}
-        y2={y + height}
-        stroke={stroke}
-        strokeWidth={1}
-      />
-    </g>
-  );
-}
-
 export function StockPriceChart({ ticker }: StockPriceChartProps) {
   const [period, setPeriod] = useState<Period>("3m");
   const [chartType, setChartType] = useState<ChartType>("candle");
@@ -88,7 +36,7 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
     { key: "bb", label: "볼린저밴드", active: true },
   ]);
 
-  const allData = ticker === "005930" ? SAMSUNG_OHLCV : [];
+  const allData = useMemo(() => (ticker === "005930" ? SAMSUNG_OHLCV : []), [ticker]);
 
   const data = useMemo(() => {
     const days = PERIOD_DAYS[period];

@@ -7,7 +7,6 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Sector,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { formatKRW } from "@/lib/constants";

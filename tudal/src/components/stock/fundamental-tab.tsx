@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { getStockByTicker, MOCK_REVENUE_SEGMENTS } from "@/lib/data/mock-stocks";
 import { SAMSUNG_10Y_FINANCIALS } from "@/lib/data/mock-financials-extended";
 import { KeyMetricsCards, getSamsungKeyMetrics } from "@/components/stock/charts/key-metrics-cards";

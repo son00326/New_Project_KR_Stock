@@ -81,15 +81,3 @@ export interface FundamentalReport {
   generatedAt: string;
 }
 
-// 구독 등급
-export type SubscriptionTier = "free" | "standard" | "pro";
-
-// 유저 프로필
-export interface UserProfile {
-  id: string;
-  email: string;
-  name: string;
-  tier: SubscriptionTier;
-  createdAt: string;
-  reportViewsRemaining: number;  // Free 유저용 잔여 리포트 열람 횟수
-}

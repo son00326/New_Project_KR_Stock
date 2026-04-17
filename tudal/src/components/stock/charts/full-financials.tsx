@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { formatKRW } from "@/lib/constants";
 import {
   SAMSUNG_INCOME_STATEMENTS,

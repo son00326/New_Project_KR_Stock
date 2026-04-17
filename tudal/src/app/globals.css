@@ -46,6 +46,10 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* 주픽 어드민 — 한국 증시 관례 (T0.6a Q3 확정): 빨강=상승·파랑=하락 */
+  --color-market-up: var(--market-up);
+  --color-market-down: var(--market-down);
+  --color-market-neutral: var(--market-neutral);
 }
 
 :root {
@@ -81,6 +85,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* 한국 증시 색상 관례 (T0.6a Q3) */
+  --market-up: oklch(0.58 0.23 28);       /* 빨강 — 상승 */
+  --market-down: oklch(0.55 0.22 250);    /* 파랑 — 하락 */
+  --market-neutral: oklch(0.65 0 0);      /* 회색 — 보합 */
 }
 
 .dark {
@@ -115,6 +123,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* 한국 증시 색상 관례 (T0.6a Q3) — 다크 모드는 v2 (S6 이후) */
+  --market-up: oklch(0.68 0.20 28);
+  --market-down: oklch(0.65 0.18 250);
+  --market-neutral: oklch(0.55 0 0);
 }
 
 @layer base {

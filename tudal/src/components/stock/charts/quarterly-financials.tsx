@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { formatKRW } from "@/lib/constants";
-import { SAMSUNG_QUARTERLY, type QuarterlyFinancial } from "@/lib/data/mock-quarterly";
+import { SAMSUNG_QUARTERLY } from "@/lib/data/mock-quarterly";
 
 interface QuarterlyFinancialsProps {
   ticker: string;
@@ -30,9 +29,7 @@ export function QuarterlyFinancials({ ticker }: QuarterlyFinancialsProps) {
     netIncYoY: q.netIncYoY,
   }));
 
-  const metricLabel = { revenue: "매출액", operatingIncome: "영업이익", netIncome: "순이익" }[metric];
   const metricKey = { revenue: "매출액", operatingIncome: "영업이익", netIncome: "순이익" }[metric];
-  const yoyKey = { revenue: "revYoY", operatingIncome: "opIncYoY", netIncome: "netIncYoY" }[metric];
 
   return (
     <div className="space-y-4">

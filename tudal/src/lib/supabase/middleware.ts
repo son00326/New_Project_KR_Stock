@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -29,16 +34,25 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 로그인하지 않은 유저가 보호된 경로에 접근 시 로그인으로 리다이렉트
-  const protectedPaths = ["/dashboard"];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  const pathname = request.nextUrl.pathname;
+  const isAdminPath = pathname.startsWith("/admin");
 
-  if (!user && isProtectedPath) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+  if (isAdminPath) {
+    // 비인증 유저 → 로그인으로 리다이렉트 (`next` 쿼리로 원래 경로 전달)
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // 인증은 됐지만 ADMIN_EMAILS allowlist에 없으면 홈으로 리다이렉트
+    const email = user.email?.toLowerCase();
+    if (!email || !ADMIN_EMAILS.includes(email)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

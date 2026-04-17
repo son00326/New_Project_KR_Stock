@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { SAMSUNG_ANALYST_TPS, type AnalystTP } from "@/lib/data/mock-quarterly";
+import { SAMSUNG_ANALYST_TPS } from "@/lib/data/mock-quarterly";
 
 interface AnalystConsensusProps {
   ticker: string;

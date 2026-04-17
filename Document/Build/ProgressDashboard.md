@@ -2,10 +2,11 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-16
+Last updated: 2026-04-17
 총 슬라이스: 7개 (S0~S6) + Deferred-X 1개
 총 예상 세션: **25세션** (S3 옵션 A 채택 시. 옵션 B 시 27세션)
-Must 19 진행률: **0 / 19 완료 (0%)**
+Must 19 진행률: **0 / 19 완료 (0%)**  (S0은 인프라 선행, Must 미포함)
+S0 Foundation: ✅ 완료 (2026-04-17)
 
 ---
 
@@ -13,8 +14,8 @@ Must 19 진행률: **0 / 19 완료 (0%)**
 
 | ID | 이름 | 포함 Must | 예상 세션 | 상태 | 블로커 요약 | 파일 |
 |---|---|---|---|---|---|---|
-| **S0** | Foundation | 없음 (인프라 선행) | 2 | ⚪ 대기 | BL-1 Supabase env, BL-2 admin role 정의 | [S0-Foundation.md](./Slices/S0-Foundation.md) |
-| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 | ⚪ 대기 | BL-3 mock fixture 분포 | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
+| **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
+| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 | 🟢 진행 가능 | BL-3 mock fixture 분포 | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | ⚪ 대기 | BL-4 mock 원고 책임자, BL-5 dedupe 정책 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 | ⚪ 대기 | BL-7 이의 제기 UX | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
@@ -115,7 +116,7 @@ S6 Hardening (3세션) — M17·M19
 
 | BL-ID | 슬라이스 | 의제 | 해소 시점 |
 |---|---|---|---|
-| **BL-1** | S0 | Supabase 프로젝트 키·env 세팅 | S0 착수 전 필수 |
+| ~~BL-1~~ | S0 | ✅ 해소 — Supabase 프로젝트 `fpriyjykihxhhvqudvdb` 연결, `.env.local` 세팅 완료 (2026-04-17) | ~~S0 착수 전 필수~~ |
 | **BL-2** | S0 | ✅ 해소 — (A) email allowlist 채택 (2026-04-16) | S0 착수 전 필수 |
 | **BL-6** | S5 | ✅ 해소 — (B) `/admin/settings/health` 서브라우트 채택 (2026-04-16) | S5 진입 전 필수 (S0 시점 권장) |
 | **BL-11** | S5 | 이메일 벤더 선택 (SendGrid/Resend/AWS SES) | S5 진입 전 필수 |
@@ -125,7 +126,7 @@ S6 Hardening (3세션) — M17·M19
 | **BL-19** | S3 | [G-4] 한국 영업일 캘린더 데이터 소스 (pykrx 역산 / KRX 하드코딩 / 외부 API) | S3 킥오프 전 필수 |
 | **BL-20** | S3 | [G-9] R8 "1인 어드민 7일 연속" 2인 게이팅 예외 룰 (자동 바이패스 / 수동 오버라이드 / 예외 없음) | S3 킥오프 전 필수 |
 
-**S0 진입 전 필수 해소**: BL-1 (미해소), ~~BL-2~~ (해소)
+~~**S0 진입 전 필수 해소**: BL-1 (미해소), BL-2 (해소)~~ → **S0 완료 (2026-04-17)**
 **S0 시점 권장 (S5 전 필수)**: BL-6
 **S3 킥오프 전 필수 해소**: BL-19, BL-20
 **S5 진입 전 필수 해소**: BL-6, BL-11, BL-13, BL-15
@@ -155,3 +156,4 @@ S6 Hardening (3세션) — M17·M19
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-16 | 초기 생성. architect audit(`.omc/research/must-19-slice-mapping.md`) 결과 반영. S3(집행 3경로) Must 19 밖 이관(Deferred-X). 총 25세션 계획 확정. |
+| 2026-04-17 | **S0 Foundation ✅ 완료**. BL-1 해소 (Supabase fpriyjykihxhhvqudvdb 연결 · ADMIN_EMAILS 3명). 17 라우트(admin 11 + main 6) · 8 AGENTS.md 계층 · 9엔티티 RLS sketch · mock-admin 구조 · 디자인 토큰(한국 증시 market-up/down/neutral). build·lint 0. S1 진행 가능. |

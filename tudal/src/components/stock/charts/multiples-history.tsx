@@ -5,14 +5,13 @@ import {
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { SAMSUNG_MULTIPLES_HISTORY, SAMSUNG_GLOBAL_PEERS } from "@/lib/data/mock-quarterly";
-import { formatKRW } from "@/lib/constants";
 
 interface MultiplesHistoryProps {
   ticker: string;
   currentPrice: number;
 }
 
-export function MultiplesHistory({ ticker, currentPrice }: MultiplesHistoryProps) {
+export function MultiplesHistory({ ticker }: MultiplesHistoryProps) {
   if (ticker !== "005930") return null;
 
   const trailing = SAMSUNG_MULTIPLES_HISTORY.filter((m) => !m.isForward);

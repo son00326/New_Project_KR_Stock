@@ -12,7 +12,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { formatKRW } from "@/lib/constants";
 import type { FinancialData } from "@/types/stock";
 
 interface RevenueTrendChartProps {

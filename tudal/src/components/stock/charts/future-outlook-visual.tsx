@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, AlertTriangle, Target, Lightbulb } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb } from "lucide-react";
 
 interface OutlookItem {
   category: string;

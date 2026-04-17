@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search, TrendingUp, Clock, X, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { searchStocks, MOCK_STOCKS } from "@/lib/data/mock-stocks";
-import { formatKRW, formatPercent } from "@/lib/constants";
+import { formatPercent } from "@/lib/constants";
 import type { Stock } from "@/types/stock";
 
 const RECENT_SEARCH_KEY = "joopick_recent_searches";
@@ -51,27 +51,17 @@ export function StockSearch({
 }: StockSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Stock[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches());
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 검색 결과 업데이트
-  useEffect(() => {
-    if (query.trim()) {
-      setResults(searchStocks(query));
-      setSelectedIndex(-1);
-    } else {
-      setResults([]);
-    }
-  }, [query]);
-
-  // 최근 검색 로드
-  useEffect(() => {
-    setRecentSearches(getRecentSearches());
-  }, [isOpen]);
+  // 검색 결과 — query에서 직접 파생 (useEffect 불필요)
+  const results = useMemo<Stock[]>(
+    () => (query.trim() ? searchStocks(query) : []),
+    [query]
+  );
 
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -139,8 +129,8 @@ export function StockSearch({
           ref={inputRef}
           placeholder={placeholder}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setIsOpen(true)}
+          onChange={(e) => { setQuery(e.target.value); setSelectedIndex(-1); }}
+          onFocus={() => { setIsOpen(true); setRecentSearches(getRecentSearches()); }}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
           className={`${isHero ? "h-14 pl-12 text-base" : "h-10 pl-10"} bg-muted/50`}

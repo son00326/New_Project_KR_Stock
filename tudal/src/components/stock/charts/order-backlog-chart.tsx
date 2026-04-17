@@ -3,7 +3,6 @@
 import {
   BarChart,
   Bar,
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -12,7 +11,6 @@ import {
   Legend,
   ResponsiveContainer,
   ComposedChart,
-  Area,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import type { OrderBacklog } from "@/types/corporate";

@@ -2,7 +2,6 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getStockByTicker,
   MOCK_FINANCIALS,
@@ -10,7 +9,6 @@ import {
   MOCK_MULTIPLES,
   MOCK_STOCKS,
 } from "@/lib/data/mock-stocks";
-import { formatKRW } from "@/lib/constants";
 import { RevenueChart } from "@/components/stock/charts/revenue-chart";
 import { RevenueTrendChart } from "@/components/stock/charts/revenue-trend-chart";
 import { QuarterlyFinancials } from "@/components/stock/charts/quarterly-financials";
@@ -171,25 +169,6 @@ export function TechnicalTab({ ticker }: TechnicalTabProps) {
         재무 데이터는 DART 전자공시 및 KRX 데이터를 기반으로 합니다.
         투자 판단의 최종 책임은 이용자 본인에게 있습니다.
       </div>
-    </div>
-  );
-}
-
-function MultipleBadge({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: number | null;
-  suffix: string;
-}) {
-  return (
-    <div className="rounded-lg border p-4">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className="text-xl font-bold">
-        {value !== null ? `${value.toFixed(1)}${suffix}` : "N/A"}
-      </p>
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { HelpCircle, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 // 제품/용어 상세 설명 데이터베이스
 const PRODUCT_GLOSSARY: Record<string, {

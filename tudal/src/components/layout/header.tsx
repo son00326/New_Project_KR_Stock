@@ -29,12 +29,6 @@ export function Header() {
           >
             매크로 현황판
           </Link>
-          <Link
-            href="/pricing"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            요금제
-          </Link>
           <Link href="/login">
             <Button variant="ghost" size="sm">
               로그인
@@ -62,12 +56,6 @@ export function Header() {
                     className="text-sm font-medium hover:text-foreground transition-colors"
                   >
                     매크로 현황판
-                  </Link>
-                  <Link
-                    href="/pricing"
-                    className="text-sm font-medium hover:text-foreground transition-colors"
-                  >
-                    요금제
                   </Link>
                   <Link href="/login">
                     <Button variant="ghost" className="w-full justify-start">
