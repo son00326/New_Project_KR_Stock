@@ -16,7 +16,8 @@ export type AlertType =
   | "news_critical"
   | "price_anomaly"
   | "briefing"
-  | "scheduler_fail";
+  | "scheduler_fail"
+  | "gating_auto_relief"; // S3 BL-20 A: 7일 연속 단일 접속 감지 시 자동 바이패스 로그
 export type Severity = "critical" | "warning" | "info";
 export type ExitDecision = "sell_all" | "partial_sell" | "hold";
 export type BrokerageScope = "manual" | "auto" | "both";
@@ -99,6 +100,10 @@ export interface CommitteeVote {
 // E4. PortfolioApproval — 승인 이벤트 (D15 게이팅 필드 포함)
 // v1.2 (2026-04-17 S2 [G-5] B): reportViewCount 제거. 2인 열람 게이팅은 E10
 // ReportViewLog에서 `COUNT(DISTINCT admin_id)` 집계로 판정.
+// v1.3 (2026-04-17 S3 BL-7·BL-20·T3.4):
+//   + disputeReason (min 20자) · disputeRaisedBy
+//   + gatingAutoReliefActive (7일 연속 단일 접속 자동 바이패스)
+//   + reanalysisCount (≤ 1: Reject 후 재분석 1회)
 // ---------------------------------------------------------------------------
 export interface PortfolioApproval {
   id: string;
@@ -110,8 +115,15 @@ export interface PortfolioApproval {
   prevPortfolioHeld: boolean;
   shortlistGeneratedAt: string; // D15 R3.3-7 24h Hold 계산 기준
   disputeRaisedAt: string | null;
+  disputeRaisedBy: string | null; // BL-7 A
+  disputeReason: string | null; // BL-7 A: 자유 텍스트 min 20자
   disputeResolvedAt: string | null;
+  gatingAutoReliefActive: boolean; // BL-20 A
+  reanalysisCount: number; // T3.4: ≤ 1
 }
+
+// S3 이의 제기 사유 최소 길이 (BL-7 A)
+export const DISPUTE_REASON_MIN_LENGTH = 20;
 
 // ---------------------------------------------------------------------------
 // E5. PortfolioSnapshot — 가상 포트 일별 스냅샷 (D11: 가상 트래킹 전용)
