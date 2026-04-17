@@ -14,17 +14,24 @@ import type { ShortListItem } from "@/types/admin";
 //   - compositeScore 0~100 = bucket별 v6 가중치 적용 선정 강도
 //   - trendScore·momentumScore·volatilityScore 0~100 (높을수록 긍정, vol은 Quality 환산)
 //   - suggestedWeight = fraction (0.04 = 4%). axis weight 합: long 0.30 + mid 0.40 + short 0.30
+//   - divergencePct = m60 이동평균 대비 괴리율 (% — 양수는 MA 상방)
+//   - sparkline7d = 최근 7 거래일 종가 (표시 전용, 데이터 shape 가상)
 //   - createdAt = month 1일 09:00 KST (M10 스케줄러 가상 시각)
 
 const MONTH = "2026-04-01";
 const CREATED_AT = "2026-04-01T00:00:00.000Z"; // 09:00 KST ≈ UTC 00:00
 
-type SeedRow = Omit<ShortListItem, "id" | "month" | "createdAt">;
+type SeedRow = Omit<
+  ShortListItem,
+  "id" | "month" | "createdAt" | "divergencePct" | "sparkline7d"
+>;
 
 const SEED: SeedRow[] = [
   // ─────────────────────────────────────────── 🟦 장기 (long) 10종
   {
     ticker: "005930",
+    name: "삼성전자",
+    sector: "반도체",
     bucket: "long",
     rank: 2,
     compositeScore: 88,
@@ -40,6 +47,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "000660",
+    name: "SK하이닉스",
+    sector: "반도체",
     bucket: "long",
     rank: 1,
     compositeScore: 92,
@@ -55,6 +64,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "207940",
+    name: "삼성바이오로직스",
+    sector: "바이오",
     bucket: "long",
     rank: 3,
     compositeScore: 87,
@@ -70,6 +81,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "373220",
+    name: "LG에너지솔루션",
+    sector: "2차전지",
     bucket: "long",
     rank: 10,
     compositeScore: 78,
@@ -85,6 +98,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "005380",
+    name: "현대차",
+    sector: "자동차",
     bucket: "long",
     rank: 4,
     compositeScore: 85,
@@ -100,6 +115,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "035420",
+    name: "NAVER",
+    sector: "인터넷플랫폼",
     bucket: "long",
     rank: 8,
     compositeScore: 80,
@@ -115,6 +132,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "005490",
+    name: "POSCO홀딩스",
+    sector: "철강",
     bucket: "long",
     rank: 7,
     compositeScore: 82,
@@ -130,6 +149,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "012330",
+    name: "현대모비스",
+    sector: "자동차부품",
     bucket: "long",
     rank: 6,
     compositeScore: 83,
@@ -145,6 +166,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "055550",
+    name: "신한지주",
+    sector: "금융",
     bucket: "long",
     rank: 5,
     compositeScore: 84,
@@ -160,6 +183,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "033780",
+    name: "KT&G",
+    sector: "소비재",
     bucket: "long",
     rank: 9,
     compositeScore: 80,
@@ -177,6 +202,8 @@ const SEED: SeedRow[] = [
   // ─────────────────────────────────────────── 🟨 중기 (mid) 10종
   {
     ticker: "012450",
+    name: "한화에어로스페이스",
+    sector: "방산",
     bucket: "mid",
     rank: 1,
     compositeScore: 92,
@@ -192,6 +219,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "329180",
+    name: "HD현대중공업",
+    sector: "조선",
     bucket: "mid",
     rank: 2,
     compositeScore: 90,
@@ -207,6 +236,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "042660",
+    name: "한화오션",
+    sector: "조선",
     bucket: "mid",
     rank: 4,
     compositeScore: 88,
@@ -222,6 +253,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "034020",
+    name: "두산에너빌리티",
+    sector: "원전",
     bucket: "mid",
     rank: 5,
     compositeScore: 87,
@@ -232,11 +265,13 @@ const SEED: SeedRow[] = [
     deltaStatus: "hold",
     deltaReason: "SMR·대형 원전 수주 기대 지속",
     summary3Line:
-      "SMR·대형 원전 수주 기대.\n원전 리르네상스 테마 지속.\nm60 상위·변동성 다소 높음.",
+      "SMR·대형 원전 수주 기대.\n원전 르네상스 테마 지속.\nm60 상위·변동성 다소 높음.",
     suggestedWeight: 0.04,
   },
   {
     ticker: "267260",
+    name: "HD현대일렉트릭",
+    sector: "전력기기",
     bucket: "mid",
     rank: 3,
     compositeScore: 89,
@@ -252,6 +287,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "028260",
+    name: "삼성물산",
+    sector: "지주/건설",
     bucket: "mid",
     rank: 8,
     compositeScore: 82,
@@ -267,6 +304,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "068270",
+    name: "셀트리온",
+    sector: "바이오",
     bucket: "mid",
     rank: 9,
     compositeScore: 80,
@@ -282,6 +321,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "006400",
+    name: "삼성SDI",
+    sector: "2차전지",
     bucket: "mid",
     rank: 10,
     compositeScore: 76,
@@ -297,6 +338,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "064350",
+    name: "현대로템",
+    sector: "방산",
     bucket: "mid",
     rank: 6,
     compositeScore: 86,
@@ -312,6 +355,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "010140",
+    name: "삼성중공업",
+    sector: "조선",
     bucket: "mid",
     rank: 7,
     compositeScore: 84,
@@ -329,6 +374,8 @@ const SEED: SeedRow[] = [
   // ─────────────────────────────────────────── 🟥 단기 (short) 10종
   {
     ticker: "196170",
+    name: "알테오젠",
+    sector: "바이오",
     bucket: "short",
     rank: 1,
     compositeScore: 95,
@@ -344,6 +391,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "247540",
+    name: "에코프로비엠",
+    sector: "2차전지",
     bucket: "short",
     rank: 9,
     compositeScore: 78,
@@ -359,6 +408,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "079550",
+    name: "LIG넥스원",
+    sector: "방산",
     bucket: "short",
     rank: 2,
     compositeScore: 90,
@@ -374,6 +425,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "352820",
+    name: "하이브",
+    sector: "엔터",
     bucket: "short",
     rank: 6,
     compositeScore: 85,
@@ -389,6 +442,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "035900",
+    name: "JYP Ent.",
+    sector: "엔터",
     bucket: "short",
     rank: 7,
     compositeScore: 82,
@@ -404,6 +459,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "058470",
+    name: "리노공업",
+    sector: "반도체부품",
     bucket: "short",
     rank: 3,
     compositeScore: 88,
@@ -419,6 +476,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "214150",
+    name: "클래시스",
+    sector: "의료기기",
     bucket: "short",
     rank: 5,
     compositeScore: 86,
@@ -434,6 +493,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "278280",
+    name: "천보",
+    sector: "2차전지소재",
     bucket: "short",
     rank: 10,
     compositeScore: 72,
@@ -449,6 +510,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "278470",
+    name: "에이피알",
+    sector: "뷰티",
     bucket: "short",
     rank: 4,
     compositeScore: 87,
@@ -464,6 +527,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "251270",
+    name: "넷마블",
+    sector: "게임",
     bucket: "short",
     rank: 8,
     compositeScore: 80,
@@ -481,6 +546,8 @@ const SEED: SeedRow[] = [
   // ─────────────────────────────────────────── ⬛ REMOVED (전월 포함, 이번 달 제외) 3종
   {
     ticker: "035720",
+    name: "카카오",
+    sector: "인터넷플랫폼",
     bucket: "long",
     rank: 99,
     compositeScore: 72,
@@ -496,6 +563,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "011200",
+    name: "HMM",
+    sector: "해운",
     bucket: "mid",
     rank: 99,
     compositeScore: 70,
@@ -511,6 +580,8 @@ const SEED: SeedRow[] = [
   },
   {
     ticker: "105560",
+    name: "KB금융",
+    sector: "금융",
     bucket: "long",
     rank: 99,
     compositeScore: 73,
@@ -526,11 +597,42 @@ const SEED: SeedRow[] = [
   },
 ];
 
+// m60 괴리율·7일 스파크라인은 점수에서 결정적으로 유도 (mock 표시 전용).
+// 실데이터 전환(S5 M10) 시 pykrx 실가격으로 자연 대체.
+function deriveVisual(row: SeedRow): {
+  divergencePct: number;
+  sparkline7d: number[];
+} {
+  const { trendScore, momentumScore, volatilityScore, deltaStatus } = row;
+
+  // REMOVED는 음(-) 괴리, 그 외는 trend·momentum 기반 양(+) 괴리
+  const divergenceRaw =
+    deltaStatus === "removed"
+      ? -((100 - momentumScore) * 0.08 + 1)
+      : (trendScore - 60) * 0.14 + (momentumScore - 70) * 0.06;
+  const divergencePct = Math.round(divergenceRaw * 10) / 10;
+
+  // 7일 종가: 모멘텀이 슬로프, (100-vol)이 진폭
+  const slope = (momentumScore - 70) / 30; // ≈ [-2.3, +1.0]
+  const amp = Math.max(0.3, (100 - volatilityScore) / 25);
+  const seed = trendScore * 31 + momentumScore * 17 + volatilityScore * 7;
+  const base = 100;
+  const sparkline7d = Array.from({ length: 7 }, (_, i) => {
+    const t = i / 6;
+    const wiggle = Math.sin(seed * 0.013 + i * 1.1) * amp;
+    const value = base + slope * 3 * t + wiggle;
+    return Math.round(value * 100) / 100;
+  });
+
+  return { divergencePct, sparkline7d };
+}
+
 export const MOCK_ADMIN_SHORTLIST: ShortListItem[] = SEED.map((row) => ({
   id: `sl-${MONTH}-${row.ticker}`,
   month: MONTH,
   createdAt: CREATED_AT,
   ...row,
+  ...deriveVisual(row),
 }));
 
 // Delta 뷰 집계 (M5 배너) — 홈에서 한 번 더 reduce 하는 대신 export

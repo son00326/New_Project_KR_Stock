@@ -1,13 +1,13 @@
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
-import {
-  MOCK_ADMIN_SHORTLIST,
-  MOCK_ADMIN_SHORTLIST_DELTA,
-} from "@/lib/data/mock-admin-shortlist";
-import type { BucketKind } from "@/types/admin";
+import { DeltaBanner } from "@/components/admin/shortlist/delta-banner";
+import { MissingCountBanner } from "@/components/admin/shortlist/missing-count-banner";
+import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
+import type { BucketKind, ShortageReason } from "@/types/admin";
+import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
 
-// M1 Short List 30 홈. 3섹션 세로 스택(단·중·장) + Delta 집계 요약.
-// T1.3(종목 카드)·T1.4(Delta 배너)·T1.5(3줄 팝오버)·T1.6(미달 경고)에서 확장 예정.
-// v6 로직 관점에서 fixture는 mock-admin-shortlist.ts. 실데이터 전환은 S5 M10.
+// M1 Short List 30 홈. 3섹션 세로 스택(단·중·장) + Delta 배너 + 종목 카드.
+// T1.3 ShortlistRow (M4·M6) · T1.4 DeltaBanner (M5) · T1.6 MissingCountBanner 완료.
+// fixture는 mock-admin-shortlist.ts. 실데이터 전환은 S5 M10.
 
 const BUCKET_ORDER: BucketKind[] = ["short", "mid", "long"];
 
@@ -16,17 +16,17 @@ const BUCKET_META: Record<
   { label: string; cadence: string; weight: string }
 > = {
   short: {
-    label: "단기",
+    label: "단기 (Short)",
     cadence: "21일 리밸런스",
     weight: "축 비중 30%",
   },
   mid: {
-    label: "중기",
+    label: "중기 (Mid)",
     cadence: "42일 리밸런스",
     weight: "축 비중 40%",
   },
   long: {
-    label: "장기",
+    label: "장기 (Long)",
     cadence: "63일 리밸런스",
     weight: "축 비중 30%",
   },
@@ -36,6 +36,14 @@ function formatMonthLabel(month: string): string {
   if (!month) return "";
   const [y, m] = month.split("-");
   return `${y}년 ${Number(m)}월`;
+}
+
+// T1.6 — 미달 원인을 결정. mock에서는 항상 충족 (30 = active).
+// 실배치 연결 후(S5 M10) shortlist fetch 결과의 원인 플래그로 교체.
+function resolveShortageReason(activeCount: number): ShortageReason {
+  if (activeCount >= SHORTLIST_TARGET_COUNT) return "none";
+  // MVP: 스케줄러 실패 판정은 M10 연결 후, 우선 스크리닝 미달로 간주.
+  return "screening";
 }
 
 export default function AdminHomePage() {
@@ -50,7 +58,7 @@ export default function AdminHomePage() {
   }));
 
   const activeCount = byBucket.reduce((sum, b) => sum + b.items.length, 0);
-  const hasShortage = activeCount < 30;
+  const shortageReason = resolveShortageReason(activeCount);
 
   return (
     <div className="space-y-6">
@@ -66,41 +74,17 @@ export default function AdminHomePage() {
         </div>
       </header>
 
-      {/* Delta 집계 (T1.4에서 펼침 패널로 확장) */}
-      <div className="rounded-lg border bg-muted/30 px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        <span className="font-medium">Delta</span>
-        <DeltaCount
-          label="편입"
-          count={MOCK_ADMIN_SHORTLIST_DELTA.newCount}
-          color="var(--color-market-up)"
-        />
-        <DeltaCount
-          label="유지"
-          count={MOCK_ADMIN_SHORTLIST_DELTA.holdCount}
-          color="var(--color-market-neutral)"
-        />
-        <DeltaCount
-          label="제외"
-          count={MOCK_ADMIN_SHORTLIST_DELTA.removedCount}
-          color="var(--color-market-down)"
-        />
-        <span className="ml-auto text-xs text-muted-foreground">
-          T1.4 펼침 패널 예정
-        </span>
-      </div>
+      {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
+      <DeltaBanner items={MOCK_ADMIN_SHORTLIST} />
 
-      {/* 30종 미달 경고 (T1.6에서 원인 분리 정식 배너) */}
-      {hasShortage && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
-          <b className="text-destructive">30종목 미달 경고</b>
-          <span className="text-muted-foreground ml-2">
-            현재 {activeCount}종. 원인 분리(스크리닝 미달 / 스케줄러 실패)는
-            T1.6에서 구현.
-          </span>
-        </div>
-      )}
+      {/* 30종 미달 경고 — 원인 분리 (T1.6). 30이면 렌더 안 함 */}
+      <MissingCountBanner
+        activeCount={activeCount}
+        reason={shortageReason}
+        fallbackMonth={month}
+      />
 
-      {/* 3섹션 세로 스택 (M1) */}
+      {/* 3섹션 세로 스택 (M1) — 각 버킷은 ShortlistRow로 렌더 (T1.3·T1.5) */}
       <div className="space-y-8">
         {byBucket.map(({ bucket, items }) => (
           <BucketSection
@@ -114,27 +98,5 @@ export default function AdminHomePage() {
         ))}
       </div>
     </div>
-  );
-}
-
-function DeltaCount({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: string;
-}) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: color }}
-        aria-hidden
-      />
-      {label}{" "}
-      <b className="font-mono tabular-nums">{count}</b>
-    </span>
   );
 }

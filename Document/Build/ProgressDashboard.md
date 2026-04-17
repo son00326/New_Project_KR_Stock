@@ -2,11 +2,12 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-17
+Last updated: 2026-04-17 (17차 — S1 ✅ 완료)
 총 슬라이스: 7개 (S0~S6) + Deferred-X 1개
 총 예상 세션: **25세션** (S3 옵션 A 채택 시. 옵션 B 시 27세션)
-Must 19 진행률: **0 / 19 완료 (0%)**  (S0은 인프라 선행, Must 미포함)
+Must 19 진행률: **4 / 19 완료 (21%)**  (M1·M4·M5·M6 — S1에서 달성)
 S0 Foundation: ✅ 완료 (2026-04-17)
+S1 Short List 30 홈: ✅ 완료 (2026-04-17)
 
 ---
 
@@ -15,8 +16,8 @@ S0 Foundation: ✅ 완료 (2026-04-17)
 | ID | 이름 | 포함 Must | 예상 세션 | 상태 | 블로커 요약 | 파일 |
 |---|---|---|---|---|---|---|
 | **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
-| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (잔여 2~3) | 🟢 진행 중 (T1.2 완료, 33%) | — (BL-3 해소 완료) | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
-| **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | ⚪ 대기 | BL-4 mock 원고 책임자, BL-5 dedupe 정책 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
+| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (실제 2) | ✅ 완료 | — | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
+| **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | 🟢 진행 가능 | BL-4 mock 원고 책임자, BL-5 dedupe 정책 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 | ⚪ 대기 | BL-7 이의 제기 UX | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 3 + S5b 2) | ⚪ 대기 | BL-11 이메일벤더, BL-13 뉴스벤더, BL-15 배치환경 | [S5-Automation.md](./Slices/S5-Automation.md) |
@@ -74,12 +75,12 @@ S6 Hardening (3세션) — M17·M19
 
 | Must ID | 공식 명칭 | 담당 슬라이스 | 상태 |
 |---|---|---|---|
-| M1 | Short List 30 홈 표시 | S1 | ⚪ |
+| M1 | Short List 30 홈 표시 | S1 | ✅ |
 | M2 | 풀 리포트 렌더링 | S2 | ⚪ |
 | M3 | 투심위 투표 요약 패널 | S2 | ⚪ |
-| M4 | 5-Signal Composite + 3축 분석엔진 출력 | S1 | ⚪ |
-| M5 | 편입/유지/제외 Delta 뷰 | S1 | ⚪ |
-| M6 | 선정 근거 요약 카드 (3줄) | S1 | ⚪ |
+| M4 | 5-Signal Composite + 3축 분석엔진 출력 | S1 | ✅ |
+| M5 | 편입/유지/제외 Delta 뷰 | S1 | ✅ |
+| M6 | 선정 근거 요약 카드 (3줄) | S1 | ✅ |
 | M7 | 승인 워크플로우 (+ D15 게이팅) | S3 | ⚪ |
 | M8 | 가상 포트폴리오 트래킹 엔진 | S4 | ⚪ |
 | M9 | 리포트 재생성 cap 가드 | S4 | ⚪ |
@@ -161,3 +162,4 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-17 | **BL-3 해소** (옵션 C). S1 mock fixture 30종 = backtest/v6 로직 관점 Claude 정성 생성(2026-04 스냅샷). 30종 의미 재정의: 단/중/장 = 상승 예상 기간 10+10+10. S1 착수 준비 완료. |
 | 2026-04-17 | **Deferred-Y 박제** — AI Agent 기반 선정엔진 v2 트랙 추가 (Must 19 밖). S1에서 사용자 v2 고도화 의향 표명 → v0(mock)→v1(pykrx+v6)→v2(AI agent) 진화 경로 문서화. |
 | 2026-04-17 | **S1 T1.1·T1.2 완료**. E1 `short_list_30` 마이그레이션 + 33행 mock fixture(30 + REMOVED 3) + `/admin` 3섹션 세로 스택 + `BucketSection` 컴포넌트 분리. lint 0·build 17 routes. T1.3은 다음 세션에 디자인 하네스로 진행. §5 BL-6 해소 표기 정리. |
+| 2026-04-17 | **S1 ✅ 완료 (17차)**. T1.3 `shortlist-row.tsx` (Composite·3축·Crisis·괴리율·스파크라인 + `<details>` 펼침 패널) + T1.4 `delta-banner.tsx` (편입/유지/제외 집계+펼침) + T1.5 3줄 근거(row 내장) + T1.6 `missing-count-banner.tsx` (스크리닝 미달 vs 스케줄러 실패). `ShortListItem`에 name·sector·divergencePct·sparkline7d + CRISIS_VOL_THRESHOLD·SHORTLIST_TARGET_COUNT·ShortageReason 추가. **Must 4/19 달성 (M1·M4·M5·M6)**. lint 0·build 17 routes. 실제 세션 2회(16·17차)로 예상 4세션 대비 절반. |

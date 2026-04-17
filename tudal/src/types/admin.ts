@@ -28,12 +28,16 @@ export interface ShortListItem {
   id: string;
   month: string; // YYYY-MM-01
   ticker: string;
+  name: string;
+  sector: string;
   bucket: BucketKind;
   rank: number;
   compositeScore: number;
   trendScore: number;
   momentumScore: number;
-  volatilityScore: number;
+  volatilityScore: number; // 낮을수록 실제 변동성↑ (Crisis 경보는 <60)
+  divergencePct: number; // m60 이동평균 대비 괴리율 (%)
+  sparkline7d: number[]; // 최근 7 거래일 종가 (길이 7)
   signalLabel: string;
   deltaStatus: DeltaStatus;
   deltaReason: string;
@@ -41,6 +45,13 @@ export interface ShortListItem {
   suggestedWeight: number;
   createdAt: string;
 }
+
+// M1/M4/M6 UI 파생 상수
+export const CRISIS_VOL_THRESHOLD = 60; // volatilityScore 미만 → Crisis 배지
+export const SHORTLIST_TARGET_COUNT = 30;
+
+// T1.6 30종 미달 원인 구분
+export type ShortageReason = "screening" | "scheduler_fail" | "none";
 
 // ---------------------------------------------------------------------------
 // E2. StockReport — 종목 풀 리포트 (jsonb sections)
