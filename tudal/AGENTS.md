@@ -21,6 +21,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | `middleware.ts` | Supabase session refresh — `_next/*`·정적 자원 외 모든 요청에 적용 |
 | `components.json` | shadcn config — `base-nova` style · `neutral` baseColor · `rsc: true` |
 | `postcss.config.mjs` | Tailwind v4 PostCSS 플러그인 |
+| `vitest.config.ts` | Vitest 설정 (S3 도입, G-10=b) · node 환경 · `src/**/__tests__/**/*.test.ts` · passWithNoTests · native tsconfigPaths |
 | `.env.local` | Supabase URL·키 + `ADMIN_EMAILS` (S0 Foundation에서 세팅, git 무시) |
 
 ## Subdirectories
@@ -35,8 +36,10 @@ npm run dev     # next dev (Turbopack)
 npm run build   # next build — 검증 게이트 1순위
 npm run start   # next start
 npm run lint    # eslint (eslint-config-next flat config)
+npm run test:ci # vitest run (S3 도입) — pure 로직 유닛 테스트
+npm run test    # vitest watch 모드 (개발용)
 ```
-테스트 프레임워크 없음. 검증 = `build` + `lint`. 테스트 프레임워크 추가는 사용자 확인 후에만.
+검증 게이트 = `build` + `lint` + `test:ci` (3종). Vitest는 S3 G-10 옵션 b로 도입 — race condition·영업일·D15 게이팅·이의 제기 등 순수 로직만 커버. 컴포넌트·E2E 추가는 사용자 확인 후에만.
 
 ## For AI Agents
 
@@ -64,7 +67,8 @@ npm run lint    # eslint (eslint-config-next flat config)
   3. 면책 Footer 고정 — "정보 제공, 투자 자문 아님" 문구 유지.
 
 ### Testing Requirements
-- 변경 후 `npm run build` + `npm run lint` 두 게이트 통과 필수.
+- 변경 후 `npm run build` + `npm run lint` + `npm run test:ci` 3 게이트 통과 필수.
+- pure 로직 추가 시 `src/lib/**/__tests__/*.test.ts`에 Vitest 단위 테스트 동반 (S3 기준 패턴).
 - UI 변경 시 `npm run dev`로 브라우저 육안 확인 (각 슬라이스 DoD에 명시).
 
 ## Dependencies
