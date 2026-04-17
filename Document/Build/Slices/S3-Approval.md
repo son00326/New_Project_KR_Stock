@@ -8,7 +8,7 @@
 slice_id: S3
 slice_name: 승인 워크플로우 (+D15 게이팅)
 architect_id: S2
-status: 🟢 진행 가능 (2026-04-17 — BL-7·BL-19·BL-20 3건 해소. G-10 테스트 전략은 킥오프 시 경량 결정)
+status: 🟢 진행 중 (2026-04-17 — BL-7·BL-19·BL-20·G-10 전부 해소, 19차 킥오프)
 expected_sessions: 4
 current_progress: 0%
 ```
@@ -53,6 +53,7 @@ current_progress: 0%
 
 ## Tasks (체크리스트)
 
+- [ ] **T3.0** Vitest 셋업 (G-10 옵션 b 반영) — `vitest` + `vite-tsconfig-paths` 설치 + `vitest.config.ts` + `package.json` scripts(`test`·`test:ci`) + `src/lib/portfolio/__tests__/` 디렉토리 스켈레톤. S3 race condition·영업일 계산·7일 감지 로직 유닛 테스트 인프라만 (컴포넌트·RLS 테스트 없음).
 - [ ] **T3.1** 마이그레이션 0004 — E4 PortfolioApproval 스키마 (`UNIQUE (month) WHERE is_final=true` + `dispute_raised_at`, `dispute_resolved_at`, `shortlist_generated_at`. **`report_view_count` 컬럼 없음** — v1.2 제거됨) + **E11 `kr_business_days` 테이블** (`date PK`, `is_business_day bool`, `holiday_name text NULL`) + RLS. 낙관적 락 설계.
 - [ ] **T3.1a** `scripts/seed_kr_holidays.py` 1회성 Python 스크립트 (pykrx 호출) → 2024~2030 영업일 SQL INSERT 블록 생성 → 0004 마이그레이션에 포함. BL-19 D 옵션 반영.
 - [ ] **T3.2** `/admin/portfolio` 페이지 — 현재 Short List 표시 + Accept/Reject 버튼 + 확인 모달
@@ -79,6 +80,7 @@ current_progress: 0%
 - [ ] Reject 후 재분석 큐 진입 확인 (stub 수준)
 - [ ] (D15 R3.3-9) 연휴 기간 Accept: 24h 대비 D+4 영업일이 짧으면 D+4 적용 확인 (mock 장기연휴 시나리오로 E2E 검증, `kr_business_days` 기반)
 - [ ] (BL-20 A) 7일 연속 단일 접속 감지 시 2인 게이팅 자동 바이패스 + AlertEvent(type=gating_auto_relief) 로그 기록 확인 + UI 비상 완화 배지 표시
+- [ ] Vitest: race/영업일/7일 감지 로직 테스트 통과 (`npm run test:ci`)
 - [ ] `npm run build` 오류 0, `npm run lint` 경고 0
 - [ ] 커밋: `feat(S3): 승인 워크플로우 — M7 + D15 게이팅 3종 + BL-20 자동 바이패스`
 
@@ -89,7 +91,7 @@ current_progress: 0%
 - ~~**BL-7**~~ ✅ 해소 (2026-04-17) — **옵션 A 채택**: 이의 제기 사유는 자유 텍스트 입력 (min 20자 검증). 이유: 3인 어드민은 서로 직접 소통·이의는 드문 이벤트라 분류 통계 무가치·구체 맥락이 중요.
 - ~~**[G-4]/BL-19**~~ ✅ 해소 (2026-04-17) — **옵션 D (하이브리드) 채택**: pykrx seed → Supabase `kr_business_days` 테이블 → Next.js UI SELECT. 최초 seed는 1회성 Python 스크립트(`scripts/seed_kr_holidays.py`)로 2024~2030 생성 후 0004 마이그레이션 INSERT 블록에 포함. S5 M10 이후 월간 배치가 자동 갱신(임시공휴일 대응).
 - ~~**[G-9]/BL-20**~~ ✅ 해소 (2026-04-17) — **옵션 A 채택**: 7일 연속 단일 접속 감지 시 자동 바이패스 + `AlertEvent(type=gating_auto_relief)` 로그. 이유: 옵션 B(수동 오버라이드)는 휴가 중인 사람이 버튼 눌러야 하는 논리적 모순. 3인 중 2인 7일 연속 부재 = 분명한 정황 증거.
-- **[G-10]** (Minor — S3 킥오프 시 경량 결정): 테스트 전략. **킥오프 시 간단히 (c) 현행 유지(build+lint) 기본 + race condition만 필요 시 Vitest 1파일 추가** 제안 예정. 사용자 의견 재확인 필요.
+- ~~**[G-10]**~~ ✅ 해소 (2026-04-17, 19차 킥오프) — **옵션 b 채택**: Vitest 1파일(+인프라). race condition·영업일 계산·7일 연속 감지 순수 로직만 유닛 테스트. 컴포넌트·RLS 테스트는 스코프 외. 이유: S3은 build+lint로 검증 불가한 런타임 로직(race·시간·영업일) 밀집 구간. 유닛 테스트 가성비 최고.
 
 ---
 
@@ -102,6 +104,9 @@ current_progress: 0%
 
 ## 의사결정 로그
 
+- 2026-04-17 (19차 킥오프):
+  - **G-10 = b** (Vitest 1파일 + 인프라). race condition·영업일·7일 감지 순수 로직만 유닛 테스트. 컴포넌트·RLS는 수동 QA.
+  - 파생: Tasks 맨 앞에 T3.0 Vitest 셋업 추가. DoD에 `npm run test:ci` 통과 항목 추가.
 - 2026-04-17 (18차 후속 — 블로커 3건 해소, S2 완료 후 즉시 언블록):
   - **BL-7 = A** (자유 텍스트 min 20자). 3인 소통 체제·분류 통계 무가치·표현 자유도 우선.
   - **BL-19 = D** (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT). 초기 seed는 1회성 Python 스크립트로 2024~2030 생성. S5 M10 이후 월간 배치 자동 갱신.
