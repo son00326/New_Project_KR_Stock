@@ -12,23 +12,34 @@ Last updated: 2026-04-17 (15차 — S0 Foundation 완료)
 ## 🟢 현재 슬라이스
 
 **S1 Short List 30 홈** → `Document/Build/Slices/S1-ShortList30.md`
-상태: 🟢 진행 가능 (BL-3 mock fixture 분포 확정 필요)
+상태: 🟢 **착수 준비 완료** (BL-3 ✅ 해소, 옵션 C 확정)
 포함 Must: M1 홈 · M4 분석엔진 출력 · M5 Delta 뷰 · M6 3줄 근거 카드
 예상: 4세션
 실행 엔진: `ralph` (4 Must → prd.json stories)
 
-### 🔴 S1 착수 전 필수
-1. **BL-3**: Mock fixture 분포 확정 (어떤 분기 기준 데이터? 실 ticker 30개 샘플 합의) — ⏳ 사용자 결정 대기
-2. S1 킥오프 시 **디자인 하네스 평가** (`ExecutionPlaybook.md` §2.5): S0 deepinit + 표준 executor로 UI 품질 충분한가? 불충분 시 harness 구축.
+### ✅ BL-3 결정 내역 (2026-04-17)
 
-### 🚀 S1 착수 시 첫 행동
+- **옵션 C 확정**: Claude가 `backtest/full_system_backtest_v6.py` 로직 관점에서 2026-04 스냅샷 30종 **정성 생성**
+- **30종 구성**: 단기 상승 예상 10 + 중기 10 + 장기 10 (bucket = **상승 예상 기간**)
+- **실 ticker**: KOSPI/KOSDAQ 실제 종목 (2026-04 기준 공개 정보)
+- **점수**: Composite 0~100·3축(추세·모멘텀·변동성)·Crisis·NEW/HOLD/REMOVED — Claude v6 로직 참조 생성
+- **참고 자산**: `backtest/full_system_backtest_v6.py` (CAGR 20.3·Sharpe 0.99), `Document/Outputs/` 리포트 11개
+- **실데이터 전환**: S5 M10 스케줄러 연결 시 자연 수행하여 본 mock 대체
+
+### 🚀 다음 세션 첫 행동 (순서)
+
 ```
-S1-ShortList30.md Tasks 확인 + BL-3 해소 → 디자인 하네스 평가 → ralph prd.json 작성
-  Story 1: 홈 레이아웃 + Short List 30 카드 그리드 (M1)
-  Story 2: 5-Signal Composite 스파크라인 + 3축 점수 뱃지 (M4)
-  Story 3: new/hold/removed Delta 뷰 (M5)
-  Story 4: 3줄 근거 팝오버 카드 (M6)
-  Story 5: mock 데이터 fixture 30종 (BL-3 해소 후)
+1. Claude가 30종 후보 제안 (단10·중10·장10, 각 티커·섹터·선정 근거 1줄)
+2. 사용자 검수 (빼자/추가 피드백) — 3분 이내
+3. 최종 30종 확정 → Composite·3축·Crisis·Delta 점수 산출 (v6 로직 관점)
+4. S1-ShortList30.md Tasks 착수:
+     T1.1 E1 ShortList30 Supabase 스키마 + fixture seed
+     T1.2 /admin 페이지 3섹션 레이아웃 (M1)
+     T1.3 종목 카드 컴포넌트 (M4 Composite·3축·Crisis·스파크라인)
+     T1.4 Delta 배너 (M5)
+     T1.5 3줄 근거 팝오버 (M6)
+     T1.6 30종목 미달 경고 배너
+5. 디자인 하네스 평가 (ExecutionPlaybook §2.5): 표준 executor로 UI 품질 충분 여부 판단
 ```
 
 ---
@@ -69,7 +80,7 @@ S1-ShortList30.md Tasks 확인 + BL-3 해소 → 디자인 하네스 평가 → 
 
 ## 🟡 보류 / 사용자 답변 필요
 
-- **BL-3** Mock fixture 분포 — S1 킥오프 전 필수 (종목 30개 샘플 + 분포 기준)
+- ~~**BL-3**~~ ✅ 해소 (2026-04-17, 옵션 C)
 - **BL-4** Mock 원고 책임자 — S2 킥오프 전 (풀 리포트 텍스트 누가 작성?)
 - **BL-5** dedupe 정책 — S2 킥오프 전
 - **BL-7** 이의 제기 UX — S3 킥오프 전

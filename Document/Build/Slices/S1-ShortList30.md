@@ -73,7 +73,7 @@ current_progress: 0%
 
 ## 블로커 / 사용자 결정 필요
 
-- **BL-3** (Medium): Composite·3축 mock fixture 분포 확정 — 0~100 분포에서 Crisis 발동 비율(예: 3/30), 섹터 분포, 괴리율 범위 — ProgressDashboard §5 참조
+- **BL-3** ✅ 해소 (2026-04-17): **옵션 C 확정** — `backtest/full_system_backtest_v6.py` 로직 **관점에서** Claude가 2026-04 스냅샷 30종 정성 생성 (실 KOSPI/KOSDAQ ticker · v6 출력 shape 모방). 실제 pykrx + v6 실행은 **S5 M10 스케줄러 연결 시점**에 자연 수행되어 이 mock을 대체. **30종 의미 재정의**: 단기 상승 예상 10 · 중기 상승 예상 10 · 장기 상승 예상 10 (bucket = 상승 예상 기간). Composite·3축·Crisis·Delta 점수는 Claude의 정성 판단 (v6 로직 참조).
 
 ---
 
@@ -87,6 +87,13 @@ current_progress: 0%
 ## 의사결정 로그
 
 - 2026-04-16: 슬라이스 파일 생성. S0 완료 후 착수 예정. BL-3 해소 후 T1.1 mock fixture 작성.
+- 2026-04-17: **BL-3 해소 — 옵션 C 확정**.
+  - **의미 재정의**: 30종 = 단기 상승 예상 10 + 중기 10 + 장기 10 (bucket = **상승 예상 기간**, 변동성·시총 크기 아님)
+  - **실 ticker**: KOSPI/KOSDAQ 실제 종목 사용 (2026-04 기준 공개 정보)
+  - **점수 산출**: Claude가 `backtest/full_system_backtest_v6.py` v6 FINAL 알고리즘 로직 관점에서 정성 생성 (Composite 0~100·3축 추세/모멘텀/변동성·Crisis·NEW/HOLD/REMOVED)
+  - **알고리즘 자산**: Outputs/ 11개 리포트 + backtest/v6 (CAGR 20.3%·Sharpe 0.99·3축 분화 + Early Warning + 부분 리밸런싱)
+  - **실시간 전환 없음**: ServicePlan §4.4 M10 월 1회 배치 원칙 유지. 실시간 상태 변화는 S5 M13(장중 알림)·M15(Exit)로 처리. 월 중 재분석은 S4 M9 cap(auto ≤1·manual ≤2).
+  - **실데이터 전환 시점**: S5에서 M10이 pykrx·DART 연결 후 실 배치로 본 mock 대체.
 
 ---
 
@@ -101,3 +108,4 @@ current_progress: 0%
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-16 | 초기 생성. architect S1 블록 기반. Must M1·M4·M5·M6 매핑 확정. |
+| 2026-04-17 | **BL-3 해소** (옵션 C). 30종 의미 재정의(상승 예상 기간 bucket). backtest/v6 로직 관점에서 2026-04 스냅샷 정성 생성 방침 확정. 다음 세션 T1.1 첫 행동: 30종 + 점수 생성 → 사용자 검수 → Supabase E1 마이그레이션. |

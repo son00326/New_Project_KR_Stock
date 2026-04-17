@@ -15,7 +15,7 @@ S0 Foundation: ✅ 완료 (2026-04-17)
 | ID | 이름 | 포함 Must | 예상 세션 | 상태 | 블로커 요약 | 파일 |
 |---|---|---|---|---|---|---|
 | **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
-| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 | 🟢 진행 가능 | BL-3 mock fixture 분포 | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
+| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 | 🟢 착수 준비 완료 | ~~BL-3~~ ✅ (2026-04-17, 옵션 C) | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | ⚪ 대기 | BL-4 mock 원고 책임자, BL-5 dedupe 정책 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 | ⚪ 대기 | BL-7 이의 제기 UX | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
@@ -157,3 +157,4 @@ S6 Hardening (3세션) — M17·M19
 |---|---|
 | 2026-04-16 | 초기 생성. architect audit(`.omc/research/must-19-slice-mapping.md`) 결과 반영. S3(집행 3경로) Must 19 밖 이관(Deferred-X). 총 25세션 계획 확정. |
 | 2026-04-17 | **S0 Foundation ✅ 완료**. BL-1 해소 (Supabase fpriyjykihxhhvqudvdb 연결 · ADMIN_EMAILS 3명). 17 라우트(admin 11 + main 6) · 8 AGENTS.md 계층 · 9엔티티 RLS sketch · mock-admin 구조 · 디자인 토큰(한국 증시 market-up/down/neutral). build·lint 0. S1 진행 가능. |
+| 2026-04-17 | **BL-3 해소** (옵션 C). S1 mock fixture 30종 = backtest/v6 로직 관점 Claude 정성 생성(2026-04 스냅샷). 30종 의미 재정의: 단/중/장 = 상승 예상 기간 10+10+10. S1 착수 준비 완료. |
