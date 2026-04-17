@@ -15,13 +15,14 @@ S0 Foundation: ✅ 완료 (2026-04-17)
 | ID | 이름 | 포함 Must | 예상 세션 | 상태 | 블로커 요약 | 파일 |
 |---|---|---|---|---|---|---|
 | **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
-| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 | 🟢 착수 준비 완료 | ~~BL-3~~ ✅ (2026-04-17, 옵션 C) | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
+| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (잔여 2~3) | 🟢 진행 중 (T1.2 완료, 33%) | — (BL-3 해소 완료) | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | ⚪ 대기 | BL-4 mock 원고 책임자, BL-5 dedupe 정책 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 | ⚪ 대기 | BL-7 이의 제기 UX | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 3 + S5b 2) | ⚪ 대기 | BL-11 이메일벤더, BL-13 뉴스벤더, BL-15 배치환경 | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 | ⚪ 대기 | BL-16 비용수집, BL-18 dry-run 선행 | [S6-Hardening.md](./Slices/S6-Hardening.md) |
 | **Deferred-X** | 증권사 API + 매뉴얼/자동매매 UI | Must 19 밖 이관 | — | ⏸ 보류 | 옵션 A 채택 시 Must 19 범위 외 | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) |
+| **Deferred-Y** | AI Agent 기반 선정엔진 v2 | Must 19 밖 (엔진 고도화) | — | ⏸ 보류 | Must 19 완료 + v1 2~3개월 운용 후 | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) |
 
 > **슬라이스 번호 vs Architect ID 매핑**: S0→S0, S1→S1, S2→S5(architect), S3→S2(architect), S4→S4, S5→S6(architect), S6→S7(architect), Deferred-X→S3(architect)
 
@@ -127,9 +128,9 @@ S6 Hardening (3세션) — M17·M19
 | **BL-20** | S3 | [G-9] R8 "1인 어드민 7일 연속" 2인 게이팅 예외 룰 (자동 바이패스 / 수동 오버라이드 / 예외 없음) | S3 킥오프 전 필수 |
 
 ~~**S0 진입 전 필수 해소**: BL-1 (미해소), BL-2 (해소)~~ → **S0 완료 (2026-04-17)**
-**S0 시점 권장 (S5 전 필수)**: BL-6
+~~**S0 시점 권장 (S5 전 필수)**: BL-6~~ → **BL-6 해소 완료 (2026-04-16, 옵션 B — `/admin/settings/health` 서브라우트)**
 **S3 킥오프 전 필수 해소**: BL-19, BL-20
-**S5 진입 전 필수 해소**: BL-6, BL-11, BL-13, BL-15
+**S5 진입 전 필수 해소**: BL-11, BL-13, BL-15
 **S6 진입 전 필수 해소**: BL-18
 
 ---
@@ -158,3 +159,5 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-16 | 초기 생성. architect audit(`.omc/research/must-19-slice-mapping.md`) 결과 반영. S3(집행 3경로) Must 19 밖 이관(Deferred-X). 총 25세션 계획 확정. |
 | 2026-04-17 | **S0 Foundation ✅ 완료**. BL-1 해소 (Supabase fpriyjykihxhhvqudvdb 연결 · ADMIN_EMAILS 3명). 17 라우트(admin 11 + main 6) · 8 AGENTS.md 계층 · 9엔티티 RLS sketch · mock-admin 구조 · 디자인 토큰(한국 증시 market-up/down/neutral). build·lint 0. S1 진행 가능. |
 | 2026-04-17 | **BL-3 해소** (옵션 C). S1 mock fixture 30종 = backtest/v6 로직 관점 Claude 정성 생성(2026-04 스냅샷). 30종 의미 재정의: 단/중/장 = 상승 예상 기간 10+10+10. S1 착수 준비 완료. |
+| 2026-04-17 | **Deferred-Y 박제** — AI Agent 기반 선정엔진 v2 트랙 추가 (Must 19 밖). S1에서 사용자 v2 고도화 의향 표명 → v0(mock)→v1(pykrx+v6)→v2(AI agent) 진화 경로 문서화. |
+| 2026-04-17 | **S1 T1.1·T1.2 완료**. E1 `short_list_30` 마이그레이션 + 33행 mock fixture(30 + REMOVED 3) + `/admin` 3섹션 세로 스택 + `BucketSection` 컴포넌트 분리. lint 0·build 17 routes. T1.3은 다음 세션에 디자인 하네스로 진행. §5 BL-6 해소 표기 정리. |

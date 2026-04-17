@@ -30,10 +30,12 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 | `Document/Service/Planning/AutoTrading.md` | 자동매매 트랙 설계 (미확정, 재검토 대기). |
 | `Document/Build/SliceTemplate.md` | 신규 슬라이스 파일 생성 시 참조 템플릿. |
 | `Document/Build/Slices/Deferred-Brokerage.md` | Must 19 밖 증권사 API·매뉴얼 트레이딩 UI 로드맵 (Deferred-X). |
+| `Document/Build/Slices/Deferred-AIAgent-Selection.md` | Must 19 밖 AI Agent 기반 선정엔진 v2 로드맵 (Deferred-Y, 2026-04-17 박제). v0(mock)→v1(pykrx+v6)→v2(AI agent) 진화 경로. |
+| `Document/Service/Planning/AutoTrading-AI구조설계.md` | AutoTrading 파생 — AI 구조 설계 초안. 재검토 대기 (AutoTrading.md와 쌍). |
 | `Document/Archive/` | 폐기된 방법론 문서 보관 (Phase.md·BuildPhase.md). 참조·편집 금지. |
 | `Document/Process/Memo/*.md` | 세션별 메모·기준선 정리. 참조용. |
 
-> **Folder convention**: `Document/Business/` (사업), `Document/Service/Planning/` (서비스 기획: ServicePlan 인덱스·Admin·Member·AutoTrading), `Document/Service/Report/` (AI 리포트 방법론: ReportFramework·ReaderCards), `Document/Service/Build/` (슬라이스 산출 스펙: FRD·Scenario·ScreenSpec — 필요 시 슬라이스 내부에서 생성), `Document/Build/` (슬라이스 실행: `ProgressDashboard.md` + `Slices/S?-*.md` + `SliceTemplate.md`), `Document/Process/` (방법론·세션·메모 — `ExecutionPlaybook.md`가 중심), `Document/Archive/` (폐기된 방법론 문서 — 참조 금지), `Document/Research/` (리서치 원자료), `Document/Outputs/` (생성 리포트·백테스트 산출물).
+> **Folder convention**: `Document/Business/` (사업), `Document/Service/Planning/` (서비스 기획: ServicePlan 인덱스·Admin·Member·AutoTrading·AutoTrading-AI구조설계), `Document/Service/Report/` (AI 리포트 방법론: `ReportFramework.md` SoT + 초안 `ReportFramework-v3-*` 및 `ReportFramework-BioSector` + `ReaderAnalogyCards-ConstructionToBio`), `Document/Service/Build/` (슬라이스 산출 스펙: FRD·Scenario·ScreenSpec — 필요 시 슬라이스 내부에서 생성), `Document/Build/` (슬라이스 실행: `ProgressDashboard.md` + `Slices/S?-*.md` + `SliceTemplate.md`), `Document/Process/` (방법론·세션·메모 — `ExecutionPlaybook.md`가 중심), `Document/Archive/` (폐기된 방법론 문서 — 참조 금지), `Document/Research/` (리서치 원자료), `Document/Outputs/` (생성 리포트·백테스트 산출물).
 
 ### Entry routine (매 세션 시작 시 자동 수행)
 

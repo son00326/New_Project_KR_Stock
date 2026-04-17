@@ -8,9 +8,9 @@
 slice_id: S1
 slice_name: Short List 30 홈 + 분석엔진 출력
 architect_id: S1
-status: ⚪ 대기
+status: 🟢 진행 중 (T1.2 완료 · T1.3 대기)
 expected_sessions: 4
-current_progress: 0%
+current_progress: 33%
 ```
 
 ---
@@ -48,8 +48,8 @@ current_progress: 0%
 
 ## Tasks (체크리스트)
 
-- [ ] **T1.1** E1 ShortList30 Supabase 스키마 생성 + mock fixture 30종 (단10·중10·장10, `delta_status`, `summary_3line`, Composite·3축 포함)
-- [ ] **T1.2** `/admin` 페이지 — 3섹션 세로 스택 레이아웃 (단기·중기·장기 버킷 헤더 + 종목 행 리스트)
+- [x] **T1.1** E1 ShortList30 Supabase 스키마 생성 + mock fixture 30종 (단10·중10·장10, `delta_status`, `summary_3line`, Composite·3축 포함) — 2026-04-17 완료. `supabase/migrations/0002_s1_shortlist30.sql` + `src/lib/data/mock-admin-shortlist.ts` (30 + REMOVED 3 = 33행)
+- [x] **T1.2** `/admin` 페이지 — 3섹션 세로 스택 레이아웃 (단기·중기·장기 버킷 헤더 + 종목 행 리스트) — 2026-04-17 완료. `src/app/(admin)/admin/page.tsx` 재작성 + `src/components/admin/shortlist/bucket-section.tsx` 분리 (T1.3 종목 카드에서 행 교체 예정). Delta 집계 요약·30종 미달 경고 placeholder 포함.
 - [ ] **T1.3** 종목 카드 컴포넌트 — 티커·섹터·Composite(0~100)·3축(추세·모멘텀·변동성)·방향 지표·Crisis 배지·괴리율·7일 스파크라인·NEW/HOLD/REMOVED 배지
 - [ ] **T1.4** M5 Delta 배너 — 홈 상단 "편입 N·유지 N·제외 N" + 펼침 패널 + 행 배지
 - [ ] **T1.5** M6 3줄 근거 팝오버 — 종목 행 hover/펼침 시 `summary_3line` 표시 + "풀 리포트" 링크 + NEW 레이블
@@ -87,6 +87,9 @@ current_progress: 0%
 ## 의사결정 로그
 
 - 2026-04-16: 슬라이스 파일 생성. S0 완료 후 착수 예정. BL-3 해소 후 T1.1 mock fixture 작성.
+- 2026-04-17 (T1.2 실행): `/admin` 페이지 3섹션 세로 스택 완성 (short→mid→long 순, bucket header 메타 · Delta 집계 pill · 30종 미달 경고 placeholder). `BucketSection` 컴포넌트 분리, DeltaBadge(NEW/HOLD/REMOVED) 간이 배지 포함. 종목 카드 상세(Composite·3축·Crisis·스파크라인)는 T1.3에서 row 교체. npm run build 17 routes 통과.
+- 2026-04-17 (T1.1 실행): **30종 fixture + REMOVED 3 확정**. 장10(L1~L10: 005930/000660/207940/373220/005380/035420/005490/012330/055550/033780) + 중10(M1~M10: 012450/329180/042660/034020/267260/028260/068270/006400/064350/010140) + 단10(S1~S10: 196170/247540/079550/352820/035900/058470/214150/278280/278470/251270) + REMOVED 3(035720/011200/105560). Delta 집계: **편입 5·유지 25·제외 3**. 가중치 합: 1.00 (long 0.30 + mid 0.40 + short 0.30).
+- 2026-04-17 (Deferred-Y 박제): 사용자 v2 AI agent 선정엔진 고도화 의향 표명 → `Document/Build/Slices/Deferred-AIAgent-Selection.md` 별도 트랙으로 박제. S1은 v0 mock으로 계속 진행.
 - 2026-04-17: **BL-3 해소 — 옵션 C 확정**.
   - **의미 재정의**: 30종 = 단기 상승 예상 10 + 중기 10 + 장기 10 (bucket = **상승 예상 기간**, 변동성·시총 크기 아님)
   - **실 ticker**: KOSPI/KOSDAQ 실제 종목 사용 (2026-04 기준 공개 정보)

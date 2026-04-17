@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-04-17 (15차 — S0 Foundation 완료)
+Last updated: 2026-04-17 (16차 — S1 T1.1·T1.2 완료)
 
 **목적**: 다음 세션이 "**다음에 무엇을 할지**"만 빠르게 파악.
 **원칙**: 미래 지향. 포인터·다음 단계만. 상세는 각 슬라이스 파일이 담당.
@@ -12,10 +12,10 @@ Last updated: 2026-04-17 (15차 — S0 Foundation 완료)
 ## 🟢 현재 슬라이스
 
 **S1 Short List 30 홈** → `Document/Build/Slices/S1-ShortList30.md`
-상태: 🟢 **착수 준비 완료** (BL-3 ✅ 해소, 옵션 C 확정)
-포함 Must: M1 홈 · M4 분석엔진 출력 · M5 Delta 뷰 · M6 3줄 근거 카드
-예상: 4세션
-실행 엔진: `ralph` (4 Must → prd.json stories)
+상태: 🟢 **진행 중** (T1.1·T1.2 완료 · 33% · T1.3 대기)
+포함 Must: M1 홈(shell 완성) · M4 분석엔진 출력 · M5 Delta 뷰 · M6 3줄 근거 카드
+잔여 예상: 2~3세션 (T1.3 디자인 하네스 + T1.4~T1.6 구현 + DoD 통합 검증)
+실행 엔진: T1.3 = 디자인 하네스(`oh-my-claudecode:harness` 3~5 변형 탐색) · T1.4~T1.6 = 표준 executor 또는 병렬
 
 ### ✅ BL-3 결정 내역 (2026-04-17)
 
@@ -29,18 +29,18 @@ Last updated: 2026-04-17 (15차 — S0 Foundation 완료)
 ### 🚀 다음 세션 첫 행동 (순서)
 
 ```
-1. Claude가 30종 후보 제안 (단10·중10·장10, 각 티커·섹터·선정 근거 1줄)
-2. 사용자 검수 (빼자/추가 피드백) — 3분 이내
-3. 최종 30종 확정 → Composite·3축·Crisis·Delta 점수 산출 (v6 로직 관점)
-4. S1-ShortList30.md Tasks 착수:
-     T1.1 E1 ShortList30 Supabase 스키마 + fixture seed
-     T1.2 /admin 페이지 3섹션 레이아웃 (M1)
-     T1.3 종목 카드 컴포넌트 (M4 Composite·3축·Crisis·스파크라인)
-     T1.4 Delta 배너 (M5)
-     T1.5 3줄 근거 팝오버 (M6)
-     T1.6 30종목 미달 경고 배너
-5. 디자인 하네스 평가 (ExecutionPlaybook §2.5): 표준 executor로 UI 품질 충분 여부 판단
+1. 디자인 하네스 호출 — `oh-my-claudecode:harness` 스킬로 T1.3 종목 카드 3~5 변형 탐색
+   요소: Composite 0~100 시각화·3축 게이지·Crisis 배지·괴리율·7일 스파크라인·NEW/HOLD 배지·ticker 섹터
+   참고: `src/components/admin/shortlist/bucket-section.tsx` 현 placeholder 행을 교체할 자식 컴포넌트
+2. 변형 평가·채택 → `src/components/admin/shortlist/shortlist-row.tsx` (또는 `stock-card.tsx`) 신설
+3. `bucket-section.tsx`의 `<li>` placeholder 행을 채택된 카드로 교체 → M4 DoD 충족
+4. T1.4 Delta 배너 (M5 펼침 패널·REMOVED 3종 표시) → T1.5 3줄 팝오버 (M6) → T1.6 30종 미달 원인 분리 배너
+     (T1.4·T1.5·T1.6은 독립 컴포넌트라 병렬 가능)
+5. 각 Task 완료 시 `npm run build` + `npm run lint` 0 통과 확인, 슬라이스 파일 체크리스트·의사결정 로그 갱신
+6. S1 DoD 전원 체크 시 `feat(S1): Short List 30 홈 — M1·M4·M5·M6` 커밋
 ```
+
+**참고**: T1.1·T1.2 결과물(`0002_s1_shortlist30.sql` · `mock-admin-shortlist.ts` 33행 · `admin/page.tsx` · `bucket-section.tsx`)은 이미 빌드 통과 상태. T1.3은 행 교체만 하면 되는 증분 작업.
 
 ---
 
@@ -89,6 +89,13 @@ Last updated: 2026-04-17 (15차 — S0 Foundation 완료)
 - **Q17** 이용약관·면책 (S6 이전)
 - **Q-OP3·Q-OP4** 재질문 금지 (개발 완료 전)
 
+## 🧭 보류 트랙 (Must 19 밖 로드맵)
+
+- **Deferred-X** 증권사 API + 매뉴얼/자동매매 UI → `Document/Build/Slices/Deferred-Brokerage.md`
+- **Deferred-Y** AI Agent 기반 선정엔진 v2 (2026-04-17 박제) → `Document/Build/Slices/Deferred-AIAgent-Selection.md`
+  - v0 (mock, S1 지금) → v1 (pykrx+v6 실데이터, S5 M10) → **v2 (AI agent, 본 트랙)**
+  - 재활성: Must 19 완료 + v1 2~3개월 운용 + AI 비용 예산 확정 + 평가 프레임워크 합의
+
 ---
 
 ## 🔎 S0 E2E 수동 재검증 (선택)
@@ -108,6 +115,7 @@ curl -I http://localhost:3000/admin/portfolio # 기대: 307 → /login?next=/adm
 
 ## 📝 최근 세션 (이전은 `git log`)
 
+- **2026-04-17 (16차)** **S1 T1.1·T1.2 완료.** E1 short_list_30 마이그레이션(`0002_s1_shortlist30.sql`: admin_emails + is_admin() + 테이블 + RLS + 2 indexes) · 33행 mock fixture(30 + REMOVED 3) · `/admin` 3섹션 세로 스택(short→mid→long, Delta 집계 pill, 30종 미달 경고 placeholder) · `BucketSection` 컴포넌트 분리. **Deferred-Y 박제**: AI Agent 기반 선정엔진 v2 트랙을 Must 19 밖 로드맵으로 신설. lint 0·build 17 routes.
 - **2026-04-17 (15차)** **S0 Foundation 완료.** BL-1 해소 (Supabase env) → T0.1~T0.8 순차 + Phase ③ 병렬. 8 AGENTS.md · 11 admin 라우트 · 9엔티티 RLS sketch · mock-admin 구조 · 한국 증시 토큰. Lint 46→0 (executor). Root layout 리팩터. Build 17 routes.
 - **2026-04-16 (14차)** Waterfall→Slice 전환 — Phase/BuildPhase 폐기→Archive 이관, ExecutionPlaybook·ProgressDashboard·Slice 7종 신설, CLAUDE.md Entry routine 재작성, HANDOFF 경량화. architect Must 19 감사 + critic 정합성 감사. 재활용 방식 (B) 확정.
 - **2026-04-15 (13차 후속2)** Q-OP1·Q-OP2 해소 → v1.1 — D14 Must 16→19, D15 승인 Holding 24h
