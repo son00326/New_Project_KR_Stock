@@ -17,7 +17,7 @@ S1 Short List 30 홈: ✅ 완료 (2026-04-17)
 |---|---|---|---|---|---|---|
 | **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
 | **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (실제 2) | ✅ 완료 | — | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
-| **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | 🟢 진행 가능 | BL-4 mock 원고 책임자, BL-5 dedupe 정책 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
+| **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 | 🟢 진행 가능 | — (BL-4·BL-5·G-5·G-11 4건 해소 완료) | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 | ⚪ 대기 | BL-7 이의 제기 UX | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 3 + S5b 2) | ⚪ 대기 | BL-11 이메일벤더, BL-13 뉴스벤더, BL-15 배치환경 | [S5-Automation.md](./Slices/S5-Automation.md) |
@@ -163,3 +163,4 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-17 | **Deferred-Y 박제** — AI Agent 기반 선정엔진 v2 트랙 추가 (Must 19 밖). S1에서 사용자 v2 고도화 의향 표명 → v0(mock)→v1(pykrx+v6)→v2(AI agent) 진화 경로 문서화. |
 | 2026-04-17 | **S1 T1.1·T1.2 완료**. E1 `short_list_30` 마이그레이션 + 33행 mock fixture(30 + REMOVED 3) + `/admin` 3섹션 세로 스택 + `BucketSection` 컴포넌트 분리. lint 0·build 17 routes. T1.3은 다음 세션에 디자인 하네스로 진행. §5 BL-6 해소 표기 정리. |
 | 2026-04-17 | **S1 ✅ 완료 (17차)**. T1.3 `shortlist-row.tsx` (Composite·3축·Crisis·괴리율·스파크라인 + `<details>` 펼침 패널) + T1.4 `delta-banner.tsx` (편입/유지/제외 집계+펼침) + T1.5 3줄 근거(row 내장) + T1.6 `missing-count-banner.tsx` (스크리닝 미달 vs 스케줄러 실패). `ShortListItem`에 name·sector·divergencePct·sparkline7d + CRISIS_VOL_THRESHOLD·SHORTLIST_TARGET_COUNT·ShortageReason 추가. **Must 4/19 달성 (M1·M4·M5·M6)**. lint 0·build 17 routes. 실제 세션 2회(16·17차)로 예상 4세션 대비 절반. |
+| 2026-04-17 | **S2 블로커 4건 해소** (17차 후속). BL-4=B(codegen 인라인, 대표 3~5종 상세), BL-5=B(1일 1회 dedupe UNIQUE), G-5=B(E10 ReportViewLog 분리 + DISTINCT 집계), G-11=자동 해소(G-5 B). 파생: E4에서 `report_view_count` 제거, 신규 엔티티 E10 도입(ServicePlan-Admin §4.2 수정 S2 킥오프 첫 행동). S2 ⚪ → 🟢 진행 가능. |

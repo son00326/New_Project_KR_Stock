@@ -12,31 +12,49 @@ Last updated: 2026-04-17 (17차 — S1 ✅ 완료)
 ## 🟢 현재 슬라이스
 
 **S2 풀 리포트 + 투심위** → `Document/Build/Slices/S2-FullReport.md`
-상태: 🟢 **진행 가능** (S1 완료로 언블록. BL-4·BL-5·[G-5]·[G-11] 킥오프 시 결정)
+상태: 🟢 **진행 가능** (블로커 4건 전부 해소 — 질문 없음, 바로 착수)
 포함 Must: M2 풀 리포트 렌더링 · M3 투심위 투표 요약 패널
 라우트: `/admin/report/[ticker]`
 잔여 예상: 3세션
 실행 엔진: 직접 + `superpowers:verification-before-completion` (Task 수 7개이지만 T2.1·T2.3·T2.6은 분량 무거우므로 착수 시 ralph 승격 검토)
 
-### 🔴 S2 킥오프 전 필수 결정 (사용자 답변 필요)
+### ✅ S2 블로커 4건 해소 내역 (2026-04-17)
 
-1. **BL-4** Section 0~8 mock 원고 작성 책임자 — writer 에이전트(품질↑ 세션↑) vs AI codegen 인라인(세션↓ 품질중) 중 선택
-2. **BL-5** `report.view` dedupe 정책 — 동일 어드민 같은 날 재진입 시 +1 할지. 기본: "진입마다 +1"로 단순화 가능 (P7 이관 가능)
-3. **[G-5]** `report_view_count` int 필드 구조 — 1인 2회 열람이 D15 2인 게이팅 통과하는 버그 방지. 옵션: (a) jsonb 배열 `report_viewers`, (b) 별도 `report_view_log` 테이블 + distinct 집계, (c) E4에 `distinct_viewer_count` 컬럼
-4. **[G-11]** E4 Row 부재 문제 — S2는 +1 write하는데 E4 Row는 S3에서 최초 생성. 옵션: (a) S2에서 E4 선생성, (b) `report_view_log`로 분리 후 S3에서 집계(**권장**), (c) S1/S5 시점에 초기화
+- **BL-4 = B** (codegen 인라인) — T2.1 내부에서 AI가 Section 0~8 작성. 대표 3~5종(005930·000660·012450·196170·373220 권장) 상세, 나머지 27종 템플릿 반복 + ticker/점수 치환.
+- **BL-5 = B** (1일 1회 dedupe) — `report_view_log`에 UNIQUE(admin_id, report_id, view_date). 재진입은 upsert onConflict do nothing.
+- **G-5 = B** (E10 ReportViewLog 분리) — E4에서 `report_view_count` 제거. 별도 append-only 테이블 + `COUNT(DISTINCT admin_id)` 집계.
+- **G-11 = 자동 해소** — G-5 B 결정으로 E4 Row 부재 문제 소멸 (테이블 독립).
 
 ### 🚀 다음 세션 첫 행동 (순서)
 
 ```
-1. 사용자에게 BL-4·BL-5·[G-5]·[G-11] 4건 결정 요청 (선택지 요약 제공)
-2. 결정 박제 → S2 슬라이스 파일 "의사결정 로그" + ProgressDashboard §5 Global Blocker 갱신
-3. T2.1 E2 StockReport + E3 CommitteeVote 스키마 + mock fixture 작성 (writer 또는 codegen은 BL-4 결정 후)
-4. T2.2~T2.7 순차 또는 ralph 승격 실행 (Section 0~8 accordion, Sticky Side Nav, report.view 파이프)
+1. ServicePlan-Admin §4.2 SoT 수정 (S2 킥오프 첫 행동):
+   - E4 PortfolioApproval에서 `report_view_count` 필드 제거
+   - 신규 엔티티 E10 ReportViewLog 추가
+     · 컬럼: id / admin_id / report_id / view_date(DATE) / viewed_at(TIMESTAMPTZ)
+     · UNIQUE(admin_id, report_id, view_date)
+     · RLS: admin-only INSERT/SELECT
+   - §3.3 D15 2인 게이팅 판정 로직을 `COUNT(DISTINCT admin_id) FROM report_view_log`로 수정
+   - types/admin.ts도 E4 interface에서 reportViewCount 제거 + ReportViewLog 인터페이스 추가
+
+2. T2.1 Supabase 마이그레이션 0003 작성 — E2 StockReport + E3 CommitteeVote + E10 ReportViewLog 3개 테이블 + RLS
+
+3. T2.1 mock fixture — mock-admin-report.ts (대표 3~5종 Section 0~8 상세 + 나머지 템플릿) + mock-admin-committee.ts (Core 11 + Sector Board) + mock-admin-report-view-log.ts
+
+4. T2.2~T2.7 병렬/순차 (착수 시 ralph 승격 검토):
+   - T2.2 Sticky Side Nav + 단일 스크롤 레이아웃
+   - T2.3 Section 0~8 accordion 렌더러
+   - T2.4 report_view_log INSERT 파이프 (Server Action, onConflict do nothing)
+   - T2.5 이전/다음 종목 내비
+   - T2.6 Section 8 투심위 패널
+   - T2.7 Section 6 M4 차트 (S1 shortlist-row 재사용)
+
 5. 각 Task 완료 시 `npm run build` + `npm run lint` 0 통과 확인, 슬라이스 파일 체크리스트·의사결정 로그 갱신
-6. S2 DoD 전원 체크 시 `feat(S2): 풀 리포트 렌더링 + 투심위 패널 — M2·M3 + report.view 파이프` 커밋
+
+6. S2 DoD 전원 체크 시 `feat(S2): 풀 리포트 렌더링 + 투심위 패널 — M2·M3 + report_view_log 파이프` 커밋
 ```
 
-**참고**: S1 완료 후 `shortlist-row.tsx`의 "풀 리포트" 링크는 `/admin/report/[ticker]`로 연결되어 있으나 S2 완료 전까지는 기존 placeholder 페이지가 응답. S2 완료 시 실제 렌더 활성.
+**참고**: S1 완료 후 `shortlist-row.tsx`의 "풀 리포트" 링크는 `/admin/report/[ticker]`로 연결되어 있으나 S2 완료 전까지는 기존 placeholder가 응답. S2 완료 시 실제 렌더 활성.
 
 ---
 
@@ -93,10 +111,10 @@ Must 19 진행률: **4 / 19 (21%)** — M1·M4·M5·M6 달성.
 ## 🟡 보류 / 사용자 답변 필요
 
 - ~~**BL-3**~~ ✅ 해소 (2026-04-17, 옵션 C)
-- **BL-4** Mock 원고 책임자 — **S2 킥오프 전 (우선)**
-- **BL-5** dedupe 정책 — **S2 킥오프 전 (우선)**
-- **[G-5]** report_view_count 필드 구조 — **S2 킥오프 전 (우선)**
-- **[G-11]** E4 Row 부재 문제 — **S2 킥오프 전 (우선)**
+- ~~**BL-4**~~ ✅ 해소 (2026-04-17, 옵션 B — codegen 인라인)
+- ~~**BL-5**~~ ✅ 해소 (2026-04-17, 옵션 B — 1일 1회 dedupe)
+- ~~**[G-5]**~~ ✅ 해소 (2026-04-17, 옵션 B — E10 ReportViewLog 분리 + DISTINCT 집계)
+- ~~**[G-11]**~~ ✅ 해소 (2026-04-17, G-5 B 채택으로 자동 해소)
 - **BL-7** 이의 제기 UX — S3 킥오프 전
 - **BL-19**·**BL-20** — S3 킥오프 전 ([G-4 한국 영업일 캘린더], [G-9 1인 어드민 7일 예외 룰])
 - **BL-11**·**BL-13**·**BL-15** — S5 진입 전
@@ -135,6 +153,7 @@ cd tudal && npm run dev
 
 ## 📝 최근 세션 (이전은 `git log`)
 
+- **2026-04-17 (17차 후속)** **S2 블로커 4건 해소.** BL-4=B (codegen 인라인 + 대표 3~5종 상세) · BL-5=B (1일 1회 dedupe UNIQUE) · G-5=B (E10 ReportViewLog 분리 + DISTINCT 집계) · G-11=자동 해소. 파생 스키마: E4 report_view_count 제거, 신규 E10 도입. S2 ⚪ → 🟢 진행 가능. S2 슬라이스 파일·ProgressDashboard·HANDOFF 동시 갱신.
 - **2026-04-17 (17차)** **S1 ✅ 완료.** T1.3 종목 카드(`shortlist-row.tsx`, Composite·3축·Crisis·괴리율·7d 스파크라인·NEW/HOLD·`<details>` 3줄 근거 팝오버 내장) + T1.4 Delta 배너(편입/유지/제외 집계+펼침 NEW·REMOVED 리스트) + T1.5 3줄 근거(row 내장 통합) + T1.6 미달 경고 배너(스크리닝 미달 vs 스케줄러 실패 원인 분리). 타입 4필드(name·sector·divergencePct·sparkline7d) + 상수 3종(CRISIS_VOL_THRESHOLD·SHORTLIST_TARGET_COUNT·ShortageReason) 추가. Must **4/19 달성**. lint 0 · build 17 routes.
 - **2026-04-17 (16차)** **S1 T1.1·T1.2 완료.** E1 short_list_30 마이그레이션(`0002_s1_shortlist30.sql`: admin_emails + is_admin() + 테이블 + RLS + 2 indexes) · 33행 mock fixture(30 + REMOVED 3) · `/admin` 3섹션 세로 스택(short→mid→long, Delta 집계 pill, 30종 미달 경고 placeholder) · `BucketSection` 컴포넌트 분리. **Deferred-Y 박제**: AI Agent 기반 선정엔진 v2 트랙을 Must 19 밖 로드맵으로 신설. lint 0·build 17 routes.
 - **2026-04-17 (15차)** **S0 Foundation 완료.** BL-1 해소 (Supabase env) → T0.1~T0.8 순차 + Phase ③ 병렬. 8 AGENTS.md · 11 admin 라우트 · 9엔티티 RLS sketch · mock-admin 구조 · 한국 증시 토큰. Lint 46→0 (executor). Root layout 리팩터. Build 17 routes.
