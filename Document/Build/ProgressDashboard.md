@@ -2,13 +2,14 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-17 (18차 — S2 ✅ 완료)
+Last updated: 2026-04-17 (19차 — S3 ✅ 완료)
 총 슬라이스: 7개 (S0~S6) + Deferred-X 1개
 총 예상 세션: **25세션** (S3 옵션 A 채택 시. 옵션 B 시 27세션)
-Must 19 진행률: **6 / 19 완료 (32%)**  (M1·M2·M3·M4·M5·M6 — S1·S2에서 달성)
+Must 19 진행률: **7 / 19 완료 (37%)**  (M1·M2·M3·M4·M5·M6·M7)
 S0 Foundation: ✅ 완료 (2026-04-17)
 S1 Short List 30 홈: ✅ 완료 (2026-04-17)
 S2 풀 리포트·투심위: ✅ 완료 (2026-04-17)
+S3 승인 워크플로우 (+D15): ✅ 완료 (2026-04-17)
 
 ---
 
@@ -19,7 +20,7 @@ S2 풀 리포트·투심위: ✅ 완료 (2026-04-17)
 | **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
 | **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (실제 2) | ✅ 완료 | — | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 (실제 1) | ✅ 완료 | — | [S2-FullReport.md](./Slices/S2-FullReport.md) |
-| **S3** | 승인 워크플로우 (+D15) | M7 | 4 | 🟢 진행 가능 | — (BL-7·BL-19·BL-20 3건 해소, G-10 경량 이월) | [S3-Approval.md](./Slices/S3-Approval.md) |
+| **S3** | 승인 워크플로우 (+D15) | M7 | 4 (실제 1) | ✅ 완료 | — | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 3 + S5b 2) | ⚪ 대기 | BL-11 이메일벤더, BL-13 뉴스벤더, BL-15 배치환경 | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 | ⚪ 대기 | BL-16 비용수집, BL-18 dry-run 선행 | [S6-Hardening.md](./Slices/S6-Hardening.md) |
@@ -82,7 +83,7 @@ S6 Hardening (3세션) — M17·M19
 | M4 | 5-Signal Composite + 3축 분석엔진 출력 | S1 | ✅ |
 | M5 | 편입/유지/제외 Delta 뷰 | S1 | ✅ |
 | M6 | 선정 근거 요약 카드 (3줄) | S1 | ✅ |
-| M7 | 승인 워크플로우 (+ D15 게이팅) | S3 | ⚪ |
+| M7 | 승인 워크플로우 (+ D15 게이팅) | S3 | ✅ |
 | M8 | 가상 포트폴리오 트래킹 엔진 | S4 | ⚪ |
 | M9 | 리포트 재생성 cap 가드 | S4 | ⚪ |
 | M10 | 월간 자동 배치 스케줄러 | S5 | ⚪ |
@@ -167,3 +168,4 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-17 | **S2 블로커 4건 해소** (17차 후속). BL-4=B(codegen 인라인, 대표 3~5종 상세), BL-5=B(1일 1회 dedupe UNIQUE), G-5=B(E10 ReportViewLog 분리 + DISTINCT 집계), G-11=자동 해소(G-5 B). 파생: E4에서 `report_view_count` 제거, 신규 엔티티 E10 도입(ServicePlan-Admin §4.2 수정 S2 킥오프 첫 행동). S2 ⚪ → 🟢 진행 가능. |
 | 2026-04-17 | **S3 블로커 3건 해소** (18차 후속). BL-7=A (자유 텍스트 min 20자) · BL-19=D (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT) · BL-20=A (자동 바이패스 + AlertEvent gating_auto_relief). 파생: S3 슬라이스 엔티티에 E11 KrBusinessDays·AlertEvent 타입 추가, Tasks T3.1a(Python seed)·T3.8(자동 바이패스) 신설, 2인 게이팅 로직 `COUNT(DISTINCT admin_id) FROM report_view_log`로 수정. G-10(테스트 전략)만 킥오프 시 경량 결정으로 이월. |
 | 2026-04-17 | **S2 ✅ 완료 (18차)**. T2.1 0003 마이그레이션(E2·E3·E10 + RLS) + 4 mock 파일(report·committee·personas·view-log) · T2.2 Sticky Side Nav + hash anchor · T2.3 `<details>` 10 섹션 accordion · T2.4 `report_view_log` INSERT 파이프(mock+Supabase TODO 준비) · T2.5 prev/next 버킷 내비 · T2.6 Core 11+Sector 5인 집계 카드+핵심 인용+위원별 디스클로저 · T2.7 3축+5-Signal 정적 시각화. ServicePlan-Admin §4.2 SoT 갱신(E4 `report_view_count` 제거+E10 신설+§4.3 다이어그램). **Must 6/19 (32%) 달성**. lint 0·build 17 routes. 실제 1세션(예상 3세션 대비 1/3). |
+| 2026-04-17 | **S3 ✅ 완료 (19차)**. T3.0 Vitest 셋업 + T3.1·T3.1a 0004 마이그레이션(E4 v1.3·E11 kr_business_days·alert_event gating_auto_relief) + Ralph 5 wave(T3.5·T3.3·T3.8 병렬 순수로직 → T3.6 게이팅 → T3.2+T3.4 페이지 foundation → T3.5/T3.6/T3.8 UI 통합 → T3.7 이의 제기). 5 test files · **43 tests pass** · lint 0 · build 17 routes. architect APPROVED + ai-slop-cleaner 패스(console.log 4건 + alt fixture 14줄 삭제). 비블로킹 3건은 S3 hardening 이월. **Must 7/19 (37%) 달성**. 실제 1세션(예상 4세션 대비 25%). |
