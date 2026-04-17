@@ -97,6 +97,8 @@ export interface CommitteeVote {
 
 // ---------------------------------------------------------------------------
 // E4. PortfolioApproval — 승인 이벤트 (D15 게이팅 필드 포함)
+// v1.2 (2026-04-17 S2 [G-5] B): reportViewCount 제거. 2인 열람 게이팅은 E10
+// ReportViewLog에서 `COUNT(DISTINCT admin_id)` 집계로 판정.
 // ---------------------------------------------------------------------------
 export interface PortfolioApproval {
   id: string;
@@ -109,7 +111,6 @@ export interface PortfolioApproval {
   shortlistGeneratedAt: string; // D15 R3.3-7 24h Hold 계산 기준
   disputeRaisedAt: string | null;
   disputeResolvedAt: string | null;
-  reportViewCount: number; // D15 R3.3-8 2인 열람 게이팅 캐시
 }
 
 // ---------------------------------------------------------------------------
@@ -195,4 +196,17 @@ export interface BrokerageConnection {
   isActive: boolean;
   createdAt: string;
   lastUsedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// E10. ReportViewLog — 리포트 열람 로그 (S2 [G-5] B, 2026-04-17 신설)
+// D15 R3.3-8 2인 열람 게이팅을 `COUNT(DISTINCT admin_id)` 집계로 판정.
+// UNIQUE(admin_id, report_id, view_date)로 1일 1회 dedupe (BL-5 B).
+// ---------------------------------------------------------------------------
+export interface ReportViewLog {
+  id: string;
+  adminId: string;
+  reportId: string;
+  viewDate: string; // YYYY-MM-DD (KST)
+  viewedAt: string; // ISO timestamp
 }
