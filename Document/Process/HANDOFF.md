@@ -12,40 +12,41 @@ Last updated: 2026-04-17 (18차 — S2 ✅ 완료)
 ## 🟢 현재 슬라이스
 
 **S3 승인 워크플로우 (+D15 게이팅)** → `Document/Build/Slices/S3-Approval.md`
-상태: 🟢 **진행 가능** (S1·S2 완료로 언블록. BL-7·BL-19·BL-20 3건 킥오프 시 결정)
-포함 Must: M7 승인 워크플로우 + D15 게이팅 3종 (R3.3-7 24h Hold · R3.3-8 2인 열람 · R3.3-10 이의 48h)
+상태: 🟢 **진행 가능** (블로커 3건 전부 해소 — 질문 없음, 바로 착수)
+포함 Must: M7 승인 워크플로우 + D15 게이팅 3종 (R3.3-7 24h Hold · R3.3-8 2인 열람 · R3.3-10 이의 48h) + BL-20 자동 바이패스
 라우트: `/admin/portfolio`
 잔여 예상: 4세션 (최대 슬라이스. 실행 엔진 ralph 권장)
-실행 엔진: **`ralph`** (Task 7개 · M7 단일이지만 게이팅 4종 + race condition + 이의 UX → prd.json stories 분해)
+실행 엔진: **`ralph`** (Task 8개 · M7 단일이지만 게이팅 4종 + race condition + 이의 UX + 자동 바이패스 → prd.json stories 분해)
 
-### 🔴 S3 킥오프 전 필수 결정 (사용자 답변 필요)
+### ✅ S3 블로커 3건 해소 내역 (2026-04-17)
 
-1. **BL-7 (Medium)**: 이의 제기 해결 액션 UX — 자유 텍스트 입력 vs 드롭다운 사유 선택
-2. **BL-19 (Major)**: 한국 영업일 캘린더 데이터 소스 — (a) pykrx 역산(BL-15 배치 환경 의존), (b) KRX 공식 휴일 하드코딩(연 1회 갱신), (c) 외부 캘린더 API
-3. **BL-20 (Major)**: R8 "1인 어드민 7일 연속" 2인 게이팅 예외 룰 — (a) 자동 바이패스(7일 연속 단일 접속 감지 시 1인 Accept 허용), (b) 수동 오버라이드(관리자 설정에서 temp-disable), (c) 예외 없음(휴가 시 대리인 지정 강제)
+- **BL-7 = A** (자유 텍스트 min 20자) — 이의 제기 사유 입력. 3인 소통 체제·분류 통계 무가치. `E4.dispute_reason` 컬럼 추가.
+- **BL-19 = D** (pykrx seed → Supabase 캐시) — `kr_business_days` 테이블(E11 신규). 1회성 Python 스크립트(`scripts/seed_kr_holidays.py`)로 2024~2030 생성 → 0004 마이그레이션 INSERT 블록. S5 M10 이후 월간 배치 자동 갱신.
+- **BL-20 = A** (자동 바이패스 + AlertEvent 로그) — 7일 연속 단일 접속 감지 시 D15 2인 게이팅 자동 완화. `AlertEvent(type=gating_auto_relief)` 로그로 사후 감사 보장. B 옵션은 "휴가 중인 사람이 버튼 눌러야 함" 논리적 모순 회피.
 
-### ⚙️ S3 킥오프 시 자동 병합 작업 (코드 정합성)
+### ⏸ 킥오프 시 경량 결정 (G-10)
 
-S3 슬라이스 파일 Tasks·DoD에 아직 `report_view_count` 용어가 남아있음 (G-5 B 결정 이전 작성). 킥오프 시 아래 3곳 용어 치환 필요:
-
-- **T3.1**: `report_view_count` 컬럼 포함 → **삭제**. E4 스키마는 §4.2 최신 정의 참조.
-- **T3.6 R3.3-8**: "`report_view_count` 참조" → "`SELECT COUNT(DISTINCT admin_id) FROM report_view_log WHERE report_id = ?`".
-- **DoD 2인 열람 게이팅**: 동일 치환.
+**테스트 전략** — build+lint만으로 S3 race condition·시간 기반 게이팅·영업일 계산 검증 불가. Claude 제안: **현행 유지(build+lint) 기본 + race condition만 필요 시 Vitest 1파일 추가**. 사용자 판단 재확인 후 진행.
 
 ### 🚀 다음 세션 첫 행동 (순서)
 
 ```
-1. 사용자에게 BL-7·BL-19·BL-20 3건 결정 요청 (선택지 요약 제공)
-2. 결정 박제 → S3 슬라이스 파일 "의사결정 로그" + ProgressDashboard §5 Global Blocker 갱신
-3. S3 슬라이스 파일 용어 정합성 병합 (위 "자동 병합 작업" 3곳)
-4. T3.1 E4 PortfolioApproval 마이그레이션 0004 — UNIQUE(month) WHERE is_final=true + dispute_raised_at/resolved_at
-   (report_view_count 컬럼은 없음 — G-5 B에 따라 E10 report_view_log는 이미 0003에 존재)
-5. T3.2~T3.7 ralph 실행 (stories 분해: Accept 선착순·24h Hold·2인 게이팅·연휴 우회·이의 48h·재분석 큐·D+5 카운터)
-6. 각 Task 완료 시 npm run build + lint 0, 슬라이스 파일 갱신
-7. S3 DoD 전원 체크 시 feat(S3): 승인 워크플로우 — M7 + D15 게이팅 3종 커밋
+1. G-10 테스트 전략 경량 확인 (사용자 1문 질의) — 현행 유지 vs Vitest 1파일
+2. T3.1a scripts/seed_kr_holidays.py 작성 + local Python 실행 (pykrx 필요) → SQL INSERT 블록 수집
+3. T3.1 Supabase 마이그레이션 0004 작성 — E4 PortfolioApproval (UNIQUE(month) WHERE is_final=true + dispute_reason 포함) + E11 kr_business_days (2024~2030 seed INSERT 블록) + RLS
+4. T3.2~T3.8 ralph 실행 (stories 8건 분해):
+   - T3.2 /admin/portfolio shell + Accept/Reject 버튼 + 확인 모달
+   - T3.3 선착순 단일 확정 + 409 race-condition 처리
+   - T3.4 Reject → 재분석 큐 stub
+   - T3.5 D+5 영업일 카운터 (kr_business_days SELECT)
+   - T3.6 D15 게이팅 3종 (24h Hold · 2인 열람 COUNT(DISTINCT admin_id) · 연휴 우회)
+   - T3.7 이의 제기 (자유 텍스트 min 20자 + 48h Hold)
+   - T3.8 BL-20 자동 바이패스 (7일 연속 감지 + gating_auto_relief AlertEvent + 비상 완화 배지)
+5. 각 Task 완료 시 npm run build + lint 0, 슬라이스 파일 갱신
+6. S3 DoD 전원 체크 시 feat(S3): 승인 워크플로우 — M7 + D15 게이팅 3종 + BL-20 자동 바이패스 커밋
 ```
 
-**참고**: S2 완료 후 S3가 언블록된 핵심 사유 — D15 R3.3-8 2인 열람 게이팅이 `report_view_log` 소스에 의존. 본 테이블은 S2에서 이미 스키마+mock seed 완료. S3에서는 Server Action에서 DISTINCT 집계 쿼리만 추가.
+**참고**: T3.1a는 local Python 환경(pykrx 설치) 필요. 실행 불가 시 대체: Claude가 KRX 공식 2026·2027 휴일 표를 보고 SQL INSERT 블록 수기 작성 → S5 M10 Python 배치 연결 시 2024·2025·2028~ 자동 확장.
 
 ---
 
@@ -113,9 +114,10 @@ Must 19 진행률: **6 / 19 (32%)** — M1·M2·M3·M4·M5·M6 달성.
 - ~~**BL-5**~~ ✅ 해소 (2026-04-17, 옵션 B — 1일 1회 dedupe)
 - ~~**[G-5]**~~ ✅ 해소 (2026-04-17, 옵션 B — E10 ReportViewLog 분리)
 - ~~**[G-11]**~~ ✅ 해소 (2026-04-17, G-5 B 자동 해소)
-- **BL-7** 이의 제기 UX — **S3 킥오프 전 (우선)**
-- **BL-19** 한국 영업일 캘린더 — **S3 킥오프 전 (우선)**
-- **BL-20** 1인 어드민 7일 예외 룰 — **S3 킥오프 전 (우선)**
+- ~~**BL-7**~~ ✅ 해소 (2026-04-17, 옵션 A — 자유 텍스트 min 20자)
+- ~~**BL-19**~~ ✅ 해소 (2026-04-17, 옵션 D — pykrx seed + Supabase 캐시)
+- ~~**BL-20**~~ ✅ 해소 (2026-04-17, 옵션 A — 자동 바이패스 + AlertEvent 로그)
+- **[G-10]** 테스트 전략 — S3 킥오프 시 경량 결정 (현행 유지 기본, Vitest 1파일 선택 옵션)
 - **BL-11**·**BL-13**·**BL-15** — S5 진입 전
 - **BL-18** — S6 진입 전
 - **Q16** 법무 자문 (S3 완료 이후)
@@ -153,6 +155,7 @@ cd tudal && npm run dev
 
 ## 📝 최근 세션 (이전은 `git log`)
 
+- **2026-04-17 (18차 후속)** **S3 블로커 3건 해소.** BL-7=A (자유 텍스트 min 20자) · BL-19=D (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT) · BL-20=A (자동 바이패스 + AlertEvent gating_auto_relief). 파생: E11 KrBusinessDays 엔티티 + AlertEvent 타입 추가, Tasks T3.1a·T3.8 신설, 2인 게이팅 로직을 report_view_log DISTINCT 집계로 수정. G-10(테스트 전략)만 킥오프 시 경량 결정으로 이월.
 - **2026-04-17 (18차)** **S2 ✅ 완료.** T2.1 0003 마이그레이션(E2·E3·E10+RLS+인덱스) + 4 mock 파일(personas·report·committee·view-log · 30 리포트 + 630 votes) · T2.2 Sticky Side Nav + hash anchor · T2.3 10 섹션 `<details>` accordion · T2.4 record-view server-only 파이프 · T2.5 prev/next 버킷 내비 · T2.6 Core+Sector 집계+핵심 인용+위원별 디스클로저 · T2.7 3축+5-Signal 정적. ServicePlan-Admin SoT 갱신(E4·E10·§4.3·§3.3 R3.3-8). Must **6/19 달성**. lint 0·build 17 routes.
 - **2026-04-17 (17차 후속)** **S2 블로커 4건 해소.** BL-4=B (codegen 인라인) · BL-5=B (1일 1회 dedupe UNIQUE) · G-5=B (E10 분리) · G-11=자동 해소.
 - **2026-04-17 (17차)** **S1 ✅ 완료.** T1.3~T1.6 완료. Must 4/19 달성.

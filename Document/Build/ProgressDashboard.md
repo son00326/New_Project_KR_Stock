@@ -19,7 +19,7 @@ S2 풀 리포트·투심위: ✅ 완료 (2026-04-17)
 | **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
 | **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (실제 2) | ✅ 완료 | — | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 (실제 1) | ✅ 완료 | — | [S2-FullReport.md](./Slices/S2-FullReport.md) |
-| **S3** | 승인 워크플로우 (+D15) | M7 | 4 | 🟢 진행 가능 | BL-7 이의 제기 UX, BL-19 영업일 캘린더, BL-20 1인 어드민 예외 | [S3-Approval.md](./Slices/S3-Approval.md) |
+| **S3** | 승인 워크플로우 (+D15) | M7 | 4 | 🟢 진행 가능 | — (BL-7·BL-19·BL-20 3건 해소, G-10 경량 이월) | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 | ⚪ 대기 | BL-8 판정기준, BL-9 재생성 UI | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 3 + S5b 2) | ⚪ 대기 | BL-11 이메일벤더, BL-13 뉴스벤더, BL-15 배치환경 | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 | ⚪ 대기 | BL-16 비용수집, BL-18 dry-run 선행 | [S6-Hardening.md](./Slices/S6-Hardening.md) |
@@ -126,8 +126,8 @@ S6 Hardening (3세션) — M17·M19
 | **BL-13** | S5 | 뉴스 벤더 선택 (구체 업체 미정) | S5 진입 전 필수 |
 | **BL-15** | S5 | 배치 실행 환경 (Vercel Cron vs Supabase Edge vs GitHub Actions) | S5 진입 전 필수 |
 | **BL-18** | S6 | P5 I-03 토큰 dry-run 실측 (S6 진입 전 게이트) | S6 진입 전 필수 |
-| **BL-19** | S3 | [G-4] 한국 영업일 캘린더 데이터 소스 (pykrx 역산 / KRX 하드코딩 / 외부 API) | S3 킥오프 전 필수 |
-| **BL-20** | S3 | [G-9] R8 "1인 어드민 7일 연속" 2인 게이팅 예외 룰 (자동 바이패스 / 수동 오버라이드 / 예외 없음) | S3 킥오프 전 필수 |
+| ~~BL-19~~ | S3 | ✅ 해소 — **옵션 D 하이브리드** 채택 (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT, 2026-04-17) | ~~S3 킥오프 전 필수~~ |
+| ~~BL-20~~ | S3 | ✅ 해소 — **옵션 A 자동 바이패스** 채택 (7일 연속 단일 접속 → AlertEvent gating_auto_relief 로그, 2026-04-17) | ~~S3 킥오프 전 필수~~ |
 
 ~~**S0 진입 전 필수 해소**: BL-1 (미해소), BL-2 (해소)~~ → **S0 완료 (2026-04-17)**
 ~~**S0 시점 권장 (S5 전 필수)**: BL-6~~ → **BL-6 해소 완료 (2026-04-16, 옵션 B — `/admin/settings/health` 서브라우트)**
@@ -165,4 +165,5 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-17 | **S1 T1.1·T1.2 완료**. E1 `short_list_30` 마이그레이션 + 33행 mock fixture(30 + REMOVED 3) + `/admin` 3섹션 세로 스택 + `BucketSection` 컴포넌트 분리. lint 0·build 17 routes. T1.3은 다음 세션에 디자인 하네스로 진행. §5 BL-6 해소 표기 정리. |
 | 2026-04-17 | **S1 ✅ 완료 (17차)**. T1.3 `shortlist-row.tsx` (Composite·3축·Crisis·괴리율·스파크라인 + `<details>` 펼침 패널) + T1.4 `delta-banner.tsx` (편입/유지/제외 집계+펼침) + T1.5 3줄 근거(row 내장) + T1.6 `missing-count-banner.tsx` (스크리닝 미달 vs 스케줄러 실패). `ShortListItem`에 name·sector·divergencePct·sparkline7d + CRISIS_VOL_THRESHOLD·SHORTLIST_TARGET_COUNT·ShortageReason 추가. **Must 4/19 달성 (M1·M4·M5·M6)**. lint 0·build 17 routes. 실제 세션 2회(16·17차)로 예상 4세션 대비 절반. |
 | 2026-04-17 | **S2 블로커 4건 해소** (17차 후속). BL-4=B(codegen 인라인, 대표 3~5종 상세), BL-5=B(1일 1회 dedupe UNIQUE), G-5=B(E10 ReportViewLog 분리 + DISTINCT 집계), G-11=자동 해소(G-5 B). 파생: E4에서 `report_view_count` 제거, 신규 엔티티 E10 도입(ServicePlan-Admin §4.2 수정 S2 킥오프 첫 행동). S2 ⚪ → 🟢 진행 가능. |
+| 2026-04-17 | **S3 블로커 3건 해소** (18차 후속). BL-7=A (자유 텍스트 min 20자) · BL-19=D (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT) · BL-20=A (자동 바이패스 + AlertEvent gating_auto_relief). 파생: S3 슬라이스 엔티티에 E11 KrBusinessDays·AlertEvent 타입 추가, Tasks T3.1a(Python seed)·T3.8(자동 바이패스) 신설, 2인 게이팅 로직 `COUNT(DISTINCT admin_id) FROM report_view_log`로 수정. G-10(테스트 전략)만 킥오프 시 경량 결정으로 이월. |
 | 2026-04-17 | **S2 ✅ 완료 (18차)**. T2.1 0003 마이그레이션(E2·E3·E10 + RLS) + 4 mock 파일(report·committee·personas·view-log) · T2.2 Sticky Side Nav + hash anchor · T2.3 `<details>` 10 섹션 accordion · T2.4 `report_view_log` INSERT 파이프(mock+Supabase TODO 준비) · T2.5 prev/next 버킷 내비 · T2.6 Core 11+Sector 5인 집계 카드+핵심 인용+위원별 디스클로저 · T2.7 3축+5-Signal 정적 시각화. ServicePlan-Admin §4.2 SoT 갱신(E4 `report_view_count` 제거+E10 신설+§4.3 다이어그램). **Must 6/19 (32%) 달성**. lint 0·build 17 routes. 실제 1세션(예상 3세션 대비 1/3). |
