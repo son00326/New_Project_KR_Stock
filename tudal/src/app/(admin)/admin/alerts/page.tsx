@@ -21,6 +21,7 @@ const ALERT_TYPE_LABEL: Record<AlertType, string> = {
   news_critical: "뉴스 Critical",
   news_warning: "뉴스 Warning",
   price_anomaly: "시세 이상",
+  intraday_anomaly: "장중 이상 감지",
   briefing: "브리핑",
   briefing_failed: "브리핑 실패",
   scheduler_fail: "스케줄러 실패",

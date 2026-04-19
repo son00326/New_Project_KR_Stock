@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-04-19 (21차 — S5a ✅ 완료)
+Last updated: 2026-04-19 (22차 — S5 전체 ✅ 완료 · Must 17/19)
 
 **목적**: 다음 세션이 "**다음에 무엇을 할지**"만 빠르게 파악.
 **원칙**: 미래 지향. 포인터·다음 단계만. 상세는 각 슬라이스 파일이 담당.
@@ -11,30 +11,36 @@ Last updated: 2026-04-19 (21차 — S5a ✅ 완료)
 
 ## 🟢 현재 슬라이스
 
-**S5b 장중·토글·Exit** → `Document/Build/Slices/S5-Automation.md` (§S5b Tasks)
-상태: 🟡 **블로커 해소 필요** (S5a 완료. BL-12 SMS 벤더·BL-14 한투 WebSocket vs 폴링 미결)
-포함 Must: M13·M14·M15 (3건)
-라우트: `/admin/alerts/[id]` 결정 기록 UI 확장 + `/admin/settings` 모드·종목 토글 + 한투 어댑터
-잔여 예상: 2세션. 실제는 S1~S5a 추세로 1세션 예상
-실행 엔진: **`team` + `ralph`** (Must 3건, Playbook §2.5 결정적 규칙)
+**S6 Hardening (AI 비용 + Silent Health)** → `Document/Build/Slices/S6-Hardening.md`
+상태: ⚪ **대기** (S5 전체 완료. BL-18 토큰 dry-run 실측 게이트 미결)
+포함 Must: M17(AI 비용 실시간 모니터링)·M19(Silent Health 일간 하트비트) (2건)
+잔여 예상: 3세션. 실제는 S1~S5 추세로 1~2세션 예상
+실행 엔진: **`team` + `ralph`** (Must 2건, Playbook §2.5)
 
-### ⏸ S5b 킥오프 시 결정 필요
+### ⏸ S6 킥오프 시 결정 필요
 
-- **BL-12** SMS 벤더 — M15 D10 백업 1회 재시도 경로 (Twilio / NHN Cloud SMS / Naver Cloud SENS / AWS SNS)
-- **BL-14** 한투 API 연결 방식 — M13 장중 감지 (WebSocket 실시간 vs 1분 폴링)
+- **BL-18** (High): AI API 토큰 dry-run 실측 — 30종 × 151 페르소나 실 프롬프트 토큰 샘플 수집 · 월 40만원 hardcap 임계치 역산. S6 M17 구현 전 게이트.
 
 ### 🚀 다음 세션 첫 행동 (순서)
 
 ```
-1. BL-12·BL-14 해소 1문 질의 (SMS 벤더·한투 연결 방식)
-2. S5 슬라이스 파일 §S5b Tasks 읽기 (Document/Build/Slices/S5-Automation.md)
-3. S5b 킥오프:
-   - T5b.1 M13 장중 이상 감지 (±5%/거래량 3배 감지 + 홈 배지 + 텔레그램)
-   - T5b.2 M14 종목별 알림 토글 (Short List 30종목 on/off · user_prefs)
-   - T5b.3 M15 Exit 시그널 (3채널 + D10 catch-up + T+7 outcome 자동 적재)
+1. BL-18 해소 (토큰 dry-run 실측 게이트) — 실 API 샘플 확보 또는 견적 임계치 확정
+2. S6 슬라이스 파일 읽기 (Document/Build/Slices/S6-Hardening.md)
+3. S6 킥오프:
+   - T6.1 M17 AI 비용 실시간 모니터링 대시보드 (cost_log 집계 + 35만/40만 경보·하드캡)
+   - T6.2 M19 Silent Health 일간 하트비트 (장 운영일 자정 3채널 "오늘 이상 없음" 카드)
 4. 검증 게이트: build + lint + test:ci · architect 리뷰 · ai-slop-cleaner
-5. 커밋: feat(S5b): ...
+5. 커밋: feat(S6): ...
+6. MVP Stage 1 완료 마감 (Must 19/19)
 ```
+
+**S5b 이월 메모 (비블로킹, S6 또는 실데이터 전환 시 참조)**:
+- AlertType 확장 `intraday_anomaly`는 타입 레벨만 반영. 실 Supabase `alert_event` check constraint 업데이트 필요 (S5a `news_warning`·`briefing_failed`와 함께)
+- `intraday_anomaly_event`·`admin_settings`·`ticker_alert_pref` 실 Supabase INSERT/UPDATE 연결은 Server Action 안의 `// TODO(S5)` 훅 위치만 확보 — 실데이터 전환 시 upsert 연결
+- KIS WebSocket 실 연결은 `src/lib/intraday/kis-websocket.ts`에서 `isKisWebSocketConfigured()` 분기, `options.onError`로 TODO 유지. 실 WebSocket 구독·재연결·세션 만료 로직은 KIS 계정 발급 후
+- Telegram 실 Bot 토큰은 `TELEGRAM_BOT_TOKEN`·`TELEGRAM_CHAT_ID` env 미설정 시 mock-mode 경고. 3명 어드민 → 공용 채팅방 1 ID부터 시작
+- T+7 outcome 자동 적재는 현재 수동 fixture(alert-es-002만 `t7PriceChange=-8.2`로 예시). 실 cron `/api/cron/exit-outcome` 신설 필요 (실 시세 API 연결 시점)
+- `/admin` 홈 IntradayBadge는 Server Component 순수성 때문에 `referenceNow` prop 필수. 실배포 시 호출부에서 `new Date().toISOString()` 주입 + page.tsx dynamic render 고려
 
 **S5a 이월 메모 (비블로킹, S5 실데이터 전환 시 참조)**:
 - AlertType 확장(`news_warning`·`briefing_failed`) 타입 레벨만 반영. 실 Supabase `alert_event` check constraint 업데이트 필요
@@ -50,6 +56,37 @@ Last updated: 2026-04-19 (21차 — S5a ✅ 완료)
 ---
 
 ## ✅ 완료 슬라이스
+
+### S5b 장중·토글·Exit ✅ (2026-04-19, 22차 · 실제 1세션)
+
+**달성 Must**: M13·M14·M15 (3건 · 누적 17/19 = 89%)
+**주요 산출**:
+- `tudal/supabase/migrations/0007_s5b_notifications.sql` — admin_settings(intraday_mode) + ticker_alert_pref(UNIQUE admin_id+ticker) + intraday_anomaly_event(UNIQUE dedup_key=ticker+trigger+1분 bucket) + RLS 3종(self·admin·admin)
+- `tudal/src/lib/intraday/anomaly-detect.ts` — computePriceChangePct · computeVolumeRatio · detectIntradayAnomaly(spike>drop>volume 우선순위 + 커스텀 임계치) · buildDedupKey(1분 bucket UTC) · toIntradayAnomalyRecord · buildIntradayAnomalyAlert · isTickerEnabledForIntraday + 15 Vitest
+- `tudal/src/lib/intraday/kis-websocket.ts` — KisSubscribeOptions · KisSubscription · isKisWebSocketConfigured · subscribeKisTicks (mock-mode no-op · 실 WebSocket TODO)
+- `tudal/src/lib/notify/telegram.ts` — fetch 기반 Bot API 어댑터 · TELEGRAM_BOT_TOKEN·CHAT_ID 미설정 시 mock-mode 경고
+- `tudal/src/lib/notify/exit-dispatch.ts` — dispatchExitSignal(2채널 Promise.all → D10 이메일 1회 재시도 → allFailed/badgeRequired 플래그) · buildExitTelegramText·buildExitEmailSubject·buildExitEmailText + 15 Vitest
+- `tudal/src/components/admin/intraday/intraday-badge.tsx` — 최근 15분 필터 + 급등/급락/거래량 색상 + referenceNow prop (Server Component 순수성)
+- `tudal/src/app/(admin)/admin/settings/{page,settings-panel,actions}.tsx` — Server Component + useTransition Client island + setIntradayMode·setTickerAlertEnabled · Short List 30 × ON/OFF + 모니터링 모드
+- `tudal/src/app/(admin)/admin/alerts/[id]/{page,exit-decision-form,actions}.tsx` — Exit 결정 UI(3 옵션 + 메모 + §7 대조 stub + T+7 outcome 표시) · recordExitDecision Server Action · 분기: exit_signal만 form 렌더
+- `tudal/src/app/(admin)/admin/page.tsx` — IntradayBadge 통합 (토글 OFF 종목 필터링)
+- `tudal/src/types/admin.ts` — AlertType에 `intraday_anomaly` 추가 · IntradayTriggerType·IntradayAnomalyEvent·AdminSettings·TickerAlertPref 신설 · INTRADAY_PRICE_SPIKE_THRESHOLD(0.05)·INTRADAY_VOLUME_MULTIPLIER_THRESHOLD(3)·INTRADAY_BADGE_RECENT_WINDOW_MS(15분) 상수
+- `tudal/src/lib/data/{mock-admin-intraday,mock-admin-settings}.ts` 신설 (MOCK_ADMIN_ID · 3 intraday events · 모니터링 모드 ON · 2 ticker OFF 예시) + `mock-admin-alerts.ts` 확장 (exit_signal 2건 · intraday_anomaly 2건)
+
+**의사결정 (22차)**:
+- BL-12 = **폐기** (SMS 백업 자체 제거, D10 catch-up = 이메일 1회 재시도로 축소). 근거: 어드민 3명·500cap·텔레그램 푸시 잠금화면 대체
+- BL-14 = **A WebSocket** (한투 실시간). 근거: ±5%/거래량 3배는 초 단위 이벤트, 1분 폴링 희석 리스크. 1분 폴링 대안 거부
+- 파생: ServicePlan-Admin §3.10 R3.10-15·M15 DoD·D10 박제 2채널로 갱신
+
+**비블로킹 이월 (S6·실데이터 전환 시)**:
+1. 실 Supabase INSERT/UPDATE(intraday_anomaly_event·admin_settings·ticker_alert_pref) 연결 — Server Action `// TODO(S5)` 주석 위치
+2. `alert_event` check constraint에 `intraday_anomaly`·`news_warning`·`briefing_failed` 추가 (S5a 이월과 통합)
+3. KIS WebSocket 실 구독·재연결·세션 관리 로직 — `subscribeKisTicks` 실 모드 분기
+4. T+7 outcome 자동 적재 cron (`/api/cron/exit-outcome`) 신설 — 실 시세 API 확보 후
+5. `TELEGRAM_BOT_TOKEN`·`TELEGRAM_CHAT_ID`·`KIS_APP_KEY`·`KIS_APP_SECRET` env 설정 (배포 전)
+6. `/admin` 홈 IntradayBadge referenceNow — 실배포 시 dynamic render + `new Date().toISOString()` 주입
+
+**검증**: lint 0 · build 20 routes · test:ci 17 files / **158 pass (128+30)** · 커밋 `feat(S5b): ...` (예정)
 
 ### S5a 스케줄러·브리핑·뉴스·헬스 ✅ (2026-04-19, 21차 · 실제 1세션)
 
@@ -163,13 +200,13 @@ Legacy 전면 제거 · Supabase 연결 · 8 AGENTS.md · 11 admin 라우트 · 
 | S3 승인 워크플로우 | ✅ 완료 | 4 | 1 |
 | S4 성과·Decision Tree | ✅ 완료 | 4 | 1 |
 | S5a 스케줄러·브리핑·뉴스·헬스 | ✅ 완료 | 3 | 1 |
-| **S5b 장중·토글·Exit** | 🟡 **BL-12·BL-14** | 2 | — |
-| S6 Hardening | ⚪ 대기 | 3 | — |
-| **잔여** | | **5세션** | |
+| S5b 장중·토글·Exit | ✅ 완료 | 2 | 1 |
+| **S6 Hardening** | ⚪ 대기 (BL-18) | 3 | — |
+| **잔여** | | **3세션** | |
 
-Must 19 진행률: **14 / 19 (74%)** — M1·M2·M3·M4·M5·M6·M7·M8·M9·M10·M11·M12·M16·M18 달성.
+Must 19 진행률: **17 / 19 (89%)** — M1~M16·M18 중 17건. 잔여 2건(M17·M19)은 S6.
 
-실제 속도 = **예상의 ~33%** (S0~S5a에서 예상 20세션 → 실제 7세션). 잔여 5세션도 같은 속도 가정 시 **2세션 이내에 MVP 완성 가능**.
+실제 속도 = **예상의 ~36%** (S0~S5에서 예상 22세션 → 실제 8세션). 잔여 3세션도 같은 속도 가정 시 **1~2세션 이내에 MVP Stage 1(Must 19/19) 완성 가능**.
 
 ---
 
@@ -183,7 +220,7 @@ Must 19 진행률: **14 / 19 (74%)** — M1·M2·M3·M4·M5·M6·M7·M8·M9·M10
 - ~~**BL-8·BL-9**~~ ✅ 해소 (S4 킥오프)
 - ~~**BL-11·BL-13·BL-15**~~ ✅ 해소 (S5a 킥오프 · Resend · 네이버+스크래핑 · Vercel Cron)
 - ~~**[G-3]·[G-6]**~~ ✅ 해소 (S5a · pipeline_health 인라인 · Vercel 확정)
-- **BL-12·BL-14** — S5b 진입 전 (SMS 벤더·한투 WS vs 폴링)
+- ~~**BL-12·BL-14**~~ ✅ 해소 (S5b 킥오프, 22차 · BL-12 폐기 SMS 제거 · BL-14 = A WebSocket)
 - **BL-18** — S6 진입 전
 - **Q16** 법무 자문 (S3 완료 이후 — 지금부터 처리 가능)
 - **Q17** 이용약관·면책 (S6 이전)
@@ -223,6 +260,7 @@ cd tudal && npm run test:ci    # 43 tests
 
 ## 📝 최근 세션 (이전은 `git log`)
 
+- **2026-04-19 (22차)** **S5b ✅ 완료.** BL-12 폐기(SMS 제거) · BL-14 = WebSocket 해소. 0007 마이그레이션(admin_settings·ticker_alert_pref·intraday_anomaly_event + RLS 3종) + T5b.1 M13(intraday/anomaly-detect·kis-websocket·IntradayBadge) + T5b.2 M14(/admin/settings) + T5b.3 M15(notify/telegram·exit-dispatch + /admin/alerts/[id] 결정 UI) + Vitest 2 files 30 tests. **17 test files 158 tests** · build 20 routes · lint 0. Must **17/19 (89%)** 달성. 잔여 3세션(S6 M17·M19).
 - **2026-04-19 (21차)** **S5a ✅ 완료.** BL-11 Resend · BL-13 네이버+스크래핑 · BL-15 Vercel Cron 해소. Wave 1(마이그레이션+타입+mock) → Wave 2 병렬(M10·M11·M18) → Wave 3(M12) → Wave 4(Vitest 4 files 41 tests) → Wave 5(검증). **15 test files 128 tests** · build 20 routes · lint 0. Must **14/19 (74%)** 달성. 잔여 5세션(S5b 2 + S6 3).
 - **2026-04-19 (20차)** **S4 ✅ 완료.** BL-8 A + BL-9 A + S3 hardening B 해소. T4.1~T4.6 · 11 test files 87 tests · architect APPROVED + ai-slop-cleaner 패스. Must **10/19 (53%)** 달성. 잔여 8세션.
 - **2026-04-17 (19차)** **S3 ✅ 완료.** Ralph 5 wave · T3.0~T3.8 · 5 test files 43 tests · architect APPROVED + ai-slop-cleaner 패스. 실 Supabase 통합은 S3 hardening 마이크로 슬라이스로 이월. Must **7/19** 달성.

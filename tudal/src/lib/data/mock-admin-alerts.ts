@@ -2,9 +2,66 @@ import type { AlertEvent } from "@/types/admin";
 
 // MVP용 mock — S5 실데이터 연결 시 alert_event 테이블 SELECT로 교체.
 // S5a에서 news_critical·scheduler_fail·briefing_failed 샘플 추가 (M12·M18·M11 연계).
-// S5b에서 exit_signal·price_anomaly 샘플 추가 예정.
+// S5b에서 exit_signal·intraday_anomaly 샘플 추가 (M13·M15 연계).
 
 export const MOCK_ADMIN_ALERTS: AlertEvent[] = [
+  // exit_signal — M15 (2026-04-19 22차, S5b)
+  // 1 신규(결정 미입력) + 1 기존(결정 입력·T+7 outcome 적재 완료) = 결정 UI 분기 확인용
+  {
+    id: "alert-es-001",
+    alertType: "exit_signal",
+    ticker: "005930",
+    severity: "critical",
+    triggerReason:
+      "삼성전자 목표가 근접(괴리율 -4.2%) + 모멘텀 꺾임(RSI 72→58) + Critical 뉴스 연쇄 — §7 Exit 조건 2개 충족",
+    signalSentAt: "2026-04-19T13:45:22+09:00",
+    outcomeAt: null,
+    t7PriceChange: null,
+    decisionRecorded: null,
+    decisionMemo: null,
+    isRead: false,
+  },
+  {
+    id: "alert-es-002",
+    alertType: "exit_signal",
+    ticker: "035420",
+    severity: "critical",
+    triggerReason:
+      "NAVER 공정위 과징금 3,200억 Critical 뉴스 + 장중 거래량 3.4배 — §7 악재 발생 트리거",
+    signalSentAt: "2026-04-12T11:05:18+09:00",
+    outcomeAt: "2026-04-19T11:05:18+09:00",
+    t7PriceChange: -8.2,
+    decisionRecorded: "sell_all",
+    decisionMemo: "공정위 과징금 규모가 분기 영업이익의 12%. 추가 규제 리스크도 커 전량 매도 결정.",
+    isRead: true,
+  },
+  // intraday_anomaly — M13 (2026-04-19 22차, S5b)
+  {
+    id: "alert-ia-001",
+    alertType: "intraday_anomaly",
+    ticker: "005930",
+    severity: "critical",
+    triggerReason: "005930 급락 — -5.21% (last 71,800)",
+    signalSentAt: "2026-04-19T14:27:15+09:00",
+    outcomeAt: null,
+    t7PriceChange: null,
+    decisionRecorded: null,
+    decisionMemo: null,
+    isRead: false,
+  },
+  {
+    id: "alert-ia-002",
+    alertType: "intraday_anomaly",
+    ticker: "000660",
+    severity: "critical",
+    triggerReason: "000660 급등 — 5.09% · 거래량 2.10× (last 198,500)",
+    signalSentAt: "2026-04-19T11:15:32+09:00",
+    outcomeAt: null,
+    t7PriceChange: null,
+    decisionRecorded: null,
+    decisionMemo: null,
+    isRead: true,
+  },
   // news_critical — M12 Critical 분류 시 즉시 발행
   {
     id: "alert-nc-001",

@@ -2,16 +2,17 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-19 (21차 — S5a ✅ 완료)
+Last updated: 2026-04-19 (22차 — S5 전체 ✅ 완료)
 총 슬라이스: 7개 (S0~S6) + Deferred-X 1개
 총 예상 세션: **25세션** (S3 옵션 A 채택 시. 옵션 B 시 27세션)
-Must 19 진행률: **14 / 19 완료 (74%)**  (M1·M2·M3·M4·M5·M6·M7·M8·M9·M10·M11·M12·M16·M18)
+Must 19 진행률: **17 / 19 완료 (89%)**  (M1·M2·M3·M4·M5·M6·M7·M8·M9·M10·M11·M12·M13·M14·M15·M16·M18)
 S0 Foundation: ✅ 완료 (2026-04-17)
 S1 Short List 30 홈: ✅ 완료 (2026-04-17)
 S2 풀 리포트·투심위: ✅ 완료 (2026-04-17)
 S3 승인 워크플로우 (+D15): ✅ 완료 (2026-04-17)
 S4 가상 포트·성과·Decision Tree: ✅ 완료 (2026-04-19)
 S5a 스케줄러·브리핑·뉴스·헬스: ✅ 완료 (2026-04-19)
+S5b 장중·토글·Exit: ✅ 완료 (2026-04-19)
 
 ---
 
@@ -24,7 +25,7 @@ S5a 스케줄러·브리핑·뉴스·헬스: ✅ 완료 (2026-04-19)
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 (실제 1) | ✅ 완료 | — | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 (실제 1) | ✅ 완료 | — | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ 완료 | — | [S4-Performance.md](./Slices/S4-Performance.md) |
-| **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 3→실제 1 · S5b 2) | 🟡 S5a ✅ · S5b ⚪ | S5b 진입 전 BL-12(SMS)·BL-14(한투 WS/폴링) | [S5-Automation.md](./Slices/S5-Automation.md) |
+| **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ 완료 | — | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 | ⚪ 대기 | BL-16 비용수집, BL-18 dry-run 선행 | [S6-Hardening.md](./Slices/S6-Hardening.md) |
 | **Deferred-X** | 증권사 API + 매뉴얼/자동매매 UI | Must 19 밖 이관 | — | ⏸ 보류 | 옵션 A 채택 시 Must 19 범위 외 | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) |
 | **Deferred-Y** | AI Agent 기반 선정엔진 v2 | Must 19 밖 (엔진 고도화) | — | ⏸ 보류 | Must 19 완료 + v1 2~3개월 운용 후 | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) |
@@ -91,9 +92,9 @@ S6 Hardening (3세션) — M17·M19
 | M10 | 월간 자동 배치 스케줄러 | S5a | ✅ |
 | M11 | 모닝 브리핑 요약 카드 | S5a | ✅ |
 | M12 | 뉴스 심각도 분류기 | S5a | ✅ |
-| M13 | 장중 이상 감지 알림 (+ 모드 설정) | S5b | ⚪ |
-| M14 | 종목별 커스텀 임계치 on/off | S5b | ⚪ |
-| M15 | Exit 시그널 발송 + 근거 + 대안 | S5b | ⚪ |
+| M13 | 장중 이상 감지 알림 (+ 모드 설정) | S5b | ✅ |
+| M14 | 종목별 커스텀 임계치 on/off | S5b | ✅ |
+| M15 | Exit 시그널 발송 + 근거 + 대안 | S5b | ✅ |
 | M16 | Decision Tree 진척도 대시보드 | S4 | ✅ |
 | M17 | AI API 비용 실시간 모니터링 대시보드 | S6 | ⚪ |
 | M18 | 파이프라인 헬스체크 대시보드 | S5a | ✅ |
@@ -126,7 +127,9 @@ S6 Hardening (3세션) — M17·M19
 | **BL-2** | S0 | ✅ 해소 — (A) email allowlist 채택 (2026-04-16) | S0 착수 전 필수 |
 | **BL-6** | S5 | ✅ 해소 — (B) `/admin/settings/health` 서브라우트 채택 (2026-04-16) | S5 진입 전 필수 (S0 시점 권장) |
 | ~~BL-11~~ | S5 | ✅ 해소 — **Resend** 채택 (2026-04-19, 21차) | ~~S5 진입 전 필수~~ |
+| ~~BL-12~~ | S5 | ✅ **폐기** — SMS 백업 자체를 제거, D10 = 이메일 1회 재시도로 축소 (2026-04-19, 22차) | ~~S5b 진입 전 필수~~ |
 | ~~BL-13~~ | S5 | ✅ 해소 — **네이버 뉴스 API + 스크래핑 하이브리드** (2026-04-19, 21차) | ~~S5 진입 전 필수~~ |
+| ~~BL-14~~ | S5 | ✅ 해소 — **한투 WebSocket 실시간** 채택 (2026-04-19, 22차). 1분 폴링은 ±5%/거래량 3배 스파이크 희석 리스크로 거부 | ~~S5b 진입 전 필수~~ |
 | ~~BL-15~~ | S5 | ✅ 해소 — **Vercel Cron** 채택 (2026-04-19, 21차) — G-6 배포 플랫폼 = Vercel 부수 확정 | ~~S5 진입 전 필수~~ |
 | **BL-18** | S6 | P5 I-03 토큰 dry-run 실측 (S6 진입 전 게이트) | S6 진입 전 필수 |
 | ~~BL-19~~ | S3 | ✅ 해소 — **옵션 D 하이브리드** 채택 (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT, 2026-04-17) | ~~S3 킥오프 전 필수~~ |
@@ -174,3 +177,5 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-19 | **S4 ✅ 완료 (20차)**. BL-8=A(복합 AND)·BL-9=A(서브라우트)·S3 hardening=B(T4.6 병행). T4.1 0005 마이그레이션(E5·E8·cost_log stub + RLS) + T4.2 `src/lib/performance/` 6모듈(sharpe·mdd·alpha·judge·cap-months·regen-cap) + T4.3 `/admin/track-record` + T4.4 `/admin/decision-tree`(Recharts client island) + T4.5 `/admin/report/[ticker]/regenerate` 서브라우트 + T4.6 E5 snapshot INSERT hook·resolveAdminId·trim 정규화·isUniqueViolation try/catch. **87 tests pass** · lint 0 · build 17 routes. architect APPROVED + ai-slop-cleaner(`manualRemaining` 미사용 prop·redundant 주석·await resolveAdminId 무의미 호출 삭제). **Must 10/19 (53%) 달성** (M8·M9·M16). 실제 1세션(예상 4세션 대비 25%). |
 | 2026-04-19 | **S5 블로커 4건 해소 (21차)**. BL-11=Resend · BL-13=네이버 뉴스 API+스크래핑 하이브리드 · BL-15=Vercel Cron · 분할=S5a(M10·M11·M12·M18)→S5b(M13·M14·M15) 2 wave. G-6 배포 플랫폼 = Vercel 부수 확정. |
 | 2026-04-19 | **S5a ✅ 완료 (21차)**. Wave 1(0006 마이그레이션 pipeline_health·news_event·briefing_log·briefing_view_event + RLS 4종 + 타입 확장 AlertType·PipelineHealth·NewsEvent + mock 4건) → Wave 2 병렬 T5a.1 M10 배치(vercel.json crons + `/api/cron/monthly-batch` + `src/lib/scheduler/monthly-batch.ts` 재시도 3회 + scheduler_fail AlertEvent) · T5a.2 M11 브리핑(`/api/cron/morning-briefing` 08:00 KST + `src/lib/email/resend.ts` + `src/lib/briefing/compose.ts` + `/admin` BriefingCard) · T5a.4 M18 헬스(`src/lib/health/pipeline-health.ts` + `/admin/settings/health` 5 파이프라인 × 24h 성공률 + 95% Critical 배너) → Wave 3 T5a.3 M12 분류기(`src/lib/news/{naver-api,scraper,classifier}.ts` + `/api/cron/news-sweep` + `/admin/alerts` + `/admin/alerts/[id]`) → Wave 4 Vitest 4 files 41 tests → Wave 5 검증. **128 tests pass** · lint 0 · build 20 routes. **Must 14/19 (74%) 달성** (M10·M11·M12·M18). 실제 1세션(예상 3세션 대비 33%). |
+| 2026-04-19 | **S5b 킥오프 2 블로커 해소 (22차)**. BL-12 폐기(SMS 제거, D10 = 이메일 1회 재시도로 축소) · BL-14 = WebSocket(한투 실시간, 1분 폴링 거부). ServicePlan-Admin §3.10 R3.10-15·M15 DoD 2채널로 갱신. |
+| 2026-04-19 | **S5b ✅ 완료 (22차)**. 0007 마이그레이션(admin_settings·ticker_alert_pref·intraday_anomaly_event + RLS 3종) + T5b.1 M13 장중 감지(src/lib/intraday/{anomaly-detect,kis-websocket}·IntradayBadge·AlertType intraday_anomaly) + T5b.2 M14 토글(`/admin/settings` + setIntradayMode·setTickerAlertEnabled) + T5b.3 M15 Exit 2채널(src/lib/notify/{telegram,exit-dispatch} · D10 이메일 1회 재시도 · `/admin/alerts/[id]` 결정 UI · recordExitDecision) + Vitest 2 files 30 tests. **158 tests pass** · lint 0 · build 20 routes. **Must 17/19 (89%) 달성** (M13·M14·M15). 실제 1세션(예상 2세션 대비 50%). |

@@ -16,6 +16,7 @@ export type AlertType =
   | "news_critical"
   | "news_warning" // S5a M12: Warning 티어 뉴스 (즉시 알림 X, /admin/alerts 대시보드만)
   | "price_anomaly"
+  | "intraday_anomaly" // S5b M13: 장중 ±5%/거래량 3배 감지
   | "briefing"
   | "briefing_failed" // S5a M11: 브리핑 생성 실패 시 어드민 대시보드 배지
   | "scheduler_fail"
@@ -239,6 +240,50 @@ export interface NewsEvent {
   publishedAt: string;
   fetchedAt: string;
   classificationReason: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// §S5b 신설 — M13 장중 이상 감지 + M14 종목 토글
+// 0007_s5b_notifications.sql 참조.
+// ---------------------------------------------------------------------------
+export type IntradayTriggerType = "price_spike" | "price_drop" | "volume_spike";
+
+export interface IntradayAnomalyEvent {
+  id: string;
+  ticker: string;
+  triggerType: IntradayTriggerType;
+  priceChangePct: number | null; // e.g., -5.23 = -5.23%
+  volumeRatio: number | null; // e.g., 3.15 = 20일 평균 대비 3.15배
+  lastPrice: number | null;
+  detectedAt: string;
+  dedupKey: string;
+}
+
+// M13 임계치 상수 (R3.10-8·R3.5-2)
+export const INTRADAY_PRICE_SPIKE_THRESHOLD = 0.05; // ±5%
+export const INTRADAY_VOLUME_MULTIPLIER_THRESHOLD = 3; // 20일 평균 × 3
+export const INTRADAY_BADGE_RECENT_WINDOW_MS = 15 * 60 * 1000; // 최근 15분 내만 홈 배지 노출
+
+// ---------------------------------------------------------------------------
+// 어드민 설정 — 상시 모니터링 모드 등 (M13 gate)
+// ---------------------------------------------------------------------------
+export interface AdminSettings {
+  adminId: string;
+  intradayMode: boolean;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// M14 종목별 알림 토글 — admin × ticker
+// enabled=false면 장중 이상 감지·news_critical 비즉시 경로 차단.
+// Exit 시그널(§3.5 R3.5-5)은 이 토글과 무관하게 항상 발송.
+// ---------------------------------------------------------------------------
+export interface TickerAlertPref {
+  id: string;
+  adminId: string;
+  ticker: string;
+  enabled: boolean;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
