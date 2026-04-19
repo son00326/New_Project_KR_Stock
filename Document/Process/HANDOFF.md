@@ -30,7 +30,7 @@ Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료
 - **실 AI 호출**: **0** (Anthropic wrapper · cost_log 실 INSERT 0)
 - **실 운용 검증**: **0일**
 - **법무·이용약관**: **0 / 2** (Q16·Q17 미처리)
-- **Git**: working tree clean · 최신 `d67d4c5` · **origin보다 17 commits ahead (미푸시)**
+- **Git**: working tree clean · 최신 `77ef624` · **origin/main 동기화 완료** (2026-04-20)
 - **검증 게이트**: build 22 routes · lint 0 · test:ci **190 pass** (모두 Mock 기반)
 
 ---
@@ -89,10 +89,8 @@ Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료
 **질문**: 22차 종료 시 `Invalid API key` 발견. https://supabase.com/dashboard/project/fpriyjykihxhhvqudvdb/settings/api 에서 `anon public` 복사 → `.env.local` 교체 필요. 본인이 처리 or Claude에 키 전달?
 **해소 시 첫 행동**: `.env.local` 교체 + `npm run dev` 후 Login·Magic Link 실제 브라우저 QA
 
-### DQ-6 🟡 origin push 승인 (17 commits ahead)
-**질문**: 로컬에 S1~S6 17 commits 쌓여 있음. `git push origin main` 승인?
-- 위험: 첫 실 push. private repo인지·권한 설정인지 확인 필요
-**해소 시 첫 행동**: `git push origin main` + push 결과 확인
+### ~~DQ-6~~ ✅ origin push 완료 (2026-04-20, 23차 후속)
+`b762313..77ef624 main -> main` (18 commits 동기화). Repo = `https://github.com/son00326/New_Project_KR_Stock.git`. 이후 세션에서는 commit당 push 가능.
 
 ### DQ-7 🟡 Vercel 배포 환경변수 세팅 계획
 **질문**: 실 배포 언제? 세팅 필요 키 — `CRON_SECRET` · `RESEND_API_KEY` · `TELEGRAM_BOT_TOKEN`/`CHAT_ID` · `KIS_APP_KEY`/`SECRET` · `NAVER_CLIENT_ID`/`SECRET` · `ANTHROPIC_API_KEY`
@@ -238,7 +236,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
   - [ ] Cron 4건 실 실행 검증
 - [ ] 법무 0 / 2 (Q16 자문 · Q17 약관)
 - [ ] 어드민 운용 검증 0일 (목표 1개월+)
-- [ ] origin push 0 (17 commits ahead)
+- [x] origin push ✅ (2026-04-20, 77ef624까지 동기화)
 
 ---
 
