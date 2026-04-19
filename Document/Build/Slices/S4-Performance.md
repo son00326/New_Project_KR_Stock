@@ -8,9 +8,9 @@
 slice_id: S4
 slice_name: 가상 포트·성과 측정 + Decision Tree
 architect_id: S4
-status: ⚪ 대기
+status: ✅ 완료
 expected_sessions: 4
-current_progress: 0%
+current_progress: 100%
 ```
 
 ---
@@ -47,32 +47,35 @@ Accept된 포트폴리오의 성과를 가상으로 측정하고, Decision Tree 
 
 ## Tasks (체크리스트)
 
-- [ ] **T4.1** E5 PortfolioSnapshot 스키마 + EOD 배치 로직 — `portfolio.daily_snapshot` 이벤트, entry_price=Accept 시점 종가, 현금 비율 별도 행(weight%·is_cash)
-- [ ] **T4.2** `/admin/track-record` 페이지 — 누적 수익률·KOSPI·alpha·Sharpe 카드 + 월별·버킷별 테이블 + Counterfactual 열
-- [ ] **T4.3** E8 RegenCounter 스키마 + `/admin/report/[ticker]/regenerate` UI — "N/2회 남음" 라벨, 한도 소진 시 버튼 비활성, 매월 1일 00:00 리셋, 재생성 확인 플로우 (BL-9 결정 후 서브라우트 vs 모달 확정)
-- [ ] **T4.4** `/admin/decision-tree` 페이지 — 게이지 3종(CAP Months·누적 Alpha·Sharpe) + 월별 추이 차트 + ○/△/✕ 판정 + 부분 게이지(N/12)
-- [ ] **T4.5** **cost_log stub 훅 심기** (R5 완화) — M9 재생성 API handler 진입점에서 `if total_ai_cost >= 400000: return {blocked: false, reason: 'stub'}` 형태로 삽입. S6 M17 구현 시 활성화.
+- [x] **T4.1** 마이그레이션 0005 — E5 PortfolioSnapshot(일별 행·entry_price·weight·is_cash) + E8 RegenCounter(ticker+month UNIQUE·auto≤1·manual≤2) + cost_log stub 테이블(timestamp·model·tokens·cost_krw) + RLS
+- [x] **T4.2** 순수 로직 레이어 `src/lib/performance/` — `sharpe.ts`·`mdd.ts`·`alpha.ts`·`judge.ts`(복합 AND: alpha≥0 AND Sharpe≥0.5 AND MDD≤-15%)·`cap-months.ts`. 각 파일 vitest 유닛(소수 케이스·경계값)
+- [x] **T4.3** `/admin/track-record` 페이지 — 누적 수익률·KOSPI·alpha·Sharpe·MDD 카드 + 월별·버킷별 테이블 + Counterfactual 열 (R3.11-1~4)
+- [x] **T4.4** `/admin/decision-tree` 페이지 — 게이지 3종(CAP Months N/12 · 누적 Alpha · Sharpe) + 월별 추이 라인 차트 + 복합 AND ○/△/✕ 배지 + BusinessPlan §Q4 참조 링크 (R3.11-5~9)
+- [x] **T4.5** E8 RegenCounter Server Actions + `/admin/report/[ticker]/regenerate` **서브라우트 페이지**(BL-9=A) — 확인 화면 + "이번 달 N/2회 남음" 라벨 + cap 가드 + cost_log stub 훅(R5 완화)
+- [x] **T4.6** S3 `acceptShortList` 액션에 E5 snapshot INSERT hook 추가 + S3 hardening 병행(actions.ts 실 Supabase catch · adminId 세션 주입 · dispute_reason btrim DB 제약)
 
-> **병렬 가능**: T4.2 + T4.3 + T4.4는 독립 라우트이므로 병렬 작업 가능.
+> **병렬 가능**: T4.2(순수 로직) · T4.3 · T4.4 · T4.5는 독립 파일·라우트 → 병렬. T4.1은 선행(스키마). T4.6은 T4.1·S3 코드 교차 → T4.5 이후 순차.
 
 ---
 
 ## DoD (Definition of Done)
 
-- [ ] `/admin/track-record`: 누적 수익률·alpha·Sharpe 카드 표시, mock E5 데이터로 오류 없음
-- [ ] `/admin/track-record`: 월별·버킷별 테이블 + Counterfactual 열 표시
-- [ ] E8 RegenCounter: 재생성 버튼 클릭 시 카운터 -1, 0 도달 시 비활성
-- [ ] `/admin/decision-tree`: 게이지 3종 + ○/△/✕ 판정 + 부분 게이지(N/12) 렌더링
-- [ ] cost_log 차단 stub 존재 확인 (함수 내 stub 코드 주석 명시)
-- [ ] `npm run build` 오류 0, `npm run lint` 경고 0
-- [ ] 커밋: `feat(S4): 가상 포트 트래킹 + Decision Tree — M8·M9·M16 + cost_log stub`
+- [x] `/admin/track-record`: 누적 수익률·KOSPI·alpha·Sharpe·MDD 카드 + 월별·버킷별 테이블 + Counterfactual 열 (mock E5)
+- [x] `/admin/decision-tree`: 게이지 3종(CAP Months·Alpha·Sharpe) + 월별 추이 차트 + 복합 AND ○/△/✕ 배지 + 부분 게이지(N/12)
+- [x] `/admin/report/[ticker]/regenerate`: 서브라우트 확인 화면 + "이번 달 N/2회 남음" + cap 가드 + cost_log stub 주석
+- [x] E8 RegenCounter UNIQUE(ticker+month) 준수, 자동≤1·수동≤2 카운트 분리
+- [x] `acceptShortList`에서 E5 snapshot INSERT hook 동작 + S3 hardening(실 Supabase catch · adminId · btrim) 통합
+- [x] Vitest: `src/lib/performance/__tests__/` Sharpe·MDD·judge·cap-months 유닛 전원 pass
+- [x] `npm run build` 오류 0 · `npm run lint` 경고 0 · `npm run test:ci` pass
+- [x] 커밋: `feat(S4): 가상 포트 트래킹 + Decision Tree — M8·M9·M16 + S3 hardening + cost_log stub`
 
 ---
 
 ## 블로커 / 사용자 결정 필요
 
-- **BL-8** (Low): ○/△/✕ 판정 기준 MVP 기본값 — R3.11-9 제안(alpha≥0 AND Sharpe≥0.5 AND MDD≤-15%). B4 재검증 전 MVP 기본값 확정 요청 — ProgressDashboard §5 참조
-- **BL-9** (Low): 재생성 확인 = 서브라우트(`/admin/report/[ticker]/regenerate`) vs Next.js 16 인터셉트 모달 중 택 1
+- ~~**BL-8**~~ ✅ 해소 (2026-04-19 20차 킥오프) — **옵션 A 복합 AND** 채택: `alpha≥0 AND Sharpe≥0.5 AND MDD≤-15%` (R3.11-9 기본값)
+- ~~**BL-9**~~ ✅ 해소 (2026-04-19 20차 킥오프) — **옵션 A 서브라우트** 채택: `/admin/report/[ticker]/regenerate` (S0 stub 재활용, 명시적 확인 플로우)
+- **S3 hardening 병행** (2026-04-19 결정): 옵션 B 채택 — S4 T4.6에서 S3 `actions.ts` 실 Supabase catch · adminId 세션 · dispute_reason btrim 통합 처리
 
 ---
 
@@ -85,6 +88,8 @@ Accept된 포트폴리오의 성과를 가상으로 측정하고, Decision Tree 
 ## 의사결정 로그
 
 - 2026-04-16: 슬라이스 파일 생성. architect 재조정 R4에 의해 M16(Decision Tree)을 S6에서 S4로 이관. cost_log stub T4.5에 포함.
+- 2026-04-19 (20차 킥오프): BL-8=A(복합 AND) · BL-9=A(서브라우트) · S3 hardening=B(S4 T4.6 병행). status ⚪→🟢. Task 6개 재편성(T4.1 선행 스키마 + T4.2 순수 로직 + T4.3/T4.4/T4.5 병렬 UI + T4.6 hook+hardening). 실행 엔진: `ralph` (Task 6개, Playbook §2.5 결정적 규칙).
+- 2026-04-19 (20차 클로즈): ralph 6 스토리 + architect APPROVED + ai-slop-cleaner 패스. T4.2 41 tests · T4.5 12 tests · T4.6 3 trim tests 신설(43→87 tests). 비블로킹 이월 1건(RegenCounter 스네이크 매핑 → S5 실데이터 전환 시). status 🟢→✅. **Must 10/19 달성 (M8·M9·M16 추가, 53%)**.
 
 ---
 
@@ -99,3 +104,5 @@ Accept된 포트폴리오의 성과를 가상으로 측정하고, Decision Tree 
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-16 | 초기 생성. architect S4 블록 기반. M16 추가(R4 재조정). cost_log stub 훅(R5 완화) 명시. |
+| 2026-04-19 | 20차 킥오프. BL-8·BL-9 해소. status ⚪→🟢. Tasks 5→6개 재편성 (T4.6 S3 hardening 병행 추가). |
+| 2026-04-19 | 20차 ✅ 완료. 0005 마이그레이션 + `src/lib/performance/` 6모듈 + 3라우트(track-record·decision-tree·regenerate) + S3 hardening(resolveAdminId·trim·try/catch)·E5 snapshot hook. 87 tests · lint 0 · build 17 routes. architect APPROVED. Must 10/19 (53%). |

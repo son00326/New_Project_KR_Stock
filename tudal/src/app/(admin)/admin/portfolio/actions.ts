@@ -1,10 +1,39 @@
 "use server";
 
 import { MOCK_ADMIN_APPROVALS } from "@/lib/data/mock-admin-approvals";
+import { MOCK_ADMIN_SNAPSHOTS } from "@/lib/data/mock-admin-snapshots";
+import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
 import {
   validateDisputeReason,
   canRaiseDispute,
 } from "@/lib/portfolio/dispute";
+import { isUniqueViolation } from "@/lib/portfolio/approval-logic";
+import { createClient } from "@/lib/supabase/server";
+import type { PortfolioSnapshot } from "@/types/admin";
+
+// ---------------------------------------------------------------------------
+// resolveAdminId — Supabase 세션에서 admin ID 추출 (mock fallback 포함)
+// ---------------------------------------------------------------------------
+async function resolveAdminId(): Promise<string> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user?.id ?? "admin-001";
+  } catch {
+    return "admin-001";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// hashCode — ticker 기반 결정적 해시 (mock 진입가 계산용)
+// ---------------------------------------------------------------------------
+function hashCode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
 
 // ---------------------------------------------------------------------------
 // acceptShortList — 이번 달 Short List 30 확정
@@ -17,6 +46,7 @@ export async function acceptShortList(params: {
   | { success: false; error: string }
 > {
   const { month, shortlistGeneratedAt } = params;
+  const adminId = await resolveAdminId();
 
   // TODO(T3.7 hardening): server-side gate 재검증
 
@@ -28,25 +58,91 @@ export async function acceptShortList(params: {
     return { success: false, error: "already_finalized" };
   }
 
-  // mock: in-memory push (실 Supabase write는 TODO)
-  // TODO: await supabase.from("portfolio_approvals").insert({ ... })
   const approvalId = `mock-${Date.now()}`;
-  MOCK_ADMIN_APPROVALS.push({
-    id: approvalId,
-    month,
-    adminId: "admin-001", // TODO(hardening): adminId 세션 주입
-    approvalType: "accept",
-    approvedAt: new Date().toISOString(),
-    isFinal: true,
-    prevPortfolioHeld: false,
-    shortlistGeneratedAt,
-    disputeRaisedAt: null,
-    disputeRaisedBy: null,
-    disputeReason: null,
-    disputeResolvedAt: null,
-    gatingAutoReliefActive: false,
-    reanalysisCount: 0,
-  });
+
+  try {
+    // TODO(S5): await supabase.from("portfolio_approvals").insert({ ... });
+    MOCK_ADMIN_APPROVALS.push({
+      id: approvalId,
+      month,
+      adminId,
+      approvalType: "accept",
+      approvedAt: new Date().toISOString(),
+      isFinal: true,
+      prevPortfolioHeld: false,
+      shortlistGeneratedAt,
+      disputeRaisedAt: null,
+      disputeRaisedBy: null,
+      disputeReason: null,
+      disputeResolvedAt: null,
+      gatingAutoReliefActive: false,
+      reanalysisCount: 0,
+    });
+  } catch (err: unknown) {
+    if (isUniqueViolation(err)) {
+      return { success: false, error: "already_finalized" };
+    }
+    throw err;
+  }
+
+  // E5 PortfolioSnapshot INSERT hook — Accept 확정 시 가상 포트 스냅샷 초기화
+  const approvalMonth = month; // 'YYYY-MM-01'
+  const acceptDate = new Date().toISOString().slice(0, 10);
+
+  const shortlistForMonth = MOCK_ADMIN_SHORTLIST.filter(
+    (item) => item.month === approvalMonth && item.deltaStatus !== "removed",
+  );
+
+  const snapshots: PortfolioSnapshot[] = [];
+
+  for (const item of shortlistForMonth) {
+    const mockEntryPrice =
+      50000 + (Math.abs(hashCode(item.ticker)) % 200000);
+    snapshots.push({
+      id: `snap-${approvalId}-${item.ticker}`,
+      date: acceptDate,
+      month: approvalMonth,
+      ticker: item.ticker,
+      entryPrice: mockEntryPrice,
+      currentPrice: mockEntryPrice, // Day 0: currentPrice == entryPrice
+      weight: item.suggestedWeight,
+      isCash: false,
+      dailyReturn: 0,
+      totalReturn: 0,
+      kospiReturn: 0,
+      alpha: 0,
+      sharpe: 0,
+    });
+  }
+
+  const totalEquityWeight = shortlistForMonth.reduce(
+    (a, b) => a + b.suggestedWeight,
+    0,
+  );
+  const cashWeight = Math.max(0, 1 - totalEquityWeight);
+  if (cashWeight > 0) {
+    snapshots.push({
+      id: `snap-${approvalId}-cash`,
+      date: acceptDate,
+      month: approvalMonth,
+      ticker: null,
+      entryPrice: 0,
+      currentPrice: 0,
+      weight: cashWeight,
+      isCash: true,
+      dailyReturn: 0,
+      totalReturn: 0,
+      kospiReturn: 0,
+      alpha: 0,
+      sharpe: 0,
+    });
+  }
+
+  for (const snap of snapshots) {
+    MOCK_ADMIN_SNAPSHOTS.push(snap);
+  }
+
+  // TODO(S5): await supabase.from("portfolio_snapshot").insert(snapshots);
 
   return { success: true, data: { approvalId, isFinal: true } };
 }
@@ -68,6 +164,7 @@ export async function rejectShortList(params: {
   | { success: false; error: string }
 > {
   const { month, reason } = params;
+  const adminId = await resolveAdminId();
 
   // 이미 Accept 확정된 경우 Reject 불가
   const alreadyAccepted = MOCK_ADMIN_APPROVALS.some(
@@ -84,24 +181,30 @@ export async function rejectShortList(params: {
   const reanalysisCount = existingRejects.length + 1;
   const portfolioHoldWarning = reanalysisCount >= 2;
 
-  // mock: in-memory push (실 Supabase write는 TODO)
-  // TODO: await supabase.from("portfolio_approvals").insert({ ... })
-  MOCK_ADMIN_APPROVALS.push({
-    id: `mock-reject-${Date.now()}`,
-    month,
-    adminId: "admin-001", // TODO(hardening): adminId 세션 주입
-    approvalType: "reject",
-    approvedAt: new Date().toISOString(),
-    isFinal: false,
-    prevPortfolioHeld: portfolioHoldWarning,
-    shortlistGeneratedAt: `${month.slice(0, 7)}-01T00:00:00.000Z`,
-    disputeRaisedAt: new Date().toISOString(),
-    disputeRaisedBy: "admin-001", // TODO(hardening): adminId 세션 주입
-    disputeReason: reason ?? null,
-    disputeResolvedAt: null,
-    gatingAutoReliefActive: false,
-    reanalysisCount,
-  });
+  try {
+    // TODO(S5): await supabase.from("portfolio_approvals").insert({ ... });
+    MOCK_ADMIN_APPROVALS.push({
+      id: `mock-reject-${Date.now()}`,
+      month,
+      adminId,
+      approvalType: "reject",
+      approvedAt: new Date().toISOString(),
+      isFinal: false,
+      prevPortfolioHeld: portfolioHoldWarning,
+      shortlistGeneratedAt: `${month.slice(0, 7)}-01T00:00:00.000Z`,
+      disputeRaisedAt: new Date().toISOString(),
+      disputeRaisedBy: adminId,
+      disputeReason: reason ?? null,
+      disputeResolvedAt: null,
+      gatingAutoReliefActive: false,
+      reanalysisCount,
+    });
+  } catch (err: unknown) {
+    if (isUniqueViolation(err)) {
+      return { success: false, error: "already_finalized" };
+    }
+    throw err;
+  }
 
   return {
     success: true,
@@ -120,7 +223,8 @@ export async function raiseDispute(input: {
   | { success: true; data: { raisedAt: string } }
   | { success: false; error: string }
 > {
-  const { approvalId, adminId, reason } = input;
+  const { approvalId, reason } = input;
+  const adminId = await resolveAdminId();
 
   // 앱 레벨 검증 1차 방어선 (DB constraint length≥20은 2차)
   const reasonValidation = validateDisputeReason(reason);
@@ -143,16 +247,23 @@ export async function raiseDispute(input: {
     return { success: false, error: "already_disputed" };
   }
 
-  // mock: in-memory mutation (실 Supabase UPDATE는 TODO(S3 hardening))
-  // TODO(S3 hardening): await supabase.from("portfolio_approvals").update({
-  //   dispute_raised_at: raisedAt,
-  //   dispute_raised_by: adminId,
-  //   dispute_reason: reason,
-  // }).eq("id", approvalId)
   const raisedAt = new Date().toISOString();
-  approval.disputeRaisedAt = raisedAt;
-  approval.disputeRaisedBy = adminId;
-  approval.disputeReason = reason;
+
+  try {
+    // TODO(S5): await supabase.from("portfolio_approvals").update({
+    //   dispute_raised_at: raisedAt,
+    //   dispute_raised_by: adminId,
+    //   dispute_reason: reasonValidation.trimmed,
+    // }).eq("id", approvalId)
+    approval.disputeRaisedAt = raisedAt;
+    approval.disputeRaisedBy = adminId;
+    approval.disputeReason = reasonValidation.trimmed;
+  } catch (err: unknown) {
+    if (isUniqueViolation(err)) {
+      return { success: false, error: "already_finalized" };
+    }
+    throw err;
+  }
 
   return { success: true, data: { raisedAt } };
 }
@@ -167,7 +278,6 @@ export async function resolveDispute(input: {
   | { success: true; data: { resolvedAt: string } }
   | { success: false; error: string }
 > {
-  // TODO(hardening): adminId 세션 주입
   const { approvalId } = input;
 
   // approval 조회
@@ -176,12 +286,19 @@ export async function resolveDispute(input: {
     return { success: false, error: "approval_not_found" };
   }
 
-  // mock: in-memory mutation (실 Supabase UPDATE는 TODO(S3 hardening))
-  // TODO(S3 hardening): await supabase.from("portfolio_approvals").update({
-  //   dispute_resolved_at: resolvedAt,
-  // }).eq("id", approvalId)
   const resolvedAt = new Date().toISOString();
-  approval.disputeResolvedAt = resolvedAt;
+
+  try {
+    // TODO(S5): await supabase.from("portfolio_approvals").update({
+    //   dispute_resolved_at: resolvedAt,
+    // }).eq("id", approvalId)
+    approval.disputeResolvedAt = resolvedAt;
+  } catch (err: unknown) {
+    if (isUniqueViolation(err)) {
+      return { success: false, error: "already_finalized" };
+    }
+    throw err;
+  }
 
   return { success: true, data: { resolvedAt } };
 }

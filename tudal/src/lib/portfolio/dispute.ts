@@ -22,16 +22,22 @@ export interface DisputeValidation {
   error?: DisputeError;
 }
 
+export interface DisputeReasonValidation extends DisputeValidation {
+  trimmed: string;
+}
+
 // ---------------------------------------------------------------------------
 // validateDisputeReason — 이의 제기 사유 길이 검증
 // trim 후 DISPUTE_REASON_MIN_LENGTH(=20)자 미만이면 invalid.
+// trimmed 필드로 정규화된 텍스트를 반환 (앱 레벨 btrim 등가).
 // ---------------------------------------------------------------------------
 
-export function validateDisputeReason(reason: string): DisputeValidation {
-  if (reason.trim().length < DISPUTE_REASON_MIN_LENGTH) {
-    return { valid: false, error: DISPUTE_ERROR_REASON_TOO_SHORT };
+export function validateDisputeReason(reason: string): DisputeReasonValidation {
+  const trimmed = reason.trim();
+  if (trimmed.length < DISPUTE_REASON_MIN_LENGTH) {
+    return { valid: false, error: DISPUTE_ERROR_REASON_TOO_SHORT, trimmed };
   }
-  return { valid: true };
+  return { valid: true, trimmed };
 }
 
 // ---------------------------------------------------------------------------

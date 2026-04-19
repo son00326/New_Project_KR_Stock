@@ -35,6 +35,32 @@ describe("validateDisputeReason", () => {
     expect(result.valid).toBe(true);
     expect(result.error).toBeUndefined();
   });
+
+  // 케이스 14 (trim): 앞뒤 공백 + 20자 본문 → valid, trimmed=20자
+  it("케이스 14 — 앞뒤 공백 포함 총 26자, 본문 20자: valid=true, trimmed.length=20", () => {
+    const body = "a".repeat(20);
+    const result = validateDisputeReason("   " + body + "   ");
+    expect(result.valid).toBe(true);
+    expect(result.trimmed).toBe(body);
+    expect(result.trimmed.length).toBe(20);
+  });
+
+  // 케이스 15 (trim): 앞뒤 공백만 포함된 짧은 문자열 → invalid
+  it("케이스 15 — 앞뒤 공백 제거 후 3자: valid=false", () => {
+    const result = validateDisputeReason("  부족 ");
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe("reason_too_short");
+    expect(result.trimmed.length).toBeLessThan(20);
+  });
+
+  // 케이스 16 (trim): 개행·탭 포함, trim 후 20자 이상 → valid
+  it("케이스 16 — 개행·탭 포함, trim 후 20자 이상: valid=true", () => {
+    const body = "이의제기사유가충분히길어야한다"; // 15자 한국어 = 15 chars
+    const long = body + "추가사유더작성함"; // 15+8=23자
+    const result = validateDisputeReason("\n\t " + long + "\n");
+    expect(result.valid).toBe(true);
+    expect(result.trimmed).toBe(long);
+  });
 });
 
 describe("canRaiseDispute", () => {
