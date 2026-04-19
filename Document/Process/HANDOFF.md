@@ -29,7 +29,7 @@ Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료
 - **실데이터 연결**: **0 / 19** (모두 mock fixture)
 - **실 AI 호출**: **0** (Anthropic wrapper · cost_log 실 INSERT 0)
 - **실 운용 검증**: **0일**
-- **법무·이용약관**: **0 / 2** (Q16·Q17 미처리)
+- **법무·이용약관**: ⏸ **멤버 오픈(Deferred-D)까지 유예** (2026-04-20, 어드민 3명 내부 운용이므로 불필요)
 - **Git**: working tree clean · 최신 `77ef624` · **origin/main 동기화 완료** (2026-04-20)
 - **검증 게이트**: build 22 routes · lint 0 · test:ci **190 pass** (모두 Mock 기반)
 
@@ -60,13 +60,14 @@ Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료
 
 > **원칙**: 사용자 결정 없이는 Claude가 진행 불가. 우선순위 순.
 
-### DQ-1 🔴 실데이터 전환 로드맵 착수 시점
-**질문**: Mock Skeleton 9세션으로 끝냈는데, 실데이터 전환 슬라이스(S7 가칭)를 **지금 착수**할지, **법무·약관 선행(§DQ-3·DQ-4) 이후**에 착수할지?
+### DQ-1 🔴 실데이터 전환 착수 순서
+**질문**: S7(실데이터 전환) 어느 슬라이스부터 착수할지. 법무·약관은 **내부 어드민 3명 운용 단계에서 불필요** 확정(2026-04-20) → 멤버 오픈(Deferred-D) 시점까지 유예.
 **옵션**:
-- (a) 지금 바로 실데이터 전환 착수 (S7a Anthropic wrapper + cost_log 실 INSERT부터)
-- (b) 법무·약관 먼저 확정 후 실데이터 착수
-- (c) 일단 origin push + Supabase anon 갱신만 하고 실데이터는 다음 주
-**해소 시 첫 행동**: 해당 옵션에 따라 §6 또는 §7로 분기
+- (a) **S7a Anthropic wrapper + cost_log 실 INSERT** 먼저 (비용 통제가 가장 큰 리스크 R2)
+- (b) **S7e Supabase 실 SELECT/INSERT** 먼저 (8 Must가 한 번에 실 DB로 옮겨 탐)
+- (c) **S7c KIS WebSocket + Telegram·Resend 장중/Exit** 먼저 (J3 Exit 시그널 E2E가 실 운용 체감 가장 큼)
+- (d) 순서 무관 — Claude 판단으로 S7a → S7e → S7b → S7c → S7d (비용·DB·외부 API·알림·헬스 순)
+**해소 시 첫 행동**: 해당 옵션에 따라 §6에서 S7? 슬라이스 킥오프
 
 ### DQ-2 🔴 AI Agent 실행 체제 확정
 **질문**: 리포트·브리핑·뉴스 분류에 쓰는 AI 호출 체제를 어떻게 잡을지?
@@ -77,13 +78,13 @@ Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료
 **제약**: Must 17(AI 비용 실시간 모니터링)이 Anthropic `/messages` usage 실시간 파싱(BL-16=A)으로 이미 박제됨. 즉 wrapper 1층은 필수.
 **해소 시 첫 행동**: `src/lib/ai/` 하위 wrapper 설계 → S7a에서 구현
 
-### DQ-3 🟡 Q16 법무 자문 (투자자문업 경계)
-**질문**: 500cap 초대 + 본인 자금 운용이라도 법무 자문 필요 여부·타이밍
-**해소 시 첫 행동**: ServicePlan-Admin §법적 제약 갱신 + BusinessPlan.md §7 추가 박제
+### ~~DQ-3~~ ⏸ Q16 법무 자문 — **멤버 오픈(Deferred-D) 시점까지 유예** (2026-04-20 확정)
+**근거**: 어드민 3명 = 대표 본인·관계자 내부 운용. 500cap 멤버 초대 시점부터 투자자문업 경계·개인정보처리 법무 자문 필요. 그 전까지는 Footer 면책 문구로 충분.
+**재개 트리거**: Deferred-D 멤버 트랙 킥오프 시
 
-### DQ-4 🟡 Q17 이용약관·개인정보처리방침·면책
-**질문**: 초대 500명에 대한 이용약관·개인정보처리방침·투자 면책 문구(Footer 이상) 작성 담당·타이밍
-**해소 시 첫 행동**: `/legal/*` 라우트 신설 + Footer 링크 연결
+### ~~DQ-4~~ ⏸ Q17 이용약관·개인정보처리방침 — **멤버 오픈(Deferred-D) 시점까지 유예** (2026-04-20 확정)
+**근거**: 어드민 3명 내부 운용 단계에서는 이용약관·개인정보처리방침 불필요. Footer "정보 제공, 투자 자문 아님" 면책만 유지.
+**재개 트리거**: Deferred-D 멤버 트랙 킥오프 시 `/legal/*` 라우트 신설 + 약관 초안 작성
 
 ### DQ-5 🟡 Supabase anon key 갱신 (`/admin` QA 블로커)
 **질문**: 22차 종료 시 `Invalid API key` 발견. https://supabase.com/dashboard/project/fpriyjykihxhhvqudvdb/settings/api 에서 `anon public` 복사 → `.env.local` 교체 필요. 본인이 처리 or Claude에 키 전달?
@@ -234,7 +235,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
   - [ ] 환경변수 세팅
   - [ ] 첫 프리뷰 → 프로덕션
   - [ ] Cron 4건 실 실행 검증
-- [ ] 법무 0 / 2 (Q16 자문 · Q17 약관)
+- [⏸] 법무 0 / 2 (Q16 자문 · Q17 약관) — **Deferred-D 멤버 오픈 시점까지 유예** (어드민 3명 내부 운용만이므로 MVP Stage 1 진짜 완료 기준에서 제외)
 - [ ] 어드민 운용 검증 0일 (목표 1개월+)
 - [x] origin push ✅ (2026-04-20, 77ef624까지 동기화)
 
