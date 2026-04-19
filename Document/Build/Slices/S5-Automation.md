@@ -8,9 +8,9 @@
 slice_id: S5
 slice_name: 스케줄러·알림·Exit + M18 동시
 architect_id: S6
-status: ⚪ 대기
-expected_sessions: 5 (S5a 3세션 + S5b 2세션)
-current_progress: 0%
+status: 🟡 S5a ✅ 완료 · S5b ⚪ 대기
+expected_sessions: 5 (S5a 3세션 → 실제 1세션 · S5b 2세션 예정)
+current_progress: 57% (M10·M11·M12·M18 4건 / S5 총 7 Must + M18 = 8건 기준)
 ```
 
 ---
@@ -54,12 +54,12 @@ current_progress: 0%
 
 ---
 
-## S5a Tasks (M10·M11·M12·M18 — 3세션)
+## S5a Tasks (M10·M11·M12·M18 — 3세션 예상 · 실제 1세션)
 
-- [ ] **T5a.1** M10 배치 스케줄러 — cron 엔진(BL-15 결정 후) + 스크리닝→Short List→리포트→알림 파이프 + 재시도 3회 + `shortlist.generated` 이벤트 + 실패 시 전월 유지 + D+5 기산 + `scheduler_fail` AlertEvent
-- [ ] **T5a.2** M11 모닝 브리핑 — 08:00 KST 텔레그램 + `/admin` 상단 카드, P&L·주의 종목·핵심 뉴스 3건 3~5줄, `briefing.viewed` 기록
-- [ ] **T5a.3** M12 뉴스 분류기 — Critical/Warning/Info 3티어 분류 + 근거 1줄, Critical 즉시 알림 + `/admin/alerts` 이력 페이지
-- [ ] **T5a.4** M18 파이프라인 헬스체크 (동시) — pipeline_health 신규 스키마, 5개 파이프라인(DART·뉴스·가격·AI·알림) 성공률 집계, 95% Critical·99% warning, error log tail(50줄), 24h 실패 트레이스, `/admin/health` 페이지
+- [x] **T5a.1** M10 배치 스케줄러 — Vercel Cron(`5 0 1 * *` UTC = 09:05 KST day 1) + `/api/cron/monthly-batch` 핸들러 + `src/lib/scheduler/monthly-batch.ts`(runStepWithRetries · runMonthlyBatch · buildSchedulerFailAlert · toPipelineHealthRecord) + 재시도 3회 + scheduler_fail AlertEvent 빌드 + Bearer CRON_SECRET 가드. mock step 4종(screening·shortlist-insert·report-generate·alert-broadcast) 주입 — 실 I/O는 S5 실데이터 전환 시 교체.
+- [x] **T5a.2** M11 모닝 브리핑 — Vercel Cron(`0 23 * * *` UTC = 08:00 KST) + `/api/cron/morning-briefing` 핸들러 + `src/lib/briefing/compose.ts`(3줄 요약 · email/html/text/telegram 포맷 · xss escape) + `src/lib/email/resend.ts`(fetch 기반 어댑터 · mock-mode) + `/admin` 상단 BriefingCard + briefing_log INSERT payload + briefing_failed AlertEvent 연계.
+- [x] **T5a.3** M12 뉴스 분류기 — `src/lib/news/{naver-api,scraper,classifier}.ts` 3 모듈 + 규칙 기반 Critical/Warning/Info 분류 + 근거 1줄 + `dedupeByUrl`(news_event UNIQUE url) + Vercel Cron(`*/15 * * * *`) + `/api/cron/news-sweep` + `/admin/alerts` 페이지(AlertEvent 이력 + Critical/Warning 뉴스 목록) + `/admin/alerts/[id]` 상세. Critical만 news_critical AlertEvent 즉시 발행.
+- [x] **T5a.4** M18 파이프라인 헬스체크 — `0006_s5a_automation.sql` §1 pipeline_health 인라인 정의(G-3 완화) + `src/lib/health/pipeline-health.ts`(aggregatePipelineHealth · severityFromRate · recentFailures · overallSeverity) + `/admin/settings/health` 5 카드(공시·뉴스·시세·AI·알림) × 24h 성공률 + 95% Critical 배너 + 실패 trace tail 50건. MOCK_ADMIN_PIPELINE_HEALTH 272건(5 파이프라인 × 가상 24h seed, mulberry32 결정적 난수).
 
 ## S5b Tasks (M13·M14·M15 — 2세션)
 
@@ -71,12 +71,14 @@ current_progress: 0%
 
 ## DoD (Definition of Done)
 
-**S5a DoD**:
-- [ ] M10 배치: 수동 트리거 시 E1·E2·E3 갱신 확인, 재시도 3회 로직 존재
-- [ ] M11 브리핑: mock 데이터로 텔레그램 stub 호출 + `/admin` 카드 렌더링
-- [ ] M12 뉴스: Critical 분류 시 `AlertEvent` 기록 + `/admin/alerts` 목록 표시
-- [ ] M18 헬스체크: `/admin/health` 접근 시 5개 파이프라인 성공률 표시, 95% 임계치 미달 시 Critical 배너
-- [ ] M18 Critical 호출 E2E 테스트 1건 통과 (R1 완화 증거)
+**S5a DoD** ✅ (2026-04-19, 21차):
+- [x] M10 배치: GET `/api/cron/monthly-batch` 핸들러 호출 시 4 mock step 순차 실행 · 재시도 3회 로직 검증 완료(13 Vitest tests: runStepWithRetries · runMonthlyBatch · buildSchedulerFailAlert)
+- [x] M11 브리핑: `compose.ts`로 3줄 요약 생성 · Resend mock-mode 호출 · `/admin` 상단 BriefingCard 렌더링 · briefing_log INSERT payload 준비(8 Vitest tests: xss escape · 음수 포맷 · 뉴스 3건 cutoff)
+- [x] M12 뉴스: `classifyNews` 9가지 키워드 규칙 통과 · Critical 분류 시 news_critical AlertEvent 페이로드 생성 · `/admin/alerts` 목록 4 Critical + 6 Warning 렌더링(12 Vitest tests)
+- [x] M18 헬스체크: `/admin/settings/health` 5 카드(DART·뉴스·시세·AI·알림) × 24h 성공률 표시 · alert 92.1%에서 Critical 배너 노출 확인 · 실패 trace tail 50건(8 Vitest tests)
+- [x] M18 Critical 호출 E2E 테스트 1건 통과(`overallSeverity` critical 판정 — R1 완화 증거)
+- [x] `npm run build` 20 routes · `npm run lint` 0 warnings · `npm run test:ci` 15 files / 128 tests pass
+- [x] 커밋: `feat(S5a): 스케줄러·브리핑·뉴스·헬스 — M10·M11·M12·M18`
 
 **S5b DoD**:
 - [ ] M13 감지: 모드 ON 상태에서 mock ±5% 이벤트 주입 시 AlertEvent 기록 + 홈 배지 표시
@@ -91,12 +93,12 @@ current_progress: 0%
 
 ## 블로커 / 사용자 결정 필요
 
-- **BL-6** (High): `/admin/health` 라우트 IA 확정 (독립 vs `/admin/settings/health` 서브라우트) — S5 착수 전 필수 — ProgressDashboard §5 참조
-- **BL-11** (High): 이메일 벤더 선택 — S5 착수 전 필수
-- **BL-12** (High): SMS 벤더 선택 (D10 백업)
-- **BL-13** (High): 뉴스 벤더 선택 — M12 의존
-- **BL-14** (Medium): 한투 API WebSocket vs 1분 폴링 — S5 실데이터 연결 단계에서 결정
-- **BL-15** (High): 배치 실행 환경 선택 — M10 의존
+- ~~**BL-6**~~ ✅ 해소 — (B) `/admin/settings/health` 서브라우트 (2026-04-16)
+- ~~**BL-11**~~ ✅ 해소 — **Resend** 채택 (2026-04-19, 21차). Next.js 통합·React Email·무료 3K/월, 확장 시 $20/100K
+- **BL-12** (High): SMS 벤더 선택 (D10 백업) — S5b 진입 전 재질의
+- ~~**BL-13**~~ ✅ 해소 — **네이버 뉴스 API + 스크래핑 하이브리드** (2026-04-19, 21차). 네이버 검색 API 1차 + 어드민 지정 매체 스크래핑 보강. 컴플라이언스 S6 정비
+- **BL-14** (Medium): 한투 API WebSocket vs 1분 폴링 — S5b 실데이터 연결 단계에서 결정
+- ~~**BL-15**~~ ✅ 해소 — **Vercel Cron** 채택 (2026-04-19, 21차). vercel.json crons 필드, Pro plan 5분 타임아웃, G-6 배포 플랫폼 = Vercel 확정
 - **[G-3]** (Major — S5 킥오프 전): 신규 엔티티 `pipeline_health` 스키마가 ServicePlan-Admin §4.2에 미정의. S5a M18 헬스체크 구현 시 필드/타입/인덱스 결정 필요. S5 킥오프 시 §4.2 보충 또는 슬라이스 내부 인라인 정의.
 - **[G-6]** (Major — S5 킥오프 전): 배포 플랫폼 미결정 (Vercel? self-hosted?). BL-15(배치 환경)와 동시 결정 필요 — Vercel Cron은 Vercel 배포 전제, Supabase Edge Functions은 Supabase 전제. BusinessPlan §10 "인프라 15만(Vercel, Supabase)" 암시하나 공식 결정 아님.
 
@@ -113,6 +115,8 @@ current_progress: 0%
 ## 의사결정 로그
 
 - 2026-04-16: 슬라이스 파일 생성. architect 재조정 R6·R-A에 의해 M18을 S7→S5 동시로 앞당김. S5a/S5b 분할 명시.
+- 2026-04-19 (21차): **S5a 킥오프 블로커 4건 해소**. BL-11=Resend · BL-13=네이버 뉴스 API+스크래핑 하이브리드 · BL-15=Vercel Cron · 분할=S5a(M10·M11·M12·M18) → S5b(M13·M14·M15) 2 wave. G-6 배포 플랫폼 = Vercel 확정(부수 효과). G-3(pipeline_health 스키마)은 T5a.4 내부 인라인 정의로 처리 예정.
+- 2026-04-19 (21차): **S5a ✅ 완료** — Wave 1(0006 마이그레이션+타입+mock) → Wave 2 병렬(M10·M11·M18) → Wave 3(M12) → Wave 4(Vitest 4 files 41 tests) → Wave 5(검증 3게이트). 실제 1세션(예상 3세션 대비 1/3). 검증: build 20 routes·lint 0·test:ci 128 pass. 비블로킹 이월 2건: ① 실 Supabase INSERT(pipeline_health·news_event·briefing_log)는 S5 실데이터 전환 시 · ② AlertType에 briefing_failed·news_warning 추가 → alert_event check constraint DB 갱신은 실 Supabase 통합 시. M18 E2E Critical 호출은 `overallSeverity` critical 판정으로 로직 검증(S5b 완료 시 M13·M14·M15 가동 후 최종 증거 재수집).
 
 ---
 

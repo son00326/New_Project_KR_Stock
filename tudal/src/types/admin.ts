@@ -14,8 +14,10 @@ export type ApprovalType = "accept" | "reject";
 export type AlertType =
   | "exit_signal"
   | "news_critical"
+  | "news_warning" // S5a M12: Warning 티어 뉴스 (즉시 알림 X, /admin/alerts 대시보드만)
   | "price_anomaly"
   | "briefing"
+  | "briefing_failed" // S5a M11: 브리핑 생성 실패 시 어드민 대시보드 배지
   | "scheduler_fail"
   | "gating_auto_relief"; // S3 BL-20 A: 7일 연속 단일 접속 감지 시 자동 바이패스 로그
 export type Severity = "critical" | "warning" | "info";
@@ -190,6 +192,53 @@ export interface RegenCounter {
   autoCount: number; // ≤ 1
   manualCount: number; // ≤ 2
   resetAt: string; // 매월 1일 00:00 KST
+}
+
+// ---------------------------------------------------------------------------
+// §S5a 신설 — pipeline_health (M18) · NewsEvent (M12)
+// 0006_s5a_automation.sql 참조. ServicePlan-Admin §4.2 반영은 S6 문서 정비 시점.
+// ---------------------------------------------------------------------------
+export type PipelineKind = "dart" | "news" | "price" | "ai" | "alert";
+export type PipelineStatus = "success" | "warning" | "failed";
+
+export interface PipelineHealth {
+  id: string;
+  runId: string | null;
+  pipeline: PipelineKind;
+  status: PipelineStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  latencyMs: number | null;
+  error: string | null;
+}
+
+// M18 집계 결과 — /admin/settings/health 카드 렌더용
+export interface PipelineHealthSummary {
+  pipeline: PipelineKind;
+  total24h: number;
+  success24h: number;
+  failed24h: number;
+  successRate: number; // 0~1
+  avgLatencyMs: number | null;
+  lastRun: PipelineHealth | null;
+  severity: Severity; // successRate 기반 (<0.95 critical · <0.99 warning · >=0.99 info)
+}
+
+// M18 임계치 상수 (R3.12-4)
+export const PIPELINE_HEALTH_CRITICAL_THRESHOLD = 0.95;
+export const PIPELINE_HEALTH_WARNING_THRESHOLD = 0.99;
+export const PIPELINE_HEALTH_WINDOW_HOURS = 24;
+
+export interface NewsEvent {
+  id: string;
+  ticker: string | null; // null = 시장 전체
+  severity: Severity;
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  fetchedAt: string;
+  classificationReason: string | null;
 }
 
 // ---------------------------------------------------------------------------

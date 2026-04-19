@@ -12,6 +12,30 @@
 
 ## 최근 갱신
 
+**2026-04-19** (21차): **S5a ✅ 완료 반영** — M10·M11·M12·M18 4 Must 달성.
+- 마이그레이션 0006(pipeline_health · news_event · briefing_log · briefing_view_event + RLS 4종)
+- src/lib/scheduler/monthly-batch.ts + __tests__ (재시도·실패 처리, 13 tests)
+- src/lib/email/resend.ts + src/lib/briefing/compose.ts + __tests__ (브리핑 컴포저, 8 tests)
+- src/lib/news/{naver-api.ts · scraper.ts · classifier.ts} + __tests__ (분류기, 12 tests)
+- src/lib/health/pipeline-health.ts + __tests__ (5 파이프라인 집계, 8 tests)
+- vercel.json (crons 3건: 월간 배치 · 모닝 브리핑 08:00 KST · 뉴스 sweep 15분 주기)
+- src/app/api/cron/{monthly-batch, morning-briefing, news-sweep}/route.ts 3 cron 핸들러
+- src/app/(admin)/admin/settings/health/page.tsx — 5 파이프라인 × 24h 성공률 + 95% Critical 배너 + 실패 tail 50건
+- src/app/(admin)/admin/alerts/{page, [id]/page}.tsx — AlertEvent 이력 + Critical/Warning 뉴스 목록 + 상세
+- src/components/admin/briefing/briefing-card.tsx — /admin 상단 브리핑 카드
+- src/lib/data/ mock 2 신설(mock-admin-pipeline-health·mock-admin-news) + 2 확장(mock-admin-briefings 5일·mock-admin-alerts 6건)
+- types/admin.ts 확장: AlertType에 news_warning·briefing_failed 추가 + PipelineHealth·PipelineHealthSummary·NewsEvent·임계치 상수 3종
+- 검증: build 20 routes · lint 0 · test:ci 15 files 128 tests pass
+
+**2026-04-19** (20차): S4 ✅ 완료 반영.
+- src/lib/performance/ 6파일(sharpe·mdd·alpha·judge·cap-months·regen-cap) + __tests__ 6 파일 (53 tests 추가, 누적 87)
+- /admin/track-record 실동작(5 카드 · 월별 테이블 · 버킷별 · Counterfactual)
+- /admin/decision-tree 실동작(게이지 3종 · ○/△/✕ 배지 · Recharts Client island)
+- /admin/report/[ticker]/regenerate 실동작(서브라우트 · cap 가드 · cost_log stub 훅)
+- 마이그레이션 0005(E5 portfolio_snapshot · E8 regen_counter · cost_log stub + RLS)
+- S3 hardening 병행: resolveAdminId · try/catch · dispute trim
+- src/lib/data/ 3 mock fixture 신설/확장
+
 **2026-04-17** (19차): S3 ✅ 완료 반영.
 - src/lib/portfolio/ 6파일(순수 로직) + 5 __tests__(43 tests) 신설
 - /admin/portfolio 실동작(page.tsx 전면 재작성 + portfolio-panel.tsx Client island + actions.ts 4 Server Actions)
@@ -26,13 +50,14 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-04-17 · S3 완료 기준)
+## tudal/ 현재 상태 (2026-04-19 · S5a 완료 기준)
 
 ### 규모
-- TypeScript 파일: `src/` 기준 **~95개** (S0 70 → S1 75 → S2 85 → S3 95)
-- 라우트: **17개** (S0 이후 변경 없음 — /admin/portfolio는 S0 stub → S3 실동작)
+- TypeScript 파일: `src/` 기준 **~130개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130)
+- 라우트: **20개** (S5a에서 /api/cron 3건 추가, /admin/alerts·/admin/alerts/[id]·/admin/settings/health는 S0 stub → S5a 실동작)
   - **Main 6**: `/`, `/_not-found`, `/login`, `/signup`, `/macro`, `/stock/[ticker]`
-  - **Admin 11**: `/admin`, `/admin/portfolio` **(S3 실동작)**, `/admin/alerts`, `/admin/alerts/[id]`, `/admin/track-record`, `/admin/decision-tree`, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health`, `/admin/report/[ticker]` **(S2 실동작)**, `/admin/report/[ticker]/regenerate`
+  - **Admin 11**: `/admin`, `/admin/portfolio` **(S3)**, `/admin/alerts` **(S5a)**, `/admin/alerts/[id]` **(S5a)**, `/admin/track-record` **(S4)**, `/admin/decision-tree` **(S4)**, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health` **(S5a)**, `/admin/report/[ticker]` **(S2)**, `/admin/report/[ticker]/regenerate` **(S4)**
+  - **Cron 3** (Vercel Cron): `/api/cron/monthly-batch` (M10 월간 day 1 09:05 KST), `/api/cron/morning-briefing` (M11 매일 08:00 KST), `/api/cron/news-sweep` (M12 15분 주기)
 
 ### 기술 스택
 - Next.js 16.2.3 + React 19.2.4 + TypeScript strict + Tailwind v4
@@ -50,11 +75,12 @@
 
 ### 데이터 레이어 (mock 기반, Supabase 세팅 완료 · 실 SELECT/INSERT 연결 0)
 - **Main mock** (6): `mock-stocks`·`mock-financials-extended`·`mock-quarterly`·`mock-ohlcv`·`mock-corporate`·`mock-macro`
-- **Admin mock** (S0 9 + S1~S3 확장 → 총 15):
+- **Admin mock** (S0 9 + S1~S4 확장 → 총 17):
   - S0 기초 shape: `mock-admin-shortlist`·`mock-admin-reports`·`mock-admin-committee-votes`·`mock-admin-approvals`·`mock-admin-snapshots`·`mock-admin-alerts`·`mock-admin-briefings`·`mock-admin-regen-counters`·`mock-admin-brokerage`
   - S1 추가: 33행 shortlist fixture (30 + REMOVED 3)
   - S2 추가: `mock-admin-report` (30 리포트 · 대표 5종 상세) · `mock-admin-committee` (630 votes) · `mock-admin-committee-personas` (Core 11 + Sector 22×5) · `mock-admin-report-view-log` (2인·1인 열람 seed)
   - S3 추가: `mock-admin-access-logs` (7일 3인 혼합 fixture · active=false 기본) · `mock-admin-approvals` 시드 보강(2026-03 · 2026-04 is_final=true)
+  - S4 추가: `mock-admin-performance` (3개월 월별·버킷·Counterfactual·DailyReturns 60일) · `mock-admin-decision-tree` (판정 스냅샷·월별 verdicts) · `mock-admin-regen-counters` 시드 3건(fresh·partial·exhausted). `mock-admin-snapshots`는 Accept hook으로 런타임 push.
 - **실데이터**: 0 (KRX·한투·DART·pykrx 미연결 — S5 M10에 배치 연결 예정)
 - **Supabase**: 프로젝트 `fpriyjykihxhhvqudvdb` 연결. `.env.local` (URL·anon·service_role·ADMIN_EMAILS 3명).
 - 유저: 0
@@ -66,6 +92,8 @@
 | `0002_s1_shortlist30.sql` | admin_emails + `is_admin()` 실 생성 + E1 short_list_30 + RLS | 실 |
 | `0003_s2_reports.sql` | E2 stock_reports + E3 committee_votes + E10 report_view_log + RLS + GIN 인덱스 | 실 |
 | `0004_s3_approval.sql` (S3) | E4 portfolio_approval v1.3(dispute_reason/gating_auto_relief/reanalysis_count) + E11 kr_business_days(2024~2026 수기 seed) + alert_event check constraint 'gating_auto_relief' | 실 |
+| `0005_s4_performance.sql` (S4) | E5 portfolio_snapshot (partial UNIQUE on ticker NULL/NOT NULL) + E8 regen_counter (UNIQUE ticker+month·auto≤1·manual≤2) + cost_log stub (R5 pre-wire) + RLS 3종 | 실 |
+| `0006_s5a_automation.sql` (S5a) | pipeline_health (5 파이프라인 × 24h) + news_event (UNIQUE url) + briefing_log (UNIQUE date) + briefing_view_event (dedupe) + RLS 4종 | 실 |
 
 ### 타입 정의 (src/types/)
 - `stock.ts`·`corporate.ts`·`macro.ts` (main)
@@ -105,9 +133,9 @@
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
 ### 검증 게이트 현재 상태
-- `npm run build`: ✅ 17 routes (TypeScript strict 통과)
+- `npm run build`: ✅ **20 routes** (TypeScript strict 통과)
 - `npm run lint`: ✅ 0 warnings
-- `npm run test:ci`: ✅ **5 files / 43 tests pass** (S3 Vitest 도입 이후 기준)
+- `npm run test:ci`: ✅ **15 files / 128 tests pass** (S5a +4 files · +41 tests)
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 — `ulimit -n 65535` 후 정상
 
 ---
@@ -122,9 +150,9 @@
 
 ---
 
-## Must 19 진행 상황 (S3 완료 기준)
-- ✅ **7/19 (37%)**: M1·M2·M3·M4·M5·M6·M7
-- ⚪ 잔여 12: M8·M9(S4) · M10·M11·M12·M13·M14·M15·M18(S5) · M16(S4) · M17·M19(S6)
+## Must 19 진행 상황 (S5a 완료 기준)
+- ✅ **14/19 (74%)**: M1·M2·M3·M4·M5·M6·M7·M8·M9·M10·M11·M12·M16·M18
+- ⚪ 잔여 5: M13·M14·M15(S5b) · M17·M19(S6)
 
 ---
 

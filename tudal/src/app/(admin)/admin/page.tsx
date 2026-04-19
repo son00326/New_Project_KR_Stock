@@ -1,6 +1,8 @@
+import { BriefingCard } from "@/components/admin/briefing/briefing-card";
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
 import { DeltaBanner } from "@/components/admin/shortlist/delta-banner";
 import { MissingCountBanner } from "@/components/admin/shortlist/missing-count-banner";
+import { LATEST_BRIEFING } from "@/lib/data/mock-admin-briefings";
 import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
 import type { BucketKind, ShortageReason } from "@/types/admin";
 import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
@@ -73,6 +75,9 @@ export default function AdminHomePage() {
           ※ mock fixture · 실데이터 전환 S5 M10
         </div>
       </header>
+
+      {/* M11 모닝 브리핑 카드 — 최상단 (T5a.2) */}
+      <BriefingCard briefing={LATEST_BRIEFING} />
 
       {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
       <DeltaBanner items={MOCK_ADMIN_SHORTLIST} />
