@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { LogoutButton } from "@/app/(admin)/logout-button";
 import { JoopickLogo } from "@/components/layout/logo";
+import { createClient } from "@/lib/supabase/server";
 
 // ServicePlan-Admin.md §2 — 메인 7 라우트 (sidebar nav)
 // /admin/report/[ticker]는 종목 클릭 전용이라 sidebar에서 제외.
@@ -12,20 +14,33 @@ const ADMIN_NAV = [
   { href: "/admin/settings", label: "설정" },
 ];
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Admin Header — 로고·(TODO S5: 모드 드롭다운·알림 종·아바타) */}
+      {/* Admin Header — 로고·어드민 표시·(TODO S5: 모드 드롭다운·알림 종)·로그아웃 */}
       <header className="border-b bg-background sticky top-0 z-50">
         <div className="flex h-14 items-center justify-between px-4 md:px-6">
           <Link href="/admin" className="flex items-center gap-2">
             <JoopickLogo size="sm" />
             <span className="text-xs text-muted-foreground">어드민</span>
           </Link>
+          <div className="flex items-center gap-3">
+            {user?.email && (
+              <span className="hidden text-xs text-muted-foreground md:inline">
+                {user.email}
+              </span>
+            )}
+            <LogoutButton />
+          </div>
         </div>
       </header>
 

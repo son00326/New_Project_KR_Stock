@@ -34,6 +34,11 @@ Last updated: 2026-04-19 (22차 — S5 전체 ✅ 완료 · Must 17/19)
 6. MVP Stage 1 완료 마감 (Must 19/19)
 ```
 
+**⚡ 22차 세션 종료 시점 — 다음 세션 첫 행동 보강**:
+1. **Supabase anon key 갱신 필요** (BLOCKER for `/admin` 브라우저 QA) — 현재 `.env.local`의 `NEXT_PUBLIC_SUPABASE_ANON_KEY`가 Supabase 서버에서 **Invalid API key**로 거부됨 (2025년 레거시 JWT key 무효화 가능성). 다음 세션 첫 행동: https://supabase.com/dashboard/project/fpriyjykihxhhvqudvdb/settings/api 에서 `anon public` 또는 `Publishable key` 복사 → `.env.local` 교체 → `/admin` 브라우저 QA 재개
+2. **Login + Magic Link 코드는 22차에 커밋 완료** (`feat(auth): ...`) — `/login` 탭(비밀번호/이메일 링크) · `/auth/callback` PKCE 핸들러 · 헤더 로그아웃 버튼. 키 교체 즉시 동작. GitHub/Google OAuth 버튼은 아직 stub (OAuth 추가 구현은 별도 슬라이스 권장)
+3. **S5b QA 상태**: 코드 레벨 3 게이트 통과(build 20 routes · lint 0 · test:ci 17 files 158 tests). 브라우저 QA는 키 교체 후 진행. S6 진입은 QA 없이도 가능 (auth 독립)
+
 **S5b 이월 메모 (비블로킹, S6 또는 실데이터 전환 시 참조)**:
 - AlertType 확장 `intraday_anomaly`는 타입 레벨만 반영. 실 Supabase `alert_event` check constraint 업데이트 필요 (S5a `news_warning`·`briefing_failed`와 함께)
 - `intraday_anomaly_event`·`admin_settings`·`ticker_alert_pref` 실 Supabase INSERT/UPDATE 연결은 Server Action 안의 `// TODO(S5)` 훅 위치만 확보 — 실데이터 전환 시 upsert 연결
