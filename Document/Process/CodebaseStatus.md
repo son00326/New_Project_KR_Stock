@@ -12,7 +12,7 @@
 
 ## 최근 갱신
 
-**2026-04-20** (23차): **S6 ✅ 완료 반영 — 🎉 Must 19/19 (100%) MVP Stage 1 완료**.
+**2026-04-20** (23차 후속 정정): **S6 ✅ Mock 완료 반영** — Mock Skeleton Stage 1 완성(S0~S6). Mock 동작 19/19 · 실데이터 0/19 · 실 AI 호출 0 · 운용 검증 0일. 진짜 MVP는 S7(실데이터 전환, 미착수) + 운용 검증 후.
 - 마이그레이션 0008(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS 1종)
 - src/lib/cost/{anthropic-pricing.ts·dry-run-estimate.ts·aggregate.ts} (BL-18 견적 박제 + M17 집계 + hardcap 가드)
 - src/lib/health/heartbeat.ts (M19 분류·메시지·D10 catch-up·heartbeat_missing 페이로드)
@@ -65,7 +65,7 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-04-20 · S6 완료 · MVP Stage 1 완료 기준)
+## tudal/ 현재 상태 (2026-04-20 · S6 Mock 완료 기준 · **실데이터 연결 0/19**)
 
 ### 규모
 - TypeScript 파일: `src/` 기준 **~145개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130 → S5b 140 → S6 145)
@@ -168,19 +168,52 @@
 
 ---
 
-## Must 19 진행 상황 (S6 완료 기준 — MVP Stage 1 완료)
-- ✅ **19/19 (100%)** 🎉
-- 잔여 0건
+## Must 19 진행 상황 (S6 Mock 완료 기준)
+- **Mock 동작**: 19/19 (100% mock fixture)
+- **실데이터 연결**: **0/19** — 전 Must가 mock 의존
+- **실 AI 호출**: **0** — Anthropic wrapper 미구현
+- **2채널 알림 실 발송**: **0** — Resend·Telegram 미연결
+- **외부 API 실 연결**: **0** — KIS·Naver·DART·pykrx 미연결
+- **실 운용 검증**: **0일**
+
+MVP Stage 1 기준 = Mock + 실데이터 + 운용 검증 3조건 AND → **미달성**. 진행 경로 = HANDOFF.md §6 S7a~e.
 
 ---
 
 ## 체크리스트 (변화 시 갱신)
 
-- [x] TypeScript 파일 수 증감 (S0: 70 → S3: ~95)
-- [x] 라우트 추가/제거 (S0 17, 변화 없음 — /admin/portfolio S0 stub → S3 실동작)
-- [ ] mock → 실데이터 전환 (슬라이스별, S5 M10부터)
-- [x] Supabase `.env.local` 세팅 여부 (S0 완료 · 실 SELECT/INSERT 연결은 S3 hardening 또는 S5 이후)
-- [x] 마이그레이션 적용 여부 (0002·0003·0004 실)
-- [x] Vitest 테스트 인프라 (S3 G-10=b 도입 · 43 tests)
-- [ ] 유저 수 (Alpha/Beta 단계 기준 — S6 이후)
-- [x] 레거시 코드 제거 완료 여부 (S0 완료)
+### Mock Skeleton (완료)
+- [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145)
+- [x] 라우트 추가 (S0 17 → S6 22)
+- [x] Supabase `.env.local` 세팅 (S0 — 단, **anon key 갱신 블로커 DQ-5**)
+- [x] 마이그레이션 0001~0008 적용
+- [x] Vitest 테스트 인프라 (190 tests pass)
+- [x] 레거시 코드 제거 (S0 완료)
+
+### 실데이터 전환 (S7, 미착수)
+- [ ] **Anthropic API 키 확보** (BL-KRIT-1) — DQ-2/DQ-7 선결
+- [ ] **KIS API 계정 발급** (BL-KRIT-2) — DQ-7 선결
+- [ ] **Naver News API 키** (BL-KRIT-3) — DQ-7 선결
+- [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4) — DQ-7 선결
+- [ ] **Telegram Bot** (BL-KRIT-5) — DQ-7 선결
+- [ ] **Supabase anon key 갱신** (BL-KRIT-6) — DQ-5 선결
+- [ ] **마이그레이션 0009** alert_event CHECK 확장 (BL-KRIT-7)
+- [ ] Supabase 실 SELECT/INSERT 전환 (S7e · 8 Must)
+- [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12)
+- [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)
+- [ ] 장중·Exit 실 연결 (S7c · M13·M15)
+- [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)
+
+### 운용 검증 (미착수)
+- [ ] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7)
+- [ ] origin push (17 commits ahead, DQ-6)
+- [ ] Cron 4건 실 실행 검증
+- [ ] 어드민 1개월+ 운용 검증
+
+### 법무 (미착수)
+- [ ] Q16 법무 자문 (DQ-3)
+- [ ] Q17 이용약관·개인정보처리방침·면책 (DQ-4)
+
+### 유저
+- [ ] 어드민 3명 allowlist 실 로그인 (Supabase anon 블로커)
+- [ ] 멤버 초대 500cap (Deferred-D)

@@ -2,35 +2,37 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-20 (23차 — S6 ✅ 완료 · **MVP Stage 1 완료**)
-총 슬라이스: 7개 (S0~S6) + Deferred-X 1개
-총 예상 세션: **25세션** (S3 옵션 A 채택 시. 옵션 B 시 27세션)
-실제 세션: **9세션** (예상의 ~36%)
-Must 19 진행률: **19 / 19 완료 (100%) ✅**
-S0 Foundation: ✅ 완료 (2026-04-17)
-S1 Short List 30 홈: ✅ 완료 (2026-04-17)
-S2 풀 리포트·투심위: ✅ 완료 (2026-04-17)
-S3 승인 워크플로우 (+D15): ✅ 완료 (2026-04-17)
-S4 가상 포트·성과·Decision Tree: ✅ 완료 (2026-04-19)
-S5a 스케줄러·브리핑·뉴스·헬스: ✅ 완료 (2026-04-19)
-S5b 장중·토글·Exit: ✅ 완료 (2026-04-19)
-S6 Hardening (AI 비용 + Silent Health): ✅ 완료 (2026-04-20)
+Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료**, MVP 아님)
+총 슬라이스: 7개 (S0~S6 Mock) + Deferred-X·Y·D + **S7 실데이터 전환 (미착수)**
+총 예상 세션 (Mock): **25세션** → 실제 **9세션** (예상의 ~36%)
+**진행률 (정확)**: Mock 동작 **19/19** · 실데이터 **0/19** · 실 AI 호출 **0** · 실 운용 검증 **0일**
+MVP Stage 1 기준 = Mock + 실데이터 + 운용 검증 **3조건 AND** → **미달성**
+S0 Foundation: ✅ **Mock 완료** (2026-04-17)
+S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
+S2 풀 리포트·투심위: ✅ **Mock 완료** (2026-04-17)
+S3 승인 워크플로우 (+D15): ✅ **Mock 완료** (2026-04-17)
+S4 가상 포트·성과·Decision Tree: ✅ **Mock 완료** (2026-04-19)
+S5a 스케줄러·브리핑·뉴스·헬스: ✅ **Mock 완료** (2026-04-19)
+S5b 장중·토글·Exit: ✅ **Mock 완료** (2026-04-19)
+S6 Hardening (AI 비용 + Silent Health): ✅ **Mock 완료** (2026-04-20)
+S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
 
 ---
 
 ## §1 슬라이스 요약 표
 
-| ID | 이름 | 포함 Must | 예상 세션 | 상태 | 블로커 요약 | 파일 |
+| ID | 이름 | 포함 Must | 예상 세션 | Mock 상태 | 실데이터 상태 | 파일 |
 |---|---|---|---|---|---|---|
-| **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ 완료 | — | [S0-Foundation.md](./Slices/S0-Foundation.md) |
-| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (실제 2) | ✅ 완료 | — | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
-| **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 (실제 1) | ✅ 완료 | — | [S2-FullReport.md](./Slices/S2-FullReport.md) |
-| **S3** | 승인 워크플로우 (+D15) | M7 | 4 (실제 1) | ✅ 완료 | — | [S3-Approval.md](./Slices/S3-Approval.md) |
-| **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ 완료 | — | [S4-Performance.md](./Slices/S4-Performance.md) |
-| **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ 완료 | — | [S5-Automation.md](./Slices/S5-Automation.md) |
-| **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ 완료 | — | [S6-Hardening.md](./Slices/S6-Hardening.md) |
-| **Deferred-X** | 증권사 API + 매뉴얼/자동매매 UI | Must 19 밖 이관 | — | ⏸ 보류 | 옵션 A 채택 시 Must 19 범위 외 | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) |
-| **Deferred-Y** | AI Agent 기반 선정엔진 v2 | Must 19 밖 (엔진 고도화) | — | ⏸ 보류 | Must 19 완료 + v1 2~3개월 운용 후 | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) |
+| **S0** | Foundation | 없음 (인프라 선행) | 2 | ✅ Mock 완료 | ⚪ Supabase 키 블로커 (DQ-5) | [S0-Foundation.md](./Slices/S0-Foundation.md) |
+| **S1** | Short List 30 홈 + 분석엔진 출력 | M1·M4·M5·M6 | 4 (실제 2) | ✅ Mock 완료 | ⚪ S7e 대기 | [S1-ShortList30.md](./Slices/S1-ShortList30.md) |
+| **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7e 대기 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
+| **S3** | 승인 워크플로우 (+D15) | M7 | 4 (실제 1) | ✅ Mock 완료 | ⚪ S7e 대기 | [S3-Approval.md](./Slices/S3-Approval.md) |
+| **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ Mock 완료 | ⚪ cost_log stub만 · S7a·e 대기 | [S4-Performance.md](./Slices/S4-Performance.md) |
+| **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
+| **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
+| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | ⚪ **미착수** (HANDOFF §6) | — |
+| **Deferred-X** | 증권사 API + 매뉴얼/자동매매 UI | Must 19 밖 이관 | — | ⏸ 보류 | — | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) |
+| **Deferred-Y** | AI Agent 기반 선정엔진 v2 | Must 19 밖 (엔진 고도화) | — | ⏸ 보류 | — | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) |
 
 > **슬라이스 번호 vs Architect ID 매핑**: S0→S0, S1→S1, S2→S5(architect), S3→S2(architect), S4→S4, S5→S6(architect), S6→S7(architect), Deferred-X→S3(architect)
 
@@ -71,36 +73,48 @@ S5 스케줄러·알림·모드 + M18 (S5a 3세션 + S5b 2세션 = 5세션)
 S6 Hardening (3세션) — M17·M19
      │  40만 hardcap 활성 + 하트비트 운용 개시
      ▼
-[MVP Stage 1 완료: Must 19 전원 가동]
+[Mock Skeleton Stage 1 완료: Must 19 Mock 동작]  ← **현재 여기 (2026-04-20, 9세션)**
+     │
+     ▼
+S7 실데이터 전환 (S7a Anthropic·S7b 뉴스+브리핑·S7c 장중+Exit·S7d Silent Health·S7e Supabase 실 I/O)
+     │  ← BL-KRIT-1~7 선행 (HANDOFF §4)
+     ▼
+[실 운용 검증 1개월+ 통과]
+     │
+     ▼
+[MVP Stage 1 완료]  ← 진짜 MVP는 여기
 
-총 세션: 2 + 4 + 3 + 4 + 4 + 5 + 3 = 25세션
+총 Mock 세션: 2 + 4 + 3 + 4 + 4 + 5 + 3 = 25세션 (실제 9세션)
+예상 S7 세션: 8세션 + 운용 검증 4~8주
 ```
 
 ---
 
-## §3 Must 19 상태 표
+## §3 Must 19 상태 표 (Mock · 실데이터 분리)
 
-| Must ID | 공식 명칭 | 담당 슬라이스 | 상태 |
-|---|---|---|---|
-| M1 | Short List 30 홈 표시 | S1 | ✅ |
-| M2 | 풀 리포트 렌더링 | S2 | ✅ |
-| M3 | 투심위 투표 요약 패널 | S2 | ✅ |
-| M4 | 5-Signal Composite + 3축 분석엔진 출력 | S1 | ✅ |
-| M5 | 편입/유지/제외 Delta 뷰 | S1 | ✅ |
-| M6 | 선정 근거 요약 카드 (3줄) | S1 | ✅ |
-| M7 | 승인 워크플로우 (+ D15 게이팅) | S3 | ✅ |
-| M8 | 가상 포트폴리오 트래킹 엔진 | S4 | ✅ |
-| M9 | 리포트 재생성 cap 가드 | S4 | ✅ |
-| M10 | 월간 자동 배치 스케줄러 | S5a | ✅ |
-| M11 | 모닝 브리핑 요약 카드 | S5a | ✅ |
-| M12 | 뉴스 심각도 분류기 | S5a | ✅ |
-| M13 | 장중 이상 감지 알림 (+ 모드 설정) | S5b | ✅ |
-| M14 | 종목별 커스텀 임계치 on/off | S5b | ✅ |
-| M15 | Exit 시그널 발송 + 근거 + 대안 | S5b | ✅ |
-| M16 | Decision Tree 진척도 대시보드 | S4 | ✅ |
-| M17 | AI API 비용 실시간 모니터링 대시보드 | S6 | ✅ |
-| M18 | 파이프라인 헬스체크 대시보드 | S5a | ✅ |
-| M19 | Silent Health 일간 하트비트 | S6 | ✅ |
+| Must ID | 공식 명칭 | 담당 슬라이스 | Mock 동작 | 실데이터 연결 | 실 AI 호출 |
+|---|---|---|---|---|---|
+| M1 | Short List 30 홈 표시 | S1 | ✅ | ⚪ (S7e) | — |
+| M2 | 풀 리포트 렌더링 | S2 | ✅ | ⚪ (S7e) | ⚪ (S7a) |
+| M3 | 투심위 투표 요약 패널 | S2 | ✅ | ⚪ (S7e) | ⚪ (S7a) |
+| M4 | 5-Signal Composite + 3축 분석엔진 출력 | S1 | ✅ | ⚪ (S7e) | — |
+| M5 | 편입/유지/제외 Delta 뷰 | S1 | ✅ | ⚪ (S7e) | — |
+| M6 | 선정 근거 요약 카드 (3줄) | S1 | ✅ | ⚪ (S7e) | ⚪ (S7a) |
+| M7 | 승인 워크플로우 (+ D15 게이팅) | S3 | ✅ | ⚪ (S7e) | — |
+| M8 | 가상 포트폴리오 트래킹 엔진 | S4 | ✅ | ⚪ (S7e) | — |
+| M9 | 리포트 재생성 cap 가드 | S4 | ✅ | ⚪ (S7e) | ⚪ (S7a) |
+| M10 | 월간 자동 배치 스케줄러 | S5a | ✅ | ⚪ (S7b) | ⚪ (S7a·b) |
+| M11 | 모닝 브리핑 요약 카드 | S5a | ✅ | ⚪ (S7b) | ⚪ (S7b) |
+| M12 | 뉴스 심각도 분류기 | S5a | ✅ | ⚪ Naver·scraper 미연결 (S7b) | ⚪ (S7b) |
+| M13 | 장중 이상 감지 알림 (+ 모드 설정) | S5b | ✅ | ⚪ KIS WS 미연결 (S7c) | — |
+| M14 | 종목별 커스텀 임계치 on/off | S5b | ✅ | ⚪ (S7e) | — |
+| M15 | Exit 시그널 발송 + 근거 + 대안 | S5b | ✅ | ⚪ Telegram·Resend 미연결 (S7c) | — |
+| M16 | Decision Tree 진척도 대시보드 | S4 | ✅ | ⚪ (S7e) | — |
+| M17 | AI API 비용 실시간 모니터링 대시보드 | S6 | ✅ | ⚪ cost_log 실 INSERT 미구현 (S7a) | ⚪ (S7a) |
+| M18 | 파이프라인 헬스체크 대시보드 | S5a | ✅ | ⚪ pipeline_health 실 INSERT 미구현 (S7d) | — |
+| M19 | Silent Health 일간 하트비트 | S6 | ✅ | ⚪ heartbeat_log 실 INSERT + override UI 미구현 (S7d) | — |
+
+**요약**: Mock 19/19 · 실데이터 0/19 · 실 AI 호출 0/8
 
 ---
 
@@ -144,7 +158,21 @@ S6 Hardening (3세션) — M17·M19
 **S3 킥오프 전 필수 해소**: BL-19, BL-20
 ~~**S5 진입 전 필수 해소**: BL-11, BL-13, BL-15~~ → 해소 완료
 ~~**S6 진입 전 필수 해소**: BL-18~~ → 해소 완료 (B 견적 임계치)
-**전 블로커 해소** — Must 19/19 완료 · MVP Stage 1 완료
+**Mock Skeleton 블로커 전 해소** — Mock 동작 19/19 완료
+
+### 실데이터 전환 BL-KRIT (S7 착수 전 반드시 해소)
+
+| BL-KRIT | 대상 | 영향 |
+|---|---|---|
+| **BL-KRIT-1** | Anthropic API Key | M17·M11·M12·M19 실 AI 호출 불가 |
+| **BL-KRIT-2** | KIS (한투) API 계정 | M13 장중 WebSocket 실 구독 불가 |
+| **BL-KRIT-3** | Naver News API 키 | M12 뉴스 sweep 실 동작 불가 |
+| **BL-KRIT-4** | Resend 계정 | M11·D10 catch-up 이메일 발송 불가 |
+| **BL-KRIT-5** | Telegram Bot | M13·M15 텔레그램 2채널 불가 |
+| **BL-KRIT-6** | Supabase anon 키 갱신 | `/admin` 브라우저 QA 불가 (DQ-5) |
+| **BL-KRIT-7** | 마이그레이션 0009 (alert_event CHECK 확장) | 신규 AlertType 6종 실 INSERT 거부됨 |
+
+상세는 `Document/Process/HANDOFF.md` §4 참조.
 
 ---
 
@@ -185,4 +213,5 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-19 | **S5b 킥오프 2 블로커 해소 (22차)**. BL-12 폐기(SMS 제거, D10 = 이메일 1회 재시도로 축소) · BL-14 = WebSocket(한투 실시간, 1분 폴링 거부). ServicePlan-Admin §3.10 R3.10-15·M15 DoD 2채널로 갱신. |
 | 2026-04-19 | **S5b ✅ 완료 (22차)**. 0007 마이그레이션(admin_settings·ticker_alert_pref·intraday_anomaly_event + RLS 3종) + T5b.1 M13 장중 감지(src/lib/intraday/{anomaly-detect,kis-websocket}·IntradayBadge·AlertType intraday_anomaly) + T5b.2 M14 토글(`/admin/settings` + setIntradayMode·setTickerAlertEnabled) + T5b.3 M15 Exit 2채널(src/lib/notify/{telegram,exit-dispatch} · D10 이메일 1회 재시도 · `/admin/alerts/[id]` 결정 UI · recordExitDecision) + Vitest 2 files 30 tests. **158 tests pass** · lint 0 · build 20 routes. **Must 17/19 (89%) 달성** (M13·M14·M15). 실제 1세션(예상 2세션 대비 50%). |
 | 2026-04-19 | **S6 블로커 4건 일괄 해소 (22차 후속)**. BL-16 = A · BL-17 = B · BL-18 = B · G-3 = B. S6 진입 가능. |
-| 2026-04-20 | **S6 ✅ 완료 (23차) — 🎉 MVP Stage 1 완료 · Must 19/19 (100%)**. 0008 마이그레이션(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS) + T6.1~T6.6 직접 실행. src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts (BL-18 견적 박제 + M17 집계 + hardcap 가드) + src/lib/health/heartbeat.ts (M19 분류·메시지·D10 catch-up 페이로드) + `/admin/settings/cost` 대시보드(35만 경보·40만 hardcap·시연·Top 5·Purpose 비중·시나리오 비교) + `/api/cron/silent-health` (Vercel Cron 매일 24:00 KST·텔+이메일 2채널·D10 재시도) + Sidebar nav 확장 + Vitest 3 files 30+ tests. **20 files / 190 tests pass** · build 22 routes · lint 0. 실제 1세션(예상 3세션 대비 33%). 실제 누적 9세션(예상 25 대비 36%). |
+| 2026-04-20 | **S6 ✅ Mock 완료 (23차)**. 0008 마이그레이션(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS) + T6.1~T6.6 직접 실행. src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts + src/lib/health/heartbeat.ts + `/admin/settings/cost` 대시보드 + `/api/cron/silent-health` (매일 24:00 KST·mock 페이로드) + Sidebar nav 확장 + Vitest 3 files. **20 files / 190 tests pass** · build 22 routes · lint 0. Mock Skeleton Stage 1 완성(S0~S6). 실데이터·실 AI·운용 검증 0. 실제 누적 9세션(예상 25 대비 36%). |
+| 2026-04-20 | **23차 후속 HANDOFF 정정**. S6 종료 시 "🎉 MVP Stage 1 완료 · Must 19/19 (100%)" 어휘가 mock-only를 진짜 MVP로 오인케 한다는 사용자 지적. feedback_mvp_framing.md 규칙을 문서 본문에 반영: Mock 동작 vs 실데이터 vs 운용 검증 3축 분리. Dashboard 상단 상태·슬라이스 표·Must 19 표·Global Blocker에 BL-KRIT-1~7 (외부 API·Supabase anon·CHECK 확장) 신설. S7(실데이터 전환) 슬라이스 플레이스홀더 삽입. HANDOFF.md 전면 재작성(§2 진입 결정 트리 + §3 DQ 리스트 + §4 BL-KRIT + §5 자율 작업 + §6 S7a~e 로드맵). |
