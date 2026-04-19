@@ -20,7 +20,10 @@ export type AlertType =
   | "briefing"
   | "briefing_failed" // S5a M11: 브리핑 생성 실패 시 어드민 대시보드 배지
   | "scheduler_fail"
-  | "gating_auto_relief"; // S3 BL-20 A: 7일 연속 단일 접속 감지 시 자동 바이패스 로그
+  | "gating_auto_relief" // S3 BL-20 A: 7일 연속 단일 접속 감지 시 자동 바이패스 로그
+  | "cost_warning" // S6 M17: 35만 경보 (40만 hardcap 직전)
+  | "cost_hardcap" // S6 M17: 40만 hardcap 도달 시 재생성 차단 로그
+  | "heartbeat_missing"; // S6 M19: 일간 하트비트 2채널 모두 발송 실패 (D10 catch-up 후)
 export type Severity = "critical" | "warning" | "info";
 export type ExitDecision = "sell_all" | "partial_sell" | "hold";
 export type BrokerageScope = "manual" | "auto" | "both";
@@ -316,3 +319,77 @@ export interface ReportViewLog {
   viewDate: string; // YYYY-MM-DD (KST)
   viewedAt: string; // ISO timestamp
 }
+
+// ---------------------------------------------------------------------------
+// §S6 신설 — M17 cost_log 확장 + M19 heartbeat_log
+// 0008_s6_hardening.sql 참조. ServicePlan-Admin §4.2 반영은 추후 정비.
+// ---------------------------------------------------------------------------
+
+// CostLog (BL-16 A): Anthropic /messages 응답 usage 실시간 파싱 + per-persona/section 태깅
+export type CostPurpose =
+  | "shortlist" // 월간 Short List 30 선정
+  | "report" // Section 0~8 본문 생성
+  | "committee" // 투심위 페르소나 투표
+  | "briefing" // 모닝 브리핑 요약
+  | "regenerate" // 수동·자동 재생성
+  | "other";
+
+export interface CostLog {
+  id: string;
+  ts: string;
+  month: string; // YYYY-MM-01
+  model: string; // 'claude-opus-4-7' · 'claude-sonnet-4-6' 등
+  purpose: CostPurpose;
+  ticker: string | null; // briefing 등 종목 무관 시 null
+  personaId: string | null; // committee 외 null
+  section: string | null; // 'section_0'~'section_8'·'short_list'·'briefing' 등
+  tokensPrompt: number;
+  tokensCompletion: number;
+  costKrw: number;
+}
+
+// M17 월간 집계 (R3.12-1)
+export interface CostMonthlySummary {
+  month: string;
+  totalKrw: number;
+  warningThresholdKrw: number; // 350,000
+  hardcapKrw: number; // 400,000
+  warningTriggered: boolean; // total >= 350,000
+  hardcapTriggered: boolean; // total >= 400,000
+  remainingKrw: number; // hardcap - total (음수 가능)
+  byPurpose: Array<{ purpose: CostPurpose; costKrw: number; share: number }>; // share 0~1
+  topContributors: Array<{
+    label: string; // "report · 005930 · section_3" 등
+    costKrw: number;
+    tokensTotal: number;
+  }>;
+}
+
+// M17 임계치 상수 (R3.12-1·R3.12-2)
+export const COST_WARNING_THRESHOLD_KRW = 350_000;
+export const COST_HARDCAP_KRW = 400_000;
+export const COST_USD_TO_KRW = 1430; // BL-18 견적 환율 (보수적)
+
+// HeartbeatLog (M19 R3.12-7~8)
+export type HeartbeatStatus = "ok" | "red_alert";
+
+export interface HeartbeatLog {
+  id: string;
+  date: string; // YYYY-MM-DD (KST)
+  status: HeartbeatStatus;
+  generatedAt: string;
+  pipelineSummary: Array<{
+    pipeline: PipelineKind;
+    successRate: number;
+    severity: Severity;
+  }>;
+  criticalAlertCount: number;
+  warningAlertCount: number;
+  sentChannels: string[]; // 'telegram'·'email'·'dashboard'
+  sendFailed: boolean;
+  message: string;
+}
+
+// M19 임계치 (R3.12-7) — red_alert 전환 조건
+export const HEARTBEAT_RED_ALERT_CRITICAL_MIN = 1; // critical 1+ → red_alert
+export const HEARTBEAT_RED_ALERT_WARNING_MIN = 5; // warning 5+ → red_alert

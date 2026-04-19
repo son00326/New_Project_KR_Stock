@@ -2,10 +2,11 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-19 (22차 — S5 전체 ✅ 완료)
+Last updated: 2026-04-20 (23차 — S6 ✅ 완료 · **MVP Stage 1 완료**)
 총 슬라이스: 7개 (S0~S6) + Deferred-X 1개
 총 예상 세션: **25세션** (S3 옵션 A 채택 시. 옵션 B 시 27세션)
-Must 19 진행률: **17 / 19 완료 (89%)**  (M1·M2·M3·M4·M5·M6·M7·M8·M9·M10·M11·M12·M13·M14·M15·M16·M18)
+실제 세션: **9세션** (예상의 ~36%)
+Must 19 진행률: **19 / 19 완료 (100%) ✅**
 S0 Foundation: ✅ 완료 (2026-04-17)
 S1 Short List 30 홈: ✅ 완료 (2026-04-17)
 S2 풀 리포트·투심위: ✅ 완료 (2026-04-17)
@@ -13,6 +14,7 @@ S3 승인 워크플로우 (+D15): ✅ 완료 (2026-04-17)
 S4 가상 포트·성과·Decision Tree: ✅ 완료 (2026-04-19)
 S5a 스케줄러·브리핑·뉴스·헬스: ✅ 완료 (2026-04-19)
 S5b 장중·토글·Exit: ✅ 완료 (2026-04-19)
+S6 Hardening (AI 비용 + Silent Health): ✅ 완료 (2026-04-20)
 
 ---
 
@@ -26,7 +28,7 @@ S5b 장중·토글·Exit: ✅ 완료 (2026-04-19)
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 (실제 1) | ✅ 완료 | — | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ 완료 | — | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ 완료 | — | [S5-Automation.md](./Slices/S5-Automation.md) |
-| **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 | ⚪ 대기 | BL-16 비용수집, BL-18 dry-run 선행 | [S6-Hardening.md](./Slices/S6-Hardening.md) |
+| **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ 완료 | — | [S6-Hardening.md](./Slices/S6-Hardening.md) |
 | **Deferred-X** | 증권사 API + 매뉴얼/자동매매 UI | Must 19 밖 이관 | — | ⏸ 보류 | 옵션 A 채택 시 Must 19 범위 외 | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) |
 | **Deferred-Y** | AI Agent 기반 선정엔진 v2 | Must 19 밖 (엔진 고도화) | — | ⏸ 보류 | Must 19 완료 + v1 2~3개월 운용 후 | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) |
 
@@ -96,9 +98,9 @@ S6 Hardening (3세션) — M17·M19
 | M14 | 종목별 커스텀 임계치 on/off | S5b | ✅ |
 | M15 | Exit 시그널 발송 + 근거 + 대안 | S5b | ✅ |
 | M16 | Decision Tree 진척도 대시보드 | S4 | ✅ |
-| M17 | AI API 비용 실시간 모니터링 대시보드 | S6 | ⚪ |
+| M17 | AI API 비용 실시간 모니터링 대시보드 | S6 | ✅ |
 | M18 | 파이프라인 헬스체크 대시보드 | S5a | ✅ |
-| M19 | Silent Health 일간 하트비트 | S6 | ⚪ |
+| M19 | Silent Health 일간 하트비트 | S6 | ✅ |
 
 ---
 
@@ -131,15 +133,18 @@ S6 Hardening (3세션) — M17·M19
 | ~~BL-13~~ | S5 | ✅ 해소 — **네이버 뉴스 API + 스크래핑 하이브리드** (2026-04-19, 21차) | ~~S5 진입 전 필수~~ |
 | ~~BL-14~~ | S5 | ✅ 해소 — **한투 WebSocket 실시간** 채택 (2026-04-19, 22차). 1분 폴링은 ±5%/거래량 3배 스파이크 희석 리스크로 거부 | ~~S5b 진입 전 필수~~ |
 | ~~BL-15~~ | S5 | ✅ 해소 — **Vercel Cron** 채택 (2026-04-19, 21차) — G-6 배포 플랫폼 = Vercel 부수 확정 | ~~S5 진입 전 필수~~ |
-| **BL-18** | S6 | P5 I-03 토큰 dry-run 실측 (S6 진입 전 게이트) | S6 진입 전 필수 |
+| ~~BL-16~~ | S6 | ✅ 해소 — **A** Anthropic `/messages` usage 실시간 파싱 + per-persona·per-section 태깅 (2026-04-19, 22차 후속) | ~~S6 킥오프 전~~ |
+| ~~BL-17~~ | S6 | ✅ 해소 — **B** override 토글 권한 = 대표 1인 (2026-04-19, 22차 후속) | ~~S6 킥오프 전~~ |
+| ~~BL-18~~ | S6 | ✅ 해소 — **B** 견적 임계치 (실 API dry-run 미실시, dry-run-estimate.ts 박제, 2026-04-19, 22차 후속) | ~~S6 진입 전 필수~~ |
 | ~~BL-19~~ | S3 | ✅ 해소 — **옵션 D 하이브리드** 채택 (pykrx seed → Supabase `kr_business_days` 캐시 → Next.js SELECT, 2026-04-17) | ~~S3 킥오프 전 필수~~ |
 | ~~BL-20~~ | S3 | ✅ 해소 — **옵션 A 자동 바이패스** 채택 (7일 연속 단일 접속 → AlertEvent gating_auto_relief 로그, 2026-04-17) | ~~S3 킥오프 전 필수~~ |
 
 ~~**S0 진입 전 필수 해소**: BL-1 (미해소), BL-2 (해소)~~ → **S0 완료 (2026-04-17)**
 ~~**S0 시점 권장 (S5 전 필수)**: BL-6~~ → **BL-6 해소 완료 (2026-04-16, 옵션 B — `/admin/settings/health` 서브라우트)**
 **S3 킥오프 전 필수 해소**: BL-19, BL-20
-**S5 진입 전 필수 해소**: BL-11, BL-13, BL-15
-**S6 진입 전 필수 해소**: BL-18
+~~**S5 진입 전 필수 해소**: BL-11, BL-13, BL-15~~ → 해소 완료
+~~**S6 진입 전 필수 해소**: BL-18~~ → 해소 완료 (B 견적 임계치)
+**전 블로커 해소** — Must 19/19 완료 · MVP Stage 1 완료
 
 ---
 
@@ -179,3 +184,5 @@ S6 Hardening (3세션) — M17·M19
 | 2026-04-19 | **S5a ✅ 완료 (21차)**. Wave 1(0006 마이그레이션 pipeline_health·news_event·briefing_log·briefing_view_event + RLS 4종 + 타입 확장 AlertType·PipelineHealth·NewsEvent + mock 4건) → Wave 2 병렬 T5a.1 M10 배치(vercel.json crons + `/api/cron/monthly-batch` + `src/lib/scheduler/monthly-batch.ts` 재시도 3회 + scheduler_fail AlertEvent) · T5a.2 M11 브리핑(`/api/cron/morning-briefing` 08:00 KST + `src/lib/email/resend.ts` + `src/lib/briefing/compose.ts` + `/admin` BriefingCard) · T5a.4 M18 헬스(`src/lib/health/pipeline-health.ts` + `/admin/settings/health` 5 파이프라인 × 24h 성공률 + 95% Critical 배너) → Wave 3 T5a.3 M12 분류기(`src/lib/news/{naver-api,scraper,classifier}.ts` + `/api/cron/news-sweep` + `/admin/alerts` + `/admin/alerts/[id]`) → Wave 4 Vitest 4 files 41 tests → Wave 5 검증. **128 tests pass** · lint 0 · build 20 routes. **Must 14/19 (74%) 달성** (M10·M11·M12·M18). 실제 1세션(예상 3세션 대비 33%). |
 | 2026-04-19 | **S5b 킥오프 2 블로커 해소 (22차)**. BL-12 폐기(SMS 제거, D10 = 이메일 1회 재시도로 축소) · BL-14 = WebSocket(한투 실시간, 1분 폴링 거부). ServicePlan-Admin §3.10 R3.10-15·M15 DoD 2채널로 갱신. |
 | 2026-04-19 | **S5b ✅ 완료 (22차)**. 0007 마이그레이션(admin_settings·ticker_alert_pref·intraday_anomaly_event + RLS 3종) + T5b.1 M13 장중 감지(src/lib/intraday/{anomaly-detect,kis-websocket}·IntradayBadge·AlertType intraday_anomaly) + T5b.2 M14 토글(`/admin/settings` + setIntradayMode·setTickerAlertEnabled) + T5b.3 M15 Exit 2채널(src/lib/notify/{telegram,exit-dispatch} · D10 이메일 1회 재시도 · `/admin/alerts/[id]` 결정 UI · recordExitDecision) + Vitest 2 files 30 tests. **158 tests pass** · lint 0 · build 20 routes. **Must 17/19 (89%) 달성** (M13·M14·M15). 실제 1세션(예상 2세션 대비 50%). |
+| 2026-04-19 | **S6 블로커 4건 일괄 해소 (22차 후속)**. BL-16 = A · BL-17 = B · BL-18 = B · G-3 = B. S6 진입 가능. |
+| 2026-04-20 | **S6 ✅ 완료 (23차) — 🎉 MVP Stage 1 완료 · Must 19/19 (100%)**. 0008 마이그레이션(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS) + T6.1~T6.6 직접 실행. src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts (BL-18 견적 박제 + M17 집계 + hardcap 가드) + src/lib/health/heartbeat.ts (M19 분류·메시지·D10 catch-up 페이로드) + `/admin/settings/cost` 대시보드(35만 경보·40만 hardcap·시연·Top 5·Purpose 비중·시나리오 비교) + `/api/cron/silent-health` (Vercel Cron 매일 24:00 KST·텔+이메일 2채널·D10 재시도) + Sidebar nav 확장 + Vitest 3 files 30+ tests. **20 files / 190 tests pass** · build 22 routes · lint 0. 실제 1세션(예상 3세션 대비 33%). 실제 누적 9세션(예상 25 대비 36%). |

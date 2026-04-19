@@ -12,6 +12,21 @@
 
 ## 최근 갱신
 
+**2026-04-20** (23차): **S6 ✅ 완료 반영 — 🎉 Must 19/19 (100%) MVP Stage 1 완료**.
+- 마이그레이션 0008(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS 1종)
+- src/lib/cost/{anthropic-pricing.ts·dry-run-estimate.ts·aggregate.ts} (BL-18 견적 박제 + M17 집계 + hardcap 가드)
+- src/lib/health/heartbeat.ts (M19 분류·메시지·D10 catch-up·heartbeat_missing 페이로드)
+- src/app/(admin)/admin/settings/cost/page.tsx — M17 대시보드 (35만 경보·40만 hardcap·Purpose 비중·Top 5·BL-18 시나리오 비교·시연 영역)
+- src/app/api/cron/silent-health/route.ts — Vercel Cron 매일 24:00 KST 2채널 + D10 재시도
+- regenerateReport에 isHardcapBlocked 가드 활성 (S4 stub → 실 활성화)
+- vercel.json crons 4건으로 확장 (silent-health 추가, 0 15 * * *)
+- src/app/(admin)/layout.tsx — Sidebar nav에 AI 비용·Health 항목 노출
+- types/admin.ts 확장: AlertType +cost_warning·cost_hardcap·heartbeat_missing · CostLog·CostMonthlySummary·HeartbeatLog·임계치 상수 5종
+- src/lib/data/{mock-admin-cost-log.ts·mock-admin-heartbeat.ts} 신설
+- 검증: build 22 routes · lint 0 · test:ci 20 files 190 tests pass
+
+**2026-04-19** (22차): S5b ✅ 완료 반영 — M13·M14·M15 3 Must 달성.
+
 **2026-04-19** (21차): **S5a ✅ 완료 반영** — M10·M11·M12·M18 4 Must 달성.
 - 마이그레이션 0006(pipeline_health · news_event · briefing_log · briefing_view_event + RLS 4종)
 - src/lib/scheduler/monthly-batch.ts + __tests__ (재시도·실패 처리, 13 tests)
@@ -50,14 +65,15 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-04-19 · S5a 완료 기준)
+## tudal/ 현재 상태 (2026-04-20 · S6 완료 · MVP Stage 1 완료 기준)
 
 ### 규모
-- TypeScript 파일: `src/` 기준 **~130개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130)
-- 라우트: **20개** (S5a에서 /api/cron 3건 추가, /admin/alerts·/admin/alerts/[id]·/admin/settings/health는 S0 stub → S5a 실동작)
+- TypeScript 파일: `src/` 기준 **~145개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130 → S5b 140 → S6 145)
+- 라우트: **22개** (S6에서 /admin/settings/cost·/api/cron/silent-health 2건 추가)
   - **Main 6**: `/`, `/_not-found`, `/login`, `/signup`, `/macro`, `/stock/[ticker]`
-  - **Admin 11**: `/admin`, `/admin/portfolio` **(S3)**, `/admin/alerts` **(S5a)**, `/admin/alerts/[id]` **(S5a)**, `/admin/track-record` **(S4)**, `/admin/decision-tree` **(S4)**, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health` **(S5a)**, `/admin/report/[ticker]` **(S2)**, `/admin/report/[ticker]/regenerate` **(S4)**
-  - **Cron 3** (Vercel Cron): `/api/cron/monthly-batch` (M10 월간 day 1 09:05 KST), `/api/cron/morning-briefing` (M11 매일 08:00 KST), `/api/cron/news-sweep` (M12 15분 주기)
+  - **Auth 1**: `/auth/callback`
+  - **Admin 11**: `/admin`, `/admin/portfolio` **(S3)**, `/admin/alerts` **(S5a)**, `/admin/alerts/[id]` **(S5a)**, `/admin/track-record` **(S4)**, `/admin/decision-tree` **(S4)**, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health` **(S5a)**, `/admin/settings/cost` **(S6)**, `/admin/report/[ticker]` **(S2)**, `/admin/report/[ticker]/regenerate` **(S4)**
+  - **Cron 4** (Vercel Cron): `/api/cron/monthly-batch` (M10 월간 day 1 09:05 KST), `/api/cron/morning-briefing` (M11 매일 08:00 KST), `/api/cron/news-sweep` (M12 15분 주기), `/api/cron/silent-health` **(S6 M19, 매일 24:00 KST)**
 
 ### 기술 스택
 - Next.js 16.2.3 + React 19.2.4 + TypeScript strict + Tailwind v4
@@ -94,6 +110,8 @@
 | `0004_s3_approval.sql` (S3) | E4 portfolio_approval v1.3(dispute_reason/gating_auto_relief/reanalysis_count) + E11 kr_business_days(2024~2026 수기 seed) + alert_event check constraint 'gating_auto_relief' | 실 |
 | `0005_s4_performance.sql` (S4) | E5 portfolio_snapshot (partial UNIQUE on ticker NULL/NOT NULL) + E8 regen_counter (UNIQUE ticker+month·auto≤1·manual≤2) + cost_log stub (R5 pre-wire) + RLS 3종 | 실 |
 | `0006_s5a_automation.sql` (S5a) | pipeline_health (5 파이프라인 × 24h) + news_event (UNIQUE url) + briefing_log (UNIQUE date) + briefing_view_event (dedupe) + RLS 4종 | 실 |
+| `0007_s5b_notifications.sql` (S5b) | admin_settings(intraday_mode) + ticker_alert_pref(UNIQUE admin+ticker) + intraday_anomaly_event(UNIQUE dedup_key) + RLS 3종 | 실 |
+| `0008_s6_hardening.sql` (S6) | cost_log 확장(ticker·persona_id·section + 인덱스 2) + heartbeat_log(UNIQUE date) + RLS 1종 | 실 |
 
 ### 타입 정의 (src/types/)
 - `stock.ts`·`corporate.ts`·`macro.ts` (main)
@@ -132,10 +150,10 @@
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태
-- `npm run build`: ✅ **20 routes** (TypeScript strict 통과)
+### 검증 게이트 현재 상태 (S6 완료 시점)
+- `npm run build`: ✅ **22 routes** (TypeScript strict 통과)
 - `npm run lint`: ✅ 0 warnings
-- `npm run test:ci`: ✅ **15 files / 128 tests pass** (S5a +4 files · +41 tests)
+- `npm run test:ci`: ✅ **20 files / 190 tests pass** (S6 +3 files · +30 tests)
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 — `ulimit -n 65535` 후 정상
 
 ---
@@ -150,9 +168,9 @@
 
 ---
 
-## Must 19 진행 상황 (S5a 완료 기준)
-- ✅ **14/19 (74%)**: M1·M2·M3·M4·M5·M6·M7·M8·M9·M10·M11·M12·M16·M18
-- ⚪ 잔여 5: M13·M14·M15(S5b) · M17·M19(S6)
+## Must 19 진행 상황 (S6 완료 기준 — MVP Stage 1 완료)
+- ✅ **19/19 (100%)** 🎉
+- 잔여 0건
 
 ---
 

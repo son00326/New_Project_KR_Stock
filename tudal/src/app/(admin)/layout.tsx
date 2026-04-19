@@ -3,8 +3,9 @@ import { LogoutButton } from "@/app/(admin)/logout-button";
 import { JoopickLogo } from "@/components/layout/logo";
 import { createClient } from "@/lib/supabase/server";
 
-// ServicePlan-Admin.md §2 — 메인 7 라우트 (sidebar nav)
+// ServicePlan-Admin.md §2 — 메인 sidebar nav.
 // /admin/report/[ticker]는 종목 클릭 전용이라 sidebar에서 제외.
+// S6: AI 비용 모니터(/admin/settings/cost) 추가 노출.
 const ADMIN_NAV = [
   { href: "/admin", label: "홈" },
   { href: "/admin/portfolio", label: "포트폴리오" },
@@ -12,6 +13,8 @@ const ADMIN_NAV = [
   { href: "/admin/track-record", label: "Track Record" },
   { href: "/admin/decision-tree", label: "Decision Tree" },
   { href: "/admin/settings", label: "설정" },
+  { href: "/admin/settings/cost", label: "AI 비용 (M17)" },
+  { href: "/admin/settings/health", label: "Health (M18)" },
 ];
 
 export default async function AdminLayout({
