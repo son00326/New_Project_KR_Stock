@@ -49,7 +49,7 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 
 (1) §6 로드맵 다음 단계(S7a)가 기본 진입점.
     → 선행 BL-KRIT (BL-KRIT-1 Anthropic API Key)이 해소되었는가?
-        - 해소: S7a 킥오프 — `Document/Build/Slices/S7-RealData.md` 신규 파일 생성 + Tasks 세분화부터
+        - 해소: S7a 킥오프 — `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks 실행 (`src/lib/ai/client.ts` wrapper부터)
         - 미해소: (2)로
 
 (2) §3 DQ 중 🟡/🟢 상태(DQ-7·9·10·11)가 새로 답변되었는가?
@@ -202,19 +202,17 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 - [ ] 실 AI 호출 (0) 항목 추가
 - [ ] 실 운용 검증 (0일) 항목 추가
 
-### AUTO-4 슬라이스 파일 S7 스켈레톤 생성 (사용자 DQ-1 결정 후 실 내용 채움)
-- `Document/Build/Slices/S7-RealData.md` placeholder (템플릿만, 미완성 표기)
+### ~~AUTO-4~~ ✅ 슬라이스 파일 S7 스켈레톤 생성 — **2026-04-21 완료**
+- `Document/Build/Slices/S7-RealData.md` placeholder 작성 완료. S7a~e 5 Phase Tasks 초안 이식.
 
 ### AUTO-5 Global Blocker 대시보드에 BL-KRIT-1~9 추가
 - `ProgressDashboard.md` §5에 신규 "실데이터 전환 + S8 자동매매 BL-KRIT" 섹션
 
-### AUTO-6 `tudal/.env.example` 작성 (2026-04-21 D16)
-- 현재 `.env.local`만 있고 S7·S8에서 쓸 키 목록이 레포에 박제 안 됨
-- 포함 키(placeholder만): `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` · `ADMIN_EMAILS` · `ANTHROPIC_API_KEY` · `NAVER_CLIENT_ID/SECRET` · `RESEND_API_KEY` · `TELEGRAM_BOT_TOKEN/CHAT_ID` · `KIS_APP_KEY/SECRET` · `KIS_ACCOUNT_NO` · `KIS_MOCK_MODE` · `BINANCE_API_KEY/SECRET` · `BINANCE_TESTNET` · `CRON_SECRET`
+### ~~AUTO-6~~ ✅ `tudal/.env.example` 작성 — **2026-04-21 완료**
+- Supabase·Anthropic·Naver·Resend·Telegram·KIS·바이낸스·Cron 키 전체 placeholder + 섹션별 주석 + Phase 매핑 포함.
 
-### AUTO-7 S8-AutoTrading.md 스켈레톤 (2026-04-21 D16)
-- `Document/Build/Slices/S8-AutoTrading.md` 신규 작성
-- SliceTemplate 기반 + 본 HANDOFF §6 S8 블록과 정합
+### ~~AUTO-7~~ ✅ S8-AutoTrading.md 스켈레톤 — **2026-04-21 완료**
+- `Document/Build/Slices/S8-AutoTrading.md` 신규 작성 완료. S8-Scaffold 9 + S8-Live 9 Tasks · DoD · 리스크 6종 박제.
 
 ---
 
@@ -240,7 +238,7 @@ S7a → S7e → [여기서 S8 스캐폴드 병행 시작]
 
 **총 예상**: 12 세션 + 4~8주 운용 = 어드민 내부 도구 완성 기준
 
-> **다음 세션 킥오프 가이드**: S7 슬라이스 파일은 아직 생성되지 않았음. S7a 킥오프 첫 작업은 **`Document/Build/Slices/S7-RealData.md` 신규 생성** (SliceTemplate 기반, Tasks는 위 표의 S7a~S7e 체크리스트 이식). S8 파일은 이미 있음(`Slices/S8-AutoTrading.md`).
+> **다음 세션 킥오프 가이드**: S7 슬라이스 파일 **작성 완료** (`Slices/S7-RealData.md`, 2026-04-21 AUTO-4 완료). S7a 킥오프 첫 작업은 Anthropic API Key 투입(BL-KRIT-1) + 해당 파일 Phase S7a Tasks 실행. S8 파일도 이미 있음(`Slices/S8-AutoTrading.md`). `.env.example`로 필요 키 목록 확인 가능.
 
 ---
 
