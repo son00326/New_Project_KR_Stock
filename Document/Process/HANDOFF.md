@@ -90,9 +90,12 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 **근거**: 어드민 3명 내부 운용 단계에서는 이용약관·개인정보처리방침 불필요. Footer "정보 제공, 투자 자문 아님" 면책만 유지.
 **재개 트리거**: Deferred-D 멤버 트랙 킥오프 시 `/legal/*` 라우트 신설 + 약관 초안 작성
 
-### DQ-5 🟡 Supabase anon key 갱신 (`/admin` QA 블로커)
-**질문**: 22차 종료 시 `Invalid API key` 발견. https://supabase.com/dashboard/project/fpriyjykihxhhvqudvdb/settings/api 에서 `anon public` 복사 → `.env.local` 교체 필요. 본인이 처리 or Claude에 키 전달?
-**해소 시 첫 행동**: `.env.local` 교체 + `npm run dev` 후 Login·Magic Link 실제 브라우저 QA
+### ~~DQ-5~~ ✅ Supabase anon key 갱신 — **2026-04-21 해소**
+**해소 내역**: 사용자가 Dashboard에서 새 anon public JWT + publishable key(`sb_publishable_...`) 제공 → `tudal/.env.local`의 `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 `iat=1776314666` (service_role과 동일 키 세트)로 교체. publishable key는 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`로 참고 보관.
+**검증**: Supabase `/auth/v1/settings` 직접 REST 호출 200 OK (더 이상 Invalid API key 없음). `npm run dev` → `/login` 200 · `/admin` 200. `npm run lint` 0.
+**남은 QA**: 실제 브라우저에서 Magic Link 로그인·로그아웃 플로우 (어드민 본인 eager-test, 세션별).
+**보안 주의**: 이 키는 채팅 기록에 노출되었으므로 외부 유출이 확인되면 Dashboard에서 rotate 권장.
+**해당 BL-KRIT**: ~~BL-KRIT-6~~ ✅ 해소.
 
 ### ~~DQ-6~~ ✅ origin push 완료 (2026-04-20, 23차 후속)
 `b762313..77ef624 main -> main` (18 commits 동기화). Repo = `https://github.com/son00326/New_Project_KR_Stock.git`. 이후 세션에서는 commit당 push 가능.
@@ -157,10 +160,9 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 - 영향: M13·M15 텔레그램 2채널 실 발송 불가
 - 해소: BotFather로 bot 생성 + `TELEGRAM_BOT_TOKEN`/`CHAT_ID`
 
-### BL-KRIT-6 Supabase anon 갱신
+### ~~BL-KRIT-6~~ ✅ Supabase anon 갱신 — **2026-04-21 해소**
 - 소스: DQ-5
-- 영향: `/admin` 브라우저 QA 불가
-- 해소: `.env.local` 교체
+- 해소 내역: `.env.local` `NEXT_PUBLIC_SUPABASE_ANON_KEY` 새 JWT로 교체 + publishable key 참고 보관. auth settings 200 OK · dev 서버 `/login`·`/admin` 200 OK.
 
 ### BL-KRIT-7 alert_event CHECK constraint 확장
 - 소스: 코드

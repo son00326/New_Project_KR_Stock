@@ -178,7 +178,7 @@ S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계
 | **BL-KRIT-3** | Naver News API 키 | M12 뉴스 sweep 실 동작 불가 |
 | **BL-KRIT-4** | Resend 계정 | M11·D10 catch-up 이메일 발송 불가 |
 | **BL-KRIT-5** | Telegram Bot | M13·M15 텔레그램 2채널 불가 |
-| **BL-KRIT-6** | Supabase anon 키 갱신 | `/admin` 브라우저 QA 불가 (DQ-5) |
+| ~~BL-KRIT-6~~ | ✅ Supabase anon 키 갱신 (2026-04-21 해소, DQ-5) | — |
 | **BL-KRIT-7** | 마이그레이션 0009 (alert_event CHECK 확장) | 신규 AlertType 6종 실 INSERT 거부됨 |
 | **BL-KRIT-8** | 마이그레이션 0010+ (S8 자동매매 E12~E16) | S8 전체 (주문 큐·체결 이력·포지션·리스크 이벤트·코인 거래소 연결) |
 | **BL-KRIT-9** | 바이낸스 API 키 + IP/KYC 조건 | S8 코인 자동매매 |
