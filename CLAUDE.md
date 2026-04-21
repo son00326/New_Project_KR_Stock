@@ -4,6 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⭐ 프로젝트 재정의 (2026-04-21, D16)
+
+**어드민 = 본인 + 친구 2명(총 3명)이 주식·코인 투자를 편하게 하기 위한 내부 도구**.
+
+- 멤버(500cap 초대)·MVP Stage·Friends & Family Beta 같은 공개 서비스 프레임은 **별도 트랙 (Deferred-D)** 으로 분리되어 있으며, 현 개발 플랜과 관련 없음.
+- "Must 19 / MVP Stage 1·2" 어휘는 어드민 트랙에서 **강제 게이트가 아님**. 내부 도구 완성도 관점으로만 해석.
+- 자동매매는 **S8 단일 슬라이스**로 통합: 주식(KIS 모의→실계좌) + **코인(바이낸스 USDT-M 선물 테스트넷→메인넷)**. "Stage 1 매뉴얼 → Stage 2 API → Stage 3 AI 자율" 어휘는 폐기.
+- 자동매매 의사결정 엔진은 **Strategy 파일 drop-in + AI 어댑터 embed** 이중 경로. AI agent·skill 본체는 어드민이 추후 drop-in.
+- 리스크 가드레일 기본값 (S8에서 박제): 레버리지 ≤ 5x · 일일 손실 -3% 자동 정지 · AI 일 주문 ≤ 20회.
+- 법무(Q16)·이용약관(Q17): Deferred-D 재개 전까지 불필요. Footer 면책으로 충분.
+
+**현 진행 순서 (SoT: HANDOFF.md §6 · ProgressDashboard.md §2)**:
+```
+Mock Skeleton ✅ → S7 실데이터 → [S8 스캐폴드 병행 시작] → S7 완료 → S8 실 체결 → S9 운용 검증
+```
+
+---
+
 ## 📚 Document System (AUTO-RECOGNIZE)
 
 This repository uses a **문서 기반 플래닝 시스템**, organized into subfolders under **`Document/`**. Each document has a distinct purpose. At session start, Claude MUST recognize all documents and route updates to the correct one. **Never collapse them, never duplicate content across files, never write business decisions into HANDOFF.md or service progress into BusinessPlan.md.**
@@ -29,8 +47,9 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 | `Document/Service/Report/ReportFramework.md` | AI 투심위 보고서 프레임워크 SoT (Section 0~8 + Appendix, Core Committee, Sector Board). |
 | `Document/Service/Planning/AutoTrading.md` | 자동매매 트랙 설계 (미확정, 재검토 대기). |
 | `Document/Build/SliceTemplate.md` | 신규 슬라이스 파일 생성 시 참조 템플릿. |
-| `Document/Build/Slices/Deferred-Brokerage.md` | Must 19 밖 증권사 API·매뉴얼 트레이딩 UI 로드맵 (Deferred-X). |
-| `Document/Build/Slices/Deferred-AIAgent-Selection.md` | Must 19 밖 AI Agent 기반 선정엔진 v2 로드맵 (Deferred-Y, 2026-04-17 박제). v0(mock)→v1(pykrx+v6)→v2(AI agent) 진화 경로. |
+| `Document/Build/Slices/S8-AutoTrading.md` | **자동매매 프레임 슬라이스** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터 embed, 2026-04-21 D16 승격). 현 개발 플랜의 S7 다음 차례. |
+| ~~`Document/Build/Slices/Deferred-Brokerage.md`~~ | **S8로 승격됨 (2026-04-21)**. 포인터만 유지. |
+| ~~`Document/Build/Slices/Deferred-AIAgent-Selection.md`~~ | **S8 AI 어댑터에 흡수 예정 (2026-04-21)**. 포인터만 유지. |
 | `Document/Service/Planning/AutoTrading-AI구조설계.md` | AutoTrading 파생 — AI 구조 설계 초안. 재검토 대기 (AutoTrading.md와 쌍). |
 | `Document/Archive/` | 폐기된 방법론 문서 보관 (Phase.md·BuildPhase.md). 참조·편집 금지. |
 | `Document/Process/Memo/*.md` | 세션별 메모·기준선 정리. 참조용. |
@@ -66,7 +85,7 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 
 - `BusinessPlan` → 사업 레벨. 코드 변경 전에 먼저 참조. 서비스 UX/UI 내용 없음.
 - `ServicePlan.md` (확장자만, sub-doc 아님) → **인덱스 + 공통 원칙**. 상세 기획은 여기 없다.
-- `ServicePlan-Admin` → **어드민 서비스 기획 본체**. 서비스 기획 편집 1순위. **핵심 개념 (D11)**: AI 가상 포트 본체 + 3경로 집행(주픽 매뉴얼·주픽 자동매매·외부 바이패스). 승인(Accept)=가상 포트 확정(성능 측정용), 실제 체결은 어드민 독립. 상세 §1A.0 SoT.
+- `ServicePlan-Admin` → **어드민 내부 도구 기획 본체** (v1.2, 2026-04-21 D16). 서비스 기획 편집 1순위. **핵심 개념**: (a) D11 AI 가상 포트 본체 + 3경로 집행(주픽 매뉴얼·주픽 자동매매 S8·외부 바이패스). 승인(Accept)=가상 포트 확정(성능 측정용), 실제 체결은 어드민 독립. (b) D16 어드민 = 내부 투자 도구, Stage 어휘 폐기, 자동매매(주식+바이낸스 선물) S8 통합. 상세 §1A.0 + §3.13 SoT.
 - `ServicePlan-Member` → **멤버 서비스 기획 본체**. Research 블로커 해소 후 착수.
 - `ExecutionPlaybook` → **슬라이스 기반 개발 방법론** (S0~S6). 에이전트·스킬·하네스 선정 임의 무시 금지. Waterfall(Phase/BuildPhase) 전면 대체.
 - `ProgressDashboard` → **전체 슬라이스 상태판**. 🟢 슬라이스가 현재 1순위. 슬라이스 상태·Must 진행률·Global Blocker 한눈 뷰.
@@ -130,12 +149,14 @@ Recharts (캔들/라인/영역 + MA + 볼린저밴드). `tudal/src/lib/constants
 
 ## 제품 제약 (코드에 직접 반영)
 
-BusinessPlan.md §7 법적 원칙:
+BusinessPlan.md §7 법적 원칙 (어드민 트랙 적용):
 
-1. **No buy/sell recommendations.** AI 출력은 데이터·분석만. "사세요/파세요" 금지.
-2. **500-user cap + 초대 전용.** 공개 가입·마케팅 퍼널 금지.
-3. **면책 문구 Footer 고정** — "정보 제공, 투자 자문 아님".
+1. **멤버 대상 buy/sell recommendations 금지** — 어드민 내부 도구에서는 AI가 Short List·비중·자동매매까지 처리 가능. 멤버 페이지(Deferred-D) 재개 시 "사세요/파세요" 어휘 금지 재적용.
+2. **500-user cap + 초대 전용** — **어드민 트랙에 해당 없음** (본인+친구 3명 내부 도구). Deferred-D 멤버 오픈 시 적용.
+3. **면책 문구 Footer 고정** — "정보 제공, 투자 자문 아님". 전 라우트 유지.
 4. **Korean-first UI**, `<html lang="ko">`.
+5. **자동매매 리스크 가드레일 (S8)** — 레버리지 ≤ 5x · 일일 손실 -3% 자동 정지 · AI 일 주문 ≤ 20회. Policy Engine에서 강제, `/admin/settings/risk`에서 조정.
+6. **모의↔실 체결 토글** — 대표 1인만 전환 가능. 기본값은 모의(KIS 모의투자 / 바이낸스 테스트넷).
 
 ## 에이전트·스킬 선정 규칙
 

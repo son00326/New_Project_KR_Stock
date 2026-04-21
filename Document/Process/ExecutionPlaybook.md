@@ -153,7 +153,7 @@ Status: **v1.1 · 2026-04-16**
 | 6 | S5 스케줄러·알림·자동화 | M10·M11·M12·M13·M14·M15·M18 | 5 |
 | 7 | S6 Hardening | M17·M19 | 3 |
 
-총 25세션. `Deferred-X`(증권사 API·매뉴얼 트레이딩 UI)는 Must 19 밖 별도 로드맵.
+총 Mock 세션 25 (실제 9). `Deferred-X`(증권사 API·매뉴얼 트레이딩 UI)는 **2026-04-21 S8로 승격** (Slices/S8-AutoTrading.md). S7(실데이터 전환) · S8(자동매매: 주식 KIS + 바이낸스 선물) · S9(운용 검증)은 HANDOFF.md §6 로드맵 참조.
 
 ---
 

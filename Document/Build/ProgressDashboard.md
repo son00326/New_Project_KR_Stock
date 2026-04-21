@@ -2,11 +2,11 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-20 (23차 후속 정정 — **Mock Skeleton Stage 1 완료**, MVP 아님)
-총 슬라이스: 7개 (S0~S6 Mock) + Deferred-X·Y·D + **S7 실데이터 전환 (미착수)**
-총 예상 세션 (Mock): **25세션** → 실제 **9세션** (예상의 ~36%)
-**진행률 (정확)**: Mock 동작 **19/19** · 실데이터 **0/19** · 실 AI 호출 **0** · 실 운용 검증 **0일**
-MVP Stage 1 기준 = Mock + 실데이터 + 운용 검증 **3조건 AND** → **미달성**
+Last updated: 2026-04-21 (24차 — **어드민 = 내부 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기**)
+총 슬라이스: 7개 (S0~S6 Mock) + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
+총 예상 세션: 9(완료) + 8(S7) + 4(S8) = **약 21 세션** + S9 운용 4~8주
+**진행률 (정확)**: Mock 동작 **19/19** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일**
+완성 기준 = Mock + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **4조건 AND** → **미달성**
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
 S2 풀 리포트·투심위: ✅ **Mock 완료** (2026-04-17)
@@ -16,6 +16,8 @@ S5a 스케줄러·브리핑·뉴스·헬스: ✅ **Mock 완료** (2026-04-19)
 S5b 장중·토글·Exit: ✅ **Mock 완료** (2026-04-19)
 S6 Hardening (AI 비용 + Silent Health): ✅ **Mock 완료** (2026-04-20)
 S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
+**S8 자동매매 프레임 (주식+바이낸스 선물)**: ⚪ **미착수** (2026-04-21 D16 승격, Deferred-X·Y 흡수)
+**S9 어드민 운용 검증 (1개월+)**: ⚪ **미착수**
 
 ---
 
@@ -31,8 +33,11 @@ S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
 | **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | ⚪ **미착수** (HANDOFF §6) | — |
-| **Deferred-X** | 증권사 API + 매뉴얼/자동매매 UI | Must 19 밖 이관 | — | ⏸ 보류 | — | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) |
-| **Deferred-Y** | AI Agent 기반 선정엔진 v2 | Must 19 밖 (엔진 고도화) | — | ⏸ 보류 | — | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) |
+| **S8** | **자동매매 프레임** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터) | Must 19 밖 (어드민 집행 서브시스템) | 4 (스캐폴드 2 + 실 체결 2) | — | ⚪ **미착수** (2026-04-21 D16) | [S8-AutoTrading.md](./Slices/S8-AutoTrading.md) |
+| **S9** | **어드민 운용 검증** | Mock+실 혼합 → 실계좌/메인넷 전환 | 4~8주 (세션 외) | — | ⚪ 미착수 | — |
+| ~~Deferred-X~~ | ~~증권사 API + 매뉴얼/자동매매 UI~~ | **S8로 승격 (2026-04-21)** | — | — | — | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) (승격 표기만) |
+| ~~Deferred-Y~~ | ~~AI Agent 기반 선정엔진 v2~~ | **S8 AI 어댑터에 흡수 예정 (2026-04-21)** | — | — | — | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) (포인터만) |
+| **Deferred-D** | 멤버 페이지 (500cap 초대) | 현 어드민 플랜과 분리 | — | ⏸ 보류 | — | `ServicePlan-Member.md` |
 
 > **슬라이스 번호 vs Architect ID 매핑**: S0→S0, S1→S1, S2→S5(architect), S3→S2(architect), S4→S4, S5→S6(architect), S6→S7(architect), Deferred-X→S3(architect)
 
@@ -73,19 +78,23 @@ S5 스케줄러·알림·모드 + M18 (S5a 3세션 + S5b 2세션 = 5세션)
 S6 Hardening (3세션) — M17·M19
      │  40만 hardcap 활성 + 하트비트 운용 개시
      ▼
-[Mock Skeleton Stage 1 완료: Must 19 Mock 동작]  ← **현재 여기 (2026-04-20, 9세션)**
+[Mock Skeleton 완료: Must 19 Mock 동작]  ← **현재 여기 (2026-04-21, 9세션)**
      │
      ▼
-S7 실데이터 전환 (S7a Anthropic·S7b 뉴스+브리핑·S7c 장중+Exit·S7d Silent Health·S7e Supabase 실 I/O)
+S7 실데이터 전환 (S7a Anthropic → S7e Supabase → [S8 스캐폴드 병행 착수] → S7b 뉴스+브리핑 → S7c 장중+Exit → S7d Silent Health)
      │  ← BL-KRIT-1~7 선행 (HANDOFF §4)
      ▼
-[실 운용 검증 1개월+ 통과]
+S8 자동매매 프레임
+     ├ 스캐폴드: UI(6 라우트)·스키마(E12~E16)·Vault·Strategy 폴더·AI 어댑터·Policy Engine (mock 체결)
+     └ 실 체결: KIS 모의→실계좌 + 바이낸스 테스트넷→메인넷
+     │  ← BL-KRIT-8·9 + DQ-9·10·11 선행
+     ▼
+S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계좌 전환)
      │
      ▼
-[MVP Stage 1 완료]  ← 진짜 MVP는 여기
+[어드민 내부 도구 완성]
 
-총 Mock 세션: 2 + 4 + 3 + 4 + 4 + 5 + 3 = 25세션 (실제 9세션)
-예상 S7 세션: 8세션 + 운용 검증 4~8주
+총 세션: 9 (완료) + 8 (S7) + 4 (S8) = 약 21 + 운용 검증 4~8주
 ```
 
 ---
@@ -160,17 +169,19 @@ S7 실데이터 전환 (S7a Anthropic·S7b 뉴스+브리핑·S7c 장중+Exit·S7
 ~~**S6 진입 전 필수 해소**: BL-18~~ → 해소 완료 (B 견적 임계치)
 **Mock Skeleton 블로커 전 해소** — Mock 동작 19/19 완료
 
-### 실데이터 전환 BL-KRIT (S7 착수 전 반드시 해소)
+### 실데이터 전환 + S8 자동매매 BL-KRIT (착수 전 반드시 해소)
 
 | BL-KRIT | 대상 | 영향 |
 |---|---|---|
-| **BL-KRIT-1** | Anthropic API Key | M17·M11·M12·M19 실 AI 호출 불가 |
-| **BL-KRIT-2** | KIS (한투) API 계정 | M13 장중 WebSocket 실 구독 불가 |
+| **BL-KRIT-1** | Anthropic API Key | M17·M11·M12·M19 실 AI 호출 불가 · S8 AI 어댑터 본체 |
+| **BL-KRIT-2** | KIS (한투) API 계정 | M13 장중 WebSocket + **S8 주식 자동매매** 불가 |
 | **BL-KRIT-3** | Naver News API 키 | M12 뉴스 sweep 실 동작 불가 |
 | **BL-KRIT-4** | Resend 계정 | M11·D10 catch-up 이메일 발송 불가 |
 | **BL-KRIT-5** | Telegram Bot | M13·M15 텔레그램 2채널 불가 |
 | **BL-KRIT-6** | Supabase anon 키 갱신 | `/admin` 브라우저 QA 불가 (DQ-5) |
 | **BL-KRIT-7** | 마이그레이션 0009 (alert_event CHECK 확장) | 신규 AlertType 6종 실 INSERT 거부됨 |
+| **BL-KRIT-8** | 마이그레이션 0010+ (S8 자동매매 E12~E16) | S8 전체 (주문 큐·체결 이력·포지션·리스크 이벤트·코인 거래소 연결) |
+| **BL-KRIT-9** | 바이낸스 API 키 + IP/KYC 조건 | S8 코인 자동매매 |
 
 상세는 `Document/Process/HANDOFF.md` §4 참조.
 
@@ -215,3 +226,4 @@ S7 실데이터 전환 (S7a Anthropic·S7b 뉴스+브리핑·S7c 장중+Exit·S7
 | 2026-04-19 | **S6 블로커 4건 일괄 해소 (22차 후속)**. BL-16 = A · BL-17 = B · BL-18 = B · G-3 = B. S6 진입 가능. |
 | 2026-04-20 | **S6 ✅ Mock 완료 (23차)**. 0008 마이그레이션(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS) + T6.1~T6.6 직접 실행. src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts + src/lib/health/heartbeat.ts + `/admin/settings/cost` 대시보드 + `/api/cron/silent-health` (매일 24:00 KST·mock 페이로드) + Sidebar nav 확장 + Vitest 3 files. **20 files / 190 tests pass** · build 22 routes · lint 0. Mock Skeleton Stage 1 완성(S0~S6). 실데이터·실 AI·운용 검증 0. 실제 누적 9세션(예상 25 대비 36%). |
 | 2026-04-20 | **23차 후속 HANDOFF 정정**. S6 종료 시 "🎉 MVP Stage 1 완료 · Must 19/19 (100%)" 어휘가 mock-only를 진짜 MVP로 오인케 한다는 사용자 지적. feedback_mvp_framing.md 규칙을 문서 본문에 반영: Mock 동작 vs 실데이터 vs 운용 검증 3축 분리. Dashboard 상단 상태·슬라이스 표·Must 19 표·Global Blocker에 BL-KRIT-1~7 (외부 API·Supabase anon·CHECK 확장) 신설. S7(실데이터 전환) 슬라이스 플레이스홀더 삽입. HANDOFF.md 전면 재작성(§2 진입 결정 트리 + §3 DQ 리스트 + §4 BL-KRIT + §5 자율 작업 + §6 S7a~e 로드맵). |
+| **2026-04-21** | **어드민 = 내부 투자 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기 (D16)**. 슬라이스 요약 표에 **S8 자동매매 프레임** (주식 KIS + 바이낸스 선물) · **S9 운용 검증** 신규 2행 추가. Deferred-X → S8로 승격 표기, Deferred-Y → S8 AI 어댑터 흡수 표기, Deferred-D(멤버) 별도 트랙으로 분리. 전체 실행 순서 다이어그램을 "S7 → S8 → S9 → 어드민 내부 도구 완성"으로 교체. Global Blocker에 BL-KRIT-8(마이그레이션 0010+ E12~E16) + BL-KRIT-9(바이낸스 키·IP·KYC) 추가. Must 19 표는 변경 없음(S8은 Must 19 밖 집행 레이어). 상단 진행률 표를 "Mock + 실데이터 + 자동매매 + 운용 4조건"으로 수정. |

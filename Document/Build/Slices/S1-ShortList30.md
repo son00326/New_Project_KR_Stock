@@ -99,6 +99,7 @@ current_progress: 100%
 - 2026-04-17 (T1.2 실행): `/admin` 페이지 3섹션 세로 스택 완성 (short→mid→long 순, bucket header 메타 · Delta 집계 pill · 30종 미달 경고 placeholder). `BucketSection` 컴포넌트 분리, DeltaBadge(NEW/HOLD/REMOVED) 간이 배지 포함. 종목 카드 상세(Composite·3축·Crisis·스파크라인)는 T1.3에서 row 교체. npm run build 17 routes 통과.
 - 2026-04-17 (T1.1 실행): **30종 fixture + REMOVED 3 확정**. 장10(L1~L10: 005930/000660/207940/373220/005380/035420/005490/012330/055550/033780) + 중10(M1~M10: 012450/329180/042660/034020/267260/028260/068270/006400/064350/010140) + 단10(S1~S10: 196170/247540/079550/352820/035900/058470/214150/278280/278470/251270) + REMOVED 3(035720/011200/105560). Delta 집계: **편입 5·유지 25·제외 3**. 가중치 합: 1.00 (long 0.30 + mid 0.40 + short 0.30).
 - 2026-04-17 (Deferred-Y 박제): 사용자 v2 AI agent 선정엔진 고도화 의향 표명 → `Document/Build/Slices/Deferred-AIAgent-Selection.md` 별도 트랙으로 박제. S1은 v0 mock으로 계속 진행.
+- 2026-04-21 (D16 흡수): Deferred-Y는 **S8 AI 어댑터 embed 경로로 흡수 예정** (어드민 추후 drop-in). 별도 슬라이스로 유지하지 않음.
 - 2026-04-17: **BL-3 해소 — 옵션 C 확정**.
   - **의미 재정의**: 30종 = 단기 상승 예상 10 + 중기 10 + 장기 10 (bucket = **상승 예상 기간**, 변동성·시총 크기 아님)
   - **실 ticker**: KOSPI/KOSDAQ 실제 종목 사용 (2026-04 기준 공개 정보)
