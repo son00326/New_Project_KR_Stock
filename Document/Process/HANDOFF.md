@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기 반영**)
+Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기 + DQ-5 해소 반영**)
 
 **목적**: 다음 세션이 이 파일 하나만 보고 즉시 이어갈 수 있게 하는 단일 진입점.
 **원칙**: 미래 지향. "다음에 무엇을 할지"와 "아직 무엇이 결정 안 났는지"만 담는다.
@@ -34,7 +34,7 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 - **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). 구 Deferred-X는 S8로 이관·폐기.
 - **실 운용 검증(S9)**: **0일**
 - **법무·이용약관**: ⏸ **Deferred-D 멤버 오픈까지 유예** (2026-04-20 확정, 2026-04-21 재확인). 어드민 내부 도구는 Footer 면책으로 충분.
-- **Git**: working tree clean · 최신 `782e4a8` 기반 + 2026-04-21 docs 편집 · origin/main 동기화
+- **Git**: working tree clean · HEAD `1e9e116` · **origin/main 대비 2 commits ahead** (9385e97 D16 문서 정비 · 1e9e116 DQ-5 Supabase anon 갱신) — 다음 세션 시작 시 `git push` 또는 명시적 대기 결정 먼저
 - **검증 게이트**: build 22 routes · lint 0 · test:ci **190 pass** (모두 Mock 기반)
 - **어드민 범위**: 본인 + 친구 2명 = 3명(ADMIN_EMAILS 3명). 친구 추가는 나중 작업.
 
@@ -45,18 +45,21 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 ```
 진입 시 이 순서로 확인:
 
-(1) §3 "사용자 답변 필요 (DQ)" 중 **해소된 게 있는가?**
-    → 있음: 해당 DQ의 "해소 시 첫 행동"으로 착수
-    → 없음: (2)로
+(0) Git: origin/main 대비 2 commits ahead. 사용자가 "push" 언급 없으면 그대로 작업 시작.
 
-(2) §4 "블로커·크리티컬 (BL-KRIT)" 중 **해소된 게 있는가?**
-    → 있음: 해당 BL-KRIT의 "해소 시 첫 행동"으로 착수
-    → 없음: (3)로
+(1) §6 로드맵 다음 단계(S7a)가 기본 진입점.
+    → 선행 BL-KRIT (BL-KRIT-1 Anthropic API Key)이 해소되었는가?
+        - 해소: S7a 킥오프 — `Document/Build/Slices/S7-RealData.md` 신규 파일 생성 + Tasks 세분화부터
+        - 미해소: (2)로
 
-(3) §5 "자율 진행 가능 작업 (AUTO)" 중 맨 위 항목부터 착수
-    (이 작업은 결정 없이 Claude가 바로 수행할 수 있는 것만 담는다)
+(2) §3 DQ 중 🟡/🟢 상태(DQ-7·9·10·11)가 새로 답변되었는가?
+    → 있음: 해당 DQ "해소 시 첫 행동"으로 착수
+    → 없음: (3)으로
 
-(4) 위 3단계 모두 없으면 §3 DQ 중 우선순위 1번을 사용자에게 다시 질문
+(3) §5 AUTO 중 미완료 항목(AUTO-2·6 `.env.example` 등) 우선 처리
+    (사용자 결정 없이 바로 수행 가능한 것들)
+
+(4) 위 전부 막히면 §3 DQ 우선순위 1번(DQ-7 외부 키 발급 시점)을 사용자에게 다시 질문
 ```
 
 ---
@@ -237,6 +240,8 @@ S7a → S7e → [여기서 S8 스캐폴드 병행 시작]
 
 **총 예상**: 12 세션 + 4~8주 운용 = 어드민 내부 도구 완성 기준
 
+> **다음 세션 킥오프 가이드**: S7 슬라이스 파일은 아직 생성되지 않았음. S7a 킥오프 첫 작업은 **`Document/Build/Slices/S7-RealData.md` 신규 생성** (SliceTemplate 기반, Tasks는 위 표의 S7a~S7e 체크리스트 이식). S8 파일은 이미 있음(`Slices/S8-AutoTrading.md`).
+
 ---
 
 ## §7 (폐기) 선행 법무 트랙
@@ -322,7 +327,8 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 | 전체 슬라이스 상태 | `Document/Build/ProgressDashboard.md` |
 | 직전 슬라이스 상세 | `Document/Build/Slices/S6-Hardening.md` |
 | 개발 방법론 | `Document/Process/ExecutionPlaybook.md` |
-| 기획 SoT (어드민) | `Document/Service/Planning/ServicePlan-Admin.md` v1.3 |
+| 기획 SoT (어드민) | `Document/Service/Planning/ServicePlan-Admin.md` **v1.2** (2026-04-21 D16) |
+| 자동매매 슬라이스 | `Document/Build/Slices/S8-AutoTrading.md` (현 개발 플랜 차기) |
 | 기획 SoT (멤버) | `Document/Service/Planning/ServicePlan-Member.md` |
 | 리포트 방법론 | `Document/Service/Report/ReportFramework.md` |
 | 사업 SoT | `Document/Business/BusinessPlan.md` |
@@ -333,7 +339,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 
 ## §12 최근 세션 (이전은 `git log`)
 
-- **2026-04-21 (24차, 어드민 프레임 재정의)** — 사용자 지시로 (a) 어드민 = 본인+친구 3명 내부 투자 도구로 범위 재정의, 멤버·MVP Stage·Friends & Family 어휘 분리. (b) 구 트레이딩 3-Stage(매뉴얼→API→AI 자율) 어휘 폐기, 자동매매 = S8 단일 슬라이스로 통합. (c) S8 범위 확정: 주식(KIS 모의→실계좌) + 코인(바이낸스 USDT-M 선물 테스트넷→메인넷) + Strategy drop-in + AI 어댑터 embed. AI agent·skill 본체는 어드민 추후 drop-in. (d) 리스크 가드레일 기본값 박제: 레버리지 ≤5x · 일일 -3% 정지 · AI 일 주문 ≤20회. (e) BusinessPlan §Q1·§5·§9·§10.5·§10.8·§11·§12 · ServicePlan-Admin §0·§1.5·§1.6·§1A.0·§2·§3.1·§3.4·§3.13(신설)·§1A.5 D16 · ServicePlan §1·§2 Revision · HANDOFF §0·§1·§3·§4·§5·§6·§7·§9·§10 전면 정리. Slices/S8-AutoTrading.md 신규 작성, Deferred-Brokerage·Deferred-AIAgent-Selection는 승격 표기. 코드 변경 없음(docs only).
+- **2026-04-21 (24차, 어드민 프레임 재정의 + DQ-5 해소)** — 사용자 지시로 (a) 어드민 = 본인+친구 3명 내부 투자 도구로 범위 재정의, 멤버·MVP Stage·Friends & Family 어휘 분리. (b) 구 트레이딩 3-Stage(매뉴얼→API→AI 자율) 어휘 폐기, 자동매매 = S8 단일 슬라이스로 통합. (c) S8 범위 확정: 주식(KIS 모의→실계좌) + 코인(바이낸스 USDT-M 선물 테스트넷→메인넷) + Strategy drop-in + AI 어댑터 embed. AI agent·skill 본체는 어드민 추후 drop-in. (d) 리스크 가드레일 기본값 박제: 레버리지 ≤5x · 일일 -3% 정지 · AI 일 주문 ≤20회. (e) BusinessPlan §Q1·§5·§9·§10.5·§10.8·§11·§12 · ServicePlan-Admin §0·§1.5·§1.6·§1A.0·§2·§3.1·§3.4·§3.13(신설)·§1A.5 D16 · ServicePlan §1·§2 Revision · HANDOFF §0·§1·§3·§4·§5·§6·§7·§9·§10 전면 정리. Slices/S8-AutoTrading.md 신규 작성, Deferred-Brokerage·Deferred-AIAgent-Selection는 승격 표기. 코드 변경 없음(docs only). **(f) DQ-5 Supabase anon key 갱신 해소** — 새 JWT + publishable key로 `.env.local` 교체, auth/v1/settings REST 200 OK, `/login`·`/admin` 200 OK. BL-KRIT-6 해소. 커밋 `9385e97` + `1e9e116`, origin 미푸시 2 ahead.
 - **2026-04-20 (23차 후속, HANDOFF 정정)** — 23차 종료 시 HANDOFF·ProgressDashboard·CodebaseStatus에 박힌 "🎉 MVP Stage 1 완료" 어휘를 "Mock Skeleton 완료 · 실데이터 0/19 · 운용 0일"로 전면 정정. feedback_mvp_framing.md 규칙을 문서 본문에 반영. 다음 세션 진입 결정 트리(§2)·DQ 리스트(§3)·BL-KRIT(§4)·자율 작업(§5)·실데이터 로드맵(§6)으로 재구성.
 - **2026-04-20 (23차)** S6 Mock 완료 — M17·M19 mock 동작. cost_log·heartbeat_log 실 INSERT는 이월. 190 tests pass.
 - **2026-04-19 (22차)** S5b Mock 완료 — M13·M14·M15 mock. KIS WebSocket·Telegram 실 연결 이월.
