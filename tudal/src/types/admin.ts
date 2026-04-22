@@ -26,7 +26,6 @@ export type AlertType =
   | "heartbeat_missing"; // S6 M19: 일간 하트비트 2채널 모두 발송 실패 (D10 catch-up 후)
 export type Severity = "critical" | "warning" | "info";
 export type ExitDecision = "sell_all" | "partial_sell" | "hold";
-export type BrokerageScope = "manual" | "auto" | "both";
 
 // ---------------------------------------------------------------------------
 // E1. ShortList30 — 월간 Short List
@@ -290,22 +289,9 @@ export interface TickerAlertPref {
 }
 
 // ---------------------------------------------------------------------------
-// E9. BrokerageConnection — 증권사/거래소 API 연결 (D12)
-// D11·D12: §1A.0 매뉴얼·자동매매 실체결 레이어. 가상 포트(E5)와 분리.
-// 보안: 본인 admin_id만 접근. api_key_ref는 Vault 참조 키만(평문 금지).
+// E9 BrokerageConnection → DQ-7(2026-04-22)에서 `@/lib/credentials/types`로
+// 이동 + AES-256-GCM 암호화 컬럼으로 재정의됨. BrokerageScope는 D16 pivot으로 폐기.
 // ---------------------------------------------------------------------------
-export interface BrokerageConnection {
-  id: string;
-  adminId: string;
-  broker: string; // KIS·Kiwoom·Samsung·KB·Mirae·Upbit·Binance ...
-  accountNo: string; // 마스킹: "12-***-5678"
-  apiKeyRef: string; // Vault/Secrets 참조 키
-  strategyLabel: string; // 자유 텍스트 ("단기 모멘텀" 등)
-  scope: BrokerageScope;
-  isActive: boolean;
-  createdAt: string;
-  lastUsedAt: string | null;
-}
 
 // ---------------------------------------------------------------------------
 // E10. ReportViewLog — 리포트 열람 로그 (S2 [G-5] B, 2026-04-17 신설)
