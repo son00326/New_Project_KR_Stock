@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-04-22 (29차 — **로드맵 재조정 완료 · DQ-9·10·11 해소 · 자동매매 실체결 도달 9세션**)
+Last updated: 2026-04-22 (30차 — **DQ-7 Session 3 부분 진행 · BL-DQ7-1·2·3·T14 완료 · 첫 production 배포 성공 · T16·0009 적용·T17 사용자 다음 세션**)
 
 **목적**: 다음 세션이 이 파일 하나만 보고 즉시 이어갈 수 있게 하는 단일 진입점.
 **원칙**: 미래 지향. "다음에 무엇을 할지"와 "아직 무엇이 결정 안 났는지"만 담는다.
@@ -29,16 +29,22 @@ Last updated: 2026-04-22 (29차 — **로드맵 재조정 완료 · DQ-9·10·11
 ## §1 현재 상태 (2026-04-22 기준)
 
 - **Mock Skeleton**: S0~S6 완료 · Must 19 mock 동작 · 실제 누적 **9세션**
-- **DQ-7 Admin Credential System (신설, S7a 선행)**: 🟢 **Session 2 완료** (2026-04-22, 27차) · Frontend UI 4 Task(T11 secret-input 공유 + T9·T10 brokerage·binance UI 병렬 + T12 sidebar nav). 구현 **2/4 세션 완료** · 다음 진입 = **Session 3 Deploy (사용자 주도)**.
+- **DQ-7 Admin Credential System (신설, S7a 선행)**: 🟡 **Session 3 부분 진행** (2026-04-22, 30차) · BL-DQ7-1·2·3 시크릿 + .env.local 투입 · T14 rotate 스크립트 · Vercel 프로젝트/env/배포 완료. **Session 3 잔여 = T16 Supabase Redirect URL + 0009 마이그레이션 실 DB 적용 + T17 Cron 4건 dashboard 확인 (모두 사용자 다음 세션 주도)**. 구현 **2/4 세션 완료 + Session 3 ~80%**.
+- **Vercel 첫 production 배포 (DQ-7 30차)**: ✅ https://tudal-tawny.vercel.app · `dpl_397UrMfZET9XLbzxsEDShZmCPZQ4` · target=production · 24 routes · build 48s. 단 **Magic Link 미작동** (T16 Redirect URL 미등록) · **credential 저장 미작동** (0009 미적용). 둘 다 다음 세션에서 사용자가 처리.
 - **실데이터 연결**: **0 / 19** (모두 mock fixture)
 - **실 AI 호출**: **0** (Anthropic wrapper · cost_log 실 INSERT 0)
 - **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). 구 Deferred-X는 S8로 이관·폐기. T8.4·T8.5 UI는 **DQ-7 Session 2에서 이관 완료** (2026-04-22, commits 04d1116·289820e·240e7dc).
 - **실 운용 검증(S9)**: **0일**
 - **법무·이용약관**: ⏸ **Deferred-D 멤버 오픈까지 유예** (2026-04-20 확정, 2026-04-21 재확인). 어드민 내부 도구는 Footer 면책으로 충분.
-- **Git**: working tree clean · HEAD `240e7dc` · **origin/main 14 commits ahead** (push 대기). DQ-7 Session 2: `04d1116` T11 secret-input → `289820e` T9+T10 brokerage·binance UI (병렬 executor sonnet × 2) → `240e7dc` T12 sidebar nav.
-- **검증 게이트**: build **24 routes**(+/admin/settings/brokerage·binance) · lint 0 · test:ci **248 pass** (S2는 UI component test infra 미도입이라 신규 테스트 없음 · 회귀 없음)
+- **Git**: working tree clean (이 문서 갱신 commit 전) · HEAD `4c6f0e2` (vercel.json fix) · origin/main 동기화. 30차 commits: `78dc54b` T14 rotate-cred-mek.mjs(271 lines) → `4c6f0e2` news-sweep cron `*/15`→`0 0` (Hobby plan 호환). `.vercel/`는 repo root에 위치(CLI/webhook 일관) + root `.gitignore` `.vercel/` 추가.
+- **검증 게이트**: build **24 routes** · lint 0 · test:ci **248 pass** · Vercel build 48s exit 0 production READY · 회귀 없음.
 - **어드민 범위**: 본인 + 친구 2명 = 3명(ADMIN_EMAILS 3명). 친구 추가는 나중 작업.
-- **마이그레이션 번호**: 0001~0008 적용 · **0009 = DQ-7 credential** (파일 생성 완료, 실 DB 적용은 Session 3 Vercel 배포 단계) · **0010 = alert_event CHECK 확장** (BL-KRIT-7 재배정).
+- **마이그레이션 번호**: 0001~0008 적용 · **0009 = DQ-7 credential** (파일 생성 완료, 실 DB 적용은 Session 3 잔여 — 사용자 Supabase Dashboard SQL Editor 수동 적용) · **0010 = alert_event CHECK 확장** (BL-KRIT-7 재배정).
+- **Vercel env 투입 완료 (18 entry)**: NEXT_PUBLIC_SUPABASE_URL/ANON_KEY (All 3 env) · SUPABASE_SERVICE_ROLE_KEY (Prod+Preview) · ADMIN_EMAILS/ADMIN_REP_EMAIL (All) · API_CRED_MASTER_KEY/CRON_SECRET (Prod+Preview). 누락된 7개 Preview entry는 Vercel REST API `POST /v10/projects/:id/env?upsert=true`로 일괄 보정 (CLI `vercel env add NAME preview`가 git_branch_required로 거부됨).
+- **Vercel project deviation (사용자 다음 세션 처리)**:
+  - **rootDirectory** = `tudal` ✅ (PATCH `/v9/projects/:id` `{"rootDirectory":"tudal"}`)
+  - **Production Branch** = `main` (spec §6.2 트릭 `production` 가짜 branch는 CLI/REST API 변경 불가 — 친구들 실 자금 시작 전 Vercel Dashboard → Settings → Git에서 수동 변경)
+  - **vercel.json news-sweep** = `0 0 * * *` (UTC 자정 = KST 09:00) — Hobby plan cron daily 제약 회피. M12 빈도 임시 강등. Pro 업그레이드 또는 외부 cron 시 원복.
 
 ---
 
@@ -47,21 +53,32 @@ Last updated: 2026-04-22 (29차 — **로드맵 재조정 완료 · DQ-9·10·11
 ```
 진입 시 이 순서로 확인:
 
-(0) Git: HEAD `240e7dc`, origin/main 14 commits ahead. Session 3 착수 전 push 필수 (Vercel GitHub webhook 자동 빌드 트리거).
+(0) Git: HEAD `4c6f0e2` (vercel.json fix), origin/main 동기화. 30차에서 push 완료 (`84fc7e2..78dc54b` T14 + `78dc54b..4c6f0e2` cron fix).
 
-(1) **DQ-7 Session 3 Deploy가 최우선 · 사용자 주도** (Session 2 완료 2026-04-22, 27차).
-    진입점: `Document/Build/Slices/DQ7-Credentials.md` §9.2 Session 3 + §6 Vercel 배포 플랜 + §10.1 BL-DQ7-1~6
-    Session 2 산출물 (Frontend UI, 2026-04-22 완료 · commits 04d1116·289820e·240e7dc):
-      - `src/components/admin/credentials/secret-input.tsx` 공유 컴포넌트 (autoComplete=new-password · Eye toggle · maxLength counter · useRef unmount cleanup)
-      - `src/app/(admin)/admin/settings/brokerage/{page,form,delete-button}.tsx` KIS UI (Server + Client + Dialog 2-step)
-      - `src/app/(admin)/admin/settings/binance/{page,form,delete-button}.tsx` Binance USDT-M 선물 UI (평행 구조 · 추상화 억제 유지)
-      - `src/app/(admin)/layout.tsx` sidebar nav +2 item (`증권사 키`·`거래소 키` · Flat · S8에서 그룹 재편 예정)
-      - 검증: architect(opus) APPROVED · ai-slop-cleaner CLEAN · 3-gate regression green
+(1) **DQ-7 Session 3 잔여 = 사용자 주도 3건** (T16·0009 적용·T17 — 30차에서 BL-DQ7-1·2·3·T14·Vercel 프로젝트/env/배포까지 처리됨).
+    진입점: `Document/Build/Slices/DQ7-Credentials.md` §9.2 Session 3 + §6.5·§6.7
 
-    **Session 3 범위 (사용자 주도 + Claude 체크리스트 가이드)**: BL-DQ7-1(MEK 생성) · BL-DQ7-2(CRON_SECRET) · BL-DQ7-3(ADMIN_REP_EMAIL 확정) · T14(`scripts/rotate-cred-mek.ts` dry-run) · T15~T17(Vercel 프로젝트 + env 7개 + Supabase Redirect URL + Preview 첫 배포 + Cron 4건 확인).
-    첫 작업: BL-DQ7-1 MEK 생성 = `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` → `.env.local`·Vercel env 동일값 투입 (spec §6.1·§6.8).
+    **Session 3 잔여 (사용자 다음 세션, Claude 체크리스트 가이드)**:
+    1. **T16 Supabase Redirect URL 등록** ⚠ Magic Link 작동 조건
+       - https://supabase.com/dashboard/project/fpriyjykihxhhvqudvdb/auth/url-configuration
+       - Site URL: `https://tudal-tawny.vercel.app`
+       - Redirect URLs: `https://tudal-tawny.vercel.app/auth/callback` + `https://tudal-tawny.vercel.app/**`
+    2. **0009 마이그레이션 실 DB 적용** ⚠ credential 저장 조건
+       - https://supabase.com/dashboard/project/fpriyjykihxhhvqudvdb/sql/new
+       - `tudal/supabase/migrations/0009_dq7_credentials.sql` 내용 복붙 → Run
+       - 적용 검증: `T14` rotate dry-run 재실행 시 "대상 row 없음. 종료." 메시지 (이전엔 table not found)
+    3. **T17 Vercel Cron 4건 dashboard 확인 + Smoke Test (spec §6.7)**
+       - Vercel Dashboard → Project tudal → Cron Jobs 탭 4건 노출 확인
+       - Magic Link 발송 → 클릭 → /admin 렌더 → 어드민 3명 모두 가능
+       - /admin/settings/brokerage·binance 접속 → KIS·Binance 키 1건 저장 → 목록 + DB row + Studio에서 ciphertext 평문 불가 확인
+       - RLS: A 저장 → B 로그인 시 0건
+       - 친구 계정 실계좌 시도 → 403 (대표 전용 가드)
+       - `/api/cron/monthly-batch` curl `-H "Authorization: Bearer $CRON_SECRET"` → 200
 
-(1b) **Session 3 선행 push 권장**: 3 commits(04d1116·289820e·240e7dc) origin 미푸시 → Vercel GitHub webhook 활성화 위해 push 필수.
+(1b) **Vercel Production Branch 트릭 (spec §6.2) 적용 시점**:
+    - 현재 productionBranch=`main` (default). API/CLI로 변경 불가
+    - 친구들 실 자금 시작 전(S9 진입) Vercel Dashboard → Settings → Git → Production Branch → `production` (가짜 branch)로 변경 권장
+    - 그러면 `git push origin main`은 Preview만 만들고, `git push origin main:production`만 Production 배포
 
 (2) DQ-7 완료 후 → S7a (Anthropic wrapper) — BL-KRIT-1 해소 시
     진입점: `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks
@@ -113,18 +130,22 @@ Last updated: 2026-04-22 (29차 — **로드맵 재조정 완료 · DQ-9·10·11
 ### ~~DQ-6~~ ✅ origin push 완료 (2026-04-20, 23차 후속)
 `b762313..77ef624 main -> main` (18 commits 동기화). Repo = `https://github.com/son00326/New_Project_KR_Stock.git`. 이후 세션에서는 commit당 push 가능.
 
-### ~~DQ-7~~ 🟢 Admin Credential System 재설계 + Vercel 첫 배포 — **2026-04-22 spec 확정, 구현 대기**
-**결정 내역 (Q1~Q5, `Slices/DQ7-Credentials.md §1`)**:
-- Q1 (a) 바이낸스·KIS 모두 per-admin DB 저장 (env 아님)
-- Q2 (a) App-layer AES-256-GCM (Node crypto stdlib, zero-dep)
-- Q3 (a) 이 슬라이스에서 즉시 Vercel 배포 · 최소 env 7개
-- Q4 (b) 분리 2테이블 (E9 확장 + E12 신설)
-- Q5 (a) "테스트 연결" UI만 (disabled) · 실 ping은 S8
-**Vercel env 최종 정리**:
-- 이 슬라이스 투입(7개): Supabase 3종 + `ADMIN_EMAILS` + `ADMIN_REP_EMAIL`(신규) + `API_CRED_MASTER_KEY`(신규) + `CRON_SECRET`(신규)
-- Phase별 점진 추가: `ANTHROPIC_API_KEY`(S7a) · `NAVER_*`·`RESEND_*`(S7b) · `TELEGRAM_*`(S7c/d)
-- **영구 미추가**: ~~`KIS_*`~~·~~`BINANCE_*`~~ (per-admin DB로 이관)
-**해소 시 첫 행동**: `Slices/DQ7-Credentials.md §9.2` Session 1 Wave 1 = `src/lib/crypto/aes.ts` TDD
+### ~~DQ-7~~ 🟡 Admin Credential System — **30차 Session 3 부분 진행 (사용자 다음 세션 잔여 3건)**
+**결정 내역 (Q1~Q5, `Slices/DQ7-Credentials.md §1`)**: 그대로 유지
+**30차 진행 결과**:
+- ✅ BL-DQ7-1·2·3: MEK + CRON_SECRET 생성 + ADMIN_REP_EMAIL=`son00326@gmail.com` 확정 + `.env.local` 투입
+- ✅ T14: `tudal/scripts/rotate-cred-mek.mjs` (271 lines, .ts→.mjs deviation 박제 in spec §17)
+- ✅ T15 부분: Vercel CLI v52 업그레이드 + 프로젝트 생성 `son326s-projects/tudal` + GitHub repo 연결 + env 18 entries (REST API로 누락 7개 보정)
+- ✅ T15 부분: 첫 production 배포 https://tudal-tawny.vercel.app (24 routes, build 48s, READY)
+- ⏳ T16: Supabase Redirect URL — 다음 세션 사용자 주도
+- ⏳ 0009 마이그레이션 실 DB 적용 — 다음 세션 사용자 주도 (Supabase Dashboard SQL Editor)
+- ⏳ T17: Cron 4건 dashboard 확인 + Smoke Test §6.7 — 다음 세션 사용자 주도
+
+### ~~DQ-7-d1~~ ✅ Vercel Hobby plan cron daily 제약 — **2026-04-22 30차 해소**
+**문제**: `vercel.json` `news-sweep` `*/15 * * * *` (15분마다 = 96회/일)이 Hobby plan 거부됨.
+**해소 (옵션 B 채택)**: `0 0 * * *` (UTC 자정 = KST 09:00) — M12 빈도 임시 강등.
+**원복 트리거**: Pro 업그레이드($20/월) 또는 외부 cron 서비스(cron-job.org 무료) 도입 시.
+**박제**: spec §17, CodebaseStatus 환경 섹션, 이 문서 §1.
 
 ### DQ-8 🟢 멤버 페이지 Research (Deferred-D 블로커)
 **질문**: 500cap 멤버 UX 설계 전 필요한 경쟁사 리서치 범위·시점
@@ -351,15 +372,21 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 - [x] **T12** Sidebar nav 2 item 추가 (`증권사 키`·`거래소 키` · commit 240e7dc · Flat)
 - [x] **S2 DoD**: build **24 routes**(+brokerage·binance) · lint 0 · test:ci 248/248 · architect(opus) APPROVED · ai-slop-cleaner CLEAN
 
-#### Session 3 — Deploy (사용자 주도, Claude 체크리스트 가이드)
-- [ ] **BL-DQ7-1** MEK 생성: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-- [ ] **BL-DQ7-2** `CRON_SECRET` 생성: `openssl rand -hex 32`
-- [ ] **BL-DQ7-3** `ADMIN_REP_EMAIL` 확정 (예: `shjang1001@gmail.com`)
-- [ ] **T14** `scripts/rotate-cred-mek.ts` (dry-run 기본, 로컬 실행 테스트)
-- [ ] **T15** Vercel 프로젝트 생성 + env 7개 투입 + Production Branch = `production` (main = Preview only)
-- [ ] **T16** Supabase Dashboard Redirect URL 갱신
-- [ ] **T17** 첫 preview 배포 + Cron 4건 실 등록 확인
-- [ ] **S3 DoD**: Preview URL 3명 Magic Link 로그인 + credential 저장 왕복 확인
+#### Session 3 — Deploy (30차 진행 + 사용자 다음 세션 잔여 3건)
+- [x] **BL-DQ7-1** MEK 생성 + `.env.local` + Vercel env 투입 (Prod+Preview)
+- [x] **BL-DQ7-2** `CRON_SECRET` 생성 + 동일 투입
+- [x] **BL-DQ7-3** `ADMIN_REP_EMAIL=son00326@gmail.com` 확정 + 투입
+- [x] **T14** `tudal/scripts/rotate-cred-mek.mjs` (.ts→.mjs deviation, 271 lines, --help/--dry-run/--force 모두 동작 확인)
+- [x] **T15 부분 1** Vercel CLI v41→v52 업그레이드 + Device Flow 인증 (`son00326`)
+- [x] **T15 부분 2** 프로젝트 생성 `son00326s-projects/tudal` (Next.js auto, projectId `prj_CEev6UO5TehtgWQoPZ6ZRDDLBJF9`, teamId `team_1IMygRXejEWSsLNTJNJIwfeL`)
+- [x] **T15 부분 3** GitHub repo 연결 + rootDirectory=`tudal` (PATCH `/v9/projects/:id`) + `.vercel/`을 repo root로 이동(CLI/webhook path 일관)
+- [x] **T15 부분 4** env 18 entries 투입 (CLI add 11 + REST API `POST /v10/projects/:id/env?upsert=true` Preview 7 보정)
+- [x] **T15 부분 5** 첫 production 배포 https://tudal-tawny.vercel.app (`dpl_397UrMfZET9XLbzxsEDShZmCPZQ4`, 24 routes, 48s build)
+- [x] **deviation** Production Branch=`main` 유지 (REST/CLI 변경 불가, dashboard만) · vercel.json news-sweep `*/15`→`0 0` (Hobby plan)
+- [ ] **T16** Supabase Dashboard Redirect URL 갱신 (사용자 다음 세션) — Site URL: `https://tudal-tawny.vercel.app` + Redirect URLs 2건
+- [ ] **0009 마이그레이션 실 DB 적용** (사용자 다음 세션) — Supabase Dashboard SQL Editor에 `tudal/supabase/migrations/0009_dq7_credentials.sql` 복붙 → Run
+- [ ] **T17** Vercel Cron 4건 dashboard 노출 + Smoke Test §6.7 (Magic Link 3명 + credential 왕복 + RLS + 대표 가드 + cron 200)
+- [ ] **S3 DoD**: 위 3건 완료 후 production URL 3명 로그인 + credential 저장 왕복 확인
 
 #### Session 4 — QA · Close (사용자 주도)
 - [ ] **T18** Layer 3 Manual QA 30항 (spec §8.4)
@@ -414,6 +441,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 
 ## §12 최근 세션 (이전은 `git log`)
 
+- **2026-04-22 (30차, DQ-7 Session 3 부분 진행 — Vercel 첫 production 배포 도달)** — 사용자 지시로 Session 3 Deploy 착수. 흐름: 11 commits push(`3c91194..84fc7e2`) → BL-DQ7-1·2·3 시크릿 생성 자동화(Claude가 `node -e crypto.randomBytes` + `openssl rand` 직접 실행) + `.env.local` Edit 투입 + ADMIN_REP_EMAIL=`son00326@gmail.com` 확정 → T14 `tudal/scripts/rotate-cred-mek.mjs` 작성(.ts→.mjs deviation, tsconfig include `**/*.ts` strict 컴파일 회피 + tsx 의존성 제거 · 271 lines · pseudo-transaction 안전 모델 · `--help`·dry-run 동작 검증) → atomic commit `78dc54b` + push. **Vercel 자동화**: CLI v41.3.0 미인증 발견 → `vercel login --github` deprecated changelog 리디렉션 → CLI v41→v52 업그레이드 → 새 OAuth 2.0 Device Flow로 사용자 brower Authorize 완료(WSKQ-XHFB code, Seongnam-si IP 검증) → `vercel link --yes` 신규 프로젝트 `son326s-projects/tudal` 생성 → `vercel git connect` GitHub repo 연결 → `vercel env add` × 11 Production+Development 성공 / Preview 7개 누락(`git_branch_required` non-interactive 거부) → REST API `POST /v10/projects/:id/env?upsert=true` 일괄 보정 7개(`created:7 failed:0`) → rootDirectory=`tudal` PATCH → `vercel deploy --prod`가 path 중첩(`tudal/tudal`) 실패 → `.vercel/`을 repo root로 mv + rootDirectory 재설정 → `vercel deploy --prod` from repo root → **Hobby plan cron daily 제약**(`*/15 * * * *` 거부) 발견 → vercel.json `news-sweep` `*/15`→`0 0` 변경(옵션 B 사용자 권장 채택) + atomic commit `4c6f0e2` + push → 재배포 성공 https://tudal-tawny.vercel.app (`dpl_397UrMfZET9XLbzxsEDShZmCPZQ4`, READY, 24 routes, build 48s). **Production Branch deviation**: `link.productionBranch` PATCH 거부(`should NOT have additional property "link"`) → `main` 유지(dashboard 수동 변경만 가능) · spec §6.2 트릭은 S9 진입 전 사용자 dashboard에서 적용 권장. **사용자 다음 세션 잔여 3건**: T16 Supabase Redirect URL · 0009 마이그레이션 실 DB 적용 · T17 Cron dashboard 확인 + Smoke Test. **root .gitignore에 `.vercel/` 추가** (보안 핫픽스, repo root에 .vercel 생성됐는데 root .gitignore는 .vercel 패턴 없었음). 코드 변경: vercel.json 1줄 + scripts/rotate-cred-mek.mjs(신규 271줄) + .env.local 3줄(gitignored) + .gitignore 1줄. 검증: build/lint/test:ci 3-gate green · Vercel build exit 0. HEAD `4c6f0e2`, origin/main 동기화 (이 문서 갱신 commit 전).
 - **2026-04-22 (29차, Step 2 로드맵 재조정 — HANDOFF만 반영)** — 28차 cleanup에 이어 사용자와 Q1~Q5 논의 후 로드맵 v2 확정. 사용자 결정: **(Q1)** 자동매매 실체결 최단 경로 + **S7b는 Short List 30 재조정 필수 입력이므로 강등 취소**(제 초안 오류 정정) · **S7c·S7d만 강등 큐** · **(Q2)** KIS 3명 각자 계정 · 동시 진행 · **(Q3)** 바이낸스 testnet+mainnet 양쪽 구현 · IP/KYC 이슈 없음(사용자 실 운영 경험) · **(Q4)** 리스크 5배 그대로 박제 · **(Q5)** KIS 신청 사용자 진행 중(완료 시 별도 보고). 자동매매 알고리즘 튜닝은 S8 구현 후 사용자가 여러 소스 투입해서 수정(Strategy drop-in + AI 어댑터 embed 경로 그대로). **자동매매 실체결 도달 = 기존 14세션 → 9세션**(총 11 세션: DQ-7 잔여 2 + S7a 1 + S7e 2 + S7b 2 + S8-Scaffold 2 + S8-Live 2). **편집 범위 = HANDOFF만**(사용자 지시 "우선 문서만 HANDOFF에 전부 반영") — ProgressDashboard §2 "Deferred-X 건너뜀" 잔여 스테일 1건은 다음 기회에. 편집: §1 Last updated · §2 진입 결정 트리 (3) DQ-8만 남음 반영 · §3 DQ-9·10·11 해소 박제 · §4 BL-KRIT-9 해소 · §6 전면 재작성 (v2 다이어그램 · 세션 표 · 강등 큐 · 외부 신청 병행 트랙) · §9 S8 마이그 0011 명시 · §12 29차 엔트리. 1 atomic 커밋. 다음 세션 진입점 불변 = **DQ-7 Session 3 Vercel 배포**.
 - **2026-04-22 (28차, 문서 정합 cleanup — 로드맵 재조정 미수행)** — DQ-7 Session 2 완료 후 사용자 지시로 전체 문서 정독 + 스테일 포인터·구조 불일치 전수 정리. 2단계 분리 채택: Step 1 = 문서 cleanup(지금) · Step 2 = 로드맵 재조정(추후 HANDOFF §6·§2만). **이번 세션 범위 = Step 1만**. 6 User Stories / 5 atomic commits / 코드 0건 · 로드맵 편집 0건 · 보존 라인 6군데 불변. 주요 편집: (a) Archive 이관 — `AutoTrading.md`·`AutoTrading-AI구조설계.md` → `Document/Archive/` + ⚠️ 경고 prefix (D11 이전 "자동매매 독립 트랙" 가정 기반 리서치 원자료, S8 AI 어댑터 drop-in 시 참조 보존). (b) `S8-AutoTrading.md` 구조 불일치 3곳 — T8.1 마이그 번호 **0010→0011** 정정(E12는 DQ-7 0009 선행 생성) · §엔티티 신규 E12 축소(S8 신규는 E13~E17만) · 선행 문서 경로 Archive/ 반영. (c) HANDOFF §1 line 35 "이관 예정"→"이관 완료" · §4 BL-KRIT-8 "0010 E12~E16"→"0011 E13~E17 (E12 DQ-7 선행)" · §11 문서 가이드 ServicePlan-Admin v1.2→v1.3 + §12 28차 엔트리 추가. (d) ProgressDashboard 상단 메타·DQ-7 행·BL-KRIT-8 행 갱신. (e) CodebaseStatus 최근 갱신에 26차·27차 엔트리 + tudal 현재 상태 22→24 routes·190→248 tests 반영. (f) CLAUDE.md + ServicePlan.md + BusinessPlan.md + Deferred-Brokerage.md 포인터 v1.2→v1.3 · AutoTrading 참조 경로 Archive/ 반영. 검증: build 24 routes · lint 0 · test:ci 248/248 (코드 변경 0이므로 회귀 없음). dead link grep 0. 다음 진입 = **Step 2 로드맵 재조정 논의** (Q1~Q5 결정 → HANDOFF §6·§2만 수정). HEAD (cleanup 종료 시), origin/main 여러 commits ahead (push 대기).
 - **2026-04-22 (27차, DQ-7 Session 2 Frontend UI 완료)** — 실행 방식 옵션 B(`/ralph` 자율 루프). 4 Task 3 Wave 분해: **Wave 5** T11 `secret-input.tsx` 공유 컴포넌트 (inline 구현, 98줄, `useRef` unmount cleanup + `autoComplete="new-password"` + maxLength counter — architect가 "not over-engineered" 명시 승인) → **Wave 6** T9·T10 병렬 디스패치 (executor sonnet × 2, 파일 겹침 0, 각 ~3분 · `/admin/settings/{brokerage,binance}` page + form + delete-button 6 파일 780줄) → **Wave 7** T12 `layout.tsx` sidebar nav +2 item(+3줄). Wave별 build + lint + test:ci 3-gate green 확인 후 atomic commit: `04d1116` T11 → `289820e` T9+T10 → `240e7dc` T12. **Ralph Step 7** architect(opus) APPROVED + optimality 통과 (spec §5.1 추상화 억제 유지 타당, 임박한 S8 divergence 대비). **Step 7.5** `ai-slop-cleaner` CLEAN verdict(0 edits). **Step 7.6** regression 3-gate 재확인 green. **Step 8** `/oh-my-claudecode:cancel` 클린 종료. 라우트 22 → 24 (+`/admin/settings/brokerage`·`binance`). tests 248/248 (UI component test infra 미도입이라 신규 테스트 없음, 회귀 없음). 사소한 수동 개입 1건: `binance/page.tsx` 배지 스타일 Tailwind v4 위반 `hsl(var(--muted))` → `var(--muted)` + `color-mix(...)` 정규화(Wave 6 inline fix). HEAD `240e7dc`, origin/main 14 ahead(push 대기, Session 3 직전 권장). HANDOFF 최소 갱신 §1·§2·§9·§12 — ProgressDashboard·CodebaseStatus는 Session 4 T20 일괄 기조 유지. 다음 진입 = **Session 3 Deploy (사용자 주도)**: BL-DQ7-1 MEK 생성 → T14 rotate 스크립트 → T15~T17 Vercel 배포.

@@ -2,10 +2,10 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-22 (28차 — **DQ-7 Session 2 완료 + 문서 정합 cleanup**)
-총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (구현 2/4 세션 완료, 2026-04-22)** + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
-총 예상 세션: 9(완료) + **4(DQ-7, 2 완료)** + 8(S7) + 4(S8) = **약 25 세션** + S9 운용 4~8주
-**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 2/4 (Session 1·2 완료)** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일**
+Last updated: 2026-04-22 (30차 — **DQ-7 Session 3 부분 진행 · Vercel 첫 production 배포 ✅ https://tudal-tawny.vercel.app · T16·0009·T17 사용자 다음 세션**)
+총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~80% 진행, 2026-04-22)** + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
+총 예상 세션: 9(완료) + **4(DQ-7, 2 + 부분 1 완료)** + 8(S7) + 4(S8) = **약 25 세션** + S9 운용 4~8주
+**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~70% (Session 1·2 ✅ + Session 3 ~80%)** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel 첫 prod 배포 ✅ (24 routes, build 48s, READY)**
 완성 기준 = Mock + DQ-7 Credential 인프라 + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **5조건 AND** → **미달성**
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
@@ -32,7 +32,7 @@ S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ Mock 완료 | ⚪ cost_log stub만 · S7a·e 대기 | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
-| **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | 🟢 **Session 2 완료(2026-04-22, 구현 2/4) · Session 3 Deploy 대기** | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
+| **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | 🟡 **Session 3 부분(2026-04-22 30차) — BL-DQ7-1·2·3·T14·Vercel 프로젝트/env/배포 ✅ · 첫 prod URL https://tudal-tawny.vercel.app · T16 Redirect URL + 0009 적용 + T17 Cron/Smoke Test 사용자 다음 세션** | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
 | **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | ⚪ **미착수** (HANDOFF §6, DQ-7 완료 후) | — |
 | **S8** | **자동매매 프레임** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터) | Must 19 밖 (어드민 집행 서브시스템) | 4 (스캐폴드 2 + 실 체결 2) | — | ⚪ **미착수** (2026-04-21 D16) | [S8-AutoTrading.md](./Slices/S8-AutoTrading.md) |
 | **S9** | **어드민 운용 검증** | Mock+실 혼합 → 실계좌/메인넷 전환 | 4~8주 (세션 외) | — | ⚪ 미착수 | — |

@@ -5,9 +5,9 @@
 slice_id: DQ7
 slice_name: 어드민 per-admin API 크레덴셜 저장 체계 + Vercel 배포 환경변수 세팅
 architect_id: DQ7 (S7 이전 독립 인프라 트랙, 2026-04-22 brainstorming 확정)
-status: ⚪ 대기 (spec 승인 후 writing-plans 단계로 이관)
+status: 🟡 Session 3 부분 진행 (BL-DQ7-1·2·3·T14·Vercel 프로젝트/env/배포 완료 · T16·0009·T17 사용자 다음 세션)
 expected_sessions: 4
-current_progress: 0%
+current_progress: ~70% (Session 1 ✅ + Session 2 ✅ + Session 3 ~80%)
 ---
 ```
 
@@ -709,9 +709,14 @@ Session 2 — Frontend
   Wave 6: T9 brokerage · T10 binance             [병렬 2]
   Wave 7: T12 sidebar                            [순차]
 
-Session 3 — Deploy · Rotate
-  Wave 8: T14 rotate script                      [순차]
-  Wave 9: T15·T16·T17 (사용자 수동 + 가이드)     [수동]
+Session 3 — Deploy · Rotate (30차 부분 진행)
+  Wave 8: T14 rotate-cred-mek.mjs (.ts→.mjs deviation)            ✅ 30차
+  Wave 9a: Vercel CLI v52 업그레이드 + Device Flow + 프로젝트 생성 ✅ 30차 (Claude 자동화)
+  Wave 9b: env 18 entries (CLI 11 + REST API 7 Preview 보정)       ✅ 30차
+  Wave 9c: rootDirectory=tudal + .vercel/ repo root + 첫 prod 배포 ✅ 30차
+  Wave 9d: T16 Supabase Redirect URL                              ⏳ 사용자 다음 세션
+  Wave 9e: 0009 마이그레이션 실 DB 적용 (Supabase SQL Editor)      ⏳ 사용자 다음 세션
+  Wave 9f: T17 Cron dashboard + Smoke Test §6.7                  ⏳ 사용자 다음 세션
 
 Session 4 — QA · Close
   Wave 10: T18·T19 QA (사용자 수동)              [수동]
@@ -844,6 +849,15 @@ S8 자동매매·주식 분석 알고리즘 추가 관련:
 - **2026-04-22**: BL-KRIT-7 마이그레이션 번호 재배정 결정 (0009 → 0010). DQ-7이 0009 선점.
 - **2026-04-22**: `types/admin.ts BrokerageConnection` 폐기 방향 (빈 배열 mock만 참조). Session 1 Wave 4에서 grep 후 확정.
 - **2026-04-22**: `ADMIN_REP_EMAIL` env 신설 — 실계좌·메인넷 저장 권한자. 추정값 `shjang1001@gmail.com` (사용자 확인 대기).
+- **2026-04-22 (30차)**: `ADMIN_REP_EMAIL=son00326@gmail.com` 확정 (사용자 답).
+- **2026-04-22 (30차)**: T14 파일 확장자 `.ts` → `.mjs` deviation. 이유: tudal/tsconfig.json `include: ["**/*.ts"]`로 `tudal/scripts/*.ts`가 strict 컴파일 대상 진입 → 빌드 부담. .mjs는 type-check 영향 0 + `npx tsx` 의존성 0 + `node` 직접 실행. 핵심 요구사항(인자/동작/안전 모델)은 spec §3.4와 동일.
+- **2026-04-22 (30차)**: T14 안전 모델 deviation. spec §7.7 "단일 BEGIN/COMMIT 트랜잭션 all-or-nothing"은 Supabase JS auto-commit이라 불가 → pseudo-transaction (메모리 검증 후 일괄 UPDATE). 대상 row ~30 미만이라 부분 실패 가능성 매우 낮음. 향후 RPC 함수로 업그레이드 가능.
+- **2026-04-22 (30차)**: Vercel CLI v41.3.0 → v52.0.0 업그레이드. 이유: v41 OAuth flow(`--github`/`--gitlab`/`--bitbucket`/email-arg) 모두 deprecated, 410 에러. v52는 새 OAuth 2.0 Device Flow 지원 (8자리 코드 + 위치/IP 검증).
+- **2026-04-22 (30차)**: `vercel env add NAME preview` 명령이 `git_branch_required` (non-interactive 거부) — Preview 7개 entry 누락 발견. REST API `POST /v10/projects/:id/env?upsert=true` body array로 일괄 보정 (created:7, failed:0). CLI 의존성 한계 박제.
+- **2026-04-22 (30차)**: `.vercel/` 위치 = repo root. 이유: rootDirectory=`tudal` 설정 + cwd=tudal에서 deploy 시 `tudal/tudal` path 중첩 에러. 정석 = `.vercel/`을 repo root에 두고 CLI도 repo root에서 실행 (rootDirectory가 cwd로부터의 상대 path를 따라감).
+- **2026-04-22 (30차)**: Production Branch deviation. `link.productionBranch` PATCH `/v9/projects/:id` body에 `link` 필드 거부됨 (`should NOT have additional property "link"`). 결국 `main` 유지. spec §6.2 "Production = `production` 가짜 branch" 트릭은 Vercel Dashboard → Settings → Git에서만 변경 가능. **친구들 실 자금 시작 전(S9 진입) 사용자가 dashboard에서 수동 변경 권장**.
+- **2026-04-22 (30차)**: `vercel.json` `news-sweep` `*/15 * * * *` → `0 0 * * *` (UTC 자정 = KST 09:00). 이유: Vercel Hobby plan cron 1일 1회 제약. M12 뉴스 sweep 빈도 임시 강등 — 어드민 3명 내부 도구 초기엔 충분. **원복 트리거**: Pro 업그레이드($20/월) 또는 외부 cron(cron-job.org 무료) 도입 시.
+- **2026-04-22 (30차)**: 첫 production 배포 성공 — https://tudal-tawny.vercel.app (`dpl_397UrMfZET9XLbzxsEDShZmCPZQ4`, READY). 단 Magic Link 미작동(T16 미완) + credential 저장 미작동(0009 미적용) — 사용자 다음 세션 잔여.
 
 ---
 
@@ -858,3 +872,6 @@ S8 자동매매·주식 분석 알고리즘 추가 관련:
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-22 | 초기 생성. superpowers:brainstorming 산출물. Q1~Q5 5축 확정 · 8 섹션 설계 · 20 Tasks · 4 세션 예상 · 에이전트·스킬 매핑 · BL-DQ7-1~6 · R-DQ7-1~6. S8-AutoTrading.md T8.4·T8.5 선행 이관 표기는 S8 킥오프 시 동기화 예정. |
+| 2026-04-22 (26차) | Session 1 Backend·DB 완료. 11 Task inline TDD. aes 14 tests · mask 5 · validation 18 · integration 20 · 0009 마이그레이션 + rollback. build 22 routes · lint 0 · test:ci 248 pass. |
+| 2026-04-22 (27차) | Session 2 Frontend UI 완료. /ralph 자율 루프 3 Wave. T11 secret-input 공유 + T9·T10 brokerage·binance UI(executor sonnet × 2 병렬) + T12 sidebar nav. 라우트 22→24. architect APPROVED + ai-slop-cleaner CLEAN. |
+| 2026-04-22 (30차) | Session 3 부분 진행. BL-DQ7-1·2·3·T14 완료. Vercel CLI v52 업그레이드 + Device Flow 인증 + 프로젝트 `son326s-projects/tudal` 생성 + GitHub repo 연결 + env 18 entries(REST API Preview 7개 보정) + rootDirectory=tudal + .vercel/ repo root 이동 + 첫 production 배포 https://tudal-tawny.vercel.app. **Deviation 박제**: T14 .ts→.mjs · pseudo-transaction · Production Branch=main 유지(dashboard 수동 변경 옵션) · vercel.json news-sweep `*/15`→`0 0`(Hobby plan). **사용자 다음 세션 잔여**: T16 Supabase Redirect URL · 0009 마이그레이션 실 DB 적용 · T17 Cron dashboard + Smoke Test §6.7. |

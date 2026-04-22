@@ -12,6 +12,23 @@
 
 ## 최근 갱신
 
+**2026-04-22** (30차): **DQ-7 Session 3 부분 진행 — Vercel 첫 production 배포 도달**.
+- 새 파일: `tudal/scripts/rotate-cred-mek.mjs` (271 lines · MEK 로테이션 도구 · `--old`/`--new`/`--dry-run` · `.env.local` 자동 로드 · service_role SELECT + memory verify + UPDATE · `.ts`→`.mjs` deviation 박제)
+- `.env.local` 신규 3 키 (gitignored): `API_CRED_MASTER_KEY` · `CRON_SECRET` · `ADMIN_REP_EMAIL=son00326@gmail.com`
+- `tudal/vercel.json` 변경: `news-sweep` `*/15 * * * *` → `0 0 * * *` (Vercel Hobby plan cron daily 제약 회피)
+- `.gitignore` (root): `.vercel/` 추가 (보안 핫픽스 — repo root에 .vercel 생성됐는데 패턴 누락)
+- `.vercel/` 위치: **repo root** (`/Users/yong/New_Project_KR_Stock/.vercel/`) — rootDirectory=`tudal` 설정 + cwd=tudal에서 deploy 시 `tudal/tudal` path 중첩 회피
+- Vercel 인프라:
+  - 프로젝트 `son326s-projects/tudal` (projectId `prj_CEev6UO5TehtgWQoPZ6ZRDDLBJF9`, teamId `team_1IMygRXejEWSsLNTJNJIwfeL`)
+  - GitHub repo 연결 `son00326/New_Project_KR_Stock` · Production Branch=`main` (CLI/REST 변경 불가, dashboard만)
+  - Framework=nextjs · rootDirectory=`tudal`
+  - Env 18 entries (7 keys × 2~3 환경): CLI add 11 + REST API `POST /v10/projects/:id/env?upsert=true`로 Preview 7개 보정
+  - 첫 production 배포: https://tudal-tawny.vercel.app · `dpl_397UrMfZET9XLbzxsEDShZmCPZQ4` · READY · target=production · 24 routes · build 48s · TypeScript 통과
+- Vercel CLI: v41.3.0 → **v52.0.0** 업그레이드 (v41 OAuth flows 모두 deprecated 410)
+- commits: `78dc54b` T14 + `4c6f0e2` cron fix · 30차 push 완료(`3c91194..78dc54b` + `78dc54b..4c6f0e2`)
+- 검증: build 24 routes · lint 0 · test:ci 248/248 · Vercel build exit 0 · 회귀 0
+- **사용자 다음 세션 잔여**: T16 Supabase Redirect URL · 0009 마이그레이션 실 DB 적용 · T17 Cron dashboard + Smoke Test §6.7
+
 **2026-04-22** (28차): **문서 정합 cleanup** — DQ-7 Session 2 완료 후 전수 정독으로 스테일 포인터·구조 불일치 일괄 정리. Archive 이관: `AutoTrading.md`·`AutoTrading-AI구조설계.md` → `Document/Archive/` + ⚠️ 경고 prefix (D11 이전 자동매매 독립 트랙 가정 기반 · S8 AI 어댑터 drop-in 시 참조 보존). S8-AutoTrading.md T8.1 마이그 번호 **0010→0011** 정정(E12는 DQ-7 0009 선행). HANDOFF §1·§4·§11 · ProgressDashboard §1·§5 · CodebaseStatus(이 문서) · CLAUDE.md + ServicePlan.md v1.2→v1.3. 로드맵 순서 재조정은 Step 2로 유예. 코드 변경 0건 · build/lint/test:ci 회귀 0.
 
 **2026-04-22** (27차): **DQ-7 Session 2 Frontend UI 완료** — `/ralph` 자율 루프 3 Wave. 라우트 22 → **24** (+`/admin/settings/brokerage`·`/admin/settings/binance`). 신규 7 파일 + 수정 1 · +881줄. architect(opus) APPROVED · ai-slop-cleaner CLEAN · 3-gate regression green · tests 248/248 (UI component 테스트 인프라 미도입으로 신규 테스트 0 · 회귀 0). commits: `04d1116` T11 secret-input → `289820e` T9+T10 brokerage·binance UI (executor sonnet × 2 병렬) → `240e7dc` T12 sidebar nav → `4140309` HANDOFF 갱신.
@@ -80,7 +97,7 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-04-22 · DQ-7 Session 2 완료 기준 · **실데이터 연결 0/19**)
+## tudal/ 현재 상태 (2026-04-22 · DQ-7 Session 3 부분 완료 기준 · **실데이터 연결 0/19** · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
 - TypeScript 파일: `src/` 기준 **~152개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130 → S5b 140 → S6 145 → DQ-7 S1 net ~145 (+5 credential −1 mock) → DQ-7 S2 ~152 (+7 UI))
