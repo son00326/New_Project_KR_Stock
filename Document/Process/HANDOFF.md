@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-04-22 (25차 — **DQ-7 Admin Credential System 재설계 spec 작성 + origin 동기화**)
+Last updated: 2026-04-22 (26차 — **DQ-7 Session 1 Backend·DB 구현 완료 · 248 tests green**)
 
 **목적**: 다음 세션이 이 파일 하나만 보고 즉시 이어갈 수 있게 하는 단일 진입점.
 **원칙**: 미래 지향. "다음에 무엇을 할지"와 "아직 무엇이 결정 안 났는지"만 담는다.
@@ -29,16 +29,16 @@ Last updated: 2026-04-22 (25차 — **DQ-7 Admin Credential System 재설계 spe
 ## §1 현재 상태 (2026-04-22 기준)
 
 - **Mock Skeleton**: S0~S6 완료 · Must 19 mock 동작 · 실제 누적 **9세션**
-- **DQ-7 Admin Credential System (신설, S7a 선행)**: ✅ **spec 작성 완료** (2026-04-22, 25차) · 구현 ⚪ 미착수 · 4 세션 예상 · 다음 진입 = Session 1 Wave 1 (aes.ts TDD)
+- **DQ-7 Admin Credential System (신설, S7a 선행)**: 🟢 **Session 1 완료** (2026-04-22, 26차) · Backend·DB 구현 + 58 신규 tests. 구현 1/4 세션 완료 · 다음 진입 = **Session 2 Wave 5 (Frontend UI)**. Session 3·4는 사용자 주도.
 - **실데이터 연결**: **0 / 19** (모두 mock fixture)
 - **실 AI 호출**: **0** (Anthropic wrapper · cost_log 실 INSERT 0)
 - **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). 구 Deferred-X는 S8로 이관·폐기. T8.4·T8.5 UI는 **DQ-7에서 선행 이관 예정**.
 - **실 운용 검증(S9)**: **0일**
 - **법무·이용약관**: ⏸ **Deferred-D 멤버 오픈까지 유예** (2026-04-20 확정, 2026-04-21 재확인). 어드민 내부 도구는 Footer 면책으로 충분.
-- **Git**: working tree clean · HEAD `962840a` · **origin/main 동기화 완료** (2026-04-22 push). `9385e97` D16 · `1e9e116` DQ-5 · `962840a` DQ-7 spec 포함.
-- **검증 게이트**: build 22 routes · lint 0 · test:ci **190 pass** (모두 Mock 기반)
+- **Git**: working tree clean · HEAD `3a6a348` · **origin/main 11 commits ahead** (push 대기). DQ-7 Session 1: `3157fc8` aes → `6ce6e4e` migration → `8d5669f` mask → `3981076` validation → `ad939b0` types → `35eed10` brokerage → `49a807c` exchange → `36e4234` integration → `dc4a781` cleanup → `f167a65` env → `3a6a348` lint.
+- **검증 게이트**: build 22 routes · lint 0 · test:ci **248 pass** (190 Mock baseline + DQ-7 신규 58: aes 14 + mask 5 + validation 18 + integration 20 + 기타 +1)
 - **어드민 범위**: 본인 + 친구 2명 = 3명(ADMIN_EMAILS 3명). 친구 추가는 나중 작업.
-- **마이그레이션 번호**: 0001~0008 적용 · **0009 = DQ-7 credential** (선점) · **0010 = alert_event CHECK 확장** (BL-KRIT-7 재배정).
+- **마이그레이션 번호**: 0001~0008 적용 · **0009 = DQ-7 credential** (파일 생성 완료, 실 DB 적용은 Session 3 Vercel 배포 단계) · **0010 = alert_event CHECK 확장** (BL-KRIT-7 재배정).
 
 ---
 
@@ -47,27 +47,24 @@ Last updated: 2026-04-22 (25차 — **DQ-7 Admin Credential System 재설계 spe
 ```
 진입 시 이 순서로 확인:
 
-(0) Git: origin/main 동기화 완료 (HEAD 962840a). 바로 작업 시작 가능.
+(0) Git: HEAD `3a6a348`, origin/main 11 commits ahead. Session 2 착수 전 push 권장.
 
-(1) **DQ-7 Admin Credential 구현이 최우선** (2026-04-22 spec 확정).
-    진입점: `Document/Build/Slices/DQ7-Credentials.md`
-      §9.1 Task 인벤토리 (T1~T20, Wave·Agent·Skill 열)
-      §9.2 세션 분해 (4 Session · 12 Wave)
-      §9.3 wave별 에이전트·스킬 매핑
+(1) **DQ-7 Session 2 Frontend UI가 최우선** (Session 1 완료 2026-04-22, 26차).
+    진입점: `Document/Build/Slices/DQ7-Credentials.md` §9.2 Session 2 섹션 + §5 Frontend 설계
+    Session 1 산출물 (Backend·DB, 2026-04-22 완료):
+      - `src/lib/crypto/aes.ts` AES-256-GCM + 14 tests
+      - `supabase/migrations/0009_dq7_credentials.sql` + rollback (실 DB 적용은 Session 3)
+      - `src/lib/credentials/{types,mask,validation,brokerage,exchange}.ts` + 43 tests
+      - `.env.example` 갱신 (`API_CRED_MASTER_KEY`·`ADMIN_REP_EMAIL` 신규)
+      - legacy `BrokerageConnection` + mock 삭제
 
-    **실행 전략 (2026-04-22 확정, 25차)**: **옵션 A — writing-plans 짧게 → /ralph Session 1 → 사용자 수동 S3·S4**
-      - Session 1·2: `/ralph` 단독 (Playbook §2.5: 4~6 Tasks. Session 1 = 8 Tasks는 경계지만 TDD wave 분할로 ralph 래핑 가능)
-      - Session 3·4: 사용자 주도 수동 (Vercel 계정·env·QA는 자동화 불가)
-      - 선행: superpowers:writing-plans로 spec을 Wave 체크리스트·의존성 DAG·failure 복구 매뉴얼로 변환
-    **이번 세션 범위**: **Session 1 DoD까지** (§9 Session 1 섹션 전체 체크 + `npm run build·lint·test:ci` green 예상 220 tests)
+    **Session 2 범위**: Frontend 4 Task (T11 secret-input · T9 brokerage UI · T10 binance UI · T12 sidebar nav). ralph 단독 또는 inline 실행.
+    권장 실행 방식: `/ralph` 단독 (4 Tasks = Playbook §2.5 권장 범위). Wave 6은 `superpowers:dispatching-parallel-agents`로 T9·T10 병렬.
+    첫 작업: Session 2 Wave 5 = `components/admin/credentials/secret-input.tsx` 공유 컴포넌트
+      → 에이전트: executor(sonnet)
+      → 참조: spec §5.3·§5.7 (UX 결정 매트릭스 + 클라이언트 보안 hygiene)
 
-    첫 작업: Session 1 Wave 1 = `src/lib/crypto/aes.ts` TDD
-      → 에이전트: executor(opus)
-      → 스킬: `superpowers:test-driven-development` + context7 MCP (Node crypto docs)
-    선행 블로커 (spec §10.1 BL-DQ7):
-      - BL-DQ7-1: MEK 생성 — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-      - BL-DQ7-3: `ADMIN_REP_EMAIL` 확정 (추정 shjang1001@gmail.com)
-      - BL-DQ7-5: 번호 재배정 승인 (0009 DQ-7 / 0010 alert_event) — spec 검토 시 이미 확인됨
+(1b) **Session 2 착수 전 writing-plans 선행 여부**: spec §5가 충분히 구체적이라 writing-plans 생략 가능. 불확실 시 `superpowers:writing-plans`로 Session 2 상세 플랜 작성 후 ralph 투입.
 
 (2) DQ-7 완료 후 → S7a (Anthropic wrapper) — BL-KRIT-1 해소 시
     진입점: `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks
@@ -324,16 +321,16 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 
 ### DQ-7 Admin Credential System (2026-04-22 신설, S7a 선행) — 4 세션 분해
 
-#### Session 1 — Backend · DB (ralph 자동 실행, **이번 세션 범위**)
-- [ ] **T1** `src/lib/crypto/aes.ts` + 12 tests — TDD로 선행 (executor(opus) + `superpowers:test-driven-development` + context7 Node crypto)
-- [ ] **T4** 마이그레이션 **0009** (E9 확장 + E12 신설 + RLS + `0009_rollback.sql`) — executor(sonnet) + context7 Supabase RLS
-- [ ] **T2** `src/lib/credentials/mask.ts` + 5 tests
-- [ ] **T3** `src/lib/credentials/validation.ts` + 8 tests
-- [ ] **T7** `src/lib/credentials/{types,brokerage,exchange}.ts` Server Actions
-- [ ] **T8** Integration tests ~20 cases (Supabase vi.mock)
-- [ ] **T6** `types/admin.ts` cleanup — 기존 `BrokerageConnection` 폐기 (grep 사용처 0건 확인 후 삭제)
-- [ ] **T13** `.env.example` 갱신 — 신규 3 키(`ADMIN_REP_EMAIL`·`API_CRED_MASTER_KEY`·`CRON_SECRET`) · KIS·Binance 주석화
-- [ ] **S1 DoD**: `npm run build` + `npm run lint` + `npm run test:ci` green (예상 ~220 tests, +30)
+#### Session 1 — Backend · DB ✅ **완료 (2026-04-22, 26차)**
+- [x] **T1** `src/lib/crypto/aes.ts` + **14 tests** (roundtrip · IV uniqueness 100회 · UTF-8·empty·10KB · tamper 4 · MEK config 3) · TDD red→green
+- [x] **T4** 마이그레이션 **0009** (E9 재설계 + E12 신설 + RLS `*_admin_self`) + `0009_dq7_credentials.rollback.sql`. 실 DB 적용은 Session 3
+- [x] **T2** `src/lib/credentials/mask.ts` + 5 tests
+- [x] **T3** `src/lib/credentials/validation.ts` + **18 tests** (KIS·Binance regex + label + cleanInput)
+- [x] **T7** `src/lib/credentials/{types,brokerage,exchange}.ts` Server Actions (rep guard · 23505 매핑 · testStub `pending-s8`)
+- [x] **T8** Integration tests **20 cases** (`vi.hoisted` Supabase mock)
+- [x] **T6** `types/admin.ts` cleanup — `BrokerageConnection`·`BrokerageScope` 제거 · `mock-admin-brokerage.ts` 삭제
+- [x] **T13** `.env.example` 갱신 — `API_CRED_MASTER_KEY`·`ADMIN_REP_EMAIL` 신규 · KIS·Binance 블록 주석화
+- [x] **S1 DoD**: build 22 routes · lint 0 · test:ci **248 pass** (190 + 58 신규, 목표 ~220 초과) ✅
 
 #### Session 2 — Frontend (ralph 자동 실행, 다음 세션)
 - [ ] **T11** `components/admin/credentials/secret-input.tsx` 공유 컴포넌트
@@ -405,6 +402,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 
 ## §12 최근 세션 (이전은 `git log`)
 
+- **2026-04-22 (26차, DQ-7 Session 1 Backend·DB 구현 완료)** — 실행 전략 옵션 A 조정(/ralph 대신 inline TDD — crypto 보안 크리티컬 특성상 red→green 사이클 직접 관찰 필요). 11 Task 순차 완료: T1 aes(14 tests, IV uniqueness 100회·tamper 4·MEK config 3) → T2 migration 0009(E9 재설계 + E12 신설 + RLS + rollback.sql, 실 DB 적용은 Session 3) → T3 mask(5) → T4 validation(18) → T5 types(ActionResult discriminated union) → T6 brokerage.ts(rep guard · 23505 매핑 · testStub pending-s8) → T7 exchange.ts(Binance 평행 구조) → T8 integration(vi.hoisted 20 cases) → T9 cleanup(BrokerageConnection·BrokerageScope·mock 삭제) → T10 .env.example(API_CRED_MASTER_KEY·ADMIN_REP_EMAIL 신규 + KIS/Binance 주석화) → lint fix(_prefix 제거, eslint config 미변경). **DoD 3게이트 green**: build 22 routes · lint 0 · test:ci 248 pass(+58). HEAD `3a6a348`, origin/main 11 ahead(push 대기). HANDOFF 최소 갱신(§1·§9 Session 1 체크박스·§12) — ProgressDashboard·CodebaseStatus는 Session 4 T20 일괄 기조 유지. 다음 진입 = Session 2 Wave 5 `secret-input.tsx` 공유 컴포넌트.
 - **2026-04-22 (25차, DQ-7 brainstorming + spec 작성 + 문서 정합 + 실행 전략 확정)** — `superpowers:brainstorming` 스킬로 DQ-7 재설계 진행. 사용자 확정 축 Q1~Q5: (Q1=a) 바이낸스·KIS 모두 per-admin DB 저장 · (Q2=a) App-layer AES-256-GCM · (Q3=a) 이 슬라이스에서 즉시 Vercel 배포 · (Q4=b) 분리 2테이블 (E9 확장 + E12 신설) · (Q5=a) 테스트 버튼 UI만(disabled). 설계 8 섹션 사용자 승인 → `Document/Build/Slices/DQ7-Credentials.md` 신규 작성(858 줄, 17 섹션, 20 Tasks, 4 세션, 12 Wave, task별 agent·skill 매핑). §13에 자동매매·주식 분석 알고리즘 언어 확장성 박제. 마이그레이션 번호 재배정: DQ-7=0009 선점, BL-KRIT-7=0010. **문서 정합성 2 pass**: (1차) HANDOFF·ProgressDashboard·CLAUDE.md·S8 slice · DQ7 §9.1 Task 표 agent/skill 열 추가. (2차) S7-RealData·CodebaseStatus·ServicePlan-Admin(v1.3 + D17)·Deferred-Brokerage 스테일 포인터 전수 수정. **실행 전략 확정 (25차 후반)**: 옵션 A = writing-plans 짧게 → `/ralph` Session 1(8 Tasks) → 사용자 주도 Session 3·4. 이번 세션 범위 = Session 1 DoD까지 · HANDOFF §9 Session 1/2/3/4 재그룹화 박제. 커밋 이력 `962840a → da7ca38 → 6fd6f72 → (Session 1 시작)`.
 - **2026-04-21 (24차, 어드민 프레임 재정의 + DQ-5 해소)** — 사용자 지시로 (a) 어드민 = 본인+친구 3명 내부 투자 도구로 범위 재정의, 멤버·MVP Stage·Friends & Family 어휘 분리. (b) 구 트레이딩 3-Stage(매뉴얼→API→AI 자율) 어휘 폐기, 자동매매 = S8 단일 슬라이스로 통합. (c) S8 범위 확정: 주식(KIS 모의→실계좌) + 코인(바이낸스 USDT-M 선물 테스트넷→메인넷) + Strategy drop-in + AI 어댑터 embed. AI agent·skill 본체는 어드민 추후 drop-in. (d) 리스크 가드레일 기본값 박제: 레버리지 ≤5x · 일일 -3% 정지 · AI 일 주문 ≤20회. (e) BusinessPlan §Q1·§5·§9·§10.5·§10.8·§11·§12 · ServicePlan-Admin §0·§1.5·§1.6·§1A.0·§2·§3.1·§3.4·§3.13(신설)·§1A.5 D16 · ServicePlan §1·§2 Revision · HANDOFF §0·§1·§3·§4·§5·§6·§7·§9·§10 전면 정리. Slices/S8-AutoTrading.md 신규 작성, Deferred-Brokerage·Deferred-AIAgent-Selection는 승격 표기. 코드 변경 없음(docs only). **(f) DQ-5 Supabase anon key 갱신 해소** — 새 JWT + publishable key로 `.env.local` 교체, auth/v1/settings REST 200 OK, `/login`·`/admin` 200 OK. BL-KRIT-6 해소. 커밋 `9385e97` + `1e9e116`, origin 미푸시 2 ahead.
 - **2026-04-20 (23차 후속, HANDOFF 정정)** — 23차 종료 시 HANDOFF·ProgressDashboard·CodebaseStatus에 박힌 "🎉 MVP Stage 1 완료" 어휘를 "Mock Skeleton 완료 · 실데이터 0/19 · 운용 0일"로 전면 정정. feedback_mvp_framing.md 규칙을 문서 본문에 반영. 다음 세션 진입 결정 트리(§2)·DQ 리스트(§3)·BL-KRIT(§4)·자율 작업(§5)·실데이터 로드맵(§6)으로 재구성.
