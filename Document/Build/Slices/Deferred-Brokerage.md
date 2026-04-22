@@ -21,7 +21,7 @@
 
 ## 구 Deferred-X 내용 요약 (이력 보존)
 
-원래 범위: E9 BrokerageConnection 기반 증권사 API 키 저장 + 매뉴얼 트레이딩 UI + 자동매매 UI. Must 19 밖 "Should 로드맵"으로 재활성 조건 4가지(Must 19 완료 + 매뉴얼 UI 필요성 재확인 + BL-10 Vault 선택 + AutoTrading.md 설계 완료)가 박제되어 있었음.
+원래 범위: E9 BrokerageConnection 기반 증권사 API 키 저장 + 매뉴얼 트레이딩 UI + 자동매매 UI. Must 19 밖 "Should 로드맵"으로 재활성 조건 4가지(Must 19 완료 + 매뉴얼 UI 필요성 재확인 + BL-10 Vault 선택 + `Document/Archive/AutoTrading.md` 설계 완료)가 박제되어 있었음.
 
 **S8에서의 변화**:
 - 매뉴얼 트레이딩 UI는 그대로 S8 `/admin/trading/stock`로 승계
@@ -31,7 +31,7 @@
 - E13 OrderQueue + E14 TradeExecution + E15 RiskPolicy + E16 RiskViolationEvent + E17 StrategyRegistration 은 S8 Scaffold 마이그레이션(BL-KRIT-8)에서 추가
 - **`/admin/settings/brokerage`·`/admin/settings/binance` UI는 DQ-7(2026-04-22)에서 선행 이관** — S8-Scaffold T8.4는 `/risk`·`/strategy` + `/trading/*` 4 라우트만 담당
 - BL-10 Vault는 ~~Supabase Vault~~ → **App-layer AES-256-GCM** 채택 (DQ-7 결정, `Slices/DQ7-Credentials.md §3.1`)
-- AutoTrading.md 설계 본체는 여전히 리서치 원자료로 참조 (어댑터 embed 시 어드민 drop-in)
+- `Document/Archive/AutoTrading.md` 설계 본체는 여전히 리서치 원자료로 참조 (어댑터 embed 시 어드민 drop-in · **2026-04-22 Archive 이관 반영**)
 
 ---
 

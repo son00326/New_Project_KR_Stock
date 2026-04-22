@@ -47,15 +47,15 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 |---|---|
 | `Document/Process/CodebaseStatus.md` | **현재 지향** 스냅샷. 라우트·파일 수·mock vs 실데이터·환경변수. 구조 변화 시 덮어쓴다. |
 | `Document/Service/Report/ReportFramework.md` | AI 투심위 보고서 프레임워크 SoT (Section 0~8 + Appendix, Core Committee, Sector Board). |
-| `Document/Service/Planning/AutoTrading.md` | 자동매매 트랙 설계 (미확정, 재검토 대기). |
+| ~~`Document/Service/Planning/AutoTrading.md`~~ | **2026-04-22 `Document/Archive/`로 이관** — D11 이전 자동매매 독립 트랙 가정 기반 리서치 원자료. |
 | `Document/Build/SliceTemplate.md` | 신규 슬라이스 파일 생성 시 참조 템플릿. |
 | **`Document/Build/Slices/DQ7-Credentials.md`** | **Admin Credential System 슬라이스** (2026-04-22 신설 · per-admin API 키 UI + AES-256-GCM 암호화 + Vercel 첫 배포 · S7a보다 선행 · spec 확정 · 구현 대기). **다음 세션 진입점**. |
 | `Document/Build/Slices/S7-RealData.md` | 실데이터 전환 슬라이스 (S7a Anthropic → S7e Supabase → S7b 뉴스/브리핑 → S7c 장중/Exit → S7d Silent Health). DQ-7 완료 후 진입. |
 | `Document/Build/Slices/S8-AutoTrading.md` | **자동매매 프레임 슬라이스** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터 embed, 2026-04-21 D16 승격). `/admin/settings/{brokerage,binance}` UI는 DQ-7에서 선행 이관. S7a·S7e 후 병행. |
 | ~~`Document/Build/Slices/Deferred-Brokerage.md`~~ | **S8로 승격됨 (2026-04-21)**. 포인터만 유지. |
 | ~~`Document/Build/Slices/Deferred-AIAgent-Selection.md`~~ | **S8 AI 어댑터에 흡수 예정 (2026-04-21)**. 포인터만 유지. |
-| `Document/Service/Planning/AutoTrading-AI구조설계.md` | AutoTrading 파생 — AI 구조 설계 초안. 재검토 대기 (AutoTrading.md와 쌍). |
-| `Document/Archive/` | 폐기된 방법론 문서 보관 (Phase.md·BuildPhase.md). 참조·편집 금지. |
+| ~~`Document/Service/Planning/AutoTrading-AI구조설계.md`~~ | **2026-04-22 `Document/Archive/`로 이관** — AI 구조 초안(D11 이전) · S8 AI 어댑터 drop-in 시 참조 원자료. |
+| `Document/Archive/` | 폐기된 방법론·리서치 원자료 보관: `Phase.md`·`BuildPhase.md` + **2026-04-22 추가** `AutoTrading.md`·`AutoTrading-AI구조설계.md` (D11 이전 자동매매 독립 트랙 가정 기반 · S8 AI 어댑터 drop-in 시 참조). 참조·편집 금지. |
 | `Document/Process/Memo/*.md` | 세션별 메모·기준선 정리. 참조용. |
 
 > **Folder convention**: `Document/Business/` (사업), `Document/Service/Planning/` (서비스 기획: ServicePlan 인덱스·Admin·Member·AutoTrading·AutoTrading-AI구조설계), `Document/Service/Report/` (AI 리포트 방법론: `ReportFramework.md` SoT + 초안 `ReportFramework-v3-*` 및 `ReportFramework-BioSector` + `ReaderAnalogyCards-ConstructionToBio`), `Document/Service/Build/` (슬라이스 산출 스펙: FRD·Scenario·ScreenSpec — 필요 시 슬라이스 내부에서 생성), `Document/Build/` (슬라이스 실행: `ProgressDashboard.md` + `Slices/S?-*.md` + `SliceTemplate.md`), `Document/Process/` (방법론·세션·메모 — `ExecutionPlaybook.md`가 중심), `Document/Archive/` (폐기된 방법론 문서 — 참조 금지), `Document/Research/` (리서치 원자료), `Document/Outputs/` (생성 리포트·백테스트 산출물).
@@ -89,7 +89,7 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 
 - `BusinessPlan` → 사업 레벨. 코드 변경 전에 먼저 참조. 서비스 UX/UI 내용 없음.
 - `ServicePlan.md` (확장자만, sub-doc 아님) → **인덱스 + 공통 원칙**. 상세 기획은 여기 없다.
-- `ServicePlan-Admin` → **어드민 내부 도구 기획 본체** (v1.2, 2026-04-21 D16). 서비스 기획 편집 1순위. **핵심 개념**: (a) D11 AI 가상 포트 본체 + 3경로 집행(주픽 매뉴얼·주픽 자동매매 S8·외부 바이패스). 승인(Accept)=가상 포트 확정(성능 측정용), 실제 체결은 어드민 독립. (b) D16 어드민 = 내부 투자 도구, Stage 어휘 폐기, 자동매매(주식+바이낸스 선물) S8 통합. 상세 §1A.0 + §3.13 SoT.
+- `ServicePlan-Admin` → **어드민 내부 도구 기획 본체** (v1.3, 2026-04-22 D17). 서비스 기획 편집 1순위. **핵심 개념**: (a) D11 AI 가상 포트 본체 + 3경로 집행(주픽 매뉴얼·주픽 자동매매 S8·외부 바이패스). 승인(Accept)=가상 포트 확정(성능 측정용), 실제 체결은 어드민 독립. (b) D16 어드민 = 내부 투자 도구, Stage 어휘 폐기, 자동매매(주식+바이낸스 선물) S8 통합. (c) **D17 DQ-7 Admin Credential System — per-admin UI + AES-256-GCM 암호화 + Vercel 첫 배포 선행 트랙**. 상세 §1A.0 + §3.13 + `Slices/DQ7-Credentials.md` SoT.
 - `ServicePlan-Member` → **멤버 서비스 기획 본체**. Research 블로커 해소 후 착수.
 - `ExecutionPlaybook` → **슬라이스 기반 개발 방법론** (S0~S6). 에이전트·스킬·하네스 선정 임의 무시 금지. Waterfall(Phase/BuildPhase) 전면 대체.
 - `ProgressDashboard` → **전체 슬라이스 상태판**. 🟢 슬라이스가 현재 1순위. 슬라이스 상태·Must 진행률·Global Blocker 한눈 뷰.

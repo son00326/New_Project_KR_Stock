@@ -466,8 +466,8 @@ Tier 3 최소 기준 = 가격 차트 + 기업 개요 + 재무 요약 + 기술적
 
 **SoT 포인터**:
 - `Document/Build/Slices/S8-AutoTrading.md` (슬라이스 실행 본체)
-- `Document/Service/Planning/AutoTrading.md` (외부 레퍼런스 리서치 — 원자료)
-- `Document/Service/Planning/AutoTrading-AI구조설계.md` (AI 구조 초안 — 어드민 drop-in 시 참조)
+- `Document/Archive/AutoTrading.md` (외부 레퍼런스 리서치 원자료 · **2026-04-22 Archive 이관** · D11 이전 자동매매 독립 트랙 가정 기반)
+- `Document/Archive/AutoTrading-AI구조설계.md` (AI 구조 초안 · **2026-04-22 Archive 이관** · 어드민 drop-in 시 참조)
 
 ### 10.9 업황 판단 AI 방법론 (리서치 완료, 재검토 예정)
 
