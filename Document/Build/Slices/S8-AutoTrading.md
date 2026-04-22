@@ -55,7 +55,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 
 - 슬라이스: **S7a 완료** (Anthropic wrapper — AI 어댑터 embed 연결용) + **S7e 완료** (Supabase 실 I/O — 주문 큐·체결 이력 실 INSERT 필수). 즉 S7a·S7e 후에만 S8 스캐폴드 병행 착수 가능.
 - DQ 해소: **DQ-9** (KIS API 조달 범위) · **DQ-10** (바이낸스 IP/KYC/테스트넷) · **DQ-11** (리스크 기본값 확정) — HANDOFF §3
-- BL-KRIT: **BL-KRIT-2** (KIS 키) · **BL-KRIT-8** (마이그레이션 0010+ 신규 5 엔티티) · **BL-KRIT-9** (바이낸스 키)
+- BL-KRIT: **BL-KRIT-2** (KIS 키) · **BL-KRIT-8** (마이그레이션 **0011** 신규 5 엔티티 E13~E17 · E12는 DQ-7 0009 선행 생성) · **BL-KRIT-9** (바이낸스 키)
 - 이벤트: `portfolio.approved` (E4 `is_final=true`) 수신 파이프가 실동작 (S7e) — 자동 주문 트리거용
 
 ---
@@ -125,7 +125,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 - [ ] 6개 라우트 렌더 + `npm run build` 통과 (28 routes)
 - [ ] `npm run lint` 0
 - [ ] `npm run test:ci` 신규 15+ 케이스 pass
-- [ ] 마이그레이션 0010 Supabase에 실 적용 + RLS 테스트
+- [ ] 마이그레이션 **0011** Supabase에 실 적용 + RLS 테스트
 - [ ] 샘플 전략 2건(주식 1 + 코인 1)으로 mock 주문 플로우 end-to-end 동작
 - [ ] AI 어댑터 인터페이스 정의 + 빈 훅 + "not-embedded" 상태 `/admin/settings/strategy`에서 표시
 - [ ] Policy Engine 기본값(5x / -3% / 20회) 적용 + 초과 시 주문 drop + RiskViolationEvent 기록
