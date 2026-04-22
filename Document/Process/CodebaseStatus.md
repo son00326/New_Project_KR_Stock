@@ -12,6 +12,19 @@
 
 ## 최근 갱신
 
+**2026-04-22** (28차): **문서 정합 cleanup** — DQ-7 Session 2 완료 후 전수 정독으로 스테일 포인터·구조 불일치 일괄 정리. Archive 이관: `AutoTrading.md`·`AutoTrading-AI구조설계.md` → `Document/Archive/` + ⚠️ 경고 prefix (D11 이전 자동매매 독립 트랙 가정 기반 · S8 AI 어댑터 drop-in 시 참조 보존). S8-AutoTrading.md T8.1 마이그 번호 **0010→0011** 정정(E12는 DQ-7 0009 선행). HANDOFF §1·§4·§11 · ProgressDashboard §1·§5 · CodebaseStatus(이 문서) · CLAUDE.md + ServicePlan.md v1.2→v1.3. 로드맵 순서 재조정은 Step 2로 유예. 코드 변경 0건 · build/lint/test:ci 회귀 0.
+
+**2026-04-22** (27차): **DQ-7 Session 2 Frontend UI 완료** — `/ralph` 자율 루프 3 Wave. 라우트 22 → **24** (+`/admin/settings/brokerage`·`/admin/settings/binance`). 신규 7 파일 + 수정 1 · +881줄. architect(opus) APPROVED · ai-slop-cleaner CLEAN · 3-gate regression green · tests 248/248 (UI component 테스트 인프라 미도입으로 신규 테스트 0 · 회귀 0). commits: `04d1116` T11 secret-input → `289820e` T9+T10 brokerage·binance UI (executor sonnet × 2 병렬) → `240e7dc` T12 sidebar nav → `4140309` HANDOFF 갱신.
+
+**2026-04-22** (26차): **DQ-7 Session 1 Backend·DB 완료** — Inline TDD (crypto 보안 크리티컬). 11 Task 순차.
+- `src/lib/crypto/aes.ts` AES-256-GCM encrypt/decrypt + MEK lazy singleton (14 tests · IV uniqueness 100회 · tamper 4 · MEK config 3)
+- `supabase/migrations/0009_dq7_credentials.sql` + rollback.sql — E9 재설계(ciphertext/iv/auth_tag 6 컬럼 + mock_mode) + E12 신설(동일 + testnet_mode) + RLS `*_admin_self` 2종. **실 DB 적용은 Session 3**
+- `src/lib/credentials/{types,mask,validation,brokerage,exchange}.ts` 5 파일 · Server Actions(`upsert`·`delete`·`list`·`test` stub `pending-s8`) · ActionResult discriminated union · rep guard(ADMIN_REP_EMAIL) · 23505 매핑 · 43 tests
+- Integration tests 20 cases (`vi.hoisted` Supabase mock)
+- Cleanup: `types/admin.ts` BrokerageConnection·BrokerageScope 제거 · `mock-admin-brokerage.ts` 삭제
+- `.env.example` `API_CRED_MASTER_KEY`·`ADMIN_REP_EMAIL` 신규 + KIS/Binance 블록 주석화
+- 검증: build 22 routes · lint 0 · test:ci **248 pass** (190 + 58 신규)
+
 **2026-04-22** (25차): **DQ-7 Admin Credential System 재설계 spec 작성 완료** — `Slices/DQ7-Credentials.md` 신규 (858 줄, Q1~Q5 확정). 바이낸스·KIS 키 per-admin UI + AES-256-GCM 암호화 + Vercel 첫 배포 · S7a 선행 · 4 세션 예상. **마이그레이션 번호 재배정**: 0009 = DQ-7 credential (선점) · 0010 = alert_event CHECK 확장 (BL-KRIT-7). 구현은 다음 세션. 코드 변경 없음(docs only).
 
 **2026-04-20** (23차 후속 정정): **S6 ✅ Mock 완료 반영** — Mock Skeleton Stage 1 완성(S0~S6). Mock 동작 19/19 · 실데이터 0/19 · 실 AI 호출 0 · 운용 검증 0일. 진짜 MVP는 S7(실데이터 전환, 미착수) + 운용 검증 후.
@@ -67,14 +80,14 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-04-20 · S6 Mock 완료 기준 · **실데이터 연결 0/19**)
+## tudal/ 현재 상태 (2026-04-22 · DQ-7 Session 2 완료 기준 · **실데이터 연결 0/19**)
 
 ### 규모
-- TypeScript 파일: `src/` 기준 **~145개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130 → S5b 140 → S6 145)
-- 라우트: **22개** (S6에서 /admin/settings/cost·/api/cron/silent-health 2건 추가)
+- TypeScript 파일: `src/` 기준 **~152개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130 → S5b 140 → S6 145 → DQ-7 S1 net ~145 (+5 credential −1 mock) → DQ-7 S2 ~152 (+7 UI))
+- 라우트: **24개** (DQ-7 S2에서 `/admin/settings/brokerage`·`/admin/settings/binance` 2건 추가)
   - **Main 6**: `/`, `/_not-found`, `/login`, `/signup`, `/macro`, `/stock/[ticker]`
   - **Auth 1**: `/auth/callback`
-  - **Admin 11**: `/admin`, `/admin/portfolio` **(S3)**, `/admin/alerts` **(S5a)**, `/admin/alerts/[id]` **(S5a)**, `/admin/track-record` **(S4)**, `/admin/decision-tree` **(S4)**, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health` **(S5a)**, `/admin/settings/cost` **(S6)**, `/admin/report/[ticker]` **(S2)**, `/admin/report/[ticker]/regenerate` **(S4)**
+  - **Admin 13**: `/admin`, `/admin/portfolio` **(S3)**, `/admin/alerts` **(S5a)**, `/admin/alerts/[id]` **(S5a)**, `/admin/track-record` **(S4)**, `/admin/decision-tree` **(S4)**, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health` **(S5a)**, `/admin/settings/cost` **(S6)**, `/admin/settings/brokerage` **(DQ-7 S2)**, `/admin/settings/binance` **(DQ-7 S2)**, `/admin/report/[ticker]` **(S2)**, `/admin/report/[ticker]/regenerate` **(S4)**
   - **Cron 4** (Vercel Cron): `/api/cron/monthly-batch` (M10 월간 day 1 09:05 KST), `/api/cron/morning-briefing` (M11 매일 08:00 KST), `/api/cron/news-sweep` (M12 15분 주기), `/api/cron/silent-health` **(S6 M19, 매일 24:00 KST)**
 
 ### 기술 스택
@@ -89,12 +102,12 @@
 - `app/layout.tsx` = 최소 HTML + body (Header·Footer 제거됨, 17 라우트 대응)
 - `app/(main)/layout.tsx` = Header + Footer (main 라우트용)
 - `app/(auth)/layout.tsx` = pass-through
-- `app/(admin)/layout.tsx` = 로고·사이드바(7 nav)·면책 Footer
+- `app/(admin)/layout.tsx` = 로고·사이드바(**10 nav** · DQ-7 S2에서 `증권사 키`·`거래소 키` +2 · S8에서 그룹 재편 예정)·면책 Footer
 
 ### 데이터 레이어 (mock 기반, Supabase 세팅 완료 · 실 SELECT/INSERT 연결 0)
 - **Main mock** (6): `mock-stocks`·`mock-financials-extended`·`mock-quarterly`·`mock-ohlcv`·`mock-corporate`·`mock-macro`
-- **Admin mock** (S0 9 + S1~S4 확장 → 총 17):
-  - S0 기초 shape: `mock-admin-shortlist`·`mock-admin-reports`·`mock-admin-committee-votes`·`mock-admin-approvals`·`mock-admin-snapshots`·`mock-admin-alerts`·`mock-admin-briefings`·`mock-admin-regen-counters`·`mock-admin-brokerage`
+- **Admin mock** (S0 9 + S1~S6 확장 → 총 17 · **DQ-7 S1에서 `mock-admin-brokerage` 삭제** → 총 16):
+  - S0 기초 shape (9종 중 1 삭제): `mock-admin-shortlist`·`mock-admin-reports`·`mock-admin-committee-votes`·`mock-admin-approvals`·`mock-admin-snapshots`·`mock-admin-alerts`·`mock-admin-briefings`·`mock-admin-regen-counters` · ~~`mock-admin-brokerage`~~ (DQ-7 S1 삭제 — credential은 실 Supabase 경로만 사용, mock fixture 불필요)
   - S1 추가: 33행 shortlist fixture (30 + REMOVED 3)
   - S2 추가: `mock-admin-report` (30 리포트 · 대표 5종 상세) · `mock-admin-committee` (630 votes) · `mock-admin-committee-personas` (Core 11 + Sector 22×5) · `mock-admin-report-view-log` (2인·1인 열람 seed)
   - S3 추가: `mock-admin-access-logs` (7일 3인 혼합 fixture · active=false 기본) · `mock-admin-approvals` 시드 보강(2026-03 · 2026-04 is_final=true)
@@ -114,6 +127,7 @@
 | `0006_s5a_automation.sql` (S5a) | pipeline_health (5 파이프라인 × 24h) + news_event (UNIQUE url) + briefing_log (UNIQUE date) + briefing_view_event (dedupe) + RLS 4종 | 실 |
 | `0007_s5b_notifications.sql` (S5b) | admin_settings(intraday_mode) + ticker_alert_pref(UNIQUE admin+ticker) + intraday_anomaly_event(UNIQUE dedup_key) + RLS 3종 | 실 |
 | `0008_s6_hardening.sql` (S6) | cost_log 확장(ticker·persona_id·section + 인덱스 2) + heartbeat_log(UNIQUE date) + RLS 1종 | 실 |
+| `0009_dq7_credentials.sql` (DQ-7 S1) | E9 `brokerage_connection` 재설계(`api_key_ref` 폐기 · `ciphertext/iv/auth_tag` × 2 + `mock_mode`) + E12 `exchange_connection` 신설(동일 구조 + `testnet_mode`) + RLS `*_admin_self` 2종 · `0009_dq7_credentials.rollback.sql` 동반 | **파일 생성 완료 · 실 DB 적용은 Session 3 (Vercel 배포 단계)** |
 
 ### 타입 정의 (src/types/)
 - `stock.ts`·`corporate.ts`·`macro.ts` (main)
@@ -149,13 +163,34 @@
 ### scripts/ 디렉토리 (S3 신설)
 - `scripts/seed_kr_holidays.py` — S5 M10 pykrx 월간 배치용 참조. Homebrew Python 3.14 PEP 668 → venv 필수. `python3 scripts/seed_kr_holidays.py --from YYYY-MM-DD --to YYYY-MM-DD` 로 SQL UPDATE 블록 stdout.
 
+### DQ-7 Credential System 신설 (Session 1·2)
+**Session 1 (Backend·DB)** — `src/lib/crypto/` + `src/lib/credentials/`:
+- `src/lib/crypto/aes.ts` AES-256-GCM encrypt/decrypt + MEK lazy singleton (zero dependency · Node crypto stdlib만)
+- `src/lib/credentials/types.ts` — `ActionResult<T>` discriminated union · Brokerage/Exchange Input·Display 인터페이스
+- `src/lib/credentials/mask.ts` — `maskKey(prefix 2 + suffix 4)` · `maskAccount`
+- `src/lib/credentials/validation.ts` — KIS APP_KEY(36) / APP_SECRET(180) / account_no / Binance API_KEY·SECRET(64) / label(1~40) + `CredentialFormatError`
+- `src/lib/credentials/brokerage.ts` — KIS Server Actions (`upsertBrokerageCredential`·`deleteBrokerageCredential`·`listBrokerageCredentials`·`testBrokerageConnection` stub `pending-s8`) · rep guard(ADMIN_REP_EMAIL) · 23505 매핑
+- `src/lib/credentials/exchange.ts` — Binance USDT-M 선물 평행 구조 (rep guard는 testnetMode=false 조건)
+
+**Session 2 (Frontend UI)** — `src/components/admin/credentials/` + 2 settings 라우트:
+- `src/components/admin/credentials/secret-input.tsx` — 공유 Client (Eye toggle · `autoComplete="new-password"` · maxLength counter · useRef unmount cleanup)
+- `src/app/(admin)/admin/settings/brokerage/{page,form,delete-button}.tsx` — KIS UI (Server + Client + Base UI Dialog 2-step)
+- `src/app/(admin)/admin/settings/binance/{page,form,delete-button}.tsx` — Binance USDT-M 선물 평행 UI
+- `src/app/(admin)/layout.tsx` ADMIN_NAV +2 (`증권사 키`·`거래소 키` · Flat · S8 재편 예정)
+
+**통합 테스트**: 20 cases (`vi.hoisted` Supabase mock). 누적 190 → **248 tests**.
+
+**정리된 레거시**: `types/admin.ts`에서 `BrokerageConnection`·`BrokerageScope` 타입 제거 · `mock-admin-brokerage.ts` 삭제.
+
+**환경변수 (`.env.example`)**: `API_CRED_MASTER_KEY`(32-byte hex MEK) · `ADMIN_REP_EMAIL`(실계좌/메인넷 저장 권한자) 신규 추가. `KIS_*`·`BINANCE_*` env 블록은 주석화(per-admin DB로 영구 이관).
+
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태 (S6 완료 시점)
-- `npm run build`: ✅ **22 routes** (TypeScript strict 통과)
+### 검증 게이트 현재 상태 (DQ-7 Session 2 완료 시점, 2026-04-22)
+- `npm run build`: ✅ **24 routes** (TypeScript strict 통과 · DQ-7 S2에서 brokerage·binance +2)
 - `npm run lint`: ✅ 0 warnings
-- `npm run test:ci`: ✅ **20 files / 190 tests pass** (S6 +3 files · +30 tests)
+- `npm run test:ci`: ✅ **25 files / 248 tests pass** (DQ-7 S1 +5 files · +58 tests; S2는 UI component 테스트 인프라 미도입으로 신규 테스트 없음 · 회귀 0)
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 — `ulimit -n 65535` 후 정상
 
 ---
@@ -186,13 +221,13 @@
 
 ## 체크리스트 (변화 시 갱신)
 
-### Mock Skeleton (완료)
-- [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145)
-- [x] 라우트 추가 (S0 17 → S6 22)
-- [x] Supabase `.env.local` 세팅 (S0 — 단, **anon key 갱신 블로커 DQ-5**)
-- [x] 마이그레이션 0001~0008 적용
-- [x] Vitest 테스트 인프라 (190 tests pass)
-- [x] 레거시 코드 제거 (S0 완료)
+### Mock Skeleton (완료) + DQ-7 구현 2/4
+- [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145 → DQ-7 S2: ~152)
+- [x] 라우트 추가 (S0 17 → S6 22 → DQ-7 S2 24)
+- [x] Supabase `.env.local` 세팅 (S0 완료 · DQ-5 anon key 갱신 해소 2026-04-21)
+- [x] 마이그레이션 0001~0008 적용 + **0009 파일 생성 (실 DB 적용 Session 3 예정)**
+- [x] Vitest 테스트 인프라 (190 → **248 tests pass** · DQ-7 S1 +58)
+- [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 
 ### 실데이터 전환 (S7, 미착수)
 - [ ] **Anthropic API 키 확보** (BL-KRIT-1) — DQ-2/DQ-7 선결
@@ -210,8 +245,8 @@
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)
 
 ### 운용 검증 (미착수)
-- [ ] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 슬라이스에서 수행 · spec 확정 2026-04-22 · 구현 대기 · 최소 env 7개: Supabase 3 + ADMIN_EMAILS + ADMIN_REP_EMAIL + API_CRED_MASTER_KEY + CRON_SECRET)
-- [ ] origin push (17 commits ahead, DQ-6)
+- [ ] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 **Session 3 · 사용자 주도** · 최소 env 7개: Supabase 3 + ADMIN_EMAILS + ADMIN_REP_EMAIL + API_CRED_MASTER_KEY + CRON_SECRET)
+- [ ] origin push (DQ-6 해소 2026-04-20 · 현재 DQ-7 S1·S2 + cleanup 등 여러 commits ahead, Session 3 직전 push 권장)
 - [ ] Cron 4건 실 실행 검증
 - [ ] 어드민 1개월+ 운용 검증
 
