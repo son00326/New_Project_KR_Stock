@@ -12,6 +12,8 @@
 
 ## 최근 갱신
 
+**2026-04-22** (25차): **DQ-7 Admin Credential System 재설계 spec 작성 완료** — `Slices/DQ7-Credentials.md` 신규 (858 줄, Q1~Q5 확정). 바이낸스·KIS 키 per-admin UI + AES-256-GCM 암호화 + Vercel 첫 배포 · S7a 선행 · 4 세션 예상. **마이그레이션 번호 재배정**: 0009 = DQ-7 credential (선점) · 0010 = alert_event CHECK 확장 (BL-KRIT-7). 구현은 다음 세션. 코드 변경 없음(docs only).
+
 **2026-04-20** (23차 후속 정정): **S6 ✅ Mock 완료 반영** — Mock Skeleton Stage 1 완성(S0~S6). Mock 동작 19/19 · 실데이터 0/19 · 실 AI 호출 0 · 운용 검증 0일. 진짜 MVP는 S7(실데이터 전환, 미착수) + 운용 검증 후.
 - 마이그레이션 0008(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS 1종)
 - src/lib/cost/{anthropic-pricing.ts·dry-run-estimate.ts·aggregate.ts} (BL-18 견적 박제 + M17 집계 + hardcap 가드)
@@ -199,7 +201,8 @@
 - [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4) — DQ-7 선결
 - [ ] **Telegram Bot** (BL-KRIT-5) — DQ-7 선결
 - [ ] **Supabase anon key 갱신** (BL-KRIT-6) — DQ-5 선결
-- [ ] **마이그레이션 0009** alert_event CHECK 확장 (BL-KRIT-7)
+- [ ] **마이그레이션 0010** alert_event CHECK 확장 (BL-KRIT-7 · 2026-04-22 재배정: DQ-7이 0009 선점)
+- [ ] **마이그레이션 0009** DQ-7 credential (E9 확장 + E12 신설 + RLS, spec 확정, 구현 대기)
 - [ ] Supabase 실 SELECT/INSERT 전환 (S7e · 8 Must)
 - [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12)
 - [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)
@@ -207,7 +210,7 @@
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)
 
 ### 운용 검증 (미착수)
-- [ ] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7)
+- [ ] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 슬라이스에서 수행 · spec 확정 2026-04-22 · 구현 대기 · 최소 env 7개: Supabase 3 + ADMIN_EMAILS + ADMIN_REP_EMAIL + API_CRED_MASTER_KEY + CRON_SECRET)
 - [ ] origin push (17 commits ahead, DQ-6)
 - [ ] Cron 4건 실 실행 검증
 - [ ] 어드민 1개월+ 운용 검증

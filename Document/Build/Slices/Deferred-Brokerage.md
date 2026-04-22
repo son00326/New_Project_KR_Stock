@@ -26,8 +26,11 @@
 **S8에서의 변화**:
 - 매뉴얼 트레이딩 UI는 그대로 S8 `/admin/trading/stock`로 승계
 - 자동매매 UI는 S8 `/admin/trading/stock` + `/admin/trading/crypto`로 확장 (코인 포함)
-- E9는 유지, E12 ExchangeConnection(코인) + E13 OrderQueue + E14 TradeExecution + E15 RiskPolicy + E16 RiskViolationEvent + E17 StrategyRegistration 신규 엔티티 추가
-- BL-10 Vault는 Supabase Vault 기본 채택 (외부 KMS는 옵션)
+- E9는 유지 (단 **DQ-7(2026-04-22)에서 `api_key_ref` Vault 참조 폐기 → AES-256-GCM 암호화 컬럼 6개로 재정의**)
+- E12 ExchangeConnection **DQ-7에서 선행 생성** (Binance USDT-M 선물용)
+- E13 OrderQueue + E14 TradeExecution + E15 RiskPolicy + E16 RiskViolationEvent + E17 StrategyRegistration 은 S8 Scaffold 마이그레이션(BL-KRIT-8)에서 추가
+- **`/admin/settings/brokerage`·`/admin/settings/binance` UI는 DQ-7(2026-04-22)에서 선행 이관** — S8-Scaffold T8.4는 `/risk`·`/strategy` + `/trading/*` 4 라우트만 담당
+- BL-10 Vault는 ~~Supabase Vault~~ → **App-layer AES-256-GCM** 채택 (DQ-7 결정, `Slices/DQ7-Credentials.md §3.1`)
 - AutoTrading.md 설계 본체는 여전히 리서치 원자료로 참조 (어댑터 embed 시 어드민 drop-in)
 
 ---
@@ -38,3 +41,4 @@
 |---|---|
 | 2026-04-16 | 초기 생성. architect S3 블록 기반. Must 19 밖 이관 이유 명시. |
 | **2026-04-21** | **S8로 승격 이관**. 본문은 `S8-AutoTrading.md`로 통합. 이 파일은 포인터만 유지. |
+| **2026-04-22** | **DQ-7 승격 세분화 반영**: (a) E9 `api_key_ref` 폐기 → AES-256-GCM 암호화 컬럼 6개, (b) E12 ExchangeConnection은 DQ-7에서 선행 생성, (c) `/admin/settings/{brokerage,binance}` UI도 DQ-7에서 선행 이관, (d) BL-10 Vault 결정이 App-layer AES-256-GCM으로 확정. 상세 SoT = `Slices/DQ7-Credentials.md`. |
