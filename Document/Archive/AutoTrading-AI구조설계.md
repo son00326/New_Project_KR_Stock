@@ -1,5 +1,11 @@
 # 주픽 자동매매 — AI 구조 설계 & 결정 가이드
 
+> **⚠️ ARCHIVE — D11(2026-04-15) 이전 "자동매매 독립 트랙" 가정 기반 AI 구조 초안.**
+> 현 SoT = `../Build/Slices/S8-AutoTrading.md` (2026-04-21 D16 S8 단일 슬라이스 통합 — Strategy drop-in + AI 어댑터 embed 이중 경로로 재정의).
+> 본 문서의 SCAN→RESEARCH→PREDICT→RISK→DO 5단계 파이프라인·위원-LLM 옵션·비용 추정은 S8 AI 어댑터 drop-in 시 참조 원자료 가치로 보존. **2026-04-22 Archive 이관 (28차 docs cleanup)**.
+
+---
+
 Last updated: 2026-04-12
 Status: 초안 — 다음 세션에서 결정 후 확정
 선행 문서: `AutoTrading.md` (리서치 완료)
