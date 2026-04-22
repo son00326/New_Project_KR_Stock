@@ -17,7 +17,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **현 진행 순서 (SoT: HANDOFF.md §6 · ProgressDashboard.md §2)**:
 ```
-Mock Skeleton ✅ → S7 실데이터 → [S8 스캐폴드 병행 시작] → S7 완료 → S8 실 체결 → S9 운용 검증
+Mock Skeleton ✅ → DQ-7 Admin Credential (2026-04-22 spec ✅, 구현 대기, 4세션)
+                → S7a → S7e → [S8 스캐폴드 병행 시작]
+                → S7b → S7c → S7d → [S8 실 체결 전환] → S9 운용 검증
 ```
 
 ---
@@ -47,7 +49,9 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 | `Document/Service/Report/ReportFramework.md` | AI 투심위 보고서 프레임워크 SoT (Section 0~8 + Appendix, Core Committee, Sector Board). |
 | `Document/Service/Planning/AutoTrading.md` | 자동매매 트랙 설계 (미확정, 재검토 대기). |
 | `Document/Build/SliceTemplate.md` | 신규 슬라이스 파일 생성 시 참조 템플릿. |
-| `Document/Build/Slices/S8-AutoTrading.md` | **자동매매 프레임 슬라이스** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터 embed, 2026-04-21 D16 승격). 현 개발 플랜의 S7 다음 차례. |
+| **`Document/Build/Slices/DQ7-Credentials.md`** | **Admin Credential System 슬라이스** (2026-04-22 신설 · per-admin API 키 UI + AES-256-GCM 암호화 + Vercel 첫 배포 · S7a보다 선행 · spec 확정 · 구현 대기). **다음 세션 진입점**. |
+| `Document/Build/Slices/S7-RealData.md` | 실데이터 전환 슬라이스 (S7a Anthropic → S7e Supabase → S7b 뉴스/브리핑 → S7c 장중/Exit → S7d Silent Health). DQ-7 완료 후 진입. |
+| `Document/Build/Slices/S8-AutoTrading.md` | **자동매매 프레임 슬라이스** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터 embed, 2026-04-21 D16 승격). `/admin/settings/{brokerage,binance}` UI는 DQ-7에서 선행 이관. S7a·S7e 후 병행. |
 | ~~`Document/Build/Slices/Deferred-Brokerage.md`~~ | **S8로 승격됨 (2026-04-21)**. 포인터만 유지. |
 | ~~`Document/Build/Slices/Deferred-AIAgent-Selection.md`~~ | **S8 AI 어댑터에 흡수 예정 (2026-04-21)**. 포인터만 유지. |
 | `Document/Service/Planning/AutoTrading-AI구조설계.md` | AutoTrading 파생 — AI 구조 설계 초안. 재검토 대기 (AutoTrading.md와 쌍). |

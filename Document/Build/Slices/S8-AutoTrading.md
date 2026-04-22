@@ -92,14 +92,14 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
   - `src/lib/trading/broker/kis.ts` (KIS REST mock client)
   - `src/lib/trading/broker/binance.ts` (Binance USDT-M mock client)
   - `src/lib/trading/queue/order-queue.ts` (OrderQueue CRUD + FSM)
-- [ ] **T8.4** 라우트 6개 스캐폴드 (server components + mock fixtures)
-  - `/admin/settings/brokerage` (KIS 키 · 모의/실 토글 · 테스트 연결 버튼)
-  - `/admin/settings/binance` (바이낸스 키 · 테스트넷/메인넷 토글 · 레버리지 상한)
+- [ ] **T8.4** 라우트 4개 스캐폴드 (server components + mock fixtures) — *~~brokerage·binance 2개는 DQ-7에서 선행 이관 (2026-04-22)~~*
+  - ~~`/admin/settings/brokerage`~~ **→ DQ-7 완료, T8.4에서 "테스트 연결" 버튼 핸들러만 연결**
+  - ~~`/admin/settings/binance`~~ **→ DQ-7 완료, 동일**
   - `/admin/settings/risk` (레버리지·일일 손실·AI 일 주문 cap 입력 UI · 기본값 prefilled)
   - `/admin/settings/strategy` (등록된 Strategy 파일 목록 · 활성 토글 · AI 어댑터 embed 상태 "not-embedded"/"embedded")
   - `/admin/trading/stock` (수동 주문 폼 + 자동 주문 큐 테이블 + 포지션 · mock 체결)
   - `/admin/trading/crypto` (선물 주문 폼: SYMBOL·side·수량·레버리지·SL·TP + mock 체결 · 청산가 계산 · 펀딩비 mock)
-- [ ] **T8.5** 권한 가드 — 모의↔실 토글 API에 **대표 1인 이메일 allowlist 체크** (서버 액션 레벨). 친구 2명은 모의까지.
+- [ ] **T8.5** 권한 가드 — 모의↔실 토글 API에 **대표 1인 이메일 allowlist 체크** (서버 액션 레벨). 친구 2명은 모의까지. *DQ-7에서 `ADMIN_REP_EMAIL` env + 크레덴셜 저장 경로에 이미 구현된 패턴 재사용.*
 - [ ] **T8.6** Vitest — policy-engine · order-queue FSM · risk violation · sample strategy 로직 테스트 (~15 cases 추가)
 - [ ] **T8.7** Sidebar nav 확장 + layout chrome 업데이트 (Trading 그룹)
 - [ ] **T8.8** Supabase RLS — 5 신규 테이블 admin-only + admin_id scope RLS 정책

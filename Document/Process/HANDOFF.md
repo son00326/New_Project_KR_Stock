@@ -1,10 +1,10 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기 + DQ-5 해소 반영**)
+Last updated: 2026-04-22 (25차 — **DQ-7 Admin Credential System 재설계 spec 작성 + origin 동기화**)
 
 **목적**: 다음 세션이 이 파일 하나만 보고 즉시 이어갈 수 있게 하는 단일 진입점.
 **원칙**: 미래 지향. "다음에 무엇을 할지"와 "아직 무엇이 결정 안 났는지"만 담는다.
-**2026-04-21 프레임 변경 요약**: 어드민 = 본인+친구 3명 **투자 내부 도구**. 멤버·MVP Stage·Friends & Family 어휘는 이 파일에서 강제 게이트로 쓰지 않는다. 자동매매는 **S8 단일 슬라이스**로 통합되며 주식(KIS) + 바이낸스 선물 포함. 상세: BusinessPlan §12 2026-04-21 행 · ServicePlan-Admin §1A.5 D16 · Slices/S8-AutoTrading.md.
+**2026-04-22 프레임 변경 요약**: DQ-7이 원래 "Vercel 배포 환경변수 세팅 계획"이었으나, 바이낸스·KIS 키를 어드민이 UI로 직접 입력·DB 암호화 저장하는 방향으로 확장됨. brainstorming 결과 Q1~Q5 확정 + spec 작성 완료 → `Slices/DQ7-Credentials.md`. DQ-7이 **S7a보다 선행**하며, 구현 4 세션 + 마이그레이션 번호 0009 선점(BL-KRIT-7은 0010으로 재배정). 상세: `Slices/DQ7-Credentials.md §1` 결정 박제.
 
 > **⚡ 진입**: "@HANDOFF.md 보고 이어서 작업해줘" → §1 현재 상태 확인 → §2 진입 결정 트리 따라 착수. 세부 Entry routine은 `CLAUDE.md` 참조.
 
@@ -26,17 +26,19 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 
 ---
 
-## §1 현재 상태 (2026-04-21 기준)
+## §1 현재 상태 (2026-04-22 기준)
 
 - **Mock Skeleton**: S0~S6 완료 · Must 19 mock 동작 · 실제 누적 **9세션**
+- **DQ-7 Admin Credential System (신설, S7a 선행)**: ✅ **spec 작성 완료** (2026-04-22, 25차) · 구현 ⚪ 미착수 · 4 세션 예상 · 다음 진입 = Session 1 Wave 1 (aes.ts TDD)
 - **실데이터 연결**: **0 / 19** (모두 mock fixture)
 - **실 AI 호출**: **0** (Anthropic wrapper · cost_log 실 INSERT 0)
-- **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). 구 Deferred-X는 S8로 이관·폐기.
+- **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). 구 Deferred-X는 S8로 이관·폐기. T8.4·T8.5 UI는 **DQ-7에서 선행 이관 예정**.
 - **실 운용 검증(S9)**: **0일**
 - **법무·이용약관**: ⏸ **Deferred-D 멤버 오픈까지 유예** (2026-04-20 확정, 2026-04-21 재확인). 어드민 내부 도구는 Footer 면책으로 충분.
-- **Git**: working tree clean · HEAD `1e9e116` · **origin/main 대비 2 commits ahead** (9385e97 D16 문서 정비 · 1e9e116 DQ-5 Supabase anon 갱신) — 다음 세션 시작 시 `git push` 또는 명시적 대기 결정 먼저
+- **Git**: working tree clean · HEAD `962840a` · **origin/main 동기화 완료** (2026-04-22 push). `9385e97` D16 · `1e9e116` DQ-5 · `962840a` DQ-7 spec 포함.
 - **검증 게이트**: build 22 routes · lint 0 · test:ci **190 pass** (모두 Mock 기반)
 - **어드민 범위**: 본인 + 친구 2명 = 3명(ADMIN_EMAILS 3명). 친구 추가는 나중 작업.
+- **마이그레이션 번호**: 0001~0008 적용 · **0009 = DQ-7 credential** (선점) · **0010 = alert_event CHECK 확장** (BL-KRIT-7 재배정).
 
 ---
 
@@ -45,21 +47,28 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 ```
 진입 시 이 순서로 확인:
 
-(0) Git: origin/main 대비 2 commits ahead. 사용자가 "push" 언급 없으면 그대로 작업 시작.
+(0) Git: origin/main 동기화 완료 (HEAD 962840a). 바로 작업 시작 가능.
 
-(1) §6 로드맵 다음 단계(S7a)가 기본 진입점.
-    → 선행 BL-KRIT (BL-KRIT-1 Anthropic API Key)이 해소되었는가?
-        - 해소: S7a 킥오프 — `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks 실행 (`src/lib/ai/client.ts` wrapper부터)
-        - 미해소: (2)로
+(1) **DQ-7 Admin Credential 구현이 최우선** (2026-04-22 spec 확정).
+    진입점: `Document/Build/Slices/DQ7-Credentials.md`
+      §9.1 Task 인벤토리 (T1~T20, Wave·Agent·Skill 열)
+      §9.2 세션 분해 (4 Session · 12 Wave)
+      §9.3 wave별 에이전트·스킬 매핑
+    첫 작업: Session 1 Wave 1 = `src/lib/crypto/aes.ts` TDD
+      → 에이전트: executor(opus)
+      → 스킬: `superpowers:test-driven-development` + context7 MCP (Node crypto docs)
+    선행 블로커 (spec §10.1 BL-DQ7):
+      - BL-DQ7-1: MEK 생성 — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+      - BL-DQ7-3: `ADMIN_REP_EMAIL` 확정 (추정 shjang1001@gmail.com)
+      - BL-DQ7-5: 번호 재배정 승인 (0009 DQ-7 / 0010 alert_event) — spec 검토 시 이미 확인됨
 
-(2) §3 DQ 중 🟡/🟢 상태(DQ-7·9·10·11)가 새로 답변되었는가?
-    → 있음: 해당 DQ "해소 시 첫 행동"으로 착수
-    → 없음: (3)으로
+(2) DQ-7 완료 후 → S7a (Anthropic wrapper) — BL-KRIT-1 해소 시
+    진입점: `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks
+    첫 작업: `src/lib/ai/client.ts` wrapper
 
-(3) §5 AUTO 중 미완료 항목(AUTO-2·6 `.env.example` 등) 우선 처리
-    (사용자 결정 없이 바로 수행 가능한 것들)
+(3) 병행: DQ-8·9·10·11 답변되면 해당 DQ "해소 시 첫 행동"
 
-(4) 위 전부 막히면 §3 DQ 우선순위 1번(DQ-7 외부 키 발급 시점)을 사용자에게 다시 질문
+(4) §5 AUTO 중 미완료 항목 (AUTO-3 CodebaseStatus 갱신은 DQ-7 T20에 흡수됨)
 ```
 
 ---
@@ -103,9 +112,18 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 ### ~~DQ-6~~ ✅ origin push 완료 (2026-04-20, 23차 후속)
 `b762313..77ef624 main -> main` (18 commits 동기화). Repo = `https://github.com/son00326/New_Project_KR_Stock.git`. 이후 세션에서는 commit당 push 가능.
 
-### DQ-7 🟡 Vercel 배포 환경변수 세팅 계획
-**질문**: 실 배포 언제? 세팅 필요 키 — `CRON_SECRET` · `RESEND_API_KEY` · `TELEGRAM_BOT_TOKEN`/`CHAT_ID` · `KIS_APP_KEY`/`SECRET` · `NAVER_CLIENT_ID`/`SECRET` · `ANTHROPIC_API_KEY`
-**해소 시 첫 행동**: Vercel 프로젝트 생성 + 환경변수 입력 + 첫 프리뷰 배포
+### ~~DQ-7~~ 🟢 Admin Credential System 재설계 + Vercel 첫 배포 — **2026-04-22 spec 확정, 구현 대기**
+**결정 내역 (Q1~Q5, `Slices/DQ7-Credentials.md §1`)**:
+- Q1 (a) 바이낸스·KIS 모두 per-admin DB 저장 (env 아님)
+- Q2 (a) App-layer AES-256-GCM (Node crypto stdlib, zero-dep)
+- Q3 (a) 이 슬라이스에서 즉시 Vercel 배포 · 최소 env 7개
+- Q4 (b) 분리 2테이블 (E9 확장 + E12 신설)
+- Q5 (a) "테스트 연결" UI만 (disabled) · 실 ping은 S8
+**Vercel env 최종 정리**:
+- 이 슬라이스 투입(7개): Supabase 3종 + `ADMIN_EMAILS` + `ADMIN_REP_EMAIL`(신규) + `API_CRED_MASTER_KEY`(신규) + `CRON_SECRET`(신규)
+- Phase별 점진 추가: `ANTHROPIC_API_KEY`(S7a) · `NAVER_*`·`RESEND_*`(S7b) · `TELEGRAM_*`(S7c/d)
+- **영구 미추가**: ~~`KIS_*`~~·~~`BINANCE_*`~~ (per-admin DB로 이관)
+**해소 시 첫 행동**: `Slices/DQ7-Credentials.md §9.2` Session 1 Wave 1 = `src/lib/crypto/aes.ts` TDD
 
 ### DQ-8 🟢 멤버 페이지 Research (Deferred-D 블로커)
 **질문**: 500cap 멤버 UX 설계 전 필요한 경쟁사 리서치 범위·시점
@@ -167,10 +185,11 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 - 소스: DQ-5
 - 해소 내역: `.env.local` `NEXT_PUBLIC_SUPABASE_ANON_KEY` 새 JWT로 교체 + publishable key 참고 보관. auth settings 200 OK · dev 서버 `/login`·`/admin` 200 OK.
 
-### BL-KRIT-7 alert_event CHECK constraint 확장
+### BL-KRIT-7 alert_event CHECK constraint 확장 (번호 **0010으로 재배정**, 2026-04-22)
 - 소스: 코드
 - 영향: 실 INSERT 시 새 AlertType(`news_warning`·`briefing_failed`·`intraday_anomaly`·`cost_warning`·`cost_hardcap`·`heartbeat_missing`) 삽입 거부됨
-- 해소: 신규 마이그레이션 0009로 CHECK 재정의
+- 해소: 마이그레이션 **0010**으로 CHECK 재정의 (DQ-7이 0009 선점, 2026-04-22 결정)
+- 해소 시점: S7e (Supabase 실 SELECT/INSERT) 킥오프 시 선행
 
 ### BL-KRIT-8 S8 자동매매 신규 엔티티 마이그레이션
 - 소스: S8 D16
@@ -218,27 +237,28 @@ Last updated: 2026-04-21 (24차 — **어드민 내부 도구 재정의 + 자동
 
 ## §6 실데이터 전환 + 자동매매 프레임 로드맵 (2026-04-21 확정)
 
-> DQ-1·DQ-2 확정 결과: **S7 주도 + S8 병행**. S7a·S7e 끝난 시점에 S8 스캐폴드 병행 착수, S7 완료 후 S8 실 체결 전환.
+> DQ-1·DQ-2 확정 결과: **S7 주도 + S8 병행**. 2026-04-22 DQ-7 spec 확정으로 **DQ-7이 S7a보다 선행**.
 
 ```
-S7a → S7e → [여기서 S8 스캐폴드 병행 시작]
-           → S7b → S7c → S7d → [여기서 S8 실 체결 전환] → S9 운용 검증
+DQ-7 Admin Credential (4 세션) → S7a → S7e → [여기서 S8 스캐폴드 병행 시작]
+                                              → S7b → S7c → S7d → [여기서 S8 실 체결 전환] → S9 운용 검증
 ```
 
-| ID | 이름 | 포함 Must / 신규 기능 | 외부 의존 | 예상 세션 | 선행 BL-KRIT |
+| ID | 이름 | 포함 Must / 신규 기능 | 외부 의존 | 예상 세션 | 선행 BL-KRIT / BL-DQ7 |
 |---|---|---|---|---|---|
+| **DQ-7** | **Admin Credential System + Vercel 첫 배포** (신설, 2026-04-22) | (Must 19 밖 집행 인프라) · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}` | Vercel · Supabase | 4 | BL-DQ7-1~6 (spec §10.1) |
 | **S7a** | Anthropic wrapper + cost_log 실 INSERT | M17 | Anthropic | 1 | BL-KRIT-1 |
-| **S7e** | Supabase 실 SELECT/INSERT 전면 전환 | M1·M4·M5·M6·M7·M8·M9·M16 | Supabase | 2 | BL-KRIT-6 + 0009 migration |
+| **S7e** | Supabase 실 SELECT/INSERT 전면 전환 | M1·M4·M5·M6·M7·M8·M9·M16 | Supabase | 2 | BL-KRIT-6 ✅ + **마이그레이션 0010** (BL-KRIT-7 재배정) |
 | **S7b** | 뉴스 + 브리핑 실 연결 | M11·M12 | Naver · Resend · Anthropic | 2 | BL-KRIT-1·3·4 |
 | **S7c** | 장중 + Exit 2채널 실 연결 | M13·M14·M15 | KIS WebSocket · Telegram · Resend | 2 | BL-KRIT-2·4·5 |
 | **S7d** | Silent Health 실 INSERT + override UI | M18·M19 + BL-17 B | Supabase · Telegram · Resend | 1 | BL-KRIT-4·5 |
-| **S8 스캐폴드** | 자동매매 UI·스키마·Vault 훅·Strategy 폴더·AI 어댑터 인터페이스·Policy Engine (mock 체결) | 신규 E12~E16 · 6 라우트 | (아직 없음) | 2 | BL-KRIT-8 · DQ-11 |
+| **S8 스캐폴드** | 자동매매 스키마·Strategy 폴더·AI 어댑터 인터페이스·Policy Engine (mock 체결). UI `/admin/settings/{brokerage,binance}`는 **DQ-7에서 선행 이관**. | 신규 E13~E17 · 4 라우트 (`/risk`·`/strategy`·`/trading/*`) | (아직 없음) | 2 | BL-KRIT-8 · DQ-11 |
 | **S8 실 체결** | KIS 모의→실계좌 + 바이낸스 테스트넷→메인넷 전환 | Strategy 샘플 2건 검증 | KIS · 바이낸스 | 2 | DQ-9·DQ-10 · BL-KRIT-9 |
-| **S9** | 어드민 3인 운용 검증 (Mock→Mock+실 혼합 1~2주 → 실계좌 전환) | 전체 | — | 4~8주 (세션 단위 아님) | S7a~e + S8 완료 |
+| **S9** | 어드민 3인 운용 검증 (Mock→Mock+실 혼합 1~2주 → 실계좌 전환) | 전체 | — | 4~8주 (세션 단위 아님) | DQ-7 + S7a~e + S8 완료 |
 
-**총 예상**: 12 세션 + 4~8주 운용 = 어드민 내부 도구 완성 기준
+**총 예상**: 4 (DQ-7) + 8 (S7) + 4 (S8) = **16 세션** + 4~8주 운용 = 어드민 내부 도구 완성 기준
 
-> **다음 세션 킥오프 가이드**: S7 슬라이스 파일 **작성 완료** (`Slices/S7-RealData.md`, 2026-04-21 AUTO-4 완료). S7a 킥오프 첫 작업은 Anthropic API Key 투입(BL-KRIT-1) + 해당 파일 Phase S7a Tasks 실행. S8 파일도 이미 있음(`Slices/S8-AutoTrading.md`). `.env.example`로 필요 키 목록 확인 가능.
+> **다음 세션 킥오프 가이드**: **DQ-7이 최우선**. `Slices/DQ7-Credentials.md` §9.2 Session 1 Wave 1 = `src/lib/crypto/aes.ts` TDD. 에이전트·스킬 매핑은 spec §9.1 Task 표 참조. S7·S8 슬라이스 파일도 이미 있음(`Slices/S7-RealData.md`·`Slices/S8-AutoTrading.md`), DQ-7 완료 후 자연 진입.
 
 ---
 
@@ -295,15 +315,31 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 - [ ] 어드민 운용 검증 0일 (목표 1개월+)
 - [x] origin push ✅ (2026-04-20, 77ef624까지 동기화)
 
-### S8 자동매매 프레임 (2026-04-21 D16 신규)
-- [ ] `tudal/.env.example` 작성 (KIS·바이낸스·Anthropic 키 슬롯 + placeholder)
-- [ ] E12 ExchangeConnection · E13 OrderQueue · E14 TradeExecution · E15 RiskPolicy · E16 RiskViolationEvent 마이그레이션
-- [ ] `/admin/settings/{brokerage,binance,risk,strategy}` 4개 라우트
+### DQ-7 Admin Credential System (2026-04-22 신설, S7a 선행)
+- [ ] `src/lib/crypto/aes.ts` AES-256-GCM util + 12 tests (TDD)
+- [ ] `src/lib/credentials/{types,mask,validation,brokerage,exchange}.ts` Server Actions
+- [ ] 마이그레이션 **0009** (E9 확장 + E12 신설 + RLS · BL-KRIT-7은 0010으로 밀어둠)
+- [ ] `/admin/settings/brokerage` UI (KIS 키 입력·마스킹·삭제)
+- [ ] `/admin/settings/binance` UI (Binance 키 입력·테스트넷 토글)
+- [ ] `ADMIN_REP_EMAIL` 신규 env + 대표 1인 실계좌 저장 권한 가드
+- [ ] `scripts/rotate-cred-mek.ts` (dry-run 기본)
+- [ ] Vercel 프로젝트 생성 + 최소 env 7개 투입 (Supabase 3 + ADMIN_EMAILS + ADMIN_REP_EMAIL + API_CRED_MASTER_KEY + CRON_SECRET)
+- [ ] Vercel Production Branch = `production` (main은 Preview only)
+- [ ] Supabase Redirect URL 갱신
+- [ ] 첫 preview 배포 + Cron 4건 실 등록 확인
+- [ ] Manual QA 30항 + Security probes dry-run 4항
+- [ ] HANDOFF·ProgressDashboard·CodebaseStatus 갱신
+
+### S8 자동매매 프레임 (2026-04-21 D16 신규, DQ-7 완료 후)
+- [x] `tudal/.env.example` 작성 (AUTO-6 완료, 2026-04-21)
+- [ ] 마이그레이션 (BL-KRIT-8) — E13 OrderQueue · E14 TradeExecution · E15 RiskPolicy · E16 RiskViolationEvent · E17 StrategyRegistration (E12 ExchangeConnection은 **DQ-7에서 선행 생성**)
+- [ ] ~~`/admin/settings/{brokerage,binance}` 라우트~~ **DQ-7에서 선행 이관**
+- [ ] `/admin/settings/{risk,strategy}` 2개 라우트
 - [ ] `/admin/trading/{stock,crypto}` 2개 라우트 + mock 주문 큐 + 체결 로그
 - [ ] Strategy 폴더 규약 (`src/lib/trading/strategies/{stock,crypto}/*.ts`) + 샘플 전략 2건
 - [ ] AI 어댑터 인터페이스 (`src/lib/trading/ai/decide-order.ts`) + 빈 훅
 - [ ] Policy Engine 기본값 (≤5x / -3% / ≤20회) + `test:ci` 케이스
-- [ ] 모의↔실 토글 대표 1인 권한 가드
+- [ ] 모의↔실 토글 대표 1인 권한 가드 (DQ-7과 동일 패턴 재사용)
 - [ ] 주식 KIS 모의 체결 연결 → 검증 후 실계좌
 - [ ] 바이낸스 선물 테스트넷 연결 → 검증 후 메인넷
 - [ ] AI agent·skill 본체 drop-in (어드민 직접, 나중)
@@ -323,10 +359,12 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 | 용도 | 문서 |
 |---|---|
 | 전체 슬라이스 상태 | `Document/Build/ProgressDashboard.md` |
-| 직전 슬라이스 상세 | `Document/Build/Slices/S6-Hardening.md` |
+| **DQ-7 슬라이스 (다음 진입점)** | **`Document/Build/Slices/DQ7-Credentials.md` (2026-04-22 spec 확정, 구현 대기)** |
+| S7 실데이터 슬라이스 | `Document/Build/Slices/S7-RealData.md` (DQ-7 다음) |
+| 자동매매 슬라이스 | `Document/Build/Slices/S8-AutoTrading.md` (S7a·S7e 후 병행) |
+| 직전 완료 슬라이스 | `Document/Build/Slices/S6-Hardening.md` (Mock Skeleton 종점) |
 | 개발 방법론 | `Document/Process/ExecutionPlaybook.md` |
 | 기획 SoT (어드민) | `Document/Service/Planning/ServicePlan-Admin.md` **v1.2** (2026-04-21 D16) |
-| 자동매매 슬라이스 | `Document/Build/Slices/S8-AutoTrading.md` (현 개발 플랜 차기) |
 | 기획 SoT (멤버) | `Document/Service/Planning/ServicePlan-Member.md` |
 | 리포트 방법론 | `Document/Service/Report/ReportFramework.md` |
 | 사업 SoT | `Document/Business/BusinessPlan.md` |
@@ -337,6 +375,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 
 ## §12 최근 세션 (이전은 `git log`)
 
+- **2026-04-22 (25차, DQ-7 brainstorming + spec 작성 + origin 동기화)** — `superpowers:brainstorming` 스킬로 DQ-7 재설계 진행. 사용자 확정 축 Q1~Q5: (Q1=a) 바이낸스·KIS 모두 per-admin DB 저장 · (Q2=a) App-layer AES-256-GCM · (Q3=a) 이 슬라이스에서 즉시 Vercel 배포 · (Q4=b) 분리 2테이블 (E9 확장 + E12 신설) · (Q5=a) 테스트 버튼 UI만(disabled). 설계 8 섹션(Architecture·Backend·DB·Frontend·Deploy·Error·Testing·세션분해+매핑) 사용자 승인 → `Document/Build/Slices/DQ7-Credentials.md` 신규 작성(858 줄, 17 섹션). 20 Tasks · 4 세션 · 12 Wave · task별 agent·skill 매핑 포함. §13에 "S8 자동매매·주식 분석 알고리즘 언어 확장성" 박제(TS 인터페이스 고정 · 범주 1·2·3 = Node 내부/외부 서비스/배치+Supabase). 마이그레이션 번호 재배정: DQ-7이 0009 선점, BL-KRIT-7(alert_event CHECK)는 0010으로 밀어둠. 파일 변경 = 문서만 (spec 1건). 커밋 `962840a`, origin 동기화 완료. 세션 종료 시 HANDOFF·ProgressDashboard·CLAUDE.md·S8 slice 일괄 갱신 (이 후속).
 - **2026-04-21 (24차, 어드민 프레임 재정의 + DQ-5 해소)** — 사용자 지시로 (a) 어드민 = 본인+친구 3명 내부 투자 도구로 범위 재정의, 멤버·MVP Stage·Friends & Family 어휘 분리. (b) 구 트레이딩 3-Stage(매뉴얼→API→AI 자율) 어휘 폐기, 자동매매 = S8 단일 슬라이스로 통합. (c) S8 범위 확정: 주식(KIS 모의→실계좌) + 코인(바이낸스 USDT-M 선물 테스트넷→메인넷) + Strategy drop-in + AI 어댑터 embed. AI agent·skill 본체는 어드민 추후 drop-in. (d) 리스크 가드레일 기본값 박제: 레버리지 ≤5x · 일일 -3% 정지 · AI 일 주문 ≤20회. (e) BusinessPlan §Q1·§5·§9·§10.5·§10.8·§11·§12 · ServicePlan-Admin §0·§1.5·§1.6·§1A.0·§2·§3.1·§3.4·§3.13(신설)·§1A.5 D16 · ServicePlan §1·§2 Revision · HANDOFF §0·§1·§3·§4·§5·§6·§7·§9·§10 전면 정리. Slices/S8-AutoTrading.md 신규 작성, Deferred-Brokerage·Deferred-AIAgent-Selection는 승격 표기. 코드 변경 없음(docs only). **(f) DQ-5 Supabase anon key 갱신 해소** — 새 JWT + publishable key로 `.env.local` 교체, auth/v1/settings REST 200 OK, `/login`·`/admin` 200 OK. BL-KRIT-6 해소. 커밋 `9385e97` + `1e9e116`, origin 미푸시 2 ahead.
 - **2026-04-20 (23차 후속, HANDOFF 정정)** — 23차 종료 시 HANDOFF·ProgressDashboard·CodebaseStatus에 박힌 "🎉 MVP Stage 1 완료" 어휘를 "Mock Skeleton 완료 · 실데이터 0/19 · 운용 0일"로 전면 정정. feedback_mvp_framing.md 규칙을 문서 본문에 반영. 다음 세션 진입 결정 트리(§2)·DQ 리스트(§3)·BL-KRIT(§4)·자율 작업(§5)·실데이터 로드맵(§6)으로 재구성.
 - **2026-04-20 (23차)** S6 Mock 완료 — M17·M19 mock 동작. cost_log·heartbeat_log 실 INSERT는 이월. 190 tests pass.

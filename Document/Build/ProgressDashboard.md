@@ -2,11 +2,11 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-21 (24차 — **어드민 = 내부 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기**)
-총 슬라이스: 7개 (S0~S6 Mock) + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
-총 예상 세션: 9(완료) + 8(S7) + 4(S8) = **약 21 세션** + S9 운용 4~8주
-**진행률 (정확)**: Mock 동작 **19/19** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일**
-완성 기준 = Mock + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **4조건 AND** → **미달성**
+Last updated: 2026-04-22 (25차 — **DQ-7 Admin Credential spec 확정 · S7a 선행 인프라 트랙 신설**)
+총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (spec 완료, 2026-04-22)** + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
+총 예상 세션: 9(완료) + **4(DQ-7)** + 8(S7) + 4(S8) = **약 25 세션** + S9 운용 4~8주
+**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 spec ✅ / 구현 0%** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일**
+완성 기준 = Mock + DQ-7 Credential 인프라 + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **5조건 AND** → **미달성**
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
 S2 풀 리포트·투심위: ✅ **Mock 완료** (2026-04-17)
@@ -32,7 +32,8 @@ S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ Mock 완료 | ⚪ cost_log stub만 · S7a·e 대기 | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
-| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | ⚪ **미착수** (HANDOFF §6) | — |
+| **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | ⚪ **spec 확정(2026-04-22) · 구현 미착수** | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
+| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | ⚪ **미착수** (HANDOFF §6, DQ-7 완료 후) | — |
 | **S8** | **자동매매 프레임** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터) | Must 19 밖 (어드민 집행 서브시스템) | 4 (스캐폴드 2 + 실 체결 2) | — | ⚪ **미착수** (2026-04-21 D16) | [S8-AutoTrading.md](./Slices/S8-AutoTrading.md) |
 | **S9** | **어드민 운용 검증** | Mock+실 혼합 → 실계좌/메인넷 전환 | 4~8주 (세션 외) | — | ⚪ 미착수 | — |
 | ~~Deferred-X~~ | ~~증권사 API + 매뉴얼/자동매매 UI~~ | **S8로 승격 (2026-04-21)** | — | — | — | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) (승격 표기만) |

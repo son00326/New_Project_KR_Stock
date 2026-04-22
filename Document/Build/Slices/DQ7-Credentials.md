@@ -670,28 +670,30 @@ Layer 4  Security probes (수동, 1회성)       — 변조·MEK·DB inspect
 
 ### §9.1 Task 인벤토리 (20 Tasks)
 
-| # | Task | 영역 |
-|---|---|---|
-| T1 | `aes.ts` + 12 tests (TDD) | Backend |
-| T2 | `mask.ts` + 5 tests | Backend |
-| T3 | `validation.ts` + 8 tests | Backend |
-| T4 | 마이그레이션 0009 + rollback | DB |
-| T5 | BL-KRIT-7 번호 재배정 0009 → 0010 (문서) | Doc |
-| T6 | `types/admin.ts` cleanup (BrokerageConnection 폐기) | Types |
-| T7 | `credentials/{types,brokerage,exchange}.ts` Server Actions | Backend |
-| T8 | Integration tests ~20 cases | Tests |
-| T9 | `/admin/settings/brokerage` UI | Frontend |
-| T10 | `/admin/settings/binance` UI | Frontend |
-| T11 | `secret-input.tsx` 공유 | Frontend |
-| T12 | Sidebar nav 2 item | Frontend |
-| T13 | `.env.example` 갱신 | Config |
-| T14 | `scripts/rotate-cred-mek.ts` dry-run | Ops |
-| T15 | Vercel 프로젝트 + env + Production Branch | Deploy |
-| T16 | Supabase Redirect URL | Deploy |
-| T17 | 첫 preview 배포 + Cron 확인 | Deploy |
-| T18 | Layer 3 Manual QA 30항 | QA |
-| T19 | Layer 4 Security probes dry-run 4항 | QA |
-| T20 | HANDOFF·Dashboard·CodebaseStatus 갱신 + 커밋 | Close |
+| # | Task | 영역 | Wave | Session | Primary 에이전트 | Skill / MCP | Source |
+|---|---|---|---|---|---|---|---|
+| T1 | `aes.ts` + 12 tests (TDD) | Backend | W1 | S1 | executor(opus) | `superpowers:test-driven-development` + context7 (Node crypto) | superpowers · context7 |
+| T2 | `mask.ts` + 5 tests | Backend | W2b | S1 | executor(opus) | — | OMC |
+| T3 | `validation.ts` + 8 tests | Backend | W2b | S1 | executor(opus) | — | OMC |
+| T4 | 마이그레이션 0009 + rollback | DB | W2a | S1 | executor(sonnet) | context7 (Supabase RLS) | context7 |
+| T5 | BL-KRIT-7 번호 재배정 0009 → 0010 (문서) | Doc | W12 | S4 | writer 에이전트 | `commit-commands:commit` | commit-commands |
+| T6 | `types/admin.ts` cleanup (BrokerageConnection 폐기) | Types | W4 | S1 | executor(sonnet) | — | OMC |
+| T7 | `credentials/{types,brokerage,exchange}.ts` Server Actions | Backend | W2b | S1 | executor(opus) | — | OMC |
+| T8 | Integration tests ~20 cases | Tests | W3 | S1 | executor(opus) | — | OMC |
+| T9 | `/admin/settings/brokerage` UI | Frontend | W6 | S2 | executor(sonnet) | `superpowers:dispatching-parallel-agents` (W6 병렬) | superpowers |
+| T10 | `/admin/settings/binance` UI | Frontend | W6 | S2 | executor(sonnet) | (W9 병렬 쌍) | superpowers |
+| T11 | `secret-input.tsx` 공유 | Frontend | W5 | S2 | executor(sonnet) | — | OMC |
+| T12 | Sidebar nav 2 item | Frontend | W7 | S2 | executor(haiku) | — | OMC |
+| T13 | `.env.example` 갱신 | Config | W4 | S1 | executor(sonnet) | — | OMC |
+| T14 | `scripts/rotate-cred-mek.ts` dry-run | Ops | W8 | S3 | executor(opus) | context7 (Node crypto) | context7 |
+| T15 | Vercel 프로젝트 + env + Production Branch | Deploy | W9 | S3 | (사용자 수동) | Claude 가이드만 | — |
+| T16 | Supabase Redirect URL | Deploy | W9 | S3 | (사용자 수동) | 체크리스트 | — |
+| T17 | 첫 preview 배포 + Cron 확인 | Deploy | W9 | S3 | (사용자 수동) | 체크리스트 | — |
+| T18 | Layer 3 Manual QA 30항 | QA | W10 | S4 | (사용자 수동) | §8.4 체크리스트 | — |
+| T19 | Layer 4 Security probes dry-run 4항 | QA | W10 | S4 | (사용자 수동) | §8.5 체크리스트 | — |
+| T20 | HANDOFF·Dashboard·CodebaseStatus 갱신 + 커밋 | Close | W12 | S4 | writer 에이전트 | `commit-commands:commit` | commit-commands |
+
+추가 리뷰 Wave (W11, Session 4): `/review` (gstack) + `/security-review` (claude-plugins-official) + `superpowers:verification-before-completion` — code-reviewer 에이전트가 주도.
 
 ### §9.2 세션 분해
 
