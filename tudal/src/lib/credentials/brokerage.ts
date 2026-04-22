@@ -129,7 +129,8 @@ export async function listBrokerageCredentials(): Promise<
 }
 
 export async function testBrokerageConnection(
-  _id: string,
+  id: string,
 ): Promise<ActionResult<{ pong: boolean }>> {
+  void id; // S8-Scaffold T8.x에서 broker.ping(decrypted(id))로 연결 예정
   return { success: false, error: 'pending-s8' };
 }

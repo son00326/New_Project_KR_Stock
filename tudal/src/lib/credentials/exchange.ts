@@ -127,7 +127,8 @@ export async function listExchangeCredentials(): Promise<
 }
 
 export async function testExchangeConnection(
-  _id: string,
+  id: string,
 ): Promise<ActionResult<{ pong: boolean }>> {
+  void id; // S8-Scaffold T8.x에서 exchange.ping(decrypted(id))로 연결 예정
   return { success: false, error: 'pending-s8' };
 }

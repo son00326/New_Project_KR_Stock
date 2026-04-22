@@ -10,13 +10,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: { getUser: mocks.getUser },
     from: () => ({
-      upsert: (_data: unknown, _opts: unknown) => ({
+      upsert: () => ({
         select: () => ({
           single: async () => mocks.upsertSingle(),
         }),
       }),
       delete: () => ({
-        eq: async (_col: string, _val: string) => mocks.deleteEq(),
+        eq: async () => mocks.deleteEq(),
       }),
       select: () => ({
         eq: () => ({
