@@ -12,7 +12,7 @@ current_progress: 0%
 ```
 
 Last updated: 2026-04-21 (초기 생성 — D16 박제)
-선행 문서: `BusinessPlan.md §10.8` · `ServicePlan-Admin.md §1A.0 + §3.13` · `HANDOFF.md §6` · `AutoTrading.md`(리서치 원자료) · `AutoTrading-AI구조설계.md`(AI 구조 초안)
+선행 문서: `BusinessPlan.md §10.8` · `ServicePlan-Admin.md §1A.0 + §3.13` · `HANDOFF.md §6` · `../../Archive/AutoTrading.md`(리서치 원자료 · D11 이전) · `../../Archive/AutoTrading-AI구조설계.md`(AI 구조 초안 · D11 이전)
 
 ---
 
@@ -35,7 +35,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 - **Must**: (S8은 Must 19 밖 집행 레이어 — 어드민 내부 도구 완성의 독립 축)
 - **엔티티 (기존 RW)**: E1 ShortList30 (R) · E4 PortfolioApproval (R) · E5 PortfolioSnapshot (R) · E9 BrokerageConnection (RW, 기존 주식용)
 - **엔티티 (신규)**:
-  - **E12 ExchangeConnection** — 코인 거래소 연결(바이낸스 등). 구조는 E9와 평행.
+  - ~~**E12 ExchangeConnection**~~ — **DQ-7 0009에서 선행 생성** (`../DQ7-Credentials.md` §4.2). S8에서는 RW 참조만, 신규 마이그레이션 대상 아님.
   - **E13 OrderQueue** — 자동 주문 대기열(pending/submitted/filled/rejected/cancelled)
   - **E14 TradeExecution** — 체결 이력(가격·수량·수수료·펀딩비·슬리피지)
   - **E15 RiskPolicy** — 가드레일 설정값(admin_id 스코프 + 전역)
@@ -80,7 +80,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 
 ### Phase S8-Scaffold (세션 1~2, S7a·S7e 후 병행)
 
-- [ ] **T8.1** 마이그레이션 0010 (E12~E17 신규 5 테이블 + RLS + CHECK + 인덱스)
+- [ ] **T8.1** 마이그레이션 **0011** (E13~E17 신규 5 테이블 + RLS + CHECK + 인덱스) — E12 ExchangeConnection은 DQ-7 0009에서 선행 생성됨 (2026-04-22 cleanup)
 - [ ] **T8.2** `tudal/.env.example` 작성 (KIS·바이낸스·ANTHROPIC 키 슬롯 + `KIS_MOCK_MODE` · `BINANCE_TESTNET` 플래그)
 - [ ] **T8.3** `src/lib/trading/` 디렉토리 구조 생성
   - `src/lib/trading/types.ts` (OrderPlan · TradingStrategy · StrategyContext · RiskPolicy 공통 타입)
@@ -195,3 +195,4 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-21 | 초기 생성. D16 박제(BusinessPlan §12 2026-04-21 · ServicePlan-Admin §1A.5 D16). Deferred-X 승격 + Deferred-Y 흡수 경로 확정. 주식 KIS + 코인 바이낸스 USDT-M 선물 2축 범위 + Strategy drop-in + AI 어댑터 embed 이중 경로 박제. 리스크 기본값 보수(5x / -3% / 20회) 박제. |
+| 2026-04-22 | 문서 정합 cleanup (28차): DQ-7 Session 2 완료 후속. T8.1 마이그 번호 **0010→0011** 정정 (DQ-7=0009 · BL-KRIT-7=0010 선점 정합). §엔티티 신규 **E12 항목을 "DQ-7 선행 생성" 주석으로 축소** (S8 신규는 E13~E17만). **선행 문서 경로** AutoTrading·AutoTrading-AI구조설계 → Archive/ 이관 반영. 구조·Tasks·DoD·리스크는 변경 없음 (로드맵 재조정은 Step 2로 유예). |
