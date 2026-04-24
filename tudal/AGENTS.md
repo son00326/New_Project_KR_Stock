@@ -62,9 +62,10 @@ npm run test    # vitest watch 모드 (개발용)
 ### Working In This Directory
 - **Next.js 16 breaking changes 위험**: 라우팅·미들웨어·서버 액션·메타데이터·`next/*` import를 쓸 때 **반드시** `node_modules/next/dist/docs/` 또는 `context7` MCP 조회 후 작성.
 - **법적 제약** (`../Document/Business/BusinessPlan.md` §7):
-  1. 매수/매도 추천 금지 — AI 출력은 데이터·분석만.
-  2. 500명 cap + 초대 전용 — 공개 가입 퍼널 금지.
-  3. 면책 Footer 고정 — "정보 제공, 투자 자문 아님" 문구 유지.
+  1. 어드민 내부 도구에서는 AI가 Short List·비중·자동매매 판단까지 처리할 수 있다.
+  2. 멤버-facing Deferred-D 재개 시에만 매수/매도 직접 추천 표현을 다시 금지한다.
+  3. 500명 cap + 초대 전용은 Deferred-D 멤버 트랙에만 적용한다. 공개 가입 퍼널은 만들지 않는다.
+  4. 면책 Footer 고정 — "정보 제공, 투자 자문 아님" 문구 유지.
 
 ### Testing Requirements
 - 변경 후 `npm run build` + `npm run lint` + `npm run test:ci` 3 게이트 통과 필수.

@@ -58,9 +58,11 @@ export async function recordExitDecision(input: {
   }
 
   try {
-    // TODO(S5): await supabase.from("alert_event").update({
-    //   decision_recorded: decision, decision_memo: memo, is_read: true
-    // }).eq("id", alertId);
+    // TODO(S5): await supabase.rpc("record_alert_exit_decision", {
+    //   p_alert_id: alertId,
+    //   p_decision: decision,
+    //   p_memo: memo,
+    // });
     alert.decisionRecorded = decision;
     alert.decisionMemo = memo || null;
     alert.isRead = true;

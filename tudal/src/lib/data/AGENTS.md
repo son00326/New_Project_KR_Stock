@@ -1,10 +1,10 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-04-17 | Updated: 2026-04-17 -->
+<!-- Generated: 2026-04-17 | Updated: 2026-04-24 -->
 
 # data — Mock Data Sources
 
 ## Purpose
-**MVP mock 데이터 레이어**. 전 종목·재무·매크로 데이터가 여기서 export된다. 실데이터(KRX·한투·DART·pykrx) 전환은 **슬라이스별 "실데이터 연결" 단계**에서 mock 모듈을 통째로 교체하는 방식.
+Mock 데이터 레이어. 전 종목·재무·매크로·어드민 화면 데이터가 여기서 export된다. 실데이터(KRX·한투·DART·pykrx·Supabase) 전환은 **S7 실데이터 연결** 단계에서 slice별로 진행한다.
 
 ## Key Files
 | File | Description |
@@ -20,12 +20,12 @@
 
 ### Mock 파일 작성 규칙
 - 타입은 `@/types/*`에서 import하여 강제. `any` 금지.
-- 한 줄 주석: `// MVP용 mock 데이터 — 추후 {DART/KRX/한투/pykrx} API로 교체`.
+- 한 줄 주석: `// Mock 데이터 — 추후 {DART/KRX/한투/pykrx/Supabase}로 교체`.
 - Named export 사용 (`export const MOCK_XXX = [...]`). default export 금지.
 
-### Admin mock (S0 T0.7에서 추가 예정)
+### Admin mock
 - 파일 prefix `mock-admin-*.ts` 사용 (`mock-admin-shortlist.ts`, `mock-admin-reports.ts` 등).
-- 엔티티 타입은 `@/types/admin.ts` (S0 신규)에 정의. 빈 배열이어도 **TypeScript export shape는 확정** 필요.
+- 엔티티 타입은 `@/types/admin.ts`에 정의. 빈 배열이어도 **TypeScript export shape는 확정** 필요.
 
 ### 실데이터 전환 시
 - mock 파일 한 개가 교체 단위. **파일 분해 금지** — 호출부(`import from "@/lib/data/mock-stocks"`)는 그대로 유지하고 내부 구현만 교체.

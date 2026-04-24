@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
@@ -25,7 +25,16 @@ const CHART_TYPE_LABELS: Record<ChartType, { label: string; icon: typeof LineCha
 
 interface Indicator { key: string; label: string; active: boolean; }
 
+const subscribeNoop = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export function StockPriceChart({ ticker }: StockPriceChartProps) {
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const [period, setPeriod] = useState<Period>("3m");
   const [chartType, setChartType] = useState<ChartType>("candle");
   const [indicators, setIndicators] = useState<Indicator[]>([
@@ -81,6 +90,17 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
   const allPrices = data.flatMap((d) => [d.high, d.low, d.bbUpper, d.bbLower].filter(Boolean) as number[]);
   const yMin = Math.floor(Math.min(...allPrices) * 0.98 / 1000) * 1000;
   const yMax = Math.ceil(Math.max(...allPrices) * 1.02 / 1000) * 1000;
+
+  if (!mounted) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-full rounded bg-muted/30" />
+        <div className="h-6 w-2/3 rounded bg-muted/30" />
+        <div className="h-[400px] rounded bg-muted/20" />
+        <div className="h-[100px] rounded bg-muted/20" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -150,8 +170,8 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
       </div>
 
       {/* 메인 차트 */}
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-[400px] min-h-[400px] min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <ComposedChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} interval={Math.floor(data.length / 8)} />
@@ -234,8 +254,8 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
       </div>
 
       {/* 거래량 차트 */}
-      <div className="h-[100px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-[100px] min-h-[100px] min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <ComposedChart data={data} margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
             <XAxis dataKey="date" tick={false} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 9 }} tickLine={false} tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}M`} width={45} />

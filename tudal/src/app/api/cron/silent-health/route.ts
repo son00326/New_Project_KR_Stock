@@ -25,6 +25,14 @@ function isAuthorized(request: NextRequest): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+function isProductionLike(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 function yesterdayKstIsoDate(now: Date): string {
   const kstNow = new Date(now.getTime() + 9 * 3600 * 1000);
   const kstYesterday = new Date(kstNow.getTime() - 24 * 3600 * 1000);
@@ -57,6 +65,12 @@ export async function GET(request: NextRequest) {
 
   const message = buildHeartbeatMessage(classification, date);
   const emailSubject = buildHeartbeatEmailSubject(classification.status, date);
+  const noConfiguredOutboundChannel =
+    isProductionLike() &&
+    recipients.length === 0 &&
+    !process.env.TELEGRAM_BOT_TOKEN &&
+    !process.env.TELEGRAM_CHAT_ID &&
+    !process.env.TELEGRAM_CHAT_IDS;
 
   // 1) 텔·이메일 동시 발송 (recipients 없으면 이메일 채널 자동 skip)
   const [telegramRes, emailRes] = await Promise.all([
@@ -99,7 +113,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const allFailed = !telegramRes.success && !retrySuccess;
+  const allFailed = noConfiguredOutboundChannel || (!telegramRes.success && !retrySuccess);
   const sendFailed = allFailed;
 
   const log = toHeartbeatLogRecord(
@@ -113,18 +127,22 @@ export async function GET(request: NextRequest) {
   // 3) D10 catch-up도 실패하면 heartbeat_missing AlertEvent 적재
   let missingAlert: Omit<AlertEvent, "id" | "isRead"> | null = null;
   if (allFailed) {
-    const reason =
-      retryError ?? telegramRes.error ?? "발송 사유 불명 (mock-mode 가능성)";
+    const reason = noConfiguredOutboundChannel
+      ? "하트비트 발송 채널 미설정: ADMIN_EMAILS 또는 TELEGRAM_BOT_TOKEN/CHAT_ID 필요"
+      : retryError ?? telegramRes.error ?? "발송 사유 불명 (mock-mode 가능성)";
     missingAlert = buildHeartbeatMissingAlert(date, reason);
   }
 
-  return NextResponse.json({
-    ok: !sendFailed,
-    date,
-    status: classification.status,
-    sentChannels,
-    d10Triggered,
-    log,
-    alertEmitted: missingAlert?.triggerReason ?? null,
-  });
+  return NextResponse.json(
+    {
+      ok: !sendFailed,
+      date,
+      status: classification.status,
+      sentChannels,
+      d10Triggered,
+      log,
+      alertEmitted: missingAlert?.triggerReason ?? null,
+    },
+    { status: noConfiguredOutboundChannel ? 500 : sendFailed ? 502 : 200 },
+  );
 }

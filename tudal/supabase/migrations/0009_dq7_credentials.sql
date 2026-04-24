@@ -21,8 +21,36 @@
 begin;
 
 -- ---------------------------------------------------------------------
--- Mock Skeleton 단계 — 실 데이터 없음. 재설계 안전성 확보를 위해 비움.
+-- 0001_rls_sketch.sql은 실행 금지 sketch였으므로 fresh DB에서는
+-- brokerage_connection이 없을 수 있다. DQ-7 마이그레이션을 self-contained로
+-- 만들기 위해 기존 E9 shape를 먼저 보장한 뒤 새 암호화 컬럼으로 재설계한다.
 -- ---------------------------------------------------------------------
+create table if not exists public.brokerage_connection (
+  id uuid primary key default gen_random_uuid(),
+  admin_id uuid not null references auth.users(id) on delete cascade,
+  broker text not null,
+  account_no varchar not null,
+  api_key_ref text not null,
+  strategy_label varchar not null,
+  scope text not null check (scope in ('manual','auto','both')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz
+);
+
+alter table public.brokerage_connection enable row level security;
+
+-- ---------------------------------------------------------------------
+-- Mock Skeleton 단계 — 실 데이터 없음. 기존 row가 있으면 파괴적 재설계를 중단.
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from public.brokerage_connection limit 1) then
+    raise exception
+      '0009_dq7_credentials abort: brokerage_connection contains rows; migrate existing credentials explicitly before applying this schema change';
+  end if;
+end$$;
+
 truncate table public.brokerage_connection;
 
 -- 기존 RLS 정책 교체
@@ -53,6 +81,7 @@ alter table public.brokerage_connection
   drop column if exists api_key_ref,
   drop column if exists scope,
   alter column strategy_label drop not null,
+  add column app_key_masked text not null,
   add column ciphertext_app_key bytea not null,
   add column iv_app_key bytea not null
     check (octet_length(iv_app_key) = 12),
@@ -92,6 +121,7 @@ create table if not exists public.exchange_connection (
     check (exchange in ('binance_futures')),
   label text not null
     check (char_length(label) between 1 and 40),
+  api_key_masked text not null,
   ciphertext_api_key bytea not null,
   iv_api_key bytea not null
     check (octet_length(iv_api_key) = 12),

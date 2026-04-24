@@ -36,7 +36,7 @@ Last updated: 2026-04-22 (30차 — **DQ-7 Session 3 부분 진행 · BL-DQ7-1·
 - **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). 구 Deferred-X는 S8로 이관·폐기. T8.4·T8.5 UI는 **DQ-7 Session 2에서 이관 완료** (2026-04-22, commits 04d1116·289820e·240e7dc).
 - **실 운용 검증(S9)**: **0일**
 - **법무·이용약관**: ⏸ **Deferred-D 멤버 오픈까지 유예** (2026-04-20 확정, 2026-04-21 재확인). 어드민 내부 도구는 Footer 면책으로 충분.
-- **Git**: working tree clean (이 문서 갱신 commit 전) · HEAD `4c6f0e2` (vercel.json fix) · origin/main 동기화. 30차 commits: `78dc54b` T14 rotate-cred-mek.mjs(271 lines) → `4c6f0e2` news-sweep cron `*/15`→`0 0` (Hobby plan 호환). `.vercel/`는 repo root에 위치(CLI/webhook 일관) + root `.gitignore` `.vercel/` 추가.
+- **Git**: 세션 시작 시 `git status --short --branch`와 `git rev-parse --short HEAD`로 현재 상태를 재확인. 30차 기준 origin/main 동기화 완료, 이후 세션 변경 가능.
 - **검증 게이트**: build **24 routes** · lint 0 · test:ci **248 pass** · Vercel build 48s exit 0 production READY · 회귀 없음.
 - **어드민 범위**: 본인 + 친구 2명 = 3명(ADMIN_EMAILS 3명). 친구 추가는 나중 작업.
 - **마이그레이션 번호**: 0001~0008 적용 · **0009 = DQ-7 credential** (파일 생성 완료, 실 DB 적용은 Session 3 잔여 — 사용자 Supabase Dashboard SQL Editor 수동 적용) · **0010 = alert_event CHECK 확장** (BL-KRIT-7 재배정).
@@ -53,7 +53,7 @@ Last updated: 2026-04-22 (30차 — **DQ-7 Session 3 부분 진행 · BL-DQ7-1·
 ```
 진입 시 이 순서로 확인:
 
-(0) Git: HEAD `4c6f0e2` (vercel.json fix), origin/main 동기화. 30차에서 push 완료 (`84fc7e2..78dc54b` T14 + `78dc54b..4c6f0e2` cron fix).
+(0) Git: `git status --short --branch`와 `git rev-parse --short HEAD`로 현재 HEAD/dirty 상태를 먼저 확인. 문서의 과거 SHA를 실행 전제 조건으로 사용하지 말 것.
 
 (1) **DQ-7 Session 3 잔여 = 사용자 주도 3건** (T16·0009 적용·T17 — 30차에서 BL-DQ7-1·2·3·T14·Vercel 프로젝트/env/배포까지 처리됨).
     진입점: `Document/Build/Slices/DQ7-Credentials.md` §9.2 Session 3 + §6.5·§6.7
@@ -425,7 +425,7 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 | 용도 | 문서 |
 |---|---|
 | 전체 슬라이스 상태 | `Document/Build/ProgressDashboard.md` |
-| **DQ-7 슬라이스 (다음 진입점)** | **`Document/Build/Slices/DQ7-Credentials.md` (2026-04-22 spec 확정, 구현 대기)** |
+| **DQ-7 슬라이스 (다음 진입점)** | **`Document/Build/Slices/DQ7-Credentials.md` (Session 3 부분 진행 · T16/0009/T17 잔여)** |
 | S7 실데이터 슬라이스 | `Document/Build/Slices/S7-RealData.md` (DQ-7 다음) |
 | 자동매매 슬라이스 | `Document/Build/Slices/S8-AutoTrading.md` (S7a·S7e 후 병행) |
 | 직전 완료 슬라이스 | `Document/Build/Slices/S6-Hardening.md` (Mock Skeleton 종점) |

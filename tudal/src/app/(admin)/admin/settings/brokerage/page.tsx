@@ -1,4 +1,5 @@
 import { listBrokerageCredentials } from "@/lib/credentials/brokerage";
+import { describeCredentialListError } from "@/lib/credentials/errors";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { BrokerageForm } from "./form";
@@ -16,7 +17,14 @@ export default async function BrokeragePage() {
       user.email === process.env.ADMIN_REP_EMAIL,
   );
 
-  const rows = await listBrokerageCredentials();
+  let rows: Awaited<ReturnType<typeof listBrokerageCredentials>> = [];
+  let loadError: ReturnType<typeof describeCredentialListError> | null = null;
+  try {
+    rows = await listBrokerageCredentials();
+  } catch (err) {
+    console.warn("[settings:brokerage] credential list unavailable", err);
+    loadError = describeCredentialListError(err);
+  }
 
   return (
     <div className="space-y-6">
@@ -33,7 +41,14 @@ export default async function BrokeragePage() {
       </header>
 
       <section aria-label="등록된 KIS 계좌">
-        {rows.length === 0 ? (
+        {loadError ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            {loadError.message}
+          </p>
+        ) : rows.length === 0 ? (
           <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
             등록된 KIS 계좌 없음. 아래에서 추가하세요.
           </p>

@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { encrypt } from '@/lib/crypto/aes';
+import { encrypt, MekConfigurationError } from '@/lib/crypto/aes';
 import { maskAccount, maskKey } from './mask';
 import {
   cleanInput,
@@ -18,6 +18,10 @@ import type {
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toPostgresBytea(value: Buffer): string {
+  return `\\x${value.toString('hex')}`;
+}
 
 export async function upsertBrokerageCredential(
   input: BrokerageCredentialInput,
@@ -53,12 +57,13 @@ export async function upsertBrokerageCredential(
           account_no: accountNo,
           strategy_label: input.strategyLabel,
           mock_mode: input.mockMode,
-          ciphertext_app_key: keyPayload.ciphertext,
-          iv_app_key: keyPayload.iv,
-          auth_tag_app_key: keyPayload.authTag,
-          ciphertext_app_secret: secretPayload.ciphertext,
-          iv_app_secret: secretPayload.iv,
-          auth_tag_app_secret: secretPayload.authTag,
+          app_key_masked: maskKey(appKey, 2, 4),
+          ciphertext_app_key: toPostgresBytea(keyPayload.ciphertext),
+          iv_app_key: toPostgresBytea(keyPayload.iv),
+          auth_tag_app_key: toPostgresBytea(keyPayload.authTag),
+          ciphertext_app_secret: toPostgresBytea(secretPayload.ciphertext),
+          iv_app_secret: toPostgresBytea(secretPayload.iv),
+          auth_tag_app_secret: toPostgresBytea(secretPayload.authTag),
           is_active: true,
         },
         { onConflict: 'admin_id,broker,account_no' },
@@ -77,6 +82,11 @@ export async function upsertBrokerageCredential(
     if (e instanceof CredentialFormatError) {
       return { success: false, error: e.message };
     }
+    if (e instanceof MekConfigurationError) {
+      console.error('[credentials:brokerage] API_CRED_MASTER_KEY misconfigured');
+      return { success: false, error: '암호화 키 설정 오류: API_CRED_MASTER_KEY 확인 필요' };
+    }
+    console.error('[credentials:brokerage] unexpected upsert failure', e);
     return { success: false, error: '알 수 없는 오류' };
   }
 }
@@ -100,32 +110,30 @@ export async function listBrokerageCredentials(): Promise<
   BrokerageCredentialDisplay[]
 > {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('brokerage_connection')
     .select(
-      'id, broker, account_no, ciphertext_app_key, strategy_label, mock_mode, is_active, created_at, last_used_at',
+      'id, broker, account_no, app_key_masked, strategy_label, mock_mode, is_active, created_at, last_used_at',
     )
     .eq('is_active', true)
     .order('created_at', { ascending: false });
 
+  if (error) {
+    throw new Error(`brokerage credential lookup failed: ${error.message}`);
+  }
   if (!data) return [];
 
-  return data.map((row) => {
-    const ciphertextHex = Buffer.isBuffer(row.ciphertext_app_key)
-      ? row.ciphertext_app_key.toString('hex')
-      : String(row.ciphertext_app_key ?? '');
-    return {
-      id: row.id as string,
-      broker: row.broker as 'kis',
-      accountNoMasked: maskAccount(row.account_no as string),
-      appKeyMasked: maskKey(ciphertextHex, 2, 4),
-      mockMode: Boolean(row.mock_mode),
-      strategyLabel: (row.strategy_label as string | null) ?? null,
-      isActive: Boolean(row.is_active),
-      createdAt: row.created_at as string,
-      lastUsedAt: (row.last_used_at as string | null) ?? null,
-    };
-  });
+  return data.map((row) => ({
+    id: row.id as string,
+    broker: row.broker as 'kis',
+    accountNoMasked: maskAccount(row.account_no as string),
+    appKeyMasked: row.app_key_masked as string,
+    mockMode: Boolean(row.mock_mode),
+    strategyLabel: (row.strategy_label as string | null) ?? null,
+    isActive: Boolean(row.is_active),
+    createdAt: row.created_at as string,
+    lastUsedAt: (row.last_used_at as string | null) ?? null,
+  }));
 }
 
 export async function testBrokerageConnection(

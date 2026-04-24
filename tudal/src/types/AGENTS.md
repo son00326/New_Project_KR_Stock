@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-04-17 | Updated: 2026-04-17 -->
+<!-- Generated: 2026-04-17 | Updated: 2026-04-24 -->
 
 # types — Domain TypeScript Types
 
@@ -12,12 +12,14 @@
 | `stock.ts` | `Stock`·`FinancialData`·`RevenueSegment`·`Multiples`·`PeerCompany`·`PeerComparison`·`FundamentalReport` |
 | `corporate.ts` | 거버넌스·경영진·사업 부문 타입 |
 | `macro.ts` | 매크로 지표·Fear & Greed·이벤트 캘린더 타입 |
+| `admin.ts` | 어드민 도메인 타입(E1~E12 일부, AlertType, 설정·성과·credential display 파생 타입) |
+| `kr-business-days.ts` | 한국 영업일 캐시 타입 |
 
 ## For AI Agents
 
 ### 타입 추가 규칙
 - 새 엔티티는 **도메인별 파일에 추가**. 파일 분할 기준은 업무 도메인.
-- **Admin 전용 타입**은 `admin.ts` (S0 T0.7에서 신규 생성 예정)에 격리 — 기존 `stock.ts`에 섞지 않음.
+- **Admin 전용 타입**은 `admin.ts`에 격리 — 기존 `stock.ts`에 섞지 않음.
 - `interface` vs `type`: 구조체는 `interface`, 유니온·alias·mapped는 `type`.
 
 ### 제거된 타입 (돌아오지 않음)

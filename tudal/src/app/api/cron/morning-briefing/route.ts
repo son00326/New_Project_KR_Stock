@@ -17,6 +17,14 @@ function isAuthorized(request: NextRequest): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+function isProductionLike(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 function pickTopNews(items: NewsEvent[]): NewsEvent[] {
   return [...items]
     .sort((a, b) => {
@@ -57,6 +65,11 @@ export async function GET(request: NextRequest) {
 
   const sentChannels: string[] = ["dashboard"]; // 대시보드는 항상
   let emailError: string | null = null;
+  let configError: string | null = null;
+
+  if (recipients.length === 0 && isProductionLike()) {
+    configError = "모닝 브리핑 수신자 ADMIN_EMAILS가 설정되지 않았습니다";
+  }
 
   if (recipients.length > 0) {
     const result = await sendEmail({
@@ -70,7 +83,7 @@ export async function GET(request: NextRequest) {
     else emailError = result.error ?? "email send failed";
   }
 
-  const generationFailed = Boolean(emailError && recipients.length > 0);
+  const generationFailed = Boolean(configError || (emailError && recipients.length > 0));
   const logPayload = toBriefingLogRecord(composed, sentChannels, generationFailed);
 
   // 실데이터 전환: Supabase INSERT briefing_log + (실패 시) alert_event
@@ -80,7 +93,7 @@ export async function GET(request: NextRequest) {
       alertType: "briefing_failed",
       ticker: null,
       severity: "warning",
-      triggerReason: `모닝 브리핑 이메일 발송 실패: ${emailError}`,
+      triggerReason: configError ?? `모닝 브리핑 이메일 발송 실패: ${emailError}`,
       signalSentAt: new Date().toISOString(),
       outcomeAt: null,
       t7PriceChange: null,
@@ -89,12 +102,15 @@ export async function GET(request: NextRequest) {
     };
   }
 
-  return NextResponse.json({
-    ok: !generationFailed,
-    date: composed.date,
-    sentChannels,
-    contentPreview: composed.contentSummary.slice(0, 120),
-    log: logPayload,
-    alertEmitted: alertPayload?.triggerReason ?? null,
-  });
+  return NextResponse.json(
+    {
+      ok: !generationFailed,
+      date: composed.date,
+      sentChannels,
+      contentPreview: composed.contentSummary.slice(0, 120),
+      log: logPayload,
+      alertEmitted: alertPayload?.triggerReason ?? null,
+    },
+    { status: configError ? 500 : generationFailed ? 502 : 200 },
+  );
 }

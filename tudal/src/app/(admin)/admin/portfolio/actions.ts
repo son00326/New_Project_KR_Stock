@@ -250,11 +250,10 @@ export async function raiseDispute(input: {
   const raisedAt = new Date().toISOString();
 
   try {
-    // TODO(S5): await supabase.from("portfolio_approvals").update({
-    //   dispute_raised_at: raisedAt,
-    //   dispute_raised_by: adminId,
-    //   dispute_reason: reasonValidation.trimmed,
-    // }).eq("id", approvalId)
+    // TODO(S5): await supabase.rpc("raise_portfolio_dispute", {
+    //   p_approval_id: approvalId,
+    //   p_reason: reasonValidation.trimmed,
+    // })
     approval.disputeRaisedAt = raisedAt;
     approval.disputeRaisedBy = adminId;
     approval.disputeReason = reasonValidation.trimmed;
@@ -289,9 +288,9 @@ export async function resolveDispute(input: {
   const resolvedAt = new Date().toISOString();
 
   try {
-    // TODO(S5): await supabase.from("portfolio_approvals").update({
-    //   dispute_resolved_at: resolvedAt,
-    // }).eq("id", approvalId)
+    // TODO(S5): await supabase.rpc("resolve_portfolio_dispute", {
+    //   p_approval_id: approvalId,
+    // })
     approval.disputeResolvedAt = resolvedAt;
   } catch (err: unknown) {
     if (isUniqueViolation(err)) {

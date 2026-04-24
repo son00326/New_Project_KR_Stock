@@ -28,6 +28,7 @@ alter table public.brokerage_connection
   drop column if exists auth_tag_app_key,
   drop column if exists iv_app_key,
   drop column if exists ciphertext_app_key,
+  drop column if exists app_key_masked,
   alter column strategy_label set not null,
   add column if not exists scope text not null default 'manual'
     check (scope in ('manual', 'auto', 'both')),

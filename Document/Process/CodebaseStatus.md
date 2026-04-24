@@ -252,9 +252,9 @@
 - [ ] **Naver News API 키** (BL-KRIT-3) — DQ-7 선결
 - [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4) — DQ-7 선결
 - [ ] **Telegram Bot** (BL-KRIT-5) — DQ-7 선결
-- [ ] **Supabase anon key 갱신** (BL-KRIT-6) — DQ-5 선결
-- [ ] **마이그레이션 0010** alert_event CHECK 확장 (BL-KRIT-7 · 2026-04-22 재배정: DQ-7이 0009 선점)
-- [ ] **마이그레이션 0009** DQ-7 credential (E9 확장 + E12 신설 + RLS, spec 확정, 구현 대기)
+- [x] **Supabase anon key 갱신** (BL-KRIT-6) — 2026-04-21 해소
+- [x] **마이그레이션 0010 파일 생성** alert_event 실 테이블 + CHECK 확장 + RLS owner-write hardening
+- [ ] **마이그레이션 0009** DQ-7 credential (E9 확장 + E12 신설 + RLS, 파일 생성 완료 · 실 DB 적용 Session 3 예정)
 - [ ] Supabase 실 SELECT/INSERT 전환 (S7e · 8 Must)
 - [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12)
 - [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)

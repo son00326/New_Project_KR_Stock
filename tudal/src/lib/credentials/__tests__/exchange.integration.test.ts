@@ -3,24 +3,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   upsertSingle: vi.fn(),
+  upsertPayload: vi.fn(),
   deleteEq: vi.fn(),
+  selectOrder: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: { getUser: mocks.getUser },
     from: () => ({
-      upsert: () => ({
+      upsert: (payload: unknown) => {
+        mocks.upsertPayload(payload);
+        return {
         select: () => ({
           single: async () => mocks.upsertSingle(),
         }),
-      }),
+        };
+      },
       delete: () => ({
         eq: async () => mocks.deleteEq(),
       }),
       select: () => ({
         eq: () => ({
-          order: async () => ({ data: [] }),
+          order: async () => mocks.selectOrder(),
         }),
       }),
     }),
@@ -43,6 +48,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.API_CRED_MASTER_KEY = TEST_MEK;
   process.env.ADMIN_REP_EMAIL = 'rep@example.com';
+  mocks.selectOrder.mockResolvedValue({ data: [], error: null });
 });
 
 describe('upsertExchangeCredential', () => {
@@ -146,6 +152,44 @@ describe('upsertExchangeCredential', () => {
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.id).toBe('new-uuid');
   });
+
+  it('serializes encrypted bytea fields as Postgres hex strings', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'a@b.c' } },
+    });
+    mocks.upsertSingle.mockResolvedValue({
+      data: { id: 'new-uuid' },
+      error: null,
+    });
+    const { upsertExchangeCredential } = await import('../exchange');
+
+    await upsertExchangeCredential(validInput);
+
+    expect(mocks.upsertPayload).toHaveBeenCalledOnce();
+    const payload = mocks.upsertPayload.mock.calls[0][0] as Record<string, unknown>;
+    for (const field of [
+      'ciphertext_api_key',
+      'iv_api_key',
+      'auth_tag_api_key',
+      'ciphertext_api_secret',
+      'iv_api_secret',
+      'auth_tag_api_secret',
+    ]) {
+      expect(payload[field]).toEqual(expect.stringMatching(/^\\x[0-9a-f]+$/));
+    }
+  });
+
+  it('returns an operational error when MEK is misconfigured', async () => {
+    process.env.API_CRED_MASTER_KEY = 'bad-key';
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'a@b.c' } },
+    });
+    const { upsertExchangeCredential } = await import('../exchange');
+    const r = await upsertExchangeCredential(validInput);
+
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/암호화 키/);
+  });
 });
 
 describe('deleteExchangeCredential', () => {
@@ -169,5 +213,42 @@ describe('testExchangeConnection', () => {
     const r = await testExchangeConnection(UUID_VALID);
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toBe('pending-s8');
+  });
+});
+
+describe('listExchangeCredentials', () => {
+  it('uses stored api_key_masked instead of deriving display from ciphertext', async () => {
+    mocks.selectOrder.mockResolvedValue({
+      data: [
+        {
+          id: UUID_VALID,
+          exchange: 'binance_futures',
+          label: 'main-futures',
+          api_key_masked: 'aa···aaaa',
+          testnet_mode: true,
+          is_active: true,
+          created_at: '2026-04-24T00:00:00.000Z',
+          last_used_at: null,
+        },
+      ],
+      error: null,
+    });
+    const { listExchangeCredentials } = await import('../exchange');
+
+    const rows = await listExchangeCredentials();
+
+    expect(rows[0].apiKeyMasked).toBe('aa···aaaa');
+  });
+
+  it('does not hide Supabase lookup errors as an empty list', async () => {
+    mocks.selectOrder.mockResolvedValue({
+      data: null,
+      error: { message: 'relation "exchange_connection" does not exist' },
+    });
+    const { listExchangeCredentials } = await import('../exchange');
+
+    await expect(listExchangeCredentials()).rejects.toThrow(
+      /exchange credential lookup failed/,
+    );
   });
 });

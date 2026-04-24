@@ -62,17 +62,20 @@ export async function GET(request: NextRequest) {
   // 실 적재는 실데이터 전환 시: Supabase INSERT pipeline_health + alert_event
   const alertToEmit = outcome.overallSuccess ? null : buildSchedulerFailAlert(outcome);
 
-  return NextResponse.json({
-    ok: outcome.overallSuccess,
-    runId: outcome.runId,
-    steps: outcome.steps.map((s) => ({
-      name: s.name,
-      pipeline: s.pipeline,
-      success: s.success,
-      attempts: s.attempts,
-      latencyMs: s.latencyMs,
-      error: s.error,
-    })),
-    alertEmitted: alertToEmit?.triggerReason ?? null,
-  });
+  return NextResponse.json(
+    {
+      ok: outcome.overallSuccess,
+      runId: outcome.runId,
+      steps: outcome.steps.map((s) => ({
+        name: s.name,
+        pipeline: s.pipeline,
+        success: s.success,
+        attempts: s.attempts,
+        latencyMs: s.latencyMs,
+        error: s.error,
+      })),
+      alertEmitted: alertToEmit?.triggerReason ?? null,
+    },
+    { status: outcome.overallSuccess ? 200 : 502 },
+  );
 }

@@ -163,15 +163,19 @@ function reencryptAll(rows, oldMek, newMek) {
   });
 }
 
+function toPostgresBytea(value) {
+  return `\\x${value.toString('hex')}`;
+}
+
 async function applyUpdates(supabase, table, columns, rows) {
   for (const r of rows) {
     const patch = {
-      [columns[0][0]]: r.pair1.ciphertext,
-      [columns[0][1]]: r.pair1.iv,
-      [columns[0][2]]: r.pair1.authTag,
-      [columns[1][0]]: r.pair2.ciphertext,
-      [columns[1][1]]: r.pair2.iv,
-      [columns[1][2]]: r.pair2.authTag,
+      [columns[0][0]]: toPostgresBytea(r.pair1.ciphertext),
+      [columns[0][1]]: toPostgresBytea(r.pair1.iv),
+      [columns[0][2]]: toPostgresBytea(r.pair1.authTag),
+      [columns[1][0]]: toPostgresBytea(r.pair2.ciphertext),
+      [columns[1][1]]: toPostgresBytea(r.pair2.iv),
+      [columns[1][2]]: toPostgresBytea(r.pair2.authTag),
     };
     const { error } = await supabase.from(table).update(patch).eq('id', r.id);
     if (error) {

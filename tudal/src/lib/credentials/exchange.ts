@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { encrypt } from '@/lib/crypto/aes';
+import { encrypt, MekConfigurationError } from '@/lib/crypto/aes';
 import { maskKey } from './mask';
 import {
   cleanInput,
@@ -18,6 +18,10 @@ import type {
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toPostgresBytea(value: Buffer): string {
+  return `\\x${value.toString('hex')}`;
+}
 
 export async function upsertExchangeCredential(
   input: ExchangeCredentialInput,
@@ -52,12 +56,13 @@ export async function upsertExchangeCredential(
           exchange: input.exchange,
           label,
           testnet_mode: input.testnetMode,
-          ciphertext_api_key: keyPayload.ciphertext,
-          iv_api_key: keyPayload.iv,
-          auth_tag_api_key: keyPayload.authTag,
-          ciphertext_api_secret: secretPayload.ciphertext,
-          iv_api_secret: secretPayload.iv,
-          auth_tag_api_secret: secretPayload.authTag,
+          api_key_masked: maskKey(apiKey, 2, 4),
+          ciphertext_api_key: toPostgresBytea(keyPayload.ciphertext),
+          iv_api_key: toPostgresBytea(keyPayload.iv),
+          auth_tag_api_key: toPostgresBytea(keyPayload.authTag),
+          ciphertext_api_secret: toPostgresBytea(secretPayload.ciphertext),
+          iv_api_secret: toPostgresBytea(secretPayload.iv),
+          auth_tag_api_secret: toPostgresBytea(secretPayload.authTag),
           is_active: true,
         },
         { onConflict: 'admin_id,exchange,label' },
@@ -76,6 +81,11 @@ export async function upsertExchangeCredential(
     if (e instanceof CredentialFormatError) {
       return { success: false, error: e.message };
     }
+    if (e instanceof MekConfigurationError) {
+      console.error('[credentials:exchange] API_CRED_MASTER_KEY misconfigured');
+      return { success: false, error: '암호화 키 설정 오류: API_CRED_MASTER_KEY 확인 필요' };
+    }
+    console.error('[credentials:exchange] unexpected upsert failure', e);
     return { success: false, error: '알 수 없는 오류' };
   }
 }
@@ -99,31 +109,29 @@ export async function listExchangeCredentials(): Promise<
   ExchangeCredentialDisplay[]
 > {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('exchange_connection')
     .select(
-      'id, exchange, label, ciphertext_api_key, testnet_mode, is_active, created_at, last_used_at',
+      'id, exchange, label, api_key_masked, testnet_mode, is_active, created_at, last_used_at',
     )
     .eq('is_active', true)
     .order('created_at', { ascending: false });
 
+  if (error) {
+    throw new Error(`exchange credential lookup failed: ${error.message}`);
+  }
   if (!data) return [];
 
-  return data.map((row) => {
-    const ciphertextHex = Buffer.isBuffer(row.ciphertext_api_key)
-      ? row.ciphertext_api_key.toString('hex')
-      : String(row.ciphertext_api_key ?? '');
-    return {
-      id: row.id as string,
-      exchange: row.exchange as 'binance_futures',
-      label: row.label as string,
-      apiKeyMasked: maskKey(ciphertextHex, 2, 4),
-      testnetMode: Boolean(row.testnet_mode),
-      isActive: Boolean(row.is_active),
-      createdAt: row.created_at as string,
-      lastUsedAt: (row.last_used_at as string | null) ?? null,
-    };
-  });
+  return data.map((row) => ({
+    id: row.id as string,
+    exchange: row.exchange as 'binance_futures',
+    label: row.label as string,
+    apiKeyMasked: row.api_key_masked as string,
+    testnetMode: Boolean(row.testnet_mode),
+    isActive: Boolean(row.is_active),
+    createdAt: row.created_at as string,
+    lastUsedAt: (row.last_used_at as string | null) ?? null,
+  }));
 }
 
 export async function testExchangeConnection(

@@ -31,11 +31,27 @@ function resolveFrom(override?: string): string {
   return override ?? process.env.RESEND_FROM_EMAIL ?? "joopick@no-reply.local";
 }
 
+function isProductionRuntime(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 export async function sendEmail(
   payload: SendEmailPayload,
 ): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
+    if (isProductionRuntime()) {
+      return {
+        success: false,
+        providerId: null,
+        mockMode: true,
+        error: "RESEND_API_KEY is required in production",
+      };
+    }
     console.warn(
       "[resend] RESEND_API_KEY 미설정 — mock-mode. payload.subject:",
       payload.subject,

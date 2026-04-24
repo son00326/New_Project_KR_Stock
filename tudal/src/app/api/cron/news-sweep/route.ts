@@ -23,6 +23,14 @@ function isAuthorized(request: NextRequest): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+function isProductionLike(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 // Short List 30 기준 쿼리 세트 (실데이터 전환 시 src/lib/data/mock-admin-shortlist에서 ticker+name 조인)
 const WATCHLIST_QUERIES: Array<{ ticker: string; query: string }> = [
   { ticker: "005930", query: "삼성전자" },
@@ -35,18 +43,49 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // mock-mode: Naver 키 없음 → fetch 생략, fixture 노출
-  const naverOn = Boolean(process.env.NAVER_CLIENT_ID);
+  // mock-mode: non-production에서만 Naver 키 둘 다 없음 → fetch 생략, fixture 노출.
+  // production-like 환경의 미설정/부분 설정은 운영 오설정으로 보고 실패 처리한다.
+  const hasNaverClientId = Boolean(process.env.NAVER_CLIENT_ID);
+  const hasNaverClientSecret = Boolean(process.env.NAVER_CLIENT_SECRET);
+  if (hasNaverClientId !== hasNaverClientSecret || (!hasNaverClientId && isProductionLike())) {
+    return NextResponse.json(
+      {
+        ok: false,
+        mockMode: false,
+        error: "NAVER_CLIENT_ID and NAVER_CLIENT_SECRET must be configured together",
+      },
+      { status: 500 },
+    );
+  }
+
+  const naverOn = hasNaverClientId && hasNaverClientSecret;
   let candidates: NewsCandidate[] = [];
 
   if (naverOn) {
-    const batches = await Promise.all(
+    const results = await Promise.allSettled(
       WATCHLIST_QUERIES.map((w) =>
-        fetchNaverNews({ query: w.query, ticker: w.ticker, display: 20 }).catch(
-          () => [] as NewsCandidate[],
-        ),
+        fetchNaverNews({ query: w.query, ticker: w.ticker, display: 20 }),
       ),
     );
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          mockMode: false,
+          error:
+            failures.length === results.length
+              ? "all Naver news queries failed"
+              : "partial Naver news queries failed",
+          failedQueries: failures.length,
+          totalQueries: results.length,
+        },
+        { status: 502 },
+      );
+    }
+    const batches = results
+      .filter((r): r is PromiseFulfilledResult<NewsCandidate[]> => r.status === "fulfilled")
+      .map((r) => r.value);
     const scraped = await scrapeSources([]);
     candidates = dedupeByUrl([...batches.flat(), ...scraped]);
   } else {

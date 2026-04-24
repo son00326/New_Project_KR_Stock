@@ -21,16 +21,39 @@ export interface SendTelegramResult {
   error?: string;
 }
 
+function resolveConfiguredChatId(): string | undefined {
+  const single = process.env.TELEGRAM_CHAT_ID?.trim();
+  if (single) return single;
+  return process.env.TELEGRAM_CHAT_IDS?.split(",")
+    .map((s) => s.trim())
+    .find(Boolean);
+}
+
+function isProductionRuntime(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 export function isTelegramConfigured(): boolean {
-  return Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+  return Boolean(process.env.TELEGRAM_BOT_TOKEN && resolveConfiguredChatId());
 }
 
 export async function sendTelegram(
   payload: SendTelegramPayload,
 ): Promise<SendTelegramResult> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = payload.chatId ?? process.env.TELEGRAM_CHAT_ID;
+  const chatId = payload.chatId ?? resolveConfiguredChatId();
   if (!token || !chatId) {
+    if (isProductionRuntime()) {
+      return {
+        success: false,
+        mockMode: true,
+        error: "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID(S) are required in production",
+      };
+    }
     console.warn(
       "[telegram] TELEGRAM_BOT_TOKEN/CHAT_ID 미설정 — mock-mode. preview:",
       payload.text.slice(0, 60),

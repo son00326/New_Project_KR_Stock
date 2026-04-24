@@ -71,9 +71,18 @@ export async function signOutAction() {
 // Supabase signInWithOtp → 이메일 링크 → /auth/callback?code=XXX → session.
 // ---------------------------------------------------------------------------
 
+function normalizeSiteUrl(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  return withProtocol.replace(/\/$/, "");
+}
+
 function resolveSiteUrl(): string {
   return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+    normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL) ??
+    normalizeSiteUrl(process.env.NEXT_PUBLIC_VERCEL_URL) ??
+    normalizeSiteUrl(process.env.VERCEL_URL) ??
     "http://localhost:3000"
   );
 }
