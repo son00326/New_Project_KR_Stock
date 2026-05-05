@@ -2,10 +2,10 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-04-22 (30차 — **DQ-7 Session 3 부분 진행 · Vercel 첫 production 배포 ✅ https://tudal-tawny.vercel.app · T16·0009·T17 사용자 다음 세션**)
-총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~80% 진행, 2026-04-22)** + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
+Last updated: 2026-05-05 (32차 — **Supabase 계정 마이그(Kevin → son00326) + 0001~0010 적용(MCP) + Vercel env 갱신 + Production 재배포 + DQ-7 Session 3 자동 부분 해소**)
+총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~99%, T16 1건 잔여)** + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
 총 예상 세션: 9(완료) + **4(DQ-7, 2 + 부분 1 완료)** + 8(S7) + 4(S8) = **약 25 세션** + S9 운용 4~8주
-**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~70% (Session 1·2 ✅ + Session 3 ~80%)** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel 첫 prod 배포 ✅ (24 routes, build 48s, READY)**
+**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~85% (Session 1·2 ✅ + Session 3 ~99% — T16만 잔여)** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel Production ✅ (24 routes, 56s, son00326 신 Supabase 연결)**
 완성 기준 = Mock + DQ-7 Credential 인프라 + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **5조건 AND** → **미달성**
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
@@ -176,11 +176,11 @@ S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계
 |---|---|---|
 | **BL-KRIT-1** | Anthropic API Key | M17·M11·M12·M19 실 AI 호출 불가 · S8 AI 어댑터 본체 |
 | **BL-KRIT-2** | KIS (한투) API 계정 | M13 장중 WebSocket + **S8 주식 자동매매** 불가 |
-| **BL-KRIT-3** | Naver News API 키 | M12 뉴스 sweep 실 동작 불가 |
+| ~~BL-KRIT-3~~ | 🟡 Naver News API 키 — 2026-04-30 .env.local 투입 (Vercel env + rotate는 S7b 직전) | — |
 | **BL-KRIT-4** | Resend 계정 | M11·D10 catch-up 이메일 발송 불가 |
 | **BL-KRIT-5** | Telegram Bot | M13·M15 텔레그램 2채널 불가 |
 | ~~BL-KRIT-6~~ | ✅ Supabase anon 키 갱신 (2026-04-21 해소, DQ-5) | — |
-| **BL-KRIT-7** | 마이그레이션 0009 (alert_event CHECK 확장) | 신규 AlertType 6종 실 INSERT 거부됨 |
+| **BL-KRIT-7** | 마이그레이션 **0010** (alert_event CHECK 확장 — 28차에 0009→0010 재배정, DQ-7이 0009 선점) | 신규 AlertType 6종 실 INSERT 거부됨 |
 | **BL-KRIT-8** | 마이그레이션 **0011** (S8 자동매매 E13~E17: OrderQueue·TradeExecution·RiskPolicy·RiskViolationEvent·StrategyRegistration) — E12 ExchangeConnection은 DQ-7 0009 선행 생성 | S8 전체 (주문 큐·체결 이력·포지션·리스크 이벤트·코인 거래소 연결) |
 | **BL-KRIT-9** | 바이낸스 API 키 + IP/KYC 조건 | S8 코인 자동매매 |
 
@@ -227,4 +227,5 @@ S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계
 | 2026-04-19 | **S6 블로커 4건 일괄 해소 (22차 후속)**. BL-16 = A · BL-17 = B · BL-18 = B · G-3 = B. S6 진입 가능. |
 | 2026-04-20 | **S6 ✅ Mock 완료 (23차)**. 0008 마이그레이션(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS) + T6.1~T6.6 직접 실행. src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts + src/lib/health/heartbeat.ts + `/admin/settings/cost` 대시보드 + `/api/cron/silent-health` (매일 24:00 KST·mock 페이로드) + Sidebar nav 확장 + Vitest 3 files. **20 files / 190 tests pass** · build 22 routes · lint 0. Mock Skeleton Stage 1 완성(S0~S6). 실데이터·실 AI·운용 검증 0. 실제 누적 9세션(예상 25 대비 36%). |
 | 2026-04-20 | **23차 후속 HANDOFF 정정**. S6 종료 시 "🎉 MVP Stage 1 완료 · Must 19/19 (100%)" 어휘가 mock-only를 진짜 MVP로 오인케 한다는 사용자 지적. feedback_mvp_framing.md 규칙을 문서 본문에 반영: Mock 동작 vs 실데이터 vs 운용 검증 3축 분리. Dashboard 상단 상태·슬라이스 표·Must 19 표·Global Blocker에 BL-KRIT-1~7 (외부 API·Supabase anon·CHECK 확장) 신설. S7(실데이터 전환) 슬라이스 플레이스홀더 삽입. HANDOFF.md 전면 재작성(§2 진입 결정 트리 + §3 DQ 리스트 + §4 BL-KRIT + §5 자율 작업 + §6 S7a~e 로드맵). |
+| **2026-04-30** | **31차 — A 문서 갱신**. 사용자 BL-KRIT-3 Naver API 키 제공 → `tudal/.env.local` 투입. (1) §5 BL-KRIT-3 부분 해소 표기 (.env.local 투입, Vercel env + rotate는 S7b 직전) (2) **T5 stale 정정**: §5 BL-KRIT-7 "마이그레이션 0009"→"**0010**" (28차에 재배정됐으나 미반영) (3) HANDOFF §1·§4·§6·§12 + CodebaseStatus 환경변수·체크리스트 동기화. 코드 변경 0건 (env 1줄 추가 외 전부 docs). 검증 회귀 0. |
 | **2026-04-21** | **어드민 = 내부 투자 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기 (D16)**. 슬라이스 요약 표에 **S8 자동매매 프레임** (주식 KIS + 바이낸스 선물) · **S9 운용 검증** 신규 2행 추가. Deferred-X → S8로 승격 표기, Deferred-Y → S8 AI 어댑터 흡수 표기, Deferred-D(멤버) 별도 트랙으로 분리. 전체 실행 순서 다이어그램을 "S7 → S8 → S9 → 어드민 내부 도구 완성"으로 교체. Global Blocker에 BL-KRIT-8(마이그레이션 0011 E13~E17, E12는 DQ-7 0009 선행) + BL-KRIT-9(바이낸스 키·IP·KYC) 추가. Must 19 표는 변경 없음(S8은 Must 19 밖 집행 레이어). 상단 진행률 표를 "Mock + 실데이터 + 자동매매 + 운용 4조건"으로 수정. |

@@ -12,6 +12,31 @@
 
 ## 최근 갱신
 
+**2026-05-05** (32차): **Supabase 계정 마이그(Kevin → son00326) + 0001~0010 적용(MCP) + Vercel env 갱신 + Production 재배포 + DQ-7 Session 3 자동 부분 해소**.
+- **Supabase 신 프로젝트**: `rbrpcynhphrpljbjirfo` (son00326's Org · Free · Seoul region · Security 옵션 기본). 이전 `fpriyjykihxhhvqudvdb` 폐기.
+- `tudal/.env.local` 4 키 교체 (gitignored): URL · ANON · PUBLISHABLE · SERVICE_ROLE 모두 새 JWT/sb_publishable/URL.
+- 신규 파일 (커밋 대상): `tudal/supabase/config.toml` (Supabase CLI 로컬 stack 기본 설정, `supabase init` 산출) + `tudal/supabase/.gitignore` (`.branches`·`.temp`·`.env.local` 패턴).
+- **Supabase CLI**: v2.98.1 설치 (`/usr/local/bin/supabase`, GitHub releases binary 직접 다운로드 — brew는 Xcode 26 요구로 fail). 향후 `supabase db push` 또는 MCP 양쪽으로 마이그 가능.
+- **Supabase MCP 등록**: `~/.claude.json` user-scope · HTTP transport `https://mcp.supabase.com/mcp?project_ref=rbrpcynhphrpljbjirfo` · `Authorization: Bearer sbp_...` (PAT) · `✓ Connected`. PAT는 user-scope 저장이라 repo 미커밋. 향후 세션 자동 로드.
+- **마이그레이션 9건 적용 (MCP `apply_migration`)**: 0001 sketch skip, 0002~0010 순차 success. 검증 결과 21 테이블 RLS enabled · 9 마이그레이션 (timestamp version) 등록 · `kr_business_days` 2557 row seed (2024~2030).
+- **`admin_emails` 3 row INSERT**: shjang1001@gmail.com (메인) · kevinoh816@gmail.com (어드민 2) · son00326@gmail.com (대표).
+- **3-게이트 회귀 검증 (신 환경)**: build **24 routes** · lint **0** · test:ci **306 pass / 38 files** (이전 248에서 +58, 회귀 0).
+- **Vercel env 8 entries 새 키로 교체**: `vercel env rm` × 8 (1건 status error는 SERVICE_ROLE Development 부재 정상) → CLI add × 5 (Prod+Dev) + REST API `POST /v10/projects/:id/env?upsert=true` × 3 Preview (`created:3 failed:0`). 최종 — URL × 3 env · ANON × 3 env · SERVICE_ROLE × 2 env.
+- **Production 재배포**: `vercel deploy --prod --yes` → https://tudal-tawny.vercel.app · `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY` · target=production READY · build 56s · 새 Supabase 환경 적용.
+- **Supabase MCP `get_advisors security`**: 10 WARN — 모두 SECURITY DEFINER function (`is_admin`, `mark_alert_read`, `record_alert_exit_decision`, `raise_portfolio_dispute`, `resolve_portfolio_dispute`) anon/authenticated EXECUTE 노출. 함수 본문에 `is_admin()` 가드 박혀있어 비-어드민 호출 시 즉시 거부. 의도된 패턴, 수용.
+- **사용자 잔여 = T16 1건만**: Supabase Dashboard → Auth → URL Configuration (Site URL `https://tudal-tawny.vercel.app` + Redirect URLs 4건). T17 Smoke Test는 T16 직후.
+- **보안 주의**: 채팅 노출 시크릿 — anon JWT · service_role JWT · DB password · Supabase PAT(`sbp_...`). 작업 종료 후 rotate 권장 (특히 PAT는 son00326 계정 전체 접근 가능).
+- **변경 외 코드**: `tudal/src/**` 코드 변경 없음 (env 변경만). 검증 게이트 회귀 0.
+
+**2026-04-30** (31차): **A 문서 갱신 + Naver API 키 .env.local 투입 (BL-KRIT-3 부분 해소)**.
+- `tudal/.env.local` 신규 2 키 (gitignored): `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` (line 27-28)
+- 코드 변경 0건 (env 추가 외 전부 docs)
+- 문서 정정: HANDOFF §1·§4 BL-KRIT-3·§6 외부 신청 표·§12 31차 + ProgressDashboard Last updated·§5 BL-KRIT-3·§7 + 본 문서
+- **T5 stale 정정**: ProgressDashboard §5 BL-KRIT-7 "마이그레이션 0009" → **"0010"** (28차 재배정 후 미반영) + 본 문서 체크리스트 "[x] 마이그레이션 0010 파일 생성" → **[ ] 미생성**으로 정정 (잘못 체크된 stale)
+- 검증 회귀 0 (env 변경만)
+- **보안 주의**: 채팅 히스토리 노출 키 — Vercel env 투입 전 Naver Developers 콘솔에서 1회 rotate 권장 (DQ-5 Supabase anon 패턴)
+- **사용자 다음 세션 잔여 불변**: T16 Supabase Redirect URL · 0009 마이그레이션 실 DB 적용 · T17 Cron dashboard + Smoke Test
+
 **2026-04-22** (30차): **DQ-7 Session 3 부분 진행 — Vercel 첫 production 배포 도달**.
 - 새 파일: `tudal/scripts/rotate-cred-mek.mjs` (271 lines · MEK 로테이션 도구 · `--old`/`--new`/`--dry-run` · `.env.local` 자동 로드 · service_role SELECT + memory verify + UPDATE · `.ts`→`.mjs` deviation 박제)
 - `.env.local` 신규 3 키 (gitignored): `API_CRED_MASTER_KEY` · `CRON_SECRET` · `ADMIN_REP_EMAIL=son00326@gmail.com`
@@ -249,11 +274,11 @@
 ### 실데이터 전환 (S7, 미착수)
 - [ ] **Anthropic API 키 확보** (BL-KRIT-1) — DQ-2/DQ-7 선결
 - [ ] **KIS API 계정 발급** (BL-KRIT-2) — DQ-7 선결
-- [ ] **Naver News API 키** (BL-KRIT-3) — DQ-7 선결
+- [🟡] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전)
 - [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4) — DQ-7 선결
 - [ ] **Telegram Bot** (BL-KRIT-5) — DQ-7 선결
 - [x] **Supabase anon key 갱신** (BL-KRIT-6) — 2026-04-21 해소
-- [x] **마이그레이션 0010 파일 생성** alert_event 실 테이블 + CHECK 확장 + RLS owner-write hardening
+- [ ] **마이그레이션 0010 파일 생성** alert_event CHECK 확장 (BL-KRIT-7, S7e 진입 전 선행 — 28차 재배정으로 0009→0010, 31차 stale 체크 정정)
 - [ ] **마이그레이션 0009** DQ-7 credential (E9 확장 + E12 신설 + RLS, 파일 생성 완료 · 실 DB 적용 Session 3 예정)
 - [ ] Supabase 실 SELECT/INSERT 전환 (S7e · 8 Must)
 - [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12)
