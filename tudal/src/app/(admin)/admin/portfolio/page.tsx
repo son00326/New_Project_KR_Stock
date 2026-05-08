@@ -1,6 +1,6 @@
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { getApprovalsByMonth } from "@/lib/data/admin-approvals";
-import { MOCK_ADMIN_ACCESS_LOGS } from "@/lib/data/mock-admin-access-logs";
+import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
 import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
 import { addBusinessDays, formatDateKey } from "@/lib/portfolio/business-days";
@@ -146,7 +146,9 @@ export default async function AdminPortfolioPage() {
   );
 
   // (c) BL-20 자동 바이패스 배지 (T3.8)
-  const autoReliefResult = detectSingleAdminStreak(MOCK_ADMIN_ACCESS_LOGS, now, 7);
+  // T7e.6 — access-logs source는 boundary stub ([]) → autoReliefActive=false 영구.
+  const accessLogs = await getRecentAdminAccessLogs(now, 7);
+  const autoReliefResult = detectSingleAdminStreak(accessLogs, now, 7);
   const autoReliefActive = autoReliefResult.active;
 
   // (b) 2인 열람 게이팅 — 대표 상세 리포트 전체가 2인 열람을 만족해야 통과

@@ -1,6 +1,6 @@
 "use server";
 
-import { MOCK_ADMIN_ACCESS_LOGS } from "@/lib/data/mock-admin-access-logs";
+import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
 import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
 import {
   createPortfolioApproval,
@@ -119,15 +119,16 @@ function getMinimumRequiredViewerCount(
   );
 }
 
-function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
+async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
   const generatedAt = resolveShortlistGeneratedAt(month, shortlist);
   if (!generatedAt) {
     return { success: false as const, error: "shortlist_month_not_found" };
   }
 
   const now = new Date();
+  // T7e.6 — access-logs source는 boundary stub ([]) → autoReliefActive=false 영구.
   const autoReliefActive = detectSingleAdminStreak(
-    MOCK_ADMIN_ACCESS_LOGS,
+    await getRecentAdminAccessLogs(now, 7),
     now,
     7,
   ).active;
@@ -264,7 +265,7 @@ export async function acceptShortList(params: {
     return { success: false, error: "already_finalized" };
   }
 
-  const gate = validateAcceptGate(month, shortlist);
+  const gate = await validateAcceptGate(month, shortlist);
   if (!gate.success) return gate;
 
   try {
