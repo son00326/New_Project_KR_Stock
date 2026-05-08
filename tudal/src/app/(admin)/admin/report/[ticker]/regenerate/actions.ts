@@ -3,7 +3,7 @@
 import { isHardcapBlocked } from "@/lib/cost/aggregate";
 import { MOCK_ADMIN_COST_LOG } from "@/lib/data/mock-admin-cost-log";
 import { MOCK_ADMIN_REGEN_COUNTERS } from "@/lib/data/mock-admin-regen-counters";
-import { MOCK_ADMIN_REPORTS } from "@/lib/data/mock-admin-report";
+import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { MANUAL_REGEN_CAP } from "@/lib/performance/regen-cap";
 import { createClient } from "@/lib/supabase/server";
 
@@ -64,10 +64,15 @@ export async function regenerateReport(input: {
   if (!TICKER_RE.test(normalizedTicker)) {
     return { success: false, error: "invalid_ticker" };
   }
-  const reportExists = MOCK_ADMIN_REPORTS.some(
-    (report) => report.ticker === normalizedTicker && report.month === month,
-  );
-  if (!reportExists) {
+  // T7e.3 — stock_reports 존재성 실 SELECT (Supabase). 키 미시드 상태에서는
+  // 항상 false → "report_not_found" 반환 (S7a/T7e.8 시드 전 일관 동작).
+  let exists: boolean;
+  try {
+    exists = await reportExistsForMonth(normalizedTicker, month);
+  } catch {
+    return { success: false, error: "report_lookup_failed" };
+  }
+  if (!exists) {
     return { success: false, error: "report_not_found" };
   }
   if (!(await resolveAdminId())) {

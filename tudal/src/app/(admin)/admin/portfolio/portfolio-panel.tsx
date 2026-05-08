@@ -46,6 +46,21 @@ type BannerState =
   | { kind: "error"; message: string }
   | null;
 
+export function formatPortfolioActionError(error: string): string {
+  switch (error) {
+    case "already_finalized":
+      return "이미 이번 달 포트가 확정되어 있습니다.";
+    case "entry_price_unavailable":
+      return "실 가격 소스 미연동 — T7e.6/T7e.8 후 활성";
+    case "approval_write_failed":
+      return "승인 저장 실패 — 다시 시도하세요";
+    case "reanalysis_limit_reached":
+      return "재분석 2회를 초과했습니다 — 전월 포트 유지";
+    default:
+      return `오류: ${error}`;
+  }
+}
+
 export function PortfolioPanel({
   month,
   shortlistGeneratedAt,
@@ -209,11 +224,7 @@ export function PortfolioPanel({
       {banner?.kind === "error" && (
         <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          <span>
-            {banner.message === "already_finalized"
-              ? "이미 이번 달 포트가 확정되어 있습니다."
-              : `오류: ${banner.message}`}
-          </span>
+          <span>{formatPortfolioActionError(banner.message)}</span>
         </div>
       )}
 

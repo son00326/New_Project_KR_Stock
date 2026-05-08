@@ -67,6 +67,13 @@ export function DeltaBanner({
   );
 }
 
+export function canLinkDeltaReport(
+  item: Pick<ShortListItem, "deltaStatus">,
+  reportLinksEnabled: boolean,
+): boolean {
+  return reportLinksEnabled && item.deltaStatus !== "removed";
+}
+
 function DeltaCount({
   label,
   count,
@@ -123,7 +130,7 @@ function DeltaList({
                 {r.name}
               </span>
               <span className="flex-1 truncate">{r.deltaReason}</span>
-              {reportLinksEnabled ? (
+              {canLinkDeltaReport(r, reportLinksEnabled) ? (
                 <Link
                   href={`/admin/report/${r.ticker}`}
                   className="shrink-0 text-[10px] text-muted-foreground underline-offset-2 hover:underline"

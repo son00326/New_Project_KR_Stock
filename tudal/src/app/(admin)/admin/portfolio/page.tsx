@@ -1,5 +1,5 @@
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
-import { MOCK_ADMIN_APPROVALS } from "@/lib/data/mock-admin-approvals";
+import { getApprovalsByMonth } from "@/lib/data/admin-approvals";
 import { MOCK_ADMIN_ACCESS_LOGS } from "@/lib/data/mock-admin-access-logs";
 import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
@@ -116,9 +116,7 @@ export default async function AdminPortfolioPage() {
   ).length;
 
   // 이번 달 승인 상태
-  const thisMonthApprovals = MOCK_ADMIN_APPROVALS.filter(
-    (a) => a.month === month,
-  );
+  const thisMonthApprovals = await getApprovalsByMonth(month);
   const finalApproval =
     thisMonthApprovals.find((a) => a.isFinal && a.approvalType === "accept") ??
     null;
@@ -254,8 +252,7 @@ export default async function AdminPortfolioPage() {
         acceptAllowed={gateResult.allowed}
         gateMessage={gateMessage}
         gateReason={gateResult.reason}
-        actionsEnabled={false}
-        actionsDisabledMessage="T7e.3 리포트 실 SELECT와 T7e.4 승인 실 I/O 전환 후 Accept/Reject가 활성화됩니다."
+        actionsEnabled
         finalApproval={finalApproval}
       />
 
@@ -269,7 +266,6 @@ export default async function AdminPortfolioPage() {
             cadence={BUCKET_META[bucket].cadence}
             weight={BUCKET_META[bucket].weight}
             items={items}
-            reportLinksEnabled={false}
           />
         ))}
       </div>

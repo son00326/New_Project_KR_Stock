@@ -105,7 +105,7 @@ export default async function AdminHomePage() {
       <BriefingCard briefing={LATEST_BRIEFING} />
 
       {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
-      <DeltaBanner items={shortlist} reportLinksEnabled={false} />
+      <DeltaBanner items={shortlist} />
 
       {/* 30종 미달 경고 — 원인 분리 (T1.6). 30이면 렌더 안 함 */}
       <MissingCountBanner
@@ -124,7 +124,6 @@ export default async function AdminHomePage() {
             cadence={BUCKET_META[bucket].cadence}
             weight={BUCKET_META[bucket].weight}
             items={items}
-            reportLinksEnabled={false}
           />
         ))}
       </div>

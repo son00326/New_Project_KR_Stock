@@ -1,13 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PortfolioApproval } from "@/types/admin";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
+  getApprovalsByMonth: vi.fn(),
+  createPortfolioApproval: vi.fn(),
+  getApprovalById: vi.fn(),
+  raisePortfolioDispute: vi.fn(),
+  resolvePortfolioDispute: vi.fn(),
+  insertPortfolioSnapshots: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: mocks.getUser },
   }),
+}));
+
+vi.mock("@/lib/data/admin-approvals", () => ({
+  getApprovalsByMonth: mocks.getApprovalsByMonth,
+  createPortfolioApproval: mocks.createPortfolioApproval,
+  getApprovalById: mocks.getApprovalById,
+  raisePortfolioDispute: mocks.raisePortfolioDispute,
+  resolvePortfolioDispute: mocks.resolvePortfolioDispute,
+}));
+
+vi.mock("@/lib/data/admin-snapshots", () => ({
+  insertPortfolioSnapshots: mocks.insertPortfolioSnapshots,
 }));
 
 // T7e.2: admin-shortlist는 Supabase 실 SELECT라 테스트에서는 mock fixture로 우회.
@@ -26,11 +45,37 @@ vi.mock("@/lib/data/admin-shortlist", async () => {
   };
 });
 
+const finalApproval: PortfolioApproval = {
+  id: "11111111-1111-1111-1111-111111111111",
+  month: "2026-04-01",
+  adminId: "owner-admin",
+  approvalType: "accept",
+  approvedAt: "2026-04-03T02:30:00.000Z",
+  isFinal: true,
+  prevPortfolioHeld: false,
+  shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+  disputeRaisedAt: null,
+  disputeRaisedBy: null,
+  disputeReason: null,
+  disputeResolvedAt: null,
+  gatingAutoReliefActive: false,
+  reanalysisCount: 0,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getUser.mockResolvedValue({
     data: { user: { id: "admin-test-1" } },
   });
+  mocks.getApprovalsByMonth.mockResolvedValue([]);
+  mocks.createPortfolioApproval.mockResolvedValue({
+    id: "22222222-2222-2222-2222-222222222222",
+    isFinal: true,
+  });
+  mocks.getApprovalById.mockResolvedValue(finalApproval);
+  mocks.raisePortfolioDispute.mockResolvedValue("2026-04-04T00:00:00.000Z");
+  mocks.resolvePortfolioDispute.mockResolvedValue("2026-04-05T00:00:00.000Z");
+  mocks.insertPortfolioSnapshots.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -62,6 +107,7 @@ describe("acceptShortList", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:hold_24h");
+    expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
   });
 
   it("does not trust caller-supplied generated timestamps for gate timing", async () => {
@@ -82,7 +128,8 @@ describe("acceptShortList", () => {
     const { MOCK_ADMIN_REPORT_VIEW_LOG } = await import(
       "@/lib/data/mock-admin-report-view-log"
     );
-    const removed = MOCK_ADMIN_REPORT_VIEW_LOG.splice(
+    const original = [...MOCK_ADMIN_REPORT_VIEW_LOG];
+    MOCK_ADMIN_REPORT_VIEW_LOG.splice(
       0,
       MOCK_ADMIN_REPORT_VIEW_LOG.length,
       ...MOCK_ADMIN_REPORT_VIEW_LOG.filter(
@@ -99,7 +146,7 @@ describe("acceptShortList", () => {
     MOCK_ADMIN_REPORT_VIEW_LOG.splice(
       0,
       MOCK_ADMIN_REPORT_VIEW_LOG.length,
-      ...removed,
+      ...original,
     );
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:viewers_insufficient");
@@ -119,8 +166,9 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("auth_unavailable");
   });
 
-  it("does not report mock accept persistence as success in production-like environments", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+  it("fails closed before mutating approvals when real entry prices are unavailable", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
     const { acceptShortList } = await import("../actions");
 
     const result = await acceptShortList({
@@ -129,7 +177,9 @@ describe("acceptShortList", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("real_persistence_not_configured");
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
+    expect(mocks.insertPortfolioSnapshots).not.toHaveBeenCalled();
   });
 });
 
@@ -146,19 +196,51 @@ describe("rejectShortList", () => {
   });
 
   it("rejects unknown shortlist months before mutating approvals", async () => {
-    const { MOCK_ADMIN_APPROVALS } = await import("@/lib/data/mock-admin-approvals");
-    const initialLength = MOCK_ADMIN_APPROVALS.length;
     const { rejectShortList } = await import("../actions");
 
     const result = await rejectShortList({ month: "2099-01-01" });
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("shortlist_month_not_found");
-    expect(MOCK_ADMIN_APPROVALS).toHaveLength(initialLength);
+    expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
   });
 
-  it("does not report mock reject persistence as success in production-like environments", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+  it("persists second reject approval through Supabase data layer", async () => {
+    mocks.getApprovalsByMonth.mockResolvedValue([
+      { ...finalApproval, id: "reject-1", approvalType: "reject", isFinal: false },
+    ]);
+    const { rejectShortList } = await import("../actions");
+
+    const result = await rejectShortList({
+      month: "2026-04-01",
+      reason: "운영 검토 필요",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({
+        reanalysisCount: 2,
+        portfolioHoldWarning: true,
+      });
+    }
+    expect(mocks.createPortfolioApproval).toHaveBeenCalledWith(
+      expect.objectContaining({
+        month: "2026-04-01",
+        adminId: "admin-test-1",
+        approvalType: "reject",
+        isFinal: false,
+        reanalysisCount: 1,
+        prevPortfolioHeld: true,
+        disputeReason: "운영 검토 필요",
+      }),
+    );
+  });
+
+  it("blocks a third reject instead of writing another ambiguous reanalysis_count=1 row", async () => {
+    mocks.getApprovalsByMonth.mockResolvedValue([
+      { ...finalApproval, id: "reject-1", approvalType: "reject", isFinal: false },
+      { ...finalApproval, id: "reject-2", approvalType: "reject", isFinal: false },
+    ]);
     const { rejectShortList } = await import("../actions");
 
     const result = await rejectShortList({
@@ -167,7 +249,21 @@ describe("rejectShortList", () => {
     });
 
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("real_persistence_not_configured");
+    if (!result.success) expect(result.error).toBe("reanalysis_limit_reached");
+    expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
+  });
+
+  it("does not map reject insert errors to the accept-only already_finalized race", async () => {
+    mocks.createPortfolioApproval.mockRejectedValue({ code: "23505" });
+    const { rejectShortList } = await import("../actions");
+
+    const result = await rejectShortList({
+      month: "2026-04-01",
+      reason: "운영 검토 필요",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("approval_write_failed");
   });
 });
 
@@ -188,23 +284,52 @@ describe("dispute actions", () => {
     if (!resolveResult.success) expect(resolveResult.error).toBe("invalid_input");
   });
 
-  it("does not report mock dispute persistence as success in production-like environments", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    const { raiseDispute, resolveDispute } = await import("../actions");
+  it("raises disputes through the narrow Supabase RPC wrapper", async () => {
+    const { raiseDispute } = await import("../actions");
 
-    const raiseResult = await raiseDispute({
-      approvalId: "appr-prev-2026-03",
-      adminId: "admin-test-1",
-      reason: "생산 환경에서는 실제 이의 제기 저장소가 연결되어야 합니다.",
-    });
-    const resolveResult = await resolveDispute({
-      approvalId: "appr-prev-2026-03",
-      adminId: "admin-test-1",
+    const result = await raiseDispute({
+      approvalId: finalApproval.id,
+      adminId: "ignored-client-admin",
+      reason: "확정 포트에 대한 이의 사유를 충분히 자세히 기록합니다.",
     });
 
-    expect(raiseResult.success).toBe(false);
-    if (!raiseResult.success) expect(raiseResult.error).toBe("real_persistence_not_configured");
-    expect(resolveResult.success).toBe(false);
-    if (!resolveResult.success) expect(resolveResult.error).toBe("real_persistence_not_configured");
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.raisedAt).toBe("2026-04-04T00:00:00.000Z");
+    }
+    expect(mocks.raisePortfolioDispute).toHaveBeenCalledWith({
+      approvalId: finalApproval.id,
+      reason: "확정 포트에 대한 이의 사유를 충분히 자세히 기록합니다.",
+    });
+  });
+
+  it("returns approval_not_found when the approval row is absent", async () => {
+    mocks.getApprovalById.mockResolvedValue(null);
+    const { raiseDispute } = await import("../actions");
+
+    const result = await raiseDispute({
+      approvalId: finalApproval.id,
+      adminId: "ignored-client-admin",
+      reason: "확정 포트에 대한 이의 사유를 충분히 자세히 기록합니다.",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("approval_not_found");
+    expect(mocks.raisePortfolioDispute).not.toHaveBeenCalled();
+  });
+
+  it("resolves disputes through the narrow Supabase RPC wrapper", async () => {
+    const { resolveDispute } = await import("../actions");
+
+    const result = await resolveDispute({
+      approvalId: finalApproval.id,
+      adminId: "ignored-client-admin",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.resolvedAt).toBe("2026-04-05T00:00:00.000Z");
+    }
+    expect(mocks.resolvePortfolioDispute).toHaveBeenCalledWith(finalApproval.id);
   });
 });

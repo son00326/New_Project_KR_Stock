@@ -1,0 +1,162 @@
+import { createClient } from "@/lib/supabase/server";
+import type { ApprovalType, PortfolioApproval } from "@/types/admin";
+
+// ---------------------------------------------------------------------------
+// portfolio_approval (E4) — Supabase 실 I/O (T7e.4).
+// RLS 정책 = admin-wide SELECT + self INSERT/UPDATE, cross-admin dispute는
+// 0010의 security-definer RPC만 사용한다.
+// ---------------------------------------------------------------------------
+
+export interface PortfolioApprovalDbRow {
+  id: string;
+  month: string;
+  admin_id: string;
+  approval_type: ApprovalType;
+  approved_at: string;
+  is_final: boolean;
+  prev_portfolio_held: boolean;
+  shortlist_generated_at: string;
+  dispute_raised_at: string | null;
+  dispute_raised_by: string | null;
+  dispute_reason: string | null;
+  dispute_resolved_at: string | null;
+  gating_auto_relief_active: boolean;
+  reanalysis_count: number;
+}
+
+export interface NewPortfolioApproval {
+  month: string;
+  adminId: string;
+  approvalType: ApprovalType;
+  isFinal: boolean;
+  prevPortfolioHeld: boolean;
+  shortlistGeneratedAt: string;
+  disputeRaisedAt?: string | null;
+  disputeRaisedBy?: string | null;
+  disputeReason?: string | null;
+  disputeResolvedAt?: string | null;
+  gatingAutoReliefActive: boolean;
+  reanalysisCount: number;
+}
+
+const APPROVAL_COLUMNS =
+  "id, month, admin_id, approval_type, approved_at, is_final, prev_portfolio_held, shortlist_generated_at, dispute_raised_at, dispute_raised_by, dispute_reason, dispute_resolved_at, gating_auto_relief_active, reanalysis_count";
+
+export function transformPortfolioApprovalRow(
+  row: PortfolioApprovalDbRow,
+): PortfolioApproval {
+  return {
+    id: row.id,
+    month: row.month,
+    adminId: row.admin_id,
+    approvalType: row.approval_type,
+    approvedAt: row.approved_at,
+    isFinal: row.is_final,
+    prevPortfolioHeld: row.prev_portfolio_held,
+    shortlistGeneratedAt: row.shortlist_generated_at,
+    disputeRaisedAt: row.dispute_raised_at,
+    disputeRaisedBy: row.dispute_raised_by,
+    disputeReason: row.dispute_reason,
+    disputeResolvedAt: row.dispute_resolved_at,
+    gatingAutoReliefActive: row.gating_auto_relief_active,
+    reanalysisCount: row.reanalysis_count,
+  };
+}
+
+function toInsertPayload(input: NewPortfolioApproval) {
+  return {
+    month: input.month,
+    admin_id: input.adminId,
+    approval_type: input.approvalType,
+    is_final: input.isFinal,
+    prev_portfolio_held: input.prevPortfolioHeld,
+    shortlist_generated_at: input.shortlistGeneratedAt,
+    dispute_raised_at: input.disputeRaisedAt ?? null,
+    dispute_raised_by: input.disputeRaisedBy ?? null,
+    dispute_reason: input.disputeReason ?? null,
+    dispute_resolved_at: input.disputeResolvedAt ?? null,
+    gating_auto_relief_active: input.gatingAutoReliefActive,
+    reanalysis_count: input.reanalysisCount,
+  };
+}
+
+export async function getApprovalsByMonth(
+  month: string,
+): Promise<PortfolioApproval[]> {
+  const client = await createClient();
+  const { data, error } = await client
+    .from("portfolio_approval")
+    .select(APPROVAL_COLUMNS)
+    .eq("month", month)
+    .order("approved_at", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      `portfolio_approval query failed: ${error.message ?? "unknown error"}`,
+    );
+  }
+
+  const rows = (data ?? []) as PortfolioApprovalDbRow[];
+  return rows.map(transformPortfolioApprovalRow);
+}
+
+export async function getApprovalById(
+  approvalId: string,
+): Promise<PortfolioApproval | null> {
+  const client = await createClient();
+  const { data, error } = await client
+    .from("portfolio_approval")
+    .select(APPROVAL_COLUMNS)
+    .eq("id", approvalId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `portfolio_approval lookup failed: ${error.message ?? "unknown error"}`,
+    );
+  }
+  if (!data) return null;
+  return transformPortfolioApprovalRow(data as PortfolioApprovalDbRow);
+}
+
+export async function createPortfolioApproval(
+  input: NewPortfolioApproval,
+): Promise<{ id: string; isFinal: boolean }> {
+  const client = await createClient();
+  const { data, error } = await client
+    .from("portfolio_approval")
+    .insert(toInsertPayload(input))
+    .select("id, is_final")
+    .single();
+
+  if (error) throw error;
+
+  const row = data as { id: string; is_final: boolean };
+  return { id: row.id, isFinal: row.is_final };
+}
+
+export async function raisePortfolioDispute(input: {
+  approvalId: string;
+  reason: string;
+}): Promise<string> {
+  const client = await createClient();
+  const { data, error } = await client.rpc("raise_portfolio_dispute", {
+    p_approval_id: input.approvalId,
+    p_reason: input.reason,
+  });
+
+  if (error) throw error;
+  return String(data);
+}
+
+export async function resolvePortfolioDispute(
+  approvalId: string,
+): Promise<string> {
+  const client = await createClient();
+  const { data, error } = await client.rpc("resolve_portfolio_dispute", {
+    p_approval_id: approvalId,
+  });
+
+  if (error) throw error;
+  return String(data);
+}

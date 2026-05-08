@@ -9,8 +9,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import {
+  deriveBucketNeighbors,
   getReportByTicker,
-  getBucketNeighbors,
   type ReportSection0,
   type ReportSection1,
   type ReportSection2,
@@ -21,11 +21,11 @@ import {
   type ReportSection7,
   type ReportSection8,
   type ReportAppendix,
-} from "@/lib/data/mock-admin-report";
+} from "@/lib/data/admin-reports";
 import {
   aggregateVotes,
   getVotesByReportId,
-} from "@/lib/data/mock-admin-committee";
+} from "@/lib/data/admin-committee";
 import {
   CORE_PERSONAS,
   getSectorPersonas,
@@ -34,7 +34,7 @@ import {
   getDistinctViewerCount,
   getViewersForReport,
 } from "@/lib/data/mock-admin-report-view-log";
-import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
+import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { recordReportView } from "@/app/(admin)/admin/report/[ticker]/record-view";
 import type { CommitteeVote } from "@/types/admin";
 
@@ -58,20 +58,26 @@ const SECTION_LIST = [
 
 export default async function AdminReportPage({ params }: AdminReportPageProps) {
   const { ticker } = await params;
-  const report = getReportByTicker(ticker);
-  // T7e.2 — /report는 mock pair 유지 (T7e.3에서 reports + shortlist 동시 전환 예정).
-  // shortlist만 real로 두면 T7e.8 신규 ticker가 mock report에 없을 때 404 발생 위험.
-  const shortListRow = MOCK_ADMIN_SHORTLIST.find((r) => r.ticker === ticker);
-  if (!report || !shortListRow) notFound();
+  // T7e.3 — report·committee_votes·shortlist 모두 Supabase 실 SELECT 전환.
+  // active shortlist의 month를 기준으로 report를 조회해야 여러 월의 is_latest
+  // 리포트가 동시에 존재해도 Supabase maybeSingle() 다중 행 오류가 나지 않는다.
+  const shortlist = await getActiveShortList();
+  const shortListRow = shortlist.find((r) => r.ticker === ticker);
+  if (!shortListRow) notFound();
 
-  // T2.4 report_view_log (server-only, mock console.log). 실 Supabase 연결 시 교체.
+  // 실 stock_reports/short_list_30 시드는 S7a(AI 키 ✅) 또는 T7e.8(Tier 0)이 채움.
+  // shortlist만 있고 report가 아직 없으면 notFound()로 일관 동작.
+  const report = await getReportByTicker(ticker, { month: shortListRow.month });
+  if (!report) notFound();
+
+  // T2.4 report_view_log — T7e.6 스코프(view-log 실 INSERT)까지 mock console.log 유지.
   await recordReportView(report.id, ticker);
 
-  const votes = getVotesByReportId(report.id);
+  const votes = await getVotesByReportId(report.id);
   const voteAgg = aggregateVotes(votes);
   const viewers = getViewersForReport(report.id);
   const viewerCount = getDistinctViewerCount(report.id);
-  const neighbors = getBucketNeighbors(ticker);
+  const neighbors = deriveBucketNeighbors(ticker, shortlist);
 
   const section0 = report.section_0 as ReportSection0;
   const section1 = report.section_1 as ReportSection1;

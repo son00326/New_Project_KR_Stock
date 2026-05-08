@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
+  reportExistsForMonth: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -10,11 +11,16 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+vi.mock("@/lib/data/admin-reports", () => ({
+  reportExistsForMonth: mocks.reportExistsForMonth,
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getUser.mockResolvedValue({
     data: { user: { id: "mock-admin-1" } },
   });
+  mocks.reportExistsForMonth.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -85,6 +91,7 @@ describe("regenerateReport", () => {
   });
 
   it("rejects syntactically valid tickers that have no report for the month", async () => {
+    mocks.reportExistsForMonth.mockResolvedValueOnce(false);
     const { MOCK_ADMIN_REGEN_COUNTERS } = await import(
       "@/lib/data/mock-admin-regen-counters"
     );
@@ -99,6 +106,19 @@ describe("regenerateReport", () => {
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("report_not_found");
     expect(MOCK_ADMIN_REGEN_COUNTERS).toHaveLength(initialLength);
+  });
+
+  it("returns report_lookup_failed when Supabase select throws", async () => {
+    mocks.reportExistsForMonth.mockRejectedValueOnce(new Error("rls denied"));
+    const { regenerateReport } = await import("../actions");
+
+    const result = await regenerateReport({
+      ticker: "005930",
+      month: "2026-04-01",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("report_lookup_failed");
   });
 
   it("fails closed when auth lookup fails in production-like environments", async () => {

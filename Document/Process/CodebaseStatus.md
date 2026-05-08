@@ -12,7 +12,32 @@
 
 ## 최근 갱신
 
-**2026-05-09** (36차): **자율 트랙 §A 진입 — T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅**.
+**2026-05-08** (38차): **T7e.4 approvals/snapshots Supabase 전환 ✅ + `/admin/portfolio` fail-closed boundary 해제**.
+- **신규 모듈**: `tudal/src/lib/data/admin-approvals.ts` — `PortfolioApprovalDbRow` transformer + `getApprovalsByMonth(month)` + `getApprovalById(id)` + `createPortfolioApproval(input)` INSERT + `raisePortfolioDispute`/`resolvePortfolioDispute` RPC wrapper. 실제 테이블명은 마이그 0004 기준 단수 `portfolio_approval`.
+- **신규 모듈**: `tudal/src/lib/data/admin-snapshots.ts` — `PortfolioSnapshotDbRow` transformer + `insertPortfolioSnapshots(rows)` bulk INSERT. snapshot id는 DB `gen_random_uuid()`에 맡기므로 insert payload에는 id를 싣지 않는다.
+- **page/action 갱신**:
+  - `tudal/src/app/(admin)/admin/portfolio/page.tsx` — `MOCK_ADMIN_APPROVALS` → `getApprovalsByMonth(month)` Supabase SELECT. `actionsEnabled={false}`와 T7e.4 disabled message 제거 → fail-closed UI boundary 해제.
+  - `tudal/src/app/(admin)/admin/portfolio/actions.ts` — Reject는 `createPortfolioApproval`로 실 INSERT. Accept는 fake entryPrice를 금지하며, 실 가격 소스가 없으면 `entry_price_unavailable`로 E4 INSERT 전 중단한다. 실 가격 wiring 후 Day 0 `portfolio_snapshot` rows를 `insertPortfolioSnapshots`로 호출하는 통로는 준비됨. E4 partial UNIQUE race(23505)는 accept 경로에서만 `already_finalized`로 매핑. `raiseDispute`/`resolveDispute`는 일반 UPDATE 대신 0010 security-definer RPC wrapper 사용.
+  - `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` — `entry_price_unavailable`/`approval_write_failed`/`reanalysis_limit_reached`를 한국어 운영자 메시지로 표시.
+- **DB 제약 반영**: Reject 2회 UX 응답은 기존대로 `reanalysisCount=2` + `portfolioHoldWarning=true`를 반환하지만, DB `portfolio_approval.reanalysis_count`는 0004 CHECK(≤1)에 맞춰 1로 clamp한다.
+- **신규/보강 테스트**: `__tests__/admin-approvals.test.ts` 4개 + `__tests__/admin-snapshots.test.ts` 2개 + `portfolio/__tests__/actions.test.ts` 보강 + `portfolio/__tests__/portfolio-panel.test.ts` 2개. targeted 4 files **23 pass**.
+- **검증 게이트 회귀**: `build` exit 0 (25 routes) · `lint` 0 errors · `test:ci` exit 0 (**45 files / 345 tests pass**; 이전 42/333 +3/+12) · `npx tsc --noEmit` exit 0.
+- **부분 마이그레이션 boundary 정리**: `/admin/portfolio`는 shortlist seed가 있으면 Reject/dispute/resolve 실 I/O 진입 가능. Accept 버튼은 노출되지만 실 가격 소스 전까지 한국어 메시지와 함께 fail-closed한다. 시드 부재 상태는 기존 빈 UI 유지. 다음 boundary는 T7e.5(regen_counter)와 T7e.6(access/performance/decision-tree).
+
+**2026-05-08** (37차): **T7e.3 reports/committee Supabase 전환 ✅ + boundary 2번째 해제**.
+- **신규 모듈**: `tudal/src/lib/data/admin-reports.ts` — `Section0~8`+`Appendix` canonical jsonb shape 타입 + `transformStockReportRow` + `getReportByTicker(ticker, {month?})` Supabase SELECT (is_latest=true) + `reportExistsForMonth(ticker, month)` 존재 검사 + `deriveBucketNeighbors(ticker, items)` 순수 함수(removed 제외 + 같은 bucket 내 rank 정렬). Supabase error는 throw.
+- **신규 모듈**: `tudal/src/lib/data/admin-committee.ts` — `transformCommitteeVoteRow` (sector null → undefined, argument_excerpt null → "") + `getVotesByReportId(reportId)` SELECT + `aggregateVotes(votes)` 이관(mock-admin-committee.ts에서 분리).
+- **page-level 갱신**:
+  - `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` — Supabase 전환. `getActiveShortList()`로 active month 확정 → `getReportByTicker(ticker, { month })` 조회 + `MOCK_ADMIN_SHORTLIST.find` → `shortlist.find` + `getBucketNeighbors` mock → `deriveBucketNeighbors` 실 데이터 파생. recordReportView/viewer 계열은 T7e.6 스코프로 mock 유지.
+  - `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/actions.ts` — `MOCK_ADMIN_REPORTS.some` → `await reportExistsForMonth(...)` (try/catch → 신규 에러 코드 `report_lookup_failed`).
+  - `tudal/src/app/(admin)/admin/page.tsx` — `reportLinksEnabled={false}` 2곳 제거 (DeltaBanner + BucketSection) → 카드 클릭 활성(Delta REMOVED는 리포트 대기 유지).
+  - `tudal/src/app/(admin)/admin/portfolio/page.tsx` — `reportLinksEnabled={false}` 1곳 제거 + actionsDisabledMessage T7e.4만 남기게 단축.
+- **신규/보강 테스트**: `__tests__/admin-reports.test.ts` (10개: transformer 3 + getReportByTicker month filter 1 + deriveBucketNeighbors 6) · `__tests__/admin-committee.test.ts` (6개: transformer 4 + aggregate 2). regenerate `__tests__/actions.test.ts`는 `vi.mock("@/lib/data/admin-reports", () => ({ reportExistsForMonth: ... }))` 추가 + `report_lookup_failed` 신규 케이스 1. `components/admin/shortlist/__tests__/delta-banner.test.ts` 2개로 REMOVED delta 링크 차단 회귀 보강.
+- **mock 보존**: `mock-admin-report.ts`·`mock-admin-committee.ts` 파일은 그대로 (consistency 테스트 유지). 향후 일괄 정리 예정.
+- **검증 게이트 회귀**: `build` exit 0 (25 routes — 동일) · `lint` 0 errors · `test:ci` exit 0 (**42 files / 333 tests pass**; 이전 39/314 +3/+19) · `npx tsc --noEmit` exit 0.
+- **부분 마이그레이션 boundary 정리**: shortlist→reports/committee 2번째 해제로 `/admin/report/[ticker]` 클릭 활성. 단, Delta REMOVED 행은 report-backed 대상이 아니므로 계속 `리포트 대기`로 유지. 시드 부재 상태에서는 `/admin` 빈 UI · `/report` 도달 불가 일관 동작. 다음 boundary는 T7e.4(approvals/snapshots) — 현재는 `/portfolio` Accept/Reject만 disabled 유지.
+
+**2026-05-08** (36차): **자율 트랙 §A 진입 — T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅**.
 - **신규 모듈**: `tudal/src/lib/data/admin-shortlist.ts` (118 lines) — `getActiveShortList({month?, tickerMeta?})` Supabase SELECT + `getShortListDelta()` aggregate + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)`. Supabase error는 throw (silent swallow 폐기). 갭: short_list_30 스키마에 name/sector 컬럼 없음 → fallback (name=ticker · sector="미분류") 또는 외부 lookup. T7e.8 prep에서 3옵션(컬럼 추가/JOIN 테이블/정적 lookup) 결정.
 - **신규 테스트**: `tudal/src/lib/data/__tests__/admin-shortlist.test.ts` — Vitest 8개 (transformer 6 + aggregate 2). null 처리·string·numeric 모두 커버.
 - **page-level importer 5건 갱신** (mock-admin-shortlist → admin-shortlist):
@@ -139,15 +164,15 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-04-22 · DQ-7 Session 3 부분 완료 기준 · **실데이터 연결 0/19** · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
+## tudal/ 현재 상태 (2026-05-08 · S7e T7e.4 완료 기준 · **실데이터 I/O 통로 5종 open** · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
-- TypeScript 파일: `src/` 기준 **~152개** (S0 70 → S1 75 → S2 85 → S3 95 → S4 110 → S5a 130 → S5b 140 → S6 145 → DQ-7 S1 net ~145 (+5 credential −1 mock) → DQ-7 S2 ~152 (+7 UI))
-- 라우트: **24개** (DQ-7 S2에서 `/admin/settings/brokerage`·`/admin/settings/binance` 2건 추가)
+- TypeScript 파일: `src/` 기준 **~157개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots` 실 I/O wrapper와 테스트 추가)
+- 라우트: **25개**
   - **Main 6**: `/`, `/_not-found`, `/login`, `/signup`, `/macro`, `/stock/[ticker]`
   - **Auth 1**: `/auth/callback`
-  - **Admin 13**: `/admin`, `/admin/portfolio` **(S3)**, `/admin/alerts` **(S5a)**, `/admin/alerts/[id]` **(S5a)**, `/admin/track-record` **(S4)**, `/admin/decision-tree` **(S4)**, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health` **(S5a)**, `/admin/settings/cost` **(S6)**, `/admin/settings/brokerage` **(DQ-7 S2)**, `/admin/settings/binance` **(DQ-7 S2)**, `/admin/report/[ticker]` **(S2)**, `/admin/report/[ticker]/regenerate` **(S4)**
-  - **Cron 4** (Vercel Cron): `/api/cron/monthly-batch` (M10 월간 day 1 09:05 KST), `/api/cron/morning-briefing` (M11 매일 08:00 KST), `/api/cron/news-sweep` (M12 15분 주기), `/api/cron/silent-health` **(S6 M19, 매일 24:00 KST)**
+  - **Admin 14**: `/admin`, `/admin/portfolio`, `/admin/alerts`, `/admin/alerts/[id]`, `/admin/track-record`, `/admin/decision-tree`, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health`, `/admin/settings/cost`, `/admin/settings/brokerage`, `/admin/settings/binance`, `/admin/report/[ticker]`, `/admin/report/[ticker]/regenerate`
+  - **Cron 4** (Vercel Cron): `/api/cron/monthly-batch`, `/api/cron/morning-briefing`, `/api/cron/news-sweep`, `/api/cron/silent-health`
 
 ### 기술 스택
 - Next.js 16.2.3 + React 19.2.4 + TypeScript strict + Tailwind v4
@@ -163,17 +188,19 @@
 - `app/(auth)/layout.tsx` = pass-through
 - `app/(admin)/layout.tsx` = 로고·사이드바(**10 nav** · DQ-7 S2에서 `증권사 키`·`거래소 키` +2 · S8에서 그룹 재편 예정)·면책 Footer
 
-### 데이터 레이어 (mock 기반, Supabase 세팅 완료 · 실 SELECT/INSERT 연결 0)
+### 데이터 레이어 (mock + S7e Supabase real I/O hybrid)
+- **실 Supabase I/O wrapper (S7e 진행 중)**:
+  - `admin-shortlist.ts` → `short_list_30` active month SELECT + transformer/delta aggregate. DB 미적재 시 빈 목록.
+  - `admin-reports.ts` → `stock_reports` active month report SELECT + existence check + bucket neighbor 파생.
+  - `admin-committee.ts` → `committee_votes` report_id 기반 SELECT + vote aggregate.
+  - `admin-approvals.ts` → `portfolio_approval` month/id SELECT + accept/reject INSERT + dispute/resolve RPC.
+  - `admin-snapshots.ts` → `portfolio_snapshot` Day 0 bulk INSERT + transformer.
+- **아직 mock 유지**: regen_counter(T7e.5), access/report_view_log/performance/decision-tree(T7e.6), briefing/news/alerts/health/cost 등 후속 S7 phase 대상.
 - **Main mock** (6): `mock-stocks`·`mock-financials-extended`·`mock-quarterly`·`mock-ohlcv`·`mock-corporate`·`mock-macro`
-- **Admin mock** (S0 9 + S1~S6 확장 → 총 17 · **DQ-7 S1에서 `mock-admin-brokerage` 삭제** → 총 16):
-  - S0 기초 shape (9종 중 1 삭제): `mock-admin-shortlist`·`mock-admin-reports`·`mock-admin-committee-votes`·`mock-admin-approvals`·`mock-admin-snapshots`·`mock-admin-alerts`·`mock-admin-briefings`·`mock-admin-regen-counters` · ~~`mock-admin-brokerage`~~ (DQ-7 S1 삭제 — credential은 실 Supabase 경로만 사용, mock fixture 불필요)
-  - S1 추가: 33행 shortlist fixture (30 + REMOVED 3)
-  - S2 추가: `mock-admin-report` (30 리포트 · 대표 5종 상세) · `mock-admin-committee` (630 votes) · `mock-admin-committee-personas` (Core 11 + Sector 22×5) · `mock-admin-report-view-log` (2인·1인 열람 seed)
-  - S3 추가: `mock-admin-access-logs` (7일 3인 혼합 fixture · active=false 기본) · `mock-admin-approvals` 시드 보강(2026-03 · 2026-04 is_final=true)
-  - S4 추가: `mock-admin-performance` (3개월 월별·버킷·Counterfactual·DailyReturns 60일) · `mock-admin-decision-tree` (판정 스냅샷·월별 verdicts) · `mock-admin-regen-counters` 시드 3건(fresh·partial·exhausted). `mock-admin-snapshots`는 Accept hook으로 런타임 push.
-- **실데이터**: 0 (KRX·한투·DART·pykrx 미연결 — S5 M10에 배치 연결 예정)
-- **Supabase**: 프로젝트 `fpriyjykihxhhvqudvdb` 연결. `.env.local` (URL·anon·service_role·ADMIN_EMAILS 3명).
-- 유저: 0
+- **Admin mock 보존**: `mock-admin-report.ts`·`mock-admin-committee.ts`는 consistency 테스트와 mock persona/view-log 의존 때문에 보존. `mock-admin-approvals.ts`·`mock-admin-snapshots.ts`도 consistency fixture로만 남고 `/portfolio` 실 경로에서는 사용하지 않는다.
+- **실데이터 현황**: 실 I/O 통로는 shortlist/reports/committee_votes/portfolio_approval/portfolio_snapshot 5종 open. 하지만 `short_list_30`/`stock_reports`/`committee_votes` DB seed 전이라 Must 실데이터 카운트는 아직 0/19. T7e.8 seed 후 1+/19로 전환 예정.
+- **Supabase**: 프로젝트 `rbrpcynhphrpljbjirfo` (son00326 Org · Seoul · Free). `.env.local`은 URL/anon/publishable/service_role/ADMIN_EMAILS 등 신 프로젝트 기준.
+- **Auth users**: admin 3명 생성. Magic Link UI는 prefetch 의심 이슈로 비밀번호 우회 사용 중.
 
 ### 마이그레이션 (supabase/migrations/)
 | 파일 | 내용 | 상태 |
@@ -186,7 +213,8 @@
 | `0006_s5a_automation.sql` (S5a) | pipeline_health (5 파이프라인 × 24h) + news_event (UNIQUE url) + briefing_log (UNIQUE date) + briefing_view_event (dedupe) + RLS 4종 | 실 |
 | `0007_s5b_notifications.sql` (S5b) | admin_settings(intraday_mode) + ticker_alert_pref(UNIQUE admin+ticker) + intraday_anomaly_event(UNIQUE dedup_key) + RLS 3종 | 실 |
 | `0008_s6_hardening.sql` (S6) | cost_log 확장(ticker·persona_id·section + 인덱스 2) + heartbeat_log(UNIQUE date) + RLS 1종 | 실 |
-| `0009_dq7_credentials.sql` (DQ-7 S1) | E9 `brokerage_connection` 재설계(`api_key_ref` 폐기 · `ciphertext/iv/auth_tag` × 2 + `mock_mode`) + E12 `exchange_connection` 신설(동일 구조 + `testnet_mode`) + RLS `*_admin_self` 2종 · `0009_dq7_credentials.rollback.sql` 동반 | **파일 생성 완료 · 실 DB 적용은 Session 3 (Vercel 배포 단계)** |
+| `0009_dq7_credentials.sql` (DQ-7 S1) | E9 `brokerage_connection` 재설계(`api_key_ref` 폐기 · `ciphertext/iv/auth_tag` × 2 + `mock_mode`) + E12 `exchange_connection` 신설(동일 구조 + `testnet_mode`) + RLS `*_admin_self` 2종 · `0009_dq7_credentials.rollback.sql` 동반 | **실 적용 완료 (32차)** |
+| `0010_alert_event_rls_hardening.sql` (S7e/DQ-7 후속) | E6 alert_event 신설/강화 + AlertType CHECK 12종 + 4 RPC(`mark_alert_read` 등) + RLS select-all/insert-own/update-own | **실 적용 확인 (36차, version 20260505134639)** |
 
 ### 타입 정의 (src/types/)
 - `stock.ts`·`corporate.ts`·`macro.ts` (main)
@@ -208,7 +236,7 @@
 `src/app/(admin)/admin/portfolio/`:
 - `page.tsx` — Server Component (Short List 30 필터 · Delta 집계 · D+5 위젯 · 게이팅 계산 · auto-relief 감지 · finalApproval 탐색)
 - `portfolio-panel.tsx` — Client island (Base UI Dialog · useTransition · router.refresh · Accept/Reject/Dispute 3모달 · 실시간 20자 카운터 · 48h Hold 배너)
-- `actions.ts` — 4 Server Actions mock (`acceptShortList`·`rejectShortList`·`raiseDispute`·`resolveDispute`). `isUniqueViolation`/실 Supabase catch는 S3 hardening TODO
+- `actions.ts` — 4 Server Actions real I/O hybrid (`acceptShortList`·`rejectShortList`·`raiseDispute`·`resolveDispute`). shortlist/report-view/access-log 게이트는 후속 T7e.6까지 일부 mock 참조. Reject/dispute/resolve는 Supabase 실 경로, Accept는 실 entryPrice source 전까지 fail-closed
 
 ### 컴포넌트 구조
 `src/components/{stock,macro,layout,common,ui}`. `ui/` shadcn(base-nova, Lucide) + Base UI Dialog.
@@ -246,11 +274,12 @@
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태 (DQ-7 Session 2 완료 시점, 2026-04-22)
-- `npm run build`: ✅ **24 routes** (TypeScript strict 통과 · DQ-7 S2에서 brokerage·binance +2)
-- `npm run lint`: ✅ 0 warnings
-- `npm run test:ci`: ✅ **25 files / 248 tests pass** (DQ-7 S1 +5 files · +58 tests; S2는 UI component 테스트 인프라 미도입으로 신규 테스트 없음 · 회귀 0)
-- `npm run dev`: ⚠️ macOS EMFILE 이슈 — `ulimit -n 65535` 후 정상
+### 검증 게이트 현재 상태 (S7e T7e.4 검토 보강 후, 2026-05-08)
+- `npm run build`: ✅ **25 routes** (Next.js 16 build 통과)
+- `npm run lint`: ✅ 0 errors
+- `npm run test:ci`: ✅ **45 files / 345 tests pass** (S7e T7e.4 + review 보강 기준)
+- `npx tsc --noEmit`: ✅ exit 0
+- `npm run dev`: ⚠️ macOS EMFILE 이슈 가능 — 필요 시 `ulimit -n 65535` 후 재시도
 
 ---
 
