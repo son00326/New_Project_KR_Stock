@@ -12,6 +12,33 @@
 
 ## 최근 갱신
 
+**2026-05-08** (40차): **T7e.6 access-logs/performance/decision-tree Supabase 전환 ✅ + 신규 마이그 0건 + 단일 SoT 박제**.
+- **신규 모듈**: `tudal/src/lib/data/admin-access-logs.ts` — `getRecentAdminAccessLogs(limit)` boundary stub `[]` 반환 (실 access_log source는 T7e 범위 밖). BL-20 7일 단일 어드민 자동 바이패스는 stub이 false 분기를 자연 산출하므로 영구 비활성. 실 source 정의 시 함수 본문만 SELECT로 교체.
+- **신규 모듈**: `tudal/src/lib/data/admin-performance.ts` — `PortfolioSnapshotDbRow` 타입 + `transformPortfolioSnapshotRow` snake→camel + `getPerformanceSummary(month)` (snapshot SELECT + `src/lib/performance/sharpe`/`mdd`/`cap-months` 순수 로직 호출 → 5 KPI) + `getMonthlyPerformance(monthRange)` (월별 집계) + `getBucketPerformance(month)` (버킷별 집계) + `getCounterfactual()` returns `null` (D11/S9 deferred — AI 비중 시계열 저장 정책 박제 후 산출 가능).
+- **신규 모듈**: `tudal/src/lib/data/admin-decision-tree.ts` — `getDecisionTreeSnapshot()` (`portfolio_snapshot` SELECT → `groupByMonth` → `src/lib/performance/judge`의 `judgeDecisionTree` 순수 로직 호출 → 게이지 3종 + ○/△/✕ 배지).
+- **단일 SoT 박제**: performance + decision-tree는 `portfolio_snapshot`(0005, 이미 적용) 단일 테이블 + `src/lib/performance/*` 순수 로직으로 산출. 별도 테이블 신설 0건. **신규 마이그 0건** (0011 슬롯은 BL-KRIT-8 S8 자동매매 E13~E17 보존).
+- **page/action 갱신**:
+  - `tudal/src/app/(admin)/admin/track-record/page.tsx` — Supabase 전환 (5 카드 · 월별 테이블 · 버킷별 · Counterfactual). counterfactual은 null이므로 "운용 데이터 누적 후 산출" UI 대기 카드로 표시.
+  - `tudal/src/app/(admin)/admin/decision-tree/page.tsx` — Supabase 전환 (게이지 3종 · ○/△/✕ 배지 · Recharts Client island).
+  - `tudal/src/app/(admin)/admin/portfolio/page.tsx`+`actions.ts` — access-logs를 boundary stub로 전환 (auto-relief 분기는 [] 입력으로 자연스럽게 false).
+- **삭제**: `tudal/src/lib/data/mock-admin-access-logs.ts` (39 lines) · `tudal/src/lib/data/mock-admin-performance.ts` (171 lines) · `tudal/src/lib/data/mock-admin-decision-tree.ts` (29 lines). `mock-admin-consistency.test.ts`에서 관련 assertion 1개 제거.
+- **신규/보강 테스트**: `__tests__/admin-access-logs.test.ts` 2개 (boundary stub + portfolio integration) + `__tests__/admin-performance.test.ts` 15개 (transformer 7 + getPerformanceSummary/Monthly/Bucket/Counterfactual 8) + `__tests__/admin-decision-tree.test.ts` 2개 (snapshot from portfolio_snapshot rows).
+- **검증 게이트 회귀**: `build` exit 0 (25 routes 동일) · `lint` 0 errors · `test:ci` exit 0 (**49 files / 381 tests pass**; 이전 46/362 +3/+19, consistency 1 제거 반영) · `npx tsc --noEmit` exit 0.
+- **부분 마이그레이션 boundary 종료점**: T7e.6으로 admin 잔존 mock 3종 정리. `mock-admin-{report,committee,approvals,snapshots,shortlist}` 등은 consistency 테스트 fixture로 보존(코드 경로에서는 사용 안 함). 다음 boundary는 T7e.7 RLS QA + T7e.8 Tier 0 seed.
+
+**2026-05-08** (39차): **T7e.5 regen_counter Supabase 전환 ✅ + race-safe CAS + 신규 마이그 0건**.
+- **신규 모듈**: `tudal/src/lib/data/admin-regen-counters.ts` — `RegenCounterDbRow` 타입 + `transformRegenCounterRow(row)` snake→camel + `computeNextMonthResetAt(month)` 순수 helper(다음 달 1일 00:00 KST ISO) + `getRegenCounter(ticker, month)` `maybeSingle` SELECT(없으면 null) + `incrementManualRegenCount(ticker, month)` 4단계 CAS(idempotent INSERT 23505 무시 → SELECT 현재 값 → cap 도달 시 즉시 `cap_exhausted` → `UPDATE WHERE id AND manual_count = current_value` 비교-스왑, RETURNING 비면 `regen_counter write conflict` throw).
+- **race 보호 결정**: 마이그 0005에 이미 적용된 UNIQUE(ticker,month) + CHECK(manual_count ≤ 2) + Postgres 행 잠금 위에서 4단계 CAS로 충분. 신규 마이그/RPC 0건. **0011 슬롯은 BL-KRIT-8(S8 자동매매 E13~E17) 보존**. DB CHECK가 마지막 안전망.
+- **page/action 갱신**:
+  - `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/page.tsx` — `findRegenCounter(MOCK_ADMIN_REGEN_COUNTERS, ...)` → `await getRegenCounter(...)`. row 부재 시 counter=null → remaining=2 / allowed=true (기존 순수 helper 그대로).
+  - `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/actions.ts` — `MOCK_ADMIN_REGEN_COUNTERS` import + `real_persistence_not_configured` 분기 제거. `incrementManualRegenCount` 호출 + `{ ok: true } / { ok: false, reason: "cap_exhausted" }` 응답 분기. throw 메시지를 `regen_counter_lookup_failed`/`regen_counter_write_failed`/`regen_counter_write_conflict` 3종으로 분류.
+  - `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/regenerate-panel.tsx` — `formatErrorMessage()` 헬퍼 도입. `manual_cap_exhausted`/`cost_hardcap_40man`/`report_not_found`/`report_lookup_failed`/`regen_counter_lookup_failed`/`regen_counter_write_failed`/`regen_counter_write_conflict`/`auth_unavailable` 8종 한국어 운영자 메시지 일원화.
+- **삭제**: `tudal/src/lib/data/mock-admin-regen-counters.ts` (본 변경으로 모든 importer 제거됨 → 고아).
+- **신규/보강 테스트**: `__tests__/admin-regen-counters.test.ts` 13개 (transformer 1 + computeNextMonthResetAt 3 + getRegenCounter 3 + incrementManualRegenCount 6). `regenerate/__tests__/actions.test.ts` 8→12개(+4: success/cap_exhausted/lookup_failed/write_failed/write_conflict; production-like real_persistence_not_configured 케이스 제거).
+- **검증 게이트 회귀**: `build` exit 0 (25 routes 동일) · `lint` 0 errors · `test:ci` exit 0 (**46 files / 362 tests pass**; 이전 45/345 +1/+17) · `npx tsc --noEmit` exit 0.
+- **MOCK_ADMIN_COST_LOG 의도적 잔존**: 월 40만원 hardcap의 `isHardcapBlocked(MOCK_ADMIN_COST_LOG, month)` 분기는 그대로. cost_log 실 INSERT/SELECT는 S7a/T7a(Anthropic wrapper + cost_log 적재) 범위. HANDOFF §2.A 명시 가드라인 준수.
+- **부분 마이그레이션 boundary 정리**: regen_counter 통로 추가로 `/admin/report/[ticker]/regenerate`도 실 I/O 진입. 시드 부재 상태에서는 카운터=null → 첫 클릭이 INSERT manual_count=1로 들어가는 모양 (T7e.3에서 이미 `reportExistsForMonth` 실 SELECT를 가드해 시드 없으면 그 전에 `report_not_found`로 차단). 다음 boundary는 T7e.6(access/performance/decision-tree).
+
 **2026-05-08** (38차): **T7e.4 approvals/snapshots Supabase 전환 ✅ + `/admin/portfolio` fail-closed boundary 해제**.
 - **신규 모듈**: `tudal/src/lib/data/admin-approvals.ts` — `PortfolioApprovalDbRow` transformer + `getApprovalsByMonth(month)` + `getApprovalById(id)` + `createPortfolioApproval(input)` INSERT + `raisePortfolioDispute`/`resolvePortfolioDispute` RPC wrapper. 실제 테이블명은 마이그 0004 기준 단수 `portfolio_approval`.
 - **신규 모듈**: `tudal/src/lib/data/admin-snapshots.ts` — `PortfolioSnapshotDbRow` transformer + `insertPortfolioSnapshots(rows)` bulk INSERT. snapshot id는 DB `gen_random_uuid()`에 맡기므로 insert payload에는 id를 싣지 않는다.
@@ -164,10 +191,10 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-05-08 · S7e T7e.4 완료 기준 · **실데이터 I/O 통로 5종 open** · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
+## tudal/ 현재 상태 (2026-05-08 · S7e T7e.6 완료 기준 · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
-- TypeScript 파일: `src/` 기준 **~157개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots` 실 I/O wrapper와 테스트 추가)
+- TypeScript 파일: `src/` 기준 **~160개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots`·`admin-regen-counters`·`admin-access-logs`·`admin-performance`·`admin-decision-tree` 9개 실 I/O wrapper와 테스트 추가; `mock-admin-{regen-counters,access-logs,performance,decision-tree}` 4개 삭제)
 - 라우트: **25개**
   - **Main 6**: `/`, `/_not-found`, `/login`, `/signup`, `/macro`, `/stock/[ticker]`
   - **Auth 1**: `/auth/callback`
@@ -195,10 +222,14 @@
   - `admin-committee.ts` → `committee_votes` report_id 기반 SELECT + vote aggregate.
   - `admin-approvals.ts` → `portfolio_approval` month/id SELECT + accept/reject INSERT + dispute/resolve RPC.
   - `admin-snapshots.ts` → `portfolio_snapshot` Day 0 bulk INSERT + transformer.
-- **아직 mock 유지**: regen_counter(T7e.5), access/report_view_log/performance/decision-tree(T7e.6), briefing/news/alerts/health/cost 등 후속 S7 phase 대상.
+  - `admin-regen-counters.ts` → `regen_counter` SELECT + race-safe 4단계 CAS (39차).
+  - `admin-access-logs.ts` → `getRecentAdminAccessLogs()` boundary stub `[]` (40차, BL-20 영구 비활성).
+  - `admin-performance.ts` → `portfolio_snapshot` SELECT + `src/lib/performance/*` 순수 로직으로 summary/monthly/bucket 산출 (40차). counterfactual은 D11/S9 deferred → null.
+  - `admin-decision-tree.ts` → `portfolio_snapshot` SELECT → `groupByMonth` → `judgeDecisionTree` (40차).
+- **아직 mock 유지**: report_view_log(T7e.후속), briefing/news/alerts/health/cost 등 후속 S7 phase 대상. (access-logs는 40차 boundary stub로 닫힘, performance·decision-tree는 40차에 portfolio_snapshot SoT로 전환됨.)
 - **Main mock** (6): `mock-stocks`·`mock-financials-extended`·`mock-quarterly`·`mock-ohlcv`·`mock-corporate`·`mock-macro`
 - **Admin mock 보존**: `mock-admin-report.ts`·`mock-admin-committee.ts`는 consistency 테스트와 mock persona/view-log 의존 때문에 보존. `mock-admin-approvals.ts`·`mock-admin-snapshots.ts`도 consistency fixture로만 남고 `/portfolio` 실 경로에서는 사용하지 않는다.
-- **실데이터 현황**: 실 I/O 통로는 shortlist/reports/committee_votes/portfolio_approval/portfolio_snapshot 5종 open. 하지만 `short_list_30`/`stock_reports`/`committee_votes` DB seed 전이라 Must 실데이터 카운트는 아직 0/19. T7e.8 seed 후 1+/19로 전환 예정.
+- **실데이터 현황**: 실 I/O 통로는 shortlist/reports/committee_votes/portfolio_approval/portfolio_snapshot/regen_counter/access-logs(stub)/performance(snapshot SoT)/decision-tree(snapshot SoT) 9종 open. 하지만 `short_list_30`/`stock_reports`/`committee_votes`/`portfolio_snapshot` DB seed 전이라 Must 실데이터 카운트는 아직 0/19. T7e.8 seed 후 1+/19로 전환 예정.
 - **Supabase**: 프로젝트 `rbrpcynhphrpljbjirfo` (son00326 Org · Seoul · Free). `.env.local`은 URL/anon/publishable/service_role/ADMIN_EMAILS 등 신 프로젝트 기준.
 - **Auth users**: admin 3명 생성. Magic Link UI는 prefetch 의심 이슈로 비밀번호 우회 사용 중.
 
@@ -274,10 +305,10 @@
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태 (S7e T7e.4 검토 보강 후, 2026-05-08)
+### 검증 게이트 현재 상태 (S7e T7e.6 완료 후, 2026-05-08)
 - `npm run build`: ✅ **25 routes** (Next.js 16 build 통과)
 - `npm run lint`: ✅ 0 errors
-- `npm run test:ci`: ✅ **45 files / 345 tests pass** (S7e T7e.4 + review 보강 기준)
+- `npm run test:ci`: ✅ **49 files / 381 tests pass** (S7e T7e.6 기준; 이전 46/362 +3/+19, consistency 1 제거 반영)
 - `npx tsc --noEmit`: ✅ exit 0
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 가능 — 필요 시 `ulimit -n 65535` 후 재시도
 
