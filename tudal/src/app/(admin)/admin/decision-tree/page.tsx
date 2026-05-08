@@ -6,11 +6,31 @@ import {
   MDD_THRESHOLD,
 } from "@/lib/performance/judge";
 import { computeCapMonths, CAP_MONTHS_TARGET } from "@/lib/performance/cap-months";
-import { MOCK_DECISION_TREE_SNAPSHOT } from "@/lib/data/mock-admin-decision-tree";
+import { getDecisionTreeSnapshot } from "@/lib/data/admin-decision-tree";
 import { DecisionTreeTrendChart } from "./trend-chart";
 
-export default function AdminDecisionTreePage() {
-  const snap = MOCK_DECISION_TREE_SNAPSHOT;
+export default async function AdminDecisionTreePage() {
+  const snap = await getDecisionTreeSnapshot();
+
+  if (snap === null) {
+    return (
+      <div className="space-y-8">
+        <header>
+          <h1 className="text-2xl font-semibold">Decision Tree</h1>
+          <p className="text-sm text-muted-foreground">
+            CAP Months · 누적 Alpha · Sharpe 게이지 3종 · 복합 AND 판정 (BL-8 A).
+          </p>
+        </header>
+        <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
+          <p className="text-sm font-medium">운용 데이터 누적 후 산출</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            가상 포트 스냅샷이 적재되면 게이지 · 판정 · 월별 추이가 표시됩니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const result = judgeDecisionTree({
     alpha: snap.cumulativeAlpha,
     sharpe: snap.cumulativeSharpe,
