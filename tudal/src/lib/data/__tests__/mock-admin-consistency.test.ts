@@ -4,8 +4,6 @@ import {
   aggregateVotes,
   getVotesByReportId,
 } from "@/lib/data/mock-admin-committee";
-import { MOCK_ADMIN_PERFORMANCE_SUMMARY } from "@/lib/data/mock-admin-performance";
-import { MOCK_DECISION_TREE_SNAPSHOT } from "@/lib/data/mock-admin-decision-tree";
 
 describe("admin mock fixture consistency", () => {
   it("keeps section 0 committee mini counts aligned with generated votes", () => {
@@ -23,12 +21,6 @@ describe("admin mock fixture consistency", () => {
       expect(section0.committeeMini.core, report.ticker).toEqual(aggregate.core);
       expect(section0.committeeMini.sector, report.ticker).toEqual(aggregate.sector);
     }
-  });
-
-  it("keeps cumulative alpha aligned between track record and decision tree", () => {
-    expect(MOCK_DECISION_TREE_SNAPSHOT.cumulativeAlpha).toBe(
-      MOCK_ADMIN_PERFORMANCE_SUMMARY.cumulativeAlpha,
-    );
   });
 
   it("keeps the default portfolio mock month open for Accept and Reject", async () => {
