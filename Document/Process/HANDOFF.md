@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-05 (32차 — **Supabase 계정 마이그(Kevin → son00326) + 0001~0010 적용(MCP) + Vercel env 갱신 + Production 재배포 + DQ-7 Session 3 자동 부분 해소 (T16만 사용자 잔여)**)
+Last updated: 2026-05-08 (33차 — **DQ-7 Session 3 Smoke Test #2 PASS — KIS 키 UI 저장 + AES-256-GCM ciphertext bytea 평문 노출 0 검증(MCP `execute_sql`)**)
 
 **목적**: 다음 세션이 이 파일 하나만 보고 즉시 이어갈 수 있게 하는 단일 진입점.
 **원칙**: 미래 지향. "다음에 무엇을 할지"와 "아직 무엇이 결정 안 났는지"만 담는다.
@@ -26,28 +26,21 @@ Last updated: 2026-05-05 (32차 — **Supabase 계정 마이그(Kevin → son003
 
 ---
 
-## §1 현재 상태 (2026-05-05 32차 기준)
+## §1 현재 상태 (2026-05-08 33차 기준)
 
-- **Mock Skeleton**: S0~S6 완료 · Must 19 mock 동작 · 실제 누적 **9세션**
-- **Supabase 계정 마이그 (32차, 2026-05-05)**: ✅ Kevin 계정(`fpriyjykihxhhvqudvdb`, 접속 불가) → son00326 계정(`rbrpcynhphrpljbjirfo`) 신 프로젝트로 전환. **0001~0010 SQL 9개 모두 적용** (Supabase MCP `apply_migration`, 0001 sketch는 실행 금지로 skip · 0002 부터 0010까지). 21 테이블 · 9 마이그레이션 등록 · admin_emails 3 row seed (shjang1001/kevinoh816/son00326) · kr_business_days 2557 row seed.
-- **DQ-7 Admin Credential System**: 🟢 **Session 3 ~99% 자동 완료** (32차) · 0009 마이그레이션 실 적용 ✅ · Vercel env 8 entries 새 키로 교체 ✅ (CLI 5 + REST API upsert 3 Preview 보정) · Production 재배포 ✅. **Session 3 잔여 = 사용자 T16 Supabase Auth URL Configuration 1건만**. T17 Smoke Test는 T16 후 진행 가능.
-- **Vercel Production 재배포 (32차)**: ✅ https://tudal-tawny.vercel.app · `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY` · target=production READY · build 56s · 새 Supabase URL/anon/service_role 반영.
-- **Supabase MCP 등록 (32차)**: ✅ user-scope (`~/.claude.json`) · HTTP transport · PAT bearer · `✓ Connected`. 향후 세션에서 `mcp__supabase__*` 도구 자동 사용 가능 (마이그·SQL·advisors). PAT는 채팅 노출됐으므로 작업 종료 후 rotate 권장.
-- **실데이터 연결**: **0 / 19** (모두 mock fixture)
-- **실 AI 호출**: **0** (Anthropic wrapper · cost_log 실 INSERT 0)
-- **자동매매 프레임(S8)**: ⚪ **미착수** (2026-04-21 D16 승격). T8.4·T8.5 UI는 DQ-7 Session 2에서 이관 완료.
-- **실 운용 검증(S9)**: **0일**
-- **법무·이용약관**: ⏸ **Deferred-D 멤버 오픈까지 유예** (2026-04-20 확정).
-- **Git**: 32차 종료 시점 `main`이 origin/main `[ahead 1+]` (이전 세션 미푸시 + 이번 32차 docs/supabase init 추가).
-- **검증 게이트 (32차 신 환경)**: build **24 routes** · lint 0 · test:ci **306 pass / 38 files** · Vercel build 56s exit 0 production READY · 회귀 없음.
-- **어드민 범위**: 본인 + 친구 2명 = 3명(ADMIN_EMAILS 3명).
-- **마이그레이션 번호 (신 DB)**: 0002~0010 (9건) 모두 적용 (0001은 sketch). 다음 추가 시 0011부터.
-- **Vercel env 8 entry 신규**: NEXT_PUBLIC_SUPABASE_URL × 3 env · NEXT_PUBLIC_SUPABASE_ANON_KEY × 3 env · SUPABASE_SERVICE_ROLE_KEY × 2 (Prod+Preview). MEK·CRON_SECRET·ADMIN_EMAILS·ADMIN_REP_EMAIL 등 비-Supabase 10개는 30차 그대로 유지.
-- **Supabase CLI 설치**: ✅ v2.98.1 (`/usr/local/bin/supabase`, GitHub binary 직접 다운로드, brew + Xcode 26 우회). `tudal/supabase/config.toml` 생성됨 (로컬 개발 stack 기본 설정).
-- **Vercel project deviation (변경 없음)**:
-  - **rootDirectory** = `tudal` ✅
-  - **Production Branch** = `main` (spec §6.2 트릭 미적용 — 친구 실자금 시작 전 사용자가 dashboard에서 수동 변경 권장)
-  - **vercel.json news-sweep** = `0 0 * * *` (Hobby plan cron daily 제약, 30차 박제 그대로)
+- **Mock Skeleton**: S0~S6 완료 · Must 19 mock 동작
+- **Supabase 신 프로젝트**: `rbrpcynhphrpljbjirfo` (son00326 Org · Seoul · Free). 이전 `fpriyjykihxhhvqudvdb` (Kevin 계정 접속 불가) 폐기. **0002~0010 마이그 9건 적용 완료** · admin_emails 3 row + kr_business_days 2557 row seed.
+- **DQ-7 Session 3**: 🟢 **~97% 완료** · 0009 마이그·Vercel env 8 교체·Production 재배포·T16 URL Config·Smoke #1/#2/#6 ✅. **잔여 = Smoke Test #3~#5**.
+- **brokerage_connection 1행** (33차 Smoke #2): admin_id=son00326 슬롯 · account `64601905-01` · mockMode=true · ⚠️ 실데이터 의미상 친구 장세현(shjang1001)의 실전투자 키이지만 테스트 편의로 son00326/모의 슬롯에 박제됨. Smoke #4(RLS 격리) 진입 전 친구 비번 세팅 + 친구 슬롯으로 재등록 필요.
+- **Vercel Production**: ✅ https://tudal-tawny.vercel.app · `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY` · 새 Supabase 연결.
+- **Supabase MCP**: ✅ user-scope (`~/.claude.json`) HTTP+PAT bearer · `✓ Connected`. 향후 세션 자동 로드 (`mcp__supabase__apply_migration`·`execute_sql`·`list_tables` 등).
+- **로그인 경로 (중요)**: ⚠ **Magic Link UI는 작동 X** (Gmail/메일 클라이언트가 token pre-fetch로 즉시 invalidate 추정). 임시 우회로 **이메일 + 비밀번호** 사용 — son00326@gmail.com / `Test1234!`. 친구 2명(shjang1001·kevinoh816)은 비밀번호 미설정 (필요 시 32차 admin API 패턴 재사용 또는 본인이 비밀번호 재설정 메일 받기). Magic Link 근본 해결은 별도 디버깅 필요(시크릿 창 테스트 또는 Email Template 점검).
+- **실데이터 연결**: **0 / 19** · **실 AI 호출 0** · **자동매매(S8) 미착수** · **운용 검증 0일**
+- **법무·이용약관**: ⏸ Deferred-D 멤버 오픈까지 유예
+- **검증 게이트 (32차 신 환경)**: build 24 routes · lint 0 · test:ci **306 pass / 38 files**
+- **마이그레이션 번호 (신 DB)**: 0001 sketch skip · 0002~0010 적용 (9건) · 다음 추가는 **0011** (BL-KRIT-8 S8 자동매매)
+- **Git**: HEAD `9c8d3fb` (32차 docs+supabase init), origin/main ahead 2+ (사용자 push 권한)
+- **Vercel project deviation (불변)**: rootDirectory=`tudal` · Production Branch=`main` · `vercel.json` news-sweep=`0 0 * * *`
 
 ---
 
@@ -56,38 +49,39 @@ Last updated: 2026-05-05 (32차 — **Supabase 계정 마이그(Kevin → son003
 ```
 진입 시 이 순서로 확인:
 
-(0) Git: `git status --short --branch`와 `git rev-parse --short HEAD`로 현재 HEAD/dirty 상태를 먼저 확인. 문서의 과거 SHA를 실행 전제 조건으로 사용하지 말 것.
+(0) Git: `git status --short --branch` · `git rev-parse --short HEAD` 먼저.
 
-(1) **DQ-7 Session 3 잔여 = 사용자 T16 1건만** (32차에서 0009 적용·Vercel env·재배포 자동 완료).
-    진입점: `Document/Build/Slices/DQ7-Credentials.md` §9.2 Session 3 + §6.5·§6.7
+(1) **DQ-7 Session 3 잔여 = Smoke Test #3~#5** (33차 #2 PASS 후). MCP `mcp__supabase__*`는 세션 시작 시 OAuth 재인증 필요할 수 있음 (`mcp__supabase__authenticate` → 사용자 브라우저 Authorize).
+    로그인: 사용자가 https://tudal-tawny.vercel.app/login 에서 son00326@gmail.com / Test1234! (비밀번호 탭) 사용. Magic Link UI는 32차 시점 작동 X (별도 디버깅 필요).
 
-    **T16 Supabase Auth URL Configuration (사용자 다음 세션, ~2분)**:
-    - https://supabase.com/dashboard/project/rbrpcynhphrpljbjirfo/auth/url-configuration
-    - Site URL: `https://tudal-tawny.vercel.app`
-    - Redirect URLs:
-      - `https://tudal-tawny.vercel.app/auth/callback`
-      - `https://tudal-tawny.vercel.app/**`
-      - `http://localhost:3000/auth/callback` (dev용)
-      - `http://localhost:3000/**`
+    **~~Smoke Test #2~~** ✅ 33차 PASS — `64601905-01` · `PSe3…9W7Q` · mockMode=true 저장. AES-256-GCM ct(36/180) + iv(12) + tag(16) 무결성 ✓ · 평문 APP_KEY/SECRET이 ciphertext에 위치 0 (`position(plaintext IN ct) = 0`) 검증.
 
-    **T17 Smoke Test (T16 직후 진행)**:
-    - Magic Link 어드민 3명 신규 발급 → /admin 200 렌더
-    - /admin/settings/brokerage·binance 접속 → KIS·Binance 키 1건 저장 → 목록 + DB row + ciphertext 평문 불가 (Studio)
-    - RLS: A 저장 → B 로그인 시 0건
-    - 친구 계정 실계좌 시도 → 403 (대표 전용 가드)
-    - `/api/cron/monthly-batch` curl `-H "Authorization: Bearer $CRON_SECRET"` → 200
+    **Smoke Test #3 — Binance 키 저장 + 암호화 검증** (동일 패턴, /admin/settings/binance)
+    - 필요: API_KEY 64자 + API_SECRET 64자, testnetMode=true 권장 (대표 일자에만 메인넷 라디오 활성)
+    - Claude: `mcp__supabase__execute_sql` 로 exchange_connection SELECT → ciphertext bytea 평문 노출 0 검증
 
-(1b) **Vercel Production Branch 트릭 (spec §6.2) 적용 시점**:
-    - 현재 productionBranch=`main` (default). API/CLI로 변경 불가
-    - 친구들 실 자금 시작 전(S9 진입) Vercel Dashboard → Settings → Git → Production Branch → `production` (가짜 branch)로 변경 권장
+    **Smoke Test #4 — RLS 격리** (사용자가 다른 어드민 계정 로그인 후 0건 확인)
+    - 친구 2명(shjang1001·kevinoh816) 비밀번호 미설정 → 32차 admin API 패턴 재사용해 Test1234! 같은 임시 비번 설정 후 사용자가 로그인 전환
 
-(2) DQ-7 완료 후 → S7a (Anthropic wrapper) — BL-KRIT-1 해소 시
-    진입점: `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks
-    첫 작업: `src/lib/ai/client.ts` wrapper
+    **Smoke Test #5 — 대표 가드** (친구 계정으로 /admin/settings/binance 메인넷 라디오 시도 → 403)
 
-(3) DQ-9·10·11 ✅ 해소(29차, §3 박제). 병행 대기 DQ = **DQ-8 멤버 페이지 Research만 남음**.
+    **Smoke Test #6 — cron 인증** ✅ 32차 PASS (HTTP 200 · 401 · 401)
 
-(4) §5 AUTO 중 미완료 항목 (모두 흡수됨)
+    완료 후 → DQ-7 Session 4 (QA · Close): T18 Manual QA 30항 · T19 Security probes · T20 문서 갱신.
+
+(1b) **Magic Link 디버깅 (선택)** — 시간 여유 있으면:
+    - 시크릿 창에서 /login → 이메일 받기 → 클릭 (Gmail prefetch 우회 가설 검증)
+    - 안 되면 `/auth/callback` PKCE flow + Supabase email template 점검
+    - S9 진입 전엔 비밀번호 로그인으로 충분
+
+(2) DQ-7 완료 → S7a (Anthropic wrapper, BL-KRIT-1 Anthropic Key 필요)
+    진입점: `Document/Build/Slices/S7-RealData.md` Phase S7a Tasks · 첫 파일 `src/lib/ai/client.ts`
+
+(3) §5 AUTO·§3 DQ — 모두 흡수 또는 유예 (DQ-8 멤버 Research만 Deferred-D 시점 재개)
+
+(4) **보안 — 32차 채팅 노출 시크릿 rotate 권장**:
+    - Supabase anon JWT · service_role JWT · DB password (Dashboard → Settings → API/Database)
+    - Supabase PAT `sbp_...` (https://supabase.com/dashboard/account/tokens) — 가장 권한 큰 키. rotate 시 ~/.claude.json `Authorization: Bearer ...` 값 교체
 ```
 
 ---
@@ -374,23 +368,17 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 - [x] **T12** Sidebar nav 2 item 추가 (`증권사 키`·`거래소 키` · commit 240e7dc · Flat)
 - [x] **S2 DoD**: build **24 routes**(+brokerage·binance) · lint 0 · test:ci 248/248 · architect(opus) APPROVED · ai-slop-cleaner CLEAN
 
-#### Session 3 — Deploy (30차 + 32차 자동 완료)
-- [x] **BL-DQ7-1** MEK 생성 + `.env.local` + Vercel env 투입 (Prod+Preview) · 30차
-- [x] **BL-DQ7-2** `CRON_SECRET` 생성 + 동일 투입 · 30차
-- [x] **BL-DQ7-3** `ADMIN_REP_EMAIL=son00326@gmail.com` 확정 + 투입 · 30차
-- [x] **T14** `tudal/scripts/rotate-cred-mek.mjs` · 30차
-- [x] **T15** Vercel 프로젝트/env/배포 (CLI v41→v52 + Device Flow + REST API upsert) · 30차
-- [x] **deviation** Production Branch=`main` 유지 · vercel.json news-sweep `0 0 * * *` · 30차
-- [x] **Supabase 계정 마이그** Kevin → son00326 (`rbrpcynhphrpljbjirfo`) 신 프로젝트 · 32차
-- [x] **0001~0010 마이그 실 DB 적용** (Supabase MCP `apply_migration` × 9, 0001 sketch skip) · 32차
-- [x] **admin_emails 3 row + kr_business_days 2557 row seed** · 32차
-- [x] **Vercel env 8 entries 새 키로 교체** (URL/ANON × 3 env + SERVICE_ROLE × 2, REST API upsert로 Preview 보정) · 32차
-- [x] **Production 재배포** https://tudal-tawny.vercel.app `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY` 56s · 32차
-- [x] **회귀 검증 3-게이트** build 24 · lint 0 · test:ci 306 · 32차
-- [x] **Supabase MCP 등록** (user-scope, PAT bearer, ✓ Connected) · 32차
-- [ ] **T16** Supabase Auth URL Configuration (사용자 1건 잔여) — Site URL + Redirect URLs 4건
-- [ ] **T17** Smoke Test §6.7 (T16 직후) — Magic Link 3명 + credential 왕복 + RLS + 대표 가드 + cron 200
-- [ ] **S3 DoD**: T16+T17 완료 후 production URL 3명 로그인 + credential 저장 왕복 확인
+#### Session 3 — Deploy (30차 + 32차)
+- [x] **30차**: MEK · CRON_SECRET · ADMIN_REP_EMAIL · T14 rotate 스크립트 · Vercel 프로젝트/env/배포 · vercel.json news-sweep daily
+- [x] **32차**: Supabase 계정 마이그(Kevin → son00326 `rbrpcynhphrpljbjirfo`) · 0002~0010 마이그 9건 · admin_emails 3 row + kr_business_days 2557 row · auth.users 3명 생성 · son00326 비밀번호 `Test1234!` 임시 설정 · Vercel env 8 entries 교체 · Production 재배포 `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY` · 회귀 3-gate green · Supabase MCP 등록 · T16 URL Config ✅
+- [x] **Smoke Test #1** (login + /admin 렌더) ✅ — 비밀번호 로그인 우회로 검증
+- [x] **Smoke Test #6** (cron 인증 가드) ✅ — 401/401/200
+- [x] **Smoke Test #2** ✅ 33차 — KIS 키 (`64601905-01` · `PS**···9W7Q` (마스킹) · mockMode=true · 친구 장세현 실전투자 키이나 son00326 슬롯에 임시 박제) AES-256-GCM 암호화 검증 PASS. ct=36/180, iv=12B, tag=16B(GCM 표준), `position(plaintext IN ciphertext) = 0` 양쪽 모두. row id `f35566e9-45aa-490b-a440-fc6ded482c68`.
+- [ ] **Smoke Test #3** Binance 키 저장 + 동일 검증
+- [ ] **Smoke Test #4** RLS 격리 (다른 어드민 로그인 후 0건) — 친구 2명 비밀번호 사전 설정 필요
+- [ ] **Smoke Test #5** 대표 가드 (친구 계정 메인넷 라디오 → 403)
+- [ ] **Magic Link 근본 디버깅** (선택, S9 전까지) — 32차 시점 token 즉시 invalidate 현상
+- [ ] **S3 DoD**: Smoke Test #2~#5 완료 시 Session 3 종결
 
 #### Session 4 — QA · Close (사용자 주도)
 - [ ] **T18** Layer 3 Manual QA 30항 (spec §8.4)
@@ -445,7 +433,8 @@ Mock 진행률: **19 / 19 Must (100% mock 동작)**
 
 ## §12 최근 세션 (이전은 `git log`)
 
-- **2026-05-05 (32차, Supabase 계정 마이그 + DQ-7 Session 3 자동 부분 해소)** — Kevin 계정(`fpriyjykihxhhvqudvdb`) 접속 불가 → son00326 계정 신 프로젝트 생성 후 전환. 흐름: (a) son00326 신 프로젝트 생성 (`rbrpcynhphrpljbjirfo`, Seoul region, Free tier, Security 옵션 기본) → 사용자가 Project URL + anon JWT + service_role JWT + DB password + publishable key 제공 → (b) `tudal/.env.local` 4개 키 교체 (URL · ANON · PUBLISHABLE · SERVICE_ROLE) · 32차 라벨 코멘트 추가 → (c) Supabase CLI 설치 — brew는 Xcode 26 요구로 실패, GitHub releases binary 직접 다운로드(darwin-arm64 v2.98.1, /usr/local/bin/supabase) → (d) `supabase init` (tudal/supabase/config.toml + .gitignore 신규 생성) → (e) **Supabase MCP 등록** — Direct DB 연결이 IPv6-only 이슈 + Pooler URL 못 찾음 + 사용자 PAT 기반 자율 진행 의도 확인하여 호스팅 HTTP MCP 채택. `claude mcp add --scope user --transport http --header "Authorization: Bearer sbp_..." supabase https://mcp.supabase.com/mcp?project_ref=rbrpcynhphrpljbjirfo` → ✓ Connected (PAT는 user-scope `~/.claude.json` 저장, repo 미커밋) → (f) 사용자 세션 재시작 후 MCP 도구 25+ 로드 (apply_migration · execute_sql · list_tables · list_migrations · get_advisors 등) → (g) **마이그레이션 9개 순차 적용**: 0001 sketch skip 후 0002 s1_shortlist30 → 0003 s2_reports → 0004 s3_approval (kr_business_days 2557 row seed 포함) → 0005 s4_performance → 0006 s5a_automation → 0007 s5b_notifications → 0008 s6_hardening → 0009 dq7_credentials → 0010 alert_event_rls_hardening 모두 success → (h) `mcp__supabase__list_tables` 검증 21 테이블 + RLS 모두 enabled · `mcp__supabase__list_migrations` 9건 등록 (timestamp version) → (i) `admin_emails` 3 row INSERT (shjang1001@gmail.com·kevinoh816@gmail.com·son00326@gmail.com) → (j) **3-게이트 회귀 검증** build 24 routes · lint 0 · test:ci **306 pass / 38 files** (이전 248에서 증가, 회귀 0) → (k) **Vercel env 8 entries 교체**: 8건 `vercel env rm` (1건은 SERVICE_ROLE Development 원래 없어 status error 정상) → 8건 `vercel env add` (5 성공 / Preview 3 git_branch_required 거부) → REST API `POST /v10/projects/:id/env?upsert=true&teamId=...` Preview 3 일괄 보정 (`created:3 failed:0`) → (l) **Production 재배포** `vercel deploy --prod --yes` → https://tudal-tawny.vercel.app `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY` READY 56s. **Supabase MCP get_advisors security**: 10 WARN 모두 SECURITY DEFINER function 노출 — 모든 함수 본문에 `if not public.is_admin() then raise exception 'admin_required'` 가드 박혀있어 EXTERNAL 호출 시 즉시 거부. 의도된 패턴이라 수용 (수정 시 함수 호출 스타일 전체 변경 필요). **남은 사용자 잔여 1건** = T16 Supabase Auth URL Configuration (https://supabase.com/dashboard/project/rbrpcynhphrpljbjirfo/auth/url-configuration). T17 Smoke Test는 T16 직후 진행. 보안 주의: anon/service_role JWT + DB password + PAT 모두 채팅 노출 → 작업 종료 후 rotate 권장(특히 PAT). 코드 변경: `tudal/.env.local` 4 키(gitignored) + `tudal/supabase/config.toml`(신규) + `tudal/supabase/.gitignore`(신규) + `~/.claude.json` MCP 추가(repo 외) + 문서 갱신. **다음 세션 진입점 = T16 사용자 1건 → T17 Smoke Test → DQ-7 Session 4 QA·Close**.
+- **2026-05-08 (33차, DQ-7 Smoke Test #2 PASS — KIS 암호화 검증)** — 사용자가 친구 장세현(shjang1001@gmail.com) 명의 KIS 실전투자계좌 키(APP_KEY `PSe3…9W7Q` 36자 / APP_SECRET 180자)를 채팅으로 제공. 코드 점검(`tudal/src/lib/credentials/validation.ts:8-10` regex + `form.tsx:93,159` 폼 제약)에서 3 블로커 식별: (a) 화면의 8자리 계좌번호는 폼 `\d{8}-\d{2}` 규칙에 끝 2자리 누락 (b) 친구 명의지만 son00326만 RLS·대표 게이트로 등록 가능 (c) APP_SECRET 채팅 노출. AskUserQuestion으로 사용자가 "son00326 대표로 모의투자 등록 + 계좌 suffix `01`" 결정 → 사용자가 https://tudal-tawny.vercel.app/admin/settings/brokerage UI로 `64601905-01` · 모의투자 라디오 + 전략 라벨 "테스트" 직접 입력 → 12:21:01 KST 저장 성공 + 마스킹 행 노출 (`PS**···9W7Q · 시크릿 저장됨 ✓`). Supabase MCP는 32차 박제 contrary로 OAuth 재인증 필요 → `mcp__supabase__authenticate` → 사용자 브라우저 Authorize → "Authentication Successful" 화면 → ToolSearch로 `execute_sql` 스키마 로드. **검증 SQL 2건**: (1) `information_schema.columns`에서 `ciphertext_app_key` · `iv_app_key` · `auth_tag_app_key` · `ciphertext_app_secret` · `iv_app_secret` · `auth_tag_app_secret` 6개 모두 bytea 확인 (2) 행 SELECT + `octet_length` + `position(convert_to(plaintext) IN ct)` 검증 → ct 36/180바이트 · iv 12B · tag 16B (AES-256-GCM 표준) · 평문 APP_KEY/SECRET이 ciphertext에 포함된 위치 모두 `0` (= 평문 노출 없음). row id `f35566e9-45aa-490b-a440-fc6ded482c68`, admin_id `f9c08fa2-…` (son00326). HANDOFF §1 + §2 (1) + §9 Session 3 + §12 갱신. **데이터 의미상 불일치** (친구 실전투자 키가 son00326 슬롯에 mockMode=true로 박제됨)는 Smoke #4(RLS 격리) 진입 전 정리 필요 — 친구 비번 세팅 후 친구 슬롯으로 재등록. 다음 진입점 = **Smoke #3 Binance** (사용자 API_KEY/SECRET 64자 + testnetMode 권장).
+- **2026-05-05 (32차, Supabase 계정 마이그 + Smoke #1·#6 PASS)** — Kevin 계정 접속 불가로 son00326 신 프로젝트(`rbrpcynhphrpljbjirfo`) 전환. Supabase CLI(GitHub binary v2.98.1) + MCP(HTTP+PAT, user-scope) 설치. MCP `apply_migration`로 0002~0010 9건 적용 · admin_emails 3 row + kr_business_days 2557 row + auth.users 3명 생성. Vercel env 8 entries 교체(REST API Preview 보정) + Production 재배포 `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY`. 회귀 3-gate green (build 24 / lint 0 / test:ci 306). T16 Auth URL Config ✅. **Magic Link UI 작동 안 함** (token 즉시 invalidate, Gmail prefetch 추정) → son00326 비밀번호 `Test1234!` 임시 설정으로 우회 · /admin 진입 확인 (Smoke #1 PASS). cron 인증 가드 검증 PASS (Smoke #6, 401/401/200). 잔여 = Smoke #2~#5 (KIS·Binance 저장 + RLS + 대표 가드). 보안 노출 시크릿 4종(anon JWT · service_role JWT · DB password · PAT) rotate 작업 종료 후. HEAD `9c8d3fb`.
 - **2026-04-30 (31차, A 문서 갱신 + Naver API 키 투입)** — 사용자 BL-KRIT-3 해소용 Naver Developers Client ID/Secret 제공 → `tudal/.env.local`에 NAVER_CLIENT_ID·NAVER_CLIENT_SECRET 2줄 투입 (line 27-28). 후속 사용자 질의 "내가 알려주지 않고 자율 진행 가능 항목" → A(문서 갱신) / B(S8-Scaffold) / C(S7a wrapper skeleton) / D(검증) 4트랙 제시, A 채택. **A 범위**: (1) BL-KRIT-3 부분 해소 박제 (HANDOFF §4·§6 외부 신청 표 + ProgressDashboard §5 BL-KRIT-3) · (2) **T5 stale 정정**: ProgressDashboard §5 BL-KRIT-7 "마이그레이션 0009"→"0010" (28차에 0010으로 재배정됐으나 미정정) + CodebaseStatus 체크리스트 "[x] 마이그레이션 0010 파일 생성" → 0010은 BL-KRIT-7 해소 시 생성될 파일이므로 **[ ] 미생성**으로 정정 (잘못 체크된 stale 1건) · (3) CodebaseStatus 환경변수 섹션에 NAVER 추가 + 31차 엔트리 · (4) HANDOFF §12 31차. 코드 변경 0건 (env 1줄 추가 외). 검증: build/lint/test:ci 회귀 0 (env 변경만이므로 회귀 없음). 채팅 히스토리 키 노출 보안 주의 박제 (Vercel env 투입 전 Naver 콘솔 rotate 권장). 다음 진입점 불변 = **DQ-7 Session 3 잔여 3건 사용자 주도** (T16 + 0009 + T17).
 - **2026-04-22 (30차, DQ-7 Session 3 부분 진행 — Vercel 첫 production 배포 도달)** — 사용자 지시로 Session 3 Deploy 착수. 흐름: 11 commits push(`3c91194..84fc7e2`) → BL-DQ7-1·2·3 시크릿 생성 자동화(Claude가 `node -e crypto.randomBytes` + `openssl rand` 직접 실행) + `.env.local` Edit 투입 + ADMIN_REP_EMAIL=`son00326@gmail.com` 확정 → T14 `tudal/scripts/rotate-cred-mek.mjs` 작성(.ts→.mjs deviation, tsconfig include `**/*.ts` strict 컴파일 회피 + tsx 의존성 제거 · 271 lines · pseudo-transaction 안전 모델 · `--help`·dry-run 동작 검증) → atomic commit `78dc54b` + push. **Vercel 자동화**: CLI v41.3.0 미인증 발견 → `vercel login --github` deprecated changelog 리디렉션 → CLI v41→v52 업그레이드 → 새 OAuth 2.0 Device Flow로 사용자 brower Authorize 완료(WSKQ-XHFB code, Seongnam-si IP 검증) → `vercel link --yes` 신규 프로젝트 `son326s-projects/tudal` 생성 → `vercel git connect` GitHub repo 연결 → `vercel env add` × 11 Production+Development 성공 / Preview 7개 누락(`git_branch_required` non-interactive 거부) → REST API `POST /v10/projects/:id/env?upsert=true` 일괄 보정 7개(`created:7 failed:0`) → rootDirectory=`tudal` PATCH → `vercel deploy --prod`가 path 중첩(`tudal/tudal`) 실패 → `.vercel/`을 repo root로 mv + rootDirectory 재설정 → `vercel deploy --prod` from repo root → **Hobby plan cron daily 제약**(`*/15 * * * *` 거부) 발견 → vercel.json `news-sweep` `*/15`→`0 0` 변경(옵션 B 사용자 권장 채택) + atomic commit `4c6f0e2` + push → 재배포 성공 https://tudal-tawny.vercel.app (`dpl_397UrMfZET9XLbzxsEDShZmCPZQ4`, READY, 24 routes, build 48s). **Production Branch deviation**: `link.productionBranch` PATCH 거부(`should NOT have additional property "link"`) → `main` 유지(dashboard 수동 변경만 가능) · spec §6.2 트릭은 S9 진입 전 사용자 dashboard에서 적용 권장. **사용자 다음 세션 잔여 3건**: T16 Supabase Redirect URL · 0009 마이그레이션 실 DB 적용 · T17 Cron dashboard 확인 + Smoke Test. **root .gitignore에 `.vercel/` 추가** (보안 핫픽스, repo root에 .vercel 생성됐는데 root .gitignore는 .vercel 패턴 없었음). 코드 변경: vercel.json 1줄 + scripts/rotate-cred-mek.mjs(신규 271줄) + .env.local 3줄(gitignored) + .gitignore 1줄. 검증: build/lint/test:ci 3-gate green · Vercel build exit 0. HEAD `4c6f0e2`, origin/main 동기화 (이 문서 갱신 commit 전).
 - **2026-04-22 (29차, Step 2 로드맵 재조정 — HANDOFF만 반영)** — 28차 cleanup에 이어 사용자와 Q1~Q5 논의 후 로드맵 v2 확정. 사용자 결정: **(Q1)** 자동매매 실체결 최단 경로 + **S7b는 Short List 30 재조정 필수 입력이므로 강등 취소**(제 초안 오류 정정) · **S7c·S7d만 강등 큐** · **(Q2)** KIS 3명 각자 계정 · 동시 진행 · **(Q3)** 바이낸스 testnet+mainnet 양쪽 구현 · IP/KYC 이슈 없음(사용자 실 운영 경험) · **(Q4)** 리스크 5배 그대로 박제 · **(Q5)** KIS 신청 사용자 진행 중(완료 시 별도 보고). 자동매매 알고리즘 튜닝은 S8 구현 후 사용자가 여러 소스 투입해서 수정(Strategy drop-in + AI 어댑터 embed 경로 그대로). **자동매매 실체결 도달 = 기존 14세션 → 9세션**(총 11 세션: DQ-7 잔여 2 + S7a 1 + S7e 2 + S7b 2 + S8-Scaffold 2 + S8-Live 2). **편집 범위 = HANDOFF만**(사용자 지시 "우선 문서만 HANDOFF에 전부 반영") — ProgressDashboard §2 "Deferred-X 건너뜀" 잔여 스테일 1건은 다음 기회에. 편집: §1 Last updated · §2 진입 결정 트리 (3) DQ-8만 남음 반영 · §3 DQ-9·10·11 해소 박제 · §4 BL-KRIT-9 해소 · §6 전면 재작성 (v2 다이어그램 · 세션 표 · 강등 큐 · 외부 신청 병행 트랙) · §9 S8 마이그 0011 명시 · §12 29차 엔트리. 1 atomic 커밋. 다음 세션 진입점 불변 = **DQ-7 Session 3 Vercel 배포**.
