@@ -57,6 +57,13 @@ export function validateLabel(v: string): void {
   }
 }
 
+export function validateBooleanMode(v: unknown, label: string): boolean {
+  if (typeof v !== 'boolean') {
+    throw new CredentialFormatError(`${label} 모드 값이 올바르지 않습니다.`);
+  }
+  return v;
+}
+
 export function cleanInput(v: string): string {
   return v.trim();
 }

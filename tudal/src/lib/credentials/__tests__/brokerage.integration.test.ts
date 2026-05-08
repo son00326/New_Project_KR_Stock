@@ -100,6 +100,20 @@ describe('upsertBrokerageCredential', () => {
     if (!r.success) expect(r.error).toMatch(/실계좌.*대표/);
   });
 
+  it('rejects malformed mockMode before saving', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'friend@b.c' } },
+    });
+    const { upsertBrokerageCredential } = await import('../brokerage');
+    const r = await upsertBrokerageCredential({
+      ...validInput,
+      mockMode: 'false',
+    } as unknown as typeof validInput);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/모드/);
+    expect(mocks.upsertPayload).not.toHaveBeenCalled();
+  });
+
   it('allows rep to save real account', async () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { id: 'u1', email: 'rep@example.com' } },

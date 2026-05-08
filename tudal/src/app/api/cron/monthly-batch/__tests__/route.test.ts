@@ -29,7 +29,27 @@ describe("GET /api/cron/monthly-batch", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     process.env.CRON_SECRET = "cron-secret";
+  });
+
+  it("returns an explicit smoke-only response in production while monthly batch still uses mock steps", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/monthly-batch", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(false);
+    expect(body.mockMode).toBe(true);
+    expect(body.durableWrites).toBe(false);
+    expect(body.smokeOnly).toBe(true);
+    expect(body.error).toBe("monthly_batch_real_pipeline_not_configured");
   });
 
   it("returns non-2xx status when the monthly batch fails", async () => {

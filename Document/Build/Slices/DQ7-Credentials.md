@@ -5,9 +5,9 @@
 slice_id: DQ7
 slice_name: 어드민 per-admin API 크레덴셜 저장 체계 + Vercel 배포 환경변수 세팅
 architect_id: DQ7 (S7 이전 독립 인프라 트랙, 2026-04-22 brainstorming 확정)
-status: 🟡 Session 3 부분 진행 (BL-DQ7-1·2·3·T14·Vercel 프로젝트/env/배포 완료 · T16·0009·T17 사용자 다음 세션)
+status: 🟡 Session 3 ~97% (30차 Vercel 배포 + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ · Smoke #4·#5 잔여 · **Smoke #3 ⏸ S8까지 유예 (D19, 35차)**)
 expected_sessions: 4
-current_progress: ~70% (Session 1 ✅ + Session 2 ✅ + Session 3 ~80%)
+current_progress: ~97% (Session 1 ✅ + Session 2 ✅ + Session 3 ~97% · Session 4 QA·Close 잔여)
 ---
 ```
 
@@ -505,7 +505,7 @@ git push origin main
 - [ ] Supabase Studio에서 `ciphertext_app_key` 열기 → plaintext 불가
 - [ ] A가 저장한 row B 로그인 조회 → 0건 (RLS)
 - [ ] 친구 계정 실계좌 저장 시도 → 403 (대표 전용)
-- [ ] `/admin/settings/binance` 동일 시나리오
+- [⏸] `/admin/settings/binance` 동일 시나리오 — **D19 (2026-05-08, 35차) ⏸ 유예**: Binance 키 미발급 + S8 자동매매 분리(D18) → **S8 진입 시점에 진행**. Session 3 종결 = Smoke #3 제외하고 Smoke #4·#5만으로.
 - [ ] Vercel Cron Jobs Dashboard 4건 노출
 - [ ] `/api/cron/monthly-batch` curl + `Authorization: Bearer <CRON_SECRET>` → 200
 
@@ -875,3 +875,6 @@ S8 자동매매·주식 분석 알고리즘 추가 관련:
 | 2026-04-22 (26차) | Session 1 Backend·DB 완료. 11 Task inline TDD. aes 14 tests · mask 5 · validation 18 · integration 20 · 0009 마이그레이션 + rollback. build 22 routes · lint 0 · test:ci 248 pass. |
 | 2026-04-22 (27차) | Session 2 Frontend UI 완료. /ralph 자율 루프 3 Wave. T11 secret-input 공유 + T9·T10 brokerage·binance UI(executor sonnet × 2 병렬) + T12 sidebar nav. 라우트 22→24. architect APPROVED + ai-slop-cleaner CLEAN. |
 | 2026-04-22 (30차) | Session 3 부분 진행. BL-DQ7-1·2·3·T14 완료. Vercel CLI v52 업그레이드 + Device Flow 인증 + 프로젝트 `son326s-projects/tudal` 생성 + GitHub repo 연결 + env 18 entries(REST API Preview 7개 보정) + rootDirectory=tudal + .vercel/ repo root 이동 + 첫 production 배포 https://tudal-tawny.vercel.app. **Deviation 박제**: T14 .ts→.mjs · pseudo-transaction · Production Branch=main 유지(dashboard 수동 변경 옵션) · vercel.json news-sweep `*/15`→`0 0`(Hobby plan). **사용자 다음 세션 잔여**: T16 Supabase Redirect URL · 0009 마이그레이션 실 DB 적용 · T17 Cron dashboard + Smoke Test §6.7. |
+| 2026-05-05 (32차) | Supabase 계정 마이그 (Kevin → son00326 `rbrpcynhphrpljbjirfo`). MCP `apply_migration`로 0002~0010 9건 + admin_emails 3 row + kr_business_days 2557 row + auth.users 3명. Vercel env 8 entries 교체 + Production 재배포 `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY`. T16 Auth URL Config ✅ · Smoke #1 (login + /admin) ✅ · Smoke #6 (cron 인증) ✅. Magic Link UI 작동 X → son00326 비번 `Test1234!` 임시 우회. 회귀 3-gate green (build 24 / lint 0 / test:ci 306). |
+| 2026-05-08 (33차) | Smoke #2 PASS — KIS 키 AES-256-GCM 암호화 검증. brokerage_connection 1 row (`64601905-01` · son00326 슬롯에 친구 장세현 실전투자 키 임시 박제 · ct=36/180 bytes · iv=12B · tag=16B · plaintext 노출 0). row id `f35566e9-…`. **Smoke #4 진입 전 친구 슬롯 재등록 필요** (데이터 의미상 불일치). |
+| 2026-05-08 (35차) | **D19 박제로 Smoke #3 ⏸ 유예 + Session 3 종결 조건 정정.** Binance 키 미발급 + S8 자동매매 분리(D18) → Smoke #3 (Binance 키 저장·암호화·격리)는 **S8 진입 시점에 진행**으로 분리. Session 3 종결 = Smoke #4 (RLS 격리 — 친구 비번 + KIS 슬롯 재등록 사전작업 후) + Smoke #5 (대표 가드 — 친구 계정 mainnet 라디오 → 403 검증, Binance 키 없어도 라우트 레벨 거부 검증 가능)만으로. 본 슬라이스 status `~70%`→`~97%` 정정. §6.7 Smoke Test 체크리스트 binance 라인 ⏸ 표기. SoT: `ServicePlan-Admin.md §1A.5 D19` + `HANDOFF.md §2.A`. |

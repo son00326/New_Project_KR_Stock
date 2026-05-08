@@ -8,6 +8,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import type { TickerAlertPref } from "@/types/admin";
 
+const REAL_PERSISTENCE_ERROR = "real_persistence_not_configured";
+
 // ---------------------------------------------------------------------------
 // /admin/settings Server Actions (S5b T5b.2)
 // ref: ServicePlan-Admin §3.5 R3.5-2·§3.10 R3.10-8~9
@@ -16,15 +18,24 @@ import type { TickerAlertPref } from "@/types/admin";
 // 모든 action은 { success, data|error } 규약 (AGENTS.md §G-2).
 // ---------------------------------------------------------------------------
 
-async function resolveAdminId(): Promise<string> {
+function isProductionLike(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
+async function resolveAdminId(): Promise<string | null> {
   try {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    return user?.id ?? MOCK_ADMIN_ID;
+    if (user?.id) return user.id;
+    return isProductionLike() ? null : MOCK_ADMIN_ID;
   } catch {
-    return MOCK_ADMIN_ID;
+    return isProductionLike() ? null : MOCK_ADMIN_ID;
   }
 }
 
@@ -35,7 +46,16 @@ export async function setIntradayMode(
   | { success: true; data: { intradayMode: boolean } }
   | { success: false; error: string }
 > {
-  await resolveAdminId();
+  if (typeof enabled !== "boolean") {
+    return { success: false, error: "invalid_intraday_mode" };
+  }
+
+  if (!(await resolveAdminId())) {
+    return { success: false, error: "auth_unavailable" };
+  }
+  if (isProductionLike()) {
+    return { success: false, error: REAL_PERSISTENCE_ERROR };
+  }
 
   try {
     // TODO(S5): await supabase.from("admin_settings").upsert({
@@ -61,7 +81,20 @@ export async function setTickerAlertEnabled(
   | { success: true; data: { ticker: string; enabled: boolean } }
   | { success: false; error: string }
 > {
+  if (typeof enabled !== "boolean") {
+    return { success: false, error: "invalid_ticker_alert_enabled" };
+  }
+  if (typeof ticker !== "string") {
+    return { success: false, error: "invalid_ticker" };
+  }
+
   const adminId = await resolveAdminId();
+  if (!adminId) {
+    return { success: false, error: "auth_unavailable" };
+  }
+  if (isProductionLike()) {
+    return { success: false, error: REAL_PERSISTENCE_ERROR };
+  }
   const normalized = ticker.trim();
   if (!normalized) {
     return { success: false, error: "ticker_required" };

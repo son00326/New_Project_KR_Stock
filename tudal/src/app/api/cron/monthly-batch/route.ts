@@ -22,6 +22,14 @@ function isAuthorized(request: NextRequest): boolean {
   return header === `Bearer ${secret}`;
 }
 
+function isProductionLike(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 // mock-mode 기본 스텝 — 실데이터 전환 시 각 run 함수에 실 I/O 주입.
 function buildMockSteps(): BatchStep[] {
   return [
@@ -51,6 +59,19 @@ function buildMockSteps(): BatchStep[] {
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  if (isProductionLike()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        mockMode: true,
+        durableWrites: false,
+        smokeOnly: true,
+        error: "monthly_batch_real_pipeline_not_configured",
+      },
+      { status: 200 },
+    );
   }
 
   const steps = buildMockSteps();

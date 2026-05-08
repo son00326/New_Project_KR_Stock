@@ -5,14 +5,14 @@
 slice_id: S8
 slice_name: 자동매매 프레임 (주식 KIS + 바이낸스 USDT-M 선물 + Strategy drop-in + AI 어댑터 embed)
 architect_id: S8 (신규, 2026-04-21 D16 승격 — 구 Deferred-X 흡수 + Deferred-Y 어댑터 위치 예정)
-status: ⚪ 대기
+status: ⚪ 대기 (S7d 후 단독 진입, D18 2026-05-08)
 expected_sessions: 4 (스캐폴드 2 + 실 체결 전환 2)
 current_progress: 0%
 ---
 ```
 
-Last updated: 2026-04-21 (초기 생성 — D16 박제)
-선행 문서: `BusinessPlan.md §10.8` · `ServicePlan-Admin.md §1A.0 + §3.13` · `HANDOFF.md §6` · `../../Archive/AutoTrading.md`(리서치 원자료 · D11 이전) · `../../Archive/AutoTrading-AI구조설계.md`(AI 구조 초안 · D11 이전)
+Last updated: 2026-05-08 (34차 — D18 진입 시점 재조정: S7a·S7e 후 병행 → S7d 후 단독 진입)
+선행 문서: `BusinessPlan.md §10.8` · `ServicePlan-Admin.md §1A.0 + §1A.5 D18 + §3.13` · `HANDOFF.md §2.C` · `../../Archive/AutoTrading.md`(리서치 원자료 · D11 이전) · `../../Archive/AutoTrading-AI구조설계.md`(AI 구조 초안 · D11 이전)
 
 ---
 
@@ -53,10 +53,14 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 
 ## 선행 조건
 
-- 슬라이스: **S7a 완료** (Anthropic wrapper — AI 어댑터 embed 연결용) + **S7e 완료** (Supabase 실 I/O — 주문 큐·체결 이력 실 INSERT 필수). 즉 S7a·S7e 후에만 S8 스캐폴드 병행 착수 가능.
-- DQ 해소: **DQ-9** (KIS API 조달 범위) · **DQ-10** (바이낸스 IP/KYC/테스트넷) · **DQ-11** (리스크 기본값 확정) — HANDOFF §3
-- BL-KRIT: **BL-KRIT-2** (KIS 키) · **BL-KRIT-8** (마이그레이션 **0011** 신규 5 엔티티 E13~E17 · E12는 DQ-7 0009 선행 생성) · **BL-KRIT-9** (바이낸스 키)
-- 이벤트: `portfolio.approved` (E4 `is_final=true`) 수신 파이프가 실동작 (S7e) — 자동 주문 트리거용
+> **D18 (2026-05-08, 34차) 재조정**: 이전 v2 "S7a·S7e 후 병행 착수"에서 "**S7d 완료 후 단독 진입**"으로 분리. 근거: KIS는 자동매매 전용 (S7c WS read-only는 본인 1개로 충분), 일간 데이터·AI 가상 포트는 KIS 무관, S8을 D11 AI 가상 포트 운용 검증 후로 미루는 것이 어드민 내부 도구 완성도에 합리적.
+
+- 슬라이스: **S7a · S7e · S7b · S7c · S7d 모두 완료** (Mock→실데이터 전환 전체 완료). S7b 완료 후 D11 AI 가상 포트 1차 가동 + 운용 검증 며칠~1주를 거친 후 S7c·S7d 진행.
+- 운용 검증: **D11 AI 가상 포트가 실데이터 기반으로 어드민 3인이 며칠~1주 사용**해 본 후 자동매매 도입. 가상 포트 단계에서 의사결정 품질 확인 → 자동매매 신뢰도 확보.
+- DQ 해소: **DQ-9** ✅ · **DQ-10** ✅ · **DQ-11** ✅ — HANDOFF §3
+- BL-KRIT: **BL-KRIT-2** (KIS 자동매매 권한 — 본인 + 친구 2명 각자 계정 또는 본인 1명 단독 운영) · **BL-KRIT-8** (마이그레이션 **0011** 신규 5 엔티티 E13~E17 · E12는 DQ-7 0009 선행 생성) · **BL-KRIT-9** ✅
+- 이벤트: `portfolio.approved` (E4 `is_final=true`) 수신 파이프가 실동작 (S7e 후) — 자동 주문 트리거용. D11 AI 가상 포트 Accept = 자동매매 트리거 (대표 1인 모드일 경우만 자동, 친구 2명은 모의 또는 본인 계좌로 매뉴얼).
+- KIS 발급 정책 (D18 박제): son00326·Kevin KIS 발급 지연 = **S7c까지 비블로커**. S7c는 본인 1개로 시세 WS 충분. S8 진입 시점에 (a) 3명 동시 또는 (b) 본인 단독 결정.
 
 ---
 
@@ -78,7 +82,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 
 > 킥오프 세션에서 세분화 확정. 아래는 초기 설계.
 
-### Phase S8-Scaffold (세션 1~2, S7a·S7e 후 병행)
+### Phase S8-Scaffold (세션 1~2, **S7d 완료 + D11 AI 가상 포트 운용 검증 후 단독 진입**)
 
 - [ ] **T8.1** 마이그레이션 **0011** (E13~E17 신규 5 테이블 + RLS + CHECK + 인덱스) — E12 ExchangeConnection은 DQ-7 0009에서 선행 생성됨 (2026-04-22 cleanup)
 - [ ] **T8.2** `tudal/.env.example` 작성 (KIS·바이낸스·ANTHROPIC 키 슬롯 + `KIS_MOCK_MODE` · `BINANCE_TESTNET` 플래그)
@@ -105,7 +109,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 - [ ] **T8.8** Supabase RLS — 5 신규 테이블 admin-only + admin_id scope RLS 정책
 - [ ] **T8.9** mock 주문 → Short List Accept 훅 연결 (E4 `is_final=true` → 자동 주문 큐 생성, mock 체결)
 
-### Phase S8-Live (세션 3~4, S7 전체 완료 후)
+### Phase S8-Live (세션 3~4, S8-Scaffold 완료 후)
 
 - [ ] **T8.10** KIS REST 실 연결 — OAuth 토큰 관리 + 모의투자 계좌 실 주문 실동작
 - [ ] **T8.11** KIS 실계좌 전환 — 대표 1인 토글 + 이중 확인(타이핑 확인 모달) + 최초 1회 $100 이하 소액 검증 주문
@@ -179,6 +183,7 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 - 2026-04-21: 슬라이스 생성 (D16 박제). Deferred-X 승격 + Deferred-Y 흡수. 사용자 답변 D-T1 b·c (모의+실) · D-T2 c (AI 자율+Strategy 이중) · D-T3 (Short List/자유/바이낸스 선물 선택 가능).
 - 2026-04-21: 리스크 가드레일 기본값 (≤5x / -3% / ≤20회) — Claude 판단 보수값 박제. 사용자 추후 `/admin/settings/risk`에서 조정.
 - 2026-04-21: 모의↔실 토글 권한 = 대표 1인. 친구 2명은 모의까지만. (Q2 답변 — 친구 추가는 나중)
+- **2026-05-08 (34차, D18)**: S8 진입 시점 재조정 — "S7a·S7e 후 병행" → "**S7d 후 단독 진입**". 근거: (1) KIS는 자동매매 전용. S7c WS read-only는 본인 1개로 충분, 일간 데이터·AI 가상 포트는 KIS 0개로 작동. (2) D11 AI 가상 포트 운용 검증을 S8 선행 조건으로 명시 — 가상 포트 의사결정 품질을 어드민 3인이 며칠~1주 사용해 본 후 자동매매 도입. (3) son00326·Kevin KIS 발급 지연을 S8 시점까지 비블로커화. (4) v2 "S7c·S7d 강등 큐" 폐기, 정규 시퀀스 복귀.
 
 ---
 
@@ -196,3 +201,4 @@ S8은 "어드민 내부 도구 완성" 4조건 중 3번째(Mock → 실데이터
 |---|---|
 | 2026-04-21 | 초기 생성. D16 박제(BusinessPlan §12 2026-04-21 · ServicePlan-Admin §1A.5 D16). Deferred-X 승격 + Deferred-Y 흡수 경로 확정. 주식 KIS + 코인 바이낸스 USDT-M 선물 2축 범위 + Strategy drop-in + AI 어댑터 embed 이중 경로 박제. 리스크 기본값 보수(5x / -3% / 20회) 박제. |
 | 2026-04-22 | 문서 정합 cleanup (28차): DQ-7 Session 2 완료 후속. T8.1 마이그 번호 **0010→0011** 정정 (DQ-7=0009 · BL-KRIT-7=0010 선점 정합). §엔티티 신규 **E12 항목을 "DQ-7 선행 생성" 주석으로 축소** (S8 신규는 E13~E17만). **선행 문서 경로** AutoTrading·AutoTrading-AI구조설계 → Archive/ 이관 반영. 구조·Tasks·DoD·리스크는 변경 없음 (로드맵 재조정은 Step 2로 유예). |
+| **2026-05-08** | **34차 — D18 진입 시점 재조정**. 선행 조건 "S7a·S7e 후 병행" → "**S7d 후 단독 진입**" + D11 AI 가상 포트 운용 검증 후. status 필드에 D18 박제. KIS 발급 정책(son00326·Kevin 발급 지연 = S7c까지 비블로커, S8 진입 시 (a) 3명 동시 또는 (b) 본인 단독 결정) 박제. `Phase S8-Scaffold` 헤더 + `Phase S8-Live` 헤더 정정. Tasks·DoD·리스크·외부 의존 표는 변경 없음 (시점만 변경). 박제 ServicePlan-Admin §1A.5 D18 + ProgressDashboard §2 v3 다이어그램 + HANDOFF §2.C + CLAUDE.md 상단. 코드 변경 0건. |

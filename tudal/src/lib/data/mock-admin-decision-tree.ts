@@ -17,7 +17,7 @@ export interface DecisionTreeSnapshot {
 }
 
 export const MOCK_DECISION_TREE_SNAPSHOT: DecisionTreeSnapshot = {
-  cumulativeAlpha: 0.042,
+  cumulativeAlpha: 0.050,
   cumulativeSharpe: 0.82,
   cumulativeMdd: -0.08,
   monthlyHistory: [

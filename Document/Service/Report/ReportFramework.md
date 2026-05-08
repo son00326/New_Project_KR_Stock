@@ -636,6 +636,47 @@ Part A: 섹터 보드 (10명)
 
 ## 8. 에이전트 오케스트레이션 (확정)
 
+> **2026-05-08 (D19, 35차)**: Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가. Step 1~4 풀 리포트 작성 흐름은 변경 없음 — 외부 레퍼런스 [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. SoT: `ServicePlan-Admin.md §1A.5 D19`.
+
+### Step 0 (D19, 신규): 30개 선정 합의 에이전트
+
+> 풀 리포트(Step 1~4) 진입 전, **이 종목이 왜 30종목 안에 들어왔는지**를 결정한다. 어드민 Short List 30 홈 카드의 🔢 숫자 점수 / 🤖 AI 점수 / 합의 배지가 이 단계 산출물.
+
+```
+Step 0a — Tier 0: 인디케이터 자동 스크리닝 (AI 키 불필요)
+└── 숫자 에이전트 (pykrx·KRX·DART)
+    코스피·코스닥 ~2,500종 → 5-Signal Composite × 시간대별 가중치
+    · 단기 가중치: 모멘텀·거래량·MA 골드크로스·외국인 순매수 강도 ↑
+    · 중기 가중치: 실적 모멘텀·PEAD·ROE 상승·산업 사이클 ↑
+    · 장기 가중치: ROIC 일관성·FCF·부채비율·밸류(PER/PBR) ↑
+    → 단/중/장 후보 50씩 = 150
+    → 🔢 숫자 점수(0~100) per (종목, 시간대)
+
+Step 0b — Tier 1: Core 11 페르소나 평가 (AI 키 필요)
+└── AI 에이전트 (Core Committee 10명 + 위원장)
+    150 후보 평가 + 시간대별 페르소나 가중치
+    · 단기 가중↑: Druckenmiller, Minervini-style 모멘텀
+    · 중기 가중↑: Lynch (GARP)
+    · 장기 가중↑: Buffett, Munger, Fisher, Damodaran
+    → 단/중/장 각 10 = 30 선정
+    → 🤖 AI 점수(0~100) per (종목, 시간대)
+
+Step 0c — 합의 에이전트 (4종 배지)
+숫자 점수 vs AI 점수 비교
+├── 🟢 강한 합의: 둘 다 상위 (우선 노출)
+├── 🔵 숫자 우세: 모멘텀 강하나 AI 정성 우려 (검토 배지)
+├── 🟣 AI 우세: 정성 좋으나 차트 약함 (검토 배지)
+└── ⚪ AI 분석 대기: AI 키 미발급 → 🔢만 표시(placeholder)
+
+산출: 30종목 + 합의 배지 + AI 코멘트 1~2줄 → Step 1 진입 트리거
+```
+
+> **AI 키 미발급 fallback**: Step 0a(Tier 0)만 가동 → 진짜 코스피·코스닥 30종목 + 실 가격·재무·뉴스가 어드민 화면에 노출. Step 0b·1·2·3은 placeholder ("AI 분석 대기 중"). AI 키 발급 시 plug-in.
+
+### Step 1~4: 풀 리포트 작성 (선정된 30종목만)
+
+> **Tier 2 Sector Board 활성화**: 30종목 각자의 섹터 14명만 호출 (전체 140명 X). 종목당 Core 11 + Sector 14 = 25명 × 30종 ≈ 750 LLM call/월 (M17 hardcap 40만원 내 통제).
+
 ```
 Step 1: 리서치 + 분석 (병렬)
 ├── document-specialist (opus) → 웹 리서치 전수 조사
@@ -650,6 +691,7 @@ Step 2: 작성
 └── writer (opus) → Section 0~8 + Appendix 풀 보고서 통합 작성
     → Document/{섹터}SectorReport-{종목명}_{종목코드}.md
     ★ 반드시 본 프레임워크(ReportFramework.md) 참조하여 작성
+    ★ Section 0(요약)에 Step 0 산출(🔢/🤖/배지) 1행 노출
 
 Step 3: 검증
 └── critic (opus) → 적대적 검증 (팩트/논리/누락/구조/편향/독자수준 6축)
@@ -657,6 +699,24 @@ Step 3: 검증
 
 Step 4: 수정 반영 → 최종본 확정
 ```
+
+### Step 4 후속 (D19, 신규): Reflection — 자가학습
+
+> 외부 레퍼런스 TradingAgents `trading_memory.md` 패턴 차용 + JooPick Track Record와 결합.
+
+```
+매월 말 (또는 가상 포트 종료 시점):
+└── reflection 에이전트
+    1. 지난달 추천 30종목의 실현 수익률 산출 (KRX 실 데이터)
+    2. 페르소나별 적중·실패 케이스 추출
+       · Buffett 추천 종목 X → 실현 +15%: 가중치 ↑
+       · Druckenmiller 추천 Y → 실현 -8%: 단기 가중치 ↓
+    3. 다음달 Step 0b·1 prompt에 "지난달 학습" 컨텍스트 주입
+    4. cap_months 트랙 레코드 + reflection 로그 저장
+       → cost_log + reflection_log (E? 신규 검토)
+```
+
+> **신규 엔티티 후보 (S7e 또는 S7a 시점에 검토)**: `reflection_log` (월별 페르소나별 적중률·평균 실현 수익률·prompt context 스냅샷). M17 비용 추적과 분리.
 
 **critic 검증 축 (v2.0)**:
 1. **팩트**: 수치 오류, 출처 누락, 날짜 불일치
@@ -724,6 +784,7 @@ Step 4: 수정 반영 → 최종본 확정
 | 2026-04-12 | v1.0 | 8-Section 프레임워크 최초 확정 (BusinessPlan.md §8.2) |
 | 2026-04-13 | **v2.0** | Section 0~8 + Appendix로 구조 변경. 투자 서사/회사 개요 신설. 촉매+리스크 통합. 투심위 토론 구조 "쟁점별 찬반 대결"로 변경. Core Committee 투자 철학 매핑. Sector Board 14개 섹터 가이드. 용어/독자수준/비교분석 가이드라인 추가. |
 | 2026-04-13 | **v2.1** | Section 2(회사 개요)에 **성장 배경 추적(Track Record)** 필수 항목 추가 — 가이던스 vs 실적 비교로 경영진 신뢰도 판단. 비교 분석에 **딜/계약 조건 상대 비교** 원칙 추가 (로열티율, 딜밸류 등 업계 기준 대비 평가). 경쟁사 비교 **국내+해외 모두 필수** 원칙 강화. |
+| 2026-05-08 | **v2.2** | **§8에 Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가 — D19 박제 (35차).** TauricResearch/TradingAgents Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. Tier 0 인디케이터 게이트(AI 키 불필요) + Tier 1 Core 11 평가(시간대별 페르소나 가중치) + 합의 배지 4종(🟢 강한 합의/🔵 숫자 우세/🟣 AI 우세/⚪ AI 분석 대기) + 매월 말 Reflection(실현 수익률 prompt 주입). 어드민 카드 노출 = 🔢 숫자 점수 + 🤖 AI 점수 + 합의 배지 + AI 코멘트 1~2줄 + 클릭→풀 리포트. AI 키 미발급 시 Tier 0 단독 fallback (진짜 코스피·코스닥 30종목 자동 선정). 비용 통제 = Sector Board 활성화는 30종목 해당 섹터 14명만(140명 X). 신규 엔티티 후보 `reflection_log` 박제. SoT: `ServicePlan-Admin.md §1A.5 D19`. |
 
 ---
 

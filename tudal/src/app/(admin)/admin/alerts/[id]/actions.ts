@@ -4,6 +4,8 @@ import { MOCK_ADMIN_ALERTS } from "@/lib/data/mock-admin-alerts";
 import { createClient } from "@/lib/supabase/server";
 import type { ExitDecision } from "@/types/admin";
 
+const REAL_PERSISTENCE_ERROR = "real_persistence_not_configured";
+
 // ---------------------------------------------------------------------------
 // /admin/alerts/[id] Exit 결정 기록 Server Action (S5b T5b.3)
 // ref: ServicePlan-Admin §3.10 R3.10-14
@@ -12,15 +14,24 @@ import type { ExitDecision } from "@/types/admin";
 // mock fixture 전용. S5 실데이터 전환 시 alert_event UPDATE로 교체.
 // ---------------------------------------------------------------------------
 
-async function resolveAdminId(): Promise<string> {
+function isProductionLike(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
+async function resolveAdminId(): Promise<string | null> {
   try {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    return user?.id ?? "admin-001";
+    if (user?.id) return user.id;
+    return isProductionLike() ? null : "admin-001";
   } catch {
-    return "admin-001";
+    return isProductionLike() ? null : "admin-001";
   }
 }
 
@@ -38,9 +49,20 @@ export async function recordExitDecision(input: {
   | { success: true; data: { decisionRecorded: ExitDecision } }
   | { success: false; error: string }
 > {
+  if (!input || typeof input !== "object") {
+    return { success: false, error: "invalid_input" };
+  }
   const { alertId, decision } = input;
+  if (typeof input.memo !== "string") {
+    return { success: false, error: "invalid_memo" };
+  }
   const memo = input.memo.trim();
-  await resolveAdminId();
+  if (!(await resolveAdminId())) {
+    return { success: false, error: "auth_unavailable" };
+  }
+  if (isProductionLike()) {
+    return { success: false, error: REAL_PERSISTENCE_ERROR };
+  }
 
   if (!ALLOWED_DECISIONS.includes(decision)) {
     return { success: false, error: "invalid_decision" };

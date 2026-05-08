@@ -98,7 +98,8 @@ export async function GET(request: NextRequest) {
   let d10Triggered = false;
   let retrySuccess = emailRes.success;
   let retryError: string | undefined = emailRes.error;
-  if (!telegramRes.success && !emailRes.success && recipients.length > 0) {
+  const emailAttempted = recipients.length > 0;
+  if (!telegramRes.success && emailAttempted && !emailRes.success) {
     d10Triggered = true;
     const retry = await sendEmail({
       to: recipients,
@@ -113,7 +114,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const allFailed = noConfiguredOutboundChannel || (!telegramRes.success && !retrySuccess);
+  const emailDelivered = emailAttempted && retrySuccess;
+  const allFailed = noConfiguredOutboundChannel || (!telegramRes.success && !emailDelivered);
   const sendFailed = allFailed;
 
   const log = toHeartbeatLogRecord(

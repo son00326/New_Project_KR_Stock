@@ -209,8 +209,8 @@ const DETAILED: Record<string, Detailed> = {
       ],
       conviction: 88,
       committeeMini: {
-        core: { approve: 9, reject: 1, abstain: 1 },
-        sector: { approve: 4, reject: 1, abstain: 0 },
+        core: { approve: 10, reject: 0, abstain: 1 },
+        sector: { approve: 5, reject: 0, abstain: 0 },
       },
       priceBands: { bear: "72k", base: "95k", bull: "115k" },
     },
@@ -497,8 +497,8 @@ const DETAILED: Record<string, Detailed> = {
       ],
       conviction: 78,
       committeeMini: {
-        core: { approve: 8, reject: 2, abstain: 1 },
-        sector: { approve: 4, reject: 1, abstain: 0 },
+        core: { approve: 6, reject: 3, abstain: 2 },
+        sector: { approve: 3, reject: 1, abstain: 1 },
       },
       priceBands: { bear: "280k", base: "380k", bull: "460k" },
     },

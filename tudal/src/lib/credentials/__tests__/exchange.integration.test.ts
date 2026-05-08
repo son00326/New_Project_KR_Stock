@@ -109,6 +109,20 @@ describe('upsertExchangeCredential', () => {
     if (!r.success) expect(r.error).toMatch(/메인넷.*대표/);
   });
 
+  it('rejects malformed testnetMode before saving', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'friend@b.c' } },
+    });
+    const { upsertExchangeCredential } = await import('../exchange');
+    const r = await upsertExchangeCredential({
+      ...validInput,
+      testnetMode: 'false',
+    } as unknown as typeof validInput);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/모드/);
+    expect(mocks.upsertPayload).not.toHaveBeenCalled();
+  });
+
   it('allows rep to save mainnet', async () => {
     mocks.getUser.mockResolvedValue({
       data: { user: { id: 'u1', email: 'rep@example.com' } },

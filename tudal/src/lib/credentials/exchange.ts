@@ -6,6 +6,7 @@ import { maskKey } from './mask';
 import {
   cleanInput,
   CredentialFormatError,
+  validateBooleanMode,
   validateBinanceApiKey,
   validateBinanceApiSecret,
   validateLabel,
@@ -33,6 +34,7 @@ export async function upsertExchangeCredential(
     validateLabel(label);
     validateBinanceApiKey(apiKey);
     validateBinanceApiSecret(apiSecret);
+    const testnetMode = validateBooleanMode(input.testnetMode, 'Binance');
 
     const supabase = await createClient();
     const {
@@ -41,7 +43,7 @@ export async function upsertExchangeCredential(
     if (!user) return { success: false, error: '로그인이 필요합니다' };
 
     const repEmail = process.env.ADMIN_REP_EMAIL;
-    if (!input.testnetMode && user.email !== repEmail) {
+    if (!testnetMode && user.email !== repEmail) {
       return { success: false, error: '메인넷 등록은 대표만 가능합니다' };
     }
 
@@ -55,7 +57,7 @@ export async function upsertExchangeCredential(
           admin_id: user.id,
           exchange: input.exchange,
           label,
-          testnet_mode: input.testnetMode,
+          testnet_mode: testnetMode,
           api_key_masked: maskKey(apiKey, 2, 4),
           ciphertext_api_key: toPostgresBytea(keyPayload.ciphertext),
           iv_api_key: toPostgresBytea(keyPayload.iv),

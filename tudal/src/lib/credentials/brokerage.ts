@@ -6,6 +6,7 @@ import { maskAccount, maskKey } from './mask';
 import {
   cleanInput,
   CredentialFormatError,
+  validateBooleanMode,
   validateKisAccountNo,
   validateKisAppKey,
   validateKisAppSecret,
@@ -33,6 +34,7 @@ export async function upsertBrokerageCredential(
     validateKisAccountNo(accountNo);
     validateKisAppKey(appKey);
     validateKisAppSecret(appSecret);
+    const mockMode = validateBooleanMode(input.mockMode, 'KIS');
 
     const supabase = await createClient();
     const {
@@ -41,7 +43,7 @@ export async function upsertBrokerageCredential(
     if (!user) return { success: false, error: '로그인이 필요합니다' };
 
     const repEmail = process.env.ADMIN_REP_EMAIL;
-    if (!input.mockMode && user.email !== repEmail) {
+    if (!mockMode && user.email !== repEmail) {
       return { success: false, error: '실계좌 등록은 대표만 가능합니다' };
     }
 
@@ -56,7 +58,7 @@ export async function upsertBrokerageCredential(
           broker: input.broker,
           account_no: accountNo,
           strategy_label: input.strategyLabel,
-          mock_mode: input.mockMode,
+          mock_mode: mockMode,
           app_key_masked: maskKey(appKey, 2, 4),
           ciphertext_app_key: toPostgresBytea(keyPayload.ciphertext),
           iv_app_key: toPostgresBytea(keyPayload.iv),
