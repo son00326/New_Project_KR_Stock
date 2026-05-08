@@ -7,6 +7,7 @@ interface BucketSectionProps {
   cadence: string;
   weight: string;
   items: ShortListItem[];
+  reportLinksEnabled?: boolean;
 }
 
 // 3섹션 세로 스택 (M1). T1.3에서 `ShortlistRow`로 행 교체 완료 (M4/M6 충족).
@@ -16,6 +17,7 @@ export function BucketSection({
   cadence,
   weight,
   items,
+  reportLinksEnabled = true,
 }: BucketSectionProps) {
   return (
     <section aria-labelledby={`bucket-${bucket}-heading`}>
@@ -43,7 +45,11 @@ export function BucketSection({
       ) : (
         <div className="divide-y rounded-lg border bg-card">
           {items.map((item) => (
-            <ShortlistRow key={item.id} item={item} />
+            <ShortlistRow
+              key={item.id}
+              item={item}
+              reportLinkEnabled={reportLinksEnabled}
+            />
           ))}
         </div>
       )}

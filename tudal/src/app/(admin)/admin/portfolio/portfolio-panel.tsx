@@ -32,6 +32,8 @@ interface PortfolioPanelProps {
   acceptAllowed: boolean;
   gateMessage: string | null;
   gateReason: AcceptGateReason | null;
+  actionsEnabled?: boolean;
+  actionsDisabledMessage?: string;
   // Wave 5 (T3.7): 이의 제기 — 현재 월 확정 approval
   finalApproval?: PortfolioApproval | null;
 }
@@ -55,6 +57,8 @@ export function PortfolioPanel({
   acceptAllowed,
   gateMessage,
   // gateReason reserved for T3.7 server-side re-validation display
+  actionsEnabled = true,
+  actionsDisabledMessage,
   finalApproval,
 }: PortfolioPanelProps) {
   const router = useRouter();
@@ -236,7 +240,13 @@ export function PortfolioPanel({
       )}
 
       {/* (b) 게이팅 상태 라벨 — allowed=false 시 표시 */}
-      {!isAlreadyFinalized && !acceptAllowed && gateMessage && (
+      {!isAlreadyFinalized && !actionsEnabled && actionsDisabledMessage && (
+        <div className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          <span>{actionsDisabledMessage}</span>
+        </div>
+      )}
+
+      {!isAlreadyFinalized && actionsEnabled && !acceptAllowed && gateMessage && (
         <div className="flex items-center gap-2 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
           <span>{gateMessage}</span>
         </div>
@@ -248,8 +258,14 @@ export function PortfolioPanel({
           <Button
             size="default"
             onClick={() => setModal("accept")}
-            disabled={isPending || !acceptAllowed || disputeBlocked}
-            title={!acceptAllowed && gateMessage ? gateMessage : undefined}
+            disabled={isPending || !actionsEnabled || !acceptAllowed || disputeBlocked}
+            title={
+              !actionsEnabled
+                ? actionsDisabledMessage
+                : !acceptAllowed && gateMessage
+                  ? gateMessage
+                  : undefined
+            }
           >
             Accept — 이번 달 포트 확정
           </Button>
@@ -257,7 +273,8 @@ export function PortfolioPanel({
             variant="destructive"
             size="default"
             onClick={() => setModal("reject")}
-            disabled={isPending || disputeBlocked}
+            disabled={isPending || !actionsEnabled || disputeBlocked}
+            title={!actionsEnabled ? actionsDisabledMessage : undefined}
           >
             Reject — 재분석 요청
           </Button>

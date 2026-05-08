@@ -10,7 +10,7 @@ import {
   MOCK_ADMIN_SETTINGS,
   MOCK_ADMIN_TICKER_PREFS,
 } from "@/lib/data/mock-admin-settings";
-import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
+import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { isTickerEnabledForIntraday } from "@/lib/intraday/anomaly-detect";
 import type { BucketKind, ShortageReason } from "@/types/admin";
 import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
@@ -20,7 +20,7 @@ const INTRADAY_BADGE_REFERENCE_NOW = "2026-04-19T14:30:00+09:00";
 
 // M1 Short List 30 홈. 3섹션 세로 스택(단·중·장) + Delta 배너 + 종목 카드.
 // T1.3 ShortlistRow (M4·M6) · T1.4 DeltaBanner (M5) · T1.6 MissingCountBanner 완료.
-// fixture는 mock-admin-shortlist.ts. 실데이터 전환은 S5 M10.
+// short_list_30 테이블 SELECT (T7e.2). seed는 T7e.8 Tier 0 인디케이터 자동 스크리닝.
 
 const BUCKET_ORDER: BucketKind[] = ["short", "mid", "long"];
 
@@ -59,15 +59,16 @@ function resolveShortageReason(activeCount: number): ShortageReason {
   return "screening";
 }
 
-export default function AdminHomePage() {
-  const month = MOCK_ADMIN_SHORTLIST[0]?.month ?? "";
+export default async function AdminHomePage() {
+  const shortlist = await getActiveShortList();
+  const month = shortlist[0]?.month ?? "";
   const monthLabel = formatMonthLabel(month);
 
   const byBucket = BUCKET_ORDER.map((bucket) => ({
     bucket,
-    items: MOCK_ADMIN_SHORTLIST.filter(
-      (r) => r.bucket === bucket && r.deltaStatus !== "removed",
-    ).sort((a, b) => a.rank - b.rank),
+    items: shortlist
+      .filter((r) => r.bucket === bucket && r.deltaStatus !== "removed")
+      .sort((a, b) => a.rank - b.rank),
   }));
 
   const activeCount = byBucket.reduce((sum, b) => sum + b.items.length, 0);
@@ -89,7 +90,7 @@ export default function AdminHomePage() {
           </p>
         </div>
         <div className="text-xs text-muted-foreground">
-          ※ mock fixture · 실데이터 전환 S5 M10
+          ※ short_list_30 SELECT · seed는 T7e.8 Tier 0 인디케이터 후 채워짐
         </div>
       </header>
 
@@ -104,7 +105,7 @@ export default function AdminHomePage() {
       <BriefingCard briefing={LATEST_BRIEFING} />
 
       {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
-      <DeltaBanner items={MOCK_ADMIN_SHORTLIST} />
+      <DeltaBanner items={shortlist} reportLinksEnabled={false} />
 
       {/* 30종 미달 경고 — 원인 분리 (T1.6). 30이면 렌더 안 함 */}
       <MissingCountBanner
@@ -123,6 +124,7 @@ export default function AdminHomePage() {
             cadence={BUCKET_META[bucket].cadence}
             weight={BUCKET_META[bucket].weight}
             items={items}
+            reportLinksEnabled={false}
           />
         ))}
       </div>

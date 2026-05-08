@@ -2,10 +2,10 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-05-05 (32차 — **Supabase 계정 마이그(Kevin → son00326) + 0001~0010 적용(MCP) + Vercel env 갱신 + Production 재배포 + DQ-7 Session 3 자동 부분 해소**)
-총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~99%, T16 1건 잔여)** + **S7 실데이터 전환 (미착수)** + **S8 자동매매 프레임 (신규, 미착수)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
-총 예상 세션: 9(완료) + **4(DQ-7, 2 + 부분 1 완료)** + 8(S7) + 4(S8) = **약 25 세션** + S9 운용 4~8주
-**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~85% (Session 1·2 ✅ + Session 3 ~99% — T16만 잔여)** · 실데이터 **0/19** · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel Production ✅ (24 routes, 56s, son00326 신 Supabase 연결)**
+Last updated: 2026-05-09 (36차 — **자율 트랙 §A 진입: T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅** · S7e 2/8 sub-task · BL-KRIT-7 해소 · 35차 D19 박제 누적)
+총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~97%, Smoke #3·#4·#5 잔여)** + **S7 실데이터 전환 (🟢 진행 중 — S7e ~12%)** + **S8 자동매매 프레임 (분리 — S7d 후 단독 진입)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
+총 예상 세션: 9(완료) + **4(DQ-7, Session 1·2·30·32·33 = ~3 완료, Smoke 잔여 1)** + 8(S7, 36차 진입) + 4(S8) = **약 25 세션** + S9 운용 4~8주
+**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~97% (Session 1·2 ✅ + 30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ — Smoke #3·#4·#5 잔여)** · **S7e 2/8 (T7e.1·T7e.2 ✅, T7e.3~8 잔여)** · 실데이터 **0/19** (shortlist SELECT 통로 열림, DB 미적재 → T7e.8 seed 후 1+/19) · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel Production ✅ (25 routes, son00326 신 Supabase 연결)** · 검증 게이트 **build 25 routes · lint 0 · test:ci 314 pass / 39 files**
 완성 기준 = Mock + DQ-7 Credential 인프라 + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **5조건 AND** → **미달성**
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
@@ -15,7 +15,7 @@ S4 가상 포트·성과·Decision Tree: ✅ **Mock 완료** (2026-04-19)
 S5a 스케줄러·브리핑·뉴스·헬스: ✅ **Mock 완료** (2026-04-19)
 S5b 장중·토글·Exit: ✅ **Mock 완료** (2026-04-19)
 S6 Hardening (AI 비용 + Silent Health): ✅ **Mock 완료** (2026-04-20)
-S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
+S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2 ✅, T7e.3~8 잔여) — HANDOFF §2.A 참조
 **S8 자동매매 프레임 (주식+바이낸스 선물)**: ⚪ **미착수** (2026-04-21 D16 승격, Deferred-X·Y 흡수)
 **S9 어드민 운용 검증 (1개월+)**: ⚪ **미착수**
 
@@ -32,9 +32,9 @@ S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ Mock 완료 | ⚪ cost_log stub만 · S7a·e 대기 | [S4-Performance.md](./Slices/S4-Performance.md) |
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
-| **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | 🟡 **Session 3 부분(2026-04-22 30차) — BL-DQ7-1·2·3·T14·Vercel 프로젝트/env/배포 ✅ · 첫 prod URL https://tudal-tawny.vercel.app · T16 Redirect URL + 0009 적용 + T17 Cron/Smoke Test 사용자 다음 세션** | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
-| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | ⚪ **미착수** (HANDOFF §6, DQ-7 완료 후) | — |
-| **S8** | **자동매매 프레임** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터) | Must 19 밖 (어드민 집행 서브시스템) | 4 (스캐폴드 2 + 실 체결 2) | — | ⚪ **미착수** (2026-04-21 D16) | [S8-AutoTrading.md](./Slices/S8-AutoTrading.md) |
+| **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | 🟡 **Session 3 ~97% (30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ · Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예 D19)** · prod URL https://tudal-tawny.vercel.app | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
+| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | 🟢 **진행 중** (S7e T7e.1·T7e.2 ✅ 36차, T7e.3~8 잔여) | [S7-RealData.md](./Slices/S7-RealData.md) |
+| **S8** | **자동매매 프레임** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터) | Must 19 밖 (어드민 집행 서브시스템) | 4 (스캐폴드 2 + 실 체결 2) | — | ⚪ **미착수** (2026-04-21 D16, **2026-05-08 D18 — S7d 후 단독 진입으로 분리**) | [S8-AutoTrading.md](./Slices/S8-AutoTrading.md) |
 | **S9** | **어드민 운용 검증** | Mock+실 혼합 → 실계좌/메인넷 전환 | 4~8주 (세션 외) | — | ⚪ 미착수 | — |
 | ~~Deferred-X~~ | ~~증권사 API + 매뉴얼/자동매매 UI~~ | **S8로 승격 (2026-04-21)** | — | — | — | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) (승격 표기만) |
 | ~~Deferred-Y~~ | ~~AI Agent 기반 선정엔진 v2~~ | **S8 AI 어댑터에 흡수 예정 (2026-04-21)** | — | — | — | [Deferred-AIAgent-Selection.md](./Slices/Deferred-AIAgent-Selection.md) (포인터만) |
@@ -46,57 +46,78 @@ S7 실데이터 전환 (S7a~e): ⚪ **미착수** — HANDOFF §6 참조
 
 ## §2 전체 실행 순서
 
+> **v3.1 시퀀스 박제 (2026-05-08, 35차)**: D19 결정 — **Short List 30 선정에 Tier 0 인디케이터 게이트 + 합의 배지 + Reflection 추가**. AI 키 발급 여부에 따라 분기. AI 키 미발급 시 Tier 0 단독으로 진짜 코스피·코스닥 30종목 + 실 가격·재무·뉴스 가동 가능. AI 키 발급 시 Tier 1 (Core 11) + Tier 2 (Sector Board) plug-in. v3 (34차) 박제 = S8 자동매매를 S7 series 다음으로 분리, KIS는 자동매매 전용, 일간 데이터·AI 가상 포트는 KIS 무관. 상세 = `HANDOFF.md §2.C` + `ServicePlan-Admin.md §1A.5 D18·D19`.
+
 ```
-S0 Foundation (2세션)
-  ├─ 선결: BL-1(Supabase env) · BL-2(admin role) · BL-6(health 라우트 결정)
-  └─ legacy 제거 · Supabase · 디자인 토큰 · admin 가드
+S0~S6 Mock Skeleton ✅ (9 세션, 2026-04-17 ~ 2026-04-20)
      │
      ▼
-S1 Short List 30 홈 (4세션) — M1·M4·M5·M6
+[Mock Skeleton 완료: Must 19/19]
      │
      ▼
-S2 풀 리포트·투심위 (3세션) — M2·M3
-     │  ← report.view 파이프 완성이 다음 게이트
-     ▼
-S3 승인 워크플로우 (4세션) — M7 (+D15 게이팅 3종)
+DQ-7 Admin Credential System  ← **DQ-7는 사용자 액션 대기 큐로 분리 (HANDOFF §B)**
+     ├ Session 1 ✅ Backend·DB
+     ├ Session 2 ✅ Frontend
+     ├ Session 3 🟢 Deploy (30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6)
+     │             잔여: Smoke #4·#5 (사용자 액션 대기 — 친구 비번 + KIS 슬롯 재등록 후)
+     │             ⏸ Smoke #3 (Binance) — D19 (35차) S8까지 유예
+     └ Session 4 ⚪ QA·Close (T18·T19·T20) — Smoke 통과 후
+     │
+     │  **35차 결정**: DQ-7 ~97% 상태로 두고 자율 트랙 우선 진입.
+     │  사용자 가용 시점에 큐에서 1건씩 처리.
+     │
      │
      ▼
-S4 성과·재생성·Decision Tree (4세션) — M8·M9·M16
-     │  ← cost_log stub 심기 (R5 완화)
+★ 자율 트랙 진입점 (35차, AI 키 불필요)
+S7e · Supabase 실 SELECT/INSERT 전면 전환 (2세션)            ← BL-KRIT-7 (마이그 0010)
+     │  + T7e.8 Tier 0 인디케이터 게이트 (AI 키 불필요, D19)
+     │     pykrx·KRX·DART → 5-Signal Composite × 시간대별 가중치
+     │     단/중/장 후보 50씩 = 150 → 진짜 코스피·코스닥 30종목 자동 선정
+     │     출력: 🔢 숫자 점수(0~100), AI 키 미발급 시 🤖는 ⚪ "AI 분석 대기" placeholder
      ▼
-[Deferred-X: Must 19 밖 이관 · 건너뜀]
+[큐 §B 처리 진행 중] AI 키 발급(B-6) 시 plug-in
+S7a · Anthropic wrapper + cost_log 실 INSERT (1세션)        ← BL-KRIT-1
+     │  T7a.1~10 (Tier 1 Core 11 + Tier 2 Sector Board 30종목 + 합의 배지 4종 + Reflection)
+     ▼
+S7b · 뉴스 + 모닝 브리핑 실 연결 (2세션)                     ← BL-KRIT-3 잔여·4
      │
      ▼
-S5 스케줄러·알림·모드 + M18 (S5a 3세션 + S5b 2세션 = 5세션)
-  ├─ 선결: BL-11 · BL-13 · BL-15
-  ├─ S5a: M10·M11·M12·M18 동시
-  └─ S5b: M13·M14·M15 (+D10 백업)
+★ D11 AI 가상 포트 1차 가동 — KIS 0개로 동작 가능
+     │  AI 키 ✅: Tier 0 + Tier 1 + Tier 2 + 합의 배지 + AI 코멘트 1~2줄 + 풀 리포트
+     │  AI 키 ⏸: Tier 0 단독 + 🔢 점수 + ⚪ placeholder (실 종목·가격·재무·뉴스는 그대로)
+     │  D19 검증 핵심: 진짜 30종목 + 🔢🤖 이중 점수 + 합의 배지 4종 + AI 코멘트 + 클릭→풀 리포트
+     │  운용 검증 (어드민 3인, 며칠~1주)
+     ▼
+S7c · 장중 + Exit 2채널 실 연결 (2세션)                      ← BL-KRIT-2 (KIS 본인 1개) · BL-KRIT-5
      │
      ▼
-[BL-18 토큰 dry-run 실측 게이트]
+S7d · Silent Health 실 INSERT + override UI (1세션)
      │
      ▼
-S6 Hardening (3세션) — M17·M19
-     │  40만 hardcap 활성 + 하트비트 운용 개시
+S8 자동매매 프레임 — **분리된 단독 진입** (4세션)
+     ├ Smoke #3 (Binance 키 저장·암호화·격리) — DQ-7에서 분리된 부분 여기서 진행 (D19)
+     ├ 스캐폴드: 마이그 0011 (E13~E17) · Strategy drop-in · AI 어댑터 · Policy Engine (mock 체결)
+     └ 실 체결: KIS 모의→실계좌 (3명 동시 또는 본인 1명 + 친구 보조) + 바이낸스 testnet→mainnet
+     │   ← BL-KRIT-2 (KIS 자동매매 권한) · BL-KRIT-8 · BL-KRIT-9 (Binance) · DQ-9·10·11 (모두 ✅)
      ▼
-[Mock Skeleton 완료: Must 19 Mock 동작]  ← **현재 여기 (2026-04-21, 9세션)**
-     │
-     ▼
-S7 실데이터 전환 (S7a Anthropic → S7e Supabase → [S8 스캐폴드 병행 착수] → S7b 뉴스+브리핑 → S7c 장중+Exit → S7d Silent Health)
-     │  ← BL-KRIT-1~7 선행 (HANDOFF §4)
-     ▼
-S8 자동매매 프레임
-     ├ 스캐폴드: UI(6 라우트)·스키마(E13~E17)·Vault·Strategy 폴더·AI 어댑터·Policy Engine (mock 체결)
-     └ 실 체결: KIS 모의→실계좌 + 바이낸스 테스트넷→메인넷
-     │  ← BL-KRIT-8·9 + DQ-9·10·11 선행
-     ▼
-S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계좌 전환)
+S9 어드민 운용 검증 (본인 + 친구 3명, 모의·testnet 위주 → 실계좌·메인넷 점진)
      │
      ▼
 [어드민 내부 도구 완성]
 
-총 세션: 9 (완료) + 8 (S7) + 4 (S8) = 약 21 + 운용 검증 4~8주
+총 세션: 9 (완료) + DQ-7 잔여 ~1 + S7 (a/e/b/c/d = 8) + S8 (4) = 약 22 세션 + S9 운용 4~8주
+※ AI 키 미발급 상태에서도 S7e + Tier 0로 D11 운용 검증 가능 (D19, AI 키는 검증 중 발급 시 plug-in)
 ```
+
+### v2 → v3 변경 요약
+
+| 항목 | v2 (~2026-04-22 29차) | v3 (2026-05-08 34차) |
+|---|---|---|
+| S8 진입 시점 | S7e 직후 스캐폴드 병행 → S7b 후 → S7c·S7d는 강등 큐 | **S7d 후 단독 진입** · S7c·S7d 정규 시퀀스 복귀 |
+| AI 가상 포트 1차 가동 | (불명시 — S7b 후 자연 발생 가정) | **명시 게이트** (S7b 후 · KIS 0개 · 운용 검증 며칠~1주 후 S7c) |
+| KIS 발급 블로커성 | 자동매매와 동일 시점 (S8-Live) | **S7c는 본인 1개로 충분** · 자동매매는 S8 진입 시점까지 보류 |
+| 강등 큐 (S7c·S7d) | 운용 중 체감 시 1세션씩 | **폐기** — 정규 시퀀스 |
+| 자동매매 실체결 도달 | 9 세션 | 약 12~14 세션 (D11 운용 검증 추가)
 
 ---
 
@@ -180,9 +201,9 @@ S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계
 | **BL-KRIT-4** | Resend 계정 | M11·D10 catch-up 이메일 발송 불가 |
 | **BL-KRIT-5** | Telegram Bot | M13·M15 텔레그램 2채널 불가 |
 | ~~BL-KRIT-6~~ | ✅ Supabase anon 키 갱신 (2026-04-21 해소, DQ-5) | — |
-| **BL-KRIT-7** | 마이그레이션 **0010** (alert_event CHECK 확장 — 28차에 0009→0010 재배정, DQ-7이 0009 선점) | 신규 AlertType 6종 실 INSERT 거부됨 |
+| ~~BL-KRIT-7~~ | ✅ **해소 (36차)** — 마이그 0010 `alert_event_rls_hardening` 적용 검증 (`mcp__supabase__list_migrations` version 20260505134639). E6 alert_event 신설 + AlertType CHECK 12종 + 4 RPC + RLS select-all/insert-own/update-own. | ~~신규 AlertType 6종 실 INSERT 거부됨~~ |
 | **BL-KRIT-8** | 마이그레이션 **0011** (S8 자동매매 E13~E17: OrderQueue·TradeExecution·RiskPolicy·RiskViolationEvent·StrategyRegistration) — E12 ExchangeConnection은 DQ-7 0009 선행 생성 | S8 전체 (주문 큐·체결 이력·포지션·리스크 이벤트·코인 거래소 연결) |
-| **BL-KRIT-9** | 바이낸스 API 키 + IP/KYC 조건 | S8 코인 자동매매 |
+| **BL-KRIT-9** | 바이낸스 API 키 + IP/KYC 조건 | S8 코인 자동매매 + **DQ-7 Smoke #3 분리(D19, 35차) — S8 진입 시점 발급** |
 
 상세는 `Document/Process/HANDOFF.md` §4 참조.
 
@@ -229,3 +250,8 @@ S9 어드민 운용 검증 (본인 + 친구 3명, 모의부터 1~2주 → 실계
 | 2026-04-20 | **23차 후속 HANDOFF 정정**. S6 종료 시 "🎉 MVP Stage 1 완료 · Must 19/19 (100%)" 어휘가 mock-only를 진짜 MVP로 오인케 한다는 사용자 지적. feedback_mvp_framing.md 규칙을 문서 본문에 반영: Mock 동작 vs 실데이터 vs 운용 검증 3축 분리. Dashboard 상단 상태·슬라이스 표·Must 19 표·Global Blocker에 BL-KRIT-1~7 (외부 API·Supabase anon·CHECK 확장) 신설. S7(실데이터 전환) 슬라이스 플레이스홀더 삽입. HANDOFF.md 전면 재작성(§2 진입 결정 트리 + §3 DQ 리스트 + §4 BL-KRIT + §5 자율 작업 + §6 S7a~e 로드맵). |
 | **2026-04-30** | **31차 — A 문서 갱신**. 사용자 BL-KRIT-3 Naver API 키 제공 → `tudal/.env.local` 투입. (1) §5 BL-KRIT-3 부분 해소 표기 (.env.local 투입, Vercel env + rotate는 S7b 직전) (2) **T5 stale 정정**: §5 BL-KRIT-7 "마이그레이션 0009"→"**0010**" (28차에 재배정됐으나 미반영) (3) HANDOFF §1·§4·§6·§12 + CodebaseStatus 환경변수·체크리스트 동기화. 코드 변경 0건 (env 1줄 추가 외 전부 docs). 검증 회귀 0. |
 | **2026-04-21** | **어드민 = 내부 투자 도구 재정의 + 자동매매 S8 승격 + Stage 어휘 폐기 (D16)**. 슬라이스 요약 표에 **S8 자동매매 프레임** (주식 KIS + 바이낸스 선물) · **S9 운용 검증** 신규 2행 추가. Deferred-X → S8로 승격 표기, Deferred-Y → S8 AI 어댑터 흡수 표기, Deferred-D(멤버) 별도 트랙으로 분리. 전체 실행 순서 다이어그램을 "S7 → S8 → S9 → 어드민 내부 도구 완성"으로 교체. Global Blocker에 BL-KRIT-8(마이그레이션 0011 E13~E17, E12는 DQ-7 0009 선행) + BL-KRIT-9(바이낸스 키·IP·KYC) 추가. Must 19 표는 변경 없음(S8은 Must 19 밖 집행 레이어). 상단 진행률 표를 "Mock + 실데이터 + 자동매매 + 운용 4조건"으로 수정. |
+| **2026-05-05** | **32차 — Supabase 계정 마이그(Kevin → son00326) + 0001~0010 적용**. MCP `apply_migration`로 0002~0010 9건 + admin_emails 3 row + kr_business_days 2557 row + auth.users 3명. Vercel env 8 entries 교체 + Production 재배포 `dpl_3FfP5ZU9uz7MqKYc4DD6MfomRJTY`. 회귀 3-gate green (build 24 / lint 0 / test:ci 306). T16 Auth URL Config ✅. Smoke #1 (login + /admin) ✅ · Smoke #6 (cron 인증) ✅. Magic Link UI 작동 X → son00326 비번 `Test1234!` 임시 우회. |
+| **2026-05-08** | **33차 — Smoke #2 PASS (KIS 키 AES-256-GCM)**. brokerage_connection 1 row (`64601905-01` · son00326 슬롯에 친구 장세현 실전투자 키 임시 박제 · ct=36/180 · iv=12B · tag=16B · 평문 노출 0). row id `f35566e9-…`. **Smoke #4 진입 전 친구 슬롯 재등록 필요** (데이터 의미상 불일치). |
+| **2026-05-08** | **34차 — 시퀀스 v3 박제 (D18)**. **S8 자동매매를 S7 series 다음으로 분리**. v2 "S7e 직후 S8-Scaffold 병행 + S7c·S7d 강등 큐" 폐기. v3 = "S7a → S7e → S7b → ★ D11 AI 가상 포트 1차 가동 (KIS 0개) → 운용 검증 → S7c (KIS 본인 1개) → S7d → S8 (자동매매)". 근거: KIS는 자동매매 전용, 일간 데이터·AI 가상 포트는 KIS 무관, son00326·Kevin KIS 발급 지연은 S8 시점까지 비블로커화. **편집 범위 (4문서 + 1)**: HANDOFF + ProgressDashboard(이 문서) + S8-AutoTrading + ServicePlan-Admin §1A.5 D18 + CLAUDE.md 상단. 코드 변경 0건. 회귀 무관 (docs only). |
+| **2026-05-08** | **35차 — D19 박제: JooPick AI 강화 (Tier 0/1/2 + 합의 배지 + Reflection) + 시퀀스 v3.1 + Smoke #3 ⏸ 유예**. 사용자 핵심 목표 = "단/중/장 각 10개씩 30종목이 진짜로 admin 화면에 들어오는지 검증". 외부 레퍼런스 [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) Analyst Team + Reflection 패턴 차용 + JooPick 박제(Core 11 + Sector 14×10) 보존. (a) Tier 0 인디케이터 자동 스크리닝 (AI 키 불필요, pykrx·KRX·DART, 단/중/장 50씩 = 150 후보) · (b) Tier 1 Core 11 페르소나 평가 (AI 키 필요, 시간대별 가중치) · (c) Tier 2 Sector Board 30종목만 활성화 (비용 통제) · (d) 합의 배지 4종 (🟢/🔵/🟣/⚪) + AI 코멘트 1~2줄 · (e) Reflection 자가학습 · (f) AI 키 미발급 fallback = Tier 0 단독으로 진짜 코스피·코스닥 30종목 가동 · (g) Smoke #3 (Binance) ⏸ S8까지 유예. **편집 범위 (8문서)**: ServicePlan-Admin §1A.5 D19 + Status v1.5 + §3.1 R3.1-6 + §2 카드 컬럼 + §8 Revision v1.5 / Service/Report/ReportFramework.md §8 Step 0 + Step 4 후속 + §10 v2.2 / Build/Slices/S7-RealData.md T7e.8 + T7a.7~10 + 게이트 체크리스트 강화 / Build/Slices/DQ7-Credentials.md status + Smoke #3 ⏸ + 변경 이력 32·33·35차 / Build/ProgressDashboard.md(이 문서) v3.1 + DQ-7 잔여 정정 + BL-KRIT-9 / Process/HANDOFF.md §1·§2·§4·§7 / CLAUDE.md 상단 D19 라인 + 시퀀스 v3.1. 코드 변경 0건. 회귀 무관 (docs only). |
+| **2026-05-09** | **36차 — 자율 트랙 §A 진입: T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅**. 35차 D19 박제 직후 진입. (a) **T7e.1**: `mcp__supabase__list_migrations`로 0010 `alert_event_rls_hardening` 적용 확인 (version 20260505134639). E6 alert_event + AlertType CHECK 12종 + 4 RPC. **BL-KRIT-7 ✅ 해소**. 0011 자리는 S8 (BL-KRIT-8) 예약 유지. (b) **T7e.2**: `src/lib/data/admin-shortlist.ts` 신규 (transformer + delta + month/tickerMeta 옵션 + Supabase error throw) + 5 page-level importer (admin·settings·portfolio + portfolio actions sync helpers를 ShortListItem[] param 받게 리팩터). `/report/[ticker]`는 mock pair 유지(T7e.3 boundary). reportLinksEnabled prop 경계 + `/portfolio` 빈 placeholder + Accept/Reject T7e.3·4 전까지 disabled + createdAt 기반 generated_at(synthetic 폐기). Vitest 8 신규. **검증**: build 25 routes · lint 0 · test:ci **314 pass / 39 files** (이전 306/38 +8/+1). 코드 변경 8 파일 + 신규 2 파일 + 사용자 boundary 보강(reportLinksEnabled prop을 ShortlistRow/DeltaBanner/BucketSection로 확산). **편집 문서 5개**: 이 문서 + S7-RealData.md(T7e.1·2 [x] + 의사결정 5건 + 변경 이력) + HANDOFF.md(§1·§2·§4·§7) + CodebaseStatus.md(36차 entry) + CLAUDE.md(소폭). 의사결정 5건: (1) shortlist만 real, reports/committee는 T7e.3까지 mock pair 유지(boundary). (2) Supabase error throw, action에서 try/catch. (3) 게이트 generated_at = 실 createdAt. (4) Tier 0 인프라 = B-1 로컬 Python idempotent 스크립트. (5) name/sector 갭은 T7e.8 prep 단계 결정 (3옵션). |

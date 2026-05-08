@@ -1,4 +1,4 @@
-import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
+import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { MOCK_ADMIN_APPROVALS } from "@/lib/data/mock-admin-approvals";
 import { MOCK_ADMIN_ACCESS_LOGS } from "@/lib/data/mock-admin-access-logs";
 import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
@@ -14,8 +14,16 @@ import type { BucketKind } from "@/types/admin";
 // Server Component: Short List 30 표시 + Accept/Reject 클라이언트 island.
 // Wave 4: D15 게이팅(24h Hold·2인 열람) + BL-20 자동 바이패스 배지 통합.
 
-const CURRENT_MONTH = "2026-04-01"; // TODO: new Date() 기반 첫째날로 전환 (S5)
+// 이번 달 = short_list_30에 INSERT된 가장 최신 month (T7e.2 — DB 기반).
+// Tier 0 스크리너가 월초 외 시점에 INSERT해도 page는 latest를 따라간다.
 const BUCKET_ORDER: BucketKind[] = ["short", "mid", "long"];
+const REQUIRED_GATE_TICKERS = new Set([
+  "005930",
+  "000660",
+  "012450",
+  "196170",
+  "373220",
+]);
 
 const BUCKET_META: Record<
   BucketKind,
@@ -44,23 +52,66 @@ function formatMonthLabel(month: string): string {
   return `${y}년 ${Number(m)}월`;
 }
 
-export default function AdminPortfolioPage() {
-  const month = CURRENT_MONTH;
+function getMinimumRequiredViewerCount(month: string, tickers: string[]): number {
+  const representativeTickers = tickers.filter((ticker) =>
+    REQUIRED_GATE_TICKERS.has(ticker),
+  );
+  const requiredTickers =
+    representativeTickers.length > 0 ? representativeTickers : tickers;
+  if (requiredTickers.length === 0) return 0;
+
+  return Math.min(
+    ...requiredTickers.map(
+      (ticker) =>
+        new Set(
+          MOCK_ADMIN_REPORT_VIEW_LOG
+            .filter((r) => r.reportId === `rpt-${month}-${ticker}`)
+            .map((r) => r.adminId),
+        ).size,
+    ),
+  );
+}
+
+export default async function AdminPortfolioPage() {
+  // T7e.2 — latest month를 DB에서 조회. 빈 DB일 때는 month=""로 빈 화면 안내.
+  const monthShortlist = await getActiveShortList();
+  const month = monthShortlist[0]?.month ?? "";
   const monthLabel = formatMonthLabel(month);
 
-  // 이번 달 shortlist (active 30종 — removed 제외)
-  const thisMonthItems = MOCK_ADMIN_SHORTLIST.filter(
-    (r) => r.month === month && r.deltaStatus !== "removed",
+  const thisMonthItems = monthShortlist.filter(
+    (r) => r.deltaStatus !== "removed",
   );
 
+  if (!month || thisMonthItems.length === 0) {
+    return (
+      <div className="space-y-6">
+        <header className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-semibold">이번 달 포트 확정</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              short_list_30 테이블에 활성 종목이 없습니다.
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            ※ T7e.8 Tier 0 seed 후 Accept/Reject가 활성화됩니다
+          </div>
+        </header>
+
+        <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
+          <p className="text-sm font-medium">포트 확정 대기</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Tier 0 스크리너가 Short List 30을 INSERT하면 이 화면에서
+            D+5 게이트와 Accept/Reject를 검증할 수 있습니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Delta 집계
-  const newCount = MOCK_ADMIN_SHORTLIST.filter(
-    (r) => r.month === month && r.deltaStatus === "new",
-  ).length;
-  const holdCount = MOCK_ADMIN_SHORTLIST.filter(
-    (r) => r.month === month && r.deltaStatus === "hold",
-  ).length;
-  const removedCount = MOCK_ADMIN_SHORTLIST.filter(
+  const newCount = monthShortlist.filter((r) => r.deltaStatus === "new").length;
+  const holdCount = monthShortlist.filter((r) => r.deltaStatus === "hold").length;
+  const removedCount = monthShortlist.filter(
     (r) => r.deltaStatus === "removed",
   ).length;
 
@@ -78,8 +129,12 @@ export default function AdminPortfolioPage() {
 
   // ── Wave 4: D15 게이팅 계산 ─────────────────────────────────────────────
 
-  // shortlistGeneratedAt — 2026-04 확정 mock: 04-01 09:00 KST
-  const shortlistGeneratedAtDate = new Date("2026-04-01T09:00:00+09:00");
+  // T7e.2 — shortlistGeneratedAt = 실 short_list_30 row의 createdAt 기준.
+  // 같은 월 행은 Tier 0 batch INSERT라 createdAt 동일.
+  // DB 비어있을 때는 epoch fallback (게이트 자동 비활성).
+  const shortlistGeneratedAtDate = thisMonthItems[0]?.createdAt
+    ? new Date(thisMonthItems[0].createdAt)
+    : new Date(0);
   const shortlistGeneratedAt = shortlistGeneratedAtDate.toISOString();
 
   const now = new Date();
@@ -96,14 +151,11 @@ export default function AdminPortfolioPage() {
   const autoReliefResult = detectSingleAdminStreak(MOCK_ADMIN_ACCESS_LOGS, now, 7);
   const autoReliefActive = autoReliefResult.active;
 
-  // (b) 2인 열람 게이팅 — 첫 번째 shortlist ticker 기준 report_id로 단순화
-  const firstTicker = thisMonthItems[0]?.ticker ?? "005930";
-  const firstReportId = `rpt-${month}-${firstTicker}`;
-  const distinctViewerCount = new Set(
-    MOCK_ADMIN_REPORT_VIEW_LOG
-      .filter((r) => r.reportId === firstReportId)
-      .map((r) => r.adminId),
-  ).size;
+  // (b) 2인 열람 게이팅 — 대표 상세 리포트 전체가 2인 열람을 만족해야 통과
+  const distinctViewerCount = getMinimumRequiredViewerCount(
+    month,
+    thisMonthItems.map((item) => item.ticker),
+  );
 
   // computeAcceptGate 호출
   const gateResult = computeAcceptGate({
@@ -186,7 +238,7 @@ export default function AdminPortfolioPage() {
                 ? "(오늘)"
                 : "(지남)"}
           </span>
-          <span>※ mock fixture · 실데이터 전환 S5 M10</span>
+          <span>※ short_list_30 SELECT · seed는 T7e.8 Tier 0 후 채워짐</span>
         </div>
       </header>
 
@@ -202,6 +254,8 @@ export default function AdminPortfolioPage() {
         acceptAllowed={gateResult.allowed}
         gateMessage={gateMessage}
         gateReason={gateResult.reason}
+        actionsEnabled={false}
+        actionsDisabledMessage="T7e.3 리포트 실 SELECT와 T7e.4 승인 실 I/O 전환 후 Accept/Reject가 활성화됩니다."
         finalApproval={finalApproval}
       />
 
@@ -215,6 +269,7 @@ export default function AdminPortfolioPage() {
             cadence={BUCKET_META[bucket].cadence}
             weight={BUCKET_META[bucket].weight}
             items={items}
+            reportLinksEnabled={false}
           />
         ))}
       </div>

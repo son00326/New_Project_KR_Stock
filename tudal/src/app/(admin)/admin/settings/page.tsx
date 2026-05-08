@@ -4,21 +4,22 @@ import {
   MOCK_ADMIN_SETTINGS,
   MOCK_ADMIN_TICKER_PREFS,
 } from "@/lib/data/mock-admin-settings";
-import { MOCK_ADMIN_SHORTLIST } from "@/lib/data/mock-admin-shortlist";
+import { getActiveShortList } from "@/lib/data/admin-shortlist";
 
 // M14 종목 토글 + 상시 모니터링 모드 (S5b T5b.2).
 // ref: ServicePlan-Admin §3.5 R3.5-2·§3.10 R3.10-8~9.
 
-export default function AdminSettingsPage() {
-  const active = MOCK_ADMIN_SHORTLIST.filter(
-    (s) => s.deltaStatus !== "removed",
-  ).sort((a, b) => {
-    if (a.bucket !== b.bucket) {
-      const order = { short: 0, mid: 1, long: 2 };
-      return order[a.bucket] - order[b.bucket];
-    }
-    return a.rank - b.rank;
-  });
+export default async function AdminSettingsPage() {
+  const shortlist = await getActiveShortList();
+  const active = shortlist
+    .filter((s) => s.deltaStatus !== "removed")
+    .sort((a, b) => {
+      if (a.bucket !== b.bucket) {
+        const order = { short: 0, mid: 1, long: 2 };
+        return order[a.bucket] - order[b.bucket];
+      }
+      return a.rank - b.rank;
+    });
 
   const initialTickerMap: Record<string, boolean> = {};
   for (const p of MOCK_ADMIN_TICKER_PREFS) {
@@ -40,7 +41,7 @@ export default function AdminSettingsPage() {
           )
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ mock fixture · S5 실데이터 전환 시 admin_settings·ticker_alert_pref SELECT·UPSERT로 교체
+          ※ short_list_30 SELECT · admin_settings·ticker_alert_pref UPSERT는 T7e.5에서 전환
         </p>
       </header>
 

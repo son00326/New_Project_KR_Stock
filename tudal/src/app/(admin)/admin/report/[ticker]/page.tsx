@@ -59,6 +59,8 @@ const SECTION_LIST = [
 export default async function AdminReportPage({ params }: AdminReportPageProps) {
   const { ticker } = await params;
   const report = getReportByTicker(ticker);
+  // T7e.2 — /report는 mock pair 유지 (T7e.3에서 reports + shortlist 동시 전환 예정).
+  // shortlist만 real로 두면 T7e.8 신규 ticker가 mock report에 없을 때 404 발생 위험.
   const shortListRow = MOCK_ADMIN_SHORTLIST.find((r) => r.ticker === ticker);
   if (!report || !shortListRow) notFound();
 
@@ -136,13 +138,22 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
             <span>·</span>
             <span>rank {shortListRow.rank}</span>
           </div>
-          <h1 className="mt-1 flex flex-wrap items-baseline gap-3 text-2xl font-semibold">
-            <span className="font-mono">{ticker}</span>
-            <span>{shortListRow.name}</span>
-            <span className="text-base font-normal text-muted-foreground">
-              · {shortListRow.signalLabel}
-            </span>
-          </h1>
+          <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+            <h1 className="flex flex-wrap items-baseline gap-3 text-2xl font-semibold">
+              <span className="font-mono">{ticker}</span>
+              <span>{shortListRow.name}</span>
+              <span className="text-base font-normal text-muted-foreground">
+                · {shortListRow.signalLabel}
+              </span>
+            </h1>
+            <Link
+              href={`/admin/report/${ticker}/regenerate`}
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted/40"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
+              리포트 재생성
+            </Link>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             <span>
               Composite{" "}

@@ -12,6 +12,23 @@
 
 ## 최근 갱신
 
+**2026-05-09** (36차): **자율 트랙 §A 진입 — T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅**.
+- **신규 모듈**: `tudal/src/lib/data/admin-shortlist.ts` (118 lines) — `getActiveShortList({month?, tickerMeta?})` Supabase SELECT + `getShortListDelta()` aggregate + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)`. Supabase error는 throw (silent swallow 폐기). 갭: short_list_30 스키마에 name/sector 컬럼 없음 → fallback (name=ticker · sector="미분류") 또는 외부 lookup. T7e.8 prep에서 3옵션(컬럼 추가/JOIN 테이블/정적 lookup) 결정.
+- **신규 테스트**: `tudal/src/lib/data/__tests__/admin-shortlist.test.ts` — Vitest 8개 (transformer 6 + aggregate 2). null 처리·string·numeric 모두 커버.
+- **page-level importer 5건 갱신** (mock-admin-shortlist → admin-shortlist):
+  - `tudal/src/app/(admin)/admin/page.tsx` — `getActiveShortList()` (latest)
+  - `tudal/src/app/(admin)/admin/settings/page.tsx` — `getActiveShortList()` (latest)
+  - `tudal/src/app/(admin)/admin/portfolio/page.tsx` — `getActiveShortList()` (latest, month=monthShortlist[0]?.month, 빈 placeholder 분기, createdAt 기반 generated_at)
+  - `tudal/src/app/(admin)/admin/portfolio/actions.ts` — sync helper 5종을 `ShortListItem[]` param 받게 리팩터, acceptShortList/rejectShortList 본문 try/catch 진입로 박제, generated_at = createdAt 기반
+  - `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` — **mock pair 유지** (T7e.3 boundary, real shortlist + mock report 혼합 시 404 위험 회피)
+- **Boundary props (사용자 추가)**: `tudal/src/components/admin/shortlist/{shortlist-row,delta-banner,bucket-section}.tsx`에 `reportLinksEnabled` prop 추가. `/admin`+`/portfolio`에서 `reportLinksEnabled={false}` 전달 → T7e.3 전까지 리포트 클릭 자체 차단. `/portfolio`는 Accept/Reject도 T7e.3·4 전까지 disabled.
+- **mock 보존 (T7e.3 스코프)**: `mock-admin-shortlist.ts` 자체는 그대로 유지 (mock-admin-committee/report가 import 중). T7e.3 완료 시 일괄 삭제 예정.
+- **Supabase 마이그**: 0010 `alert_event_rls_hardening` 적용 확인 (version 20260505134639) — BL-KRIT-7 ✅ 해소.
+- **검증 게이트 회귀**: `build` exit 0 (25 routes, +1 from 24 — 동일 라우트 셋, 카운트만 정정) · `lint` 0 errors · `test:ci` exit 0 (39 files / 314 tests pass; 이전 38/306 +1/+8). 추가로 `npx tsc --noEmit --pretty false` exit 0.
+- **Tier 0 데이터 수집 인프라 결정 (B-1)**: pykrx Python 의존성 → Vercel(Node) Edge Function 배제. 로컬 Python 스크립트(scripts/, idempotent upsert · dry-run · CSV 백업 · month 인자 · env 기반 Supabase 접속) 채택. T7e.8에서 구현. 자동화는 S7/S8 안정화 후 GitHub Actions로 승격.
+- **세션 외 git status**: 32~33차 잔여(M 12 파일 — alerts/regenerate/cron/credentials/mock-admin-*) + 35차 박제 문서 8건은 본 세션에서 미터치. 커밋 단위 분리는 사용자 결정.
+- **Test 파일 보강**: `portfolio/__tests__/actions.test.ts`에 `vi.mock("@/lib/data/admin-shortlist")` 추가 — month 인자에 매칭되는 mock 행만 반환해 기존 5개 시나리오(invalid_input·24h hold·shortlist_month_not_found·viewers_insufficient·auth_unavailable·real_persistence_not_configured) 그대로 유지.
+
 **2026-05-05** (32차): **Supabase 계정 마이그(Kevin → son00326) + 0001~0010 적용(MCP) + Vercel env 갱신 + Production 재배포 + DQ-7 Session 3 자동 부분 해소**.
 - **Supabase 신 프로젝트**: `rbrpcynhphrpljbjirfo` (son00326's Org · Free · Seoul region · Security 옵션 기본). 이전 `fpriyjykihxhhvqudvdb` 폐기.
 - `tudal/.env.local` 4 키 교체 (gitignored): URL · ANON · PUBLISHABLE · SERVICE_ROLE 모두 새 JWT/sb_publishable/URL.
