@@ -46,6 +46,7 @@ export async function getDecisionTreeSnapshot(): Promise<DecisionTreeSnapshot | 
     .from("portfolio_snapshot")
     .select(COLUMNS)
     .is("ticker", null)
+    .eq("is_cash", false)
     .order("date", { ascending: true });
 
   if (error) {
@@ -59,18 +60,25 @@ export async function getDecisionTreeSnapshot(): Promise<DecisionTreeSnapshot | 
   if (rows.length === 0) return null;
 
   const monthly = groupByMonth(rows);
+  let prevTotalReturn = 0;
+  let prevKospiReturn = 0;
   const monthlyHistory: MonthlyDecisionRow[] = monthly.map((g) => {
     const dailyReturns = g.rows.map((r) => r.dailyReturn);
     const cumulativeValues = computeCumulativeValues(g.rows);
     const last = g.rows[g.rows.length - 1];
+    const portfolioReturn = last.totalReturn - prevTotalReturn;
+    const kospiReturn = last.kospiReturn - prevKospiReturn;
+    const alpha = portfolioReturn - kospiReturn;
     const sharpe = computeSharpeRatio(dailyReturns);
     const mdd = computeMaxDrawdown(cumulativeValues);
     const verdict = judgeDecisionTree({
-      alpha: last.alpha,
+      alpha,
       sharpe,
       mdd,
     }).overall;
-    return { month: g.month, alpha: last.alpha, sharpe, mdd, verdict };
+    prevTotalReturn = last.totalReturn;
+    prevKospiReturn = last.kospiReturn;
+    return { month: g.month, alpha, sharpe, mdd, verdict };
   });
 
   const last = rows[rows.length - 1];

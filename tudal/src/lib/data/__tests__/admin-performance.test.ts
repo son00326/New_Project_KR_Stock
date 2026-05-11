@@ -155,6 +155,8 @@ describe("getPerformanceSummary", () => {
     const result = await getPerformanceSummary();
 
     expect(mocks.from).toHaveBeenCalledWith("portfolio_snapshot");
+    expect(chain.is).toHaveBeenCalledWith("ticker", null);
+    expect(chain.eq).toHaveBeenCalledWith("is_cash", false);
     expect(result).toBeNull();
   });
 

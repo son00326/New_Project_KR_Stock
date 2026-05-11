@@ -29,6 +29,7 @@ interface QueryResult {
 interface SelectChain extends PromiseLike<QueryResult> {
   select: (columns: string) => SelectChain;
   is: (column: string, value: null | boolean) => SelectChain;
+  eq: (column: string, value: string | number | boolean) => SelectChain;
   order: (
     column: string,
     options?: { ascending: boolean },
@@ -39,6 +40,7 @@ function makeSelectChain(terminal: QueryResult): SelectChain {
   const builder = {} as SelectChain;
   builder.select = vi.fn(() => builder);
   builder.is = vi.fn(() => builder);
+  builder.eq = vi.fn(() => builder);
   builder.order = vi.fn(() => builder);
   builder.then = ((onFulfilled, onRejected) =>
     Promise.resolve(terminal).then(
@@ -204,6 +206,8 @@ describe("getDecisionTreeSnapshot", () => {
     const result = await getDecisionTreeSnapshot();
 
     expect(mocks.from).toHaveBeenCalledWith("portfolio_snapshot");
+    expect(chain.is).toHaveBeenCalledWith("ticker", null);
+    expect(chain.eq).toHaveBeenCalledWith("is_cash", false);
     expect(result).toBeNull();
   });
 
@@ -236,7 +240,7 @@ describe("getDecisionTreeSnapshot", () => {
     if (!result) return; // type guard
     expect(result.monthlyHistory).toHaveLength(1);
     expect(result.monthlyHistory[0].month).toBe("2026-04-01");
-    expect(result.monthlyHistory[0].alpha).toBeCloseTo(0.02);
+    expect(result.monthlyHistory[0].alpha).toBeCloseTo(0.013);
     // mdd = 0 (drawdown 없음, 우상향만) → 통과; sharpe도 양수의 일관 수익률로 통과
     expect(result.monthlyHistory[0].mdd).toBe(0);
     expect(result.monthlyHistory[0].verdict).toBe("○");
@@ -260,6 +264,81 @@ describe("getDecisionTreeSnapshot", () => {
     expect(result.monthlyHistory[1].mdd).toBeLessThan(-0.15);
     expect(result.monthlyHistory[1].verdict).toBe("✕");
     expect(result.monthlyVerdicts).toEqual(["○", "✕"]);
+  });
+
+  it("uses month-over-month alpha for monthly verdicts instead of cumulative alpha", async () => {
+    const rows: PortfolioSnapshotRow[] = [
+      {
+        id: "a-1",
+        date: "2026-03-01",
+        month: "2026-03-01",
+        ticker: null,
+        entry_price: null,
+        current_price: null,
+        weight: "1.0",
+        is_cash: false,
+        daily_return: 0.005,
+        total_return: 0.05,
+        kospi_return: 0.01,
+        alpha: 0.10,
+        sharpe: 0,
+      },
+      {
+        id: "a-2",
+        date: "2026-03-02",
+        month: "2026-03-01",
+        ticker: null,
+        entry_price: null,
+        current_price: null,
+        weight: "1.0",
+        is_cash: false,
+        daily_return: 0.006,
+        total_return: 0.10,
+        kospi_return: 0.02,
+        alpha: 0.10,
+        sharpe: 0,
+      },
+      {
+        id: "a-3",
+        date: "2026-04-01",
+        month: "2026-04-01",
+        ticker: null,
+        entry_price: null,
+        current_price: null,
+        weight: "1.0",
+        is_cash: false,
+        daily_return: 0.005,
+        total_return: 0.11,
+        kospi_return: 0.08,
+        alpha: 0.02,
+        sharpe: 0,
+      },
+      {
+        id: "a-4",
+        date: "2026-04-02",
+        month: "2026-04-01",
+        ticker: null,
+        entry_price: null,
+        current_price: null,
+        weight: "1.0",
+        is_cash: false,
+        daily_return: 0.006,
+        total_return: 0.12,
+        kospi_return: 0.12,
+        alpha: 0.02,
+        sharpe: 0,
+      },
+    ];
+    const chain = makeSelectChain({ data: rows, error: null });
+    mocks.from.mockReturnValue({ select: chain.select });
+
+    const result = await getDecisionTreeSnapshot();
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result.monthlyHistory[1].alpha).toBeCloseTo(-0.08);
+    expect(result.monthlyHistory[1].verdict).toBe("△");
+    expect(result.monthlyVerdicts).toEqual(["○", "△"]);
   });
 
   it("cumulativeAlpha matches the alpha of the last row", async () => {

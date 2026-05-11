@@ -122,6 +122,7 @@ async function fetchPortfolioRows(): Promise<PortfolioSnapshotRow[]> {
     .from("portfolio_snapshot")
     .select(COLUMNS)
     .is("ticker", null)
+    .eq("is_cash", false)
     .order("date", { ascending: true });
 
   if (error) {

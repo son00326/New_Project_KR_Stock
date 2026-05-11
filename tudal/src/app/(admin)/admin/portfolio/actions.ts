@@ -189,27 +189,23 @@ function buildInitialSnapshots(input: {
     });
   }
 
-  const totalEquityWeight = input.shortlist.reduce(
-    (a, b) => a + b.suggestedWeight,
-    0,
-  );
-  const cashWeight = Math.max(0, 1 - totalEquityWeight);
-  if (cashWeight > 0) {
-    snapshots.push({
-      date: input.acceptDate,
-      month: input.month,
-      ticker: null,
-      entryPrice: 0,
-      currentPrice: 0,
-      weight: cashWeight,
-      isCash: true,
-      dailyReturn: 0,
-      totalReturn: 0,
-      kospiReturn: 0,
-      alpha: 0,
-      sharpe: 0,
-    });
-  }
+  // E5 contract: ticker=NULL is the portfolio-wide aggregate row consumed by
+  // track-record/decision-tree. Cash remains implicit in (1 - equity weights)
+  // until a schema-backed cash representation is defined.
+  snapshots.push({
+    date: input.acceptDate,
+    month: input.month,
+    ticker: null,
+    entryPrice: 0,
+    currentPrice: 0,
+    weight: 1,
+    isCash: false,
+    dailyReturn: 0,
+    totalReturn: 0,
+    kospiReturn: 0,
+    alpha: 0,
+    sharpe: 0,
+  });
 
   return { success: true, snapshots };
 }
