@@ -1,9 +1,9 @@
 // /admin/report/[ticker]/regenerate — 리포트 재생성 확인 화면 (BL-9 = A: 서브라우트)
 // S4 M9 재생성 cap 가드: auto ≤ 1 / manual ≤ 2
+// T7e.5: regen_counter는 Supabase 실 SELECT. 시드 부재 시 카운터=null로 표시.
 
-import { MOCK_ADMIN_REGEN_COUNTERS } from "@/lib/data/mock-admin-regen-counters";
+import { getRegenCounter } from "@/lib/data/admin-regen-counters";
 import {
-  findRegenCounter,
   manualRemaining,
   isManualRegenAllowed,
 } from "@/lib/performance/regen-cap";
@@ -33,7 +33,7 @@ export default async function AdminReportRegeneratePage({
   const month = currentMonth();
   const monthLabel = formatMonthLabel(month);
 
-  const counter = findRegenCounter(MOCK_ADMIN_REGEN_COUNTERS, ticker, month);
+  const counter = await getRegenCounter(ticker, month);
   const remaining = manualRemaining(counter);
   const allowed = isManualRegenAllowed(counter);
 
