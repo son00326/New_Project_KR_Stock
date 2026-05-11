@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-08 (40차 — T7e.6 access-logs/performance/decision-tree Supabase 전환 ✅ · 신규 마이그 0건)
+Last updated: 2026-05-08 (41차 — T7e.7/T7e.8 순서 박제 + name/sector (a) ALTER TABLE 결정 + 마이그 0012 승격 · 코드 변경 0건)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,9 +15,9 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자에게 별도 지시가 없으면 **§2.A T7e.7** 또는 대안 **§2.B T7e.8 Tier 0 Python seed**를 제안/진행한다.
+- 사용자에게 별도 지시가 없으면 **§2.A T7e.8 Tier 0 Python seed**(1순위) 또는 후속 **§2.B T7e.7 RLS 수동 QA**를 제안/진행한다.
 - Supabase MCP가 필요하면 세션 초반 OAuth 재인증이 필요할 수 있다: `mcp__supabase__authenticate` → 브라우저 Authorize.
-- 현재 작업트리에는 **37차~40차** 미커밋 변경이 누적되어 있다. 사용자 변경을 되돌리지 말고, 커밋 전 diff를 반드시 분리 검토한다.
+- 41차에 T7e.5(39차) + T7e.6 follow-up(40차) 변경을 2개 커밋으로 분리 박제 완료(`6dd7f01` `feat(T7e.5)` · `83ee4e7` `fix(T7e.6)`). 현재 작업트리는 clean(`docs/superpowers/plans/`는 의도적 미추적).
 
 ---
 
@@ -34,7 +34,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 적용 · 다음 마이그 번호는 기본 **0011** (BL-KRIT-8 S8 자동매매 보존) |
 | 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **381 pass / 49 files** · `tsc --noEmit` 0 |
-| Git | HEAD `f623a2a` · origin/main ahead 5 + 37/38/39/40차 변경 미커밋 |
+| Git | HEAD `83ee4e7` · origin/main ahead 17 · 작업트리 clean |
 
 ### T7e.6까지의 필수 계약
 
@@ -57,12 +57,35 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 2. 다음 작업
 
-### A. 다음 1순위 — T7e.7 RLS 브라우저 수동 QA
+### A. 다음 1순위 — T7e.8 Tier 0 Python seed
 
-**목표**: kevin / son00326 / shjang1001 3개 어드민 계정으로 `/admin` 라우트별 RLS 통과·거부 동작을 브라우저에서 수동 QA한다. 결과는 `Document/Build/Slices/S7-RealData.md` 의사결정 로그/이슈에 박제한다.
+**목표**: 사용자 핵심 목표(D19) "진짜 코스피·코스닥 30종목 표시"를 직접 달성한다. T7e.7 RLS QA는 시드 후가 의미 있으므로(시드 부재 시 빈 UI/notFound 일관 동작이라 RLS 분기 의미 없음) 본 작업을 먼저 진행한다.
+
+**산출**:
+- `scripts/screen_shortlist_tier0.py` — 로컬 Python · idempotent upsert · `--dry-run`/`--apply` · CSV 백업 · `--month YYYY-MM-01` · env 기반 Supabase 접속
+- 입력/계산: pykrx/KRX/DART → 5-Signal Composite × 시간대별 가중치 → 단/중/장 후보 50씩 → 최종 10/10/10 = 30
+- AI key 전까지 UI는 🔢 숫자 점수 + ⚪ "AI 분석 대기" placeholder
+
+**선결 결정 박제 (41차)**:
+- `short_list_30` name/sector 갭 처리 = **(a) ALTER TABLE 컬럼 추가** 채택 — DB 단일 SoT 유지, 30종목 표시 데이터 최단 경로. (b) `tickers_meta` JOIN은 향후 종목 universe 확장 시 재검토. (c) 정적 TS lookup은 S7 real-data migration 방향과 어긋나고 Python/TS 이중 갱신 위험으로 거부.
+- 마이그 번호는 **0012로 승격** (0011 슬롯은 BL-KRIT-8 S8 자동매매 보존). 별도 commit으로 분리: `feat(T7e.8): migration 0012 short_list_30 name/sector columns`.
 
 **전제**:
-- T7e.8 (Tier 0 Python seed)으로 `short_list_30`/`stock_reports`/`committee_votes` 등이 채워져야 RLS 분기가 의미 있다 (시드 부재 상태에서는 빈 UI/notFound 일관 동작이 RLS와 무관하게 발생). **시드 후 진행 권장**.
+- 로컬 Python venv (Homebrew Python 3.14 PEP 668 제약 → `python3 -m venv .venv`) + `pykrx` 의존성 설치
+- Supabase service_role/anon 키 + `.env` (스크립트는 env 우선 읽기)
+- DART OpenAPI key (재무 데이터). Naver 뉴스는 S7b에서 사용 — T7e.8 본 작업은 가격·재무 중심.
+- `admin_emails` 3 row 확인 (32차 INSERT 완료)
+
+**기록**
+- 진행은 `Document/Build/Slices/S7-RealData.md` T7e.8 task 체크리스트.
+- 마이그 0012 적용은 `mcp__supabase__apply_migration`. 적용 후 `list_migrations` 검증.
+
+### B. 후속 — T7e.7 RLS 브라우저 수동 QA
+
+**목표**: T7e.8 시드 완료 후 kevin / son00326 / shjang1001 3개 어드민 계정으로 `/admin` 라우트별 RLS 통과·거부 동작을 브라우저에서 수동 QA한다. 결과는 `Document/Build/Slices/S7-RealData.md` 의사결정 로그/이슈에 박제한다.
+
+**전제**:
+- T7e.8 시드 완료 (`short_list_30`/`stock_reports`/`committee_votes` 채워짐). 시드 부재 상태에서는 빈 UI/notFound 일관 동작이라 RLS 분기 의미 없음.
 - `admin_emails`에 3 row가 박혀 있어야 한다 (32차 INSERT 완료).
 
 **수동 QA 항목 (예시)**:
@@ -73,20 +96,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 **기록**
 - QA 결과 (PASS / FAIL + 재현 단계)는 `Document/Build/Slices/S7-RealData.md`에 기록.
-- FAIL 발견 시 마이그 0011 슬롯은 BL-KRIT-8 보존이므로 0012 이후로 패치한다.
-
-### B. 대안 작업 — T7e.8 Tier 0 Python seed
-
-T7e.7 대신 사용자 핵심 목표(진짜 코스피·코스닥 30종목 표시)를 앞당기려면 T7e.8로 진입한다. T7e.7의 RLS QA는 Tier 0 시드 후가 더 의미 있으므로 T7e.8을 먼저 진행하는 것도 합리적.
-
-- 산출: `scripts/screen_shortlist_tier0.py`
-- 실행 방식: 로컬 Python · idempotent upsert · `--dry-run`/`--apply` · CSV 백업 · `--month YYYY-MM-01` · env 기반 Supabase 접속.
-- 입력/계산: pykrx/KRX/DART/Naver → 5-Signal Composite × 시간대별 가중치 → 단/중/장 후보 50씩 → 최종 10/10/10 = 30.
-- AI key 전까지 UI는 🔢 숫자 점수 + ⚪ AI 분석 대기 placeholder.
-- 시작 전 사용자 결정 필요: `short_list_30`의 name/sector 갭 처리 방식
-  1. ALTER TABLE 컬럼 추가
-  2. 별도 `tickers_meta` 테이블 + JOIN
-  3. 정적 TS lookup + Python이 함께 갱신
+- FAIL 발견 시 0011 슬롯은 BL-KRIT-8, 0012는 T7e.8 name/sector 점유이므로 **0013 이후**로 패치한다.
 
 ---
 
