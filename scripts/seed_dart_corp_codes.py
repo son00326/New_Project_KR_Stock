@@ -3,8 +3,11 @@
 
 Run:
     cd /Users/yong/New_Project_KR_Stock
-    set -a && eval "$(grep -E '^(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|DART_API_KEY)=' tudal/.env.local)" && set +a
+    set -a && eval "$(grep -E '^(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|DART_API_KEY|KRX_ID|KRX_PW)=' tudal/.env.local)" && set +a
     SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" scripts/.venv/bin/python scripts/seed_dart_corp_codes.py [--dry-run]
+
+KRX_ID/KRX_PW는 pykrx의 KRX 영업일/티커 조회 인증에 필요하다 (영업일 자동탐색 회피용 인증).
+없으면 KRX 응답이 비어 ticker_market_map 생성이 실패한다.
 
 Idempotent: ON CONFLICT (ticker) UPDATE.
 
@@ -115,6 +118,9 @@ def main(argv: list[str] | None = None) -> int:
     api_key = os.environ.get("DART_API_KEY")
     if not api_key:
         sys.exit("DART_API_KEY 환경변수가 필요합니다.")
+
+    if not os.environ.get("KRX_ID") or not os.environ.get("KRX_PW"):
+        sys.exit("KRX_ID/KRX_PW 환경변수가 필요합니다 (pykrx 인증). tudal/.env.local에 박제됨.")
 
     print("[1/3] DART corpCode.xml.zip 다운로드 ...")
     zip_bytes = download_corp_code_zip(api_key)

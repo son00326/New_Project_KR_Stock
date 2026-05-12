@@ -12,6 +12,15 @@
 
 ## 최근 갱신
 
+**2026-05-12** (45차): **T7e.8 DART Signal 4·5 production 적용 ✅**.
+- **DB/migration 상태**: Supabase project `rbrpcynhphrpljbjirfo`에 0013 `dart_corp_codes` + 0014 `dart_financial_cache` 적용 완료. 0011 슬롯은 계속 BL-KRIT-8(S8 자동매매) 보존.
+- **corp_code seed**: `scripts/seed_dart_corp_codes.py`가 실제 DART `corpCode.xml`(corp_cls 없음)을 ticker↔corp_code source로 사용하고, KRX ticker set(pykrx)으로 market을 매핑한다. KRX 인증(`KRX_ID`/`KRX_PW`) 없으면 fail-fast.
+- **DART Signal wiring**: `scripts/dart_signals.py` + `scripts/screen_shortlist_tier0.py`로 CFS→OFS fallback, annual/quarterly cache, standalone quarter, YoY earnings momentum(Signal 4), 5-metric quality(Signal 5), universe-wide quality composite를 적용한다. `scripts/screen_shortlist_tier0.py`는 300 ticker마다 Supabase client를 갱신해 REST stream limit을 회피한다.
+- **production 적용 결과**: `short_list_30` 2026-05-01 30 rows UPSERT(10 short / 10 mid / 10 long). dry-run preview↔DB top 3 ticker/composite 일치, exit 0, client refresh 7회 정상, RemoteProtocolError 0건.
+- **분포**: short=모멘텀 10, mid=실적 모멘텀 8 + 모멘텀 2, long=퀄리티 10. 이전 Tier 0 v1 평탄화(Signal 4·5=0)를 DART 실 standalone/quality 기반 점수로 교체.
+- **산출물**: `scripts/out/tier0_2026-05_dart_apply.csv`, `scripts/out/tier0_2026-05_dart_apply.log`, `scripts/out/short_list_30_2026-05_pre_apply_backup.sql`.
+- **검증 기준**: Python unittest 27 pass + `npm run build && npm run lint && npm run test:ci && npx tsc --noEmit` exit 0 (test:ci 384 pass / 49 files). 다음 구조적 작업은 T7e.7 RLS 브라우저 수동 QA.
+
 **2026-05-08** (40차): **T7e.6 access-logs/performance/decision-tree Supabase 전환 ✅ + 신규 마이그 0건 + 단일 SoT 박제**.
 - **신규 모듈**: `tudal/src/lib/data/admin-access-logs.ts` — `getRecentAdminAccessLogs(limit)` boundary stub `[]` 반환 (실 access_log source는 T7e 범위 밖). BL-20 7일 단일 어드민 자동 바이패스는 stub이 false 분기를 자연 산출하므로 영구 비활성. 실 source 정의 시 함수 본문만 SELECT로 교체.
 - **신규 모듈**: `tudal/src/lib/data/admin-performance.ts` — `PortfolioSnapshotDbRow` 타입 + `transformPortfolioSnapshotRow` snake→camel + `getPerformanceSummary(month)` (snapshot SELECT + `src/lib/performance/sharpe`/`mdd`/`cap-months` 순수 로직 호출 → 5 KPI) + `getMonthlyPerformance(monthRange)` (월별 집계) + `getBucketPerformance(month)` (버킷별 집계) + `getCounterfactual()` returns `null` (D11/S9 deferred — AI 비중 시계열 저장 정책 박제 후 산출 가능).

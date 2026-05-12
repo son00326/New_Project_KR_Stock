@@ -32,9 +32,10 @@ pip install pykrx supabase requests
 ---------
 - `SUPABASE_URL` — 예: https://rbrpcynhphrpljbjirfo.supabase.co
 - `SUPABASE_SERVICE_ROLE_KEY` — `--apply` 시 필수. anon 키로는 RLS에 막힘.
-- `DART_API_KEY` — (optional, 현재 미사용 hook). T7e.8 follow-up에서
-  Signal 4(실적 모멘텀)·Signal 5(퀄리티) 실 산출을 붙인다. 현재는 키가 있어도
-  두 시그널을 0 처리하고 경고한다.
+- `DART_API_KEY` — DART OpenAPI key. Signal 4(실적 모멘텀)·Signal 5(퀄리티) 산출에 필수.
+  키가 없으면 두 시그널은 0으로 fail-soft 처리되고 단/중/장 라벨은 모멘텀·거래량만 반영.
+- `KRX_ID`, `KRX_PW` — pykrx KRX 인증. universe fetch + OHLCV/외국인 조회에 필수.
+  미설정 시 KRX 응답이 비어 universe 0건으로 종료된다 (44차 root cause).
 
 사용 예
 -------
@@ -125,6 +126,11 @@ PRICE_WINDOW_DAYS = 90  # 60-day 모멘텀 계산용 여유 buffer (영업일 60
 VOLUME_MA_SHORT = 5
 VOLUME_MA_LONG = 60
 MOMENTUM_MA_WINDOW = 60
+
+# postgrest HTTP/2 connection의 stream limit(약 20,000) 회피.
+# 1 ticker ≈ 24 supabase REST 요청 → 300 ticker마다 client를 갱신해 7K streams/conn 유지.
+# 44차 풀 dry-run에서 846번째 ticker(last_stream_id:19999) ConnectionTerminated가 root cause.
+SUPABASE_CLIENT_REFRESH_EVERY_N_TICKERS = 300
 
 
 # ============================================================================
@@ -397,7 +403,10 @@ def fetch_dart_signals(ticker: str, target_date: date, dart_api_key: Optional[st
 
     DART key 또는 Supabase cache client가 없으면 fail-soft로 0/NaN 결과를 반환한다.
     """
-    from scripts.dart_signals import DartSignalsResult, fetch_dart_signals as fetch_real_dart_signals
+    try:
+        from scripts.dart_signals import DartSignalsResult, fetch_dart_signals as fetch_real_dart_signals
+    except ModuleNotFoundError:
+        from dart_signals import DartSignalsResult, fetch_dart_signals as fetch_real_dart_signals
 
     if not dart_api_key or supabase is None:
         return DartSignalsResult()
@@ -717,6 +726,14 @@ def main() -> None:
           file=sys.stderr, flush=True)
     signals: list[StockSignal] = []
     for i, u in enumerate(universe, start=1):
+        if (
+            dart_supabase is not None
+            and i > 1
+            and (i - 1) % SUPABASE_CLIENT_REFRESH_EVERY_N_TICKERS == 0
+        ):
+            dart_supabase = get_supabase_client()
+            print(f"      [refresh] supabase client recreated at ticker {i}",
+                  file=sys.stderr, flush=True)
         price = fetch_price_signals(u["ticker"], target_date)
         foreign = fetch_foreign_signal(u["ticker"], target_date)
         dart = fetch_dart_signals(u["ticker"], target_date, dart_key, dart_supabase)
@@ -740,7 +757,10 @@ def main() -> None:
     print(f"[3/6] normalize signals (cross-section z → 0~100) ...", file=sys.stderr, flush=True)
     normalize_signals(signals)
     if dart_available:
-        from scripts.dart_signals import compute_quality_composite_for_universe
+        try:
+            from scripts.dart_signals import compute_quality_composite_for_universe
+        except ModuleNotFoundError:
+            from dart_signals import compute_quality_composite_for_universe
 
         quality_scores = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
         for signal, quality_score in zip(signals, quality_scores):

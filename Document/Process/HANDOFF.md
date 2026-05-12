@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-12 (44차 — T7e.8 follow-up DART Signal 4·5 **코드 구현/테스트 완료**, production 적용은 Supabase 0013/0014 원격 마이그 권한 부재로 대기 · 다음 1순위 = §2.A migration apply → corp_code seed → dry-run)
+Last updated: 2026-05-12 (45차 — T7e.8 follow-up DART Signal 4·5 **production 적용 완료** · `short_list_30` 2026-05-01 30 rows UPSERT 검증 완료 · 다음 1순위 = §2.B T7e.7 RLS 수동 QA)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, git diff/log에 위임한다.
@@ -15,7 +15,7 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자 별도 지시가 없으면 **§2.A T7e.8 follow-up production 적용 재개**로 진입한다. 먼저 Supabase 원격 0013/0014 마이그 권한(MCP 또는 CLI token)을 확보한다.
+- 사용자 별도 지시가 없으면 **§2.B T7e.7 RLS 브라우저 수동 QA**로 진입한다. T7e.8 DART Signal 4·5 production 적용은 완료 상태다.
 - Supabase MCP가 필요하면 세션 초반 OAuth 재인증이 필요할 수 있다: `mcp__supabase__authenticate` → 브라우저 Authorize.
 
 ---
@@ -26,14 +26,14 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 |---|---|
 | Mock Skeleton | ✅ S0~S6 · Must 19/19 mock 동작 |
 | DQ-7 Admin Credential | 🟢 ~97% · Smoke #4/#5 + Session 4 QA 잔여 · Smoke #3(Binance)은 S8까지 유예 |
-| S7e Supabase 실 I/O | 🟢 **7/8 완료** · T7e.1~T7e.6 ✅ + T7e.8 base seed ✅ + T7e.8 follow-up 코드 ✅ · T7e.7 RLS QA 잔여 + 0013/0014 production apply 대기 |
-| 실데이터 Must | **1+/19** · `short_list_30` 2026-05-01 production 30 rows (Tier 0 v1, Signal 4·5=0 평탄화 상태) |
+| S7e Supabase 실 I/O | 🟢 **7/8 완료** · T7e.1~T7e.6 ✅ + T7e.8 DART Signal 4·5 production apply ✅ · T7e.7 RLS QA 잔여 |
+| 실데이터 Must | **1+/19** · `short_list_30` 2026-05-01 production 30 rows (DART 실 standalone/quality 기반 Signal 4·5 반영) |
 | 실 AI 호출 | 0 · Anthropic key 전까지 Tier 0만 가능 |
 | 자동매매/S9 | S8 미착수 · 운용 검증 0일 |
 | Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
-| Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012(name/sector) 적용 · **0013/0014 SQL 파일은 커밋됨, 원격 apply 대기** · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 |
+| Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012(name/sector) + **0013/0014(DART cache)** 적용 · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 |
 | 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **384 pass / 49 files** · `tsc --noEmit` 0 |
-| Git | 43차 spec/plan commit 2건 박제 (`76789dc` spec + `18aca60` plan) · 작업트리에 pre-session WIP 일부 잔존 |
+| Git | T7e.8 follow-up 코드/마이그/문서 commits 박제 완료 · 작업트리 정리는 최신 `git status` 확인 |
 
 ### T7e.6까지의 필수 계약 (현재 적용 중)
 
@@ -54,9 +54,9 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 2. 다음 작업
 
-### A. 1순위 — T7e.8 follow-up · DART Signal 4·5 production 적용 재개
+### A. 완료 — T7e.8 follow-up · DART Signal 4·5 production 적용
 
-**목표**: 코드 구현은 완료됐으므로, 원격 Supabase에 0013/0014를 적용한 뒤 corp_code seed → DART cache fill → 2026-05 dry-run preview까지 검증한다. production `--apply`는 dry-run 결과 확인 후 사용자 승인 게이트를 유지한다.
+**목표/결과**: 원격 Supabase에 0013/0014를 적용하고 corp_code seed → DART cache fill → 2026-05 dry-run preview → 사용자 승인 → production `--apply`까지 완료했다. `short_list_30` 2026-05-01 30 rows는 DART 실 standalone/quality 기반 Signal 4·5 점수로 UPSERT됐다.
 
 **박제된 SoT**:
 - **Spec head**: `docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md` — base `76789dc` (D1~D13 + 보강 8건) + amend `54148af` (D14 target_quarter 공시마감 기반 / D15 not_yet_disclosed TTL / D16 account alias). 총 **16개 결정**.
@@ -68,35 +68,29 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - DART API key probe 통과 (삼성전자 2024 연결재무제표 정상 fetch 검증).
 - 마이그 0012까지 production 적용. base seed `short_list_30` 2026-05-01 row 30 박제.
 
-**44차 구현 완료/검증**:
+**44~45차 구현/production 적용 완료**:
 - 신규 마이그 파일: `0013_dart_corp_codes.sql`, `0014_dart_financial_cache.sql` (+ rollback).
 - 신규 스크립트: `scripts/seed_dart_corp_codes.py` — 실제 DART `corpCode.xml`에는 `corp_cls`가 없어 KRX ticker set(pykrx)으로 market을 매핑하도록 root cause 수정. dry-run 결과 2,766 rows(KOSPI 838 / KOSDAQ 1,818 / KONEX 110).
 - 신규 모듈: `scripts/dart_signals.py` — DART account alias, CFS→OFS fallback, annual/quarterly cache, `not_yet_disclosed` TTL, standalone quarter(Q1~Q4), YoY earnings momentum, 5-metric quality, universe-wide quality composite.
 - `scripts/screen_shortlist_tier0.py` wiring — DART Signal 4·5 활성화, quality double-normalization 방지, CSV-only diagnostics(`signal_4_basis`, `quality_insufficient`) 분리.
-- 검증: Python unittest 27 pass + app gate build/lint/test:ci 384/tsc pass.
+- 원격 Supabase 0013/0014 적용 + `dart_corp_codes` seed 완료.
+- Full dry-run preview(2026-05-01 · as-of 2026-05-11): Universe 2,345 → 후보 50/50/50 → 최종 30(10/10/10), DART cache 10,154 rows · 2,343/2,345 corps(99.9%), CFS ok 94%, CFS→OFS fallback 1,728 rows, standalone Q 환산 384 rows, signal_4_basis 30/30 standalone, quality_insufficient 30/30 False, client refresh 7회 정상.
+- 사용자 승인 후 production `--apply` 완료: 30 rows UPSERT, dry-run preview↔DB top 3 ticker/composite 일치, exit 0, RemoteProtocolError 0건.
+- 적용 CSV/log/백업: `scripts/out/tier0_2026-05_dart_apply.csv`, `scripts/out/tier0_2026-05_dart_apply.log`, `scripts/out/short_list_30_2026-05_pre_apply_backup.sql`.
+- Bucket × signal label: short=모멘텀 10, mid=실적 모멘텀 8 + 모멘텀 2, long=퀄리티 10.
+- Top 3: short HB테크놀러지/선도전기/서울바이오시스, mid 한온시스템/HD현대에너지솔루션/스피어, long 디티씨/아미노로직스/프로이천.
+- 45차 fresh 검증: Python unittest 27 pass + `npm run build && npm run lint && npm run test:ci && npx tsc --noEmit` exit 0 (test:ci 384 pass / 49 files).
 
-**현재 blocker**:
-- Supabase MCP apply tool이 현재 세션에 없고, Supabase CLI도 `Access token not provided` 상태.
-- production seed 실행은 `PGRST205: public.dart_corp_codes table not found`로 실패 — 원격 DB에 0013/0014가 아직 적용되지 않은 것이 root cause.
-
-**재개 순서**:
-1. Supabase 원격 마이그 권한 확보: MCP 재인증 또는 `SUPABASE_ACCESS_TOKEN` 제공.
-2. `tudal/supabase/migrations/0013_dart_corp_codes.sql` 적용 → schema/RLS verify.
-3. `tudal/supabase/migrations/0014_dart_financial_cache.sql` 적용 → schema/RLS verify.
-4. `seed_dart_corp_codes.py` apply → `dart_corp_codes` 2,766 rows verify.
-5. `screen_shortlist_tier0.py --dry-run --as-of 2026-05-11` preview 확인.
-6. 사용자 승인 후에만 production `--apply`.
-
-**완료 시 다음 1순위**: §2.B T7e.7 RLS 수동 QA.
+**완료 후 다음 1순위**: §2.B T7e.7 RLS 수동 QA.
 
 ---
 
-### B. 후속 — T7e.7 RLS 브라우저 수동 QA
+### B. 1순위 — T7e.7 RLS 브라우저 수동 QA
 
-**목표**: T7e.8 follow-up 완료 후 (또는 §2.A 옵션 1·2 진행 중 병행도 가능) kevin / son00326 / shjang1001 3개 어드민 계정으로 `/admin` 라우트별 RLS 통과·거부 동작을 브라우저에서 수동 QA한다.
+**목표**: T7e.8 follow-up production 적용이 완료됐으므로, kevin / son00326 / shjang1001 3개 어드민 계정으로 `/admin` 라우트별 RLS 통과·거부 동작을 브라우저에서 수동 QA한다.
 
 **전제**:
-- T7e.8 base `short_list_30` 시드 완료 (현재 상태).
+- T7e.8 `short_list_30` 2026-05-01 30 rows DART Signal 4·5 실데이터 적용 완료.
 - `stock_reports`/`committee_votes`는 아직 후속 seed 대상이라 리포트 상세는 boundary/empty 동작 감안.
 - `admin_emails`에 3 row 박제됨 (32차 INSERT 완료).
 
