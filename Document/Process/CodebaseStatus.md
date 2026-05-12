@@ -329,7 +329,7 @@
 - **실데이터 연결**: **0/19** — 전 Must가 mock 의존
 - **실 AI 호출**: **0** — Anthropic wrapper 미구현
 - **2채널 알림 실 발송**: **0** — Resend·Telegram 미연결
-- **외부 API 실 연결**: **0** — KIS·Naver·DART·pykrx 미연결
+- **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·Anthropic·DART UI 표시는 아직 미연결. T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
 - **실 운용 검증**: **0일**
 
 **어드민 내부 도구 완성 기준** = Mock + 실데이터(S7) + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물) + 운용 검증(S9) **4조건 AND** → **미달성**. 진행 경로 = HANDOFF.md §6 로드맵.
