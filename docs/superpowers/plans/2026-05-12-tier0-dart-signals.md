@@ -175,7 +175,7 @@ create table if not exists public.dart_financial_cache (
     -- 'YYYY' (annual, 11011) / 'YYYY-Q1' (11013) / 'YYYY-H1' (11012) / 'YYYY-9M' (11014)
     -- 'YYYY-QN' = standalone derived row (calculation_basis='standalone')
 
-  -- 재무 8필드 (단위: 원, NULL 허용 — DART 미제공 또는 standalone 차분 결과)
+  -- 재무 7필드 (단위: 원, NULL 허용 — DART 미제공 또는 standalone 차분 결과)
   revenue             numeric,                  -- 매출액
   op_income           numeric,                  -- 영업이익
   net_income          numeric,                  -- 당기순이익
@@ -184,11 +184,12 @@ create table if not exists public.dart_financial_cache (
   total_debt          numeric,                  -- 부채총계
   interest_expense    numeric,                  -- 이자비용
 
-  -- D6, D8: DART fetch/parse 상태
+  -- D6, D8, D15: DART fetch/parse 상태
   statement_scope     text not null check (statement_scope in ('CFS', 'OFS', 'NONE')),
     -- CFS=연결재무제표 우선, 없으면 OFS=별도 fallback, NONE=조회 불가
-  status              text not null default 'ok' check (status in ('ok', 'no_data', 'parse_error', 'rate_limited')),
+  status              text not null default 'ok' check (status in ('ok', 'no_data', 'not_yet_disclosed', 'parse_error', 'rate_limited')),
     -- 주의: DART fetch/parse 자체 상태만 표현. Signal 5 지표 누락 등 계산 실패는 'ok' 유지 (D8 Fix 1).
+    -- not_yet_disclosed = (D15) quarterly + disclosure deadline 이내 미공시. 7일 TTL refresh 허용.
   error_code          text,                     -- DART status code (예: '013', '020')
   source_report_code  text,                     -- '11011'/'11012'/'11013'/'11014'/'derived'
 
@@ -254,7 +255,7 @@ where table_schema = 'public' and table_name = 'dart_financial_cache'
 order by ordinal_position;
 ```
 
-Expected: 14 columns ending with `fetched_at`.
+Expected: **17 columns** in order — `id, corp_code, period_type, period_key, revenue, op_income, net_income, total_assets, total_equity, total_debt, interest_expense, statement_scope, status, error_code, source_report_code, calculation_basis, fetched_at`.
 
 ```sql
 select pg_get_constraintdef(oid) from pg_constraint
@@ -269,9 +270,9 @@ Expected: 4 CHECK 제약 (period_type, statement_scope, status, calculation_basi
 git add tudal/supabase/migrations/0014_dart_financial_cache.sql tudal/supabase/migrations/0014_dart_financial_cache.rollback.sql
 git commit -m "feat(T7e.8 follow-up): migration 0014 dart_financial_cache
 
-재무 8필드 + statement_scope (CFS/OFS) + status (DART fetch 자체 상태) + calculation_basis
+재무 7필드 + statement_scope (CFS/OFS) + status (DART fetch 상태 + not_yet_disclosed D15) + calculation_basis
 (standalone/cumulative_fallback/annual/not_applicable, D12). UNIQUE (corp_code, period_type, period_key).
-service_role write + admin read RLS. spec D4·D5·D6·D8·D12 박제.
+service_role write + admin read RLS. spec D4·D5·D6·D8·D12·D15 박제.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```
@@ -648,14 +649,16 @@ Expected: KOSPI ~900+, KOSDAQ ~1,400+, KONEX ~100+. Total roughly matches dry-ru
 
 Also probe specific tickers:
 
+**Probe ticker 선택 (Major 2 fix)**: KOSPI 대표 2종 + 현재 active KOSDAQ 1종 (091990 셀트리온헬스케어는 합병/상장 이슈 가능성 있어 제외). dry-run 결과를 보고 KOSDAQ 1종은 active 대형주 중 임의 선택.
+
 ```sql
 select ticker, corp_code, corp_name, market
 from dart_corp_codes
-where ticker in ('005930', '000660', '091990')
+where ticker in ('005930', '000660', '247540')
 order by ticker;
 ```
 
-Expected: 삼성전자(KOSPI)·SK하이닉스(KOSPI)·셀트리온헬스케어(KOSDAQ).
+Expected: 삼성전자(KOSPI)·SK하이닉스(KOSPI)·에코프로비엠(KOSDAQ). 247540이 최근 매핑에 없으면 SELECT 결과를 사용자에게 보여주고 active KOSDAQ 대표 1종을 사용자가 선택.
 
 - [ ] **Step 4: No commit (data seed, not code change)**
 
@@ -698,7 +701,7 @@ SAMPLE_DART_OK = {
 class TestParseDartFinancialResponse(unittest.TestCase):
     def test_normal_parse(self):
         from scripts.dart_signals import parse_dart_financial_response
-        parsed = parse_dart_financial_response(SAMPLE_DART_OK)
+        parsed, aliases = parse_dart_financial_response(SAMPLE_DART_OK)
         self.assertEqual(parsed["revenue"], 300_870_000_000_000)
         self.assertEqual(parsed["op_income"], 32_730_000_000_000)
         self.assertEqual(parsed["net_income"], 34_450_000_000_000)
@@ -706,21 +709,36 @@ class TestParseDartFinancialResponse(unittest.TestCase):
         self.assertEqual(parsed["total_equity"], 402_190_000_000_000)
         self.assertEqual(parsed["total_debt"], 112_340_000_000_000)
         self.assertEqual(parsed["interest_expense"], 1_200_000_000_000)
+        self.assertEqual(aliases, [])  # all primary names
 
     def test_missing_account_returns_none(self):
         from scripts.dart_signals import parse_dart_financial_response
         partial = {"status": "000", "list": [
             {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "1,000"},
         ]}
-        parsed = parse_dart_financial_response(partial)
+        parsed, aliases = parse_dart_financial_response(partial)
         self.assertEqual(parsed["revenue"], 1000)
         self.assertIsNone(parsed["op_income"])
         self.assertIsNone(parsed["interest_expense"])
+        self.assertEqual(aliases, [])
 
     def test_status_not_000_raises(self):
         from scripts.dart_signals import parse_dart_financial_response, DartNoDataError
         with self.assertRaises(DartNoDataError):
             parse_dart_financial_response({"status": "013", "message": "조회된 데이터가 없습니다."})
+
+    def test_account_alias_match_logs_metadata(self):
+        """**Major 1 fix**: 금융업 '영업수익' → revenue로 매칭되며 alias_meta에 기록."""
+        from scripts.dart_signals import parse_dart_financial_response
+        payload = {"status": "000", "list": [
+            {"account_nm": "영업수익", "sj_div": "IS", "thstrm_amount": "5,000"},
+            {"account_nm": "영업이익", "sj_div": "IS", "thstrm_amount": "500"},
+        ]}
+        parsed, aliases = parse_dart_financial_response(payload)
+        self.assertEqual(parsed["revenue"], 5000)
+        self.assertEqual(parsed["op_income"], 500)
+        # '영업수익' is non-primary alias for revenue → recorded
+        self.assertIn("account_alias_used:revenue=영업수익", aliases)
 
 
 if __name__ == "__main__":
@@ -746,16 +764,23 @@ from __future__ import annotations
 from typing import Optional
 
 
-# DART 계정과목명 → 표준 키 매핑
-DART_ACCOUNT_MAP = {
-    "매출액":      ("revenue",          ("IS", "CIS")),
-    "영업이익":    ("op_income",        ("IS", "CIS")),
-    "당기순이익":  ("net_income",       ("IS", "CIS")),
-    "자산총계":    ("total_assets",     ("BS",)),
-    "자본총계":    ("total_equity",     ("BS",)),
-    "부채총계":    ("total_debt",       ("BS",)),
-    "이자비용":    ("interest_expense", ("IS", "CIS")),
+# DART 계정과목명 → 표준 키 매핑 (D16, Major 1 fix).
+# 첫 번째 alias가 primary. primary가 아닌 alias 매칭 시 caller에서 메타 로그 기록.
+DART_ACCOUNT_ALIASES = {
+    "revenue":          (["매출액", "수익(매출액)", "영업수익", "수익", "보험영업수익"],   ("IS", "CIS")),
+    "op_income":        (["영업이익", "영업이익(손실)"],                                  ("IS", "CIS")),
+    "net_income":       (["당기순이익", "당기순이익(손실)"],                              ("IS", "CIS")),
+    "total_assets":     (["자산총계"],                                                    ("BS",)),
+    "total_equity":     (["자본총계"],                                                    ("BS",)),
+    "total_debt":       (["부채총계"],                                                    ("BS",)),
+    "interest_expense": (["이자비용", "이자비용(이자수익차감후)"],                          ("IS", "CIS")),
 }
+
+# Build reverse lookup: account_nm → (std_key, sj_divs, is_primary)
+DART_ACCOUNT_MAP: dict[str, tuple[str, tuple[str, ...], bool]] = {}
+for _std_key, (_aliases, _sj_divs) in DART_ACCOUNT_ALIASES.items():
+    for _idx, _name in enumerate(_aliases):
+        DART_ACCOUNT_MAP.setdefault(_name, (_std_key, _sj_divs, _idx == 0))
 
 FINANCIAL_KEYS = ("revenue", "op_income", "net_income", "total_assets",
                   "total_equity", "total_debt", "interest_expense")
@@ -769,11 +794,12 @@ class DartNoDataError(Exception):
         self.message = message
 
 
-def parse_dart_financial_response(payload: dict) -> dict[str, Optional[float]]:
-    """Parse DART fnlttSinglAcntAll.json → 8 standard financial keys.
+def parse_dart_financial_response(payload: dict) -> tuple[dict[str, Optional[float]], list[str]]:
+    """Parse DART fnlttSinglAcntAll.json → 7 standard financial keys.
 
-    Returns {revenue, op_income, net_income, total_assets, total_equity, total_debt, interest_expense}
-    with float or None for each.
+    Returns (parsed_dict, alias_metadata).
+    - parsed_dict: {revenue, op_income, net_income, total_assets, total_equity, total_debt, interest_expense}
+    - alias_metadata: list of strings like 'account_alias_used:revenue=영업수익' for non-primary matches (D16).
 
     Raises DartNoDataError if status != '000'.
     """
@@ -782,17 +808,18 @@ def parse_dart_financial_response(payload: dict) -> dict[str, Optional[float]]:
         raise DartNoDataError(status or "unknown", payload.get("message", ""))
 
     out: dict[str, Optional[float]] = {k: None for k in FINANCIAL_KEYS}
+    alias_meta: list[str] = []
     for item in payload.get("list", []):
         nm = item.get("account_nm", "")
         sj = item.get("sj_div", "")
         mapping = DART_ACCOUNT_MAP.get(nm)
         if mapping is None:
             continue
-        std_key, allowed_sjs = mapping
+        std_key, allowed_sjs, is_primary = mapping
         if sj not in allowed_sjs:
             continue
         if out[std_key] is not None:
-            continue  # 첫 매칭만 사용 (CIS·IS 중 IS 우선 시 mapping에서 'IS' 먼저)
+            continue
         raw = (item.get("thstrm_amount") or "").replace(",", "").strip()
         if not raw or raw == "-":
             continue
@@ -800,7 +827,9 @@ def parse_dart_financial_response(payload: dict) -> dict[str, Optional[float]]:
             out[std_key] = float(raw)
         except ValueError:
             continue
-    return out
+        if not is_primary:
+            alias_meta.append(f"account_alias_used:{std_key}={nm}")
+    return out, alias_meta
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1186,33 +1215,40 @@ class TestYoyEarningsMomentum(unittest.TestCase):
 
 
 class TestDetermineTargetQuarter(unittest.TestCase):
-    """target_date(seed 실행일) → 가장 최근 공시 분기.
+    """target_date(seed 실행일) → 공시 마감 + 30일 grace 통과한 최근 분기 (D14).
 
-    1~3월 → 직전년 Q3 (2026-02-15 → ('2025', 'Q3'))
-    4~6월 → 당해 Q1
-    7~9월 → 당해 Q2
-    10~12월 → 당해 Q3
+    1/1 ~ 5/1   → (year-1, Q3)
+    5/2 ~ 6/15  → (year-1, Q4) — annual 공시 완료 후, Q1 미공시 가능
+    6/16 ~ 9/15 → (year, Q1)
+    9/16 ~ 12/15 → (year, Q2)
+    12/16 ~ 12/31 → (year, Q3)
     """
 
-    def test_february(self):
+    def test_early_february(self):
         from scripts.dart_signals import determine_target_quarter
         from datetime import date
         self.assertEqual(determine_target_quarter(date(2026, 2, 15)), (2025, "Q3"))
 
-    def test_may(self):
+    def test_may_12_uses_prior_q4(self):
+        """**Blocker 1 fix**: 2026-05-12 시드는 Q1 미공시 가능성 → (2025, Q4)."""
         from scripts.dart_signals import determine_target_quarter
         from datetime import date
-        self.assertEqual(determine_target_quarter(date(2026, 5, 1)), (2026, "Q1"))
+        self.assertEqual(determine_target_quarter(date(2026, 5, 12)), (2025, "Q4"))
 
-    def test_august(self):
+    def test_late_june(self):
         from scripts.dart_signals import determine_target_quarter
         from datetime import date
-        self.assertEqual(determine_target_quarter(date(2026, 8, 10)), (2026, "Q2"))
+        self.assertEqual(determine_target_quarter(date(2026, 6, 20)), (2026, "Q1"))
 
-    def test_november(self):
+    def test_october(self):
         from scripts.dart_signals import determine_target_quarter
         from datetime import date
-        self.assertEqual(determine_target_quarter(date(2026, 11, 30)), (2026, "Q3"))
+        self.assertEqual(determine_target_quarter(date(2026, 10, 1)), (2026, "Q2"))
+
+    def test_late_december(self):
+        from scripts.dart_signals import determine_target_quarter
+        from datetime import date
+        self.assertEqual(determine_target_quarter(date(2026, 12, 20)), (2026, "Q3"))
 
     def test_january(self):
         from scripts.dart_signals import determine_target_quarter
@@ -1263,25 +1299,34 @@ def compute_yoy_earnings_momentum(
 
 
 def determine_target_quarter(target_date: _date) -> tuple[int, str]:
-    """seed 실행일 → 가장 최근에 공시 가능한 분기.
+    """seed 실행일 → 공시 마감 + 30일 grace 통과한 최근 분기 (D14, Blocker 1 fix).
 
-    한국 분기보고서 공시 마감:
-      Q1 (3월말) → 5월 15일까지
-      Q2 (6월말) → 8월 15일까지 (반기보고서)
-      Q3 (9월말) → 11월 15일까지
-      Q4 (연간) → 다음해 3월말까지 (사업보고서)
+    한국 분기 공시 마감:
+      Q1 (3월말) → 5월 15일 까지 (보고서 11013)
+      Q2 (6월말) → 8월 15일 (반기보고서 11012)
+      Q3 (9월말) → 11월 15일 (보고서 11014)
+      Annual (12월말) → 다음해 3월 31일 (사업보고서 11011, Q4 = annual - 9M)
 
-    Returns (year, 'QN').
+    + 30일 grace 적용:
+      Q1 safe after 6/15
+      Q2 safe after 9/15
+      Q3 safe after 12/15
+      Annual safe after 5/1
     """
-    m = target_date.month
+    m, d = target_date.month, target_date.day
     y = target_date.year
-    if m <= 3:
-        return (y - 1, "Q3")
-    if m <= 6:
-        return (y, "Q1")
-    if m <= 9:
+    md = (m, d)
+    if md >= (12, 16):
+        return (y, "Q3")
+    if md >= (9, 16):
         return (y, "Q2")
-    return (y, "Q3")
+    if md >= (6, 16):
+        return (y, "Q1")
+    if md >= (5, 2):
+        # annual 공시 완료, Q1 미공시 — Q4 standalone = annual - 9M
+        return (y - 1, "Q4")
+    # 1/1 ~ 5/1: 전년 annual도 안전하지 않음 (3/31 + grace 미경과 가능)
+    return (y - 1, "Q3")
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1329,10 +1374,10 @@ class TestDartFetchFinancial(unittest.TestCase):
             {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "100"},
         ]}
         with patch("scripts.dart_signals._dart_get", return_value=ok) as m:
-            parsed, scope = fetch_financial_with_fallback("00126380", "2024", "11011", "KEY")
+            parsed, scope, alias = fetch_financial_with_fallback("00126380", "2024", "11011", "KEY")
             self.assertEqual(scope, "CFS")
             self.assertEqual(parsed["revenue"], 100)
-            # Only 1 call (CFS succeeded, no OFS fallback)
+            self.assertEqual(alias, [])
             self.assertEqual(m.call_count, 1)
             self.assertEqual(m.call_args.kwargs["fs_div"], "CFS")
 
@@ -1344,7 +1389,7 @@ class TestDartFetchFinancial(unittest.TestCase):
             {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "80"},
         ]}
         with patch("scripts.dart_signals._dart_get", side_effect=[no_data, ofs_ok]) as m:
-            parsed, scope = fetch_financial_with_fallback("00126380", "2024", "11011", "KEY")
+            parsed, scope, alias = fetch_financial_with_fallback("00126380", "2024", "11011", "KEY")
             self.assertEqual(scope, "OFS")
             self.assertEqual(parsed["revenue"], 80)
             self.assertEqual(m.call_count, 2)
@@ -1356,9 +1401,10 @@ class TestDartFetchFinancial(unittest.TestCase):
         from scripts.dart_signals import fetch_financial_with_fallback
         no_data = {"status": "013", "message": "조회된 데이터가 없습니다."}
         with patch("scripts.dart_signals._dart_get", side_effect=[no_data, no_data]):
-            parsed, scope = fetch_financial_with_fallback("X", "2024", "11011", "KEY")
+            parsed, scope, alias = fetch_financial_with_fallback("X", "2024", "11011", "KEY")
             self.assertIsNone(parsed)
             self.assertEqual(scope, "NONE")
+            self.assertEqual(alias, [])
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1387,11 +1433,12 @@ def fetch_financial_with_fallback(
     bsns_year: str,
     reprt_code: str,
     api_key: str,
-) -> tuple[Optional[dict], str]:
+) -> tuple[Optional[dict], str, list[str]]:
     """Fetch DART financial — CFS first, OFS fallback on status='013'.
 
-    Returns (parsed_dict, statement_scope). statement_scope ∈ {'CFS','OFS','NONE'}.
+    Returns (parsed_dict, statement_scope, alias_meta). statement_scope ∈ {'CFS','OFS','NONE'}.
     parsed_dict is None when both CFS and OFS return no_data.
+    alias_meta is non-primary account_nm metadata (D16) — empty list when statement_scope='NONE'.
     """
     for scope in ("CFS", "OFS"):
         params = {
@@ -1406,13 +1453,13 @@ def fetch_financial_with_fallback(
         except Exception:
             continue
         try:
-            parsed = parse_dart_financial_response(payload)
-            return parsed, scope
+            parsed, alias_meta = parse_dart_financial_response(payload)
+            return parsed, scope, alias_meta
         except DartNoDataError as exc:
             if exc.status == "013":
-                continue  # try OFS
+                continue
             raise
-    return None, "NONE"
+    return None, "NONE", []
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1489,7 +1536,7 @@ class TestCacheLayer(unittest.TestCase):
         client, table = self._make_client(select_data=[])  # miss
 
         parsed = {k: 1.0 for k in FINANCIAL_KEYS}
-        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS")) as mock_fetch:
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS", [])) as mock_fetch:
             row = cache_get_or_fetch_annual(client, "00126380", 2024, api_key="KEY")
             mock_fetch.assert_called_once_with("00126380", "2024", "11011", "KEY")
             self.assertEqual(row["revenue"], 1.0)
@@ -1505,7 +1552,7 @@ class TestCacheLayer(unittest.TestCase):
         client, table = self._make_client(select_data=[])
 
         parsed = {k: 1.0 for k in FINANCIAL_KEYS}
-        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS")):
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS", [])):
             row = cache_get_or_fetch_quarterly(client, "00126380", 2025, "9M", api_key="KEY")
             # 9M = report_code 11014, period_key = '2025-9M'
             self.assertEqual(row["period_key"], "2025-9M")
@@ -1519,24 +1566,70 @@ class TestCacheLayer(unittest.TestCase):
         client, table = self._make_client(select_data=[])
 
         parsed = {k: 1.0 for k in FINANCIAL_KEYS}
-        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS")):
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS", [])):
             row = cache_get_or_fetch_quarterly(client, "00126380", 2025, "Q1", api_key="KEY")
             self.assertEqual(row["period_key"], "2025-Q1")
             self.assertEqual(row["source_report_code"], "11013")
             self.assertEqual(row["calculation_basis"], "standalone")  # Q1 is already standalone
 
-    def test_no_data_writes_status_no_data(self):
+    def test_annual_no_data_is_final(self):
         from unittest.mock import patch
         from scripts.dart_signals import cache_get_or_fetch_annual
         client, table = self._make_client(select_data=[])
 
-        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(None, "NONE")):
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(None, "NONE", [])):
             row = cache_get_or_fetch_annual(client, "X", 2024, api_key="KEY")
             self.assertIsNone(row.get("revenue"))
-            self.assertEqual(row["status"], "no_data")
+            self.assertEqual(row["status"], "no_data")  # annual = always final
             self.assertEqual(row["statement_scope"], "NONE")
-            # Empty marker row inserted to prevent retries
             table.upsert.assert_called_once()
+
+    def test_quarterly_no_data_within_disclosure_window_is_not_yet_disclosed(self):
+        """**Blocker 2 fix**: quarterly + disclosure deadline 이내 미공시 → status='not_yet_disclosed'."""
+        from unittest.mock import patch
+        from datetime import date
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+        client, table = self._make_client(select_data=[])
+
+        # today=2026-05-12, kind='Q1' for year 2026 → Q1 deadline 5/15 → 이내 → not_yet_disclosed
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(None, "NONE", [])), \
+             patch("scripts.dart_signals._today", return_value=date(2026, 5, 12)):
+            row = cache_get_or_fetch_quarterly(client, "X", 2026, "Q1", api_key="KEY")
+            self.assertEqual(row["status"], "not_yet_disclosed")
+
+    def test_quarterly_no_data_past_grace_is_no_data(self):
+        """disclosure deadline + 30일 경과 → 진짜 no_data (영구)."""
+        from unittest.mock import patch
+        from datetime import date
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+        client, table = self._make_client(select_data=[])
+
+        # today=2026-07-01, Q1 2026 deadline 5/15 + 30일 = 6/14 경과 → no_data final
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(None, "NONE", [])), \
+             patch("scripts.dart_signals._today", return_value=date(2026, 7, 1)):
+            row = cache_get_or_fetch_quarterly(client, "X", 2026, "Q1", api_key="KEY")
+            self.assertEqual(row["status"], "no_data")
+
+    def test_quarterly_not_yet_disclosed_ttl_refresh(self):
+        """status='not_yet_disclosed' + fetched_at > 7일 → treat as cache miss, re-fetch."""
+        from unittest.mock import patch
+        from datetime import date, timedelta, timezone
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+
+        stale_row = {
+            "corp_code": "X", "period_type": "quarterly", "period_key": "2026-Q1",
+            "status": "not_yet_disclosed", "statement_scope": "NONE",
+            "fetched_at": (date(2026, 5, 1)).isoformat(),
+        }
+        client, table = self._make_client(select_data=[stale_row])
+
+        parsed = {k: 1.0 for k in FINANCIAL_KEYS}
+        with patch("scripts.dart_signals.fetch_financial_with_fallback", return_value=(parsed, "CFS", [])) as mock_fetch, \
+             patch("scripts.dart_signals._today", return_value=date(2026, 5, 12)):
+            row = cache_get_or_fetch_quarterly(client, "X", 2026, "Q1", api_key="KEY")
+            # 5/1 + 7일 < 5/12 → stale → refetch
+            mock_fetch.assert_called_once()
+            self.assertEqual(row["status"], "ok")
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1549,6 +1642,8 @@ Expected: 5 new failures.
 Append to `scripts/dart_signals.py`:
 
 ```python
+from datetime import date as _date3, timedelta
+
 REPORT_CODE_MAP = {
     "annual": "11011",
     "Q1": "11013",
@@ -1563,9 +1658,42 @@ CALCULATION_BASIS_MAP = {
     "9M": "not_applicable",
 }
 
+# (D15) Disclosure deadline + 30일 grace per quarter kind
+QUARTERLY_DEADLINE_MD = {
+    "Q1": (5, 15),
+    "H1": (8, 15),
+    "9M": (11, 15),
+}
+DISCLOSURE_GRACE_DAYS = 30
+NOT_YET_DISCLOSED_TTL_DAYS = 7
+
+
+def _today() -> _date3:
+    """Indirection for unittest patching."""
+    return _date3.today()
+
+
+def _is_within_disclosure_window(year: int, kind: str) -> bool:
+    """True if today is before disclosure deadline + grace (D15 — Blocker 2 fix)."""
+    md = QUARTERLY_DEADLINE_MD.get(kind)
+    if md is None:
+        return False
+    deadline = _date3(year, *md) + timedelta(days=DISCLOSURE_GRACE_DAYS)
+    return _today() <= deadline
+
+
+def _is_ttl_stale(fetched_at_str: Optional[str]) -> bool:
+    """Returns True if fetched_at is older than NOT_YET_DISCLOSED_TTL_DAYS days."""
+    if not fetched_at_str:
+        return True
+    try:
+        fetched = _date3.fromisoformat(fetched_at_str[:10])
+    except ValueError:
+        return True
+    return (_today() - fetched).days >= NOT_YET_DISCLOSED_TTL_DAYS
+
 
 def _cache_lookup(client, corp_code: str, period_type: str, period_key: str) -> Optional[dict]:
-    """SELECT one row from dart_financial_cache."""
     res = (
         client.table("dart_financial_cache")
         .select("*")
@@ -1580,25 +1708,23 @@ def _cache_lookup(client, corp_code: str, period_type: str, period_key: str) -> 
 
 
 def _cache_upsert(client, row: dict) -> None:
-    """UPSERT one row. Ignore conflicts (race-safe)."""
     try:
         client.table("dart_financial_cache").upsert(row, on_conflict="corp_code,period_type,period_key").execute()
     except Exception as exc:  # noqa: BLE001
-        # 23505 duplicate is fine, others log
         print(f"[warn] cache upsert failed for {row.get('corp_code')} {row.get('period_key')}: {exc}")
 
 
 def cache_get_or_fetch_annual(client, corp_code: str, year: int, *, api_key: str) -> dict:
-    """Returns a cache row dict (always — empty marker if no_data).
-
-    Row schema mirrors dart_financial_cache columns.
-    """
+    """Annual report cache. no_data is ALWAYS final (no TTL refresh)."""
     period_key = str(year)
     hit = _cache_lookup(client, corp_code, "annual", period_key)
     if hit:
         return hit
 
-    parsed, scope = fetch_financial_with_fallback(corp_code, period_key, "11011", api_key)
+    parsed, scope, alias_meta = fetch_financial_with_fallback(corp_code, period_key, "11011", api_key)
+    if alias_meta:
+        for m in alias_meta:
+            print(f"[info] corp={corp_code} {period_key}: {m}")  # D16 메타 로그
     if parsed is None:
         row = _build_empty_row(corp_code, "annual", period_key, source_code="11011",
                                calc_basis="annual", scope="NONE", status="no_data")
@@ -1612,18 +1738,30 @@ def cache_get_or_fetch_annual(client, corp_code: str, year: int, *, api_key: str
 def cache_get_or_fetch_quarterly(
     client, corp_code: str, year: int, kind: str, *, api_key: str,
 ) -> dict:
-    """kind ∈ {'Q1', 'H1', '9M'}. Returns row dict (incl no_data markers)."""
+    """kind ∈ {'Q1', 'H1', '9M'}.
+
+    Blocker 2 fix: quarterly + disclosure deadline 이내 미공시 → 'not_yet_disclosed' + 7일 TTL.
+    Stale 'not_yet_disclosed' row → treat as miss, re-fetch.
+    """
     period_key = f"{year}-{kind}"
     hit = _cache_lookup(client, corp_code, "quarterly", period_key)
+    if hit and hit.get("status") == "not_yet_disclosed" and _is_ttl_stale(hit.get("fetched_at")):
+        hit = None  # force refresh
     if hit:
         return hit
 
     report_code = REPORT_CODE_MAP[kind]
     calc_basis = CALCULATION_BASIS_MAP[kind]
-    parsed, scope = fetch_financial_with_fallback(corp_code, str(year), report_code, api_key)
+    parsed, scope, alias_meta = fetch_financial_with_fallback(corp_code, str(year), report_code, api_key)
+    if alias_meta:
+        for m in alias_meta:
+            print(f"[info] corp={corp_code} {period_key}: {m}")
     if parsed is None:
+        # Within disclosure window → not_yet_disclosed (refresh-eligible).
+        # Past deadline + grace → no_data (final).
+        status = "not_yet_disclosed" if _is_within_disclosure_window(year, kind) else "no_data"
         row = _build_empty_row(corp_code, "quarterly", period_key, source_code=report_code,
-                               calc_basis=calc_basis, scope="NONE", status="no_data")
+                               calc_basis=calc_basis, scope="NONE", status=status)
     else:
         row = _build_full_row(corp_code, "quarterly", period_key, source_code=report_code,
                               calc_basis=calc_basis, scope=scope, parsed=parsed)
@@ -1680,6 +1818,10 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ---
 
 ## Phase F: `fetch_dart_signals()` 통합 + 위임 wire
+
+> **Blocker 3 fix**: 기존 plan은 `ScoreVec` dataclass를 가정했지만, 실제 코드는 `StockSignal`(line 172) + `ShortListRow`(line 194)이며 `row_to_db_dict()`가 CSV write와 Supabase upsert에 공용. 본 phase는 실제 이름 기준으로 작성됨.
+>
+> **Task 순서**: F1 → **F2 (quality composite 순수 함수, 의존 없음)** → **F3 (screen_shortlist_tier0 wire, F2 helper 사용)**. 이전 plan은 F2/F3 순서가 뒤집혀 있었음.
 
 ### Task F1: `fetch_dart_signals()` 통합 함수
 
@@ -1824,23 +1966,42 @@ def _row_to_financial_dict(row: dict) -> dict:
     return {k: row.get(k) for k in FINANCIAL_KEYS}
 
 
+QUARTER_ORDER = ("Q1", "Q2", "Q3", "Q4")
+
+
+def _prior_quarter(year: int, q: str) -> tuple[int, str]:
+    """One quarter back, possibly crossing year boundary."""
+    idx = QUARTER_ORDER.index(q)
+    if idx == 0:
+        return (year - 1, "Q4")
+    return (year, QUARTER_ORDER[idx - 1])
+
+
 def _compute_signal_4(
     client, corp_code: str, target_year: int, target_q: str, *, api_key: str,
 ) -> tuple[float, str]:
-    """Returns (earnings_raw, basis). basis ∈ {'standalone','cumulative_fallback','not_applicable'}."""
-    target_standalone, basis_t = _standalone_for_quarter(client, corp_code, target_year, target_q, api_key=api_key)
-    prior_standalone, basis_p = _standalone_for_quarter(client, corp_code, target_year - 1, target_q, api_key=api_key)
+    """Returns (earnings_raw, basis). basis ∈ {'standalone','cumulative_fallback','not_applicable'}.
 
-    if target_standalone is None or prior_standalone is None:
-        return 0.0, "not_applicable"
+    **Blocker 1 fix**: target Q standalone이 not_applicable이면 한 분기 뒤로 fallback (최대 2단계).
+    """
+    attempts = [(target_year, target_q)]
+    yr, q = _prior_quarter(target_year, target_q)
+    attempts.append((yr, q))
+    yr, q = _prior_quarter(yr, q)
+    attempts.append((yr, q))
 
-    momentum = compute_yoy_earnings_momentum(target_standalone, prior_standalone)
-    if math.isnan(momentum):
-        return 0.0, "not_applicable"
+    for try_year, try_q in attempts:
+        target_standalone, basis_t = _standalone_for_quarter(client, corp_code, try_year, try_q, api_key=api_key)
+        prior_standalone, basis_p = _standalone_for_quarter(client, corp_code, try_year - 1, try_q, api_key=api_key)
+        if target_standalone is None or prior_standalone is None:
+            continue
+        momentum = compute_yoy_earnings_momentum(target_standalone, prior_standalone)
+        if math.isnan(momentum):
+            continue
+        basis = "cumulative_fallback" if "cumulative_fallback" in (basis_t, basis_p) else "standalone"
+        return momentum, basis
 
-    # If either path used cumulative fallback, mark composite basis
-    basis = "cumulative_fallback" if "cumulative_fallback" in (basis_t, basis_p) else "standalone"
-    return momentum, basis
+    return 0.0, "not_applicable"
 
 
 def _standalone_for_quarter(
@@ -1881,7 +2042,20 @@ def _standalone_for_quarter(
             return _row_to_financial_dict(nine_m), "cumulative_fallback"
         return None, "not_applicable"
 
-    # Q4 case not exercised in 2026-05 seed but supported for completeness
+    if target_q == "Q4":
+        # **Blocker 1**: 2026-05 시드는 (2025, Q4) 사용. annual_2025 - 9M_2025.
+        annual = cache_get_or_fetch_annual(client, corp_code, year, api_key=api_key)
+        nine_m = cache_get_or_fetch_quarterly(client, corp_code, year, "9M", api_key=api_key)
+        if annual.get("status") == "ok" and nine_m.get("status") == "ok":
+            return compute_standalone_quarter("Q4",
+                annual_cumulative=_row_to_financial_dict(annual),
+                nine_m_cumulative=_row_to_financial_dict(nine_m),
+            ), "standalone"
+        if annual.get("status") == "ok":
+            # annual은 있는데 9M이 없는 경우 — annual 자체로 cumulative_fallback (전년 비교 정확도 ↓)
+            return _row_to_financial_dict(annual), "cumulative_fallback"
+        return None, "not_applicable"
+
     return None, "not_applicable"
 ```
 
@@ -1905,109 +2079,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task F2: `screen_shortlist_tier0.py` wire — `fetch_dart_signals()` hook 위임 + CSV summary 확장
-
-**Files:**
-- Modify: `scripts/screen_shortlist_tier0.py`
-
-- [ ] **Step 1: Read current hook code**
-
-Run: `grep -nA 30 "^def fetch_dart_signals" scripts/screen_shortlist_tier0.py`
-
-Identify the hook function (~line 391 per existing spec). Plan to replace its body.
-
-- [ ] **Step 2: Replace `fetch_dart_signals()` to delegate**
-
-Find the existing `def fetch_dart_signals(...) -> tuple[float, float]:` body and replace it with:
-
-```python
-def fetch_dart_signals(
-    ticker: str,
-    dart_key: Optional[str],
-    target_date: date,
-    supabase_client=None,
-) -> tuple[float, dict, str, bool]:
-    """Returns (earnings_raw, quality_metrics_dict, signal_4_basis, quality_insufficient).
-
-    spec: docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md
-
-    Earlier hook returned (earnings, quality) floats only — quality was 0 평탄화.
-    New tuple ships the 5-metric raw dict back so main() can universe-wide z-score
-    after collecting all tickers (compute_quality_composite_for_universe, Task F3).
-    signal_4_basis + quality_insufficient are logged to CSV.
-    """
-    if not dart_key or supabase_client is None:
-        return 0.0, {}, "not_applicable", True
-
-    from scripts.dart_signals import fetch_dart_signals as _dart_fetch
-    result = _dart_fetch(
-        supabase_client,
-        ticker=ticker,
-        target_date=target_date,
-        api_key=dart_key,
-    )
-    return (
-        result.earnings_raw,
-        result.quality_raw_metrics,
-        result.signal_4_basis,
-        result.quality_insufficient,
-    )
-```
-
-- [ ] **Step 3: Update `main()` to pass Supabase client + new tuple unpacking + CSV summary**
-
-Find the spot in `main()` where `fetch_dart_signals` is called (around line 709) and verify the call signature matches. Update CSV writer to include `signal_4_basis` and `quality_insufficient` columns.
-
-Specifically:
-1. Construct supabase client early in `main()` when DART key present (use existing `make_supabase_client()` helper if available; otherwise import from `dart_signals.make_supabase_client` or inline the standard `supabase.create_client(url, key)` block).
-2. Change the existing `earnings, quality = fetch_dart_signals(u["ticker"], dart_key)` call site to:
-   `earnings, q_metrics, sig4_basis, q_insuff = fetch_dart_signals(u["ticker"], dart_key, target_date, supabase_client)`.
-3. Extend `ScoreVec` dataclass with 3 new fields (default values):
-   ```python
-   quality_metrics: dict = field(default_factory=dict)
-   signal_4_basis: str = "not_applicable"
-   quality_insufficient: bool = False
-   ```
-   Stash the 4 returned values onto the ticker's ScoreVec (`s.earnings_raw = earnings`, `s.quality_metrics = q_metrics`, etc.).
-4. After universe iteration finishes (before z-score loop), call `compute_quality_composite_for_universe([s.quality_metrics for s in scores_in_order])` from Task F3 and assign each returned float to `s.quality` (replacing the placeholder 0).
-5. Add 2 new columns to the CSV header `signal_4_basis,quality_insufficient` and write each ticker row accordingly.
-
-**Investigation step before editing**: `grep -n "class ScoreVec\|def main\|csv_header\|writeheader\|fetch_dart_signals" scripts/screen_shortlist_tier0.py` to identify all 5 edit sites (dataclass, main, CSV header, CSV row write, hook). Make all edits in one go, then run the F2 step 4 and 5 tests.
-
-- [ ] **Step 4: Run existing test_screen_shortlist_tier0.py to ensure no regression**
-
-Run: `scripts/.venv/bin/python -m unittest scripts.test_screen_shortlist_tier0 -v`
-Expected: all existing tests PASS (mock dart_key=None path → 0/0).
-
-- [ ] **Step 5: Quick integration smoke test with `--universe-limit 5`**
-
-Run from repo root:
-
-```bash
-cd /Users/yong/New_Project_KR_Stock
-set -a && eval "$(grep -E '^(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|KRX_ID|KRX_PW|DART_API_KEY)=' tudal/.env.local)" && set +a
-SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" scripts/.venv/bin/python scripts/screen_shortlist_tier0.py \
-  --month 2026-05-01 --dry-run --universe-limit 5 --csv-backup scripts/out/smoke_5.csv
-```
-
-Expected: 5 tickers processed, DART HTTP hits trace in stdout, `scripts/out/smoke_5.csv` has 5 rows with non-zero `signal_4_basis` / quality flags.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add scripts/screen_shortlist_tier0.py
-git commit -m "feat(T7e.8 follow-up): screen_shortlist_tier0 delegates Signal 4·5 to dart_signals
-
-기존 hook이 (0,0) 반환하던 자리를 dart_signals.fetch_dart_signals 위임으로 교체.
-quality_metrics dict + signal_4_basis + quality_insufficient를 ScoreVec에 부착하고
-CSV에 새 컬럼으로 출력. dart_key 없거나 supabase_client 없으면 (0,0) 안전 분기 유지.
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
-```
-
----
-
-### Task F3: Quality 5-metric universe-wide z-score → composite 0~100
+### Task F2: Quality 5-metric universe-wide z-score → composite 0~100 (pure helper, no deps)
 
 **Files:**
 - Modify: `scripts/screen_shortlist_tier0.py`
@@ -2023,7 +2095,6 @@ class TestQualityCompositeNormalization(unittest.TestCase):
         """compute_quality_composite_for_universe takes list of metrics dicts and returns
         per-ticker composite score 0~100 = average of normalized 5 metrics, skipping NaN."""
         from scripts.screen_shortlist_tier0 import compute_quality_composite_for_universe
-        # 3 tickers, 5 metrics each. NaN in some places.
         metrics_per_ticker = [
             {"roe": 0.10, "debt_ratio_inv": -0.5, "op_margin": 0.10, "revenue_growth": 0.05, "interest_coverage": 5.0},
             {"roe": 0.20, "debt_ratio_inv": -0.3, "op_margin": 0.15, "revenue_growth": 0.20, "interest_coverage": 10.0},
@@ -2031,9 +2102,7 @@ class TestQualityCompositeNormalization(unittest.TestCase):
         ]
         composites = compute_quality_composite_for_universe(metrics_per_ticker)
         self.assertEqual(len(composites), 3)
-        # Ticker 1 (best growth + ROE) should rank highest
         self.assertGreater(composites[1], composites[0])
-        # All composites in [0, 100]
         for c in composites:
             self.assertGreaterEqual(c, 0.0)
             self.assertLessEqual(c, 100.0)
@@ -2054,21 +2123,18 @@ Expected: 2 new failures.
 
 - [ ] **Step 3: Add implementation to `screen_shortlist_tier0.py`**
 
-Add this function (near existing `_zscore_normalize` or composite computation):
+Add this function near `z_normalize_to_0_100`:
 
 ```python
 def compute_quality_composite_for_universe(metrics_per_ticker: list[dict]) -> list[float]:
     """Universe-wide z-score normalize 5 quality metrics per ticker → 0~100 composite.
 
     metrics_per_ticker: list of dicts {roe, debt_ratio_inv, op_margin, revenue_growth, interest_coverage}.
-    Returns list of composite scores in same order. NaN metrics are excluded from that metric's z-score
-    AND from the per-ticker average (so a ticker with only 3 valid metrics averages those 3).
-    A ticker with all NaN → composite = 0.0.
+    Returns list of composite scores in same order. NaN metrics excluded from that metric's z-score
+    AND from per-ticker average. All-NaN ticker → composite=0.0.
     """
-    import math
     keys = ("roe", "debt_ratio_inv", "op_margin", "revenue_growth", "interest_coverage")
     n = len(metrics_per_ticker)
-    # Compute per-metric (mean, stdev) excluding NaN.
     normalized: list[list[float]] = [[] for _ in range(n)]
 
     for k in keys:
@@ -2082,20 +2148,14 @@ def compute_quality_composite_for_universe(metrics_per_ticker: list[dict]) -> li
         stdev = math.sqrt(var) if var > 0 else 1.0
         for i, v in values:
             z = (v - mean) / stdev
-            # Map z to 0~100 via tanh clamp (z ±3 ≈ 0/100).
-            score = 50.0 + 50.0 * math.tanh(z / 2)
+            score = 50.0 + 50.0 * math.tanh(z / 2)  # tanh clamp ≈ z ±3 → 0~100
             normalized[i].append(score)
 
-    composites: list[float] = []
-    for scores in normalized:
-        if not scores:
-            composites.append(0.0)
-        else:
-            composites.append(sum(scores) / len(scores))
-    return composites
+    return [
+        (sum(scores) / len(scores)) if scores else 0.0
+        for scores in normalized
+    ]
 ```
-
-Then update `main()` to call this AFTER iterating universe (so all 5-metric raws are collected) and use the resulting list to populate `score.quality` for each ticker BEFORE applying bucket weights and final composite.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -2110,6 +2170,178 @@ git commit -m "feat(T7e.8 follow-up): quality composite = z-score normalize 5 me
 
 각 지표(ROE/부채비율/영업이익률/매출성장률/이자보상배율)를 universe 전체에 대해 z-score → 0~100 tanh clamp.
 NaN 자동 제외. 5 metric 모두 NaN인 ticker → composite=0. 2 unittest.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+### Task F3: `screen_shortlist_tier0.py` wire — Signal 4·5 hook 위임 + StockSignal·CSV diagnostic 분리
+
+**Files:**
+- Modify: `scripts/screen_shortlist_tier0.py`
+- Modify: `scripts/test_screen_shortlist_tier0.py`
+
+**중요 (Blocker 3·4 fix)**:
+- 실제 dataclass는 `StockSignal` (line 172) + `ShortListRow` (line 194). `ScoreVec`은 plan 작성 오류로 존재하지 않음.
+- `row_to_db_dict()`는 CSV write(`write_csv`)와 Supabase upsert(`upsert_supabase`)에 **공용** 사용 중. CSV용 진단 컬럼을 그대로 섞으면 production `short_list_30` UPSERT가 컬럼 mismatch로 실패. → `row_to_csv_dict()`를 분리 신설.
+
+- [ ] **Step 1: Investigation grep**
+
+```bash
+grep -n "class StockSignal\|class ShortListRow\|def row_to_db_dict\|def write_csv\|def upsert_supabase\|def fetch_dart_signals\|def main\b" scripts/screen_shortlist_tier0.py
+```
+Confirm 6 edit sites: dataclass StockSignal · dataclass ShortListRow · row_to_db_dict · write_csv · fetch_dart_signals hook · main loop.
+
+- [ ] **Step 2: Replace `fetch_dart_signals()` hook to delegate**
+
+Find existing `def fetch_dart_signals(ticker: str, dart_api_key: Optional[str]) -> tuple[float, float]:` (~line 390) and replace with:
+
+```python
+def fetch_dart_signals(
+    ticker: str,
+    dart_key: Optional[str],
+    target_date: date,
+    supabase_client=None,
+) -> tuple[float, dict, str, bool]:
+    """Returns (earnings_raw, quality_metrics_dict, signal_4_basis, quality_insufficient).
+
+    spec: docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md
+
+    Earlier hook returned (earnings, quality) floats with quality=0 평탄화.
+    New tuple ships 5-metric raw dict back so main() can universe-wide z-score
+    via compute_quality_composite_for_universe (Task F2). signal_4_basis +
+    quality_insufficient are logged to CSV diagnostic columns (Task F3 Step 4).
+    """
+    if not dart_key or supabase_client is None:
+        return 0.0, {}, "not_applicable", True
+
+    from scripts.dart_signals import fetch_dart_signals as _dart_fetch
+    result = _dart_fetch(
+        supabase_client,
+        ticker=ticker,
+        target_date=target_date,
+        api_key=dart_key,
+    )
+    return (
+        result.earnings_raw,
+        result.quality_raw_metrics,
+        result.signal_4_basis,
+        result.quality_insufficient,
+    )
+```
+
+- [ ] **Step 3: Extend `StockSignal` dataclass with 3 new fields**
+
+Find `class StockSignal` (~line 172) and add fields (use `field(default_factory=dict)` for dict default):
+
+```python
+from dataclasses import field   # ensure imported at top
+
+@dataclass
+class StockSignal:
+    # ... existing fields (ticker, name, sector, momentum_raw, ... quality, ...) ...
+    quality_metrics: dict = field(default_factory=dict)
+    signal_4_basis: str = "not_applicable"
+    quality_insufficient: bool = False
+```
+
+- [ ] **Step 4: Extend `ShortListRow` + add `row_to_csv_dict()` (Blocker 4 fix)**
+
+Add fields to `ShortListRow` (~line 194):
+
+```python
+@dataclass
+class ShortListRow:
+    # ... existing fields ...
+    signal_4_basis: str = "not_applicable"
+    quality_insufficient: bool = False
+```
+
+Keep `row_to_db_dict()` **unchanged** (production DB schema unchanged — `short_list_30` doesn't have these diagnostic columns). Add a new function below it:
+
+```python
+def row_to_csv_dict(row: ShortListRow) -> dict:
+    """CSV payload = DB columns + diagnostic columns (signal_4_basis, quality_insufficient).
+    Used by write_csv ONLY. Do NOT pass to Supabase upsert — short_list_30 lacks these cols.
+    """
+    base = row_to_db_dict(row)
+    base["signal_4_basis"] = row.signal_4_basis
+    base["quality_insufficient"] = row.quality_insufficient
+    return base
+```
+
+- [ ] **Step 5: Update `write_csv()` to use `row_to_csv_dict()`**
+
+```python
+def write_csv(path: str, rows: list[ShortListRow]) -> None:
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(row_to_csv_dict(rows[0]).keys()) if rows else [])
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(row_to_csv_dict(r))
+```
+
+`upsert_supabase()` keeps using `row_to_db_dict(r)` unchanged — payload matches existing production schema exactly.
+
+- [ ] **Step 6: Update `main()` to wire DART + universe-wide quality composite**
+
+In `main()`:
+1. After loading env, construct supabase client when `dart_key` present:
+   ```python
+   supabase_client = None
+   if dart_key:
+       try:
+           from scripts.dart_signals import _supabase_client_or_none  # or inline create_client
+           supabase_client = get_supabase_client()  # existing helper at line 155
+       except Exception as exc:
+           print(f"[warn] DART 키는 있지만 Supabase client 초기화 실패: {exc}")
+   ```
+2. Change call site `earnings, quality = fetch_dart_signals(u["ticker"], dart_key)` to:
+   ```python
+   earnings, q_metrics, sig4_basis, q_insuff = fetch_dart_signals(
+       u["ticker"], dart_key, target_date, supabase_client,
+   )
+   ```
+3. After universe iteration completes, compute quality composite for entire universe before z-score loop:
+   ```python
+   composites = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
+   for s, comp in zip(signals, composites):
+       s.quality_raw = comp  # universe-wide normalized 0~100 (replaces 평탄화)
+   ```
+4. Propagate `s.signal_4_basis` and `s.quality_insufficient` into `ShortListRow` when calling `build_rows()` (find that call site and ensure these flow through).
+
+- [ ] **Step 7: Update existing screening tests to expect new tuple signature**
+
+Run: `scripts/.venv/bin/python -m unittest scripts.test_screen_shortlist_tier0 -v`
+
+If any existing test calls `fetch_dart_signals(ticker, None)` and unpacks 2-tuple, update to 4-tuple. The `dart_key=None` short-circuit path returns `(0.0, {}, "not_applicable", True)` — same earnings=0/quality=0 semantics.
+
+- [ ] **Step 8: Smoke test (Blocker 5 fix — universe-limit 100, expect 30 rows)**
+
+`validate_shortlist_rows()` requires exactly 30 rows (10/10/10). Universe of 5 would fail validation. Use `--universe-limit 100` for smoke:
+
+```bash
+cd /Users/yong/New_Project_KR_Stock
+set -a && eval "$(grep -E '^(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|KRX_ID|KRX_PW|DART_API_KEY)=' tudal/.env.local)" && set +a
+SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" scripts/.venv/bin/python scripts/screen_shortlist_tier0.py \
+  --month 2026-05-01 --as-of 2026-05-12 --dry-run \
+  --universe-limit 100 --csv-backup scripts/out/smoke_100.csv
+```
+
+Expected: 100 tickers processed (~500 DART HTTP hits with cache cold), `smoke_100.csv` has **30 rows** (10/10/10) with new columns `signal_4_basis` + `quality_insufficient` populated. Run completes ~2~5 minutes (cache cold).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add scripts/screen_shortlist_tier0.py scripts/test_screen_shortlist_tier0.py
+git commit -m "feat(T7e.8 follow-up): screen_shortlist_tier0 delegates Signal 4·5 to dart_signals
+
+Hook이 (0,0) 반환하던 자리를 dart_signals.fetch_dart_signals 위임으로 교체.
+StockSignal에 quality_metrics + signal_4_basis + quality_insufficient 부착.
+ShortListRow + row_to_csv_dict 신규로 CSV 진단 컬럼과 DB upsert payload 분리 (Blocker 4).
+universe-wide quality composite를 z-score 후 quality_raw로 주입. dart_key 부재 시 (0,{},'not_applicable',True) 안전 분기.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```
@@ -2232,18 +2464,18 @@ cd tudal && npm run dev
 
 Open `http://localhost:3000/admin` and verify long/mid/short bucket cards show real Korean company names.
 
-- [ ] **Step 4: No code commit, but capture the apply log**
+- [ ] **Step 4: No log commit (Major 3 fix) — summary만 문서에 박제**
 
-```bash
-git add scripts/out/apply_2026-05.log
-git commit -m "chore(T7e.8 follow-up): production apply log 2026-05-01 with DART signals
+`scripts/out/apply_2026-05.log`에는 KRX 로그인 ID·DART 응답·실행환경 등 민감 정보가 들어갈 수 있어 **commit 금지**. 대신 다음 summary를 §H1 단계에서 HANDOFF.md / S7-RealData.md에 박제:
 
-Tier 0 v2 적용. long bucket composite spread 회복 (X→Y, prior 0.16).
+- Apply 완료 시각 (UTC)
+- 30 rows · long/mid/short composite spread (이전 0.16 vs 새 spread)
+- DART 호출 총 횟수 (cache miss vs hit)
+- `account_alias_used` ticker 수 + `cumulative_fallback` ticker 수 (D12·D16 신뢰도 메타)
+- `quality_insufficient=true` ticker 수
+- 다음 시드 시 cache hit 예상량
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
-```
-
-(Skip if `scripts/out/` is gitignored — confirm with `git check-ignore scripts/out/apply_2026-05.log` first.)
+로컬 log 파일은 그대로 두고 `.gitignore`에 `scripts/out/*.log` 추가를 고려.
 
 ---
 
@@ -2292,10 +2524,10 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 After all tasks complete, the executor should verify:
 
-**Spec coverage** (D1~D13 → task mapping):
+**Spec coverage** (D1~D16 → task mapping):
 - D1 (corp_code mapping in Supabase) → Task A1, B1, B2, B3
 - D2 (Signal 4 = YoY rev + OP avg) → Task D2
-- D3 (Signal 5 = 5 standard metrics) → Task C2, F3
+- D3 (Signal 5 = 5 standard metrics) → Task C2, F2
 - D4 (caching in dart_financial_cache) → Task A2, E2
 - D5 (RLS service_role + admin) → Task A1, A2
 - D6 (CFS preferred, OFS fallback) → Task E1
@@ -2306,8 +2538,31 @@ After all tasks complete, the executor should verify:
 - D11 (full universe DART call) → Task G1 (no pre-filter)
 - D12 (calculation_basis tracking) → Task A2, E2, F1
 - D13 (corp_cls Y/K/N mapping) → Task B1
+- **D14 (target quarter — disclosure deadline + 30일 grace, Blocker 1 fix)** → Task D2, F1
+- **D15 (quarterly not_yet_disclosed + 7일 TTL, Blocker 2 fix)** → Task A2, E2
+- **D16 (DART account alias 매핑, Major 1 fix)** → Task C1, E1
 
-**Test count target**: ~33 unittests (parse 3 + quality 6 + standalone 6 + earnings 4 + target_q 5 + fetch_fallback 3 + cache 5 + integration 1 + composite normalize 2).
+**Test count target**: ~40 unittests
+- parse_dart_financial_response: 4 (incl. alias)
+- compute_quality_score: 6
+- compute_standalone_quarter: 6
+- compute_yoy_earnings_momentum: 4
+- determine_target_quarter: 6 (Blocker 1 reflecting disclosure deadline)
+- fetch_financial_with_fallback: 3 (3-tuple)
+- cache layer: 8 (Blocker 2 추가 — not_yet_disclosed / no_data / TTL refresh / Q1 standalone / 9M not_applicable)
+- fetch_dart_signals integration: 1
+- compute_quality_composite_for_universe: 2
+
+**Blocker fix 검증** (구현 후 grep으로 확인):
+- B1: `grep "Q4" scripts/dart_signals.py` → determine_target_quarter + _standalone_for_quarter("Q4", ...)
+- B2: `grep "not_yet_disclosed\|_is_within_disclosure_window\|_is_ttl_stale" scripts/dart_signals.py` → 3개 위치
+- B3: `grep -c "ScoreVec" docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` → 0 expected (모두 StockSignal로 교체됨)
+- B4: `grep "row_to_csv_dict" scripts/screen_shortlist_tier0.py` → write_csv에서 사용, upsert_supabase는 row_to_db_dict 유지
+- B5: `grep "universe-limit 100" docs/superpowers/plans/...` → smoke test에 100 사용
+- B6: spec `Expected: 17 columns` 매칭
+- M1: `grep "DART_ACCOUNT_ALIASES\|account_alias_used" scripts/dart_signals.py`
+- M2: probe ticker '247540' 또는 사용자 검토한 active KOSDAQ
+- M3: scripts/out/apply log commit 단계 제거됨
 
 **Verification commands** (run as final gate):
 ```bash
