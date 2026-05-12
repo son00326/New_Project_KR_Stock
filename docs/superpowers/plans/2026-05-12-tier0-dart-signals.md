@@ -35,7 +35,7 @@
 - `scripts/test_dart_signals.py` — Python unittest ~15 케이스
 
 **Modify:**
-- `scripts/screen_shortlist_tier0.py` — `fetch_dart_signals()` hook을 `dart_signals` 모듈로 위임 + CSV summary에 `quality_insufficient_fields` 추가
+- `scripts/screen_shortlist_tier0.py` — `fetch_dart_signals()` hook을 `dart_signals` 모듈로 위임 + CSV diagnostic에 `quality_insufficient` 추가
 - `scripts/test_screen_shortlist_tier0.py` — 기존 테스트 회귀 확인 (변경 없거나 minor wire 테스트만)
 - `Document/Process/HANDOFF.md` — §1 상태 표 + §2.A 완료 박제 + §6 완료 요약
 - `Document/Build/Slices/S7-RealData.md` — T7e.8 follow-up 완료 row + 의사결정 박제
@@ -974,7 +974,7 @@ def compute_quality_score(
         - raw_metrics: {roe, debt_ratio_inv, op_margin, revenue_growth, interest_coverage}
           Each value is a float or NaN. NaN means "exclude from this metric's z-score".
         - insufficient: True if 3+ metrics are NaN → caller should set quality_raw = 0
-          and log 'quality_insufficient_fields' (D8 Fix 1).
+          and log 'quality_insufficient' (D8 Fix 1).
     """
     out: dict[str, float] = {k: math.nan for k in QUALITY_METRIC_KEYS}
     if annual_x is None:
@@ -1869,12 +1869,13 @@ class TestFetchDartSignalsIntegration(unittest.TestCase):
 
     def test_ticker_not_in_corp_codes_returns_zero(self):
         from datetime import date
+        import math
         from scripts.dart_signals import fetch_dart_signals
 
         client = self._setup_client(corp_code=None)
         result = fetch_dart_signals(client, ticker="999999", target_date=date(2026, 5, 1), api_key="KEY")
         self.assertEqual(result.earnings_raw, 0.0)
-        self.assertEqual(result.quality_raw, 0.0)
+        self.assertTrue(all(math.isnan(v) for v in result.quality_raw_metrics.values()))
         self.assertEqual(result.quality_insufficient, True)  # No corp_code → metadata flag
         self.assertEqual(result.signal_4_basis, "not_applicable")
 ```
@@ -2304,13 +2305,15 @@ In `main()`:
        u["ticker"], dart_key, target_date, supabase_client,
    )
    ```
-3. After universe iteration completes, compute quality composite for entire universe before z-score loop:
+3. After universe iteration completes, keep `quality_metrics` on each `StockSignal` but **do not** assign the quality composite to `quality_raw` before `normalize_signals()`. `normalize_signals()` would z-score it a second time.
+4. Call `normalize_signals(signals)` as before for momentum/volume/foreign/earnings/volatility. Immediately after that call, compute and assign the final quality score:
    ```python
-   composites = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
-   for s, comp in zip(signals, composites):
-       s.quality_raw = comp  # universe-wide normalized 0~100 (replaces 평탄화)
+   normalize_signals(signals)
+   quality_scores = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
+   for s, quality_score in zip(signals, quality_scores):
+       s.quality = quality_score  # final 0~100 Signal 5; avoid double normalization
    ```
-4. Propagate `s.signal_4_basis` and `s.quality_insufficient` into `ShortListRow` when calling `build_rows()` (find that call site and ensure these flow through).
+5. Propagate `s.signal_4_basis` and `s.quality_insufficient` into `ShortListRow` in `build_rows()` so CSV diagnostics can report them.
 
 - [ ] **Step 7: Update existing screening tests to expect new tuple signature**
 
@@ -2556,7 +2559,7 @@ After all tasks complete, the executor should verify:
 **Blocker fix 검증** (구현 후 grep으로 확인):
 - B1: `grep "Q4" scripts/dart_signals.py` → determine_target_quarter + _standalone_for_quarter("Q4", ...)
 - B2: `grep "not_yet_disclosed\|_is_within_disclosure_window\|_is_ttl_stale" scripts/dart_signals.py` → 3개 위치
-- B3: `grep -c "ScoreVec" docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` → 0 expected (모두 StockSignal로 교체됨)
+- B3: implementation sections must refer to actual `StockSignal` / `ShortListRow`; any mention of the obsolete placeholder name is explanatory only, not an edit target
 - B4: `grep "row_to_csv_dict" scripts/screen_shortlist_tier0.py` → write_csv에서 사용, upsert_supabase는 row_to_db_dict 유지
 - B5: `grep "universe-limit 100" docs/superpowers/plans/...` → smoke test에 100 사용
 - B6: spec `Expected: 17 columns` 매칭
