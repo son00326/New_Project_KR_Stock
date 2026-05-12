@@ -42,12 +42,14 @@ pip install pykrx supabase requests
 # dry-run: Supabase write 없이 CSV 백업만 출력
 python3 scripts/screen_shortlist_tier0.py \
     --month 2026-05-01 \
+    --as-of 2026-05-11 \
     --dry-run \
     --csv-backup scripts/out/short_list_30_2026-05_dryrun.csv
 
 # 실 적용: 백업 CSV는 항상 필수
 python3 scripts/screen_shortlist_tier0.py \
     --month 2026-05-01 \
+    --as-of 2026-05-11 \
     --apply \
     --csv-backup scripts/out/short_list_30_2026-05.csv
 ```
@@ -221,6 +223,13 @@ def parse_month(s: str) -> date:
     return d
 
 
+def parse_as_of(s: str) -> date:
+    try:
+        return date.fromisoformat(s)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"--as-of 는 YYYY-MM-DD 형식이어야 합니다 ({exc})")
+
+
 def prev_month_first(m: date) -> date:
     """2026-05-01 → 2026-04-01."""
     if m.month == 1:
@@ -233,6 +242,19 @@ def last_business_day_on_or_before(d: date) -> date:
     while d.weekday() >= 5:
         d -= timedelta(days=1)
     return d
+
+
+def resolve_target_date(run_date: date, requested_as_of: Optional[date]) -> date:
+    """Resolve stable market-data snapshot date.
+
+    기본값은 실행일의 전 영업일이다. 장중 실행 시 pykrx가 당일 변동 데이터를
+    반환해 dry-run/apply 결과가 달라질 수 있으므로, 명시적 --as-of가 없으면
+    완료된 장 마감 데이터만 사용한다. 당일 장마감 후 데이터를 쓰고 싶으면
+    --as-of YYYY-MM-DD로 명시한다.
+    """
+    if requested_as_of is not None:
+        return last_business_day_on_or_before(requested_as_of)
+    return last_business_day_on_or_before(run_date - timedelta(days=1))
 
 
 # ============================================================================
@@ -648,14 +670,19 @@ def main() -> None:
     mode.add_argument("--dry-run", action="store_true", help="Supabase write 없이 CSV만 생성")
     mode.add_argument("--apply", action="store_true", help="Supabase upsert 실행")
     parser.add_argument("--csv-backup", required=True, help="CSV 백업 경로 (apply/dry-run 모두 필수)")
+    parser.add_argument("--as-of", type=parse_as_of, default=None,
+                        help="시장 데이터 기준일 YYYY-MM-DD (기본: 실행일의 전 영업일, 장중 drift 방지)")
     parser.add_argument("--universe-limit", type=int, default=None,
                         help="universe 사이즈 cap (디버깅용, prod 미사용)")
     args = parser.parse_args()
 
-    target_date = last_business_day_on_or_before(date.today())
+    target_date = resolve_target_date(date.today(), args.as_of)
     if args.month > target_date:
-        print(f"[warn] --month {args.month} 이 오늘({target_date})보다 미래입니다 — 가장 최근 영업일로 산출됩니다.",
+        print(f"[warn] --month {args.month} 이 기준일({target_date})보다 미래입니다 — 기준일 데이터로 산출됩니다.",
               file=sys.stderr)
+    print(f"[info] market data as-of: {target_date.isoformat()} "
+          f"({'explicit --as-of' if args.as_of else 'previous completed weekday'})",
+          file=sys.stderr)
 
     print(f"[1/6] universe fetch (KOSPI+KOSDAQ, 시총 ≥ {UNIVERSE_FILTERS['min_market_cap_won']:,}원) ...",
           file=sys.stderr, flush=True)

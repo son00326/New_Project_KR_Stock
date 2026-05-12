@@ -24,7 +24,7 @@
 - **삭제**: `tudal/src/lib/data/mock-admin-access-logs.ts` (39 lines) · `tudal/src/lib/data/mock-admin-performance.ts` (171 lines) · `tudal/src/lib/data/mock-admin-decision-tree.ts` (29 lines). `mock-admin-consistency.test.ts`에서 관련 assertion 1개 제거.
 - **신규/보강 테스트**: `__tests__/admin-access-logs.test.ts` 2개 (boundary stub + portfolio integration) + `__tests__/admin-performance.test.ts` 15개 (transformer 7 + getPerformanceSummary/Monthly/Bucket/Counterfactual 8) + `__tests__/admin-decision-tree.test.ts` 2개 (snapshot from portfolio_snapshot rows).
 - **검증 게이트 회귀**: `build` exit 0 (25 routes 동일) · `lint` 0 errors · `test:ci` exit 0 (**49 files / 381 tests pass**; 이전 46/362 +3/+19, consistency 1 제거 반영) · `npx tsc --noEmit` exit 0.
-- **부분 마이그레이션 boundary 종료점**: T7e.6으로 admin 잔존 mock 3종 정리. `mock-admin-{report,committee,approvals,snapshots,shortlist}` 등은 consistency 테스트 fixture로 보존(코드 경로에서는 사용 안 함). 다음 boundary는 T7e.7 RLS QA + T7e.8 Tier 0 seed.
+- **부분 마이그레이션 boundary 종료점**: T7e.6으로 admin 잔존 mock 3종 정리. `mock-admin-{report,committee,approvals,snapshots,shortlist}` 등은 consistency 테스트 fixture로 보존(코드 경로에서는 사용 안 함). 다음 boundary는 T7e.7 RLS QA. T7e.8 Tier 0 seed는 production 30 rows 적용 완료.
 
 **2026-05-08** (39차): **T7e.5 regen_counter Supabase 전환 ✅ + race-safe CAS + 신규 마이그 0건**.
 - **신규 모듈**: `tudal/src/lib/data/admin-regen-counters.ts` — `RegenCounterDbRow` 타입 + `transformRegenCounterRow(row)` snake→camel + `computeNextMonthResetAt(month)` 순수 helper(다음 달 1일 00:00 KST ISO) + `getRegenCounter(ticker, month)` `maybeSingle` SELECT(없으면 null) + `incrementManualRegenCount(ticker, month)` 4단계 CAS(idempotent INSERT 23505 무시 → SELECT 현재 값 → cap 도달 시 즉시 `cap_exhausted` → `UPDATE WHERE id AND manual_count = current_value` 비교-스왑, RETURNING 비면 `regen_counter write conflict` throw).
@@ -65,7 +65,7 @@
 - **부분 마이그레이션 boundary 정리**: shortlist→reports/committee 2번째 해제로 `/admin/report/[ticker]` 클릭 활성. 단, Delta REMOVED 행은 report-backed 대상이 아니므로 계속 `리포트 대기`로 유지. 시드 부재 상태에서는 `/admin` 빈 UI · `/report` 도달 불가 일관 동작. 다음 boundary는 T7e.4(approvals/snapshots) — 현재는 `/portfolio` Accept/Reject만 disabled 유지.
 
 **2026-05-08** (36차): **자율 트랙 §A 진입 — T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅**.
-- **신규 모듈**: `tudal/src/lib/data/admin-shortlist.ts` (118 lines) — `getActiveShortList({month?, tickerMeta?})` Supabase SELECT + `getShortListDelta()` aggregate + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)`. Supabase error는 throw (silent swallow 폐기). 갭: short_list_30 스키마에 name/sector 컬럼 없음 → fallback (name=ticker · sector="미분류") 또는 외부 lookup. T7e.8 prep에서 3옵션(컬럼 추가/JOIN 테이블/정적 lookup) 결정.
+- **신규 모듈**: `tudal/src/lib/data/admin-shortlist.ts` (118 lines) — `getActiveShortList({month?, tickerMeta?})` Supabase SELECT + `getShortListDelta()` aggregate + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)`. Supabase error는 throw (silent swallow 폐기). T7e.8/0012 이후 `name`/`sector` 컬럼을 우선 read하고, 빈 값이면 tickerMeta → ticker/"미분류" fallback.
 - **신규 테스트**: `tudal/src/lib/data/__tests__/admin-shortlist.test.ts` — Vitest 8개 (transformer 6 + aggregate 2). null 처리·string·numeric 모두 커버.
 - **page-level importer 5건 갱신** (mock-admin-shortlist → admin-shortlist):
   - `tudal/src/app/(admin)/admin/page.tsx` — `getActiveShortList()` (latest)
@@ -77,7 +77,7 @@
 - **mock 보존 (T7e.3 스코프)**: `mock-admin-shortlist.ts` 자체는 그대로 유지 (mock-admin-committee/report가 import 중). T7e.3 완료 시 일괄 삭제 예정.
 - **Supabase 마이그**: 0010 `alert_event_rls_hardening` 적용 확인 (version 20260505134639) — BL-KRIT-7 ✅ 해소.
 - **검증 게이트 회귀**: `build` exit 0 (25 routes, +1 from 24 — 동일 라우트 셋, 카운트만 정정) · `lint` 0 errors · `test:ci` exit 0 (39 files / 314 tests pass; 이전 38/306 +1/+8). 추가로 `npx tsc --noEmit --pretty false` exit 0.
-- **Tier 0 데이터 수집 인프라 결정 (B-1)**: pykrx Python 의존성 → Vercel(Node) Edge Function 배제. 로컬 Python 스크립트(scripts/, idempotent upsert · dry-run · CSV 백업 · month 인자 · env 기반 Supabase 접속) 채택. T7e.8에서 구현. 자동화는 S7/S8 안정화 후 GitHub Actions로 승격.
+- **Tier 0 데이터 수집 인프라 결정 (B-1)**: pykrx Python 의존성 → Vercel(Node) Edge Function 배제. 로컬 Python 스크립트(scripts/, idempotent upsert · dry-run · CSV 백업 · month 인자 · `--as-of` 기준일 고정 · env 기반 Supabase 접속) 채택. T7e.8에서 구현 완료. 자동화는 S7/S8 안정화 후 GitHub Actions로 승격.
 - **세션 외 git status**: 32~33차 잔여(M 12 파일 — alerts/regenerate/cron/credentials/mock-admin-*) + 35차 박제 문서 8건은 본 세션에서 미터치. 커밋 단위 분리는 사용자 결정.
 - **Test 파일 보강**: `portfolio/__tests__/actions.test.ts`에 `vi.mock("@/lib/data/admin-shortlist")` 추가 — month 인자에 매칭되는 mock 행만 반환해 기존 5개 시나리오(invalid_input·24h hold·shortlist_month_not_found·viewers_insufficient·auth_unavailable·real_persistence_not_configured) 그대로 유지.
 
@@ -229,7 +229,7 @@
 - **아직 mock 유지**: report_view_log(T7e.후속), briefing/news/alerts/health/cost 등 후속 S7 phase 대상. (access-logs는 40차 boundary stub로 닫힘, performance·decision-tree는 40차에 portfolio_snapshot SoT로 전환됨.)
 - **Main mock** (6): `mock-stocks`·`mock-financials-extended`·`mock-quarterly`·`mock-ohlcv`·`mock-corporate`·`mock-macro`
 - **Admin mock 보존**: `mock-admin-report.ts`·`mock-admin-committee.ts`는 consistency 테스트와 mock persona/view-log 의존 때문에 보존. `mock-admin-approvals.ts`·`mock-admin-snapshots.ts`도 consistency fixture로만 남고 `/portfolio` 실 경로에서는 사용하지 않는다.
-- **실데이터 현황**: 실 I/O 통로는 shortlist/reports/committee_votes/portfolio_approval/portfolio_snapshot/regen_counter/access-logs(stub)/performance(snapshot SoT)/decision-tree(snapshot SoT) 9종 open. 하지만 `short_list_30`/`stock_reports`/`committee_votes`/`portfolio_snapshot` DB seed 전이라 Must 실데이터 카운트는 아직 0/19. T7e.8 seed 후 1+/19로 전환 예정.
+- **실데이터 현황**: 실 I/O 통로는 shortlist/reports/committee_votes/portfolio_approval/portfolio_snapshot/regen_counter/access-logs(stub)/performance(snapshot SoT)/decision-tree(snapshot SoT) 9종 open. `short_list_30`은 production 30 rows 시드 완료(2026-05-11 as-of, CSV↔DB mismatch 0)라 Must 실데이터 카운트는 1+/19로 전환. `stock_reports`/`committee_votes`/`portfolio_snapshot` DB seed는 후속이라 해당 화면 일부는 계속 boundary/empty 상태.
 - **Supabase**: 프로젝트 `rbrpcynhphrpljbjirfo` (son00326 Org · Seoul · Free). `.env.local`은 URL/anon/publishable/service_role/ADMIN_EMAILS 등 신 프로젝트 기준.
 - **Auth users**: admin 3명 생성. Magic Link UI는 prefetch 의심 이슈로 비밀번호 우회 사용 중.
 

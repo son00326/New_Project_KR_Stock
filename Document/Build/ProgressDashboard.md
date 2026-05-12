@@ -2,10 +2,10 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-05-12 (42차 — **T7e.8 인프라 박제: 마이그 0012 적용 ✅ + `scripts/screen_shortlist_tier0.py` 작성 ✅ + admin-shortlist transformer 새 컬럼 read 갱신** · S7e 7/8 sub-task (Tier 0 시드는 venv+pykrx 사용자 측 실행 대기) · 41차 순서 박제 누적)
+Last updated: 2026-05-12 (T7e.8 실 시드 후속 — **production `short_list_30` 30 rows 적용 ✅ + `--as-of` 기준일 고정으로 dry-run/apply drift 수정 ✅** · S7e 7/8 sub-task, T7e.7 RLS QA 잔여)
 총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~97%, Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** + **S7 실데이터 전환 (🟢 진행 중 — S7e ~38%)** + **S8 자동매매 프레임 (분리 — S7d 후 단독 진입)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
 총 예상 세션: 9(완료) + **4(DQ-7, Session 1·2·30·32·33 = ~3 완료, Smoke #4·#5 + Session 4 QA 잔여 ~1)** + 8(S7, 36차 진입) + 4(S8) = **약 25 세션** + S9 운용 4~8주
-**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~97% (Session 1·2 ✅ + 30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ — Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** · **S7e 7/8 (T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 인프라 ✅ (마이그 0012 + Python 스크립트), Tier 0 실 시드 venv 대기 + T7e.7 RLS QA 잔여)** · 실데이터 **0/19** (DB 통로 열렸으나 seed 대기) · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel Production ✅ (25 routes, son00326 신 Supabase 연결)** · 검증 게이트 **build 25 routes · lint 0 · test:ci 384 pass / 49 files**
+**진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~97% (Session 1·2 ✅ + 30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ — Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** · **S7e 7/8 (T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 실 시드 ✅), T7e.7 RLS QA 잔여** · 실데이터 **1+/19** (`short_list_30` 30 rows production 적용) · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel Production ✅ (25 routes, son00326 신 Supabase 연결)** · 검증 게이트 **build 25 routes · lint 0 · test:ci 384 pass / 49 files**
 완성 기준 = Mock + DQ-7 Credential 인프라 + 실데이터 + **자동매매(주식+코인)** + 운용 검증 **5조건 AND** → **미달성**
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
@@ -15,7 +15,7 @@ S4 가상 포트·성과·Decision Tree: ✅ **Mock 완료** (2026-04-19)
 S5a 스케줄러·브리핑·뉴스·헬스: ✅ **Mock 완료** (2026-04-19)
 S5b 장중·토글·Exit: ✅ **Mock 완료** (2026-04-19)
 S6 Hardening (AI 비용 + Silent Health): ✅ **Mock 완료** (2026-04-20)
-S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 인프라 ✅ — Tier 0 실 시드 venv 대기, T7e.7 잔여) — HANDOFF §2.A 참조
+S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 실 시드 ✅ — T7e.7 RLS QA 잔여) — HANDOFF §2 참조
 **S8 자동매매 프레임 (주식+바이낸스 선물)**: ⚪ **미착수** (2026-04-21 D16 승격, Deferred-X·Y 흡수)
 **S9 어드민 운용 검증 (1개월+)**: ⚪ **미착수**
 
@@ -33,7 +33,7 @@ S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2·T7e.3·T7
 | **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
 | **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | 🟡 **Session 3 ~97% (30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ · Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예 D19)** · prod URL https://tudal-tawny.vercel.app | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
-| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | 🟢 **진행 중** (S7e T7e.1~T7e.6 ✅ 36~40차 + T7e.8 인프라 ✅ 42차 (마이그 0012 + Python 스크립트, Tier 0 실 시드 venv 대기), T7e.7 잔여) | [S7-RealData.md](./Slices/S7-RealData.md) |
+| **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | 🟢 **진행 중** (S7e T7e.1~T7e.6 ✅ 36~40차 + T7e.8 실 시드 ✅ 42차 후속 (마이그 0012 + Python 스크립트 + production 30 rows), T7e.7 잔여) | [S7-RealData.md](./Slices/S7-RealData.md) |
 | **S8** | **자동매매 프레임** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터) | Must 19 밖 (어드민 집행 서브시스템) | 4 (스캐폴드 2 + 실 체결 2) | — | ⚪ **미착수** (2026-04-21 D16, **2026-05-08 D18 — S7d 후 단독 진입으로 분리**) | [S8-AutoTrading.md](./Slices/S8-AutoTrading.md) |
 | **S9** | **어드민 운용 검증** | Mock+실 혼합 → 실계좌/메인넷 전환 | 4~8주 (세션 외) | — | ⚪ 미착수 | — |
 | ~~Deferred-X~~ | ~~증권사 API + 매뉴얼/자동매매 UI~~ | **S8로 승격 (2026-04-21)** | — | — | — | [Deferred-Brokerage.md](./Slices/Deferred-Brokerage.md) (승격 표기만) |

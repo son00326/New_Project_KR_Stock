@@ -26,6 +26,31 @@ def stock_signal(ticker: str, score: float):
 
 
 class ScreenShortlistTier0Test(unittest.TestCase):
+    def test_resolve_target_date_defaults_to_previous_completed_weekday(self):
+        self.assertEqual(
+            MODULE.resolve_target_date(
+                run_date=MODULE.date(2026, 5, 12),
+                requested_as_of=None,
+            ),
+            MODULE.date(2026, 5, 11),
+        )
+        self.assertEqual(
+            MODULE.resolve_target_date(
+                run_date=MODULE.date(2026, 5, 11),
+                requested_as_of=None,
+            ),
+            MODULE.date(2026, 5, 8),
+        )
+
+    def test_resolve_target_date_uses_explicit_as_of_snapshot(self):
+        self.assertEqual(
+            MODULE.resolve_target_date(
+                run_date=MODULE.date(2026, 5, 12),
+                requested_as_of=MODULE.date(2026, 5, 12),
+            ),
+            MODULE.date(2026, 5, 12),
+        )
+
     def test_select_top_per_bucket_keeps_unique_month_tickers(self):
         signals = [
             stock_signal("A", 100),
