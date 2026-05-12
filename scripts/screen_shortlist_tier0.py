@@ -181,6 +181,9 @@ class StockSignal:
     earnings_raw: float = 0.0
     quality_raw: float = 0.0
     volatility_raw: float = 0.0
+    quality_metrics: dict[str, float] = field(default_factory=dict)
+    signal_4_basis: str = "not_applicable"
+    quality_insufficient: bool = True
     # 0~100 normalized — z-normalize 후
     momentum: float = 0.0
     volume_surge: float = 0.0
@@ -207,6 +210,8 @@ class ShortListRow:
     delta_reason: str
     summary_3line: str
     suggested_weight: float
+    signal_4_basis: str = "not_applicable"
+    quality_insufficient: bool = True
 
 
 # ============================================================================
@@ -387,19 +392,16 @@ def fetch_foreign_signal(ticker: str, target_date: date) -> float:
     return 0.0
 
 
-def fetch_dart_signals(ticker: str, dart_api_key: Optional[str]) -> tuple[float, float]:
-    """DART OpenAPI를 통한 (earnings_raw, quality_raw).
+def fetch_dart_signals(ticker: str, target_date: date, dart_api_key: Optional[str], supabase=None):
+    """DART OpenAPI를 통한 Signal 4·5 raw data.
 
-    본 함수는 향후 DART OpenAPI 호출 hook이다. 키 유무와 무관하게 현재는
-    둘 다 0 반환하여 pipeline 흐름만 검증한다. DART 실 구현은 T7e.8 follow-up
-    또는 S7a Tier 1 단계에서 채운다.
+    DART key 또는 Supabase cache client가 없으면 fail-soft로 0/NaN 결과를 반환한다.
     """
-    _ = (ticker, dart_api_key)
-    # TODO(T7e.8 follow-up):
-    #   1) DART 단일회사 전체 재무제표 OpenAPI (/api/fnlttSinglAcntAll)
-    #   2) 최근 4분기 영업이익 YoY → earnings_raw
-    #   3) ROE / 부채비율 / FCF margin → quality_raw composite
-    return 0.0, 0.0
+    from scripts.dart_signals import DartSignalsResult, fetch_dart_signals as fetch_real_dart_signals
+
+    if not dart_api_key or supabase is None:
+        return DartSignalsResult()
+    return fetch_real_dart_signals(supabase, ticker=ticker, target_date=target_date, api_key=dart_api_key)
 
 
 # ============================================================================
@@ -430,7 +432,6 @@ def normalize_signals(signals: list[StockSignal]) -> None:
         ("volume_surge_raw", "volume_surge", False),
         ("foreign_net_raw", "foreign_net", False),
         ("earnings_raw", "earnings", False),
-        ("quality_raw", "quality", False),
         ("volatility_raw", "volatility", True),  # 변동성은 낮을수록 좋다 → 반전
     ):
         raw = [getattr(s, field_raw) for s in signals]
@@ -572,6 +573,8 @@ def build_rows(
                 delta_reason="전월 유지" if is_hold else "Tier 0 신규 진입",
                 summary_3line=build_summary(s, bucket, composite, dart_available),
                 suggested_weight=1.0 / (TOP_K_PER_BUCKET * len(BUCKETS)),
+                signal_4_basis=s.signal_4_basis,
+                quality_insufficient=s.quality_insufficient,
             ))
     return rows
 
@@ -597,6 +600,15 @@ def row_to_db_dict(row: ShortListRow) -> dict:
         "delta_reason": row.delta_reason,
         "summary_3line": row.summary_3line,
         "suggested_weight": row.suggested_weight,
+    }
+
+
+def row_to_csv_dict(row: ShortListRow) -> dict:
+    """CSV backup includes diagnostics that are intentionally not DB columns."""
+    return {
+        **row_to_db_dict(row),
+        "signal_4_basis": row.signal_4_basis,
+        "quality_insufficient": row.quality_insufficient,
     }
 
 
@@ -635,10 +647,10 @@ def validate_shortlist_rows(rows: list[ShortListRow]) -> None:
 def write_csv(path: str, rows: list[ShortListRow]) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row_to_db_dict(rows[0]).keys()) if rows else [])
+        writer = csv.DictWriter(f, fieldnames=list(row_to_csv_dict(rows[0]).keys()) if rows else [])
         writer.writeheader()
         for r in rows:
-            writer.writerow(row_to_db_dict(r))
+            writer.writerow(row_to_csv_dict(r))
 
 
 def upsert_supabase(supabase, rows: list[ShortListRow]) -> None:
@@ -690,13 +702,14 @@ def main() -> None:
     print(f"      → {len(universe)}개 종목", file=sys.stderr, flush=True)
 
     dart_key = os.environ.get("DART_API_KEY")
-    dart_available = False
+    dart_supabase = None
+    dart_available = bool(dart_key)
     if dart_key:
-        print("[warn] DART_API_KEY가 있지만 DART Signal 4·5 hook은 아직 미구현입니다 "
-              "— 실적/퀄리티 시그널은 0 처리 (T7e.8 follow-up)",
+        print("[info] DART Signal 4·5 enabled — Supabase dart_* cache tables required",
               file=sys.stderr)
+        dart_supabase = get_supabase_client()
     else:
-        print("[warn] DART Signal 4·5 hook 미구현 — 실적/퀄리티 시그널은 0 처리 "
+        print("[warn] DART_API_KEY 없음 — 실적/퀄리티 시그널은 0 처리 "
               "(장기 bucket 의미 약화)",
               file=sys.stderr)
 
@@ -706,7 +719,7 @@ def main() -> None:
     for i, u in enumerate(universe, start=1):
         price = fetch_price_signals(u["ticker"], target_date)
         foreign = fetch_foreign_signal(u["ticker"], target_date)
-        earnings, quality = fetch_dart_signals(u["ticker"], dart_key)
+        dart = fetch_dart_signals(u["ticker"], target_date, dart_key, dart_supabase)
         signals.append(StockSignal(
             ticker=u["ticker"],
             name=u["name"],
@@ -716,14 +729,22 @@ def main() -> None:
             volume_surge_raw=price["volume_surge_raw"],
             volatility_raw=price["volatility_raw"],
             foreign_net_raw=foreign,
-            earnings_raw=earnings,
-            quality_raw=quality,
+            earnings_raw=dart.earnings_raw,
+            quality_metrics=dart.quality_raw_metrics,
+            signal_4_basis=dart.signal_4_basis,
+            quality_insufficient=dart.quality_insufficient,
         ))
         if i % 100 == 0:
             print(f"      [{i}/{len(universe)}]", file=sys.stderr, flush=True)
 
     print(f"[3/6] normalize signals (cross-section z → 0~100) ...", file=sys.stderr, flush=True)
     normalize_signals(signals)
+    if dart_available:
+        from scripts.dart_signals import compute_quality_composite_for_universe
+
+        quality_scores = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
+        for signal, quality_score in zip(signals, quality_scores):
+            signal.quality = quality_score
 
     print(f"[4/6] bucket selection (단/중/장 각 후보 {CANDIDATE_POOL_PER_BUCKET} → 상위 {TOP_K_PER_BUCKET}) ...",
           file=sys.stderr, flush=True)

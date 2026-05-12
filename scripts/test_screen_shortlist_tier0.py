@@ -75,6 +75,30 @@ class ScreenShortlistTier0Test(unittest.TestCase):
         self.assertAlmostEqual(sum(row.suggested_weight for row in rows), 1.0)
         MODULE.validate_shortlist_rows(rows)
 
+    def test_csv_dict_has_diagnostics_but_db_dict_does_not(self):
+        row = MODULE.ShortListRow(
+            month="2026-05-01",
+            ticker="005930",
+            name="삼성전자",
+            sector="반도체",
+            bucket="long",
+            rank=1,
+            composite_score=90,
+            trend_score=80,
+            momentum_score=80,
+            volatility_score=60,
+            signal_label="퀄리티",
+            delta_status="new",
+            delta_reason="Tier 0 신규 진입",
+            summary_3line="테스트",
+            suggested_weight=0.0333,
+            signal_4_basis="standalone",
+            quality_insufficient=False,
+        )
+        self.assertNotIn("signal_4_basis", MODULE.row_to_db_dict(row))
+        self.assertEqual(MODULE.row_to_csv_dict(row)["signal_4_basis"], "standalone")
+        self.assertEqual(MODULE.row_to_csv_dict(row)["quality_insufficient"], False)
+
     def test_upsert_rejects_duplicate_payload_before_supabase_call(self):
         row = MODULE.ShortListRow(
             month="2026-05-01",
