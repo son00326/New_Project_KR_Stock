@@ -692,6 +692,16 @@ Step 2: 작성
     → Document/{섹터}SectorReport-{종목명}_{종목코드}.md
     ★ 반드시 본 프레임워크(ReportFramework.md) 참조하여 작성
     ★ Section 0(요약)에 Step 0 산출(🔢/🤖/배지) 1행 노출
+    ★ Section 8(투심위)은 4종 표 박제 (D20, 2026-05-12 44차):
+      ① Sector Board 위원별 한 줄 의견 표 (해당 섹터 14명 전원,
+         번호·이름·배경 한 줄·BUY/HOLD/SELL·한 줄 논거)
+      ② Core 11 위원별 한 줄 의견 표 (11명 전원,
+         번호·이름(투자 철학 라벨)·BUY/HOLD/SELL·한 줄 논거)
+      ③ 쟁점별 찬반 토론 인용 3~5건 (찬 1~2 + 반 1~2 + 중 1)
+      ④ 최종 합의 패널 (Sector 집계 + Core 재투표 집계
+         + Co-Chair 최종 의견·만장일치 여부 + 공식 판정 + 근거)
+      Reference: Document/Outputs/Report-Alteogen_196170_v3-Readable.md
+                 §Section 8 Part A/B/C 형식.
 
 Step 3: 검증
 └── critic (opus) → 적대적 검증 (팩트/논리/누락/구조/편향/독자수준 6축)
@@ -784,6 +794,7 @@ Step 4: 수정 반영 → 최종본 확정
 | 2026-04-12 | v1.0 | 8-Section 프레임워크 최초 확정 (BusinessPlan.md §8.2) |
 | 2026-04-13 | **v2.0** | Section 0~8 + Appendix로 구조 변경. 투자 서사/회사 개요 신설. 촉매+리스크 통합. 투심위 토론 구조 "쟁점별 찬반 대결"로 변경. Core Committee 투자 철학 매핑. Sector Board 14개 섹터 가이드. 용어/독자수준/비교분석 가이드라인 추가. |
 | 2026-04-13 | **v2.1** | Section 2(회사 개요)에 **성장 배경 추적(Track Record)** 필수 항목 추가 — 가이던스 vs 실적 비교로 경영진 신뢰도 판단. 비교 분석에 **딜/계약 조건 상대 비교** 원칙 추가 (로열티율, 딜밸류 등 업계 기준 대비 평가). 경쟁사 비교 **국내+해외 모두 필수** 원칙 강화. |
+| 2026-05-12 | **v2.3** | **§8 Step 2에 Section 8 정적 표 4종 박제 — D20 (44차).** 사용자 요구 직접 반영: ① Sector Board 위원별 한 줄 의견 표 (14명 전원), ② **Core 11 위원별 한 줄 의견 표 (11명 전원, 신규)**, ③ 쟁점별 찬반 토론 인용 3~5건, ④ 최종 합의 패널(Sector·Core 집계 + Co-Chair 만장일치 여부 + 공식 판정 + 근거). Reference 알테오젠 v3-Readable §Section 8 Part A/B/C 패턴을 Core·Sector 양쪽에 대칭 적용. 인터랙티브 페르소나 탐색은 Should S2 유지. SoT: `ServicePlan-Admin.md §6 D20` + `§3.7 R3.7-6/7/8`. |
 | 2026-05-08 | **v2.2** | **§8에 Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가 — D19 박제 (35차).** TauricResearch/TradingAgents Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. Tier 0 인디케이터 게이트(AI 키 불필요) + Tier 1 Core 11 평가(시간대별 페르소나 가중치) + 합의 배지 4종(🟢 강한 합의/🔵 숫자 우세/🟣 AI 우세/⚪ AI 분석 대기) + 매월 말 Reflection(실현 수익률 prompt 주입). 어드민 카드 노출 = 🔢 숫자 점수 + 🤖 AI 점수 + 합의 배지 + AI 코멘트 1~2줄 + 클릭→풀 리포트. AI 키 미발급 시 Tier 0 단독 fallback (진짜 코스피·코스닥 30종목 자동 선정). 비용 통제 = Sector Board 활성화는 30종목 해당 섹터 14명만(140명 X). 신규 엔티티 후보 `reflection_log` 박제. SoT: `ServicePlan-Admin.md §1A.5 D19`. |
 
 ---
