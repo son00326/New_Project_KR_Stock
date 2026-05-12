@@ -6,9 +6,11 @@
 목적
 ----
 AI 키 없이도 동작하는 "진짜 코스피·코스닥 30종목" 산출 파이프라인.
-pykrx + (optional) DART OpenAPI를 입력으로 받아 5-Signal Composite를
-시간대별 가중치(단/중/장)로 산출하고, 단/중/장 후보 50씩 → 최종 10/10/10
-= 30 종목을 `short_list_30` 테이블에 idempotent upsert한다.
+현재 구현은 pykrx 기반 가격·거래량·외국인 3개 시그널을 산출하고, DART 기반
+실적·퀄리티 2개 시그널은 후속 hook으로 남겨둔다. 5-Signal Composite
+인터페이스는 유지하되, DART hook 구현 전에는 S4/S5를 0으로 두고 시간대별
+가중치(단/중/장)를 적용한다. 단/중/장 후보 50씩 → 최종 10/10/10 = 30 종목을
+`short_list_30` 테이블에 idempotent upsert한다.
 
 박제
 ----
@@ -30,9 +32,9 @@ pip install pykrx supabase requests
 ---------
 - `SUPABASE_URL` — 예: https://rbrpcynhphrpljbjirfo.supabase.co
 - `SUPABASE_SERVICE_ROLE_KEY` — `--apply` 시 필수. anon 키로는 RLS에 막힘.
-- `DART_API_KEY` — (optional) 있으면 Signal 4(실적 모멘텀)·Signal 5(퀄리티)
-  실 산출. 없으면 두 시그널은 0 처리되고, 단기/중기 bucket은 영향 적지만
-  장기 bucket(quality weight 0.6)은 의미가 약해진다 → 운영 시 발급 권장.
+- `DART_API_KEY` — (optional, 현재 미사용 hook). T7e.8 follow-up에서
+  Signal 4(실적 모멘텀)·Signal 5(퀄리티) 실 산출을 붙인다. 현재는 키가 있어도
+  두 시그널을 0 처리하고 경고한다.
 
 사용 예
 -------
@@ -57,8 +59,8 @@ python3 scripts/screen_shortlist_tier0.py \
 | S1 모멘텀 (종가/MA60) | 0.40 | 0.20 | 0.10 | pykrx OHLCV |
 | S2 거래량 급증 (5일 vs 60일) | 0.30 | 0.15 | 0.05 | pykrx OHLCV |
 | S3 외국인 순매수 강도 | 0.20 | 0.15 | 0.05 | pykrx 외국인 |
-| S4 실적 모멘텀 (YoY OP %) | 0.05 | 0.30 | 0.20 | DART (optional) |
-| S5 퀄리티 (ROE/FCF/부채) | 0.05 | 0.20 | 0.60 | DART (optional) |
+| S4 실적 모멘텀 (YoY OP %) | 0.05 | 0.30 | 0.20 | DART hook (follow-up) |
+| S5 퀄리티 (ROE/FCF/부채) | 0.05 | 0.20 | 0.60 | DART hook (follow-up) |
 
 각 시그널은 cross-section z-score → 0~100 scale로 정규화 후 가중 합산.
 단/중/장 bucket별 상위 10씩 선정 → 30종목.
@@ -366,12 +368,11 @@ def fetch_foreign_signal(ticker: str, target_date: date) -> float:
 def fetch_dart_signals(ticker: str, dart_api_key: Optional[str]) -> tuple[float, float]:
     """DART OpenAPI를 통한 (earnings_raw, quality_raw).
 
-    DART 키가 없으면 둘 다 0 반환. 본 함수는 향후 DART OpenAPI 호출 hook —
-    실 구현은 별도 task. 현재는 stub으로 placeholder를 유지하여 pipeline 흐름만
-    검증한다. T7e.8 후속 또는 S7a Tier 1 단계에서 채움.
+    본 함수는 향후 DART OpenAPI 호출 hook이다. 키 유무와 무관하게 현재는
+    둘 다 0 반환하여 pipeline 흐름만 검증한다. DART 실 구현은 T7e.8 follow-up
+    또는 S7a Tier 1 단계에서 채운다.
     """
-    if not dart_api_key:
-        return 0.0, 0.0
+    _ = (ticker, dart_api_key)
     # TODO(T7e.8 follow-up):
     #   1) DART 단일회사 전체 재무제표 OpenAPI (/api/fnlttSinglAcntAll)
     #   2) 최근 4분기 영업이익 YoY → earnings_raw
@@ -438,14 +439,43 @@ def select_top_per_bucket(
 ) -> dict[str, list[tuple[StockSignal, float]]]:
     """각 bucket별 (1) compose_score 계산 → (2) 후보 50 정렬 → (3) 상위 10 선정.
 
-    bucket 간 ticker 중복은 허용 (한 종목이 단/중/장에 동시 진입 가능).
+    DB UNIQUE(month, ticker) 계약상 한 ticker는 한 bucket에만 들어갈 수 있다.
+    앞 bucket에서 이미 선정된 ticker는 뒤 bucket에서 제외하고 다음 후보로 backfill한다.
     """
+    used_tickers: set[str] = set()
     result: dict[str, list[tuple[StockSignal, float]]] = {}
     for bucket in BUCKETS:
         scored = [(s, compose_bucket_score(s, bucket)) for s in signals]
         scored.sort(key=lambda t: t[1], reverse=True)
         pool = scored[:CANDIDATE_POOL_PER_BUCKET]
-        result[bucket] = pool[:TOP_K_PER_BUCKET]
+        picks: list[tuple[StockSignal, float]] = []
+
+        for s, score in pool:
+            if s.ticker in used_tickers:
+                continue
+            picks.append((s, score))
+            used_tickers.add(s.ticker)
+            if len(picks) == TOP_K_PER_BUCKET:
+                break
+
+        # 후보 50 안에서 중복이 많아 10개를 못 채우는 극단 상황 대비.
+        # 운영 universe는 충분히 크지만, --universe-limit 디버깅에서도 실패 원인을 명확히 한다.
+        if len(picks) < TOP_K_PER_BUCKET:
+            for s, score in scored[CANDIDATE_POOL_PER_BUCKET:]:
+                if s.ticker in used_tickers:
+                    continue
+                picks.append((s, score))
+                used_tickers.add(s.ticker)
+                if len(picks) == TOP_K_PER_BUCKET:
+                    break
+
+        if len(picks) < TOP_K_PER_BUCKET:
+            raise ValueError(
+                f"{bucket} bucket을 {TOP_K_PER_BUCKET}개로 채우지 못했습니다 "
+                f"(선정 {len(picks)}개). universe를 늘리세요."
+            )
+
+        result[bucket] = picks
     return result
 
 
@@ -489,7 +519,7 @@ def build_summary(s: StockSignal, bucket: str, composite: float, dart_available:
     if dart_available:
         parts.append(f"실적 {s.earnings:.0f} · 퀄리티 {s.quality:.0f}")
     else:
-        parts.append("실적·퀄리티 시그널은 DART 키 발급 시 채워짐")
+        parts.append("실적·퀄리티 시그널은 DART 연동 후 채워짐")
     parts.append("AI 분석 대기 중")
     return " | ".join(parts)
 
@@ -519,7 +549,7 @@ def build_rows(
                 delta_status="hold" if is_hold else "new",
                 delta_reason="전월 유지" if is_hold else "Tier 0 신규 진입",
                 summary_3line=build_summary(s, bucket, composite, dart_available),
-                suggested_weight=round(1.0 / TOP_K_PER_BUCKET, 4),  # 균등 분배 placeholder
+                suggested_weight=1.0 / (TOP_K_PER_BUCKET * len(BUCKETS)),
             ))
     return rows
 
@@ -548,6 +578,38 @@ def row_to_db_dict(row: ShortListRow) -> dict:
     }
 
 
+def validate_shortlist_rows(rows: list[ShortListRow]) -> None:
+    """T7e.8 shape contract: exactly 30 rows, 10 per bucket, unique (month,ticker)."""
+    bucket_counts = {bucket: 0 for bucket in BUCKETS}
+    seen: set[tuple[str, str]] = set()
+    duplicates: list[tuple[str, str]] = []
+    months = {row.month for row in rows}
+    for row in rows:
+        if row.bucket not in bucket_counts:
+            raise ValueError(f"알 수 없는 bucket입니다: {row.bucket}")
+        bucket_counts[row.bucket] += 1
+        key = (row.month, row.ticker)
+        if key in seen:
+            duplicates.append(key)
+        seen.add(key)
+
+    if len(months) != 1:
+        raise ValueError(f"한 번의 seed payload에는 하나의 month만 허용됩니다: {sorted(months)}")
+    if duplicates:
+        raise ValueError(f"중복 ticker payload가 감지되었습니다: {duplicates[:5]}")
+
+    expected_total = TOP_K_PER_BUCKET * len(BUCKETS)
+    if len(rows) != expected_total:
+        raise ValueError(f"Short List row 수가 {expected_total}개가 아닙니다: {len(rows)}개")
+
+    bad_buckets = {
+        bucket: count for bucket, count in bucket_counts.items()
+        if count != TOP_K_PER_BUCKET
+    }
+    if bad_buckets:
+        raise ValueError(f"bucket별 {TOP_K_PER_BUCKET}개 계약 위반: {bad_buckets}")
+
+
 def write_csv(path: str, rows: list[ShortListRow]) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -558,15 +620,16 @@ def write_csv(path: str, rows: list[ShortListRow]) -> None:
 
 
 def upsert_supabase(supabase, rows: list[ShortListRow]) -> None:
-    """UNIQUE(month, ticker) on_conflict 기반 idempotent upsert.
+    """현재 month를 latest 30 rows로 교체한다.
 
-    bucket 중복 진입(단/중/장 동일 ticker)은 (month, ticker) UNIQUE에 막혀
-    하나만 살아남는다 → bucket 우선순위: short > mid > long.
+    단순 upsert만 하면 같은 month 재실행 시 이전 실행에서 빠진 ticker가 stale row로
+    남을 수 있다. 수동 seed + CSV 백업 전제에서는 month 단위 delete → insert가
+    가장 명확한 set-based idempotency다.
     """
-    # bucket 우선순위 정렬 (UNIQUE에 의해 마지막 적재된 row가 남음 → 역순으로 INSERT)
-    bucket_priority = {"long": 0, "mid": 1, "short": 2}
-    rows_sorted = sorted(rows, key=lambda r: bucket_priority.get(r.bucket, 0))
-    payload = [row_to_db_dict(r) for r in rows_sorted]
+    validate_shortlist_rows(rows)
+    month = rows[0].month
+    payload = [row_to_db_dict(r) for r in rows]
+    supabase.table("short_list_30").delete().eq("month", month).execute()
     (
         supabase.table("short_list_30")
         .upsert(payload, on_conflict="month,ticker")
@@ -600,12 +663,17 @@ def main() -> None:
     print(f"      → {len(universe)}개 종목", file=sys.stderr, flush=True)
 
     dart_key = os.environ.get("DART_API_KEY")
-    dart_available = bool(dart_key)
-    if not dart_available:
-        print("[warn] DART_API_KEY 없음 — 실적/퀄리티 시그널은 0 처리 (장기 bucket 의미 약화)",
+    dart_available = False
+    if dart_key:
+        print("[warn] DART_API_KEY가 있지만 DART Signal 4·5 hook은 아직 미구현입니다 "
+              "— 실적/퀄리티 시그널은 0 처리 (T7e.8 follow-up)",
+              file=sys.stderr)
+    else:
+        print("[warn] DART Signal 4·5 hook 미구현 — 실적/퀄리티 시그널은 0 처리 "
+              "(장기 bucket 의미 약화)",
               file=sys.stderr)
 
-    print(f"[2/6] per-ticker signals (pykrx OHLCV + 외국인 + DART) — {len(universe)}회 호출, 수 분 소요 ...",
+    print(f"[2/6] per-ticker signals (pykrx OHLCV + 외국인 + DART hook) — {len(universe)}회 호출, 수 분 소요 ...",
           file=sys.stderr, flush=True)
     signals: list[StockSignal] = []
     for i, u in enumerate(universe, start=1):
@@ -646,13 +714,14 @@ def main() -> None:
         supabase = None
 
     rows = build_rows(selections, args.month, prior_tickers, dart_available)
+    validate_shortlist_rows(rows)
 
     print(f"[6/6] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
     write_csv(args.csv_backup, rows)
 
     if args.apply:
         assert supabase is not None
-        print(f"      upsert → short_list_30 ({len(rows)} rows, on_conflict=month,ticker)",
+        print(f"      replace month rows → short_list_30 ({len(rows)} rows, on_conflict=month,ticker)",
               file=sys.stderr, flush=True)
         upsert_supabase(supabase, rows)
         print(f"[done] applied · month={args.month} · rows={len(rows)} · bucket dist short/mid/long="

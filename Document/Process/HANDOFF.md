@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-12 (42차 — T7e.8 인프라 박제: 마이그 0012 적용 ✅ + `scripts/screen_shortlist_tier0.py` 작성 ✅ + admin-shortlist transformer 새 컬럼 read ✅ · Tier 0 실 시드는 venv+pykrx+DART 키 사용자 측 세팅 후 수동 실행)
+Last updated: 2026-05-12 (42차 검증 후속 — T7e.8 인프라 박제 검증: 마이그 0012 적용 ✅ + `scripts/screen_shortlist_tier0.py` bucket 중복 제거/guard 보강 + admin-shortlist transformer 새 컬럼 read ✅ · Tier 0 실 시드는 venv+pykrx 사용자 측 세팅 후 수동 실행)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,7 +15,7 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자에게 별도 지시가 없으면 **§2.A T7e.8 Tier 0 Python 실 시드**(사용자 측 venv+pykrx+DART 키 세팅 후 수동 실행)를 안내하거나 후속 **§2.B T7e.7 RLS 수동 QA**를 제안한다.
+- 사용자에게 별도 지시가 없으면 **§2.A T7e.8 Tier 0 Python 실 시드**(사용자 측 venv+pykrx 세팅 후 수동 실행)를 안내하거나 후속 **§2.B T7e.7 RLS 수동 QA**를 제안한다.
 - Supabase MCP가 필요하면 세션 초반 OAuth 재인증이 필요할 수 있다: `mcp__supabase__authenticate` → 브라우저 Authorize.
 - 42차에 마이그 0012(name/sector ALTER TABLE) 적용 + `scripts/screen_shortlist_tier0.py`(Tier 0 인디케이터 자동 스크리닝) + `admin-shortlist.ts` transformer 새 컬럼 read 박제. 2 commit으로 분리(`50a96b2 feat(T7e.8): migration 0012` · 후속 `feat(T7e.8): scripts + transformer wiring`).
 
@@ -63,7 +63,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - ✅ 마이그 0012 `short_list_30_name_sector` production 적용(`20260512000451`).
 - ✅ `scripts/screen_shortlist_tier0.py` 작성 — argparse + lazy import + 5-Signal × 시간대별 가중치 + idempotent UPSERT + delta_status hold/new.
 - ✅ `src/lib/data/admin-shortlist.ts` SELECT/transformer가 새 `name`/`sector` 컬럼을 우선 read (tickerMeta fallback 유지).
-- ⏸ 실 30종목 시드 = 사용자 측 venv + pykrx + (optional) DART 키 + service_role 환경변수 세팅 후 수동 실행.
+- ⏸ 실 30종목 시드 = 사용자 측 venv + pykrx + service_role 환경변수 세팅 후 수동 실행. DART Signal 4·5는 hook만 있고 실 산출은 후속(T7e.8 follow-up/S7a)으로 둔다.
 
 **사용자 측 1회 실행 절차**:
 ```bash
@@ -75,7 +75,7 @@ pip install pykrx supabase requests
 # 환경변수 (.env 또는 export)
 export SUPABASE_URL="https://rbrpcynhphrpljbjirfo.supabase.co"
 export SUPABASE_SERVICE_ROLE_KEY="…"
-export DART_API_KEY="…"    # (optional) 없으면 Signal 4·5 = 0 + 경고
+# DART_API_KEY는 현재 미사용 hook. Signal 4·5는 0 처리 + 경고.
 
 # 1) dry-run (Supabase write 없음, CSV + stdout 미리보기)
 mkdir -p scripts/out
@@ -94,7 +94,7 @@ python3 scripts/screen_shortlist_tier0.py \
 **전제**:
 - 로컬 Python venv (Homebrew Python 3.14 PEP 668 제약 → `python3 -m venv scripts/.venv`)
 - Supabase service_role 키 (anon 키로는 RLS에 막힘 — admin allow policy도 service_role 우회 필요)
-- DART OpenAPI key (재무 데이터). 없으면 Signal 4·5 = 0으로 평탄해져 장기 bucket이 거의 동점이 됨. 단·중기 bucket은 정상 작동.
+- DART Signal 4·5는 현재 hook만 있고 실 구현 전까지 0으로 평탄해져 장기 bucket이 거의 동점이 됨. 단·중기 bucket은 정상 작동. DART OpenAPI 실 재무 산출은 T7e.8 follow-up 또는 S7a에서 구현.
 - `admin_emails` 3 row 확인 (32차 INSERT 완료)
 - 마이그 0012 production 적용 (42차 ✅)
 
@@ -180,7 +180,7 @@ python3 scripts/screen_shortlist_tier0.py \
 
 ## 6. 최근 완료 요약
 
-- **42차 T7e.8 인프라**: 마이그 0012 적용(`20260512000451 short_list_30_name_sector`) + `scripts/screen_shortlist_tier0.py` 작성(5-Signal Composite × 시간대별 가중치 short=0.4/0.3/0.2/0.05/0.05 → mid=0.2/0.15/0.15/0.3/0.2 → long=0.1/0.05/0.05/0.2/0.6, z-score → 0~100 normalize, 단/중/장 후보 50→top 10×3=30, idempotent UPSERT on_conflict=`month,ticker`, bucket 우선순위 정렬 long→short, 전월 비교로 delta_status hold/new) + `admin-shortlist.ts` transformer가 `row.name?.trim() || meta?.name || row.ticker` 3단 precedence로 새 컬럼 우선 read. 신규 Vitest 2 (DB 컬럼 우선 + 빈 문자열 fallback). 검증: build 25 routes · lint 0 · test:ci **384/49** (이전 381/49 +3). 분리 2 commit: `50a96b2 feat(T7e.8): migration 0012 short_list_30 name/sector columns` + 후속 `feat(T7e.8): scripts/screen_shortlist_tier0.py + transformer wiring`. **실 30종목 시드는 사용자 측 venv+pykrx+DART 키 세팅 후 수동 1회 실행 대기**.
+- **42차 T7e.8 인프라**: 마이그 0012 적용(`20260512000451 short_list_30_name_sector`) + `scripts/screen_shortlist_tier0.py` 작성(5-Signal Composite × 시간대별 가중치 short=0.4/0.3/0.2/0.05/0.05 → mid=0.2/0.15/0.15/0.3/0.2 → long=0.1/0.05/0.05/0.2/0.6, z-score → 0~100 normalize, 단/중/장 후보 50→top 10×3=30, bucket 간 ticker 중복 제거 후 backfill, idempotent UPSERT on_conflict=`month,ticker`, 전월 비교로 delta_status hold/new) + `admin-shortlist.ts` transformer가 `row.name?.trim() || meta?.name || row.ticker` 3단 precedence로 새 컬럼 우선 read. 신규 Vitest 2 (DB 컬럼 우선 + 빈 문자열 fallback). **검증 후속**: 중복 ticker가 Postgres upsert 계약을 깨는 root cause를 발견해 dedupe/backfill + duplicate payload guard + `scripts/test_screen_shortlist_tier0.py` 2 tests 추가. DART Signal 4·5는 키가 있어도 실 산출이 아니므로 false-positive를 막기 위해 “미구현 hook/0 처리”로 경고·문서 정정. 검증: build 25 routes · lint 0 · test:ci **384/49** (이전 381/49 +3). 분리 2 commit: `50a96b2 feat(T7e.8): migration 0012 short_list_30 name/sector columns` + 후속 `feat(T7e.8): scripts/screen_shortlist_tier0.py + transformer wiring`. **실 30종목 시드는 사용자 측 venv+pykrx 세팅 후 수동 1회 실행 대기**.
 - **41차 박제 사전**: T7e.5(39차) + T7e.6 follow-up(40차) 미커밋 변경을 `6dd7f01 feat(T7e.5)` · `83ee4e7 fix(T7e.6)` 2개 commit으로 분리 박제. 41차 자체는 문서 박제 only.
 - **40차 T7e.6**: access-logs/performance/decision-tree Supabase 전환. 3개 mock 파일 삭제 + 3개 신규 data layer (`admin-access-logs.ts` boundary stub, `admin-performance.ts` summary/monthly/bucket/counterfactual, `admin-decision-tree.ts` snapshot). pinned decisions: access-logs `[]` + BL-20 영구 비활성, counterfactual `null` + D11/S9 deferred. 신규 마이그 0건 (단일 SoT = `portfolio_snapshot` + `src/lib/performance/*` 순수 로직). `/admin/track-record`·`/admin/decision-tree`·`/admin/portfolio` 페이지+actions 갱신. test:ci 381/49 (+19/+3, consistency assertion 1개 제거 반영). 4-gate 모두 clean.
 - **39차 T7e.5**: `regen_counter` Supabase 실 I/O. `src/lib/data/admin-regen-counters.ts` 신규(transformer + computeNextMonthResetAt + getRegenCounter SELECT + incrementManualRegenCount 4단계 CAS). 신규 마이그/RPC 0건 — 마이그 0005의 UNIQUE/CHECK + Postgres 행 잠금이 race를 차단. `regenerate/page.tsx`+`actions.ts`+`regenerate-panel.tsx` 갱신 + `mock-admin-regen-counters.ts` 삭제 + `formatErrorMessage()` 한국어 8종. test:ci 362/46 (+17/+1).
