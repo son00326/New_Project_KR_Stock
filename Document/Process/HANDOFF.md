@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-08 (41차 — T7e.7/T7e.8 순서 박제 + name/sector (a) ALTER TABLE 결정 + 마이그 0012 승격 · 코드 변경 0건)
+Last updated: 2026-05-12 (42차 — T7e.8 인프라 박제: 마이그 0012 적용 ✅ + `scripts/screen_shortlist_tier0.py` 작성 ✅ + admin-shortlist transformer 새 컬럼 read ✅ · Tier 0 실 시드는 venv+pykrx+DART 키 사용자 측 세팅 후 수동 실행)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,9 +15,9 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자에게 별도 지시가 없으면 **§2.A T7e.8 Tier 0 Python seed**(1순위) 또는 후속 **§2.B T7e.7 RLS 수동 QA**를 제안/진행한다.
+- 사용자에게 별도 지시가 없으면 **§2.A T7e.8 Tier 0 Python 실 시드**(사용자 측 venv+pykrx+DART 키 세팅 후 수동 실행)를 안내하거나 후속 **§2.B T7e.7 RLS 수동 QA**를 제안한다.
 - Supabase MCP가 필요하면 세션 초반 OAuth 재인증이 필요할 수 있다: `mcp__supabase__authenticate` → 브라우저 Authorize.
-- 41차에 T7e.5(39차) + T7e.6 follow-up(40차) 변경을 2개 커밋으로 분리 박제 완료(`6dd7f01` `feat(T7e.5)` · `83ee4e7` `fix(T7e.6)`). 현재 작업트리는 clean(`docs/superpowers/plans/`는 의도적 미추적).
+- 42차에 마이그 0012(name/sector ALTER TABLE) 적용 + `scripts/screen_shortlist_tier0.py`(Tier 0 인디케이터 자동 스크리닝) + `admin-shortlist.ts` transformer 새 컬럼 read 박제. 2 commit으로 분리(`50a96b2 feat(T7e.8): migration 0012` · 후속 `feat(T7e.8): scripts + transformer wiring`).
 
 ---
 
@@ -27,14 +27,14 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 |---|---|
 | Mock Skeleton | ✅ S0~S6 · Must 19/19 mock 동작 |
 | DQ-7 Admin Credential | 🟢 ~97% · Smoke #4/#5 + Session 4 QA 잔여 · Smoke #3(Binance)은 S8까지 유예 |
-| S7e Supabase 실 I/O | 🟢 **6/8 완료** — T7e.1~T7e.6 ✅, T7e.7~8 잔여 |
-| 실데이터 Must | 0/19 · shortlist/reports/committee/approval SELECT·INSERT 통로 + regen_counter CAS + performance/decision-tree(snapshot 단일 SoT) 통로는 열렸지만 DB seed 전 |
+| S7e Supabase 실 I/O | 🟢 **7/8 완료** — T7e.1~T7e.6 ✅ + T7e.8 인프라 ✅(마이그 0012 + Python 스크립트), Tier 0 실 시드 venv 대기 + T7e.7 RLS QA 잔여 |
+| 실데이터 Must | 0/19 · DB 통로 + name/sector 컬럼 + Tier 0 시드 스크립트 박제 완료, **실 30종목 시드 사용자 venv 후 1+/19** |
 | 실 AI 호출 | 0 · Anthropic key 전까지 Tier 0만 가능 |
 | 자동매매/S9 | S8 미착수 · 운용 검증 0일 |
 | Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
-| Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 적용 · 다음 마이그 번호는 기본 **0011** (BL-KRIT-8 S8 자동매매 보존) |
-| 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **381 pass / 49 files** · `tsc --noEmit` 0 |
-| Git | HEAD `83ee4e7` · origin/main ahead 17 · 작업트리 clean |
+| Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + **0012(name/sector) 적용** · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 · 다음 마이그 번호는 기본 **0013** |
+| 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **384 pass / 49 files** · `tsc --noEmit` 0 |
+| Git | HEAD = 42차 두번째 commit (예정) · origin/main ahead 19 (예상) · 작업트리 clean(`docs/superpowers/plans/`는 의도적 미추적) |
 
 ### T7e.6까지의 필수 계약
 
@@ -57,28 +57,56 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 2. 다음 작업
 
-### A. 다음 1순위 — T7e.8 Tier 0 Python seed
+### A. 다음 1순위 — T7e.8 Tier 0 실 시드 (사용자 측 venv 실행)
 
-**목표**: 사용자 핵심 목표(D19) "진짜 코스피·코스닥 30종목 표시"를 직접 달성한다. T7e.7 RLS QA는 시드 후가 의미 있으므로(시드 부재 시 빈 UI/notFound 일관 동작이라 RLS 분기 의미 없음) 본 작업을 먼저 진행한다.
+**42차 상태**: 인프라 박제 완료 — 실 시드 1회 실행만 남음.
+- ✅ 마이그 0012 `short_list_30_name_sector` production 적용(`20260512000451`).
+- ✅ `scripts/screen_shortlist_tier0.py` 작성 — argparse + lazy import + 5-Signal × 시간대별 가중치 + idempotent UPSERT + delta_status hold/new.
+- ✅ `src/lib/data/admin-shortlist.ts` SELECT/transformer가 새 `name`/`sector` 컬럼을 우선 read (tickerMeta fallback 유지).
+- ⏸ 실 30종목 시드 = 사용자 측 venv + pykrx + (optional) DART 키 + service_role 환경변수 세팅 후 수동 실행.
 
-**산출**:
-- `scripts/screen_shortlist_tier0.py` — 로컬 Python · idempotent upsert · `--dry-run`/`--apply` · CSV 백업 · `--month YYYY-MM-01` · env 기반 Supabase 접속
-- 입력/계산: pykrx/KRX/DART → 5-Signal Composite × 시간대별 가중치 → 단/중/장 후보 50씩 → 최종 10/10/10 = 30
-- AI key 전까지 UI는 🔢 숫자 점수 + ⚪ "AI 분석 대기" placeholder
+**사용자 측 1회 실행 절차**:
+```bash
+cd /Users/yong/New_Project_KR_Stock
+python3 -m venv scripts/.venv
+source scripts/.venv/bin/activate
+pip install pykrx supabase requests
 
-**선결 결정 박제 (41차)**:
-- `short_list_30` name/sector 갭 처리 = **(a) ALTER TABLE 컬럼 추가** 채택 — DB 단일 SoT 유지, 30종목 표시 데이터 최단 경로. (b) `tickers_meta` JOIN은 향후 종목 universe 확장 시 재검토. (c) 정적 TS lookup은 S7 real-data migration 방향과 어긋나고 Python/TS 이중 갱신 위험으로 거부.
-- 마이그 번호는 **0012로 승격** (0011 슬롯은 BL-KRIT-8 S8 자동매매 보존). 별도 commit으로 분리: `feat(T7e.8): migration 0012 short_list_30 name/sector columns`.
+# 환경변수 (.env 또는 export)
+export SUPABASE_URL="https://rbrpcynhphrpljbjirfo.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="…"
+export DART_API_KEY="…"    # (optional) 없으면 Signal 4·5 = 0 + 경고
+
+# 1) dry-run (Supabase write 없음, CSV + stdout 미리보기)
+mkdir -p scripts/out
+python3 scripts/screen_shortlist_tier0.py \
+  --month 2026-05-01 \
+  --dry-run \
+  --csv-backup scripts/out/short_list_30_2026-05_dryrun.csv
+
+# 2) CSV inspect → bucket 분포·종목명 정합성 확인 후 본 적용
+python3 scripts/screen_shortlist_tier0.py \
+  --month 2026-05-01 \
+  --apply \
+  --csv-backup scripts/out/short_list_30_2026-05.csv
+```
 
 **전제**:
-- 로컬 Python venv (Homebrew Python 3.14 PEP 668 제약 → `python3 -m venv .venv`) + `pykrx` 의존성 설치
-- Supabase service_role/anon 키 + `.env` (스크립트는 env 우선 읽기)
-- DART OpenAPI key (재무 데이터). Naver 뉴스는 S7b에서 사용 — T7e.8 본 작업은 가격·재무 중심.
+- 로컬 Python venv (Homebrew Python 3.14 PEP 668 제약 → `python3 -m venv scripts/.venv`)
+- Supabase service_role 키 (anon 키로는 RLS에 막힘 — admin allow policy도 service_role 우회 필요)
+- DART OpenAPI key (재무 데이터). 없으면 Signal 4·5 = 0으로 평탄해져 장기 bucket이 거의 동점이 됨. 단·중기 bucket은 정상 작동.
 - `admin_emails` 3 row 확인 (32차 INSERT 완료)
+- 마이그 0012 production 적용 (42차 ✅)
 
-**기록**
-- 진행은 `Document/Build/Slices/S7-RealData.md` T7e.8 task 체크리스트.
-- 마이그 0012 적용은 `mcp__supabase__apply_migration`. 적용 후 `list_migrations` 검증.
+**실 시드 후 검증**:
+- `mcp__supabase__execute_sql`로 `select bucket, count(*) from short_list_30 where month='2026-05-01' group by bucket;` → short/mid/long 각 10 row 확인.
+- `npm run dev` → `/admin` 홈에서 진짜 종목명·섹터 노출 확인 (D19 운용 검증 핵심).
+- delta_status는 첫 회는 모두 `new` (전월 row 없음). 둘째 달부터 hold/new 분포 형성.
+
+**스코프 제외 (T7e.8 follow-up)**:
+- `removed` delta 처리 — `rank int NOT NULL` 제약 + sentinel 정책 미정.
+- 자동 cron 등록 — 월 1회 수동 실행 가정.
+- 14섹터 KRX 산업분류 매핑 — 현재는 "코스피"/"코스닥" 시장 fallback.
 
 ### B. 후속 — T7e.7 RLS 브라우저 수동 QA
 
@@ -152,6 +180,8 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 최근 완료 요약
 
+- **42차 T7e.8 인프라**: 마이그 0012 적용(`20260512000451 short_list_30_name_sector`) + `scripts/screen_shortlist_tier0.py` 작성(5-Signal Composite × 시간대별 가중치 short=0.4/0.3/0.2/0.05/0.05 → mid=0.2/0.15/0.15/0.3/0.2 → long=0.1/0.05/0.05/0.2/0.6, z-score → 0~100 normalize, 단/중/장 후보 50→top 10×3=30, idempotent UPSERT on_conflict=`month,ticker`, bucket 우선순위 정렬 long→short, 전월 비교로 delta_status hold/new) + `admin-shortlist.ts` transformer가 `row.name?.trim() || meta?.name || row.ticker` 3단 precedence로 새 컬럼 우선 read. 신규 Vitest 2 (DB 컬럼 우선 + 빈 문자열 fallback). 검증: build 25 routes · lint 0 · test:ci **384/49** (이전 381/49 +3). 분리 2 commit: `50a96b2 feat(T7e.8): migration 0012 short_list_30 name/sector columns` + 후속 `feat(T7e.8): scripts/screen_shortlist_tier0.py + transformer wiring`. **실 30종목 시드는 사용자 측 venv+pykrx+DART 키 세팅 후 수동 1회 실행 대기**.
+- **41차 박제 사전**: T7e.5(39차) + T7e.6 follow-up(40차) 미커밋 변경을 `6dd7f01 feat(T7e.5)` · `83ee4e7 fix(T7e.6)` 2개 commit으로 분리 박제. 41차 자체는 문서 박제 only.
 - **40차 T7e.6**: access-logs/performance/decision-tree Supabase 전환. 3개 mock 파일 삭제 + 3개 신규 data layer (`admin-access-logs.ts` boundary stub, `admin-performance.ts` summary/monthly/bucket/counterfactual, `admin-decision-tree.ts` snapshot). pinned decisions: access-logs `[]` + BL-20 영구 비활성, counterfactual `null` + D11/S9 deferred. 신규 마이그 0건 (단일 SoT = `portfolio_snapshot` + `src/lib/performance/*` 순수 로직). `/admin/track-record`·`/admin/decision-tree`·`/admin/portfolio` 페이지+actions 갱신. test:ci 381/49 (+19/+3, consistency assertion 1개 제거 반영). 4-gate 모두 clean.
 - **39차 T7e.5**: `regen_counter` Supabase 실 I/O. `src/lib/data/admin-regen-counters.ts` 신규(transformer + computeNextMonthResetAt + getRegenCounter SELECT + incrementManualRegenCount 4단계 CAS). 신규 마이그/RPC 0건 — 마이그 0005의 UNIQUE/CHECK + Postgres 행 잠금이 race를 차단. `regenerate/page.tsx`+`actions.ts`+`regenerate-panel.tsx` 갱신 + `mock-admin-regen-counters.ts` 삭제 + `formatErrorMessage()` 한국어 8종. test:ci 362/46 (+17/+1).
 - **38차 후속 fix**: `portfolio-panel.tsx` 신규 에러 코드 3종 한국어 매핑 추가, `resolveRealEntryPrice()` TODO 마커 추가, test:ci 345/45.

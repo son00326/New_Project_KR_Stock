@@ -5,3 +5,8 @@ node_modules/
 .omc/
 .vercel/
 .playwright-mcp/
+
+# T7e.8 Python scripts (venv·byte-compile·시드 CSV는 git 무시)
+scripts/.venv/
+scripts/__pycache__/
+scripts/out/

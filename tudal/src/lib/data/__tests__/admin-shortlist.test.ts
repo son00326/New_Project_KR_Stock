@@ -63,6 +63,30 @@ describe("transformShortListRow", () => {
     expect(item.sector).toBe("반도체");
   });
 
+  it("prefers row.name and row.sector from DB columns (마이그 0012) over meta", () => {
+    const rowWithMeta: ShortListDbRow = {
+      ...baseRow,
+      name: "삼성전자",
+      sector: "반도체",
+    };
+    const meta = { "005930": { name: "WRONG", sector: "WRONG" } };
+    const item = transformShortListRow(rowWithMeta, meta);
+    expect(item.name).toBe("삼성전자");
+    expect(item.sector).toBe("반도체");
+  });
+
+  it("falls back to tickerMeta when row.name/sector is empty string (마이그 0012)", () => {
+    const rowWithEmpty: ShortListDbRow = {
+      ...baseRow,
+      name: "  ",
+      sector: "",
+    };
+    const meta = { "005930": { name: "삼성전자", sector: "반도체" } };
+    const item = transformShortListRow(rowWithEmpty, meta);
+    expect(item.name).toBe("삼성전자");
+    expect(item.sector).toBe("반도체");
+  });
+
   it("handles null scores and labels gracefully", () => {
     const sparseRow: ShortListDbRow = {
       ...baseRow,

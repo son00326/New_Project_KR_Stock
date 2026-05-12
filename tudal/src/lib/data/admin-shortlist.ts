@@ -9,6 +9,9 @@ export interface ShortListDbRow {
   id: string;
   month: string;
   ticker: string;
+  // 마이그 0012 (T7e.8) 추가 — Tier 0 Python seed가 채우는 컬럼. 시드 전 기존 row는 null.
+  name?: string | null;
+  sector?: string | null;
   bucket: BucketKind;
   rank: number;
   composite_score: string | number | null;
@@ -30,12 +33,9 @@ export interface ShortListDelta {
   removedCount: number;
 }
 
-// T7e.2 갭 — short_list_30 스키마는 ticker만 보관(name·sector 컬럼 없음).
-// 본 transformer는 fallback (name=ticker · sector="미분류") 또는 외부 lookup 사용.
-// T7e.8 prep (B-1 Python 스크립트) 단계에서 둘 중 하나로 해소 예정:
-//   (a) short_list_30 ALTER TABLE로 name/sector 컬럼 추가 (마이그 0011 충돌 시 0012)
-//   (b) 별도 tickers_meta 테이블 + JOIN
-//   (c) 정적 lookup TS 파일 (Python 스크립트가 함께 갱신)
+// T7e.8(41차) — short_list_30에 name/sector 컬럼 추가 완료 (마이그 0012, (a) 채택).
+// row.name / row.sector가 채워져 있으면 우선 사용, 비어있으면 tickerMeta fallback,
+// 둘 다 없으면 기존 (name=ticker · sector="미분류") placeholder.
 export type TickerMetaLookup = Record<string, { name: string; sector: string }>;
 
 function num(v: string | number | null | undefined): number {
@@ -90,12 +90,14 @@ export function transformShortListRow(
     row.delta_status,
   );
 
+  const rowName = row.name?.trim();
+  const rowSector = row.sector?.trim();
   return {
     id: row.id,
     month: row.month,
     ticker: row.ticker,
-    name: meta?.name ?? row.ticker,
-    sector: meta?.sector ?? "미분류",
+    name: rowName || meta?.name || row.ticker,
+    sector: rowSector || meta?.sector || "미분류",
     bucket: row.bucket,
     rank: row.rank,
     compositeScore,
@@ -140,7 +142,7 @@ export async function getActiveShortList(
   let query = client
     .from("short_list_30")
     .select(
-      "id, month, ticker, bucket, rank, composite_score, trend_score, momentum_score, volatility_score, signal_label, delta_status, delta_reason, summary_3line, suggested_weight, created_at",
+      "id, month, ticker, name, sector, bucket, rank, composite_score, trend_score, momentum_score, volatility_score, signal_label, delta_status, delta_reason, summary_3line, suggested_weight, created_at",
     );
 
   if (options?.month) {
