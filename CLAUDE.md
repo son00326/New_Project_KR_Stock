@@ -33,12 +33,12 @@ Mock Skeleton ✅
        ├ T7e.4 approvals/snapshots 실 I/O + race ✅ (38차)
        ├ T7e.5 regen-counters CAS race-safe ✅ (39차)
        ├ T7e.6 access-logs/performance/decision-tree ✅ (40차)
-       ├ T7e.8 Tier 0 인디케이터 (마이그 0012 name/sector + 0013 dart_corp_codes + 0014 dart_financial_cache · `short_list_30` 2026-05-01 30 rows production 적용 · DART 실 standalone/quality 기반 Signal 4·5) ✅ (41~45차)
-       └ T7e.7 RLS 브라우저 수동 QA  ← 다음 1순위 (45차 박제 직후)
-  → S7a (Anthropic wrapper) ── AI 키 발급(사용자 액션 B-6) 시 Tier 1·2 plug-in
+       └ T7e.8 Tier 0 인디케이터 (마이그 0012 name/sector + 0013 dart_corp_codes + 0014 dart_financial_cache · `short_list_30` 2026-05-01 30 rows production 적용 · DART 실 standalone/quality 기반 Signal 4·5) ✅ (41~45차)
+  → S7a (Anthropic wrapper) ── ★ 다음 1순위 (45차 박제 직후) · 선행 조건 = AI 키 발급(사용자 액션 B-6)
        · D19 Tier 1 Core 11 페르소나 평가 + Tier 2 Sector Board 14×10
        · D20 Section 8 위원 전원 표 (Sector 14 + Core 11 한 줄 의견 + 쟁점 인용 + 최종 합의 패널) · 박제 45차
        · 마이그 0015 이후 — `short_list_30` ai_score/ai_comment/consensus_badge 추가 (잠정)
+       · T7e.7 RLS 브라우저 수동 QA는 S7a 진행 중 병행 또는 D11 운용 검증 직전 마무리 (1시간 안짝 수동)
   → S7b (뉴스+브리핑)
   → ★ D11 AI 가상 포트 1차 가동 (KIS 0개 · Tier 0 단독 가능 · Tier 1·2 키 있으면 plug-in)
     어드민 3인 운용 검증 며칠~1주 (실 종목 30개 + 합의 배지 + AI 코멘트 검증)

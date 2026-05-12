@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-12 (45차 — T7e.8 follow-up **production 적용 ✅** + D20 Section 8 위원 전원 표 박제 ✅ · 다음 1순위 = §2.A T7e.7 RLS 수동 QA → 후속 §2.B S7a Anthropic wrapper)
+Last updated: 2026-05-12 (45차 — T7e.8 follow-up **production 적용 ✅** + D20 Section 8 위원 전원 표 박제 ✅ · 다음 1순위 = §2.A **S7a Anthropic wrapper + Tier 1·2 plug-in** → 후속 §2.B T7e.7 RLS 수동 QA)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,9 +15,12 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자 별도 지시가 없으면 **§2.A T7e.7 RLS 브라우저 수동 QA**로 진입. T7e.7 PASS 후 **§2.B S7a Anthropic wrapper**로 진입한다.
+- 사용자 별도 지시가 없으면 **§2.A S7a Anthropic wrapper + Tier 1·2 plug-in**으로 진입한다.
+  - **선행 확인**: Vercel env `ANTHROPIC_API_KEY` 존재 여부 → `vercel env ls`. 없으면 사용자가 `console.anthropic.com`에서 발급 → `vercel env add ANTHROPIC_API_KEY` 후 진입.
+  - S7a가 D11 가상 포트 운용 검증의 핵심 가치 (30개 카드에 페르소나 평가 + 합의 배지 + Section 8 위원 전원 표 표시). T7e.7 RLS QA는 후속이며 보안 검증 성격이라 운용 시작 전에만 마무리하면 된다.
+- **§2.B T7e.7 RLS 브라우저 수동 QA**는 S7a 진행 중 병행 또는 D11 운용 검증 직전에 마무리. 1시간 안짝 수동 작업이라 막판 일정에 영향 없음.
 - T7e.8 (DART Signal 4·5 production 적용)은 45차에 완료됨 — `short_list_30` 30 rows가 실 standalone/quality 기반 점수로 production 박제. §2.C "완료" 섹션은 참조용.
-- D20 (Section 8 위원 전원 표) 박제 완료 — Tier 1·2 구현은 S7a에서 진행. SoT: `ServicePlan-Admin §3.7 R3.7-6/7/8` + `§6 D20` + `ReportFramework §8 Step 2 v2.3`.
+- D20 (Section 8 위원 전원 표) 박제 완료 — Tier 1·2 구현이 §2.A S7a의 핵심 산출물. SoT: `ServicePlan-Admin §3.7 R3.7-6/7/8` + `§6 D20` + `ReportFramework §8 Step 2 v2.3`.
 - Supabase MCP가 필요하면 세션 초반 OAuth 재인증이 필요할 수 있다: `mcp__supabase__authenticate` → 브라우저 Authorize.
 
 ---
@@ -56,15 +59,47 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 2. 다음 작업
 
-### A. 1순위 — T7e.7 RLS 브라우저 수동 QA
+### A. 1순위 — S7a Anthropic wrapper + Tier 1·2 plug-in
 
-**목표**: T7e.6까지 boundary stub/실 I/O 통로가 9종 open 됐고 T7e.8 production 시드까지 끝났으므로, 마지막 sub-task인 RLS 정책을 브라우저에서 수동 QA한다.
+**목표**: AI 키 발급 후, Tier 0 단독 가동 중인 `short_list_30`에 **Tier 1 Core 11 페르소나 평가** + **Tier 2 Sector Board 활성화** + **합의 배지 4종** + **Section 8 위원 전원 표**를 plug-in한다. 이것이 D11 가상 포트 운용 검증의 핵심 가치이며, SoT는 D19 + D20 박제다.
+
+**진입 조건 (선행 사용자 액션)**:
+- AI 키 발급 (사용자 액션 큐 B-6): `console.anthropic.com` → API key 생성 → `vercel env add ANTHROPIC_API_KEY` (Preview + Production 양쪽). 발급 미확인 시 진입 차단.
+- `vercel env ls`로 env 등록 확인 → 재배포(`vercel deploy --prod`) → `process.env.ANTHROPIC_API_KEY` 서버 사이드 접근 검증.
+
+**박제된 SoT (직접 읽고 따라가는 순서)**:
+1. `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D19` — Tier 0/1/2 + 합의 배지 4종 + Reflection 구조 본문.
+2. `Document/Service/Planning/ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` — Section 8 정적 표 4종 박제 (Sector 14명 전원 + **Core 11 전원** + 쟁점별 인용 3~5건 + 최종 합의 패널 with Co-Chair 만장일치 여부).
+3. `Document/Service/Report/ReportFramework.md §8 Step 0~4 (v2.3)` — writer 에이전트의 작성 가이드 (Step 0=30 선정 합의 / Step 1=리서치 / Step 2=Section 0~8 작성 / Step 3=critic 검증 / Step 4=수정).
+4. `Document/Outputs/Report-Alteogen_196170_v3-Readable.md §Section 8 Part A/B/C` — Section 8 reference 양식 (Sector 10명 한 줄 의견 표 + Core Committee 쟁점 토론 + Co-Chair 최종 판정).
+
+**예상 신규 모듈/마이그**:
+- `src/lib/ai/anthropic-client.ts` — Anthropic wrapper + `cost_log` 실 INSERT (M17 hardcap 가드 활성화).
+- `src/lib/screening/persona-eval.ts` — Tier 1 Core 11 페르소나 평가 (시간대별 가중치: 단=Druckenmiller·Minervini↑ / 중=Lynch↑ / 장=Buffett·Munger·Fisher↑).
+- `src/lib/screening/sector-board.ts` — Tier 2 Sector Board 14×10 → 30종목 해당 섹터 14명만 활성화 (비용 통제).
+- `src/lib/screening/consensus.ts` — 합의 배지 4종 산출 (🟢 강한 합의 / 🔵 숫자 우세 / 🟣 AI 우세 / ⚪ AI 분석 대기).
+- 마이그 **0015 이후** — `short_list_30`에 `ai_score`·`ai_comment`·`consensus_badge` 3컬럼 추가 (잠정 — 진입 시점 재확정).
+- `stock_reports` + `committee_votes` 실 INSERT (writer 산출물 적재 — Section 0~8 jsonb + 위원 11+14 row).
+
+**D11 가상 포트 운용 검증 (S7a 후 게이트)**:
+- 어드민 3인이 며칠~1주 사용하며 30 카드 정확성 + 합의 배지 의미 + Section 8 위원 표 가독성 검증.
+- 운용 데이터 누적 후 Counterfactual·Reflection 자가학습 박스 활성화.
+
+**완료 시 다음 1순위**: §2.D 후속 시퀀스 — S7b (뉴스 + 모닝 브리핑) → 운용 검증 → S7c → S7d → S8.
+
+---
+
+### B. 후속 — T7e.7 RLS 브라우저 수동 QA (보안 검증, 1시간 안짝)
+
+**목표**: T7e.6까지 boundary stub/실 I/O 통로가 9종 open 됐고 T7e.8 production 시드까지 끝났으므로, 마지막 sub-task인 RLS 정책을 브라우저에서 수동 QA한다. **보안 검증 성격이라 시급도 낮으나, D11 가상 포트 운용 검증 시작 전에는 반드시 마무리**.
+
+**실행 시점**: S7a 진행 중 병행 (S7a 코드 작성 대기 사이) 또는 S7a 완료 후 D11 운용 검증 직전.
 
 **전제 (모두 확보됨)**:
 - `short_list_30` 2026-05-01 30 rows production 박제 (DART 실 standalone/quality 기반 Signal 4·5 반영).
 - `admin_emails` 3 row 박제 (kevin / son00326 / shjang1001 — 32차 INSERT).
 - 0013/0014 마이그 적용 완료 (`dart_corp_codes` + `dart_financial_cache` RLS 박제).
-- `stock_reports`/`committee_votes`는 시드 없음 — 리포트 상세는 `notFound()` 일관 동작 가정.
+- `stock_reports`/`committee_votes`는 S7a 이후 시드 — RLS QA 시점에는 빈 상태 또는 S7a 산출물 일부 존재.
 
 **수동 QA 항목 (5종)**:
 1. **비-어드민 redirect** — `admin_emails`에 없는 이메일 계정 → `/admin/*` 접근 → 미들웨어 redirect 확인.
@@ -74,34 +109,6 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 5. **신규 DART 테이블 RLS** — `dart_corp_codes` / `dart_financial_cache` 두 테이블도 anon SELECT 거부 + admin SELECT 통과 확인.
 
 **기록**: QA 결과 (PASS / FAIL + 재현 단계)는 `Document/Build/Slices/S7-RealData.md`에 박제. FAIL 발견 시 **0015 이후 마이그 슬롯**으로 패치 (0011은 BL-KRIT-8 S8 자동매매 보존 · 0012~0014 사용 중).
-
-**완료 시 다음 1순위**: §2.B S7a Anthropic wrapper (AI 키 발급되어 있으면 즉시, 아니면 사용자 액션 큐 B-6 대기).
-
----
-
-### B. 후속 1순위 — S7a Anthropic wrapper + Tier 1·2 plug-in
-
-**목표**: AI 키(B-6) 발급 후, Tier 0 단독 가동 중인 `short_list_30`에 Tier 1 Core 11 페르소나 평가 + Tier 2 Sector Board 활성화 + 합의 배지 + Section 8 위원 전원 표를 plug-in한다. SoT는 D19 + D20 박제.
-
-**진입 조건**:
-- AI 키 발급 (사용자 액션 큐 B-6: `console.anthropic.com` → Vercel env `ANTHROPIC_API_KEY`).
-- T7e.7 RLS QA PASS (§2.A 완료).
-
-**박제된 SoT**:
-- `ServicePlan-Admin.md §1A.5 D19` — Tier 0/1/2 + 합의 배지 4종 + Reflection 구조.
-- `ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` — Section 8 정적 표 4종 (Sector 14명 전원 + **Core 11 전원** + 쟁점 인용 3~5 + 최종 합의 패널).
-- `ReportFramework.md §8 Step 0~4 (v2.3)` — writer 에이전트 작성 가이드.
-- `Document/Outputs/Report-Alteogen_196170_v3-Readable.md §Section 8 Part A/B/C` — Section 8 reference 양식.
-
-**예상 신규 모듈/마이그**:
-- `src/lib/ai/anthropic-client.ts` (wrapper + cost_log INSERT)
-- `src/lib/screening/persona-eval.ts` (Tier 1 Core 11)
-- `src/lib/screening/sector-board.ts` (Tier 2 Sector 14)
-- `src/lib/screening/consensus.ts` (합의 배지 4종)
-- 마이그 **0015 이후** — `short_list_30`에 `ai_score`·`ai_comment`·`consensus_badge` 3컬럼 추가 (잠정, 진입 시점 재확정).
-- `stock_reports` + `committee_votes` 실 INSERT (writer 산출물 적재).
-
-**완료 시 다음 1순위**: §2.C S7b 뉴스 + 모닝 브리핑 실 연결.
 
 ---
 
@@ -117,14 +124,16 @@ T7e.8은 44~45차에 production까지 완료됐다. `short_list_30` 2026-05-01 3
 
 ---
 
-### D. 후속 슬라이스 시퀀스 (S7a 후)
+### D. 후속 슬라이스 시퀀스 (S7a · T7e.7 후)
 
 ```
-S7a (Anthropic wrapper + Tier 1·2 plug-in) → 진행 중일 때 D11 가상 포트 1차 가동 (KIS 0개)
+§2.A S7a (Anthropic wrapper + Tier 1·2 + 합의 배지 + Section 8 위원 전원 표 plug-in)
+   └ S7a 진행 중 병행: §2.B T7e.7 RLS QA (1시간 안짝 수동)
   ↓
 S7b (뉴스 + 모닝 브리핑 실 연결, Naver·Resend)
   ↓
-운용 검증 며칠~1주 (어드민 3인)
+★ D11 AI 가상 포트 1차 가동 (KIS 0개 · 어드민 3인 며칠~1주 운용 검증)
+  · 진짜 30 종목 + 🔢🤖 이중 점수 + 합의 배지 4종 + AI 코멘트 + Section 8 위원 전원 표 검증
   ↓
 S7c (장중 + KIS WS read-only, 본인 1개 KIS 필요 — B-10)
   ↓
@@ -148,7 +157,7 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 | B-3 | Smoke #4 RLS 격리 | kevin 계정으로 brokerage row 0건 확인 | DQ-7 Session 3 close |
 | B-4 | Smoke #5 대표 가드 | 친구 계정에서 Binance mainnet 라디오 403 확인 | DQ-7 Session 3 close |
 | B-5 | DQ-7 Session 4 QA | T18 manual QA 30항 + T19 security probes + review/security-review | DQ-7 최종 close |
-| B-6 | Anthropic API Key | `console.anthropic.com` 발급 → Vercel env `ANTHROPIC_API_KEY` | S7a Tier 1/2 AI plug-in (Core 11 페르소나 + 합의 배지) |
+| **B-6 ⭐최우선** | **Anthropic API Key** | `console.anthropic.com` 발급 → Vercel env `ANTHROPIC_API_KEY` (Preview + Production) + `vercel deploy --prod` 재배포 | **§2.A S7a 진입 트리거** — 발급 전 S7a 시작 불가 (Tier 1·2 + 합의 배지 + Section 8 위원 전원 표 plug-in 차단) |
 | B-7 | Resend 도메인 인증 | Resend domain + env | S7b briefing |
 | B-8 | Naver key rotate/env | 31차 노출 키 rotate 후 Vercel env | S7b news |
 | B-9 | Telegram bot | token + admin 3명 chat_id | S7c alerts |
@@ -181,12 +190,12 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 
 | 필요 정보 | 문서 |
 |---|---|
-| **§2.A T7e.7 RLS QA 결과 기록 위치** | `Document/Build/Slices/S7-RealData.md` |
-| **§2.B S7a AI 키 후 Tier 1·2 박제** | `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D19` (Tier 0/1/2 + 합의 배지 + Reflection) |
-| **§2.B S7a Section 8 위원 전원 표 박제 (D20, 45차)** | `Document/Service/Planning/ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` |
-| **§2.B S7a Section 8 writer 작성 가이드 (D20, v2.3)** | `Document/Service/Report/ReportFramework.md §8 Step 2` |
-| **§2.B S7a Section 8 reference 양식** | `Document/Outputs/Report-Alteogen_196170_v3-Readable.md §Section 8 Part A/B/C` |
-| **§2.B S7a 외 리포트 프레임 (Section 0~7 + Appendix · Core 11 + Sector 14×10 페르소나)** | `Document/Service/Report/ReportFramework.md` 전체 |
+| **§2.A S7a Tier 0/1/2 + 합의 배지 + Reflection 본문** | `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D19` |
+| **§2.A S7a Section 8 위원 전원 표 박제 (D20, 45차)** | `Document/Service/Planning/ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` |
+| **§2.A S7a Section 8 writer 작성 가이드 (D20, v2.3)** | `Document/Service/Report/ReportFramework.md §8 Step 2` |
+| **§2.A S7a Section 8 reference 양식** | `Document/Outputs/Report-Alteogen_196170_v3-Readable.md §Section 8 Part A/B/C` |
+| **§2.A S7a 외 리포트 프레임 (Section 0~7 + Appendix · Core 11 + Sector 14×10 페르소나)** | `Document/Service/Report/ReportFramework.md` 전체 |
+| **§2.B T7e.7 RLS QA 결과 기록 위치** | `Document/Build/Slices/S7-RealData.md` |
 | S7e 상세 태스크/의사결정 | `Document/Build/Slices/S7-RealData.md` |
 | 전체 진행률/변경 이력 | `Document/Build/ProgressDashboard.md` |
 | 코드 스냅샷/실 I/O 통로 9종/잔존 mock 목록 | `Document/Process/CodebaseStatus.md` |
