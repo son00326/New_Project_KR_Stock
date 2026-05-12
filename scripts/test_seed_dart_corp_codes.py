@@ -79,6 +79,21 @@ class TestParseCorpCodeXml(unittest.TestCase):
         rows = parse_corp_code_xml(xml)
         self.assertEqual(rows, [])
 
+    def test_missing_corp_cls_uses_ticker_market_map(self):
+        from scripts.seed_dart_corp_codes import parse_corp_code_xml
+
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <result>
+          <list>
+            <corp_code>00126380</corp_code>
+            <corp_name>삼성전자</corp_name>
+            <stock_code>005930</stock_code>
+          </list>
+        </result>
+        """
+        rows = parse_corp_code_xml(xml, ticker_market_map={"005930": "KOSPI"})
+        self.assertEqual(rows[0]["market"], "KOSPI")
+
 
 class TestDownloadAndUpsert(unittest.TestCase):
     def test_extract_xml_from_zip_bytes(self):

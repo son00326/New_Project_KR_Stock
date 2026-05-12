@@ -24,13 +24,14 @@ CORP_CLS_MAP = {"Y": "KOSPI", "K": "KOSDAQ", "N": "KONEX"}
 DART_CORPCODE_URL = "https://opendart.fss.or.kr/api/corpCode.xml"
 
 
-def parse_corp_code_xml(xml_text: str) -> list[dict]:
+def parse_corp_code_xml(xml_text: str, ticker_market_map: dict[str, str] | None = None) -> list[dict]:
     """Parse DART corpCode.xml into rows for dart_corp_codes.
 
     Rules:
-    - corp_cls Y/K/N -> KOSPI/KOSDAQ/KONEX
+    - corp_cls Y/K/N -> KOSPI/KOSDAQ/KONEX when present
+    - current DART corpCode.xml omits corp_cls, so ticker_market_map is the production path
     - empty stock_code -> excluded
-    - corp_cls E or unknown classes -> excluded
+    - listed tickers missing from ticker_market_map -> excluded
     """
     root = fromstring(xml_text)
     rows: list[dict] = []
@@ -39,7 +40,9 @@ def parse_corp_code_xml(xml_text: str) -> list[dict]:
         ticker = (item.findtext("stock_code") or "").strip()
         if not ticker:
             continue
-        market = CORP_CLS_MAP.get(corp_cls)
+        market = CORP_CLS_MAP.get(corp_cls) if corp_cls else None
+        if market is None and ticker_market_map is not None:
+            market = ticker_market_map.get(ticker)
         if market is None:
             continue
         rows.append({
@@ -49,6 +52,21 @@ def parse_corp_code_xml(xml_text: str) -> list[dict]:
             "market": market,
         })
     return rows
+
+
+def build_ticker_market_map() -> dict[str, str]:
+    """Build ticker -> market mapping from KRX via pykrx.
+
+    DART corpCode.xml currently provides stock_code but not corp_cls. Using KRX
+    listed ticker sets keeps the Supabase table market column accurate.
+    """
+    from pykrx import stock
+
+    mapping: dict[str, str] = {}
+    for market in ("KOSPI", "KOSDAQ", "KONEX"):
+        for ticker in stock.get_market_ticker_list(market=market):
+            mapping[ticker] = market
+    return mapping
 
 
 def download_corp_code_zip(api_key: str) -> bytes:
@@ -102,9 +120,11 @@ def main(argv: list[str] | None = None) -> int:
     zip_bytes = download_corp_code_zip(api_key)
     print(f"  {len(zip_bytes):,} bytes")
 
-    print("[2/3] XML 파싱 + 필터링 ...")
+    print("[2/3] KRX ticker market map 생성 + XML 파싱/필터링 ...")
+    ticker_market_map = build_ticker_market_map()
+    print(f"  KRX listed tickers: {len(ticker_market_map):,}")
     xml_text = extract_xml_from_zip(zip_bytes)
-    rows = parse_corp_code_xml(xml_text)
+    rows = parse_corp_code_xml(xml_text, ticker_market_map=ticker_market_map)
     print(f"  parsed rows: {len(rows):,}")
     by_market: dict[str, int] = {}
     for row in rows:
