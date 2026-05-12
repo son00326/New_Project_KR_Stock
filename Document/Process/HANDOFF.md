@@ -1,9 +1,9 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-12 (45차 — T7e.8 follow-up DART Signal 4·5 **production 적용 완료** · `short_list_30` 2026-05-01 30 rows UPSERT 검증 완료 · 다음 1순위 = §2.B T7e.7 RLS 수동 QA)
+Last updated: 2026-05-12 (45차 — T7e.8 follow-up **production 적용 ✅** + D20 Section 8 위원 전원 표 박제 ✅ · 다음 1순위 = §2.A T7e.7 RLS 수동 QA → 후속 §2.B S7a Anthropic wrapper)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
-**운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, git diff/log에 위임한다.
+**운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
 
 ---
 
@@ -15,7 +15,9 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자 별도 지시가 없으면 **§2.B T7e.7 RLS 브라우저 수동 QA**로 진입한다. T7e.8 DART Signal 4·5 production 적용은 완료 상태다.
+- 사용자 별도 지시가 없으면 **§2.A T7e.7 RLS 브라우저 수동 QA**로 진입. T7e.7 PASS 후 **§2.B S7a Anthropic wrapper**로 진입한다.
+- T7e.8 (DART Signal 4·5 production 적용)은 45차에 완료됨 — `short_list_30` 30 rows가 실 standalone/quality 기반 점수로 production 박제. §2.C "완료" 섹션은 참조용.
+- D20 (Section 8 위원 전원 표) 박제 완료 — Tier 1·2 구현은 S7a에서 진행. SoT: `ServicePlan-Admin §3.7 R3.7-6/7/8` + `§6 D20` + `ReportFramework §8 Step 2 v2.3`.
 - Supabase MCP가 필요하면 세션 초반 OAuth 재인증이 필요할 수 있다: `mcp__supabase__authenticate` → 브라우저 Authorize.
 
 ---
@@ -33,7 +35,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012(name/sector) + **0013/0014(DART cache)** 적용 · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 |
 | 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **384 pass / 49 files** · `tsc --noEmit` 0 |
-| Git | T7e.8 follow-up 코드/마이그/문서 commits 박제 완료 · 작업트리 정리는 최신 `git status` 확인 |
+| Git | 45차 박제 완료: `72019fa docs(T7e.8): record DART production apply` + `dd05ca1 docs(D20): Section 8 위원 전원 표 박제` · 작업트리 정리는 최신 `git status` 확인 · push 대기 |
 
 ### T7e.6까지의 필수 계약 (현재 적용 중)
 
@@ -54,54 +56,86 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 2. 다음 작업
 
-### A. 완료 — T7e.8 follow-up · DART Signal 4·5 production 적용
+### A. 1순위 — T7e.7 RLS 브라우저 수동 QA
 
-**목표/결과**: 원격 Supabase에 0013/0014를 적용하고 corp_code seed → DART cache fill → 2026-05 dry-run preview → 사용자 승인 → production `--apply`까지 완료했다. `short_list_30` 2026-05-01 30 rows는 DART 실 standalone/quality 기반 Signal 4·5 점수로 UPSERT됐다.
+**목표**: T7e.6까지 boundary stub/실 I/O 통로가 9종 open 됐고 T7e.8 production 시드까지 끝났으므로, 마지막 sub-task인 RLS 정책을 브라우저에서 수동 QA한다.
 
-**박제된 SoT**:
-- **Spec head**: `docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md` — base `76789dc` (D1~D13 + 보강 8건) + amend `54148af` (D14 target_quarter 공시마감 기반 / D15 not_yet_disclosed TTL / D16 account alias). 총 **16개 결정**.
-- **Plan head**: `docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` — base `18aca60` (8 Phase × 16 Task) + amend `8ddcaf6` (Blocker 6 + Major 3 fix: target_quarter Q4 + fallback chain + TTL refresh + StockSignal/ShortListRow 정정 + row_to_csv_dict 분리 + universe-limit 100 smoke + 7필드/17 columns 정정 + DART_ACCOUNT_ALIASES + probe ticker 교체 + apply log commit 제거). 총 **~40 Python unittest** 박제.
+**전제 (모두 확보됨)**:
+- `short_list_30` 2026-05-01 30 rows production 박제 (DART 실 standalone/quality 기반 Signal 4·5 반영).
+- `admin_emails` 3 row 박제 (kevin / son00326 / shjang1001 — 32차 INSERT).
+- 0013/0014 마이그 적용 완료 (`dart_corp_codes` + `dart_financial_cache` RLS 박제).
+- `stock_reports`/`committee_votes`는 시드 없음 — 리포트 상세는 `notFound()` 일관 동작 가정.
 
-**전제 (이미 갖춰진 것)**:
-- `tudal/.env.local`에 5개 env 박제됨: `NEXT_PUBLIC_SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `KRX_ID` · `KRX_PW` · `DART_API_KEY`.
-- `scripts/.venv` Python 3.14 venv + `pykrx 1.2.8` + `supabase 2.30` + `requests 2.34` 설치 완료.
-- DART API key probe 통과 (삼성전자 2024 연결재무제표 정상 fetch 검증).
-- 마이그 0012까지 production 적용. base seed `short_list_30` 2026-05-01 row 30 박제.
+**수동 QA 항목 (5종)**:
+1. **비-어드민 redirect** — `admin_emails`에 없는 이메일 계정 → `/admin/*` 접근 → 미들웨어 redirect 확인.
+2. **Cross-admin RLS 거부** — 어드민 A 계정 → 어드민 B의 `regen_counter` / `portfolio_approval` / `brokerage_connection` 행을 직접 SQL/UPDATE 시도 → RLS 거부.
+3. **Cron 가드** — `/api/cron/{monthly-batch,morning-briefing,news-sweep,silent-health}` → `Authorization: Bearer ${CRON_SECRET}` 없으면 403, 있으면 200.
+4. **Security-definer RPC 가드** — `mark_alert_read` · `raise_portfolio_dispute` · `resolve_portfolio_dispute` · `record_alert_exit_decision` → 함수 본문 `is_admin()` 가드 동작 (anon 호출은 즉시 거부).
+5. **신규 DART 테이블 RLS** — `dart_corp_codes` / `dart_financial_cache` 두 테이블도 anon SELECT 거부 + admin SELECT 통과 확인.
 
-**44~45차 구현/production 적용 완료**:
-- 신규 마이그 파일: `0013_dart_corp_codes.sql`, `0014_dart_financial_cache.sql` (+ rollback).
-- 신규 스크립트: `scripts/seed_dart_corp_codes.py` — 실제 DART `corpCode.xml`에는 `corp_cls`가 없어 KRX ticker set(pykrx)으로 market을 매핑하도록 root cause 수정. dry-run 결과 2,766 rows(KOSPI 838 / KOSDAQ 1,818 / KONEX 110).
-- 신규 모듈: `scripts/dart_signals.py` — DART account alias, CFS→OFS fallback, annual/quarterly cache, `not_yet_disclosed` TTL, standalone quarter(Q1~Q4), YoY earnings momentum, 5-metric quality, universe-wide quality composite.
-- `scripts/screen_shortlist_tier0.py` wiring — DART Signal 4·5 활성화, quality double-normalization 방지, CSV-only diagnostics(`signal_4_basis`, `quality_insufficient`) 분리.
-- 원격 Supabase 0013/0014 적용 + `dart_corp_codes` seed 완료.
-- Full dry-run preview(2026-05-01 · as-of 2026-05-11): Universe 2,345 → 후보 50/50/50 → 최종 30(10/10/10), DART cache 10,154 rows · 2,343/2,345 corps(99.9%), CFS ok 94%, CFS→OFS fallback 1,728 rows, standalone Q 환산 384 rows, signal_4_basis 30/30 standalone, quality_insufficient 30/30 False, client refresh 7회 정상.
-- 사용자 승인 후 production `--apply` 완료: 30 rows UPSERT, dry-run preview↔DB top 3 ticker/composite 일치, exit 0, RemoteProtocolError 0건.
-- 적용 CSV/log/백업: `scripts/out/tier0_2026-05_dart_apply.csv`, `scripts/out/tier0_2026-05_dart_apply.log`, `scripts/out/short_list_30_2026-05_pre_apply_backup.sql`.
-- Bucket × signal label: short=모멘텀 10, mid=실적 모멘텀 8 + 모멘텀 2, long=퀄리티 10.
-- Top 3: short HB테크놀러지/선도전기/서울바이오시스, mid 한온시스템/HD현대에너지솔루션/스피어, long 디티씨/아미노로직스/프로이천.
-- 45차 fresh 검증: Python unittest 27 pass + `npm run build && npm run lint && npm run test:ci && npx tsc --noEmit` exit 0 (test:ci 384 pass / 49 files).
+**기록**: QA 결과 (PASS / FAIL + 재현 단계)는 `Document/Build/Slices/S7-RealData.md`에 박제. FAIL 발견 시 **0015 이후 마이그 슬롯**으로 패치 (0011은 BL-KRIT-8 S8 자동매매 보존 · 0012~0014 사용 중).
 
-**완료 후 다음 1순위**: §2.B T7e.7 RLS 수동 QA.
+**완료 시 다음 1순위**: §2.B S7a Anthropic wrapper (AI 키 발급되어 있으면 즉시, 아니면 사용자 액션 큐 B-6 대기).
 
 ---
 
-### B. 1순위 — T7e.7 RLS 브라우저 수동 QA
+### B. 후속 1순위 — S7a Anthropic wrapper + Tier 1·2 plug-in
 
-**목표**: T7e.8 follow-up production 적용이 완료됐으므로, kevin / son00326 / shjang1001 3개 어드민 계정으로 `/admin` 라우트별 RLS 통과·거부 동작을 브라우저에서 수동 QA한다.
+**목표**: AI 키(B-6) 발급 후, Tier 0 단독 가동 중인 `short_list_30`에 Tier 1 Core 11 페르소나 평가 + Tier 2 Sector Board 활성화 + 합의 배지 + Section 8 위원 전원 표를 plug-in한다. SoT는 D19 + D20 박제.
 
-**전제**:
-- T7e.8 `short_list_30` 2026-05-01 30 rows DART Signal 4·5 실데이터 적용 완료.
-- `stock_reports`/`committee_votes`는 아직 후속 seed 대상이라 리포트 상세는 boundary/empty 동작 감안.
-- `admin_emails`에 3 row 박제됨 (32차 INSERT 완료).
+**진입 조건**:
+- AI 키 발급 (사용자 액션 큐 B-6: `console.anthropic.com` → Vercel env `ANTHROPIC_API_KEY`).
+- T7e.7 RLS QA PASS (§2.A 완료).
 
-**수동 QA 항목**:
-- 비-어드민 이메일 계정 → `/admin/*` 접근 → 미들웨어 redirect 확인.
-- 어드민 A 계정 → 어드민 B의 `regen_counter`/`portfolio_approval`/`brokerage_connection` 행을 직접 SQL/UPDATE 시도 → RLS 거부.
-- `/api/cron/*` → `Authorization: Bearer ${CRON_SECRET}` 없으면 403, 있으면 200.
-- security-definer RPC (`mark_alert_read`, `raise_portfolio_dispute`, `resolve_portfolio_dispute` 등) → 함수 본문 `is_admin()` 가드 동작 확인 (anon 호출은 즉시 거부).
-- §2.A 완료 후라면 `dart_corp_codes` / `dart_financial_cache` 두 테이블도 anon SELECT 거부 + admin SELECT 통과 확인.
+**박제된 SoT**:
+- `ServicePlan-Admin.md §1A.5 D19` — Tier 0/1/2 + 합의 배지 4종 + Reflection 구조.
+- `ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` — Section 8 정적 표 4종 (Sector 14명 전원 + **Core 11 전원** + 쟁점 인용 3~5 + 최종 합의 패널).
+- `ReportFramework.md §8 Step 0~4 (v2.3)` — writer 에이전트 작성 가이드.
+- `Document/Outputs/Report-Alteogen_196170_v3-Readable.md §Section 8 Part A/B/C` — Section 8 reference 양식.
 
-**기록**: QA 결과(PASS / FAIL + 재현 단계)는 `Document/Build/Slices/S7-RealData.md`에 박제. FAIL 발견 시 0011/0012/0013/0014 슬롯은 사용 중이므로 **0015 이후**로 패치.
+**예상 신규 모듈/마이그**:
+- `src/lib/ai/anthropic-client.ts` (wrapper + cost_log INSERT)
+- `src/lib/screening/persona-eval.ts` (Tier 1 Core 11)
+- `src/lib/screening/sector-board.ts` (Tier 2 Sector 14)
+- `src/lib/screening/consensus.ts` (합의 배지 4종)
+- 마이그 **0015 이후** — `short_list_30`에 `ai_score`·`ai_comment`·`consensus_badge` 3컬럼 추가 (잠정, 진입 시점 재확정).
+- `stock_reports` + `committee_votes` 실 INSERT (writer 산출물 적재).
+
+**완료 시 다음 1순위**: §2.C S7b 뉴스 + 모닝 브리핑 실 연결.
+
+---
+
+### C. T7e.8 follow-up (DART Signal 4·5 production 적용) — 완료 참조용
+
+T7e.8은 44~45차에 production까지 완료됐다. `short_list_30` 2026-05-01 30 rows가 DART 실 standalone/quality 기반 Signal 4·5로 UPSERT됐다 (short=모멘텀 10 · mid=실적 모멘텀 8 + 모멘텀 2 · long=퀄리티 10). 상세 결과·검증·박제된 의사결정은 다음 SoT를 참조:
+
+- `Document/Build/Slices/S7-RealData.md` (T7e.8 + 의사결정 로그 + 변경 이력 45차)
+- `Document/Process/CodebaseStatus.md` (45차 entry — DB·seed·signal wiring·산출물)
+- `Document/Build/ProgressDashboard.md` (변경 이력 45차)
+- `git log --oneline -- scripts/ tudal/supabase/migrations/0013* 0014*` (commit 단위)
+- `docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md` + `docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` (박제된 spec/plan)
+
+---
+
+### D. 후속 슬라이스 시퀀스 (S7a 후)
+
+```
+S7a (Anthropic wrapper + Tier 1·2 plug-in) → 진행 중일 때 D11 가상 포트 1차 가동 (KIS 0개)
+  ↓
+S7b (뉴스 + 모닝 브리핑 실 연결, Naver·Resend)
+  ↓
+운용 검증 며칠~1주 (어드민 3인)
+  ↓
+S7c (장중 + KIS WS read-only, 본인 1개 KIS 필요 — B-10)
+  ↓
+S7d (Silent Health 실 INSERT + override UI)
+  ↓
+S8 자동매매 (KIS 자동매매 권한 + Binance 키 — B-11, Smoke #3은 여기서 진행)
+  ↓
+S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인넷 점진)
+```
+
+상세 = `Document/Build/ProgressDashboard.md §2 v3.1` + `CLAUDE.md` 상단 시퀀스.
 
 ---
 
@@ -123,7 +157,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | B-12 | 보안 rotate | Supabase anon/service_role/DB password/PAT, 노출 KIS/Naver secret rotate | S7a 전 권장 |
 | B-13 | Vercel CLI update | v53 최신화 | 향후 deploy 권장 |
 | B-14 | Magic Link 디버깅 | 시크릿 창/Email Template/PKCE callback 확인 | S9 전 권장 |
-| B-15 | Git push/commit | ahead 21+ 커밋 push, pre-session WIP(`Document/*.md`·`scripts/screen_shortlist_tier0.py`·`scripts/test_screen_shortlist_tier0.py` ` M`)는 별도 commit 정리 필요 | 협업 안정화 |
+| B-15 | Git push to origin | ahead 30+ 커밋 push only (45차 박제 `72019fa`·`dd05ca1` 포함). pre-session WIP는 정리 완료 — 별도 commit 작업 불필요 | 협업 안정화 |
 
 ---
 
@@ -143,18 +177,25 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 5. 문서 SoT
 
+> **운영 순서**: 새 세션 진입자는 위에서 아래로 읽는다. (1) 본 HANDOFF.md → (2) 슬라이스 SoT(S7-RealData/DQ7) → (3) ProgressDashboard + CodebaseStatus → (4) 기획 SoT(ServicePlan-Admin/ReportFramework) → (5) 완료된 박제(T7e.8 spec/plan 등 참조용) → (6) 실행 규칙.
+
 | 필요 정보 | 문서 |
 |---|---|
-| **§2.A T7e.8 follow-up 설계** | `docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md` (base `76789dc` + amend `54148af`) |
-| **§2.A T7e.8 follow-up 실행 계획** | `docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` (base `18aca60` + amend `8ddcaf6`) |
+| **§2.A T7e.7 RLS QA 결과 기록 위치** | `Document/Build/Slices/S7-RealData.md` |
+| **§2.B S7a AI 키 후 Tier 1·2 박제** | `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D19` (Tier 0/1/2 + 합의 배지 + Reflection) |
+| **§2.B S7a Section 8 위원 전원 표 박제 (D20, 45차)** | `Document/Service/Planning/ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` |
+| **§2.B S7a Section 8 writer 작성 가이드 (D20, v2.3)** | `Document/Service/Report/ReportFramework.md §8 Step 2` |
+| **§2.B S7a Section 8 reference 양식** | `Document/Outputs/Report-Alteogen_196170_v3-Readable.md §Section 8 Part A/B/C` |
+| **§2.B S7a 외 리포트 프레임 (Section 0~7 + Appendix · Core 11 + Sector 14×10 페르소나)** | `Document/Service/Report/ReportFramework.md` 전체 |
 | S7e 상세 태스크/의사결정 | `Document/Build/Slices/S7-RealData.md` |
 | 전체 진행률/변경 이력 | `Document/Build/ProgressDashboard.md` |
-| 코드 스냅샷/잔존 mock 목록 | `Document/Process/CodebaseStatus.md` |
-| DQ-7 credential 잔여 | `Document/Build/Slices/DQ7-Credentials.md` |
-| 어드민 기획/AI 강화 D19 | `Document/Service/Planning/ServicePlan-Admin.md` |
-| 리포트/AI 평가 프레임 | `Document/Service/Report/ReportFramework.md` |
-| S8 자동매매 | `Document/Build/Slices/S8-AutoTrading.md` |
-| 실행 규칙 | `Document/Process/ExecutionPlaybook.md` |
+| 코드 스냅샷/실 I/O 통로 9종/잔존 mock 목록 | `Document/Process/CodebaseStatus.md` |
+| DQ-7 credential 잔여 (Smoke #4·#5 + Session 4 QA · Smoke #3 ⏸ S8) | `Document/Build/Slices/DQ7-Credentials.md` |
+| 어드민 서비스 기획 본체 (D16/D17/D18/D19/D20 포함) | `Document/Service/Planning/ServicePlan-Admin.md` |
+| S8 자동매매 (S7d 후 단독 진입 · Strategy drop-in + AI 어댑터) | `Document/Build/Slices/S8-AutoTrading.md` |
+| 슬라이스 기반 실행 규칙 (에이전트/스킬/하네스 매핑) | `Document/Process/ExecutionPlaybook.md` |
+| T7e.8 spec (완료된 박제 · 참조용) | `docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md` (base `76789dc` + amend `54148af`) |
+| T7e.8 plan (완료된 박제 · 참조용) | `docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` (base `18aca60` + amend `8ddcaf6`) |
 
 ---
 
@@ -167,4 +208,10 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 직전 한 항목만 빠른 컨텍스트용으로 유지:
 
-- **43차 T7e.8 follow-up 박제**: DART Signal 4·5 spec(`76789dc` + amend `54148af`) + plan(`18aca60` + amend `8ddcaf6`) 박제. 사용자 보강 8건 + Blocker 6/Major 3 추가 fix 모두 반영. 구현 자체는 다음 세션에서 §2.A 옵션 선택으로 진행. base seed(2026-05-01 production 30 rows)는 이미 적용 완료 상태 (Tier 0 v1, Signal 4·5 평탄화).
+- **45차 T7e.8 production 적용 + D20 Section 8 위원 전원 표 박제 (2026-05-12)**:
+  - **T7e.8 production**: Supabase 0013(`dart_corp_codes`) + 0014(`dart_financial_cache`) 마이그 적용 → `seed_dart_corp_codes.py` apply (2,766 rows · KOSPI 838/KOSDAQ 1,818/KONEX 110) → full dry-run preview (Universe 2,345 · DART cache 10,154 rows · CFS ok 94% · CFS→OFS fallback 1,728 · standalone Q 환산 384) → 사용자 승인 후 `--apply` 완료. `short_list_30` 30 rows UPSERT — short=모멘텀 10 · mid=실적 모멘텀 8 + 모멘텀 2 · long=퀄리티 10. dry-run preview↔DB 일치, exit 0, client refresh 7회 정상, RemoteProtocolError 0건.
+  - **Root cause 수정 3건**: (1) `seed_dart_corp_codes.py` docstring grep이 `KRX_ID`/`KRX_PW` 누락 → fail-fast 추가. (2) `from scripts.dart_signals` import가 직접 실행 시 `ModuleNotFoundError` → try/except fallback. (3) postgrest HTTP/2 stream limit (last_stream_id:19999) → 300 ticker마다 Supabase client 재생성.
+  - **D20 박제**: 사용자 요구 반영 — Section 8에 ① Sector 14명 전원 표 ② **Core 11 전원 표(신규)** ③ 쟁점별 인용 3~5건 ④ 최종 합의 패널(Co-Chair 만장일치 여부) 정적 4종. Reference: `Document/Outputs/Report-Alteogen_196170_v3-Readable.md` §Section 8 Part A/B/C. 인터랙티브 페르소나 탐색은 Should S2 유지.
+  - **편집 영역**: `ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` + M3 AC/DoD · `ReportFramework.md §8 Step 2` + 변경 이력 v2.3.
+  - **검증 게이트**: build 25 routes / lint 0 / test:ci 384 pass / 49 files / `tsc --noEmit` clean / Python unittest 27 pass.
+  - **Git**: `72019fa docs(T7e.8): record DART production apply` + `dd05ca1 docs(D20): Section 8 위원 전원 표 박제 — Sector 14 + Core 11 한 줄 의견`.

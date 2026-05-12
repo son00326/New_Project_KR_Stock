@@ -22,11 +22,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **39차 (2026-05-08)**: **T7e.5 regen_counter Supabase 전환 ✅ + race-safe CAS + 신규 마이그 0건** (S7e 5/8). `src/lib/data/admin-regen-counters.ts` 신규 (`transformRegenCounterRow` + `computeNextMonthResetAt` 순수 helper + `getRegenCounter` SELECT + `incrementManualRegenCount` 4단계 CAS: idempotent INSERT 23505 무시 → SELECT → cap_exhausted 즉시 종료 → `UPDATE WHERE manual_count = current_value` 비교-스왑, RETURNING 비면 conflict throw). race 보호는 마이그 0005의 UNIQUE(ticker,month) + CHECK(manual_count ≤ 2) + Postgres 행 잠금으로 충분 → **0011 슬롯은 BL-KRIT-8(S8 자동매매) 보존**. `regenerate/page.tsx`+`actions.ts` mock 의존 제거 + `real_persistence_not_configured` 분기 폐기 + 신규 에러 코드 3종(`regen_counter_lookup_failed`/`regen_counter_write_failed`/`regen_counter_write_conflict`). `regenerate-panel.tsx` `formatErrorMessage()` 헬퍼로 8개 에러 코드 한국어 운영자 메시지 일원화. `mock-admin-regen-counters.ts` 삭제(고아). Vitest 17 신규/보강 (admin-regen-counters 13 + actions +4) → **362/46**. **MOCK_ADMIN_COST_LOG 잔존 의도적** (cost_log 실 I/O는 S7a/T7a). 다음 1순위 = T7e.6 (access-logs/performance/decision-tree) 또는 T7e.8 B-1 Python.
 - **40차 (2026-05-08)**: **T7e.6 access-logs/performance/decision-tree Supabase 전환 ✅ + boundary 패턴 6/8 완료** (S7e 6/8). `src/lib/data/admin-access-logs.ts` 신규(boundary stub `[]`반환·BL-20 영구 비활성) + `src/lib/data/admin-performance.ts` 신규(summary/monthly/bucket aggregation·counterfactual=null) + `src/lib/data/admin-decision-tree.ts` 신규(`portfolio_snapshot`→groupByMonth→judgeDecisionTree). 3개 mock 파일 삭제 + `/admin/track-record`·`/admin/decision-tree`·`/admin/portfolio` 페이지+actions 갱신 + `mock-admin-consistency.test.ts` 단일 SoT로 트림. **신규 마이그 0건** (`portfolio_snapshot` 0005 단일 SoT + `src/lib/performance/*` 순수 로직). 두 pinned decisions: (a) access-logs source는 T7e 범위 밖, (b) Counterfactual은 D11/S9 deferred. test:ci 362/46 → **381/49** (+19 tests/+3 files, consistency assertion 1 제거 반영). 다음 1순위 = T7e.7 RLS 수동 QA 또는 T7e.8 B-1 Python.
 
-**현 진행 순서 v3.1 (SoT: HANDOFF.md §2.C · ProgressDashboard.md §2)**:
+**현 진행 순서 v3.1 (SoT: `Document/Process/HANDOFF.md` · `Document/Build/ProgressDashboard.md §2`)**:
 ```
 Mock Skeleton ✅
-  → DQ-7 Admin Credential (Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예)
-  → S7a (Anthropic wrapper) ── AI 키 발급 시 Tier 1·2 plug-in
+  → DQ-7 Admin Credential (Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예 · Session 4 QA 잔여)
   → S7e (Supabase 실 I/O 전면) + Tier 0 인디케이터 게이트 (AI 키 불필요)
        ├ T7e.1 마이그 0010 검증 ✅ (36차)
        ├ T7e.2 shortlist Supabase SELECT ✅ (36차)
@@ -34,8 +33,12 @@ Mock Skeleton ✅
        ├ T7e.4 approvals/snapshots 실 I/O + race ✅ (38차)
        ├ T7e.5 regen-counters CAS race-safe ✅ (39차)
        ├ T7e.6 access-logs/performance/decision-tree ✅ (40차)
-       ├ T7e.8 Tier 0 인디케이터 (B-1 로컬 Python · scripts/ · name/sector ALTER TABLE 0012)  ← 다음 1순위 (41차)
-       └ T7e.7 RLS 브라우저 수동 QA (T7e.8 시드 후 진행)
+       ├ T7e.8 Tier 0 인디케이터 (마이그 0012 name/sector + 0013 dart_corp_codes + 0014 dart_financial_cache · `short_list_30` 2026-05-01 30 rows production 적용 · DART 실 standalone/quality 기반 Signal 4·5) ✅ (41~45차)
+       └ T7e.7 RLS 브라우저 수동 QA  ← 다음 1순위 (45차 박제 직후)
+  → S7a (Anthropic wrapper) ── AI 키 발급(사용자 액션 B-6) 시 Tier 1·2 plug-in
+       · D19 Tier 1 Core 11 페르소나 평가 + Tier 2 Sector Board 14×10
+       · D20 Section 8 위원 전원 표 (Sector 14 + Core 11 한 줄 의견 + 쟁점 인용 + 최종 합의 패널) · 박제 45차
+       · 마이그 0015 이후 — `short_list_30` ai_score/ai_comment/consensus_badge 추가 (잠정)
   → S7b (뉴스+브리핑)
   → ★ D11 AI 가상 포트 1차 가동 (KIS 0개 · Tier 0 단독 가능 · Tier 1·2 키 있으면 plug-in)
     어드민 3인 운용 검증 며칠~1주 (실 종목 30개 + 합의 배지 + AI 코멘트 검증)

@@ -46,7 +46,7 @@ S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2·T7e.3·T7
 
 ## §2 전체 실행 순서
 
-> **v3.1 시퀀스 박제 (2026-05-08, 35차)**: D19 결정 — **Short List 30 선정에 Tier 0 인디케이터 게이트 + 합의 배지 + Reflection 추가**. AI 키 발급 여부에 따라 분기. AI 키 미발급 시 Tier 0 단독으로 진짜 코스피·코스닥 30종목 + 실 가격·재무·뉴스 가동 가능. AI 키 발급 시 Tier 1 (Core 11) + Tier 2 (Sector Board) plug-in. v3 (34차) 박제 = S8 자동매매를 S7 series 다음으로 분리, KIS는 자동매매 전용, 일간 데이터·AI 가상 포트는 KIS 무관. 상세 = `HANDOFF.md §2.C` + `ServicePlan-Admin.md §1A.5 D18·D19`.
+> **v3.1 시퀀스 박제 (2026-05-08, 35차)**: D19 결정 — **Short List 30 선정에 Tier 0 인디케이터 게이트 + 합의 배지 + Reflection 추가**. AI 키 발급 여부에 따라 분기. AI 키 미발급 시 Tier 0 단독으로 진짜 코스피·코스닥 30종목 + 실 가격·재무·뉴스 가동 가능. AI 키 발급 시 Tier 1 (Core 11) + Tier 2 (Sector Board) plug-in. v3 (34차) 박제 = S8 자동매매를 S7 series 다음으로 분리, KIS는 자동매매 전용, 일간 데이터·AI 가상 포트는 KIS 무관. 상세 = `HANDOFF.md §2.D` (후속 슬라이스 시퀀스 다이어그램) + `ServicePlan-Admin.md §1A.5 D18·D19`.
 
 ```
 S0~S6 Mock Skeleton ✅ (9 세션, 2026-04-17 ~ 2026-04-20)

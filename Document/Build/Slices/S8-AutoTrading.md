@@ -12,7 +12,7 @@ current_progress: 0%
 ```
 
 Last updated: 2026-05-08 (34차 — D18 진입 시점 재조정: S7a·S7e 후 병행 → S7d 후 단독 진입)
-선행 문서: `BusinessPlan.md §10.8` · `ServicePlan-Admin.md §1A.0 + §1A.5 D18 + §3.13` · `HANDOFF.md §2.C` · `../../Archive/AutoTrading.md`(리서치 원자료 · D11 이전) · `../../Archive/AutoTrading-AI구조설계.md`(AI 구조 초안 · D11 이전)
+선행 문서: `BusinessPlan.md §10.8` · `ServicePlan-Admin.md §1A.0 + §1A.5 D18 + §3.13` · `HANDOFF.md §2.D` (후속 슬라이스 시퀀스) · `../../Archive/AutoTrading.md`(리서치 원자료 · D11 이전) · `../../Archive/AutoTrading-AI구조설계.md`(AI 구조 초안 · D11 이전)
 
 ---
 
