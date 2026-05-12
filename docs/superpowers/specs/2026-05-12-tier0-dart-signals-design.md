@@ -39,6 +39,9 @@ DART OpenAPI 키를 발급받았고(43차) probe 통과(삼성전자 2024 연결
 | D11 | Universe DART 호출 전략 | **풀 universe 풀 호출** (사전 필터링 없음). 첫 시드 후 캐시. | 첫 시드 ~11,500 calls ≈ 20분, 일 한도 20K 내. 사전 필터링은 후보 누락 위험 + 코드 복잡도. 1회 비용 수용. |
 | D12 | Signal 4 계산 기반 추적 | 0014에 `calculation_basis` 컬럼 추가 (`standalone` / `cumulative_fallback` / `annual` / `not_applicable`). follow-up으로 미루지 않음. | standalone 계산 실패 → cumulative fallback 사용 사실을 row 레벨로 박제. 어드민 리포트/AI 평가가 Signal 4 신뢰도를 구분 가능. |
 | D13 | `dart_corp_codes.market` 매핑 | DART `corp_cls` 필드 사용 — `Y`→KOSPI, `K`→KOSDAQ, `N`→KONEX. `E` + stock_code 부재 비상장 법인은 seed에서 제외. | OpenDART 공식 매핑(`engopendart.fss.or.kr/guide/detail.do?apiGrpCd=DE001&apiId=AE00004`). 비상장 법인은 KRX universe에 없으므로 제외 안전. |
+| D14 | Signal 4 target quarter — 공시 마감일 기반 | 한국 분기 공시 마감(Q1=5/15, Q2=8/15, Q3=11/15, 연간=3/31 다음해) **+ 30일 grace**를 적용해 안전하게 공시 완료된 가장 최근 분기를 target으로 결정. 2026-05-01 시드(today 5/12) → Q1 2026 미공시 가능성 → **Q4 2025**(`annual_2025 - 9M_2025` standalone). | 단순 달력 분기(4~6월 → 당해 Q1) 사용 시 미공시 분기 대량 발생 + no_data 영구화 위험 (Blocker 1). |
+| D15 | quarterly 미공시 cache는 TTL refresh 허용 | `status` enum에 **`not_yet_disclosed`** 추가. DART status='013'인 quarterly 행을 캐싱할 때 period_key가 disclosure deadline 이내이면 `not_yet_disclosed`, 마감 후 30일 경과면 `no_data`로 분리. 캐시 lookup이 `not_yet_disclosed` + `fetched_at` ≥ 7일 → miss로 취급해 재호출. annual은 항상 final no_data. | "실적 없음"(영구)과 "아직 공시 안 됨"(임시)을 분리. 미공시 분기를 영구 cache하면 실제 보고서가 올라와도 누락 (Blocker 2). |
+| D16 | DART `account_nm` alias 매핑 | 표준 키별 한국어 계정명 alias 리스트 유지 — 예: revenue ← `매출액` / `수익(매출액)` / `영업수익` / `보험영업수익`. 첫 매칭만 사용, alias가 primary가 아니면 ticker 로그에 `account_alias_used:<std_key>` 메타 기록. v1에서는 금융업·보험업 등 매칭 실패 시 low-confidence 처리(quality_raw=0 + 로그). | exact match만 사용하면 금융업/특수업종이 0점 처리되어 진짜 우량주 누락 위험 (Major 1). |
 
 ---
 
@@ -117,9 +120,10 @@ CREATE TABLE dart_financial_cache (
   -- Signal 5의 "지표 누락" 같은 계산 실패는 cache status로 표현하지 않는다 (D12 참고).
   statement_scope text NOT NULL CHECK (statement_scope IN ('CFS', 'OFS', 'NONE')),
                                     -- CFS=연결, OFS=별도, NONE=조회 불가
-  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok', 'no_data', 'parse_error', 'rate_limited')),
+  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok', 'no_data', 'not_yet_disclosed', 'parse_error', 'rate_limited')),
                                     -- ok = DART fetch + JSON parse 성공 (이후 지표 누락은 ok 유지)
-                                    -- no_data = DART status='013' 또는 CFS/OFS 모두 부재
+                                    -- no_data = annual 또는 disclosure deadline + 30일 경과 quarterly에서 CFS/OFS 모두 부재 — final
+                                    -- not_yet_disclosed = (D15) quarterly + disclosure deadline 이내 미공시. 7일 TTL refresh 허용.
                                     -- parse_error = 응답 포맷 예외
                                     -- rate_limited = DART 429
   error_code text,                  -- DART status code (예: '013', '020')
@@ -182,11 +186,28 @@ CREATE POLICY "admin read" ON dart_financial_cache
 
 ### 5.2 Signal 4 — Earnings Momentum YoY (D7 단독 분기값 환산 필수)
 
-**Target Q 결정**: `target_date`(seed 실행 시점)의 직전 분기 = "현재 시점에서 마지막 공시 분기".
-- 1~3월 → 직전년 3Q (9M - H1)
-- 4~6월 → 당해 Q1 (단독)
-- 7~9월 → 당해 H1 → Q2 standalone (H1 - Q1)
-- 10~12월 → 당해 9M → Q3 standalone (9M - H1)
+**Target Q 결정 (D14, 공시 마감 + 30일 grace 기반)**: 한국 분기 공시 마감 + 30일 buffer를 적용해 "안전하게 공시 완료된 가장 최근 분기"를 target으로 결정한다. 단순 달력 분기 사용은 미공시 대량 발생 → no_data 영구화 위험.
+
+```
+공시 마감 + 30일 grace:
+  Q1: 5/15 → safe after 6/15
+  Q2: 8/15 → safe after 9/15
+  Q3: 11/15 → safe after 12/15
+  Annual (Q4 차분 가능): 다음해 3/31 → safe after 5/1
+```
+
+표:
+| target_date 월/일 | target year, quarter | standalone 공식 |
+|---|---|---|
+| 1/1 ~ 5/1 | (year-1, Q3) | 9M − H1 (prior year) |
+| 5/2 ~ 6/15 | (year-1, Q4) | annual − 9M (prior year) — annual 공시 완료 후 |
+| 6/16 ~ 9/15 | (year, Q1) | Q1 보고서 그대로 standalone |
+| 9/16 ~ 12/15 | (year, Q2) | H1 − Q1 (current year) |
+| 12/16 ~ 12/31 | (year, Q3) | 9M − H1 (current year) |
+
+예시 — 2026-05-12 시드: 5/2~6/15 구간 → **(2025, Q4)** = `annual_2025 - 9M_2025`. 이는 안전하게 공시 완료된 최신 분기.
+
+**Fallback chain**: target quarter cache lookup이 `no_data` 또는 `not_yet_disclosed`(7일 이내 fetched)면 한 분기 뒤로 fallback (e.g., (2025, Q4) → (2025, Q3) → (2025, Q2)). 최대 2단계 fallback, 그래도 실패 시 Signal 4 = 0 + `signal_4_basis='not_applicable'`.
 
 **Standalone 환산표** (cumulative 보고서 차분):
 
@@ -314,6 +335,8 @@ delta vs prev month
 | Cache write conflict (23505) | 무시. race-safe. |
 | 단독 분기 환산용 누적 보고서 누락 | cumulative YoY로 fallback. score 산출은 계속. Signal 4 row의 `calculation_basis='cumulative_fallback'`로 기록 (D12). |
 | Signal 5 — 5지표 중 3개 이상 누락 | `quality_raw = 0`. cache `status`는 'ok' 유지 (Fix 1). 로그/CSV summary에 `quality_insufficient_fields` 메타로 ticker 단위 기록. |
+| Signal 4 target quarter 공시 미완료 (D14) | disclosure deadline 이내인 quarterly DART status='013' → cache `status='not_yet_disclosed'` + 7일 TTL. caller는 한 분기 fallback 시도 (최대 2단계). |
+| 금융업·보험업 등 표준 계정명 불일치 (D16) | `DART_ACCOUNT_ALIASES`로 1차 alias 매칭. 모두 실패 시 해당 지표만 NaN. 매칭됐어도 primary 아닌 alias 사용 시 로그에 `account_alias_used` 메타 기록. |
 
 ---
 
@@ -390,6 +413,9 @@ delta vs prev month
 8. **cache `status` ≠ Signal 계산 실패** — `status`는 DART fetch/parse 자체 상태만. Signal 5 지표 누락 등 다운스트림 계산 실패는 cache row 'ok'를 그대로 두고 로그/CSV summary에 기록.
 9. **`calculation_basis` 0014 schema에 포함 (follow-up 미루지 않음)** — Signal 4 standalone vs cumulative_fallback 신뢰도 추적. 어드민 리포트/AI 평가가 row 레벨로 구분 가능.
 10. **`dart_corp_codes.market`은 DART corp_cls 공식 매핑** — Y/K/N → KOSPI/KOSDAQ/KONEX. E + stock_code 부재 비상장 법인은 seed 단계 제외.
+11. **Signal 4 target quarter는 공시 마감 + 30일 grace 기반** — 단순 달력 분기 X. 2026-05-12 시드 → (2025, Q4) = annual_2025 - 9M_2025. fallback 최대 2단계.
+12. **quarterly 미공시 cache는 TTL refresh** — `not_yet_disclosed` 상태 + 7일 TTL. annual no_data만 영구.
+13. **DART 계정명 alias 매핑** — `DART_ACCOUNT_ALIASES` 표준 키별 4~6개 한국어 alias. primary 아닌 alias 사용 시 메타 기록. 매칭 실패 = 해당 지표 NaN.
 
 ---
 
