@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-12 (45차 — T7e.8 follow-up **production 적용 ✅** + D20 Section 8 위원 전원 표 박제 ✅ · 다음 1순위 = §2.A **S7a Anthropic wrapper + Tier 1·2 plug-in** → 후속 §2.B T7e.7 RLS 수동 QA)
+Last updated: 2026-05-13 (46차 — **전체 QA + 코드 리뷰 (omxy + Claude cmux 합의 7단계) ✅** · 65건 발견 박제 → §7 Fix Plan · **다음 1순위 = §7 P0 운영 안전** (cmux 합의 → 수정 → 빌드) → 후속 §7 P1·P2·P3 → 그 후 §2.A S7a Anthropic wrapper)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,7 +15,10 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자 별도 지시가 없으면 **§2.A S7a Anthropic wrapper + Tier 1·2 plug-in**으로 진입한다.
+- 사용자 별도 지시가 없으면 **§7 P0 운영 안전 — Supabase advisor lint 5함수 REVOKE + HIBP + 0009 SOP**부터 진입한다. (46차 QA 결과 박제 — `cmux` 합의 → 수정 → 빌드 패턴)
+  - §7 핵심/고위험 항목에 omxy에 보낼 cmux prompt template + 수정 파일 + DoD가 명시되어 있다.
+  - P0 → P1 → P2 → P3 순차. P4 mock 정리는 자연 진행 (S7b/S7c/S7d/T7a 후속).
+  - **§7 P0~P3 완료 후** §2.A S7a Anthropic wrapper로 진입.
   - **선행 확인**: Vercel env `ANTHROPIC_API_KEY` 존재 여부 → `vercel env ls`. 없으면 사용자가 `console.anthropic.com`에서 발급 → `vercel env add ANTHROPIC_API_KEY` 후 진입.
   - S7a가 D11 가상 포트 운용 검증의 핵심 가치 (30개 카드에 페르소나 평가 + 합의 배지 + Section 8 위원 전원 표 표시). T7e.7 RLS QA는 후속이며 보안 검증 성격이라 운용 시작 전에만 마무리하면 된다.
 - **§2.B T7e.7 RLS 브라우저 수동 QA**는 S7a 진행 중 병행 또는 D11 운용 검증 직전에 마무리. 1시간 안짝 수동 작업이라 막판 일정에 영향 없음.
@@ -40,20 +43,15 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **384 pass / 49 files** · `tsc --noEmit` 0 |
 | Git | 45차 박제 완료: `72019fa docs(T7e.8): record DART production apply` + `dd05ca1 docs(D20): Section 8 위원 전원 표 박제` · 작업트리 정리는 최신 `git status` 확인 · push 대기 |
 
-### T7e.6까지의 필수 계약 (현재 적용 중)
+### T7e.6까지의 필수 계약 (요약)
 
-- `portfolio_approval` 테이블명은 마이그 0004 기준 **단수**를 사용한다.
-- `/admin/portfolio`는 approval SELECT/Reject/dispute/resolve 실 I/O 진입 가능.
-- Accept는 아직 운영 가능이 아니라 **fail-closed**: 실 entry price source 전까지 `entry_price_unavailable`으로 E4 INSERT 전 중단한다.
-- production DB에 synthetic/fake price를 절대 저장하지 않는다.
-- Reject 2회 UX 응답은 `reanalysisCount=2`, DB 저장은 CHECK(≤1)에 맞춰 1 clamp. 3회 Reject는 `reanalysis_limit_reached`.
-- 신규 오류 코드 매핑: `entry_price_unavailable`, `approval_write_failed`, `reanalysis_limit_reached`, `regen_counter_lookup_failed`, `regen_counter_write_failed`, `regen_counter_write_conflict`, `report_lookup_failed`.
-- `regen_counter` race 보호는 **마이그 0005의 UNIQUE + CHECK + Postgres 행 잠금** 위에서 4단계 CAS로 처리. 신규 마이그/RPC 추가하지 않는다.
-- M9 manual cap은 `MANUAL_REGEN_CAP=2` 순수 로직 + DB CHECK가 함께 박제한다.
-- 월 40만원 hardcap 검사는 여전히 `MOCK_ADMIN_COST_LOG` 합계 기반. cost_log 실 I/O는 S7a/T7a 범위.
-- access-logs source는 T7e 범위 밖이며, `getRecentAdminAccessLogs()`가 `[]` 반환하는 boundary stub이다. BL-20 7일 단일 어드민 자동 바이패스는 실 source 정의 전까지 영구 비활성.
-- `/admin/track-record`의 Counterfactual은 `portfolio_snapshot`으로 산출 불가하므로 `null` + UI '운용 데이터 누적 후 산출' 대기. AI 비중 시계열 저장 정책은 D11/S9 이후.
-- performance + decision-tree는 `portfolio_snapshot`(0005) 단일 SoT에서 `src/lib/performance/*` 순수 로직으로 산출. 별도 테이블 없음.
+- `portfolio_approval` 단수 (0004) · Accept는 `entry_price_unavailable` fail-closed (실 가격 source 전까지) · production에 fake price 금지 · Reject 3회 = `reanalysis_limit_reached`.
+- `regen_counter` race 보호 = **0005 UNIQUE+CHECK + 4단계 CAS** (신규 마이그/RPC 없음).
+- 월 40만원 hardcap = `MOCK_ADMIN_COST_LOG` 합계 (cost_log 실 I/O는 S7a/T7a).
+- `getRecentAdminAccessLogs() = []` boundary stub (BL-20 7일 자동 바이패스 영구 비활성, 실 source 정의 전까지).
+- Counterfactual은 `portfolio_snapshot`으로 산출 불가 → `null` + UI 대기. AI 비중 시계열은 D11/S9 이후.
+- performance + decision-tree = `portfolio_snapshot`(0005) 단일 SoT + `src/lib/performance/*` 순수 로직.
+- 상세 계약·에러 코드 = `S7-RealData.md` 의사결정 로그.
 
 ---
 
@@ -112,15 +110,9 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ---
 
-### C. T7e.8 follow-up (DART Signal 4·5 production 적용) — 완료 참조용
+### C. T7e.8 (DART Signal 4·5) — 45차 production 완료 ✅
 
-T7e.8은 44~45차에 production까지 완료됐다. `short_list_30` 2026-05-01 30 rows가 DART 실 standalone/quality 기반 Signal 4·5로 UPSERT됐다 (short=모멘텀 10 · mid=실적 모멘텀 8 + 모멘텀 2 · long=퀄리티 10). 상세 결과·검증·박제된 의사결정은 다음 SoT를 참조:
-
-- `Document/Build/Slices/S7-RealData.md` (T7e.8 + 의사결정 로그 + 변경 이력 45차)
-- `Document/Process/CodebaseStatus.md` (45차 entry — DB·seed·signal wiring·산출물)
-- `Document/Build/ProgressDashboard.md` (변경 이력 45차)
-- `git log --oneline -- scripts/ tudal/supabase/migrations/0013* 0014*` (commit 단위)
-- `docs/superpowers/specs/2026-05-12-tier0-dart-signals-design.md` + `docs/superpowers/plans/2026-05-12-tier0-dart-signals.md` (박제된 spec/plan)
+`short_list_30` 2026-05-01 30 rows production 박제. 상세 = `S7-RealData.md` + `CodebaseStatus.md` + `docs/superpowers/specs|plans/2026-05-12-tier0-dart-signals-*.md`.
 
 ---
 
@@ -217,6 +209,15 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 
 직전 한 항목만 빠른 컨텍스트용으로 유지:
 
+- **46차 전체 QA + 코드 리뷰 (omxy + Claude cmux 합의 7단계) (2026-05-13)**:
+  - **방법**: cmux pair-debate v1. omxy(Codex gpt-5.5 high)가 각 phase 첫 리뷰 + Claude가 cmux-verify로 spot-check. 모든 phase = read-only audit (수정 0건).
+  - **단계**: Phase 0 baseline → 1 doc integrity → 2 DB/RLS invariants → 3 backend lib/data wrappers → 4 frontend (admin)/* → 5 API/cron/infra → 6 tests/coverage. 각 phase별 omxy 보고 + Claude verify + CONVERGED.
+  - **발견 통계**: **DRIFT 18 / GAP 17 / INTENT 22 (fix 아님) / VERIFY 8 (사용자/운영 결정)**.
+  - **결과 박제 위치**: 본 파일 §7 = entry map (slim) + `Document/Process/FixPlan-46.md` = 상세 plan + 핵심/고위험 task의 cmux prompt template + DoD. 다음 세션 진입 시 §7 P0부터 cmux 합의 순으로 진행.
+  - **사용자 결정 (4 질문)**: (1) scope = plan only + HANDOFF 박제 + 다음 세션 진행 (Karpathy hybrid 채택) · (2) D20 차수 = **45차로 통일** · (3) cron schedule = **UTC 00:05 = KST 09:05 유지** · (4) T7e.7 RLS QA = **수동 1회 유지** (자동화는 P3 backlog).
+  - **검증 게이트**: 0건 변경 — build 25 routes / lint 0 / test:ci 384/49 / `tsc --noEmit` clean 그대로.
+  - **Git**: 46차 단일 commit "docs(46차 QA): cmux 7-phase audit + §7 Fix Plan 박제" 예정. push는 B-15에 합쳐서.
+
 - **45차 T7e.8 production 적용 + D20 Section 8 위원 전원 표 박제 (2026-05-12)**:
   - **T7e.8 production**: Supabase 0013(`dart_corp_codes`) + 0014(`dart_financial_cache`) 마이그 적용 → `seed_dart_corp_codes.py` apply (2,766 rows · KOSPI 838/KOSDAQ 1,818/KONEX 110) → full dry-run preview (Universe 2,345 · DART cache 10,154 rows · CFS ok 94% · CFS→OFS fallback 1,728 · standalone Q 환산 384) → 사용자 승인 후 `--apply` 완료. `short_list_30` 30 rows UPSERT — short=모멘텀 10 · mid=실적 모멘텀 8 + 모멘텀 2 · long=퀄리티 10. dry-run preview↔DB 일치, exit 0, client refresh 7회 정상, RemoteProtocolError 0건.
   - **Root cause 수정 3건**: (1) `seed_dart_corp_codes.py` docstring grep이 `KRX_ID`/`KRX_PW` 누락 → fail-fast 추가. (2) `from scripts.dart_signals` import가 직접 실행 시 `ModuleNotFoundError` → try/except fallback. (3) postgrest HTTP/2 stream limit (last_stream_id:19999) → 300 ticker마다 Supabase client 재생성.
@@ -224,3 +225,34 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
   - **편집 영역**: `ServicePlan-Admin.md §3.7 R3.7-6/7/8` + `§6 D20` + M3 AC/DoD · `ReportFramework.md §8 Step 2` + 변경 이력 v2.3.
   - **검증 게이트**: build 25 routes / lint 0 / test:ci 384 pass / 49 files / `tsc --noEmit` clean / Python unittest 27 pass.
   - **Git**: `72019fa docs(T7e.8): record DART production apply` + `dd05ca1 docs(D20): Section 8 위원 전원 표 박제 — Sector 14 + Core 11 한 줄 의견`.
+
+---
+
+## 7. QA 65건 Fix Plan (46차 audit 박제)
+
+다음 세션 진입 시 §7 P0부터 cmux 합의 → 수정 → 빌드 순으로 진행. **상세 plan + 핵심/고위험 task의 omxy cmux prompt template + DoD = `Document/Process/FixPlan-46.md`** (별도 문서). 본 §7는 entry map.
+
+| P | 작업 묶음 | 예상 | 핵심 발견 |
+|---|---|---|---|
+| **P0** | 운영 안전 — Supabase advisor anon REVOKE (마이그 0015a) + HIBP dashboard + 0009 SOP | 30~60분 | D-7 진입 시 advisor 재확인 + authenticated WARN은 admin RPC 활성으로 의도 잔존 |
+| **P1** | 사용자 영향 — 한국어 매핑 5 패널 + settings 문구 정렬 + (admin) loading/error/not-found + boundary props cleanup | 3~4시간 | D-13 / D-14 / G-2-FE / D-12 |
+| **P2** | SoT cleanup — CLAUDE.md/HANDOFF/Dashboard/CodebaseStatus 카운트·차수(44→45차) + cron 주석 + .env diff | 1.5~2시간 | D-1~D-6 / D-15·D-16 / D-18 / G-2·G-3 |
+| **P3** | 신규 작업 — T7a.11 D20 Section 8 표 컴포넌트 + accept RPC 0016 + error taxonomy 정규화 + 신규 테스트 | 1~2주 | G-D20 / G-1 / D-8·D-9·D-10·V-4 / G-cron-auth·wrapper-error·FE-map tests |
+| **P4** | Mock 정리 backlog (S7b/S7c/S7d/T7a 자연 진행) | 자연 | 25 mock import owning slice 표 — FixPlan-46.md §P4 |
+| (별도) | cron durable write/idempotency backlog (S7b/S7d 진행 시 처리) | 자연 | 4 cron route mock JSON only |
+
+**진입 첫 액션 (다음 세션)**:
+```bash
+cd /Users/yong/New_Project_KR_Stock
+git status --short
+cd tudal && npm run build && npm run lint && npm run test:ci   # 회귀 기준선
+```
+이어서 `mcp__supabase__get_advisors(type="security")` 호출 → D-7 함수 list 재확인 → FixPlan-46.md §P0.1 그대로 cmux 발송 시작.
+
+**사용자 결정 4건 박제** (46차):
+- D20 차수 = **45차로 통일** (ServicePlan-Admin/ReportFramework 44차 표기는 P2.1에서 갱신)
+- monthly-batch cron = **UTC 00:05 (KST 09:05) 유지**
+- T7e.7 RLS QA = **수동 1회 유지** (브라우저로 DB 권한 차단 확인 30분~1시간 · 자동화는 P3 backlog)
+- 46차 작업 scope = **plan only + HANDOFF/FixPlan 박제** (코드 변경 0건)
+
+**검증 게이트 영향**: §7 + FixPlan-46.md 작성 자체 = read-only audit, 코드 변경 0건. build 25 routes · lint 0 · test:ci 384/49 그대로.
