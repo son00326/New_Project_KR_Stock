@@ -39,7 +39,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 실데이터 Must | **1+/19** · `short_list_30` 2026-05-01 production 30 rows (DART 실 standalone/quality 기반 Signal 4·5 반영) |
 | 실 AI 호출 | 0 · Anthropic key 전까지 Tier 0만 가능 |
 | 자동매매/S9 | S8 미착수 · 운용 검증 0일 |
-| Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
+| Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes · **최신 배포 `dpl_EwmJ53HL5Q1D2SG1rR7cqCEStATK` Ready** (48차 push 직후, 2026-05-13 16:16 KST) |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012(name/sector) + **0013/0014(DART cache)** 적용 · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 |
 | 검증 기준 | 최근 fresh gate (48차 종료): build 25 routes · lint 0 · test:ci **463 pass / 50 files** (+34 vs 429) · `tsc --noEmit` 0 |
 | Git | 46차 + 47차 + 48차 commits 모두 origin/main 동기 ✅ (사용자 트리거로 push 완료). 마이그 apply order: 0010 → 0012~0014 → 0015a → **0016 production apply 완료 ✅** + anon revoke hotfix · 0011 슬롯은 S8 reserve. advisor anon WARN **0건 유지** · authenticated WARN **3→4** (accept_shortlist_with_snapshots intended). |
