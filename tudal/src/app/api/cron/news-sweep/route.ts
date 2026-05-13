@@ -10,7 +10,7 @@ import { fetchNaverNews } from "@/lib/news/naver-api";
 import { scrapeSources } from "@/lib/news/scraper";
 import type { AlertEvent } from "@/types/admin";
 
-// Vercel Cron 15분 주기. ServicePlan-Admin §3.10 R3.10-1~3.
+// Vercel Cron daily 00:00 UTC (vercel.json schedule `0 0 * * *`). ServicePlan-Admin §3.10 R3.10-1~3.
 // 네이버 뉴스 API 1차 + 스크래핑 2차(stub) → classifier → dedupe → Critical만 AlertEvent 발행.
 // mock-mode(NAVER 키 미설정): MOCK_ADMIN_NEWS를 결과로 노출.
 

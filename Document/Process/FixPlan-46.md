@@ -245,34 +245,45 @@ ROUND - §7 P2.1 시작
 
 ---
 
-### P2.2 — HANDOFF "403"→"401" + news-sweep 주석 (D-15/D-16)
+### P2.2 — HANDOFF "403"→"401" + news-sweep 주석 (D-15/D-16) — **✅ 완료 (47차 cmux omxy 4 rounds CONVERGED)**
 
-**수정**:
-- HANDOFF.md:107 (RLS QA 표) "Authorization 없으면 403" → "401" (실제 cron route 코드 일치)
-- `tudal/src/app/api/cron/news-sweep/route.ts` 주석 "Vercel Cron 15분 주기" → "Vercel Cron daily 00:00 UTC"
+**수정 실행**:
+- ✅ HANDOFF.md:105 (RLS QA 표) "없으면 403, 있으면 200" → "없으면 401, 있으면 200" (cron route 4종 모두 `status: 401` 반환 grep 검증)
+- ✅ `tudal/src/app/api/cron/news-sweep/route.ts:13` 주석 "Vercel Cron 15분 주기." → "Vercel Cron daily 00:00 UTC (vercel.json schedule `0 0 * * *`)."
 
-**DoD**: 변경 후 build/lint/test:ci 회귀 없음.
-
----
-
-### P2.3 — .env.local ↔ .env.example 동기화 (D-18)
-
-**문제**: 키 비대칭
-- `.env.local`에만: `DART_API_KEY`/`KRX_ID`/`KRX_PW`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `.env.example`에만: `ANTHROPIC_API_KEY`/`NEXT_PUBLIC_SITE_URL`/`RESEND_API_KEY`/`RESEND_FROM_EMAIL`/`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_IDS`
-
-**수정**: `.env.example`이 superset이 되도록 누락 키 추가. 각 키에 주석으로 owning slice 표시 (예: `# S7b briefing — Resend domain`).
-
-**DoD**: `.env.example` 키 = `.env.local` 키 union + onboarding 가이드 가독성 검증.
+**DoD 달성**: build 25 routes / lint 0 / test:ci 50 files 429 tests / tsc clean.
 
 ---
 
-### P2.4 — CLAUDE.md "DQ7 다음 세션 진입점" stale 제거 + CodebaseStatus 하단 갱신 (G-2/G-3)
+### P2.3 — .env.local ↔ .env.example 동기화 (D-18) — **✅ 완료 (47차 cmux omxy 4 rounds CONVERGED)**
 
-**수정**:
-- CLAUDE.md:76 (보조 문서 표 DQ7-Credentials 행) "**다음 세션 진입점**" 제거 (실제 1순위 = §7 또는 S7a)
-- CodebaseStatus.md:203 "S7e T7e.6 완료 기준" → "S7e T7e.8 완료 기준 / 45차"
-- `tudal/src/lib/report/record-view.ts` 주석 "S2 Supabase 연결 시" → "S7e 후속 / T2.4 stale" 명확화
+**omxy Round 2 정정 (Beauvoir explore agent)**: `.env.example`에 이미 존재하는 키 = `API_CRED_MASTER_KEY:89` + `CRON_SECRET:80` + `ADMIN_REP_EMAIL:93`. 실 누락 = **DART_API_KEY / KRX_ID / KRX_PW 3 키만**.
+
+**수정 실행**:
+- ✅ `tudal/.env.example` 신규 `[S7e T7e.8 — 2026-05-12]` 섹션 (line 95~103) — `DART_API_KEY` + `KRX_ID` + `KRX_PW` 3 키 + owning slice 주석 (DART OpenAPI 마이그 0013/0014 / KRX login `data.krx.co.kr` pykrx universe fetch).
+- ✅ `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`는 **의도적 주석 잔존** (line 18) — 코드 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 단독 사용 (`src/lib/supabase/{middleware,server,client}.ts` 3 파일 grep 검증). onboarding 가이드 명확성 우선.
+
+**DoD 달성**: `.env.example` 키 = `.env.local` 키 union (publishable 의도적 차이만 잔존) + onboarding 가독성 검증.
+
+---
+
+### P2.4 — CLAUDE.md "DQ7 다음 세션 진입점" stale 제거 + CodebaseStatus 하단 갱신 (G-2/G-3) — **✅ 완료 (47차 cmux omxy 4 rounds CONVERGED, Curie explore agent 권고 추가 반영)**
+
+**수정 실행**:
+- ✅ CLAUDE.md:78 (보조 문서 표 DQ7-Credentials 행) "**다음 세션 진입점**" 제거 + "Smoke #4/#5 + Session 4 QA 잔여" 정확화 + "1순위는 `HANDOFF.md §2` 참조" 가이드 추가
+- ✅ CodebaseStatus.md 현재 기준 헤더 3곳 정정:
+  - line 215: `2026-05-08 · S7e T7e.6 완료 기준` → `2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 적용`
+  - line 329: `(S7e T7e.6 완료 후, 2026-05-08)` → `(46차 P0·P1 완료 후, 2026-05-13)`
+  - line 332: `49 files / 381 tests pass` → `50 files / 429 tests pass`
+- ✅ **Curie 권고 추가** — CodebaseStatus.md 체크리스트 정정 (Round 4):
+  - line 368 마이그 라인: `0001~0008 + 0009 파일 생성` → `0001~0010 + 0012~0015a 적용` (production)
+  - line 372 헤더 + 13 체크 항목: `(S7, 미착수)` → `(S7, 진행 중 — S7e T7e.8 + 46차 P0·P1 완료, S7a 진입 대기)` · Naver/0009/0010 ✅ 표기 · Supabase 실 I/O 🟢 · B-6/B-7/B-9/B-10 사용자 액션 큐 참조
+  - line 387 운용 검증: `(미착수)` → `(진행 중)` + Vercel/origin push ✅ + D11 AI 가상 포트 운용 검증 항목 신규
+- ✅ 세션 로그 (line 36/48/61/73/79/160/291) T7e.6 참조는 **history 보존** (omxy 지적 — 역사 왜곡 회피)
+- ✅ `tudal/src/app/(admin)/admin/report/[ticker]/record-view.ts:18` 주석 "S2 Supabase 연결 시" → "T2.4 후속 — S7e 이후 별도 slice. 본 record-view는 mock 관측 only 의도" 명확화
+- ✅ 본 FixPlan-46.md §P2.4 자기 경로 정정 (omxy Round 1 발견: `tudal/src/lib/report/record-view.ts` 존재하지 않음 → `tudal/src/app/(admin)/admin/report/[ticker]/record-view.ts`)
+
+**DoD 달성**: 위 SoT 파일들 변경 후 build / lint / test:ci / tsc 4 게이트 통과. grep 증거 6종 모두 0건 확인.
 
 ---
 
@@ -376,3 +387,4 @@ owning slice: S7b (briefing/news) + S7d (health) + 일부 S7c (intraday alerts).
 
 - **2026-05-13 (46차 audit 박제)**: 초안 작성 + omxy 3차 라운드 정정 반영. P0.1 = PUBLIC REVOKE + authenticated re-grant (`is_admin` + admin 활성 RPC). DoD = anon-facing WARN 5건 해소 + authenticated WARN 의도 잔존 + RLS-protected SELECT 정상. omxy CONVERGED (a)~(f) + PostgreSQL ACL 정확 모델.
 - **2026-05-13 (46차 실행 + P2.1 정정)**: P0/P1 실행 완료 박제. omxy Round 2 CONVERGED 정정 — 미사용 2종(`mark_alert_read`/`record_alert_exit_decision`) authenticated도 회수 → DoD "authenticated WARN 5건 의도 잔존" → **"3건 의도 잔존"으로 정정**. Production hotfix push로 ahead 39 + 46차 P0/P1 batch 모두 origin/main 동기 ✅. 다음 세션 P2.2~P2.4 + P3 + S7a(B-6 트리거)로 진행.
+- **2026-05-13 (47차 P2.2~P2.4 실행)**: SoT cleanup 3건 완료. **cmux pair-debate omxy 4 rounds 모두 CONVERGED**. R1 scope 제안 → R2 Beauvoir explore agent 검증으로 (1) `.env.example` 기존 키 3개(API_CRED_MASTER_KEY/CRON_SECRET/ADMIN_REP_EMAIL) 발견 → 실 누락 3개만(DART/KRX) 추가 (2) record-view 경로 정정 (`tudal/src/lib/report/...` → `tudal/src/app/(admin)/admin/report/[ticker]/record-view.ts`) (3) PUBLISHABLE_KEY 의도적 잔존 확인. R3 build/grep 6종 증거. R4 Curie explore agent 권고로 CodebaseStatus.md 체크리스트 14 항목 정정(`(미착수)` → `(진행 중)` + 0009/0010 ✅ + Supabase 실 I/O 🟢 + Vercel/origin push ✅). 7 파일 +46/-24. 검증 게이트 25 routes / 0 / 50 files 429 tests / tsc clean. 다음 세션 P3 + S7a(B-6 트리거)로 진행.

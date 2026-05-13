@@ -75,7 +75,7 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 | `Document/Service/Report/ReportFramework.md` | AI 투심위 보고서 프레임워크 SoT (Section 0~8 + Appendix, Core Committee, Sector Board). |
 | ~~`Document/Service/Planning/AutoTrading.md`~~ | **2026-04-22 `Document/Archive/`로 이관** — D11 이전 자동매매 독립 트랙 가정 기반 리서치 원자료. |
 | `Document/Build/SliceTemplate.md` | 신규 슬라이스 파일 생성 시 참조 템플릿. |
-| **`Document/Build/Slices/DQ7-Credentials.md`** | **Admin Credential System 슬라이스** (2026-04-22 신설 · per-admin API 키 UI + AES-256-GCM 암호화 + Vercel 첫 배포 · S7a보다 선행 · Session 3 부분 진행 · T16/0009/T17 잔여). **다음 세션 진입점**. |
+| `Document/Build/Slices/DQ7-Credentials.md` | Admin Credential System 슬라이스 (2026-04-22 신설 · per-admin API 키 UI + AES-256-GCM 암호화 + Vercel 첫 배포 · Session 3 부분 진행 · Smoke #4/#5 + Session 4 QA 잔여). 1순위는 `HANDOFF.md §2` 참조. |
 | `Document/Build/Slices/S7-RealData.md` | 실데이터 전환 슬라이스 (S7a Anthropic → S7e Supabase → S7b 뉴스/브리핑 → S7c 장중/Exit → S7d Silent Health). DQ-7 완료 후 진입. **D18 (2026-05-08)**: S7b 후 D11 AI 가상 포트 1차 가동 게이트 명시 (KIS 0개). |
 | `Document/Build/Slices/S8-AutoTrading.md` | **자동매매 프레임 슬라이스** (주식 KIS + 바이낸스 선물, Strategy drop-in + AI 어댑터 embed, 2026-04-21 D16 승격). `/admin/settings/{brokerage,binance}` UI는 DQ-7에서 선행 이관. **D18 (2026-05-08)**: S7a·S7e 후 병행 → **S7d 후 단독 진입**으로 분리. |
 | ~~`Document/Service/Planning/AutoTrading-AI구조설계.md`~~ | **2026-04-22 `Document/Archive/`로 이관** — AI 구조 초안(D11 이전) · S8 AI 어댑터 drop-in 시 참조 원자료. |

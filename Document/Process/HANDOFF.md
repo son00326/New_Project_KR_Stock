@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-13 (46차 — **P0·P1 완료 ✅** · advisor anon WARN **5→0** + authenticated **5→3** (omxy least-privilege) + format-error 헬퍼 + (admin) boundary 3 + props cleanup + **production hotfix push** (ahead 39 해소) · **다음 1순위 = §7 P2.2~P2.4 + P3 잔여** + **S7a Anthropic wrapper (B-6 AI 키 발급 트리거)**)
+Last updated: 2026-05-13 (47차 — **§7 P2.2~P2.4 SoT cleanup 완료 ✅** · HANDOFF 401 + news-sweep daily 주석 + .env.example superset (DART/KRX 3 키) + CodebaseStatus 체크리스트 정정 + record-view TODO 정정 + FixPlan-46 자기 경로 정정 · **다음 1순위 = §7 P3 (T7a.11 D20 표 + accept_shortlist RPC 0016 + wrapper error taxonomy + 신규 테스트)** 또는 **S7a Anthropic wrapper (B-6 AI 키 발급 트리거)**)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,9 +15,10 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자 별도 지시가 없으면 **§2.A S7a Anthropic wrapper**부터 진입한다. **선행 = B-6 AI 키 발급 (Vercel env `ANTHROPIC_API_KEY`).** 미발급이면 §7 잔여 P2.2~P2.4 + P3 항목으로 우회.
+- 사용자 별도 지시가 없으면 **§2.A S7a Anthropic wrapper**부터 진입한다. **선행 = B-6 AI 키 발급 (Vercel env `ANTHROPIC_API_KEY`).** 미발급이면 §7 잔여 P3 항목으로 우회.
   - **§7 P0·P1 = 46차 완료 ✅** (commit `9661037` P0 / `4c6eea7` P1). P0.2 HIBP 토글만 사용자 dashboard 작업 잔여.
-  - 남은 §7 작업 = P2.2 (HANDOFF 403→401 + news-sweep 주석), P2.3 (.env diff), P2.4 (DQ7 stale 정리), P3 (T7a.11 D20 컴포넌트 + accept_shortlist RPC + wrapper error taxonomy + 신규 테스트).
+  - **§7 P2.2~P2.4 = 47차 완료 ✅** (cmux pair-debate omxy 4 rounds CONVERGED · 7 파일 / +46/-24 / md+주석 only).
+  - 남은 §7 작업 = P3 (T7a.11 D20 컴포넌트 + accept_shortlist RPC + wrapper error taxonomy + 신규 테스트, 1~2주 분량).
   - P4 mock 정리는 자연 진행 (S7b/S7c/S7d/T7a 후속).
   - **선행 확인**: Vercel env `ANTHROPIC_API_KEY` 존재 여부 → `vercel env ls`. 없으면 사용자가 `console.anthropic.com`에서 발급 → `vercel env add ANTHROPIC_API_KEY` 후 진입.
   - S7a가 D11 가상 포트 운용 검증의 핵심 가치 (30개 카드에 페르소나 평가 + 합의 배지 + Section 8 위원 전원 표 표시). T7e.7 RLS QA는 후속이며 보안 검증 성격이라 운용 시작 전에만 마무리하면 된다.
@@ -102,7 +103,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 **수동 QA 항목 (5종)**:
 1. **비-어드민 redirect** — `admin_emails`에 없는 이메일 계정 → `/admin/*` 접근 → 미들웨어 redirect 확인.
 2. **Cross-admin RLS 거부** — 어드민 A 계정 → 어드민 B의 `regen_counter` / `portfolio_approval` / `brokerage_connection` 행을 직접 SQL/UPDATE 시도 → RLS 거부.
-3. **Cron 가드** — `/api/cron/{monthly-batch,morning-briefing,news-sweep,silent-health}` → `Authorization: Bearer ${CRON_SECRET}` 없으면 403, 있으면 200.
+3. **Cron 가드** — `/api/cron/{monthly-batch,morning-briefing,news-sweep,silent-health}` → `Authorization: Bearer ${CRON_SECRET}` 없으면 401, 있으면 200.
 4. **Security-definer RPC 가드** — `mark_alert_read` · `raise_portfolio_dispute` · `resolve_portfolio_dispute` · `record_alert_exit_decision` → 함수 본문 `is_admin()` 가드 동작 (anon 호출은 즉시 거부).
 5. **신규 DART 테이블 RLS** — `dart_corp_codes` / `dart_financial_cache` 두 테이블도 anon SELECT 거부 + admin SELECT 통과 확인.
 
@@ -210,6 +211,19 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 
 직전 한 항목만 빠른 컨텍스트용으로 유지:
 
+- **47차 §7 P2.2~P2.4 SoT cleanup (2026-05-13)**:
+  - **scope**: 46차 후속 SoT cleanup 3건. AI 키 B-6 미발급 우회 작업. 코드 변경 최소 (md + 주석 + .env.example 템플릿).
+  - **방식**: cmux pair-debate omxy 4 rounds **모두 CONVERGED** (Round 1 scope 제안 → Round 2 omxy Beauvoir explore agent 검증으로 .env.example 기존 키 3개 발견 + record-view 경로 정정 + publishable key 의도 확인 → Round 3 build/grep 6종 증거 발송 → Round 4 omxy Curie explore agent 권고로 CodebaseStatus 체크리스트 14 항목 정정 추가).
+  - **P2.2**: `HANDOFF.md:105` cron 가드 "403" → "401" (cron route 4종 모두 `status: 401` 반환 grep 검증). `tudal/src/app/api/cron/news-sweep/route.ts:13` 주석 "Vercel Cron 15분 주기" → "Vercel Cron daily 00:00 UTC (vercel.json `0 0 * * *`)".
+  - **P2.3**: `tudal/.env.example` 신규 `[S7e T7e.8]` 섹션 — `DART_API_KEY` + `KRX_ID` + `KRX_PW` 3 키 + owning slice 주석. `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`는 의도적 주석 잔존 (코드 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 단독 사용 — `src/lib/supabase/{middleware,server,client}.ts` 3 파일 grep 검증).
+  - **P2.4**: (a) `CLAUDE.md:78` DQ7-Credentials 행 "**다음 세션 진입점**" 제거 + "1순위는 `HANDOFF.md §2` 참조" 가이드. (b) `CodebaseStatus.md` 현재 기준 헤더 3곳(line 215/329/332) → `2026-05-13 / S7e T7e.8 / 50 files / 429 tests`. (c) Curie 권고 — `:368` 마이그 라인 `0001~0008 → 0001~0010 + 0012~0015a` + `:372` "실데이터 전환 (S7, 미착수)" → "(S7, 진행 중 — S7e T7e.8 + 46차 P0·P1 완료)" 체크리스트 14 항목 갱신 + `:387` "운용 검증 (미착수)" → "(진행 중)" Vercel/origin push 체크. 세션 로그(line 36/48/61/73/79/160/291)는 history 보존. (d) `record-view.ts:18` TODO 주석 "S2 Supabase 연결 시" → "T2.4 후속 — S7e 이후 별도 slice". (e) `FixPlan-46.md §P2.4` 자기 경로 정정 (omxy Round 1 발견: `tudal/src/lib/report/record-view.ts` 존재하지 않음 → `tudal/src/app/(admin)/admin/report/[ticker]/record-view.ts`).
+  - **검증 게이트**: build 25 routes / lint 0 (Round 3 기준) / test:ci **50 files / 429 tests pass** / `tsc --noEmit` clean (Round 4 추가는 CodebaseStatus.md md only).
+  - **grep 증거 6종**: 모두 0건 (T7e.6 헤더 / HANDOFF 403 / news-sweep 15분 / S2 Supabase / DQ7 진입점 / record-view stale).
+  - **omxy 권고 반영**: (1) PUBLISHABLE_KEY 의도적 잔존을 commit message에 명시. (2) Curie 1순위 권고 = "CodebaseStatus 체크리스트 자체 최소 정정" 채택 (legacy 진행표 경고 추가 대안 거부).
+  - **변경 summary**: 7 파일, +46/-24. CLAUDE.md(1)/HANDOFF.md(1, 본 commit 포함하여 추가 갱신)/FixPlan-46.md(1)/CodebaseStatus.md(2 라운드)/`.env.example`(1)/`news-sweep/route.ts`(1)/`record-view.ts`(1).
+  - **Git**: 47차 단일 commit (P2.2+P2.3+P2.4 묶음) — message에 grep 증거 + PUBLISHABLE 의도 + cmux 4 rounds 박제.
+  - **다음 1순위**: §7 P3 (T7a.11 D20 Section 8 표 컴포넌트 + accept_shortlist RPC 마이그 0016 + wrapper error taxonomy 정규화 + 신규 cron-auth/wrapper-error/FE-map 테스트, 1~2주 분량) 또는 **S7a Anthropic wrapper (B-6 AI 키 발급 후)**.
+
 - **46차 P0·P1 실행 + production hotfix push + SoT cleanup (2026-05-13)**:
   - **scope**: 46차 QA audit(9f6bc7e)의 §7 P0·P1 항목을 omxy cmux pair-debate 합의로 실 코드/마이그/문서에 반영. 도중 사용자가 production에서 `real_persistence_not_configured` 에러 보고 → root cause = origin/main이 T7e.4 이전 stale (ahead 39 commits) → 46차 P0 batch 동시 push로 해소.
   - **P0.1 (commit `9661037`)**: Supabase 마이그 0015a (`definer_execute_lockdown`) 작성 + apply. **omxy Round 2 CONVERGED** — 5 SECURITY DEFINER 함수에서 PUBLIC + anon EXECUTE 회수 + 활성/RLS 필수 함수만 authenticated 유지 (is_admin / raise_portfolio_dispute / resolve_portfolio_dispute). **least-privilege 강화**: 미사용 2종(mark_alert_read + record_alert_exit_decision)은 authenticated도 회수. advisor anon WARN **5→0** / authenticated WARN **5→3**.
@@ -243,7 +257,7 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 |---|---|---|---|
 | **P0** | 운영 안전 — Supabase advisor anon REVOKE (0015a) + HIBP dashboard + 0009 SOP | **✅ 완료** (P0.1 commit `9661037` apply + production · P0.3 §6.10 SOP · ⏳ P0.2 사용자 HIBP B-2A) | advisor anon WARN **5→0** · authenticated **5→3** (omxy least-privilege 강화 — mark_alert_read + record_alert_exit_decision authenticated도 회수 · 활성 시 re-grant) |
 | **P1** | 사용자 영향 — 한국어 매핑 + settings 문구 + (admin) boundary + props cleanup | **✅ 완료** (commit `4c6eea7`) | D-13 format-error 헬퍼(+45 tests, 384→429) / D-14 / G-2-FE / D-12 |
-| **P2** | SoT cleanup — 카운트·차수(44→45차) + cron 주석 + .env diff | **P2.1 ✅ (본 문서 + Dashboard + CodebaseStatus + FixPlan-46 + ServicePlan-Admin/ReportFramework 44→45차)** · **P2.2~P2.4 잔여**: 403→401, news-sweep 주석, .env diff, DQ7 진입점 stale 제거 | D-15·D-16 / D-18 / G-2·G-3 |
+| **P2** | SoT cleanup — 카운트·차수(44→45차) + cron 주석 + .env diff | **✅ 완료** (P2.1 46차 + **P2.2~P2.4 47차 cmux omxy 4 rounds**: 403→401, news-sweep daily 주석, .env.example DART/KRX 3 키 superset, CodebaseStatus 헤더+체크리스트 + record-view TODO + FixPlan-46 자기 경로 정정) | D-15·D-16 / D-18 / G-2·G-3 |
 | **P3** | 신규 작업 — T7a.11 D20 Section 8 표 컴포넌트 + accept RPC 0016 + error taxonomy 정규화 + 신규 테스트 | ⚪ 미착수 (1~2주, S7a 후 또는 병행) | G-D20 / G-1 / D-8·D-9·D-10·V-4 / G-cron-auth·wrapper-error·FE-map tests |
 | **P4** | Mock 정리 backlog (S7b/S7c/S7d/T7a 자연 진행) | 자연 | 25 mock import owning slice 표 — FixPlan-46.md §P4 |
 | (별도) | cron durable write/idempotency backlog (S7b/S7d 진행 시 처리) | 자연 | 4 cron route mock JSON only |

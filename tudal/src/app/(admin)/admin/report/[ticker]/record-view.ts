@@ -1,7 +1,7 @@
 import "server-only";
 
 // T2.4 report_view_log INSERT 파이프 (server-only 모듈).
-// mock 단계: console.log로 관측만. 실 Supabase 연결 시 아래 TODO 블록을 활성화.
+// mock 단계: console.log로 관측만. T2.4 후속(S7e 이후 별도 slice)에서 아래 TODO 블록 활성화.
 //
 // G-5 B · BL-5 B:
 //   - 테이블: report_view_log (E10)
@@ -15,7 +15,7 @@ export async function recordReportView(
   reportId: string,
   ticker: string,
 ): Promise<void> {
-  // TODO (S2 Supabase 연결 시):
+  // TODO (T2.4 후속 — S7e 이후 별도 slice. 본 record-view는 mock 관측 only 의도):
   //   const supabase = await createServerClient();
   //   const { data: { user } } = await supabase.auth.getUser();
   //   if (!user) return;

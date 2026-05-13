@@ -212,7 +212,7 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-05-08 · S7e T7e.6 완료 기준 · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
+## tudal/ 현재 상태 (2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 적용 · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
 - TypeScript 파일: `src/` 기준 **~160개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots`·`admin-regen-counters`·`admin-access-logs`·`admin-performance`·`admin-decision-tree` 9개 실 I/O wrapper와 테스트 추가; `mock-admin-{regen-counters,access-logs,performance,decision-tree}` 4개 삭제)
@@ -326,10 +326,10 @@
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태 (S7e T7e.6 완료 후, 2026-05-08)
+### 검증 게이트 현재 상태 (46차 P0·P1 완료 후, 2026-05-13)
 - `npm run build`: ✅ **25 routes** (Next.js 16 build 통과)
 - `npm run lint`: ✅ 0 errors
-- `npm run test:ci`: ✅ **49 files / 381 tests pass** (S7e T7e.6 기준; 이전 46/362 +3/+19, consistency 1 제거 반영)
+- `npm run test:ci`: ✅ **50 files / 429 tests pass** (46차 P1.1 format-error 헬퍼 +40 + 기타 +5; 이전 49/381 → 50/429)
 - `npx tsc --noEmit`: ✅ exit 0
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 가능 — 필요 시 `ulimit -n 65535` 후 재시도
 
@@ -365,30 +365,31 @@
 - [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145 → DQ-7 S2: ~152)
 - [x] 라우트 추가 (S0 17 → S6 22 → DQ-7 S2 24)
 - [x] Supabase `.env.local` 세팅 (S0 완료 · DQ-5 anon key 갱신 해소 2026-04-21)
-- [x] 마이그레이션 0001~0008 적용 + **0009 파일 생성 (실 DB 적용 Session 3 예정)**
+- [x] 마이그레이션 0001~0010 + 0012~0015a 적용 (production · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 슬롯 = BL-KRIT-8 S8 자동매매 보존 · 0012 = short_list_30 name/sector · 0013/0014 = DART cache · 0015a = SECURITY DEFINER PUBLIC REVOKE 46차 P0.1)
 - [x] Vitest 테스트 인프라 (190 → **248 tests pass** · DQ-7 S1 +58)
 - [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 
-### 실데이터 전환 (S7, 미착수)
-- [ ] **Anthropic API 키 확보** (BL-KRIT-1) — DQ-2/DQ-7 선결
-- [ ] **KIS API 계정 발급** (BL-KRIT-2) — DQ-7 선결
-- [🟡] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전)
-- [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4) — DQ-7 선결
-- [ ] **Telegram Bot** (BL-KRIT-5) — DQ-7 선결
+### 실데이터 전환 (S7, 진행 중 — S7e T7e.8 + 46차 P0·P1 완료, S7a 진입 대기)
+- [ ] **Anthropic API 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — S7a 진입 트리거
+- [ ] **KIS API 계정 발급** (BL-KRIT-2, 사용자 액션 B-10) — S7c WS read-only 본인 1개로 충분 (D18)
+- [x] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전 · B-8)
+- [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4, 사용자 액션 B-7) — S7b 선결
+- [ ] **Telegram Bot** (BL-KRIT-5, 사용자 액션 B-9) — S7c 선결
 - [x] **Supabase anon key 갱신** (BL-KRIT-6) — 2026-04-21 해소
-- [ ] **마이그레이션 0010 파일 생성** alert_event CHECK 확장 (BL-KRIT-7, S7e 진입 전 선행 — 28차 재배정으로 0009→0010, 31차 stale 체크 정정)
-- [ ] **마이그레이션 0009** DQ-7 credential (E9 확장 + E12 신설 + RLS, 파일 생성 완료 · 실 DB 적용 Session 3 예정)
-- [ ] Supabase 실 SELECT/INSERT 전환 (S7e · 8 Must)
-- [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12)
+- [x] **마이그레이션 0010 alert RLS hardening** (BL-KRIT-7) — 적용 완료 (36차)
+- [x] **마이그레이션 0009 DQ-7 credential** (E9 확장 + E12 신설 + RLS) — 적용 완료 (DQ-7 Session 3, production brokerage_connection 1 row 존재)
+- [🟢] **Supabase 실 SELECT/INSERT 전환** (S7e · 8 Must) — T7e.1~T7e.6 + T7e.8 완료 (7/8) · T7e.7 RLS 수동 QA 잔여
+- [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12) — B-6 발급 후 진입
 - [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)
 - [ ] 장중·Exit 실 연결 (S7c · M13·M15)
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)
 
-### 운용 검증 (미착수)
-- [ ] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 **Session 3 · 사용자 주도** · 최소 env 7개: Supabase 3 + ADMIN_EMAILS + ADMIN_REP_EMAIL + API_CRED_MASTER_KEY + CRON_SECRET)
-- [ ] origin push (DQ-6 해소 2026-04-20 · 현재 DQ-7 S1·S2 + cleanup 등 여러 commits ahead, Session 3 직전 push 권장)
-- [ ] Cron 4건 실 실행 검증
-- [ ] 어드민 1개월+ 운용 검증
+### 운용 검증 (진행 중)
+- [x] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 Session 3 완료 · production live https://tudal-tawny.vercel.app)
+- [x] origin push (46차 production hotfix push 완료 — ahead 39 + 46차 P0/P1 batch sync, B-15 해소)
+- [ ] Cron 4건 실 실행 검증 (S7b/S7d 진입 시점에 monthly-batch/morning-briefing/news-sweep/silent-health durable write 검증)
+- [ ] D11 AI 가상 포트 운용 검증 (S7a + S7b 후 어드민 3인 며칠~1주, 30 카드 + 합의 배지 + Section 8 위원 표 가독성)
+- [ ] 어드민 1개월+ 운용 검증 (D11 후속 → S7c·S7d → S8 진입 전 게이트)
 
 ### 법무 (⏸ Deferred-D 멤버 오픈 시점까지 유예 · 2026-04-20)
 - [⏸] Q16 법무 자문 — 어드민 3명 내부 운용만이므로 현 단계에서 불필요
