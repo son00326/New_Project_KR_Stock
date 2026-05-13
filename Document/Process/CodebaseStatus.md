@@ -23,8 +23,9 @@
   - acceptShortlistRpc +4 (happy / already_finalized / raw error re-throw / unexpected payload guard)
 - **omxy cmux pair-debate 3 rounds 모두 CONVERGED**: R1 scope 제안 → R2 정정 8건 채택 (D 마이그 5건 + 추가 3건) → R3 실행 결과 + 권고 4건 (test count 실측 463 명시 / isUniqueViolation 잔존 명시 / SoT 범위 / apply order).
 - **검증 게이트**: `npm run build` exit 0 (25 routes) · `lint` 0 errors · `test:ci` exit 0 (**50 files / 463 tests pass**; +34 vs 429) · `npx tsc --noEmit` exit 0.
-- **Git**: 본 commit + 47차 stale commit `03d9bc7` 모두 origin/main push 대기 (B-16 큐). 마이그 0016 apply order: 0010 → 0012~0014 → 0015a → **0016** → (0011 = S8 reserve).
-- **잔여**: B-16(push + 마이그 0016 apply) · S7a(B-6 AI 키 트리거) · P3.1(D20 컴포넌트, S7a 시드 후) · P3.3(error taxonomy 옵션 A/B 사용자 결정).
+- **Git**: 본 commit 2건 + 47차 `03d9bc7` 모두 `git push origin main` 완료 ✅, Vercel auto-deploy 트리거. **B-16 해소**. 마이그 apply order: 0010 → 0012~0014 → 0015a → **0016 production apply ✅** → (0011 = S8 reserve).
+- **anon revoke hotfix**: 0016 apply 직후 advisor `anon_security_definer_function_executable` 신호 발견 → Supabase가 신규 `public.*` 함수에 anon default grant 자동 부여 → follow-up 마이그로 `revoke from anon` apply + 0016 SoT 파일에도 라인 추가. ACL 최종 `{postgres=X, authenticated=X, service_role=X}`. advisor anon WARN 0건 유지.
+- **잔여**: S7a(B-6 AI 키 트리거) · P3.1(D20 컴포넌트, S7a 시드 후) · P3.3(error taxonomy 옵션 A/B 사용자 결정).
 
 **2026-05-13** (46차): **P0·P1 완료 + production hotfix push (ahead 39 해소) + SoT cleanup ✅**.
 - **마이그 0015a (`definer_execute_lockdown`)**: Supabase project `rbrpcynhphrpljbjirfo`에 apply. SECURITY DEFINER 5 함수 PUBLIC + anon EXECUTE 회수 + 활성/RLS 필수만 authenticated 유지. **advisor anon WARN 5→0 / authenticated WARN 5→3** (omxy Round 2 정정: 미사용 mark_alert_read + record_alert_exit_decision authenticated도 회수). proacl AFTER: is_admin/raise_portfolio_dispute/resolve_portfolio_dispute = `auth=X, svc=X`; mark_alert_read/record_alert_exit_decision = `svc=X`만.
@@ -226,7 +227,7 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 + 0015a 적용 · 48차 P3.2 + P3.4 (마이그 0016 파일 박제 · apply 보류) · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
+## tudal/ 현재 상태 (2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 + 0015a 적용 · 48차 P3.2 + P3.4 + **마이그 0016 production apply ✅** · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
 - TypeScript 파일: `src/` 기준 **~160개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots`·`admin-regen-counters`·`admin-access-logs`·`admin-performance`·`admin-decision-tree` 9개 실 I/O wrapper와 테스트 추가; `mock-admin-{regen-counters,access-logs,performance,decision-tree}` 4개 삭제)
@@ -379,7 +380,7 @@
 - [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145 → DQ-7 S2: ~152)
 - [x] 라우트 추가 (S0 17 → S6 22 → DQ-7 S2 24)
 - [x] Supabase `.env.local` 세팅 (S0 완료 · DQ-5 anon key 갱신 해소 2026-04-21)
-- [x] 마이그레이션 0001~0010 + 0012~0015a 적용 (production · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 슬롯 = BL-KRIT-8 S8 자동매매 보존 · 0012 = short_list_30 name/sector · 0013/0014 = DART cache · 0015a = SECURITY DEFINER PUBLIC REVOKE 46차 P0.1) · **0016 = `accept_shortlist_with_snapshots` RPC 48차 P3.2 파일 박제 — apply 보류 (B-16 큐, 사용자 트리거 대기)**
+- [x] 마이그레이션 0001~0010 + 0012~0016 적용 (production · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 슬롯 = BL-KRIT-8 S8 자동매매 보존 · 0012 = short_list_30 name/sector · 0013/0014 = DART cache · 0015a = SECURITY DEFINER PUBLIC REVOKE 46차 P0.1 · **0016 = `accept_shortlist_with_snapshots` RPC 48차 P3.2 ✅ + anon revoke hotfix**) · advisor anon WARN **0건** / authenticated WARN **4** (intended: is_admin/raise/resolve_portfolio_dispute + accept_shortlist_with_snapshots)
 - [x] Vitest 테스트 인프라 (190 → **248 tests pass** · DQ-7 S1 +58)
 - [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 

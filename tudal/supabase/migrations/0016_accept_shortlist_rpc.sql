@@ -126,8 +126,13 @@ exception
 end;
 $$;
 
--- 권한 (0015a 패턴): PUBLIC EXECUTE 제거 + authenticated만 명시 grant.
+-- 권한 (0015a 패턴 + 적용시 발견): PUBLIC + anon EXECUTE 제거 + authenticated만 명시 grant.
+-- 주의: Supabase는 신규 `public.*` 함수에 anon/authenticated/service_role default grant를 자동 부여한다.
+-- `revoke from public` 단독으로는 차단 안 됨 (0015a 마이그 적용 후 추가된 함수는 anon에 X 잔존).
+-- 따라서 `revoke from anon`을 명시해야 advisor `anon_security_definer_function_executable` 0건 유지.
+-- service_role은 백엔드용이라 유지.
 revoke execute on function public.accept_shortlist_with_snapshots(text, timestamptz, jsonb) from public;
+revoke execute on function public.accept_shortlist_with_snapshots(text, timestamptz, jsonb) from anon;
 grant execute on function public.accept_shortlist_with_snapshots(text, timestamptz, jsonb) to authenticated;
 
 commit;

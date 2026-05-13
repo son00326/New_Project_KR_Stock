@@ -326,7 +326,7 @@ ROUND - §7 P2.1 시작
 
 **테스트 추가 (+4)**: admin-approvals.test.ts `describe("acceptShortlistRpc")` 4 it (happy + already_finalized + raw error re-throw + unexpected payload guard).
 
-**Apply 상태**: 파일 박제 완료, **DB apply 보류** (사용자 명시 트리거 대기, B-16 큐). Apply order: 0010 → 0012~0014 → 0015a → **0016**. 0011은 S8 자동매매 reserve.
+**Apply 상태**: **production apply 완료 ✅** (사용자 트리거 직후). 적용 직후 **anon revoke 누락 발견** → follow-up 마이그 `revoke from anon` apply + 0016 SoT 파일에도 라인 추가하여 self-consistent. **근본 원인**: Supabase가 신규 `public.*` 함수에 anon/authenticated/service_role default grant를 자동 부여 (0015a 마이그 적용 후 추가된 신규 함수는 anon X 자동 회복). **최종 ACL**: `{postgres=X, authenticated=X, service_role=X}` (anon 제거). **advisor**: anon WARN **0건 유지** · authenticated WARN **3→4** (accept_shortlist_with_snapshots intended). Apply order: 0010 → 0012~0014 → 0015a → **0016 ✅**. 0011은 S8 자동매매 reserve.
 
 **DoD 달성**: build 25 routes · lint 0 · test:ci 463/50 (+34 vs 429) · tsc clean.
 

@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-13 (48차 — **§7 P3.2 + P3.4 완료 ✅** · 마이그 0016 `accept_shortlist_with_snapshots` RPC 파일 박제(apply 보류) + acceptShortList orphan-safety RPC 일원화 + G-cron-auth 12 + G-wrapper-error 8 + G-FE-map 9 + RPC 4 = **+34 tests / 429→463 / 50 files** · cmux pair-debate omxy 3 rounds 모두 CONVERGED · **다음 1순위 = S7a Anthropic wrapper (B-6 AI 키 발급 트리거)** 또는 **§7 P3.1 (D20 컴포넌트, S7a 시드 후) + P3.3 (error taxonomy 옵션 A/B 사용자 결정 필요)**)
+Last updated: 2026-05-13 (48차 — **§7 P3.2 + P3.4 완료 ✅ + 마이그 0016 production apply ✅ + origin push ✅** · 사용자 트리거로 후속 적용 + anon revoke hotfix(Supabase default grant 차단) · acceptShortList orphan-safety RPC 일원화 + +34 tests · cmux pair-debate omxy 3 rounds 모두 CONVERGED · **다음 1순위 = S7a Anthropic wrapper (B-6 AI 키 발급 트리거)** 또는 **§7 P3.1 (D20 컴포넌트, S7a 시드 후) + P3.3 (error taxonomy 옵션 A/B 사용자 결정 필요)**)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -42,7 +42,7 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012(name/sector) + **0013/0014(DART cache)** 적용 · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 |
 | 검증 기준 | 최근 fresh gate (48차 종료): build 25 routes · lint 0 · test:ci **463 pass / 50 files** (+34 vs 429) · `tsc --noEmit` 0 |
-| Git | 46차 commits `9661037` + `4c6eea7` origin/main 동기 ✅. **47차 `03d9bc7` + 48차 신규 commit = push 대기** (사용자 명시 트리거 필요). 마이그 apply order: 0010 → 0012~0014 → 0015a 적용됨 → **0016 apply 대기** (DB user-triggered) → 0011 슬롯은 S8 reserve. |
+| Git | 46차 + 47차 + 48차 commits 모두 origin/main 동기 ✅ (사용자 트리거로 push 완료). 마이그 apply order: 0010 → 0012~0014 → 0015a → **0016 production apply 완료 ✅** + anon revoke hotfix · 0011 슬롯은 S8 reserve. advisor anon WARN **0건 유지** · authenticated WARN **3→4** (accept_shortlist_with_snapshots intended). |
 
 ### T7e.6까지의 필수 계약 (요약)
 
@@ -161,7 +161,7 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 | B-13 | Vercel CLI update | v53 최신화 | 향후 deploy 권장 |
 | B-14 | Magic Link 디버깅 | 시크릿 창/Email Template/PKCE callback 확인 | S9 전 권장 |
 | ~~B-15~~ | ~~Git push to origin~~ | **46차 P0 commit `9661037` + P1 commit `4c6eea7` push 완료. origin/main 동기 ✅** | 해소 |
-| **B-16** | **47/48차 commit origin push + 마이그 0016 apply** | 47차 `03d9bc7` SoT cleanup + 48차 신규 commit 2건 `git push origin main` + Supabase 0016 마이그 apply (`mcp__supabase__apply_migration` 또는 dashboard) | acceptShortList RPC 운용 활성화 (orphan G-1 차단 production 반영) |
+| ~~B-16~~ | ~~47/48차 commit origin push + 마이그 0016 apply~~ | **48차 사용자 트리거로 완료 ✅** — 마이그 0016 + anon revoke hotfix apply + `git push origin main` 3 commits 동기 | 해소 |
 
 ---
 
@@ -221,9 +221,10 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
   - **P3.2 마이그 0016 + actions.ts 통합 (+4 RPC tests)**: `0016_accept_shortlist_rpc.sql` + rollback 신규 — `accept_shortlist_with_snapshots(p_month text, p_shortlist_generated_at timestamptz, p_snapshots jsonb) returns jsonb` SECURITY DEFINER + `set search_path = public, pg_temp`. 함수 본문 = plpgsql 단일 txn(auto-rollback on exception). **auth 순서 omxy 정정**: auth.uid() null → `auth_unavailable` raise → `is_admin()` 가드 → `admin_required` raise. `jsonb_typeof = 'array'` guard. portfolio_approval INSERT (is_final=true) + portfolio_snapshot bulk INSERT (`jsonb_array_elements`). EXCEPTION unique_violation → `GET STACKED DIAGNOSTICS constraint_name` 분기 (`portfolio_approval_final_month_uniq` → `already_finalized` return / 기타 → re-raise). `revoke from public` + `grant to authenticated`. `admin-approvals.ts`에 `acceptShortlistRpc()` wrapper 신규(snake-case payload 변환 + payload shape 가드). `actions.ts:267-302` acceptShortList → RPC 단일 호출(createPortfolioApproval+insertPortfolioSnapshots 직접 호출 제거 — orphan G-1 차단). `isUniqueViolation` catch 잔존: RPC가 snapshot-side(portfolio_snapshot_date_*_uniq) 등 비-approval unique를 re-raise하면 defensive 매핑. admin-approvals.test.ts에 RPC 단위 테스트 4종(happy/already_finalized/raw error re-throw/unexpected payload guard).
   - **검증 게이트**: build 25 routes / lint 0 / **test:ci 50 files 463 pass** (+34 vs 429) / `tsc --noEmit` clean. regression 0.
   - **omxy R2 정정 8건 모두 반영**: (1) p_admin_id 제거 → auth.uid() 내부 (2) `set search_path = public, pg_temp` (3) plpgsql 단일 txn(begin/end 함수 본문, DDL txn control 아님) (4) `get stacked diagnostics constraint_name` 분기 (5) is_admin() 본문 가드 (6) auth_unavailable을 admin_required보다 먼저 검사 (7) `jsonb_typeof array` guard (8) orphan 검증 — createPortfolioApproval/insertPortfolioSnapshots 미호출 assertion.
-  - **마이그 0016 apply 상태**: **파일 박제 완료, DB apply 보류** (사용자 명시 트리거 대기). Apply order: 0010 → 0012~0014 → 0015a → **0016**. 0011은 S8 자동매매 reserve. 적용 명령 = `mcp__supabase__apply_migration` with project_id=`rbrpcynhphrpljbjirfo`.
-  - **Git**: 본 commit + 47차 stale commit `03d9bc7` 모두 origin push 대기 (omxy R1·R3 권고 채택 — push는 사용자 명시 행위).
+  - **마이그 0016 apply 상태**: **production apply 완료 ✅** (사용자 트리거 직후). 적용 후 **anon revoke 누락 발견** → 즉시 follow-up 마이그 (`0016 follow-up — revoke execute from anon`) apply로 hotfix. **근본 원인**: Supabase가 신규 `public.*` 함수에 anon/authenticated/service_role default grant를 자동 부여 → `revoke from public` 단독으로는 anon 차단 불가. 0016 SoT 파일에도 `revoke from anon` 라인 추가하여 self-consistent. **최종 ACL**: `{postgres=X, authenticated=X, service_role=X}` (anon 제거). **advisor**: anon WARN 0건 유지 / authenticated WARN 3→4(intended, accept_shortlist_with_snapshots) / HIBP B-2A 1건 유지.
+  - **Git**: 본 commit 2건 + 47차 `03d9bc7` 모두 `git push origin main` 완료 ✅. Vercel auto-deploy 트리거됨. **B-16 큐 해소**.
   - **다음 1순위**: S7a Anthropic wrapper (B-6 AI 키 발급 트리거) 또는 §7 P3.1(D20 컴포넌트, S7a 시드 후) + P3.3(error taxonomy 옵션 A/B 사용자 결정 필요).
+  - **48차 박제 패턴 lesson**: 신규 SECURITY DEFINER 함수 마이그는 반드시 (1) `revoke from public` + (2) **`revoke from anon`** + (3) `grant to authenticated`. 0015a 마이그가 기존 5함수의 anon은 회수했지만, 그 이후 추가되는 신규 함수는 Supabase default grant로 anon이 다시 X를 갖게 됨. 향후 0017+ 신규 SECURITY DEFINER 마이그 작성 시 동일 패턴 강제.
 
 - **47차 §7 P2.2~P2.4 SoT cleanup (2026-05-13)**:
   - **scope**: 46차 후속 SoT cleanup 3건. AI 키 B-6 미발급 우회 작업. 코드 변경 최소 (md + 주석 + .env.example 템플릿).
