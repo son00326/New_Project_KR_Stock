@@ -12,6 +12,18 @@
 
 ## 최근 갱신
 
+**2026-05-13** (46차): **P0·P1 완료 + production hotfix push (ahead 39 해소) + SoT cleanup ✅**.
+- **마이그 0015a (`definer_execute_lockdown`)**: Supabase project `rbrpcynhphrpljbjirfo`에 apply. SECURITY DEFINER 5 함수 PUBLIC + anon EXECUTE 회수 + 활성/RLS 필수만 authenticated 유지. **advisor anon WARN 5→0 / authenticated WARN 5→3** (omxy Round 2 정정: 미사용 mark_alert_read + record_alert_exit_decision authenticated도 회수). proacl AFTER: is_admin/raise_portfolio_dispute/resolve_portfolio_dispute = `auth=X, svc=X`; mark_alert_read/record_alert_exit_decision = `svc=X`만.
+- **format-error 헬퍼**: `tudal/src/lib/admin/format-error.ts` 신규 — KOREAN_MAPPINGS 30+ 코드 + `accept_gate_blocked:*` prefix handler + Korean passthrough + dev-only warn. 5 client panel(portfolio-panel / regenerate-panel / exit-decision-form / settings-panel / brokerage·binance form+delete-button) ad-hoc switch 제거. credentials lib raw DB passthrough wrap (brokerage.ts + exchange.ts: 'Invalid id format' → '잘못된 ID 형식입니다', 'pending-s8' → 'Binance 키 저장은 S8 자동매매에서 활성화됩니다', DB error.message → '저장소 처리 중 오류가 발생했습니다' + dev console.error).
+- **(admin) boundary 3 신규**: `tudal/src/app/(admin)/loading.tsx` + `error.tsx` + `not-found.tsx` — Next.js App Router 라우트 그룹 boundary 한국어.
+- **props cleanup**: reportLinksEnabled / reportLinkEnabled / actionsEnabled / actionsDisabledMessage 4 prop + 분기 단순화 + canLinkDeltaReport 단일 인자화. delta-banner test 4→3 케이스.
+- **운영 SOP**: `DQ7-Credentials.md §6.10` — 0009 rollback production 금지 + 3 조건 체크리스트(brokerage_connection 0건 + exchange_connection 0건 + 사용자 명시 승인).
+- **Production hotfix push**: HANDOFF B-15 ahead 39 commits + 46차 batch → `git push origin main` → Vercel auto-deploy. origin/main이 T7e.4 이전 stale 코드(`real_persistence_not_configured` return 4 곳)였음. HEAD = `4c6eea7` 동기.
+- **omxy cmux pair-debate 7 rounds**: R1·R2(P0.1 마이그) → R3·R4(hotfix push 전략) → R5·R6(P1.1 헬퍼) → R7(P2.1 SoT scope). 모두 CONVERGED. CMUX_WORKSPACE_ID = workspace:7, peer surface:22 (omxy/Codex gpt-5.5 high).
+- **검증 게이트**: `npm run build` exit 0 (25 routes) · `lint` 0 errors · `test:ci` exit 0 (**50 files / 429 tests pass**; 이전 49/384 +1/+45 — format-error 40 + dispute panel re-aligned + credentials passthrough 2 + delta-banner trim 1) · `npx tsc --noEmit` exit 0.
+- **Git**: 46차 commits 3건 = `9661037` (P0.1 마이그 + P0.3 SOP + P1.2 문구) + `4c6eea7` (P1.1 헬퍼 + P1.3 boundary + P1.4 props cleanup) + **본 P2.1 commit** (SoT cleanup).
+- **잔여**: P0.2 HIBP 토글(사용자 dashboard, B-2A) · P2.2~P2.4(403→401, news-sweep 주석, .env diff, DQ7 진입점 stale 제거) · P3(T7a.11 D20 컴포넌트 + accept_shortlist RPC + wrapper error taxonomy + 신규 테스트) · P4(mock 정리 backlog 자연 진행) · S7a(B-6 AI 키 트리거).
+
 **2026-05-12** (45차): **T7e.8 DART Signal 4·5 production 적용 ✅**.
 - **DB/migration 상태**: Supabase project `rbrpcynhphrpljbjirfo`에 0013 `dart_corp_codes` + 0014 `dart_financial_cache` 적용 완료. 0011 슬롯은 계속 BL-KRIT-8(S8 자동매매) 보존.
 - **corp_code seed**: `scripts/seed_dart_corp_codes.py`가 실제 DART `corpCode.xml`(corp_cls 없음)을 ticker↔corp_code source로 사용하고, KRX ticker set(pykrx)으로 market을 매핑한다. KRX 인증(`KRX_ID`/`KRX_PW`) 없으면 fail-fast.

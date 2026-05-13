@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-13 (46차 — **전체 QA + 코드 리뷰 (omxy + Claude cmux 합의 7단계) ✅** · 65건 발견 박제 → §7 Fix Plan · **다음 1순위 = §7 P0 운영 안전** (cmux 합의 → 수정 → 빌드) → 후속 §7 P1·P2·P3 → 그 후 §2.A S7a Anthropic wrapper)
+Last updated: 2026-05-13 (46차 — **P0·P1 완료 ✅** · advisor anon WARN **5→0** + authenticated **5→3** (omxy least-privilege) + format-error 헬퍼 + (admin) boundary 3 + props cleanup + **production hotfix push** (ahead 39 해소) · **다음 1순위 = §7 P2.2~P2.4 + P3 잔여** + **S7a Anthropic wrapper (B-6 AI 키 발급 트리거)**)
 
 **목적**: 새 세션에서 사용자가 “`Document/Process/HANDOFF.md` 보고 이어서 진행”이라고 하면, 이 파일만으로 남은 일을 바로 판단·착수하게 한다.
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log에 위임한다.
@@ -15,10 +15,10 @@ cd tudal
 npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
-- 사용자 별도 지시가 없으면 **§7 P0 운영 안전 — Supabase advisor lint 5함수 REVOKE + HIBP + 0009 SOP**부터 진입한다. (46차 QA 결과 박제 — `cmux` 합의 → 수정 → 빌드 패턴)
-  - §7 핵심/고위험 항목에 omxy에 보낼 cmux prompt template + 수정 파일 + DoD가 명시되어 있다.
-  - P0 → P1 → P2 → P3 순차. P4 mock 정리는 자연 진행 (S7b/S7c/S7d/T7a 후속).
-  - **§7 P0~P3 완료 후** §2.A S7a Anthropic wrapper로 진입.
+- 사용자 별도 지시가 없으면 **§2.A S7a Anthropic wrapper**부터 진입한다. **선행 = B-6 AI 키 발급 (Vercel env `ANTHROPIC_API_KEY`).** 미발급이면 §7 잔여 P2.2~P2.4 + P3 항목으로 우회.
+  - **§7 P0·P1 = 46차 완료 ✅** (commit `9661037` P0 / `4c6eea7` P1). P0.2 HIBP 토글만 사용자 dashboard 작업 잔여.
+  - 남은 §7 작업 = P2.2 (HANDOFF 403→401 + news-sweep 주석), P2.3 (.env diff), P2.4 (DQ7 stale 정리), P3 (T7a.11 D20 컴포넌트 + accept_shortlist RPC + wrapper error taxonomy + 신규 테스트).
+  - P4 mock 정리는 자연 진행 (S7b/S7c/S7d/T7a 후속).
   - **선행 확인**: Vercel env `ANTHROPIC_API_KEY` 존재 여부 → `vercel env ls`. 없으면 사용자가 `console.anthropic.com`에서 발급 → `vercel env add ANTHROPIC_API_KEY` 후 진입.
   - S7a가 D11 가상 포트 운용 검증의 핵심 가치 (30개 카드에 페르소나 평가 + 합의 배지 + Section 8 위원 전원 표 표시). T7e.7 RLS QA는 후속이며 보안 검증 성격이라 운용 시작 전에만 마무리하면 된다.
 - **§2.B T7e.7 RLS 브라우저 수동 QA**는 S7a 진행 중 병행 또는 D11 운용 검증 직전에 마무리. 1시간 안짝 수동 작업이라 막판 일정에 영향 없음.
@@ -40,8 +40,8 @@ npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 자동매매/S9 | S8 미착수 · 운용 검증 0일 |
 | Production | Vercel `https://tudal-tawny.vercel.app` · 25 routes |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012(name/sector) + **0013/0014(DART cache)** 적용 · 0011 슬롯은 BL-KRIT-8 S8 자동매매 보존 |
-| 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **384 pass / 49 files** · `tsc --noEmit` 0 |
-| Git | 45차 박제 완료: `72019fa docs(T7e.8): record DART production apply` + `dd05ca1 docs(D20): Section 8 위원 전원 표 박제` · 작업트리 정리는 최신 `git status` 확인 · push 대기 |
+| 검증 기준 | 최근 fresh gate: build 25 routes · lint 0 · test:ci **429 pass / 50 files** · `tsc --noEmit` 0 |
+| Git | 46차 박제 완료: `9661037 docs+sql(46차 P0): 0015a definer lockdown + DQ7 SOP + settings 문구` + `4c6eea7 feat+refactor(46차 P1): format-error helper + admin boundary + props cleanup` · origin/main 동기 ✅ (B-15 해소) · 작업트리 정리는 최신 `git status` 확인 |
 
 ### T7e.6까지의 필수 계약 (요약)
 
@@ -150,6 +150,7 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 | B-4 | Smoke #5 대표 가드 | 친구 계정에서 Binance mainnet 라디오 403 확인 | DQ-7 Session 3 close |
 | B-5 | DQ-7 Session 4 QA | T18 manual QA 30항 + T19 security probes + review/security-review | DQ-7 최종 close |
 | **B-6 ⭐최우선** | **Anthropic API Key** | `console.anthropic.com` 발급 → Vercel env `ANTHROPIC_API_KEY` (Preview + Production) + `vercel deploy --prod` 재배포 | **§2.A S7a 진입 트리거** — 발급 전 S7a 시작 불가 (Tier 1·2 + 합의 배지 + Section 8 위원 전원 표 plug-in 차단) |
+| **B-2A** | **HIBP leaked-password protection 토글** (46차 P0.2) | Supabase dashboard `rbrpcynhphrpljbjirfo` → Authentication → Policies → "Leaked password protection" 토글 ON | advisor `auth_leaked_password_protection` WARN 1건 잔존 — 보안 베이스라인 |
 | B-7 | Resend 도메인 인증 | Resend domain + env | S7b briefing |
 | B-8 | Naver key rotate/env | 31차 노출 키 rotate 후 Vercel env | S7b news |
 | B-9 | Telegram bot | token + admin 3명 chat_id | S7c alerts |
@@ -158,7 +159,7 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 | B-12 | 보안 rotate | Supabase anon/service_role/DB password/PAT, 노출 KIS/Naver secret rotate | S7a 전 권장 |
 | B-13 | Vercel CLI update | v53 최신화 | 향후 deploy 권장 |
 | B-14 | Magic Link 디버깅 | 시크릿 창/Email Template/PKCE callback 확인 | S9 전 권장 |
-| B-15 | Git push to origin | ahead 30+ 커밋 push only (45차 박제 `72019fa`·`dd05ca1` 포함). pre-session WIP는 정리 완료 — 별도 commit 작업 불필요 | 협업 안정화 |
+| ~~B-15~~ | ~~Git push to origin~~ | **46차 P0 commit `9661037` + P1 commit `4c6eea7` push 완료. origin/main 동기 ✅** | 해소 |
 
 ---
 
@@ -209,14 +210,20 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 
 직전 한 항목만 빠른 컨텍스트용으로 유지:
 
-- **46차 전체 QA + 코드 리뷰 (omxy + Claude cmux 합의 7단계) (2026-05-13)**:
-  - **방법**: cmux pair-debate v1. omxy(Codex gpt-5.5 high)가 각 phase 첫 리뷰 + Claude가 cmux-verify로 spot-check. 모든 phase = read-only audit (수정 0건).
-  - **단계**: Phase 0 baseline → 1 doc integrity → 2 DB/RLS invariants → 3 backend lib/data wrappers → 4 frontend (admin)/* → 5 API/cron/infra → 6 tests/coverage. 각 phase별 omxy 보고 + Claude verify + CONVERGED.
-  - **발견 통계**: **DRIFT 18 / GAP 17 / INTENT 22 (fix 아님) / VERIFY 8 (사용자/운영 결정)**.
-  - **결과 박제 위치**: 본 파일 §7 = entry map (slim) + `Document/Process/FixPlan-46.md` = 상세 plan + 핵심/고위험 task의 cmux prompt template + DoD. 다음 세션 진입 시 §7 P0부터 cmux 합의 순으로 진행.
-  - **사용자 결정 (4 질문)**: (1) scope = plan only + HANDOFF 박제 + 다음 세션 진행 (Karpathy hybrid 채택) · (2) D20 차수 = **45차로 통일** · (3) cron schedule = **UTC 00:05 = KST 09:05 유지** · (4) T7e.7 RLS QA = **수동 1회 유지** (자동화는 P3 backlog).
-  - **검증 게이트**: 0건 변경 — build 25 routes / lint 0 / test:ci 384/49 / `tsc --noEmit` clean 그대로.
-  - **Git**: 46차 단일 commit "docs(46차 QA): cmux 7-phase audit + §7 Fix Plan 박제" 예정. push는 B-15에 합쳐서.
+- **46차 P0·P1 실행 + production hotfix push + SoT cleanup (2026-05-13)**:
+  - **scope**: 46차 QA audit(9f6bc7e)의 §7 P0·P1 항목을 omxy cmux pair-debate 합의로 실 코드/마이그/문서에 반영. 도중 사용자가 production에서 `real_persistence_not_configured` 에러 보고 → root cause = origin/main이 T7e.4 이전 stale (ahead 39 commits) → 46차 P0 batch 동시 push로 해소.
+  - **P0.1 (commit `9661037`)**: Supabase 마이그 0015a (`definer_execute_lockdown`) 작성 + apply. **omxy Round 2 CONVERGED** — 5 SECURITY DEFINER 함수에서 PUBLIC + anon EXECUTE 회수 + 활성/RLS 필수 함수만 authenticated 유지 (is_admin / raise_portfolio_dispute / resolve_portfolio_dispute). **least-privilege 강화**: 미사용 2종(mark_alert_read + record_alert_exit_decision)은 authenticated도 회수. advisor anon WARN **5→0** / authenticated WARN **5→3**.
+  - **P0.3 (commit `9661037`)**: `DQ7-Credentials.md §6.10` 운영 SOP 신설 — 0009 rollback production 금지 + 3 조건 동시 체크리스트(brokerage_connection 0건 + exchange_connection 0건 + 사용자 명시 승인).
+  - **P0.2**: HIBP 토글은 사용자 dashboard 작업이라 **B-2A 큐로 분리**.
+  - **Production hotfix (Round 4 CONVERGED + push)**: ahead 39 commits + 46차 P0 batch → `git push origin main` → Vercel auto-deploy → `real_persistence_not_configured` 에러 해소.
+  - **P1.1 (commit `4c6eea7`)**: `src/lib/admin/format-error.ts` 헬퍼 신설 + `__tests__/format-error.test.ts`(+40 tests). 5 client panel(portfolio/regenerate/exit-decision/settings/credential forms) ad-hoc switch 제거 + import 일원화. credentials lib raw DB passthrough → 한국어 generic wrap + dev-only console.error. **omxy Round 6 CONVERGED** — accept_gate_blocked:* prefix handler + Korean passthrough + process.env.NODE_ENV 가드 + inventory snapshot 검증.
+  - **P1.2 (commit `9661037`)**: settings/page.tsx "T7e.5에서 전환" → "S7b/S7c 후속에서 전환".
+  - **P1.3 (commit `4c6eea7`)**: `(admin)/loading.tsx` + `error.tsx` + `not-found.tsx` 한국어 boundary 3 신규.
+  - **P1.4 (commit `4c6eea7`)**: reportLinksEnabled / reportLinkEnabled / actionsEnabled / actionsDisabledMessage 4 prop + 분기 단순화 + canLinkDeltaReport 단일 인자화. delta-banner test 4→3 케이스.
+  - **P2.1 (본 commit)**: HANDOFF + FixPlan-46 + ProgressDashboard + CodebaseStatus + CLAUDE.md SoT 정합성 + ServicePlan-Admin·ReportFramework "44차→45차" 일괄 정정.
+  - **검증 게이트 (HEAD)**: build 25 routes / lint 0 / **test:ci 429 pass / 50 files** (+45 vs 384/49 baseline) / `tsc --noEmit` clean.
+  - **omxy cmux 합의 7 rounds**: R1·R2 P0.1 마이그 → R3·R4 hotfix push → R5·R6 P1.1 헬퍼 → R7 P2.1 SoT scope. 모두 CONVERGED.
+  - **Git**: 46차 commits = `9661037` (P0+P1.2) + `4c6eea7` (P1.1+P1.3+P1.4) + 본 commit (P2.1). origin/main 동기 ✅.
 
 - **45차 T7e.8 production 적용 + D20 Section 8 위원 전원 표 박제 (2026-05-12)**:
   - **T7e.8 production**: Supabase 0013(`dart_corp_codes`) + 0014(`dart_financial_cache`) 마이그 적용 → `seed_dart_corp_codes.py` apply (2,766 rows · KOSPI 838/KOSDAQ 1,818/KONEX 110) → full dry-run preview (Universe 2,345 · DART cache 10,154 rows · CFS ok 94% · CFS→OFS fallback 1,728 · standalone Q 환산 384) → 사용자 승인 후 `--apply` 완료. `short_list_30` 30 rows UPSERT — short=모멘텀 10 · mid=실적 모멘텀 8 + 모멘텀 2 · long=퀄리티 10. dry-run preview↔DB 일치, exit 0, client refresh 7회 정상, RemoteProtocolError 0건.
@@ -232,12 +239,12 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 
 다음 세션 진입 시 §7 P0부터 cmux 합의 → 수정 → 빌드 순으로 진행. **상세 plan + 핵심/고위험 task의 omxy cmux prompt template + DoD = `Document/Process/FixPlan-46.md`** (별도 문서). 본 §7는 entry map.
 
-| P | 작업 묶음 | 예상 | 핵심 발견 |
+| P | 작업 묶음 | 상태 | 핵심 발견 |
 |---|---|---|---|
-| **P0** | 운영 안전 — Supabase advisor anon REVOKE (마이그 0015a) + HIBP dashboard + 0009 SOP | 30~60분 | D-7 진입 시 advisor 재확인 + authenticated WARN은 admin RPC 활성으로 의도 잔존 |
-| **P1** | 사용자 영향 — 한국어 매핑 5 패널 + settings 문구 정렬 + (admin) loading/error/not-found + boundary props cleanup | 3~4시간 | D-13 / D-14 / G-2-FE / D-12 |
-| **P2** | SoT cleanup — CLAUDE.md/HANDOFF/Dashboard/CodebaseStatus 카운트·차수(44→45차) + cron 주석 + .env diff | 1.5~2시간 | D-1~D-6 / D-15·D-16 / D-18 / G-2·G-3 |
-| **P3** | 신규 작업 — T7a.11 D20 Section 8 표 컴포넌트 + accept RPC 0016 + error taxonomy 정규화 + 신규 테스트 | 1~2주 | G-D20 / G-1 / D-8·D-9·D-10·V-4 / G-cron-auth·wrapper-error·FE-map tests |
+| **P0** | 운영 안전 — Supabase advisor anon REVOKE (0015a) + HIBP dashboard + 0009 SOP | **✅ 완료** (P0.1 commit `9661037` apply + production · P0.3 §6.10 SOP · ⏳ P0.2 사용자 HIBP B-2A) | advisor anon WARN **5→0** · authenticated **5→3** (omxy least-privilege 강화 — mark_alert_read + record_alert_exit_decision authenticated도 회수 · 활성 시 re-grant) |
+| **P1** | 사용자 영향 — 한국어 매핑 + settings 문구 + (admin) boundary + props cleanup | **✅ 완료** (commit `4c6eea7`) | D-13 format-error 헬퍼(+45 tests, 384→429) / D-14 / G-2-FE / D-12 |
+| **P2** | SoT cleanup — 카운트·차수(44→45차) + cron 주석 + .env diff | **P2.1 ✅ (본 문서 + Dashboard + CodebaseStatus + FixPlan-46 + ServicePlan-Admin/ReportFramework 44→45차)** · **P2.2~P2.4 잔여**: 403→401, news-sweep 주석, .env diff, DQ7 진입점 stale 제거 | D-15·D-16 / D-18 / G-2·G-3 |
+| **P3** | 신규 작업 — T7a.11 D20 Section 8 표 컴포넌트 + accept RPC 0016 + error taxonomy 정규화 + 신규 테스트 | ⚪ 미착수 (1~2주, S7a 후 또는 병행) | G-D20 / G-1 / D-8·D-9·D-10·V-4 / G-cron-auth·wrapper-error·FE-map tests |
 | **P4** | Mock 정리 backlog (S7b/S7c/S7d/T7a 자연 진행) | 자연 | 25 mock import owning slice 표 — FixPlan-46.md §P4 |
 | (별도) | cron durable write/idempotency backlog (S7b/S7d 진행 시 처리) | 자연 | 4 cron route mock JSON only |
 
@@ -245,14 +252,16 @@ S9 어드민 운용 검증 (4~8주, 모의·testnet 위주 → 실계좌·메인
 ```bash
 cd /Users/yong/New_Project_KR_Stock
 git status --short
-cd tudal && npm run build && npm run lint && npm run test:ci   # 회귀 기준선
+cd tudal && npm run build && npm run lint && npm run test:ci   # 회귀 기준선 → 429/50
 ```
-이어서 `mcp__supabase__get_advisors(type="security")` 호출 → D-7 함수 list 재확인 → FixPlan-46.md §P0.1 그대로 cmux 발송 시작.
+선행 분기:
+1. **AI 키 발급 확인**: `vercel env ls | grep ANTHROPIC_API_KEY`. 있으면 §2.A S7a 진입. 없으면 사용자에게 B-6 발급 요청 → 그동안 P2.2~P2.4(잔여 SoT cleanup) + P3 항목으로 우회.
+2. **HIBP 토글 확인**: `mcp__supabase__get_advisors(security)` → `auth_leaked_password_protection` 사라졌으면 P0.2 자동 close.
 
 **사용자 결정 4건 박제** (46차):
-- D20 차수 = **45차로 통일** (ServicePlan-Admin/ReportFramework 44차 표기는 P2.1에서 갱신)
+- D20 차수 = **45차로 통일** ✅ (ServicePlan-Admin/ReportFramework 모두 P2.1에서 갱신 완료)
 - monthly-batch cron = **UTC 00:05 (KST 09:05) 유지**
 - T7e.7 RLS QA = **수동 1회 유지** (브라우저로 DB 권한 차단 확인 30분~1시간 · 자동화는 P3 backlog)
-- 46차 작업 scope = **plan only + HANDOFF/FixPlan 박제** (코드 변경 0건)
+- 46차 작업 scope = **plan + 박제 + P0/P1 실행 완료** (cmux pair-debate 7 rounds — Round 2/4/6/7 CONVERGED)
 
-**검증 게이트 영향**: §7 + FixPlan-46.md 작성 자체 = read-only audit, 코드 변경 0건. build 25 routes · lint 0 · test:ci 384/49 그대로.
+**검증 게이트 (46차 종료 시점)**: build 25 routes · lint 0 · test:ci **429/50** · `tsc --noEmit` clean. Production deploy = HEAD `4c6eea7` 동기.

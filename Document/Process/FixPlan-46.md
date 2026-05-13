@@ -20,9 +20,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci
 
 ---
 
-## P0 — 운영 안전 (DB·dashboard, 30~60분)
+## P0 — 운영 안전 (DB·dashboard, 30~60분) — **✅ 46차 commit `9661037` (P0.1 + P0.3) · ⏳ P0.2 사용자 HIBP 작업 잔여 (B-2A)**
 
-### P0.1 — Supabase SECURITY DEFINER PUBLIC REVOKE + authenticated re-grant (마이그 0015a)
+### P0.1 — Supabase SECURITY DEFINER PUBLIC REVOKE + authenticated re-grant (마이그 0015a) — **✅ 완료 (commit `9661037`, omxy Round 2 CONVERGED + Round 4 hotfix push)**
 
 **문제 (DRIFT D-7)**: Supabase advisor security lint WARN 10건 (5함수 × 2role anon/authenticated). 5개 SECURITY DEFINER 함수가 anon + authenticated 두 role에 EXECUTE 허용.
 
@@ -92,12 +92,13 @@ grant execute on function public.resolve_portfolio_dispute(uuid) to authenticate
 - mark_alert_read, record_alert_exit_decision = grep 결과로 grant 결정
 - proacl SELECT로 적용 후 ACL baseline 확인
 
-**DoD** (omxy 46차 명시):
+**DoD** (omxy 46차 Round 2 정정 후 최종):
 - ✅ 적용 후 `mcp__supabase__get_advisors(security)` 재확인 → **anon-facing WARN 5건 해소** (`anon_security_definer_function_executable`)
-- ✅ **authenticated WARN 5건은 의도 잔존** — admin RPC 활성으로 박제 ("advisor 전체 소거"가 DoD 아님)
+- ✅ **authenticated WARN 3건 의도 잔존** — `is_admin` + `raise_portfolio_dispute` + `resolve_portfolio_dispute` (RLS 본문 호출 + admin RPC 활성). 미사용 2종(`mark_alert_read` + `record_alert_exit_decision`)은 **omxy Round 2 정정으로 authenticated도 회수** (least privilege; 활성화 시점 re-grant 마이그).
 - ✅ /admin 로그인 + RLS-protected SELECT + dispute/resolve 기능 정상 회귀
-- ✅ build/lint/test:ci 회귀 없음
+- ✅ build/lint/test:ci 회귀 없음 (384→429/50 — P1.1 +40 tests 별도)
 - ✅ proacl 결과를 commit message에 박제 (회귀 시 비교 baseline)
+- ✅ **실 결과 (46차 적용 후)**: advisor anon WARN 0건 + authenticated WARN **3건** + HIBP 1건(P0.2). proacl AFTER: is_admin/raise/resolve = `auth=X, svc=X`; mark_alert_read/record_alert_exit_decision = `svc=X`만.
 
 **cmux prompt template (다음 세션 그대로 발송)**:
 ```
@@ -118,7 +119,7 @@ DoD: anon-facing WARN 5건 해소 + authenticated WARN 5건 의도 잔존 + admi
 
 ---
 
-### P0.2 — HaveIBeenPwned leaked-password protection 활성화
+### P0.2 — HaveIBeenPwned leaked-password protection 활성화 — **⏳ 사용자 dashboard 작업 대기 (B-2A 큐)**
 
 **문제**: Supabase advisor `auth_leaked_password_protection` WARN. HaveIBeenPwned.org 체크 비활성.
 
@@ -130,7 +131,7 @@ DoD: anon-facing WARN 5건 해소 + authenticated WARN 5건 의도 잔존 + admi
 
 ---
 
-### P0.3 — 0009 rollback production-destructive SOP 박제
+### P0.3 — 0009 rollback production-destructive SOP 박제 — **✅ 완료 (commit `9661037`, `DQ7-Credentials.md §6.10`)**
 
 **문제**: `tudal/supabase/migrations/0009_dq7_credentials.rollback.sql`이 `truncate table public.brokerage_connection` + `drop table public.exchange_connection`. production에 brokerage_connection 1 row 존재 → rollback 시 운영 키 destruction. 파일에 "복구 불가능" 주석 있으나 운영 SOP 명시 필요.
 
@@ -148,9 +149,9 @@ draft: "0009 rollback은 production에 절대 실행 금지. truncate brokerage_
 
 ---
 
-## P1 — 사용자 영향 (코드 변경, 3~4시간)
+## P1 — 사용자 영향 (코드 변경, 3~4시간) — **✅ 완료 (commits `9661037` P1.2 + `4c6eea7` P1.1·P1.3·P1.4, omxy Round 6 CONVERGED)**
 
-### P1.1 — 한국어 매핑 누락 (D-13)
+### P1.1 — 한국어 매핑 누락 (D-13) — **✅ 완료 (commit `4c6eea7`, Option B 채택, omxy Round 6 CONVERGED)**
 
 **문제**: 5 패널에서 사용자가 영문 에러 코드 직접 노출.
 
@@ -180,7 +181,7 @@ ROUND - §7 P1.1 시작
 
 ---
 
-### P1.2 — Settings 문구 ↔ 실제 정렬 (D-14)
+### P1.2 — Settings 문구 ↔ 실제 정렬 (D-14) — **✅ 완료 (commit `9661037`)**
 
 **문제**: `tudal/src/app/(admin)/admin/settings/page.tsx`에 "admin_settings·ticker_alert_pref UPSERT는 T7e.5에서 전환" 표기 vs 실제 `settings/actions.ts`는 mock fixture only + `real_persistence_not_configured` 반환. T7e.5는 regen-counter였고 settings persistence는 S7b/S7c 후속이라 문구가 stale.
 
@@ -190,7 +191,7 @@ ROUND - §7 P1.1 시작
 
 ---
 
-### P1.3 — (admin) loading.tsx / error.tsx / not-found.tsx (G-2-FE)
+### P1.3 — (admin) loading.tsx / error.tsx / not-found.tsx (G-2-FE) — **✅ 완료 (commit `4c6eea7`)**
 
 **문제**: `tudal/src/app/(admin)/` 라우트에 boundary 컴포넌트 0건. Supabase wrapper throw 시 Next.js 기본 error boundary로 빠짐 → 한국어 UX 미달.
 
@@ -203,7 +204,7 @@ ROUND - §7 P1.1 시작
 
 ---
 
-### P1.4 — Boundary props 잔여 cleanup (D-12)
+### P1.4 — Boundary props 잔여 cleanup (D-12) — **✅ 완료 (commit `4c6eea7`, grep 0건 확인)**
 
 **문제**: T7e.3~6에서 reportLinksEnabled/actionsEnabled/actionsDisabledMessage boundary가 기능적으로 해제되었으나 type/분기 잔여:
 - `reportLinksEnabled`: DeltaBanner/BucketSection/ShortlistRow에 prop 정의는 남아있고 false 전달 없음. 기본값 true.
@@ -373,4 +374,5 @@ owning slice: S7b (briefing/news) + S7d (health) + 일부 S7c (intraday alerts).
 
 ## 변경 이력
 
-- **2026-05-13 (46차)**: 초안 작성 + omxy 3차 라운드 정정 반영. P0.1 = PUBLIC REVOKE + authenticated re-grant (`is_admin` + admin 활성 RPC). DoD = anon-facing WARN 5건 해소 + authenticated WARN 의도 잔존 + RLS-protected SELECT 정상. omxy CONVERGED (a)~(f) + PostgreSQL ACL 정확 모델.
+- **2026-05-13 (46차 audit 박제)**: 초안 작성 + omxy 3차 라운드 정정 반영. P0.1 = PUBLIC REVOKE + authenticated re-grant (`is_admin` + admin 활성 RPC). DoD = anon-facing WARN 5건 해소 + authenticated WARN 의도 잔존 + RLS-protected SELECT 정상. omxy CONVERGED (a)~(f) + PostgreSQL ACL 정확 모델.
+- **2026-05-13 (46차 실행 + P2.1 정정)**: P0/P1 실행 완료 박제. omxy Round 2 CONVERGED 정정 — 미사용 2종(`mark_alert_read`/`record_alert_exit_decision`) authenticated도 회수 → DoD "authenticated WARN 5건 의도 잔존" → **"3건 의도 잔존"으로 정정**. Production hotfix push로 ahead 39 + 46차 P0/P1 batch 모두 origin/main 동기 ✅. 다음 세션 P2.2~P2.4 + P3 + S7a(B-6 트리거)로 진행.
