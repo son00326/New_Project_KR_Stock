@@ -524,6 +524,32 @@ git push origin main
 - [ ] `cost_log` 정상 집계 (S7a 후)
 - [ ] → `git push origin main:production`
 
+### §6.10 운영 SOP — 0009 rollback production 금지 (46차 박제, FixPlan-46 §P0.3)
+
+**핵심 규칙**: `tudal/supabase/migrations/0009_dq7_credentials.rollback.sql`은 **production 환경에 절대 실행 금지**. dev/staging에서만 사용.
+
+**근거 (rollback SQL 본문 검증)**:
+- L20: `truncate table public.brokerage_connection` — 33차 시점 row 1건 (KIS 키 AES-256-GCM 암호화) 박제 + 향후 친구 슬롯 재등록 후 row 증가 예정. truncate 시 평문 복구 불가능.
+- L13: `drop table if exists public.exchange_connection` — 향후 S8 진입 시 Binance 키 저장 예정 (Smoke #3 ⏸ 유예 중). drop 시 schema + 모든 row 손실.
+- L23~31: `alter table ... drop column ciphertext_*/iv_*/auth_tag_*` — 암호문 컬럼 일괄 제거. 단순 schema 복원이지만 truncate와 합쳐져 **복호화 가능한 백업 없으면 완전 손실**.
+- 파일 헤더 L4 주석에 "복구 불가능" 명시 — 의도된 destructive operation.
+
+**적용 전 강제 체크리스트 (다음 3 조건 동시 만족 시에만 실행 가능)**:
+1. `select count(*) from public.brokerage_connection` 실행 → **0건 확인** (33차 row 1건이 남아있으면 절대 실행 금지)
+2. `select count(*) from public.exchange_connection` 실행 → **0건 확인** (S8 진입 후엔 거의 항상 위반)
+3. 사용자(yong.son)에게 **명시적 승인 요청** + Slack/구두 확인 — Claude/omxy 자체 판단으로 진행 금지
+
+**Claude·omxy 작업 시 가드**:
+- `apply_migration` 또는 `execute_sql`로 rollback SQL을 실행하기 직전 위 3 조건을 사용자 메시지에 그대로 인용 + 사용자 답변 대기.
+- 사용자가 "주의해서 진행"·"빠르게"·"내가 책임" 같은 묵시적 표현을 했더라도 **3 조건 동시 확인**을 생략하지 않는다.
+- dev/staging 환경에서만 적용한다는 사용자 발언이 있어도 환경 식별 후 (`mcp__supabase__get_project_info`의 project_ref 또는 DB URL 일치 검증) 진행.
+
+**대안 (production schema 되돌리기 필요한 경우)**:
+- 신규 마이그(예: `0015_*.sql`)로 schema 변경을 정방향 박제 — rollback 파일 재실행 금지.
+- 운영 row 보호 필요 시 `pg_dump --data-only --table=brokerage_connection,exchange_connection > backup.sql` 선행 + 사용자 승인.
+
+**왜 SOP를 박제했나 (46차 cmux audit FixPlan-46 §P0.3)**: rollback SQL 헤더 주석에 "복구 불가능"이 명시되어 있어 schema 의도는 명확하나, **운영 SOP가 슬라이스 문서에 박제되지 않으면 다음 세션 진입자가 rollback 파일을 보고 무심코 적용할 risk**. P0.3 = 32분 분량의 안전 박제로 P0.1 마이그 0015a 적용 패턴과도 정합 (마이그/롤백 짝 작성 + 적용 전 사용자 명시 승인).
+
 ---
 
 ## §7 Error Handling · Edge Cases
@@ -858,6 +884,7 @@ S8 자동매매·주식 분석 알고리즘 추가 관련:
 - **2026-04-22 (30차)**: Production Branch deviation. `link.productionBranch` PATCH `/v9/projects/:id` body에 `link` 필드 거부됨 (`should NOT have additional property "link"`). 결국 `main` 유지. spec §6.2 "Production = `production` 가짜 branch" 트릭은 Vercel Dashboard → Settings → Git에서만 변경 가능. **친구들 실 자금 시작 전(S9 진입) 사용자가 dashboard에서 수동 변경 권장**.
 - **2026-04-22 (30차)**: `vercel.json` `news-sweep` `*/15 * * * *` → `0 0 * * *` (UTC 자정 = KST 09:00). 이유: Vercel Hobby plan cron 1일 1회 제약. M12 뉴스 sweep 빈도 임시 강등 — 어드민 3명 내부 도구 초기엔 충분. **원복 트리거**: Pro 업그레이드($20/월) 또는 외부 cron(cron-job.org 무료) 도입 시.
 - **2026-04-22 (30차)**: 첫 production 배포 성공 — https://tudal-tawny.vercel.app (`dpl_397UrMfZET9XLbzxsEDShZmCPZQ4`, READY). 단 Magic Link 미작동(T16 미완) + credential 저장 미작동(0009 미적용) — 사용자 다음 세션 잔여.
+- **2026-05-13 (46차)**: §6.10 0009 rollback production SOP 박제. FixPlan-46 §P0.3 합의 → "production rollback 절대 실행 금지 + 3 조건 동시 만족 체크리스트(brokerage_connection 0건 + exchange_connection 0건 + 사용자 명시 승인)" 운영 룰 문서화. 근거: 33차 brokerage_connection 1 row(친구 KIS 키 AES-256-GCM)가 truncate 시 평문 복구 불가능. Claude·omxy 가드: rollback SQL 실행 직전 3 조건을 사용자에게 인용 후 답변 대기.
 
 ---
 

@@ -41,7 +41,7 @@ export default async function AdminSettingsPage() {
           )
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ short_list_30 SELECT · admin_settings·ticker_alert_pref UPSERT는 T7e.5에서 전환
+          ※ short_list_30 SELECT · admin_settings·ticker_alert_pref UPSERT는 S7b/S7c 후속에서 전환
         </p>
       </header>
 
