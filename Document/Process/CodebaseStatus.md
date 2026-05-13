@@ -12,6 +12,20 @@
 
 ## 최근 갱신
 
+**2026-05-13** (48차): **§7 P3.2 + P3.4 완료 ✅**.
+- **마이그 0016 (`accept_shortlist_rpc`)**: 파일 박제 완료 — `tudal/supabase/migrations/0016_accept_shortlist_rpc.sql` + rollback. **DB apply 보류** (사용자 트리거 대기, B-16 큐). signature: `accept_shortlist_with_snapshots(p_month text, p_shortlist_generated_at timestamptz, p_snapshots jsonb) returns jsonb` SECURITY DEFINER + `set search_path = public, pg_temp`. plpgsql 단일 txn(auto-rollback). auth.uid()로 spoof 차단. auth 순서 = `auth_unavailable` 우선 → `is_admin()` → `admin_required` (omxy R2 정정). `jsonb_typeof array` guard. portfolio_approval INSERT + portfolio_snapshot bulk INSERT (`jsonb_array_elements`). EXCEPTION unique_violation → `get stacked diagnostics constraint_name` 분기 (`portfolio_approval_final_month_uniq` → `already_finalized` return / 기타 → re-raise). revoke from public + grant to authenticated.
+- **acceptShortlistRpc wrapper**: `src/lib/data/admin-approvals.ts`에 신규 추가 — snake-case payload 변환 + `{approval_id, is_final}` 또는 `{error: 'already_finalized'}` 분기 + unexpected payload shape 가드.
+- **actions.ts acceptShortList → RPC 일원화**: `src/app/(admin)/admin/portfolio/actions.ts:267-302` createPortfolioApproval+insertPortfolioSnapshots 직접 호출 제거 → `acceptShortlistRpc({month, shortlistGeneratedAt, snapshots})` 단일 호출. orphan G-1(approval 성공 + snapshot 실패) 차단. `isUniqueViolation` catch 잔존 — RPC가 snapshot-side unique 등 비-approval 23505를 re-raise할 경우 defensive 매핑 (omxy R3 권고: 주석 명시).
+- **신규 테스트 +34** (429 → 463):
+  - G-cron-auth +12 (4 cron × 3 unauth: no header / wrong secret / Basic scheme)
+  - G-wrapper-error +8 (5 wrapper characterization tests, raw passthrough/wrap 박제)
+  - G-FE-map +9 (5 specific Korean + 2 prefix edge + 2 dev-only console.warn)
+  - acceptShortlistRpc +4 (happy / already_finalized / raw error re-throw / unexpected payload guard)
+- **omxy cmux pair-debate 3 rounds 모두 CONVERGED**: R1 scope 제안 → R2 정정 8건 채택 (D 마이그 5건 + 추가 3건) → R3 실행 결과 + 권고 4건 (test count 실측 463 명시 / isUniqueViolation 잔존 명시 / SoT 범위 / apply order).
+- **검증 게이트**: `npm run build` exit 0 (25 routes) · `lint` 0 errors · `test:ci` exit 0 (**50 files / 463 tests pass**; +34 vs 429) · `npx tsc --noEmit` exit 0.
+- **Git**: 본 commit + 47차 stale commit `03d9bc7` 모두 origin/main push 대기 (B-16 큐). 마이그 0016 apply order: 0010 → 0012~0014 → 0015a → **0016** → (0011 = S8 reserve).
+- **잔여**: B-16(push + 마이그 0016 apply) · S7a(B-6 AI 키 트리거) · P3.1(D20 컴포넌트, S7a 시드 후) · P3.3(error taxonomy 옵션 A/B 사용자 결정).
+
 **2026-05-13** (46차): **P0·P1 완료 + production hotfix push (ahead 39 해소) + SoT cleanup ✅**.
 - **마이그 0015a (`definer_execute_lockdown`)**: Supabase project `rbrpcynhphrpljbjirfo`에 apply. SECURITY DEFINER 5 함수 PUBLIC + anon EXECUTE 회수 + 활성/RLS 필수만 authenticated 유지. **advisor anon WARN 5→0 / authenticated WARN 5→3** (omxy Round 2 정정: 미사용 mark_alert_read + record_alert_exit_decision authenticated도 회수). proacl AFTER: is_admin/raise_portfolio_dispute/resolve_portfolio_dispute = `auth=X, svc=X`; mark_alert_read/record_alert_exit_decision = `svc=X`만.
 - **format-error 헬퍼**: `tudal/src/lib/admin/format-error.ts` 신규 — KOREAN_MAPPINGS 30+ 코드 + `accept_gate_blocked:*` prefix handler + Korean passthrough + dev-only warn. 5 client panel(portfolio-panel / regenerate-panel / exit-decision-form / settings-panel / brokerage·binance form+delete-button) ad-hoc switch 제거. credentials lib raw DB passthrough wrap (brokerage.ts + exchange.ts: 'Invalid id format' → '잘못된 ID 형식입니다', 'pending-s8' → 'Binance 키 저장은 S8 자동매매에서 활성화됩니다', DB error.message → '저장소 처리 중 오류가 발생했습니다' + dev console.error).
@@ -212,7 +226,7 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 적용 · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
+## tudal/ 현재 상태 (2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 + 0015a 적용 · 48차 P3.2 + P3.4 (마이그 0016 파일 박제 · apply 보류) · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
 - TypeScript 파일: `src/` 기준 **~160개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots`·`admin-regen-counters`·`admin-access-logs`·`admin-performance`·`admin-decision-tree` 9개 실 I/O wrapper와 테스트 추가; `mock-admin-{regen-counters,access-logs,performance,decision-tree}` 4개 삭제)
@@ -326,10 +340,10 @@
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태 (46차 P0·P1 완료 후, 2026-05-13)
+### 검증 게이트 현재 상태 (48차 P3.2 + P3.4 완료 후, 2026-05-13)
 - `npm run build`: ✅ **25 routes** (Next.js 16 build 통과)
 - `npm run lint`: ✅ 0 errors
-- `npm run test:ci`: ✅ **50 files / 429 tests pass** (46차 P1.1 format-error 헬퍼 +40 + 기타 +5; 이전 49/381 → 50/429)
+- `npm run test:ci`: ✅ **50 files / 463 tests pass** (48차 P3.2 + P3.4 +34 = G-cron-auth 12 + G-wrapper-error 8 + G-FE-map 9 + acceptShortlistRpc 4; 이전 50/429 → 50/463)
 - `npx tsc --noEmit`: ✅ exit 0
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 가능 — 필요 시 `ulimit -n 65535` 후 재시도
 
@@ -365,7 +379,7 @@
 - [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145 → DQ-7 S2: ~152)
 - [x] 라우트 추가 (S0 17 → S6 22 → DQ-7 S2 24)
 - [x] Supabase `.env.local` 세팅 (S0 완료 · DQ-5 anon key 갱신 해소 2026-04-21)
-- [x] 마이그레이션 0001~0010 + 0012~0015a 적용 (production · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 슬롯 = BL-KRIT-8 S8 자동매매 보존 · 0012 = short_list_30 name/sector · 0013/0014 = DART cache · 0015a = SECURITY DEFINER PUBLIC REVOKE 46차 P0.1)
+- [x] 마이그레이션 0001~0010 + 0012~0015a 적용 (production · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 슬롯 = BL-KRIT-8 S8 자동매매 보존 · 0012 = short_list_30 name/sector · 0013/0014 = DART cache · 0015a = SECURITY DEFINER PUBLIC REVOKE 46차 P0.1) · **0016 = `accept_shortlist_with_snapshots` RPC 48차 P3.2 파일 박제 — apply 보류 (B-16 큐, 사용자 트리거 대기)**
 - [x] Vitest 테스트 인프라 (190 → **248 tests pass** · DQ-7 S1 +58)
 - [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 

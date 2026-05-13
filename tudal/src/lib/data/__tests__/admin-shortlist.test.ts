@@ -1,9 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   transformShortListRow,
   aggregateShortListDelta,
+  getActiveShortList,
   type ShortListDbRow,
 } from "@/lib/data/admin-shortlist";
+
+const mocks = vi.hoisted(() => ({
+  from: vi.fn(),
+  select: vi.fn(),
+  eq: vi.fn(),
+  order: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    from: mocks.from,
+  })),
+}));
 
 const baseRow: ShortListDbRow = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -143,5 +157,36 @@ describe("aggregateShortListDelta", () => {
     expect(delta.newCount).toBe(0);
     expect(delta.holdCount).toBe(0);
     expect(delta.removedCount).toBe(0);
+  });
+});
+
+describe("getActiveShortList — error path (G-wrapper-error)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const chain = {
+      select: mocks.select,
+      eq: mocks.eq,
+      order: mocks.order,
+    };
+    mocks.from.mockReturnValue(chain);
+    mocks.select.mockReturnValue(chain);
+    mocks.eq.mockReturnValue(chain);
+    mocks.order.mockReturnValue(chain);
+  });
+
+  it("throws wrapped Error with table prefix when supabase select returns an error", async () => {
+    // Last order() in the chain resolves the query — return error here.
+    mocks.order.mockReturnValueOnce({
+      order: () => ({
+        order: () => Promise.resolve({
+          data: null,
+          error: { code: "PGRST116", message: "rls denied" },
+        }),
+      }),
+    });
+
+    await expect(getActiveShortList({ month: "2026-04-01" })).rejects.toThrow(
+      /short_list_30 query failed/,
+    );
   });
 });

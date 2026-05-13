@@ -48,4 +48,36 @@ describe("GET /api/cron/morning-briefing", () => {
     expect(body.sentChannels).toEqual(["dashboard"]);
     expect(body.alertEmitted).toMatch(/수신자/);
   });
+
+  describe("authorization (G-cron-auth)", () => {
+    it("rejects request without Authorization header", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/morning-briefing"),
+      );
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error).toBe("unauthorized");
+    });
+
+    it("rejects Bearer with wrong secret", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/morning-briefing", {
+          headers: { authorization: "Bearer wrong-secret" },
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects non-Bearer scheme", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/morning-briefing", {
+          headers: { authorization: "Basic cron-secret" },
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+  });
 });

@@ -305,13 +305,30 @@ ROUND - §7 P2.1 시작
 
 ---
 
-### P3.2 — accept_shortlist_with_snapshots RPC (G-1, 마이그 0016)
+### P3.2 — accept_shortlist_with_snapshots RPC (G-1, 마이그 0016) — **✅ 완료 (48차 commit, omxy 3 rounds CONVERGED, apply 보류)**
 
 **문제**: `acceptShortList()`가 `createPortfolioApproval()` 성공 후 `insertPortfolioSnapshots()` 실패 시 orphan approval 가능 (Phase 2 G-1 박제). 현재 entry_price_unavailable fail-closed가 pre-approval에서 막지만, 실 가격 wire 후 race 잔존.
 
-**수정**: 신규 마이그 0016 = `accept_shortlist_with_snapshots(p_month, p_admin_id, p_snapshots jsonb)` SECURITY DEFINER RPC. begin/commit 트랜잭션 내 portfolio_approval INSERT + portfolio_snapshot bulk INSERT. 실패 시 ROLLBACK.
+**수정 완료**:
+- `tudal/supabase/migrations/0016_accept_shortlist_rpc.sql` + rollback 신규
+- signature: `accept_shortlist_with_snapshots(p_month text, p_shortlist_generated_at timestamptz, p_snapshots jsonb) returns jsonb` (p_admin_id 인자 제거 — omxy 정정, 내부 `v_admin := auth.uid()`로 spoof 차단)
+- `security definer` + `set search_path = public, pg_temp` (omxy 권고: pg_temp 추가)
+- plpgsql 단일 txn (DDL begin/commit 아님 — omxy 정정)
+- **auth 순서 omxy R2 정정**: `auth.uid()` null → `auth_unavailable` raise → `public.is_admin()` 가드 → `admin_required` raise (미인증을 admin_required로 뭉개지 않음)
+- `jsonb_typeof(p_snapshots) = 'array'` guard → `invalid_snapshots` raise (omxy R2)
+- portfolio_approval INSERT (is_final=true) RETURNING id + portfolio_snapshot bulk INSERT (`jsonb_array_elements` + coalesce defaults)
+- EXCEPTION unique_violation → `get stacked diagnostics constraint_name` 분기 (`portfolio_approval_final_month_uniq` → jsonb error 'already_finalized' return / 기타(snapshot side 등) → `raise;` re-raise)
+- `revoke execute from public` + `grant execute to authenticated` (0015a 패턴)
 
-**관련 코드 수정**: `tudal/src/app/(admin)/admin/portfolio/actions.ts:267-302` acceptShortList → RPC 호출로 일원화.
+**관련 코드 수정 완료**:
+- `tudal/src/lib/data/admin-approvals.ts`에 `acceptShortlistRpc()` wrapper 신규 (snake-case payload 변환 + payload shape 가드 — unexpected payload 시 throw)
+- `tudal/src/app/(admin)/admin/portfolio/actions.ts:267-302` acceptShortList → `acceptShortlistRpc({month, shortlistGeneratedAt, snapshots})` 단일 호출. `createPortfolioApproval`+`insertPortfolioSnapshots` 직접 호출 제거. `isUniqueViolation` catch 잔존 — RPC가 snapshot-side unique 등 비-approval 23505를 re-raise할 경우 defensive 매핑.
+
+**테스트 추가 (+4)**: admin-approvals.test.ts `describe("acceptShortlistRpc")` 4 it (happy + already_finalized + raw error re-throw + unexpected payload guard).
+
+**Apply 상태**: 파일 박제 완료, **DB apply 보류** (사용자 명시 트리거 대기, B-16 큐). Apply order: 0010 → 0012~0014 → 0015a → **0016**. 0011은 S8 자동매매 reserve.
+
+**DoD 달성**: build 25 routes · lint 0 · test:ci 463/50 (+34 vs 429) · tsc clean.
 
 ---
 
@@ -329,14 +346,21 @@ ROUND - §7 P2.1 시작
 
 ---
 
-### P3.4 — 신규 테스트 (G-cron-auth-test, G-wrapper-error-path, G-FE-error-map-test)
+### P3.4 — 신규 테스트 (G-cron-auth-test, G-wrapper-error-path, G-FE-error-map-test) — **✅ 완료 (48차 commit, +29 tests)**
 
-**필요 테스트**:
-- 4 cron route에 unauthorized 케이스 (no header / wrong secret / wrong scheme) 각 2~3 it
-- admin-shortlist/reports/committee/approvals/snapshots 각각 query/insert error 경로 (mock Supabase chain throw + 23505/PGRST*)
-- formatErrorMessage()를 export 가능한 helper로 추출 (P1.1과 함께) 후 8 케이스 + default fallback 테스트
+**추가 실행**:
+- **G-cron-auth (+12)**: 4 cron route 각각 `describe("authorization (G-cron-auth)")` — no header / wrong secret `Bearer wrong-secret` / wrong scheme `Basic cron-secret` 3 × 4 = 12 it. 모두 401 + `body.error === "unauthorized"` 검증.
+- **G-wrapper-error (+8)**: characterization tests (P3.3 결정 전까지 raw passthrough/wrap 패턴 그대로 박제, omxy R2 권고)
+  - admin-shortlist: getActiveShortList throw `/short_list_30/` (Supabase mock 신규 setup)
+  - admin-approvals: getApprovalsByMonth throw + createPortfolioApproval 23505 raw passthrough(`toMatchObject({code: "23505"})`) + raisePortfolioDispute P0001 raw passthrough
+  - admin-snapshots: empty array noop(supabase 미호출) + insertPortfolioSnapshots 23505 raw passthrough
+  - admin-reports: getReportByTicker throw `/stock_reports/`
+  - admin-committee: happy path + getVotesByReportId throw `/committee_votes/` (Supabase mock 신규 setup)
+- **G-FE-map (+9)**: 5 specific high-importance Korean(cost_hardcap_40man/already_finalized/real_persistence_not_configured/regen_counter_write_conflict/reanalysis_limit_reached) + 2 accept_gate_blocked edge(empty suffix → prefix handler hit / no colon → fallback) + 2 dev-only console.warn(development+window warns / production silent).
 
-**DoD**: test:ci 384/49 → 약 420~440/55~58 (정확한 수는 작성 시).
+**총 +29 P3.4 + P3.2 +4 = +34 (429→463). 실측 463 — omxy R3 권고 채택, 추정 472~477 대신 실측 명시.**
+
+**DoD 달성**: test:ci 50 files / 463 pass (+34) · 신규 0 regression.
 
 ---
 
@@ -388,3 +412,4 @@ owning slice: S7b (briefing/news) + S7d (health) + 일부 S7c (intraday alerts).
 - **2026-05-13 (46차 audit 박제)**: 초안 작성 + omxy 3차 라운드 정정 반영. P0.1 = PUBLIC REVOKE + authenticated re-grant (`is_admin` + admin 활성 RPC). DoD = anon-facing WARN 5건 해소 + authenticated WARN 의도 잔존 + RLS-protected SELECT 정상. omxy CONVERGED (a)~(f) + PostgreSQL ACL 정확 모델.
 - **2026-05-13 (46차 실행 + P2.1 정정)**: P0/P1 실행 완료 박제. omxy Round 2 CONVERGED 정정 — 미사용 2종(`mark_alert_read`/`record_alert_exit_decision`) authenticated도 회수 → DoD "authenticated WARN 5건 의도 잔존" → **"3건 의도 잔존"으로 정정**. Production hotfix push로 ahead 39 + 46차 P0/P1 batch 모두 origin/main 동기 ✅. 다음 세션 P2.2~P2.4 + P3 + S7a(B-6 트리거)로 진행.
 - **2026-05-13 (47차 P2.2~P2.4 실행)**: SoT cleanup 3건 완료. **cmux pair-debate omxy 4 rounds 모두 CONVERGED**. R1 scope 제안 → R2 Beauvoir explore agent 검증으로 (1) `.env.example` 기존 키 3개(API_CRED_MASTER_KEY/CRON_SECRET/ADMIN_REP_EMAIL) 발견 → 실 누락 3개만(DART/KRX) 추가 (2) record-view 경로 정정 (`tudal/src/lib/report/...` → `tudal/src/app/(admin)/admin/report/[ticker]/record-view.ts`) (3) PUBLISHABLE_KEY 의도적 잔존 확인. R3 build/grep 6종 증거. R4 Curie explore agent 권고로 CodebaseStatus.md 체크리스트 14 항목 정정(`(미착수)` → `(진행 중)` + 0009/0010 ✅ + Supabase 실 I/O 🟢 + Vercel/origin push ✅). 7 파일 +46/-24. 검증 게이트 25 routes / 0 / 50 files 429 tests / tsc clean. 다음 세션 P3 + S7a(B-6 트리거)로 진행.
+- **2026-05-13 (48차 P3.2 + P3.4 실행)**: §7 P3 우회 작업 2건 완료. **cmux pair-debate omxy 3 rounds 모두 CONVERGED**. R1 scope 제안(P3.1·P3.3 유예) → R2 omxy 정정 8건 채택 (D 마이그 5건: p_admin_id 제거·auth.uid()·search_path pg_temp·plpgsql 단일 txn·constraint_name 분기 / 추가 3건: auth_unavailable 우선 검사·jsonb_typeof array guard·orphan 미호출 assertion) → R3 실행 결과 보고 + omxy 4 권고(test count 463 실측 명시·isUniqueViolation 잔존 명시·SoT 범위 좁힘·apply order note). 산출: 마이그 0016 `accept_shortlist_with_snapshots` 파일 + rollback + `acceptShortlistRpc` wrapper + actions.ts 일원화 + 33 신규 tests. 검증 게이트 25 routes / 0 / 50 files **463 tests** (+34) / tsc clean. **마이그 0016 apply 보류** (B-16 큐, 사용자 트리거 대기). 다음 세션 = S7a (B-6 AI 키 트리거) 또는 P3.1(D20, S7a 시드 후) + P3.3(error taxonomy 사용자 결정).

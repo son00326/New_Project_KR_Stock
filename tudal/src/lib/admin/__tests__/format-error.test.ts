@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatErrorMessage } from "@/lib/admin/format-error";
 
 // 46차 기준 서버 액션 코드 inventory snapshot.
@@ -136,6 +136,86 @@ describe("formatErrorMessage", () => {
     it("wraps DB-like raw error", () => {
       const raw = "relation does not exist";
       expect(formatErrorMessage(raw)).toBe(`오류: ${raw}`);
+    });
+  });
+
+  // G-FE-map (48차) — specific output assertions for high-importance codes that
+  // were only covered by the inventory loop. Locks user-facing copy so changes
+  // require explicit test update.
+  describe("high-importance specific outputs (G-FE-map)", () => {
+    it("cost_hardcap_40man — 월 비용 한도 운영자 메시지", () => {
+      expect(formatErrorMessage("cost_hardcap_40man")).toBe(
+        "월 AI 비용 한도(40만원)를 초과했습니다",
+      );
+    });
+
+    it("already_finalized — 확정 포트 중복 시도", () => {
+      expect(formatErrorMessage("already_finalized")).toBe(
+        "이미 이번 달 포트가 확정되어 있습니다",
+      );
+    });
+
+    it("real_persistence_not_configured — production mock 분기 노출", () => {
+      expect(formatErrorMessage("real_persistence_not_configured")).toBe(
+        "이 기능은 production 실 저장이 아직 연결되지 않았습니다",
+      );
+    });
+
+    it("regen_counter_write_conflict — CAS 동시 재생성 안내", () => {
+      expect(formatErrorMessage("regen_counter_write_conflict")).toBe(
+        "다른 어드민이 동시에 재생성 중입니다. 잠시 후 다시 시도하세요",
+      );
+    });
+
+    it("reanalysis_limit_reached — Reject 3회 차단", () => {
+      expect(formatErrorMessage("reanalysis_limit_reached")).toBe(
+        "재분석 2회를 초과했습니다 — 전월 포트 유지",
+      );
+    });
+  });
+
+  describe("accept_gate_blocked edge cases (G-FE-map)", () => {
+    it("accept_gate_blocked with empty suffix still maps to generic message", () => {
+      expect(formatErrorMessage("accept_gate_blocked:")).toBe(
+        "승인 조건을 충족하지 못했습니다",
+      );
+    });
+
+    it("accept_gate_blocked without colon does NOT trigger prefix handler", () => {
+      // 'accept_gate_blocked' (no colon) is not a known code and not Korean,
+      // so it falls through to the generic 오류: ${code} fallback.
+      expect(formatErrorMessage("accept_gate_blocked")).toBe(
+        "오류: accept_gate_blocked",
+      );
+    });
+  });
+
+  describe("dev-only console.warn (G-FE-map)", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    });
+
+    it("warns in development browser when an unmapped code falls through", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubGlobal("window", {});
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      formatErrorMessage("definitely_not_mapped_code");
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][1]).toBe("definitely_not_mapped_code");
+    });
+
+    it("does NOT warn in production even for unmapped codes", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubGlobal("window", {});
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      formatErrorMessage("also_unmapped");
+
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 });

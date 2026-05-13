@@ -66,4 +66,36 @@ describe("GET /api/cron/monthly-batch", () => {
     expect(body.ok).toBe(false);
     expect(body.alertEmitted).toMatch(/월간 배치 실패/);
   });
+
+  describe("authorization (G-cron-auth)", () => {
+    it("rejects request without Authorization header", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/monthly-batch"),
+      );
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error).toBe("unauthorized");
+    });
+
+    it("rejects Bearer with wrong secret", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/monthly-batch", {
+          headers: { authorization: "Bearer wrong-secret" },
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects non-Bearer scheme", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/monthly-batch", {
+          headers: { authorization: "Basic cron-secret" },
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+  });
 });

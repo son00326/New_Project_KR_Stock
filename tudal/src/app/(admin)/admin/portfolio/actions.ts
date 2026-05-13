@@ -3,6 +3,7 @@
 import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
 import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
 import {
+  acceptShortlistRpc,
   createPortfolioApproval,
   getApprovalById,
   getApprovalsByMonth,
@@ -10,10 +11,7 @@ import {
   resolvePortfolioDispute,
 } from "@/lib/data/admin-approvals";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
-import {
-  insertPortfolioSnapshots,
-  type NewPortfolioSnapshot,
-} from "@/lib/data/admin-snapshots";
+import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
@@ -264,37 +262,40 @@ export async function acceptShortList(params: {
   const gate = await validateAcceptGate(month, shortlist);
   if (!gate.success) return gate;
 
+  // Build snapshots BEFORE the RPC so missing price data cannot start an
+  // accept transaction. The RPC (마이그 0016) then performs portfolio_approval
+  // INSERT + portfolio_snapshot bulk INSERT atomically — Postgres function
+  // body is a single transaction, so an exception (including unique_violation
+  // re-raise on the snapshot side) auto-rollbacks. This removes the orphan
+  // approval risk (G-1) that existed when the two writes ran sequentially.
+  const acceptDate = new Date().toISOString().slice(0, 10);
+  const snapshotPlan = buildInitialSnapshots({
+    month,
+    acceptDate,
+    shortlist: filterActiveShortlist(shortlist),
+  });
+  if (!snapshotPlan.success) {
+    return { success: false, error: snapshotPlan.error };
+  }
+
   try {
-    // Build snapshots before E4 INSERT so missing price data cannot leave an
-    // is_final approval without its Day 0 portfolio_snapshot rows.
-    const acceptDate = new Date().toISOString().slice(0, 10);
-    const snapshotPlan = buildInitialSnapshots({
+    const result = await acceptShortlistRpc({
       month,
-      acceptDate,
-      shortlist: filterActiveShortlist(shortlist),
-    });
-    if (!snapshotPlan.success) {
-      return { success: false, error: snapshotPlan.error };
-    }
-
-    const approval = await createPortfolioApproval({
-      month,
-      adminId,
-      approvalType: "accept",
-      isFinal: true,
-      prevPortfolioHeld: false,
       shortlistGeneratedAt: gate.generatedAt.toISOString(),
-      gatingAutoReliefActive: false,
-      reanalysisCount: 0,
+      snapshots: snapshotPlan.snapshots,
     });
-
-    await insertPortfolioSnapshots(snapshotPlan.snapshots);
-
+    if ("error" in result) {
+      return { success: false, error: result.error };
+    }
     return {
       success: true,
-      data: { approvalId: approval.id, isFinal: approval.isFinal },
+      data: { approvalId: result.approvalId, isFinal: result.isFinal },
     };
   } catch (err: unknown) {
+    // RPC re-raises non-approval unique_violation (e.g., snapshot-side
+    // portfolio_snapshot_date_*_uniq). Defensive catch maps any unique 23505
+    // that escapes the RPC's constraint_name match to already_finalized rather
+    // than throwing raw to the panel.
     if (isUniqueViolation(err)) {
       return { success: false, error: "already_finalized" };
     }

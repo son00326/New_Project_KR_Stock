@@ -82,4 +82,36 @@ describe("GET /api/cron/silent-health", () => {
     expect(body.sentChannels).toEqual(["dashboard"]);
     expect(body.alertEmitted).toMatch(/telegram timeout/);
   });
+
+  describe("authorization (G-cron-auth)", () => {
+    it("rejects request without Authorization header", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/silent-health"),
+      );
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error).toBe("unauthorized");
+    });
+
+    it("rejects Bearer with wrong secret", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/silent-health", {
+          headers: { authorization: "Bearer wrong-secret" },
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects non-Bearer scheme", async () => {
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/silent-health", {
+          headers: { authorization: "Basic cron-secret" },
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+  });
 });

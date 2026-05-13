@@ -100,6 +100,17 @@ describe("getReportByTicker", () => {
     expect(mocks.eq).toHaveBeenCalledWith("month", "2026-04-01");
     expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
   });
+
+  it("throws wrapped Error with table prefix on supabase error (G-wrapper-error)", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: "PGRST116", message: "rls denied" },
+    });
+
+    await expect(
+      getReportByTicker("005930", { month: "2026-04-01" }),
+    ).rejects.toThrow(/stock_reports/);
+  });
 });
 
 describe("deriveBucketNeighbors", () => {

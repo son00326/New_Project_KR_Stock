@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ApprovalType, PortfolioApproval } from "@/types/admin";
+import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
 
 // ---------------------------------------------------------------------------
 // portfolio_approval (E4) — Supabase 실 I/O (T7e.4).
@@ -159,4 +160,71 @@ export async function resolvePortfolioDispute(
 
   if (error) throw error;
   return String(data);
+}
+
+// ---------------------------------------------------------------------------
+// acceptShortlistRpc — atomic Accept (마이그 0016, P3.2 48차)
+// ---------------------------------------------------------------------------
+// accept_shortlist_with_snapshots(p_month, p_shortlist_generated_at, p_snapshots)
+// RPC를 호출해 portfolio_approval INSERT + portfolio_snapshot bulk INSERT를
+// 단일 트랜잭션으로 원자 처리한다. orphan approval(approval 성공 + snapshot
+// 실패) 위험을 차단.
+//
+// 반환:
+//   - { approvalId, isFinal: true } — 성공
+//   - { error: "already_finalized" } — 동시 accept race (RPC 내 unique 매핑)
+//
+// 비-already_finalized 에러는 raw로 throw (P3.3 taxonomy 결정 전까지 passthrough,
+// actions.ts에서 success:false 매핑).
+function toSnapshotJson(snapshot: NewPortfolioSnapshot) {
+  return {
+    date: snapshot.date,
+    month: snapshot.month,
+    ticker: snapshot.ticker,
+    entry_price: snapshot.entryPrice,
+    current_price: snapshot.currentPrice,
+    weight: snapshot.weight,
+    is_cash: snapshot.isCash,
+    daily_return: snapshot.dailyReturn,
+    total_return: snapshot.totalReturn,
+    kospi_return: snapshot.kospiReturn,
+    alpha: snapshot.alpha,
+    sharpe: snapshot.sharpe,
+  };
+}
+
+export async function acceptShortlistRpc(input: {
+  month: string;
+  shortlistGeneratedAt: string;
+  snapshots: NewPortfolioSnapshot[];
+}): Promise<
+  | { approvalId: string; isFinal: true }
+  | { error: "already_finalized" }
+> {
+  const client = await createClient();
+  const { data, error } = await client.rpc(
+    "accept_shortlist_with_snapshots",
+    {
+      p_month: input.month,
+      p_shortlist_generated_at: input.shortlistGeneratedAt,
+      p_snapshots: input.snapshots.map(toSnapshotJson),
+    },
+  );
+
+  if (error) throw error;
+
+  const payload = (data ?? {}) as
+    | { approval_id?: string; is_final?: boolean; error?: string };
+
+  if (payload.error === "already_finalized") {
+    return { error: "already_finalized" };
+  }
+
+  if (!payload.approval_id || payload.is_final !== true) {
+    throw new Error(
+      `accept_shortlist_rpc unexpected payload: ${JSON.stringify(payload)}`,
+    );
+  }
+
+  return { approvalId: payload.approval_id, isFinal: true };
 }

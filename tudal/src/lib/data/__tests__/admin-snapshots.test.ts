@@ -91,4 +91,36 @@ describe("insertPortfolioSnapshots", () => {
       },
     ]);
   });
+
+  it("noop returns early when snapshots array is empty (no supabase call)", async () => {
+    await insertPortfolioSnapshots([]);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("re-throws raw supabase error including 23505 unique violation (G-wrapper-error, passthrough for actions.ts detection)", async () => {
+    mocks.insert.mockResolvedValueOnce({
+      error: { code: "23505", message: "duplicate key" },
+    });
+
+    const rows: NewPortfolioSnapshot[] = [
+      {
+        date: "2026-04-03",
+        month: "2026-04-01",
+        ticker: "005930",
+        entryPrice: 75000,
+        currentPrice: 75000,
+        weight: 0.05,
+        isCash: false,
+        dailyReturn: 0,
+        totalReturn: 0,
+        kospiReturn: 0,
+        alpha: 0,
+        sharpe: 0,
+      },
+    ];
+
+    await expect(insertPortfolioSnapshots(rows)).rejects.toMatchObject({
+      code: "23505",
+    });
+  });
 });
