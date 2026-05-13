@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteBrokerageCredential } from "@/lib/credentials/brokerage";
 import { Button } from "@/components/ui/button";
+import { formatErrorMessage } from "@/lib/admin/format-error";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +57,7 @@ export function DeleteButton({ id, accountNoMasked }: DeleteButtonProps) {
               role="alert"
               className="rounded-md border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 px-3 py-2 text-sm text-[var(--color-market-down)]"
             >
-              삭제 실패: {error}
+              {formatErrorMessage(error)}
             </p>
           )}
           <DialogFooter>

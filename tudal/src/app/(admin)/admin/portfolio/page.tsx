@@ -254,7 +254,6 @@ export default async function AdminPortfolioPage() {
         acceptAllowed={gateResult.allowed}
         gateMessage={gateMessage}
         gateReason={gateResult.reason}
-        actionsEnabled
         finalApproval={finalApproval}
       />
 

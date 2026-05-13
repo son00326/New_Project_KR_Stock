@@ -5,16 +5,12 @@ import { CRISIS_VOL_THRESHOLD } from "@/types/admin";
 
 interface ShortlistRowProps {
   item: ShortListItem;
-  reportLinkEnabled?: boolean;
 }
 
 // T1.3 종목 카드 + T1.5 3줄 근거 팝오버 (M4·M6). Server Component.
 // `<details>`로 접근성·No-JS 동작 보장. 펼침 시 summary_3line + 풀 리포트 링크.
 // 괴리율 색상: 한국 증시 관례 (빨강=상승=+ / 파랑=하락=-).
-export function ShortlistRow({
-  item,
-  reportLinkEnabled = true,
-}: ShortlistRowProps) {
+export function ShortlistRow({ item }: ShortlistRowProps) {
   const isCrisis = item.volatilityScore < CRISIS_VOL_THRESHOLD;
   const divergenceUp = item.divergencePct >= 0;
   const divergenceColor = divergenceUp
@@ -124,20 +120,13 @@ export function ShortlistRow({
                 {item.trendScore}·{item.momentumScore}·{item.volatilityScore}
               </dd>
             </dl>
-            {reportLinkEnabled ? (
-              <Link
-                href={`/admin/report/${item.ticker}`}
-                className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2.5 py-1 text-xs font-medium hover:bg-background"
-              >
-                <FileText className="h-3 w-3" aria-hidden />
-                풀 리포트
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-md border border-dashed border-border/70 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                <FileText className="h-3 w-3" aria-hidden />
-                리포트 대기
-              </span>
-            )}
+            <Link
+              href={`/admin/report/${item.ticker}`}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2.5 py-1 text-xs font-medium hover:bg-background"
+            >
+              <FileText className="h-3 w-3" aria-hidden />
+              풀 리포트
+            </Link>
           </div>
         </div>
       </div>

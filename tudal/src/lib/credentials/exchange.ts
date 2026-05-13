@@ -76,7 +76,11 @@ export async function upsertExchangeCredential(
       if (error.code === '23505') {
         return { success: false, error: '이미 등록된 라벨입니다' };
       }
-      return { success: false, error: `저장 실패: ${error.message}` };
+      // FixPlan-46 §P1.1 omxy Round 6: DB raw message는 generic wrap.
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[credentials:exchange] insert error', error);
+      }
+      return { success: false, error: '저장소 처리 중 오류가 발생했습니다' };
     }
     return { success: true, data: { id: data.id } };
   } catch (e) {
@@ -96,14 +100,19 @@ export async function deleteExchangeCredential(
   id: string,
 ): Promise<ActionResult<void>> {
   if (!UUID_RE.test(id)) {
-    return { success: false, error: 'Invalid id format' };
+    return { success: false, error: '잘못된 ID 형식입니다' };
   }
   const supabase = await createClient();
   const { error } = await supabase
     .from('exchange_connection')
     .delete()
     .eq('id', id);
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[credentials:exchange] delete error', error);
+    }
+    return { success: false, error: '저장소 처리 중 오류가 발생했습니다' };
+  }
   return { success: true, data: undefined };
 }
 
@@ -140,5 +149,5 @@ export async function testExchangeConnection(
   id: string,
 ): Promise<ActionResult<{ pong: boolean }>> {
   void id; // S8-Scaffold T8.x에서 exchange.ping(decrypted(id))로 연결 예정
-  return { success: false, error: 'pending-s8' };
+  return { success: false, error: 'Binance 키 저장은 S8 자동매매에서 활성화됩니다' };
 }

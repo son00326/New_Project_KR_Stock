@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { upsertBrokerageCredential } from "@/lib/credentials/brokerage";
 import { SecretInput } from "@/components/admin/credentials/secret-input";
 import { Button } from "@/components/ui/button";
+import { formatErrorMessage } from "@/lib/admin/format-error";
 
 interface BrokerageFormProps {
   isRep: boolean;
@@ -44,7 +45,7 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
         setMockMode(true);
         router.refresh();
       } else {
-        setBanner({ kind: "error", message: res.error });
+        setBanner({ kind: "error", message: formatErrorMessage(res.error) });
       }
     });
   }

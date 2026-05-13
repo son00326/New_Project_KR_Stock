@@ -32,8 +32,6 @@ interface PortfolioPanelProps {
   acceptAllowed: boolean;
   gateMessage: string | null;
   gateReason: AcceptGateReason | null;
-  actionsEnabled?: boolean;
-  actionsDisabledMessage?: string;
   // Wave 5 (T3.7): 이의 제기 — 현재 월 확정 approval
   finalApproval?: PortfolioApproval | null;
 }
@@ -46,20 +44,12 @@ type BannerState =
   | { kind: "error"; message: string }
   | null;
 
-export function formatPortfolioActionError(error: string): string {
-  switch (error) {
-    case "already_finalized":
-      return "이미 이번 달 포트가 확정되어 있습니다.";
-    case "entry_price_unavailable":
-      return "실 가격 소스 미연동 — T7e.6/T7e.8 후 활성";
-    case "approval_write_failed":
-      return "승인 저장 실패 — 다시 시도하세요";
-    case "reanalysis_limit_reached":
-      return "재분석 2회를 초과했습니다 — 전월 포트 유지";
-    default:
-      return `오류: ${error}`;
-  }
-}
+// FixPlan-46 §P1.1: 한국어 매핑은 src/lib/admin/format-error.ts로 일원화.
+// 기존 formatPortfolioActionError는 미매핑 4건만 다뤘으나, 통합 helper로 invalid_*/auth_unavailable/
+// approval_lookup_failed/accept_gate_blocked:* 등 누락 코드까지 한국어로 표시한다.
+// 기존 export 이름은 테스트 호환을 위해 alias로 유지.
+import { formatErrorMessage } from "@/lib/admin/format-error";
+export const formatPortfolioActionError = formatErrorMessage;
 
 export function PortfolioPanel({
   month,
@@ -72,8 +62,6 @@ export function PortfolioPanel({
   acceptAllowed,
   gateMessage,
   // gateReason reserved for T3.7 server-side re-validation display
-  actionsEnabled = true,
-  actionsDisabledMessage,
   finalApproval,
 }: PortfolioPanelProps) {
   const router = useRouter();
@@ -164,7 +152,7 @@ export function PortfolioPanel({
         if (result.error === DISPUTE_ERROR_REASON_TOO_SHORT) {
           setDisputeError("이의 사유를 20자 이상 입력해 주세요.");
         } else {
-          setDisputeError(`오류: ${result.error}`);
+          setDisputeError(formatErrorMessage(result.error));
         }
       }
     });
@@ -251,13 +239,7 @@ export function PortfolioPanel({
       )}
 
       {/* (b) 게이팅 상태 라벨 — allowed=false 시 표시 */}
-      {!isAlreadyFinalized && !actionsEnabled && actionsDisabledMessage && (
-        <div className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-          <span>{actionsDisabledMessage}</span>
-        </div>
-      )}
-
-      {!isAlreadyFinalized && actionsEnabled && !acceptAllowed && gateMessage && (
+      {!isAlreadyFinalized && !acceptAllowed && gateMessage && (
         <div className="flex items-center gap-2 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
           <span>{gateMessage}</span>
         </div>
@@ -269,14 +251,8 @@ export function PortfolioPanel({
           <Button
             size="default"
             onClick={() => setModal("accept")}
-            disabled={isPending || !actionsEnabled || !acceptAllowed || disputeBlocked}
-            title={
-              !actionsEnabled
-                ? actionsDisabledMessage
-                : !acceptAllowed && gateMessage
-                  ? gateMessage
-                  : undefined
-            }
+            disabled={isPending || !acceptAllowed || disputeBlocked}
+            title={!acceptAllowed && gateMessage ? gateMessage : undefined}
           >
             Accept — 이번 달 포트 확정
           </Button>
@@ -284,8 +260,7 @@ export function PortfolioPanel({
             variant="destructive"
             size="default"
             onClick={() => setModal("reject")}
-            disabled={isPending || !actionsEnabled || disputeBlocked}
-            title={!actionsEnabled ? actionsDisabledMessage : undefined}
+            disabled={isPending || disputeBlocked}
           >
             Reject — 재분석 요청
           </Button>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { upsertExchangeCredential } from "@/lib/credentials/exchange";
 import { SecretInput } from "@/components/admin/credentials/secret-input";
 import { Button } from "@/components/ui/button";
+import { formatErrorMessage } from "@/lib/admin/format-error";
 
 // /admin/settings/binance — Client Form island
 // DQ-7 Session 2 · T10 · §5.3·§5.5·§5.7
@@ -49,7 +50,7 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
         setTestnetMode(true);
         router.refresh();
       } else {
-        setBanner({ kind: "error", message: res.error });
+        setBanner({ kind: "error", message: formatErrorMessage(res.error) });
       }
     });
   }

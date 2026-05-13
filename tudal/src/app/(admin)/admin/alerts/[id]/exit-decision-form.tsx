@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { recordExitDecision } from "@/app/(admin)/admin/alerts/[id]/actions";
+import { formatErrorMessage } from "@/lib/admin/format-error";
 import type { ExitDecision } from "@/types/admin";
 
 // M15 Exit 결정 기록 입력 UI (S5b T5b.3, R3.10-14)
@@ -117,13 +118,7 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
           role="alert"
           className="rounded-md border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 px-3 py-2 text-sm text-[var(--color-market-down)]"
         >
-          {error === "already_decided"
-            ? "이미 결정이 기록된 시그널입니다."
-            : error === "not_exit_signal"
-              ? "Exit 시그널이 아닌 알림에는 결정을 기록할 수 없습니다."
-              : error === "alert_not_found"
-                ? "알림을 찾을 수 없습니다."
-                : `저장 실패: ${error}`}
+          {formatErrorMessage(error)}
         </p>
       )}
 

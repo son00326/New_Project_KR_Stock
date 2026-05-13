@@ -5,6 +5,7 @@ import {
   setIntradayMode,
   setTickerAlertEnabled,
 } from "@/app/(admin)/admin/settings/actions";
+import { formatErrorMessage } from "@/lib/admin/format-error";
 import type { ShortListItem } from "@/types/admin";
 
 // /admin/settings Client island — 모드 토글 + 종목별 ON/OFF (S5b T5b.2)
@@ -64,7 +65,7 @@ export function SettingsPanel({
           role="alert"
           className="rounded-md border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 px-3 py-2 text-sm text-[var(--color-market-down)]"
         >
-          저장 실패: {error}
+          {formatErrorMessage(error)}
         </p>
       )}
 

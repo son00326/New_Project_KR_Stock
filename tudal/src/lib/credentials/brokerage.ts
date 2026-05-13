@@ -77,7 +77,12 @@ export async function upsertBrokerageCredential(
       if (error.code === '23505') {
         return { success: false, error: '이미 등록된 계좌입니다' };
       }
-      return { success: false, error: `저장 실패: ${error.message}` };
+      // FixPlan-46 §P1.1 omxy 합의 Round 6: DB raw message는 generic wrap.
+      // dev 환경에서는 console.error로 원문 유지 (디버깅용). credential payload는 절대 로그 금지.
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[credentials:brokerage] insert error', error);
+      }
+      return { success: false, error: '저장소 처리 중 오류가 발생했습니다' };
     }
     return { success: true, data: { id: data.id } };
   } catch (e) {
@@ -97,14 +102,19 @@ export async function deleteBrokerageCredential(
   id: string,
 ): Promise<ActionResult<void>> {
   if (!UUID_RE.test(id)) {
-    return { success: false, error: 'Invalid id format' };
+    return { success: false, error: '잘못된 ID 형식입니다' };
   }
   const supabase = await createClient();
   const { error } = await supabase
     .from('brokerage_connection')
     .delete()
     .eq('id', id);
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[credentials:brokerage] delete error', error);
+    }
+    return { success: false, error: '저장소 처리 중 오류가 발생했습니다' };
+  }
   return { success: true, data: undefined };
 }
 
@@ -142,5 +152,5 @@ export async function testBrokerageConnection(
   id: string,
 ): Promise<ActionResult<{ pong: boolean }>> {
   void id; // S8-Scaffold T8.x에서 broker.ping(decrypted(id))로 연결 예정
-  return { success: false, error: 'pending-s8' };
+  return { success: false, error: 'Binance 키 저장은 S8 자동매매에서 활성화됩니다' };
 }

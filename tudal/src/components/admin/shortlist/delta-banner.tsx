@@ -4,15 +4,11 @@ import type { ShortListItem } from "@/types/admin";
 
 interface DeltaBannerProps {
   items: ShortListItem[]; // 33행 전체 (NEW·HOLD·REMOVED 포함)
-  reportLinksEnabled?: boolean;
 }
 
 // T1.4 Delta 배너 (M5). 편입·유지·제외 집계 + 펼침 패널.
 // `<details>`로 구현해 Server Component 유지, No-JS에서도 동작.
-export function DeltaBanner({
-  items,
-  reportLinksEnabled = true,
-}: DeltaBannerProps) {
+export function DeltaBanner({ items }: DeltaBannerProps) {
   const news = items.filter((r) => r.deltaStatus === "new");
   const holds = items.filter((r) => r.deltaStatus === "hold");
   const removeds = items.filter((r) => r.deltaStatus === "removed");
@@ -53,14 +49,12 @@ export function DeltaBanner({
           color="var(--color-market-up)"
           items={news}
           emptyText="이번 달 신규 편입 없음"
-          reportLinksEnabled={reportLinksEnabled}
         />
         <DeltaList
           title="제외 (REMOVED)"
           color="var(--color-market-down)"
           items={removeds}
           emptyText="이번 달 제외 종목 없음"
-          reportLinksEnabled={reportLinksEnabled}
         />
       </div>
     </details>
@@ -69,9 +63,8 @@ export function DeltaBanner({
 
 export function canLinkDeltaReport(
   item: Pick<ShortListItem, "deltaStatus">,
-  reportLinksEnabled: boolean,
 ): boolean {
-  return reportLinksEnabled && item.deltaStatus !== "removed";
+  return item.deltaStatus !== "removed";
 }
 
 function DeltaCount({
@@ -103,13 +96,11 @@ function DeltaList({
   color,
   items,
   emptyText,
-  reportLinksEnabled,
 }: {
   title: string;
   color: string;
   items: ShortListItem[];
   emptyText: string;
-  reportLinksEnabled: boolean;
 }) {
   return (
     <div>
@@ -130,7 +121,7 @@ function DeltaList({
                 {r.name}
               </span>
               <span className="flex-1 truncate">{r.deltaReason}</span>
-              {canLinkDeltaReport(r, reportLinksEnabled) ? (
+              {canLinkDeltaReport(r) ? (
                 <Link
                   href={`/admin/report/${r.ticker}`}
                   className="shrink-0 text-[10px] text-muted-foreground underline-offset-2 hover:underline"

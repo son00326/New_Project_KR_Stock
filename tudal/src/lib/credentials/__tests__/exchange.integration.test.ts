@@ -226,7 +226,8 @@ describe('testExchangeConnection', () => {
     const { testExchangeConnection } = await import('../exchange');
     const r = await testExchangeConnection(UUID_VALID);
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toBe('pending-s8');
+    if (!r.success)
+      expect(r.error).toBe('Binance 키 저장은 S8 자동매매에서 활성화됩니다');
   });
 });
 
