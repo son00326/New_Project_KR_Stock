@@ -12,23 +12,42 @@
 
 ## 최근 갱신
 
-**2026-05-19** (49차): **S7a Anthropic wrapper 코드 구현 진행 중** (Task 4/17 ✅ + omxy 적대적 검토 R1~R3 CONVERGED).
-- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, 8 commits ahead, push 보류, billing 미충전 mock 100% 진행).
-- **HEAD**: `a2d2c04` (R2 BLOCKER fix 후).
-- **신규 모듈** (Task 1~4):
-  - `tudal/supabase/migrations/0017_cost_log_and_batch_runs.sql` + `.rollback.sql` — cost_log + monthly_batch_runs + 3 RPC(acquire_batch_lock / commit_persona_eval / commit_badge_only) + UNIQUE constraints + `stock_reports.consensus_badge` 컬럼. RLS 3종 + revoke public/anon + grant authenticated. **production apply 보류** (사용자 트리거 — Task 17 후, B-17).
-  - `tudal/src/lib/report/section-8-schema.ts` + tests — zod canonical contract (Section8 type, sectorVoteRow/coreVoteRow/issueDebateExcerpt/finalConsensusPanel, partA refine 0 or 14, partB min/max 3-5, partD length 11).
-  - `tudal/src/lib/cost/pricing.ts` + tests — anthropic-pricing.ts wrapper (R5 정정), cache_creation×1.25 / cache_read×0.10 multiplier, MAX_COST_PER_CALL_KRW + HARDCAP_KRW = 400_000, S7A_MODEL='claude-opus-4-7'.
-  - `tudal/src/lib/ai/prompts/user-prompt-template.ts` — CORE_USER_PROMPT_TEMPLATE shared (Plan R2 정정).
-  - `tudal/src/lib/ai/prompts/personas/*.ts × 11 + index.ts + render-user-prompt.ts` + tests — Q4 persona contract (id/label/version/philosophy/systemPrompt/userPromptTemplate). chair systemPrompt Q5b 5종 배지 용어 정합.
+**2026-05-19** (49차 종료 + 50차 §0 SoT 박제 정합): **S7a Anthropic wrapper Task 17/17 ✅ + omxy 40+ rounds CONVERGED**. push-ready 직전 상태로 박제.
+- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, 31 commits ahead (50차 §0 박제 commit 포함), push 대기 = B-17 사용자 트리거).
+- **HEAD**: `f5b4d7a` (49차 박제 최종 = HANDOFF 전면 재작성) 또는 50차 §0 박제 commit (이상).
+- **신규 모듈 (Task 1~17 완료)**:
+  - `tudal/supabase/migrations/0017_cost_log_and_batch_runs.sql` + `.rollback.sql` — cost_log + monthly_batch_runs + 3 RPC(acquire_batch_lock / commit_persona_eval / commit_badge_only) + partial unique `(ticker, month) WHERE is_latest=true` + `stock_reports.consensus_badge` 컬럼. RLS 3종 + revoke public/anon + grant authenticated. **production apply 보류 = B-17**.
+  - `tudal/src/lib/report/section-8-schema.ts` + tests — zod canonical contract (partA refine 0 or 14, partB 3~5, partD 11).
+  - `tudal/src/lib/cost/pricing.ts` + tests — anthropic-pricing.ts wrapper (R5 정정), cache_creation×1.25 / cache_read×0.10, MAX_COST_PER_CALL_KRW + HARDCAP_KRW = 400_000, S7A_MODEL='claude-opus-4-7'.
+  - `tudal/src/lib/ai/prompts/{user-prompt-template, render-user-prompt, personas/×11}.ts` + tests — Q4 persona contract. chair Q5b 5종 배지 용어 정합.
+  - `tudal/src/lib/cost/cost-logger.ts` (Task 5, flag-aware + preflightHardcap + orphan 처리) + 5 tests.
+  - `tudal/src/lib/ai/anthropic-client.ts` (Task 6, wrapper) + 6 tests.
+  - `tudal/src/lib/screening/consensus.ts` (Task 7, 5종 배지 🟢🔵🟣🟡⚪ + isTopTier + bucket rank) + 10 tests.
+  - `tudal/src/lib/data/admin-batch-runs.ts` (Task 8, lock CRUD) + 3 tests.
+  - `tudal/src/lib/screening/persona-eval.ts` (Task 9, orchestration warm-first + lock + preflight) + 7 tests.
+  - `tudal/src/lib/report/writer.ts` (Task 10, section_8 jsonb writer + commit_persona_eval RPC 호출) + 4 tests.
+  - `tudal/src/lib/admin/format-error.ts` (Task 11, +6 한국어 매핑 코드) + 6 tests.
+  - `tudal/src/app/api/cron/monthly-batch/route.ts` (Task 12, mock dry-run only refactor).
+  - `tudal/src/app/(admin)/admin/track-record/actions.ts::triggerMonthlyPersonaEvalAction` (Task 13, admin server action).
+  - `tudal/.env.example` (Task 14, AI_COST_LOG_REAL_INSERT_ENABLED + AI_PROMPT_CACHE_ENABLED).
+  - SoT 박제 (Task 15): D19 5종 배지 + ServicePlan-Admin §4.2.1 partA canonical + ReportFramework v2.4.
+  - mock e2e admin trigger (Task 16): 330 calls + 30 reports + ⚪ branch coverage.
 - **zod 신규 설치**: package.json + package-lock.json (Task 2).
-- **omxy 적대적 검토 결함 catch**:
-  - R1 BLOCKER 1: PostgreSQL `IF <null>` pass-through → `is null or ... is distinct from ...` + `coalesce(v->>'vote','')` 정정 (c14fb2e).
-  - R1 BLOCKER 2: section_8 partA `z.array()` 1~13 통과 → `.refine(len === 0 || len === 14)` 정정 (c14fb2e).
-  - R2 BLOCKER: `committee_votes.vote` 기존 check enum(`approve/reject/abstain` 마이그 0003)과 신규 RPC `BUY/HOLD/SELL` 충돌 → RPC INSERT case 매핑(BUY→approve / HOLD→abstain / SELL→reject) + `invalid_vote_row` guard 추가 (a2d2c04). section_8.partD.vote = BUY/HOLD/SELL 유지 (writer 산출물).
-- **omxy debate 누적**: **25 rounds CONVERGED** (21 brainstorm/plan + 1 R5 spec gap + 3 code-review).
-- **잔여**: Task 5~17 (13 task) — `HANDOFF.md §2.A` + `docs/superpowers/plans/2026-05-19-s7a-anthropic-wrapper.md` Task 5~17 verbatim. 매 task implementer + omxy 적대적 검토 (HANDOFF §7 강제 패턴) + fix → 다음 task.
-- **다음 1순위**: Task 5 cost-logger.ts (Q2 flag-aware INSERT + preflightHardcap).
+- **omxy 적대적 검토 결함 catch + fix (10건)**:
+  - R1 BLOCKER 1: PostgreSQL `IF <null>` pass-through → `is null or ... is distinct from ...` + `coalesce(v->>'vote','')` (c14fb2e).
+  - R1 BLOCKER 2: section_8 partA `z.array()` 1~13 통과 → `.refine(len === 0 || len === 14)` (c14fb2e).
+  - R2 BLOCKER: `committee_votes.vote` enum mismatch → RPC INSERT case 매핑 (BUY→approve / HOLD→abstain / SELL→reject) + `invalid_vote_row` guard (a2d2c04). writer는 BUY/HOLD/SELL literal 유지.
+  - Task 9 acquireBatchLock signature 불일치 → string positional (Plan R3 BLOCKER 6 정정 유지).
+  - Task 10 core_revote schema lowercase normalize.
+  - Task 11 `formatAdminError` → `formatErrorMessage` 함수명 (plan 오기).
+  - Task 13 R1: `fetchFinancials` silent `{}` 금지 → error throw (ce11f02).
+  - Task 15 R1: consensus_badge emoji enum + §4.2.1 partA required clarify (a92181c).
+  - **Final R1 BLOCKER**: 0017 RPC `created_at`/`updated_at` 컬럼 미존재 → `generated_at` + `to_date(p_month || '-01', ...)` cast (b62bb11).
+  - **Final R2 BLOCKER**: 0017 `stock_reports_month_ticker_uniq` UNIQUE 추가가 versioning contract와 충돌 → constraint 제거 + RPC `ON CONFLICT (ticker, month) WHERE is_latest = true` partial unique (a61bbf5).
+- **omxy debate 누적**: **40+ rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 final R1~R3 + 1 49차 박제 R1 + 50차 §0 R1 박제 검증 = 누적 43).
+- **검증 게이트 (49차 종료 + 50차 §0 재확인)**: build OK · lint 0 errors · test:ci **522 pass / 60 files** · tsc clean.
+- **잔여**: **B-17 사용자 트리거** (1) `git push origin feat/s7a-anthropic-wrapper` (2) 마이그 0017 production apply (Supabase MCP, apply order = 기존 0016 후 0017) (3) `gh pr create` 또는 main merge.
+- **다음 1순위**: B-17 (HANDOFF §3 표).
 
 **2026-05-13** (48차): **§7 P3.2 + P3.4 완료 ✅**.
 - **마이그 0016 (`accept_shortlist_rpc`)**: 파일 박제 완료 — `tudal/supabase/migrations/0016_accept_shortlist_rpc.sql` + rollback. **DB apply 보류** (사용자 트리거 대기, B-16 큐). signature: `accept_shortlist_with_snapshots(p_month text, p_shortlist_generated_at timestamptz, p_snapshots jsonb) returns jsonb` SECURITY DEFINER + `set search_path = public, pg_temp`. plpgsql 단일 txn(auto-rollback). auth.uid()로 spoof 차단. auth 순서 = `auth_unavailable` 우선 → `is_admin()` → `admin_required` (omxy R2 정정). `jsonb_typeof array` guard. portfolio_approval INSERT + portfolio_snapshot bulk INSERT (`jsonb_array_elements`). EXCEPTION unique_violation → `get stacked diagnostics constraint_name` 분기 (`portfolio_approval_final_month_uniq` → `already_finalized` return / 기타 → re-raise). revoke from public + grant to authenticated.
@@ -359,10 +378,10 @@
 ### 레거시 제거 완료 (S0)
 - ~~`app/(main)/pricing`~~ · ~~PLANS/PlanKey~~ · ~~SubscriptionTier/UserProfile/reportViewsRemaining~~ · ~~subscription-gate/report-limit-banner~~ · ~~/pricing 링크~~
 
-### 검증 게이트 현재 상태 (48차 P3.2 + P3.4 완료 후, 2026-05-13)
-- `npm run build`: ✅ **25 routes** (Next.js 16 build 통과)
-- `npm run lint`: ✅ 0 errors
-- `npm run test:ci`: ✅ **50 files / 463 tests pass** (48차 P3.2 + P3.4 +34 = G-cron-auth 12 + G-wrapper-error 8 + G-FE-map 9 + acceptShortlistRpc 4; 이전 50/429 → 50/463)
+### 검증 게이트 현재 상태 (49차 S7a Task 1~17 ✅ + 50차 §0 박제 정합 후, 2026-05-19)
+- `npm run build`: ✅ OK (Next.js 16 build 통과)
+- `npm run lint`: ✅ 0 errors (6 warnings preexisting)
+- `npm run test:ci`: ✅ **60 files / 522 tests pass** (49차 S7a +59 = cost-logger 5 + anthropic-client 6 + consensus 10 + admin-batch-runs 3 + persona-eval 7 + writer 4 + format-error 6 + mock e2e 등; 이전 50/463 → 60/522)
 - `npx tsc --noEmit`: ✅ exit 0
 - `npm run dev`: ⚠️ macOS EMFILE 이슈 가능 — 필요 시 `ulimit -n 65535` 후 재시도
 
