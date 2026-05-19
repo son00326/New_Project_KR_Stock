@@ -41,7 +41,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 실 AI 호출 | 0 · billing 미충전 (사용자가 §C smoke 직전 충전 명시) |
 | Production deploy | Vercel `https://tudal-tawny.vercel.app` (origin/main) + **Preview Ready: `https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app`** (PR #1) |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012~0014 + 0015a + 0016 + **0016a `drop_legacy_cost_log` (20260519135017) + 0017 `cost_log_and_batch_runs` (20260519135341)** 적용 완료. 0017 RPC 3종 + 0016a row-count guard 박제 ✓. schema-existence smoke 7/7 PASS. |
-| PR | **#1 OPEN**: `https://github.com/son00326/New_Project_KR_Stock/pull/1` (base main ← head feat/s7a-anthropic-wrapper @ a9c9c93). 다음 = 사용자 review/merge |
+| PR | **#1 OPEN**: `https://github.com/son00326/New_Project_KR_Stock/pull/1` (base main ← head feat/s7a-anthropic-wrapper, fast-forwarded to 50차 §1 B-17 박제 commit; B-17 execution head was `a9c9c93`). 다음 = 사용자 review/merge |
 | 검증 게이트 | build OK · lint 0 errors · test:ci **522 / 60 files** · tsc clean (50차 §1 박제 commit 후 재확인 baseline) |
 | omxy debate 누적 | **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final R1~R3 + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6). 적대적 검토 = 본 PR 운영 원칙. |
 
@@ -103,7 +103,7 @@ a9c9c93 fix(S7a 0016a): add legacy cost_log cleanup migration with row-count saf
 
 ### A. 1순위 — ✅ B-17 EXECUTED (50차 §1 사용자 트리거 완료, 2026-05-19) → 다음 = 사용자 PR #1 review/merge
 
-**B-17 결과** (50차 §1 사용자 트리거로 EXECUTED): push fast-forward `1c3dc26..a9c9c93`, 마이그 `drop_legacy_cost_log` (20260519135017) + `cost_log_and_batch_runs` (20260519135341) 적용 완료, PR #1 OPEN, Vercel preview Ready. omxy 6 rounds R1~R6 CONVERGED.
+**B-17 결과** (50차 §1 사용자 트리거로 EXECUTED): push fast-forward `1c3dc26..a9c9c93` (B-17 execution head), 마이그 `drop_legacy_cost_log` (20260519135017) + `cost_log_and_batch_runs` (20260519135341) 적용 완료, PR #1 OPEN (현 head는 박제 commit으로 fast-forwarded), Vercel preview Ready. omxy 6 rounds R1~R6 CONVERGED.
 
 **B-17 migration recovery cleanup 2건** (omxy R3+R6 catch):
 ① legacy cost_log (0005+0008 OpenAI-style schema, row_count=0) → 새 마이그 0016a (`drop_legacy_cost_log.sql` + `.rollback.sql`, DO-block row-count guard + 0005+0008 shape recreate)
