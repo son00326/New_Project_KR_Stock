@@ -31,12 +31,12 @@ Mock Skeleton ✅
        ├ T7e.5 regen-counters CAS race-safe ✅ (39차)
        ├ T7e.6 access-logs/performance/decision-tree ✅ (40차)
        └ T7e.8 Tier 0 인디케이터 (마이그 0012 name/sector + 0013 dart_corp_codes + 0014 dart_financial_cache · `short_list_30` 2026-05-01 30 rows production 적용 · DART 실 standalone/quality 기반 Signal 4·5) ✅ (41~45차)
-  → S7a (Anthropic wrapper) ── 🟢 **49차 진행 중** · `feat/s7a-anthropic-wrapper` branch (push 보류) · billing 미충전 mock 100% 구축
-       · **현재 범위 B**: Tier 1 Core 11 페르소나 평가 + 합의 배지 **5종** (🟢🔵🟣🟡⚪) + Section 8 jsonb writer + 30 mock e2e
+  → S7a (Anthropic wrapper) ── 🟢 **49차 Task 17/17 ✅ + 50차 §0 SoT 박제 정합** · `feat/s7a-anthropic-wrapper` branch (31 commits ahead, push 대기 = B-17 사용자 트리거) · billing 미충전 mock 100% 구축
+       · **현재 범위 B**: Tier 1 Core 11 페르소나 평가 + 합의 배지 **5종** (🟢🔵🟣🟡⚪) + Section 8 jsonb writer + 30 mock e2e ✅
        · Tier 2 Sector Board 14×10 + Reflection 자가학습 = **후속 PR로 분리** (본 PR 범위 외)
        · D20 Section 8 위원 전원 표 박제 = `ServicePlan-Admin §3.7 R3.7-6/7/8` + `§6 D20` + `ReportFramework §8` (45차 박제)
-       · 마이그 0017 = cost_log + monthly_batch_runs + 3 RPC + stock_reports.consensus_badge 컬럼 (production apply는 Task 17 후 사용자 트리거 B-17)
-       · 다음 = Task 5 cost-logger → ... → Task 17 검증 게이트 (상세 = `HANDOFF.md §2.A` + `docs/superpowers/plans/2026-05-19-s7a-anthropic-wrapper.md`)
+       · 마이그 0017 = cost_log + monthly_batch_runs + 3 RPC + stock_reports.consensus_badge 컬럼 (omxy final R1/R2 fix = generated_at + partial unique (ticker,month) WHERE is_latest=true). **production apply는 B-17 사용자 트리거 대기**
+       · 다음 1순위 = **B-17 사용자 트리거** (push + 마이그 apply + PR/merge — 상세 = `HANDOFF.md §2.A` + `§3 표`)
        · T7e.7 RLS 브라우저 수동 QA는 S7a 진행 중 병행 또는 D11 운용 검증 직전 마무리 (1시간 안짝 수동)
   → S7b (뉴스+브리핑)
   → ★ D11 AI 가상 포트 1차 가동 (KIS 0개 · Tier 0 단독 가능 · Tier 1·2 키 있으면 plug-in)
