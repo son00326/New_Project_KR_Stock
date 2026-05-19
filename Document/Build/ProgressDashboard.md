@@ -2,7 +2,7 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-05-19 (50차 §0 SoT 박제 정합 — **49차 S7a Anthropic wrapper Task 1~17 모두 ✅ + omxy 최종 R1~R3 + 50차 R1 CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**31 commits ahead of main (50차 §0 박제 commit 포함), push 대기**) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 / 60 files** / tsc clean · 마이그 0017 production apply는 **B-17 사용자 트리거 대기** · omxy debate 누적 **40+ rounds CONVERGED** (49차 진입 전 25 + 본 세션 task별 13 rounds + final 3 rounds + 50차 §0 박제 R1) · 다음 = 사용자 B-17 트리거 (push + 마이그 apply))
+Last updated: 2026-05-19 (50차 §0 SoT 박제 정합 R3 stale 0 최종 — **49차 S7a Anthropic wrapper Task 1~17 모두 ✅ + omxy 49차 R1~R3 + 50차 §0 R1+R2+R3 CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**32 commits ahead of main (50차 §0 박제 commit 2건 포함 = 1fe9bad SoT 정합 + R3 cleanup), push 대기**) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 / 60 files** / tsc clean · 마이그 0017 production apply는 **B-17 사용자 트리거 대기** · omxy debate 누적 **44 rounds CONVERGED** (49차 진입 전 25 + 49차 task별 13 + final 3 + 49차 박제 R1 + 50차 §0 R1+R2+R3) · 다음 = 사용자 B-17 트리거 (push + 마이그 apply))
 
 이전 갱신: 2026-05-19 (49차 종료 — 7c7c794 / f5b4d7a 박제, 30 commits, push 대기)
 
@@ -19,7 +19,7 @@ S4 가상 포트·성과·Decision Tree: ✅ **Mock 완료** (2026-04-19)
 S5a 스케줄러·브리핑·뉴스·헬스: ✅ **Mock 완료** (2026-04-19)
 S5b 장중·토글·Exit: ✅ **Mock 완료** (2026-04-19)
 S6 Hardening (AI 비용 + Silent Health): ✅ **Mock 완료** (2026-04-20)
-S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1~T7e.6 ✅ + T7e.8 DART Signal 4·5 ✅ — T7e.7 RLS QA 잔여) + **S7a 49차 ✅ Task 17/17 완료 on feat/s7a-anthropic-wrapper (HEAD f5b4d7a 또는 50차 §0 박제 commit, 31 commits ahead, push 대기 = B-17)** — Task 5 cost-logger + Task 6 anthropic-client + Task 7 consensus 5종 배지 + Task 8 admin-batch-runs RPC + Task 9 persona-eval orchestration + Task 10 writer section_8 jsonb + Task 11 format-error 6 한국어 매핑 + Task 12 cron refactor + Task 13 admin server action + Task 14 .env.example + Task 15 SoT docs (D19 5종 + §4.2.1 + ReportFramework v2.4) + Task 16 mock e2e 30 ticker + Task 17 검증 게이트 (build/lint 0/test:ci 522/60/tsc clean) — HANDOFF §2 참조
+S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1~T7e.6 ✅ + T7e.8 DART Signal 4·5 ✅ — T7e.7 RLS QA 잔여) + **S7a 49차 ✅ Task 17/17 완료 + 50차 §0 SoT 박제 정합 R3 stale 0 on feat/s7a-anthropic-wrapper (HEAD 1fe9bad 또는 50차 §0 R3 cleanup commit 이상, 32 commits ahead, push 대기 = B-17)** — Task 5 cost-logger + Task 6 anthropic-client + Task 7 consensus 5종 배지 + Task 8 admin-batch-runs RPC + Task 9 persona-eval orchestration + Task 10 writer section_8 jsonb + Task 11 format-error 6 한국어 매핑 + Task 12 cron refactor + Task 13 admin server action + Task 14 .env.example + Task 15 SoT docs (D19 5종 + §4.2.1 + ReportFramework v2.4) + Task 16 mock e2e 30 ticker + Task 17 검증 게이트 (build/lint 0/test:ci 522/60/tsc clean) — HANDOFF §2 참조
 **S8 자동매매 프레임 (주식+바이낸스 선물)**: ⚪ **미착수** (2026-04-21 D16 승격, Deferred-X·Y 흡수)
 **S9 어드민 운용 검증 (1개월+)**: ⚪ **미착수**
 

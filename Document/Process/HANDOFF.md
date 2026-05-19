@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-19 (50차 §0 SoT 박제 정합 — **🎉 49차 S7a Anthropic wrapper Task 1~17 모두 ✅ + omxy 최종 R1~R3 CONVERGED + 50차 R1 박제 검증 CONTINUE→정정 commit** · `feat/s7a-anthropic-wrapper` branch (**31 commits ahead of main (50차 §0 박제 commit 포함), push 대기 — 사용자 B-17 트리거**) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · 마이그 0017 production apply도 **B-17 사용자 트리거 대기** · omxy debate 누적 **40+ rounds CONVERGED** (25 진입 전 + 13 task review + 3 final + 1 박제 review + 50차 R1 검증) · **다음 1순위 = 사용자 B-17 (push + 마이그 apply + PR/merge)**)
+Last updated: 2026-05-19 (50차 §0 SoT 박제 정합 R3 stale 0 최종 — **🎉 49차 S7a Anthropic wrapper Task 1~17 모두 ✅ + omxy 49차 R1~R3 CONVERGED + 50차 R1+R2+R3 박제 검증 CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**32 commits ahead of main (50차 §0 박제 commit 2건 = 1fe9bad SoT 정합 + R3 cleanup 포함), push 대기 — 사용자 B-17 트리거**) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · 마이그 0017 production apply도 **B-17 사용자 트리거 대기** · omxy debate 누적 **44 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 final + 1 49차 박제 R1 + 50차 §0 R1+R2+R3) · **다음 1순위 = 사용자 B-17 (push + 마이그 apply + PR/merge)**)
 
 **목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 **B-17 사용자 트리거 후속** (PR/머지 후) → **billing 충전 시 §C smoke** → **후속 PR 큐** (Tier 2 / Reflection / format-error 추가 매핑) 순으로 자동 진행 가능하도록 한다.
 
@@ -12,8 +12,8 @@ Last updated: 2026-05-19 (50차 §0 SoT 박제 정합 — **🎉 49차 S7a Anthr
 
 ```bash
 cd /Users/yong/New_Project_KR_Stock
-git status --short --branch                     # feat/s7a-anthropic-wrapper 확인 (HEAD = 50차 §0 박제 commit 또는 그 이상)
-git log --oneline main..HEAD | head -35         # 31 commits 박제 확인 (50차 §0 박제 포함)
+git status --short --branch                     # feat/s7a-anthropic-wrapper 확인 (HEAD = 50차 §0 R3 cleanup commit 또는 그 이상)
+git log --oneline main..HEAD | head -35         # 32 commits 박제 확인 (50차 §0 박제 2건 포함: 1fe9bad + R3)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
@@ -31,8 +31,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| Branch | `feat/s7a-anthropic-wrapper` (49차 신설, main에서 분기, **31 commits ahead** (50차 §0 박제 commit 포함), push 대기 = B-17) |
-| HEAD commit | `f5b4d7a` (49차 박제 최종 = HANDOFF 전면 재작성) 또는 50차 §0 박제 commit (이상) |
+| Branch | `feat/s7a-anthropic-wrapper` (49차 신설, main에서 분기, **32 commits ahead** (50차 §0 박제 commit 2건 포함), push 대기 = B-17) |
+| HEAD commit | `1fe9bad` (50차 §0 SoT 박제 정합) → 또는 50차 §0 R3 cleanup commit (이상) |
 | Mock Skeleton | ✅ S0~S6 · Must 19/19 mock 동작 |
 | DQ-7 Admin Credential | 🟢 ~97% · Smoke #4/#5 + Session 4 QA 잔여 · Smoke #3(Binance)은 S8까지 유예 |
 | S7e Supabase 실 I/O | 🟢 **7/8 완료** · T7e.1~T7e.6 ✅ + T7e.8 ✅ · T7e.7 RLS QA 잔여 |
@@ -41,7 +41,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Production deploy | Vercel `https://tudal-tawny.vercel.app` (origin/main 기준 — 본 branch 미배포, push 후 auto-deploy 예상) |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012~0014 + 0015a + 0016 적용 · **0017 파일 박제 + omxy R1~R3 fix 적용, apply 보류** (사용자 B-17 트리거) |
 | 검증 게이트 | build OK · lint 0 errors · test:ci **522 / 60 files** · tsc clean |
-| omxy debate 누적 | **40+ rounds CONVERGED** (25 brainstorm/plan/code-review 진입 전 + 13 task R1+R2 + 3 final + 1 박제 review). 적대적 검토 = 본 PR 운영 원칙. |
+| omxy debate 누적 | **44 rounds CONVERGED** (25 brainstorm/plan/code-review 진입 전 + 13 task R1+R2 + 3 final + 1 49차 박제 R1 + 50차 §0 R1+R2+R3 박제 검증). 적대적 검토 = 본 PR 운영 원칙. |
 
 ### 49차 본 세션 추가 commits (oldest → newest)
 
@@ -64,6 +64,15 @@ a92181c fix(S7a omxy R1 BLOCKERS Task 15): consensus_badge emoji enum + §4.2.1 
 b62bb11 fix(S7a omxy final R1 BLOCKER): 0017 RPC stock_reports schema 호환 — created_at/updated_at → generated_at + p_month text → date cast
 a61bbf5 fix(S7a omxy final R2 BLOCKER): 0017 stock_reports_month_ticker_uniq 제거 + ON CONFLICT를 partial unique (ticker, month) WHERE is_latest=true 로 변경
 7c7c794 docs(S7a §17 박제): 49차 완료
+8d57a4b docs(T7e.6 박제): 40차 T7e.6 mock cleanup plan 파일 추가 (참조용)
+f5b4d7a docs(S7a §17 박제 R2): HANDOFF.md 전면 재작성 — 49차 박제 R1 final state
+```
+
+### 50차 §0 박제 정합 추가 commits (oldest → newest)
+
+```
+1fe9bad docs(50차 §0 SoT 박제 정합): 5 SoT stale 정정 — omxy R1 CONVERGED 진단 반영 (SoT 정합 commit, commits/HEAD/Task/게이트/round 동기화)
+R3 cleanup docs commit (HEAD direct ref via git log) docs(50차 §0 R3 cleanup): HANDOFF post-R2 minor drift 5건 정정 — §8.1 HEAD ref + §1/§6/§7.7/§9 50차 R1+R2 박제 + commit count 31→32
 ```
 
 ---
@@ -216,7 +225,20 @@ S7a (49차 ✅ — push 대기) → S7b (뉴스+브리핑) → D11 가상 포트
 
 ## 6. 완료 이력
 
-상세는 git log + spec/plan/Slice 파일. 직전 1 항목:
+상세는 git log + spec/plan/Slice 파일. 직전 2 항목 (50차 §0 박제 정합 → 49차 종료 순):
+
+- **50차 §0 SoT 박제 정합 R1+R2+R3 CONVERGED (2026-05-19)**:
+  - **scope**: 50차 세션 진입 시점에 49차 박제 commit 2건(8d57a4b + f5b4d7a) 추가로 인한 SoT 6 문서 stale 검증 + omxy 적대적 박제 검토. 코드 변경 0건, docs-only.
+  - **omxy 50차 §0 박제 검토 3 rounds CONVERGED** (자체 subagent 사용 강제):
+    - R1: 코드/마이그 push-ready PASS, SoT stale 6 BLOCKER catch (commits 28+/26/8 → 30, HEAD a2d2c04/a61bbf5 → f5b4d7a, ProgressDashboard test:ci 463/50 → 522/60, CodebaseStatus 49차 entry mid-session, CLAUDE.md "49차 진행 중", 결함 grep 카탈로그 literal OOS)
+    - 50차 §0 SoT 박제 commit `1fe9bad`: 5 SoT 정정 (HANDOFF + ProgressDashboard + CodebaseStatus + CLAUDE.md + S7-RealData)
+    - R2: 자체 subagent 2개 (gpt-5.3-codex-spark) + git/grep/gate 재실행 → SIGNAL: CONVERGED
+    - 50차 §0 R3 cleanup docs commit (HEAD direct ref via git log): post-R2 minor drift 5건 정정 (§8.1 HEAD ref + §1/§6/§7.7/§9 round bracket + commit count 31→32)
+    - R3: 자체 subagent + git/grep 재실행 → SIGNAL: CONTINUE (placeholder 2건 BLOCKER catch)
+    - R4 토론 (omxy 자체 subagent 2개 + 정책 분석): option A 채택 (amend + hash-agnostic 서술), 사용자 위임 1회 예외 정당화 → SIGNAL: CONVERGED
+    - R3 cleanup commit amend (이 commit) — placeholder 2건을 hash-agnostic 서술로 교체
+  - **검증 게이트 (50차 §0 진입 + R2 + R3 시점 모두 통과)**: build OK · lint 0 errors · test:ci **522 / 60 files** · tsc clean (baseline 유지)
+  - **다음 1순위**: B-17 사용자 트리거 (49차에서 박제된 큐 그대로).
 
 - **49차 S7a Task 1~17 + omxy 40+ rounds CONVERGED (2026-05-19)**:
   - **scope**: brainstorming → writing-plans → subagent-driven-development (Task 1~4 진입 전 + Task 5~17 본 세션) + omxy code-review (R1~R3 task별 + 최종 R1~R3).
@@ -234,7 +256,7 @@ S7a (49차 ✅ — push 대기) → S7b (뉴스+브리핑) → D11 가상 포트
     - **Task 17 final R1**: 0017 RPC `created_at`/`updated_at` 컬럼 미존재 (Task 1 pre-existing bug, Plan R1~R3 모두 놓침) → `generated_at` + `to_date(p_month || '-01', ...)` cast
     - **Task 17 final R2**: 0017 `stock_reports_month_ticker_uniq` UNIQUE (month, ticker) 추가가 기존 versioning contract (`version` + `is_latest` + partial unique) 와 충돌 → constraint 제거 + RPC `ON CONFLICT (ticker, month) WHERE is_latest = true` 로 변경
   - **검증 게이트 (49차 완료 시점)**: build OK · lint 0 errors · test:ci **522 / 60 files** (baseline 463 → +59 신규 tests over 9 task) · tsc clean
-  - **31 commits ahead of main** (10 진입 전 + 13 task + 4 fix + 3 박제 commit (49차 7c7c794 + 8d57a4b + f5b4d7a) + 50차 §0 SoT 박제 commit 1건). push 대기 = **B-17 사용자 트리거**.
+  - **32 commits ahead of main** (10 진입 전 + 13 task + 4 fix + 3 박제 commit (49차 7c7c794 + 8d57a4b + f5b4d7a) + 50차 §0 SoT 박제 commit 2건 (`1fe9bad` SoT 정합 + R3 cleanup)). push 대기 = **B-17 사용자 트리거**.
   - **다음 1순위**: B-17 사용자 트리거 (push + 마이그 0017 apply + PR/merge) → §2.B billing-on smoke (별도) → §2.C format-error 추가 매핑 hotfix → §2.D Tier 2 / Reflection 후속 PR.
 
 ---
@@ -340,7 +362,7 @@ omxy R1에서 결함 발견 시:
 | **stock_reports_month_ticker_uniq full UNIQUE** | 0017에 `add constraint stock_reports_month_ticker_uniq` (versioning contract 충돌) | 82ed324 | a61bbf5 |
 | **ON CONFLICT (month, ticker)** | 0017 RPC에 `on conflict (month, ticker)` (있어야 `on conflict (ticker, month) where is_latest = true`) | 82ed324 | a61bbf5 |
 
-### 7.7 omxy debate 누적 박제 (49차 종료 시점)
+### 7.7 omxy debate 누적 박제 (50차 §0 R3 시점)
 
 ```
 brainstorming (Q1~Q6 + Q5b):              21 rounds  CONVERGED
@@ -350,13 +372,19 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
 ─────────────────────────────────────────────
                                           25 rounds  CONVERGED (49차 진입 시점)
 
-본 세션 task별 R1+R2 (Task 5~16):         13 rounds  CONVERGED
-본 세션 final R1~R3 (main..HEAD diff):     3 rounds  CONVERGED (2 critical BLOCKERS catch)
-박제 review R1 (HANDOFF/ProgressDashboard): 1 round   CONVERGED 예정
+49차 task별 R1+R2 (Task 5~16):            13 rounds  CONVERGED
+49차 final R1~R3 (main..HEAD diff):        3 rounds  CONVERGED (2 critical BLOCKERS catch)
+49차 박제 R1 (HANDOFF/ProgressDashboard):   1 round   CONVERGED
 ─────────────────────────────────────────────
-                                          17 rounds  CONVERGED (본 세션)
+                                          17 rounds  CONVERGED (49차 본 세션)
 
-총 누적:                                  42 rounds  CONVERGED
+50차 §0 박제 R1 (SoT 6 stale 검출):         1 round   CONTINUE (BLOCKER 6 catch)
+50차 §0 박제 R2 (1fe9bad fix 검증):         1 round   CONVERGED
+50차 §0 R3 cleanup (post-R2 drift 5건):    1 round   CONVERGED 예정
+─────────────────────────────────────────────
+                                           2 rounds  CONVERGED (50차 §0, R1 CONTINUE 불산정)
+
+총 누적 (CONVERGED only):                 44 rounds  CONVERGED (50차 §0 R3 시점)
 ```
 
 ---
@@ -365,7 +393,7 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
 
 ### 8.1 사용자 B-17 트리거 완료 여부 확인
 
-- [ ] §0 세션 시작 루틴 실행 → branch `feat/s7a-anthropic-wrapper` + HEAD 확인 (`7c7c794` 이상)
+- [ ] §0 세션 시작 루틴 실행 → branch `feat/s7a-anthropic-wrapper` + HEAD 확인 (`1fe9bad` 또는 50차 §0 R3 cleanup commit 이상)
 - [ ] **`git status` + `git branch -a` 확인 — feat/s7a-anthropic-wrapper가 origin에 push되었는지**
 - [ ] **Supabase MCP `list_migrations` — 0017 production apply 여부 확인**
 - [ ] **`gh pr list --state all --head feat/s7a-anthropic-wrapper` — PR 생성 / merge 여부 확인**
@@ -411,4 +439,4 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
 - **omxy 토론 진입 시 scope guard 4종 박제 필수**: 목적 / 컨텍스트 / 선택지 / Out-of-Scope ([[feedback_omxy_debate_scope_guard]] memory).
 - **commit pattern**: 자동 commit (amend 금지 — 사용자 명시 시만). push는 **사용자 트리거**. branch 분리 = main 직접 commit 금지.
 - **destructive shared-state 행동은 사용자 트리거**: push / production migration apply / PR merge / Vercel deploy / billing 충전 등. Claude 자동화 금지.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: header + §1 + §2 + §8 모두 stale 0. 본 49차 종료 시점에서 omxy 박제 review CONVERGED 받은 후 안전.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: header + §1 + §2 + §8 모두 stale 0. 본 49차 종료 시점 omxy 박제 R1 CONVERGED + **50차 §0 R1+R2+R3 stale 0 최종 박제 CONVERGED** 받은 후 안전 (commit count 32 + HEAD `1fe9bad` 또는 R3 cleanup 이상 박제).
