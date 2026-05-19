@@ -12,7 +12,7 @@
 
 ## 최근 갱신
 
-**2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): **HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix (USER/CLAUDE/SHARED) + §2.2 S9 OK 7 enriched criteria + §8 시나리오 분기 제거 + §9 Owner 분리 박제**. 출시까지 가는 순서 + 자동/수동 트리거 분리 단일 SoT. **현재 Runbook 위치 = §2.1 Step 1 USER 대기**. 자동 진행 가능한 다음 CLAUDE Step = Step 2 (§2.C format-error hotfix 별도 branch). omxy 50 rounds stable (박제 phase R14~R17 not counted).
+**2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): **HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix (USER/CLAUDE/SHARED) + §2.2 S9 OK 7 enriched criteria + §8 시나리오 분기 제거 + §9 Owner 분리 박제**. 출시까지 가는 순서 + 자동/수동 트리거 분리 단일 SoT. **현재 Runbook 위치 = §2.1 Step 1 USER 대기**. 자동 진행 가능한 다음 CLAUDE Step = Step 2 (§2.C format-error hotfix 별도 branch). omxy 50 rounds stable (50차 §2 Runbook docs verification rounds (R14+) = not counted, durable).
 
 **2026-05-19** (50차 §1 B-17 EXECUTED ✅): **S7a Anthropic wrapper Task 17/17 ✅ + 50차 §1 B-17 EXECUTED (push + 0016a + 0017 + PR #1) + omxy 50 rounds CONVERGED**. PR #1 OPEN, Vercel preview Ready, 사용자 review/merge 대기.
 - **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, **34+ commits ahead** (33 pre-박제 + 1 50차 §1 박제 commit + R11 cleanup + 후속 minor docs cleanup 포함; 정확 값 `git rev-list --count main..HEAD`), **push 완료**).
@@ -56,7 +56,7 @@
   - Task 15 R1: consensus_badge emoji enum + §4.2.1 partA required clarify (a92181c).
   - **Final R1 BLOCKER**: 0017 RPC `created_at`/`updated_at` 컬럼 미존재 → `generated_at` + `to_date(p_month || '-01', ...)` cast (b62bb11).
   - **Final R2 BLOCKER**: 0017 `stock_reports_month_ticker_uniq` UNIQUE 추가가 versioning contract와 충돌 → constraint 제거 + RPC `ON CONFLICT (ticker, month) WHERE is_latest = true` partial unique (a61bbf5).
-- **omxy debate 누적**: **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final R1~R3 + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6). 50차 §1 B-17 박제 R7~R10는 post-execution docs verification으로 not counted.
+- **omxy debate 누적**: **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final R1~R3 + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6). 50차 §2 Runbook docs verification rounds (R14+) = post-execution docs verification으로 not counted (durable wording — 추가 cleanup commits 시에도 stable 50 유지).
 - **50차 §1 B-17 omxy R1~R6 catch (요약)**:
   - R3 catch: 0017 cost_log conflict with 0005+0008 chain (fresh-DB도 fail) + Option B `0017a_` lexsort fail (`_` < `a`) → Option B′ `0016a_` 명명
   - R4 catch: missing row-count safety guard before destructive drop → DO-block precondition
