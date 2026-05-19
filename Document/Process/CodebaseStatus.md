@@ -15,7 +15,7 @@
 **2026-05-19** (50차 §1 B-17 EXECUTED ✅): **S7a Anthropic wrapper Task 17/17 ✅ + 50차 §1 B-17 EXECUTED (push + 0016a + 0017 + PR #1) + omxy 50 rounds CONVERGED**. PR #1 OPEN, Vercel preview Ready, 사용자 review/merge 대기.
 - **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, **34 commits ahead** (33 + 1 박제 commit), **push 완료**).
 - **HEAD**: **50차 §1 B-17 박제 commit** 또는 그 이상 (HEAD direct ref via `git log`). **B-17 execution head** = `a9c9c93` (fix S7a 0016a).
-- **PR #1 OPEN**: https://github.com/son00326/New_Project_KR_Stock/pull/1 (base main ← head feat/s7a-anthropic-wrapper @ a9c9c93). **Vercel preview Ready**: https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app
+- **PR #1 OPEN**: https://github.com/son00326/New_Project_KR_Stock/pull/1 (base main ← head feat/s7a-anthropic-wrapper, fast-forwarded to 50차 §1 B-17 박제 commit; B-17 execution head was `a9c9c93`). **Vercel preview Ready**: https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app
 - **Production migrations applied** (Supabase project `rbrpcynhphrpljbjirfo`):
   - `drop_legacy_cost_log` (version 20260519135017, 0016a — DO-block row-count guard + cascade drop)
   - `cost_log_and_batch_runs` (version 20260519135341, 0017 S7a Anthropic schema)
