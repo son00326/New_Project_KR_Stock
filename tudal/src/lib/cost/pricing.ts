@@ -1,13 +1,9 @@
-// Anthropic 공식 단가 — 변경 시 SoT는 공식 문서. 본 상수는 conservative upper-bound 추정.
-// claude-opus-4-7 base pricing (USD per 1M tokens, 2026-05 기준 가정)
+// S7a Q6 cache-aware cost adapter — anthropic-pricing.ts wrapper.
+// 단가표 + 환율 SoT = anthropic-pricing.ts (S6 M17). 본 모듈은 cache 비용 처리만 추가.
+// omxy R5 합의 (옵션 B 채택): DRY + COST_USD_TO_KRW 통일 + 기존 importers 영향 0.
 
-const USD_PER_KRW = 1 / 1380;  // 1 USD = 1380 KRW (대략)
-
-const OPUS_INPUT_USD_PER_MTOK = 15;
-const OPUS_OUTPUT_USD_PER_MTOK = 75;
-
-const KRW_PER_INPUT_TOKEN = OPUS_INPUT_USD_PER_MTOK / 1_000_000 / USD_PER_KRW;
-const KRW_PER_OUTPUT_TOKEN = OPUS_OUTPUT_USD_PER_MTOK / 1_000_000 / USD_PER_KRW;
+import { ANTHROPIC_PRICING, getPricing } from "./anthropic-pricing";
+import { COST_USD_TO_KRW } from "@/types/admin";
 
 export interface TokenUsage {
   input_tokens: number;
@@ -16,18 +12,38 @@ export interface TokenUsage {
   output_tokens: number;
 }
 
-export function calculateCostKrw(usage: TokenUsage): number {
-  const inputCost = usage.input_tokens * KRW_PER_INPUT_TOKEN;
-  const cacheCreationCost = usage.cache_creation_input_tokens * KRW_PER_INPUT_TOKEN * 1.25;
-  const cacheReadCost = usage.cache_read_input_tokens * KRW_PER_INPUT_TOKEN * 0.10;
-  const outputCost = usage.output_tokens * KRW_PER_OUTPUT_TOKEN;
-  return Number((inputCost + cacheCreationCost + cacheReadCost + outputCost).toFixed(2));
+// S7a 페르소나 평가 = Opus 4.7 (기본 sonnet과 분리)
+export const S7A_MODEL = "claude-opus-4-7";
+
+if (!(S7A_MODEL in ANTHROPIC_PRICING)) {
+  throw new Error(`S7A_MODEL ${S7A_MODEL} not found in ANTHROPIC_PRICING — anthropic-pricing.ts SoT 갱신 필요`);
 }
 
-// 보수적 upper-bound — preflight reservation용 (Plan R3 BLOCKER 1)
-// 페르소나당 systemPrompt 1.5KB + userPromptTemplate input 2KB 정도 → 보수적으로 1500 input tokens
-// output 평균 1000 tokens, 보수적 upper-bound 2000
-// cache miss 가정
+// cache multipliers (Anthropic prompt caching 공식):
+// - normal input ×1.0
+// - cache creation ×1.25 (write 비용 추가)
+// - cache read    ×0.10 (90% 할인)
+// - output        ×1.0
+const CACHE_CREATION_MULT = 1.25;
+const CACHE_READ_MULT = 0.10;
+
+export function calculateCostKrw(usage: TokenUsage, model: string = S7A_MODEL): number {
+  const pricing = getPricing(model);
+  const inUsdPerTok = pricing.inputPerMTokUsd / 1_000_000;
+  const outUsdPerTok = pricing.outputPerMTokUsd / 1_000_000;
+
+  const inputUsd = usage.input_tokens * inUsdPerTok;
+  const cacheCreationUsd = usage.cache_creation_input_tokens * inUsdPerTok * CACHE_CREATION_MULT;
+  const cacheReadUsd = usage.cache_read_input_tokens * inUsdPerTok * CACHE_READ_MULT;
+  const outputUsd = usage.output_tokens * outUsdPerTok;
+  const totalUsd = inputUsd + cacheCreationUsd + cacheReadUsd + outputUsd;
+
+  return Math.round(totalUsd * COST_USD_TO_KRW * 100) / 100;
+}
+
+// 보수적 upper-bound — preflight reservation용 (Plan R3 BLOCKER 1).
+// 페르소나당 systemPrompt ~1.5KB + user input ~2KB → 1500 input tokens (cache miss 가정)
+// output 보수적 upper-bound 2000 tokens
 export const MAX_COST_PER_CALL_KRW = calculateCostKrw({
   input_tokens: 1500,
   cache_creation_input_tokens: 0,
