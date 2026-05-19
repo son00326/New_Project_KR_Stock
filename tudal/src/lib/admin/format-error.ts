@@ -50,6 +50,15 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // credentials lib 방어 매핑 (lib 레벨도 한국어 직접 반환 — 이중 보호)
   "Invalid id format": "잘못된 ID 형식입니다",
   "pending-s8": "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
+  // S7a §11 — 합의 배지·월간 배치·페르소나 평가·AI 호출 에러
+  consensus_rank_invalid: "합의 배지 산출 로직 오류 — 어드민에게 보고 필요",
+  consensus_undefined_case: "합의 배지 정의 누락 — D19 spec 확인 필요",
+  batch_already_running:
+    "이번 달 분석이 이미 진행 중입니다. 진행률은 admin 화면에서 확인하세요.",
+  batch_already_completed:
+    "이번 달 분석이 이미 완료되었습니다. 다시 실행하려면 명시적 rerun 액션을 사용하세요.",
+  persona_eval_fatal: "분석 실행 중 치명적 오류 — 운영자 검토 필요",
+  ai_call_failed: "AI 호출 실패 — 분석 결과 ⚪(분석 대기)로 처리됨",
 };
 
 export function formatErrorMessage(code: string): string {
