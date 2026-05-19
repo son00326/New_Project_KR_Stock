@@ -1,8 +1,8 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-19 (49차 — **S7a Anthropic wrapper 코드 구현 진행 중** · `feat/s7a-anthropic-wrapper` branch (8 commits ahead of main, push 보류, AI 키 발급은 검증 직전 사용자 트리거) · Task 4/17 ✅ + omxy 적대적 코드 검토 R1~R3 CONVERGED (3 critical BLOCKERS catch + fix) · **다음 1순위 = Task 5 cost-logger → ... → Task 17 검증 게이트 (TDD + omxy 적대적 검토 강제 패턴)**)
+Last updated: 2026-05-19 (49차 — **🎉 S7a Anthropic wrapper Task 5~17 모두 ✅ + omxy 최종 R1~R3 CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**26 commits ahead of main, push 대기 — 사용자 B-17 트리거**) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · 마이그 0017 production apply도 **B-17 사용자 트리거 대기** · omxy debate 누적 **40+ rounds CONVERGED** · 다음 = 사용자 B-17: (1) `git push origin feat/s7a-anthropic-wrapper` (2) Supabase MCP로 0017 apply (3) PR 생성 또는 main merge)
 
-**목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 Task 5~17 + 매 task omxy 적대적 코드 검토를 자동 적용해 끝까지 진행 가능하도록 한다.
+**목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 **B-17 사용자 트리거 후속** (PR 생성·머지·billing 충전 후 §C smoke) 또는 **후속 PR** (Tier 2 / Reflection / format-error 추가 매핑)을 자동 진행 가능하도록 한다.
 
 **운영 원칙**: 미래 지향. 완료 이력 상세는 `Document/Build/Slices/S7-RealData.md`, `Document/Build/ProgressDashboard.md`, `Document/Process/CodebaseStatus.md`, git diff/log, `docs/superpowers/specs/2026-05-19-s7a-anthropic-wrapper-design.md`, `docs/superpowers/plans/2026-05-19-s7a-anthropic-wrapper.md`에 위임한다.
 
