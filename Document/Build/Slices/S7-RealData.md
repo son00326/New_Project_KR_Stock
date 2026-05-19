@@ -11,7 +11,9 @@ current_progress: ~50% (S7e 7/8 sub-task, T7e.8 DART 실데이터 short_list_30 
 ---
 ```
 
-Last updated: 2026-05-12 (T7e.8 follow-up — DART Signal 4·5 production 적용 완료; 2026-05-01 `short_list_30` 30 rows UPSERT, dry-run preview↔DB 일치 검증)
+Last updated: 2026-05-19 (49차 — **S7a Anthropic wrapper 코드 구현 진입 ✅**) · `feat/s7a-anthropic-wrapper` branch 신설, 8 commits ahead of main (HEAD a2d2c04), push 보류. Task 4/17 ✅ (마이그 0017 + section-8-schema + pricing wrapper + persona registry 11). omxy 적대적 코드 검토 25 rounds CONVERGED (21 brainstorm/plan + 1 R5 + 3 code-review = 3 critical BLOCKERS catch + fix: PostgreSQL IF null / Q3 partA semantic / committee_votes.vote enum mismatch). 다음 1순위 = Task 5 cost-logger → ... → Task 17 검증 게이트. SoT 진입점 = `HANDOFF.md §2.A` + `docs/superpowers/{specs,plans}/2026-05-19-s7a-anthropic-wrapper-*.md`. 마이그 0017 production apply 보류 (Task 17 후 사용자 트리거 B-17).
+
+이전 갱신: 2026-05-12 (T7e.8 follow-up — DART Signal 4·5 production 적용 완료; 2026-05-01 `short_list_30` 30 rows UPSERT, dry-run preview↔DB 일치 검증)
 선행 문서: `HANDOFF.md §6` (로드맵 SoT) · `ProgressDashboard.md §5` (BL-KRIT) · `ServicePlan-Admin.md §4` (데이터 모델)
 
 > **이 파일은 스켈레톤이다.** S7a 킥오프 첫 행동으로 아래 Tasks를 Phase별로 세분화·체크리스트화한다. Placeholder가 최소한인 이유는 각 Phase(S7a~S7e)가 외부 API 응답·실측 후에만 구체화되기 때문.

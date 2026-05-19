@@ -12,6 +12,24 @@
 
 ## 최근 갱신
 
+**2026-05-19** (49차): **S7a Anthropic wrapper 코드 구현 진행 중** (Task 4/17 ✅ + omxy 적대적 검토 R1~R3 CONVERGED).
+- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, 8 commits ahead, push 보류, billing 미충전 mock 100% 진행).
+- **HEAD**: `a2d2c04` (R2 BLOCKER fix 후).
+- **신규 모듈** (Task 1~4):
+  - `tudal/supabase/migrations/0017_cost_log_and_batch_runs.sql` + `.rollback.sql` — cost_log + monthly_batch_runs + 3 RPC(acquire_batch_lock / commit_persona_eval / commit_badge_only) + UNIQUE constraints + `stock_reports.consensus_badge` 컬럼. RLS 3종 + revoke public/anon + grant authenticated. **production apply 보류** (사용자 트리거 — Task 17 후, B-17).
+  - `tudal/src/lib/report/section-8-schema.ts` + tests — zod canonical contract (Section8 type, sectorVoteRow/coreVoteRow/issueDebateExcerpt/finalConsensusPanel, partA refine 0 or 14, partB min/max 3-5, partD length 11).
+  - `tudal/src/lib/cost/pricing.ts` + tests — anthropic-pricing.ts wrapper (R5 정정), cache_creation×1.25 / cache_read×0.10 multiplier, MAX_COST_PER_CALL_KRW + HARDCAP_KRW = 400_000, S7A_MODEL='claude-opus-4-7'.
+  - `tudal/src/lib/ai/prompts/user-prompt-template.ts` — CORE_USER_PROMPT_TEMPLATE shared (Plan R2 정정).
+  - `tudal/src/lib/ai/prompts/personas/*.ts × 11 + index.ts + render-user-prompt.ts` + tests — Q4 persona contract (id/label/version/philosophy/systemPrompt/userPromptTemplate). chair systemPrompt Q5b 5종 배지 용어 정합.
+- **zod 신규 설치**: package.json + package-lock.json (Task 2).
+- **omxy 적대적 검토 결함 catch**:
+  - R1 BLOCKER 1: PostgreSQL `IF <null>` pass-through → `is null or ... is distinct from ...` + `coalesce(v->>'vote','')` 정정 (c14fb2e).
+  - R1 BLOCKER 2: section_8 partA `z.array()` 1~13 통과 → `.refine(len === 0 || len === 14)` 정정 (c14fb2e).
+  - R2 BLOCKER: `committee_votes.vote` 기존 check enum(`approve/reject/abstain` 마이그 0003)과 신규 RPC `BUY/HOLD/SELL` 충돌 → RPC INSERT case 매핑(BUY→approve / HOLD→abstain / SELL→reject) + `invalid_vote_row` guard 추가 (a2d2c04). section_8.partD.vote = BUY/HOLD/SELL 유지 (writer 산출물).
+- **omxy debate 누적**: **25 rounds CONVERGED** (21 brainstorm/plan + 1 R5 spec gap + 3 code-review).
+- **잔여**: Task 5~17 (13 task) — `HANDOFF.md §2.A` + `docs/superpowers/plans/2026-05-19-s7a-anthropic-wrapper.md` Task 5~17 verbatim. 매 task implementer + omxy 적대적 검토 (HANDOFF §7 강제 패턴) + fix → 다음 task.
+- **다음 1순위**: Task 5 cost-logger.ts (Q2 flag-aware INSERT + preflightHardcap).
+
 **2026-05-13** (48차): **§7 P3.2 + P3.4 완료 ✅**.
 - **마이그 0016 (`accept_shortlist_rpc`)**: 파일 박제 완료 — `tudal/supabase/migrations/0016_accept_shortlist_rpc.sql` + rollback. **DB apply 보류** (사용자 트리거 대기, B-16 큐). signature: `accept_shortlist_with_snapshots(p_month text, p_shortlist_generated_at timestamptz, p_snapshots jsonb) returns jsonb` SECURITY DEFINER + `set search_path = public, pg_temp`. plpgsql 단일 txn(auto-rollback). auth.uid()로 spoof 차단. auth 순서 = `auth_unavailable` 우선 → `is_admin()` → `admin_required` (omxy R2 정정). `jsonb_typeof array` guard. portfolio_approval INSERT + portfolio_snapshot bulk INSERT (`jsonb_array_elements`). EXCEPTION unique_violation → `get stacked diagnostics constraint_name` 분기 (`portfolio_approval_final_month_uniq` → `already_finalized` return / 기타 → re-raise). revoke from public + grant to authenticated.
 - **acceptShortlistRpc wrapper**: `src/lib/data/admin-approvals.ts`에 신규 추가 — snake-case payload 변환 + `{approval_id, is_final}` 또는 `{error: 'already_finalized'}` 분기 + unexpected payload shape 가드.

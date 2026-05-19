@@ -2,7 +2,9 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-05-13 (48차 — **§7 P3.2 + P3.4 완료 + 마이그 0016 production apply + origin push ✅** (cmux pair-debate omxy 3 rounds CONVERGED + 사용자 트리거 후속) · 마이그 0016 `accept_shortlist_with_snapshots` RPC apply 완료 + anon revoke hotfix(Supabase default grant 차단) + acceptShortList orphan-safety RPC 일원화 + G-cron-auth 12 + G-wrapper-error 8 + G-FE-map 9 + RPC 4 = **+34 tests / 463 pass / 50 files** · 47차 P2.2~P2.4 ✅ + 46차 P0·P1 ✅ · S7e 7/8 (T7e.7 RLS QA 잔여) · 다음 1순위 = S7a Anthropic wrapper (AI 키 B-6 발급 트리거) 또는 §7 P3.1 (D20 컴포넌트, S7a 시드 후) + P3.3 (error taxonomy 사용자 결정) · HIBP 토글 B-2A 사용자 잔여)
+Last updated: 2026-05-19 (49차 — **S7a Anthropic wrapper 코드 구현 진행 중** · `feat/s7a-anthropic-wrapper` branch (8 commits ahead of main, push 보류, billing 미충전 mock 100% 진행) · Task 4/17 ✅ + omxy 적대적 코드 검토 R1~R3 CONVERGED (3 critical BLOCKERS catch + fix — PostgreSQL IF null / Q3 partA semantic / committee_votes.vote enum mismatch) · **다음 1순위 = Task 5 cost-logger → ... → Task 17 검증 게이트** · omxy debate 누적 **25 rounds CONVERGED** · 진입점 = `HANDOFF.md §0`)
+
+이전 갱신: 2026-05-13 (48차 — **§7 P3.2 + P3.4 완료 + 마이그 0016 production apply + origin push ✅** (cmux pair-debate omxy 3 rounds CONVERGED + 사용자 트리거 후속) · 마이그 0016 `accept_shortlist_with_snapshots` RPC apply 완료 + anon revoke hotfix(Supabase default grant 차단) + acceptShortList orphan-safety RPC 일원화 + G-cron-auth 12 + G-wrapper-error 8 + G-FE-map 9 + RPC 4 = **+34 tests / 463 pass / 50 files** · 47차 P2.2~P2.4 ✅ + 46차 P0·P1 ✅ · S7e 7/8 (T7e.7 RLS QA 잔여) · 다음 1순위 = S7a Anthropic wrapper (AI 키 B-6 발급 트리거) 또는 §7 P3.1 (D20 컴포넌트, S7a 시드 후) + P3.3 (error taxonomy 사용자 결정) · HIBP 토글 B-2A 사용자 잔여)
 총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~97%, Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** + **S7 실데이터 전환 (🟢 진행 중 — S7e ~50%)** + **S8 자동매매 프레임 (분리 — S7d 후 단독 진입)** + **S9 운용 검증** + Deferred-D(멤버, 별도 트랙)
 총 예상 세션: 9(완료) + **4(DQ-7, Session 1·2·30·32·33 = ~3 완료, Smoke #4·#5 + Session 4 QA 잔여 ~1)** + 8(S7, 36차 진입) + 4(S8) = **약 25 세션** + S9 운용 4~8주
 **진행률 (정확)**: Mock 동작 **19/19** · **DQ-7 구현 ~97% (Session 1·2 ✅ + 30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ — Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** · **S7e 7/8 (T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 DART 실 시드 ✅), T7e.7 RLS QA 잔여** · **46차 P0·P1 ✅ + 47차 P2.2~P2.4 ✅ + 48차 P3.2 + P3.4 + 마이그 0016 production apply + origin push ✅** (acceptShortList orphan-safety RPC 일원화 + anon revoke hotfix + +34 tests) · 실데이터 **1+/19** (`short_list_30` 30 rows production 적용 · Signal 4·5 DART 실데이터 반영) · 실 AI 호출 **0** · 자동매매 프레임 **0%** · 실 운용 검증 **0일** · **Vercel Production ✅ (25 routes, origin/main 동기)** · 검증 게이트 **build 25 routes · lint 0 · test:ci 463 pass / 50 files** · advisor anon WARN **0** / authenticated WARN **4** (intended)
@@ -15,7 +17,7 @@ S4 가상 포트·성과·Decision Tree: ✅ **Mock 완료** (2026-04-19)
 S5a 스케줄러·브리핑·뉴스·헬스: ✅ **Mock 완료** (2026-04-19)
 S5b 장중·토글·Exit: ✅ **Mock 완료** (2026-04-19)
 S6 Hardening (AI 비용 + Silent Health): ✅ **Mock 완료** (2026-04-20)
-S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 DART Signal 4·5 production 적용 ✅ — T7e.7 RLS QA 잔여) — HANDOFF §2 참조
+S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1·T7e.2·T7e.3·T7e.4·T7e.5·T7e.6 ✅ + T7e.8 DART Signal 4·5 production 적용 ✅ — T7e.7 RLS QA 잔여) + **S7a 49차 진입 — Task 4/17 ✅ on feat/s7a-anthropic-wrapper branch (HEAD a2d2c04, 8 commits, push 보류)** — HANDOFF §2 참조
 **S8 자동매매 프레임 (주식+바이낸스 선물)**: ⚪ **미착수** (2026-04-21 D16 승격, Deferred-X·Y 흡수)
 **S9 어드민 운용 검증 (1개월+)**: ⚪ **미착수**
 
