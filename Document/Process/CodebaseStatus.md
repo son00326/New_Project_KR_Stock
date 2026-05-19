@@ -12,9 +12,19 @@
 
 ## 최근 갱신
 
-**2026-05-19** (49차 종료 + 50차 §0 SoT 박제 정합 R3 stale 0 최종): **S7a Anthropic wrapper Task 17/17 ✅ + omxy 44 rounds CONVERGED**. push-ready 직전 상태로 박제.
-- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, 32 commits ahead (50차 §0 박제 commit 2건 포함 = 1fe9bad SoT 정합 + R3 cleanup), push 대기 = B-17 사용자 트리거).
-- **HEAD**: `1fe9bad` (50차 §0 SoT 박제 정합) 또는 50차 §0 R3 cleanup commit (이상).
+**2026-05-19** (50차 §1 B-17 EXECUTED ✅): **S7a Anthropic wrapper Task 17/17 ✅ + 50차 §1 B-17 EXECUTED (push + 0016a + 0017 + PR #1) + omxy 50 rounds CONVERGED**. PR #1 OPEN, Vercel preview Ready, 사용자 review/merge 대기.
+- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, **34 commits ahead** (33 + 1 박제 commit), **push 완료**).
+- **HEAD**: **50차 §1 B-17 박제 commit** 또는 그 이상 (HEAD direct ref via `git log`). **B-17 execution head** = `a9c9c93` (fix S7a 0016a).
+- **PR #1 OPEN**: https://github.com/son00326/New_Project_KR_Stock/pull/1 (base main ← head feat/s7a-anthropic-wrapper @ a9c9c93). **Vercel preview Ready**: https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app
+- **Production migrations applied** (Supabase project `rbrpcynhphrpljbjirfo`):
+  - `drop_legacy_cost_log` (version 20260519135017, 0016a — DO-block row-count guard + cascade drop)
+  - `cost_log_and_batch_runs` (version 20260519135341, 0017 S7a Anthropic schema)
+- **신규 마이그 파일 (50차 §1)**:
+  - `tudal/supabase/migrations/0016a_drop_legacy_cost_log.sql` + `.rollback.sql` — legacy cost_log (0005+0008 OpenAI schema) cleanup precursor with DO-block row-count guard. Rollback recreates 0005+0008 final shape (id/ts/month/model/purpose/tokens_prompt/tokens_completion/cost_krw/meta/ticker/persona_id/section + 4 indexes + RLS policy).
+- **B-17 migration recovery cleanup 2건** (omxy R3+R6 catch):
+  ① legacy cost_log via recorded migration **0016a** (row_count=0 verified at apply time, DO-block guard refuses drop if rows exist)
+  ② orphan unique index `committee_votes_report_persona_uniq` promoted in-place via `ALTER TABLE … ADD CONSTRAINT … UNIQUE USING INDEX …` (one-off execute_sql, fresh-DB unaffected since 0017's `if not exists in pg_constraint` guard works correctly on fresh DB)
+- **schema-existence smoke 7/7 PASS** (post-apply): cost_log table + monthly_batch_runs table + stock_reports.consensus_badge column + acquire_batch_lock RPC + commit_persona_eval RPC + commit_badge_only RPC + committee_votes_report_persona_uniq constraint.
 - **신규 모듈 (Task 1~17 완료)**:
   - `tudal/supabase/migrations/0017_cost_log_and_batch_runs.sql` + `.rollback.sql` — cost_log + monthly_batch_runs + 3 RPC(acquire_batch_lock / commit_persona_eval / commit_badge_only) + partial unique `(ticker, month) WHERE is_latest=true` + `stock_reports.consensus_badge` 컬럼. RLS 3종 + revoke public/anon + grant authenticated. **production apply 보류 = B-17**.
   - `tudal/src/lib/report/section-8-schema.ts` + tests — zod canonical contract (partA refine 0 or 14, partB 3~5, partD 11).
@@ -44,10 +54,14 @@
   - Task 15 R1: consensus_badge emoji enum + §4.2.1 partA required clarify (a92181c).
   - **Final R1 BLOCKER**: 0017 RPC `created_at`/`updated_at` 컬럼 미존재 → `generated_at` + `to_date(p_month || '-01', ...)` cast (b62bb11).
   - **Final R2 BLOCKER**: 0017 `stock_reports_month_ticker_uniq` UNIQUE 추가가 versioning contract와 충돌 → constraint 제거 + RPC `ON CONFLICT (ticker, month) WHERE is_latest = true` partial unique (a61bbf5).
-- **omxy debate 누적**: **44 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 final R1~R3 + 1 49차 박제 R1 + 50차 §0 R1+R2+R3 박제 검증 = 44; R1 CONTINUE는 fix 후 R2 CONVERGED로 산정).
-- **검증 게이트 (49차 종료 + 50차 §0 재확인)**: build OK · lint 0 errors · test:ci **522 pass / 60 files** · tsc clean.
-- **잔여**: **B-17 사용자 트리거** (1) `git push origin feat/s7a-anthropic-wrapper` (2) 마이그 0017 production apply (Supabase MCP, apply order = 기존 0016 후 0017) (3) `gh pr create` 또는 main merge.
-- **다음 1순위**: B-17 (HANDOFF §3 표).
+- **omxy debate 누적**: **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final R1~R3 + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6). 50차 §1 B-17 박제 R7~R10는 post-execution docs verification으로 not counted.
+- **50차 §1 B-17 omxy R1~R6 catch (요약)**:
+  - R3 catch: 0017 cost_log conflict with 0005+0008 chain (fresh-DB도 fail) + Option B `0017a_` lexsort fail (`_` < `a`) → Option B′ `0016a_` 명명
+  - R4 catch: missing row-count safety guard before destructive drop → DO-block precondition
+  - R6 catch: orphan unique index `committee_votes_report_persona_uniq` (49차 manual testing 잔재) → promote-in-place via UNIQUE USING INDEX
+- **검증 게이트 (a9c9c93 B-17 execution head + 50차 §1 박제 commit 후)**: build OK · lint 0 errors · test:ci **522 pass / 60 files** · tsc clean (baseline 유지).
+- **잔여**: **사용자 PR #1 review/merge** (1) `gh pr view 1` 검토 (2) Vercel preview Ready URL QA (3) `gh pr merge 1 --merge` 또는 `--squash`.
+- **다음 1순위**: 사용자 PR #1 review/merge (HANDOFF §3 표 B-17b).
 
 **2026-05-13** (48차): **§7 P3.2 + P3.4 완료 ✅**.
 - **마이그 0016 (`accept_shortlist_rpc`)**: 파일 박제 완료 — `tudal/supabase/migrations/0016_accept_shortlist_rpc.sql` + rollback. **DB apply 보류** (사용자 트리거 대기, B-16 큐). signature: `accept_shortlist_with_snapshots(p_month text, p_shortlist_generated_at timestamptz, p_snapshots jsonb) returns jsonb` SECURITY DEFINER + `set search_path = public, pg_temp`. plpgsql 단일 txn(auto-rollback). auth.uid()로 spoof 차단. auth 순서 = `auth_unavailable` 우선 → `is_admin()` → `admin_required` (omxy R2 정정). `jsonb_typeof array` guard. portfolio_approval INSERT + portfolio_snapshot bulk INSERT (`jsonb_array_elements`). EXCEPTION unique_violation → `get stacked diagnostics constraint_name` 분기 (`portfolio_approval_final_month_uniq` → `already_finalized` return / 기타 → re-raise). revoke from public + grant to authenticated.
