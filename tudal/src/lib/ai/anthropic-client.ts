@@ -63,10 +63,14 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
     .map((c) => (c as { type: 'text'; text: string }).text)
     .join('');
 
+  const usageWithCache = response.usage as typeof response.usage & {
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
   const usage: TokenUsage = {
     input_tokens: response.usage.input_tokens ?? 0,
-    cache_creation_input_tokens: (response.usage as any).cache_creation_input_tokens ?? 0,
-    cache_read_input_tokens: (response.usage as any).cache_read_input_tokens ?? 0,
+    cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
+    cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
     output_tokens: response.usage.output_tokens ?? 0,
   };
   const costKrw = calculateCostKrw(usage);
