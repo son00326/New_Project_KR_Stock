@@ -25,9 +25,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 1. **§8.1 현재 위치 확인 자동 실행** (git/gh/list_migrations/검증 게이트).
 2. **§2.1 Runbook 매트릭스 보고 마지막 완료 Step 식별** → 다음 Step Owner 확인.
 3. **§8.2 자동 진행 결정** — Owner 별 행동:
-   - [CLAUDE] / [CLAUDE stacked] → 즉시 자동 시작 (stacked는 진입 의사 1회 확인)
-   - [SHARED] → "이어서 진행" 권한으로 prepare/commit/PR-create 자동
-   - [USER] / [USER cluster] → background blocker 보고 + 동시 가능한 stacked CLAUDE Step 자동 시작
+   - **[CLAUDE]** → 즉시 자동 시작. Step 3/4 같은 stacked 1세션+ 작업은 §2.1 Trigger/Precondition column에 명시된 대로 진입 의사 1회 확인 후 자동.
+   - **[SHARED]** (§2.1 Branch/PR policy column에 push/PR-create 권한 표기) → "이어서 진행" 권한으로 prepare/commit/PR-create 자동.
+   - **[USER]** → background blocker 보고 + 동시 가능한 [CLAUDE] Step 자동 시작. Step 13 같은 external trigger cluster는 모든 trigger 항목 명시 보고.
 4. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기.
 5. **§7 omxy 적대적 코드 검토 패턴**은 모든 신규 작업 branch에서 강제 적용.
 
@@ -436,10 +436,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 1. **마지막 완료 Step 식별** → §2.1 매트릭스에서 다음 Step 확인
 2. **다음 Step Owner 별 행동** (§2.0 default-progress policy 적용):
-   - **[CLAUDE]** → 즉시 자동 진행 시작 + commit 단위 진행
-   - **[CLAUDE stacked]** (Step 3/4 같은 1세션+ 작업) → 진입 의사 1회 확인 후 자동 진행
-   - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/PR-create까지 자동. merge/deploy/migration은 USER 별도 트리거
-   - **[USER]** / **[USER cluster]** → 트리거 보고 (필요한 정확한 명령 + 외부 액션) + 동시 진행 가능한 stacked [CLAUDE] Step 자동 시작 + 사용자 응답 대기
+   - **[CLAUDE]** → 즉시 자동 진행 시작 + commit 단위 진행. Step 3/4 같은 stacked 1세션+ 작업은 §2.1 Trigger/Precondition column에 명시된 대로 진입 의사 1회 확인 후 자동.
+   - **[SHARED]** (§2.1 Branch/PR policy column에 push/PR-create 권한 표기) → "이어서 진행" 권한으로 prepare/commit/PR-create까지 자동. merge/deploy/migration은 USER 별도 트리거.
+   - **[USER]** → 트리거 보고 (필요한 정확한 명령 + 외부 액션) + 동시 진행 가능한 [CLAUDE] Step 자동 시작 + 사용자 응답 대기. Step 13 같은 external trigger cluster는 모든 trigger 항목을 명시 보고.
 3. **§2.0 7 exception buckets 도달 시 USER 직접 묻기**: scope expansion / product spec / 새 risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium
 
 ### §8.3 후속 PR 진입 시 omxy 적대적 검토 (§7 패턴 재사용)
