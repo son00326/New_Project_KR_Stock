@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-19 (50차 §1 B-17 EXECUTED ✅ — **🎉 push fast-forward + 마이그 0016a + 0017 production apply + PR #1 OPEN + Vercel preview Ready + omxy 50 rounds CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**34 commits ahead of main, HEAD = 50차 §1 B-17 박제 commit or higher**, push 완료) · B-17 execution head: `a9c9c93` (fix S7a 0016a) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · omxy debate 누적 **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6) · **다음 1순위 = 사용자 PR #1 review/merge** → §2.B billing-on smoke (B-6) → §2.C format-error hotfix → §2.D Tier 2/Reflection)
+Last updated: 2026-05-19 (50차 §1 B-17 EXECUTED ✅ — **🎉 push fast-forward + 마이그 0016a + 0017 production apply + PR #1 OPEN + Vercel preview Ready + omxy 50 rounds CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**34+ commits ahead of main**, HEAD = 50차 §1 B-17 박제 commit + R11 cleanup or higher, push 완료; 정확한 값은 `git rev-list --count main..HEAD`) · B-17 execution head: `a9c9c93` (fix S7a 0016a) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · omxy debate 누적 **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6) · **다음 1순위 = 사용자 PR #1 review/merge** → §2.B billing-on smoke (B-6) → §2.C format-error hotfix → §2.D Tier 2/Reflection)
 
 **목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 **PR #1 review/merge 후속** → **billing 충전 시 §C smoke** → **후속 PR 큐** (Tier 2 / Reflection / format-error 추가 매핑) 순으로 자동 진행 가능하도록 한다.
 
@@ -13,7 +13,7 @@ Last updated: 2026-05-19 (50차 §1 B-17 EXECUTED ✅ — **🎉 push fast-forwa
 ```bash
 cd /Users/yong/New_Project_KR_Stock
 git status --short --branch                     # feat/s7a-anthropic-wrapper 확인 (HEAD = 50차 §1 B-17 박제 commit 또는 그 이상)
-git log --oneline main..HEAD | head -40         # 34 commits 박제 확인 (50차 §1 B-17 EXECUTED + 박제 commit 포함)
+git log --oneline main..HEAD | head -40         # 34+ commits 박제 확인 (50차 §1 B-17 EXECUTED + 박제 commit + R11 cleanup + 후속 minor docs cleanup 포함; 정확 값 `git rev-list --count main..HEAD`)
 gh pr view 1 --json state,url,statusCheckRollup  # PR #1 OPEN + Vercel preview Ready 확인
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
@@ -32,7 +32,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| Branch | `feat/s7a-anthropic-wrapper` (49차 신설, main에서 분기, **34 commits ahead** (33 + 1 박제 commit), **push 완료**) |
+| Branch | `feat/s7a-anthropic-wrapper` (49차 신설, main에서 분기, **34+ commits ahead** (33 pre-박제 + 1 50차 §1 박제 commit + R11 cleanup + 후속 minor docs cleanup 포함; 정확 값 `git rev-list --count main..HEAD`), **push 완료**) |
 | HEAD commit | **50차 §1 B-17 박제 commit** (또는 그 이상 — HEAD direct ref via `git log`). B-17 execution head = `a9c9c93` (fix S7a 0016a) |
 | Mock Skeleton | ✅ S0~S6 · Must 19/19 mock 동작 |
 | DQ-7 Admin Credential | 🟢 ~97% · Smoke #4/#5 + Session 4 QA 잔여 · Smoke #3(Binance)은 S8까지 유예 |
@@ -267,7 +267,7 @@ S7a (49차 ✅ — push 대기) → S7b (뉴스+브리핑) → D11 가상 포트
     ② production-only orphan unique index promoted in-place (one-off `ALTER TABLE committee_votes ADD CONSTRAINT … UNIQUE USING INDEX …`, no migration record — fresh DB chain 0005→0008→0016→0016a→0017 corret without this)
   - **실행 결과**: push fast-forward `1c3dc26..a9c9c93`, migrations `drop_legacy_cost_log` (20260519135017) + `cost_log_and_batch_runs` (20260519135341) applied, schema-existence smoke 7/7 PASS, PR #1 OPEN (https://github.com/son00326/New_Project_KR_Stock/pull/1), Vercel preview Ready (https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app)
   - **검증 게이트 (a9c9c93 + 50차 §1 박제 commit 후)**: build OK · lint 0 errors · test:ci **522 pass / 60 files** · tsc clean (baseline 유지)
-  - **34 commits ahead of main** (33 pre-박제 + 1 50차 §1 박제 commit). push 완료. PR #1 OPEN.
+  - **34+ commits ahead of main** (33 pre-박제 + 1 50차 §1 박제 commit + R11 cleanup + 후속 minor docs cleanup; 정확 값 `git rev-list --count main..HEAD`). push 완료. PR #1 OPEN.
   - **다음 1순위**: 사용자 PR #1 review/merge → §2.B billing-on smoke (별도 B-6) → §2.C format-error 추가 매핑 hotfix → §2.D Tier 2 / Reflection 후속 PR.
 
 - **50차 §0 SoT 박제 정합 R1+R2+R3 CONVERGED (2026-05-19)**:
