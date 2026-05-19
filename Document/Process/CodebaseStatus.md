@@ -12,9 +12,9 @@
 
 ## 최근 갱신
 
-**2026-05-19** (49차 종료 + 50차 §0 SoT 박제 정합): **S7a Anthropic wrapper Task 17/17 ✅ + omxy 40+ rounds CONVERGED**. push-ready 직전 상태로 박제.
-- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, 31 commits ahead (50차 §0 박제 commit 포함), push 대기 = B-17 사용자 트리거).
-- **HEAD**: `f5b4d7a` (49차 박제 최종 = HANDOFF 전면 재작성) 또는 50차 §0 박제 commit (이상).
+**2026-05-19** (49차 종료 + 50차 §0 SoT 박제 정합 R3 stale 0 최종): **S7a Anthropic wrapper Task 17/17 ✅ + omxy 44 rounds CONVERGED**. push-ready 직전 상태로 박제.
+- **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, 32 commits ahead (50차 §0 박제 commit 2건 포함 = 1fe9bad SoT 정합 + R3 cleanup), push 대기 = B-17 사용자 트리거).
+- **HEAD**: `1fe9bad` (50차 §0 SoT 박제 정합) 또는 50차 §0 R3 cleanup commit (이상).
 - **신규 모듈 (Task 1~17 완료)**:
   - `tudal/supabase/migrations/0017_cost_log_and_batch_runs.sql` + `.rollback.sql` — cost_log + monthly_batch_runs + 3 RPC(acquire_batch_lock / commit_persona_eval / commit_badge_only) + partial unique `(ticker, month) WHERE is_latest=true` + `stock_reports.consensus_badge` 컬럼. RLS 3종 + revoke public/anon + grant authenticated. **production apply 보류 = B-17**.
   - `tudal/src/lib/report/section-8-schema.ts` + tests — zod canonical contract (partA refine 0 or 14, partB 3~5, partD 11).
@@ -44,7 +44,7 @@
   - Task 15 R1: consensus_badge emoji enum + §4.2.1 partA required clarify (a92181c).
   - **Final R1 BLOCKER**: 0017 RPC `created_at`/`updated_at` 컬럼 미존재 → `generated_at` + `to_date(p_month || '-01', ...)` cast (b62bb11).
   - **Final R2 BLOCKER**: 0017 `stock_reports_month_ticker_uniq` UNIQUE 추가가 versioning contract와 충돌 → constraint 제거 + RPC `ON CONFLICT (ticker, month) WHERE is_latest = true` partial unique (a61bbf5).
-- **omxy debate 누적**: **40+ rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 final R1~R3 + 1 49차 박제 R1 + 50차 §0 R1 박제 검증 = 누적 43).
+- **omxy debate 누적**: **44 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 final R1~R3 + 1 49차 박제 R1 + 50차 §0 R1+R2+R3 박제 검증 = 44; R1 CONTINUE는 fix 후 R2 CONVERGED로 산정).
 - **검증 게이트 (49차 종료 + 50차 §0 재확인)**: build OK · lint 0 errors · test:ci **522 pass / 60 files** · tsc clean.
 - **잔여**: **B-17 사용자 트리거** (1) `git push origin feat/s7a-anthropic-wrapper` (2) 마이그 0017 production apply (Supabase MCP, apply order = 기존 0016 후 0017) (3) `gh pr create` 또는 main merge.
 - **다음 1순위**: B-17 (HANDOFF §3 표).

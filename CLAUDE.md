@@ -31,7 +31,7 @@ Mock Skeleton ✅
        ├ T7e.5 regen-counters CAS race-safe ✅ (39차)
        ├ T7e.6 access-logs/performance/decision-tree ✅ (40차)
        └ T7e.8 Tier 0 인디케이터 (마이그 0012 name/sector + 0013 dart_corp_codes + 0014 dart_financial_cache · `short_list_30` 2026-05-01 30 rows production 적용 · DART 실 standalone/quality 기반 Signal 4·5) ✅ (41~45차)
-  → S7a (Anthropic wrapper) ── 🟢 **49차 Task 17/17 ✅ + 50차 §0 SoT 박제 정합** · `feat/s7a-anthropic-wrapper` branch (31 commits ahead, push 대기 = B-17 사용자 트리거) · billing 미충전 mock 100% 구축
+  → S7a (Anthropic wrapper) ── 🟢 **49차 Task 17/17 ✅ + 50차 §0 SoT 박제 정합 R3 stale 0 최종** · `feat/s7a-anthropic-wrapper` branch (32 commits ahead, push 대기 = B-17 사용자 트리거) · billing 미충전 mock 100% 구축
        · **현재 범위 B**: Tier 1 Core 11 페르소나 평가 + 합의 배지 **5종** (🟢🔵🟣🟡⚪) + Section 8 jsonb writer + 30 mock e2e ✅
        · Tier 2 Sector Board 14×10 + Reflection 자가학습 = **후속 PR로 분리** (본 PR 범위 외)
        · D20 Section 8 위원 전원 표 박제 = `ServicePlan-Admin §3.7 R3.7-6/7/8` + `§6 D20` + `ReportFramework §8` (45차 박제)
