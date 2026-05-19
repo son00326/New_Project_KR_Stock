@@ -154,6 +154,15 @@ begin
   ) then
     raise exception 'invalid_vote_value';
   end if;
+  -- omxy R2 추가: persona_id/persona_layer/argument_excerpt null+empty 가드 (committee_votes argument_excerpt는 0003에서 nullable)
+  if exists (
+    select 1 from jsonb_array_elements(p_votes) v
+    where coalesce(v->>'persona_id', '') = ''
+       or coalesce(v->>'persona_layer', '') <> 'core'
+       or coalesce(v->>'argument_excerpt', '') = ''
+  ) then
+    raise exception 'invalid_vote_row';
+  end if;
   if p_consensus_badge is null or p_consensus_badge not in ('🟢', '🔵', '🟣', '🟡') then
     raise exception 'invalid_badge_for_full_report';
   end if;
@@ -168,12 +177,19 @@ begin
 
   delete from public.committee_votes where report_id = v_report_id;
 
+  -- omxy R2 BLOCKER: committee_votes.vote check ('approve','reject','abstain') (0003 박제) 호환.
+  -- section_8.partD.vote = BUY/HOLD/SELL (writer 산출물, AI 평가 의미) 유지.
+  -- DB 저장은 운영 의사결정 의미로 매핑: BUY→approve / HOLD→abstain / SELL→reject.
   insert into public.committee_votes (report_id, persona_id, persona_layer, vote, argument_excerpt)
   select
     v_report_id,
     (v ->> 'persona_id')::text,
     (v ->> 'persona_layer')::text,
-    (v ->> 'vote')::text,
+    case (v ->> 'vote')
+      when 'BUY' then 'approve'
+      when 'HOLD' then 'abstain'
+      when 'SELL' then 'reject'
+    end,
     (v ->> 'argument_excerpt')::text
   from jsonb_array_elements(p_votes) as v;
 
