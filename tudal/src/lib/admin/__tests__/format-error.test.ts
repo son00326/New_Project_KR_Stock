@@ -190,6 +190,45 @@ describe("formatErrorMessage", () => {
     });
   });
 
+  // S7a §11 — 6 신규 코드 매핑 (consensus / batch / persona / ai_call)
+  describe("S7a §11 new codes (consensus / batch / persona / ai_call)", () => {
+    it("consensus_rank_invalid — 합의 배지 산출 로직 오류", () => {
+      expect(formatErrorMessage("consensus_rank_invalid")).toBe(
+        "합의 배지 산출 로직 오류 — 어드민에게 보고 필요",
+      );
+    });
+
+    it("consensus_undefined_case — 합의 배지 정의 누락", () => {
+      expect(formatErrorMessage("consensus_undefined_case")).toBe(
+        "합의 배지 정의 누락 — D19 spec 확인 필요",
+      );
+    });
+
+    it("batch_already_running — 이번 달 분석 진행 중", () => {
+      expect(formatErrorMessage("batch_already_running")).toBe(
+        "이번 달 분석이 이미 진행 중입니다. 진행률은 admin 화면에서 확인하세요.",
+      );
+    });
+
+    it("batch_already_completed — 이번 달 분석 완료됨", () => {
+      expect(formatErrorMessage("batch_already_completed")).toBe(
+        "이번 달 분석이 이미 완료되었습니다. 다시 실행하려면 명시적 rerun 액션을 사용하세요.",
+      );
+    });
+
+    it("persona_eval_fatal — 분석 실행 중 치명적 오류", () => {
+      expect(formatErrorMessage("persona_eval_fatal")).toBe(
+        "분석 실행 중 치명적 오류 — 운영자 검토 필요",
+      );
+    });
+
+    it("ai_call_failed — AI 호출 실패 분석 대기 처리", () => {
+      expect(formatErrorMessage("ai_call_failed")).toBe(
+        "AI 호출 실패 — 분석 결과 ⚪(분석 대기)로 처리됨",
+      );
+    });
+  });
+
   describe("dev-only console.warn (G-FE-map)", () => {
     afterEach(() => {
       vi.restoreAllMocks();
