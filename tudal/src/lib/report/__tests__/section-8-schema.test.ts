@@ -20,4 +20,9 @@ describe('section-8-schema (Q3)', () => {
     const reparsed = section8Schema.parse(JSON.parse(stringified));
     expect(reparsed).toEqual(original);
   });
+
+  it('partA length 1~13 rejects (must be 0 or 14) — omxy R1 BLOCKER 2', () => {
+    const invalid = { ...section8HappyExample, partA: [section8HappyExample.partA[0]] };
+    expect(() => section8Schema.parse(invalid)).toThrow();
+  });
 });

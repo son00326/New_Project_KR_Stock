@@ -141,19 +141,20 @@ begin
   if v_caller is null then raise exception 'auth_unavailable'; end if;
   if not public.is_admin() then raise exception 'admin_required'; end if;
 
-  if jsonb_typeof(p_votes) <> 'array' then
+  -- omxy code-review R1 BLOCKER 1: null pass-through 차단 (PostgreSQL IF <null>는 true 아님)
+  if p_votes is null or jsonb_typeof(p_votes) is distinct from 'array' then
     raise exception 'votes_must_be_array';
   end if;
-  if jsonb_array_length(p_votes) <> 11 then
+  if jsonb_array_length(p_votes) is distinct from 11 then
     raise exception 'votes_length_must_be_11';
   end if;
   if exists (
     select 1 from jsonb_array_elements(p_votes) v
-    where (v->>'vote') not in ('BUY', 'HOLD', 'SELL')
+    where coalesce(v->>'vote', '') not in ('BUY', 'HOLD', 'SELL')
   ) then
     raise exception 'invalid_vote_value';
   end if;
-  if p_consensus_badge not in ('🟢', '🔵', '🟣', '🟡') then
+  if p_consensus_badge is null or p_consensus_badge not in ('🟢', '🔵', '🟣', '🟡') then
     raise exception 'invalid_badge_for_full_report';
   end if;
 
@@ -206,7 +207,8 @@ declare
 begin
   if v_caller is null then raise exception 'auth_unavailable'; end if;
   if not public.is_admin() then raise exception 'admin_required'; end if;
-  if p_consensus_badge <> '⚪' then
+  -- omxy code-review R1 BLOCKER 1: null guard
+  if p_consensus_badge is null or p_consensus_badge <> '⚪' then
     raise exception 'invalid_badge_for_badge_only';
   end if;
 

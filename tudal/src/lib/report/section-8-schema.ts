@@ -43,7 +43,12 @@ export const finalConsensusPanelSchema = z.object({
 });
 
 export const section8Schema = z.object({
-  partA: z.array(sectorVoteRowSchema),   // B 범위 = [] / Tier 2 후 14
+  // omxy code-review R1 BLOCKER 2: partA semantic = []
+  // (B 범위, Tier 2 deferred) 또는 14 (Tier 2 active). 1~13은 invalid.
+  partA: z.array(sectorVoteRowSchema).refine(
+    (arr) => arr.length === 0 || arr.length === 14,
+    { message: 'partA length must be 0 (B scope) or 14 (Tier 2 active)' },
+  ),
   partB: z.array(issueDebateExcerptSchema).min(3).max(5),
   partC: finalConsensusPanelSchema,
   partD: z.array(coreVoteRowSchema).length(11),
