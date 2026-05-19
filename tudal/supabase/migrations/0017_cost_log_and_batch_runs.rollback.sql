@@ -1,4 +1,6 @@
 -- 0017_cost_log_and_batch_runs.rollback.sql
+-- omxy final R2 BLOCKER: stock_reports_month_ticker_uniq 추가 제거 (versioning contract 보존).
+-- rollback에서도 해당 line drop (no-op if 미생성 — IF EXISTS).
 drop function if exists public.commit_badge_only(text, text, text);
 drop function if exists public.commit_persona_eval(text, text, jsonb, jsonb, text);
 drop function if exists public.acquire_batch_lock(text);

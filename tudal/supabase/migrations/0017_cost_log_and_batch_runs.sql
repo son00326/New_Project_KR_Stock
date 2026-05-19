@@ -65,13 +65,13 @@ alter table public.stock_reports
   add column if not exists consensus_badge text
   check (consensus_badge in ('🟢', '🔵', '🟣', '🟡', '⚪'));
 
--- 4. stock_reports / committee_votes UNIQUE constraint
+-- 4. committee_votes UNIQUE constraint
+-- omxy final R2 BLOCKER: stock_reports_month_ticker_uniq UNIQUE (month, ticker) 추가 제거.
+-- 이유: 0003은 `version int + is_latest boolean + partial unique index (ticker, month) WHERE is_latest = true`로
+-- 버전 히스토리 보존 설계. full UNIQUE (month, ticker)는 기존 versioning contract와 충돌 (apply 실패 또는 history 손실).
+-- ON CONFLICT는 기존 partial unique index를 타겟 (RPC body 참조).
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'stock_reports_month_ticker_uniq') then
-    alter table public.stock_reports
-      add constraint stock_reports_month_ticker_uniq unique (month, ticker);
-  end if;
   if not exists (select 1 from pg_constraint where conname = 'committee_votes_report_persona_uniq') then
     alter table public.committee_votes
       add constraint committee_votes_report_persona_uniq unique (report_id, persona_id);
@@ -169,9 +169,11 @@ begin
 
   -- omxy final R1 BLOCKER: stock_reports schema (0003) = month date / generated_at only.
   -- created_at/updated_at 컬럼 미존재 → 명시적 date cast + generated_at 사용.
+  -- omxy final R2 BLOCKER: ON CONFLICT 타겟을 기존 partial unique index `stock_reports_ticker_month_latest_uniq`
+  -- (ticker, month) WHERE is_latest = true 로 변경 (versioning 보존 — full unique constraint 제거).
   insert into public.stock_reports (month, ticker, section_8, consensus_badge, generated_at)
   values (to_date(p_month || '-01', 'YYYY-MM-DD'), p_ticker, p_section_8, p_consensus_badge, now())
-  on conflict (month, ticker) do update
+  on conflict (ticker, month) where is_latest = true do update
     set section_8 = excluded.section_8,
         consensus_badge = excluded.consensus_badge,
         generated_at = now()
@@ -232,9 +234,11 @@ begin
 
   -- omxy final R1 BLOCKER: stock_reports schema (0003) = month date / generated_at only.
   -- created_at/updated_at 컬럼 미존재 → 명시적 date cast + generated_at 사용.
+  -- omxy final R2 BLOCKER: ON CONFLICT 타겟을 기존 partial unique index `stock_reports_ticker_month_latest_uniq`
+  -- (ticker, month) WHERE is_latest = true 로 변경 (versioning 보존).
   insert into public.stock_reports (month, ticker, consensus_badge, generated_at)
   values (to_date(p_month || '-01', 'YYYY-MM-DD'), p_ticker, p_consensus_badge, now())
-  on conflict (month, ticker) do update
+  on conflict (ticker, month) where is_latest = true do update
     set consensus_badge = excluded.consensus_badge,
         generated_at = now();
 
