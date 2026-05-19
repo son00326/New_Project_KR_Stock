@@ -1,3 +1,8 @@
+/**
+ * S7a — cron route는 mock dry-run only (Design R4 omxy 합의).
+ * Real persona-eval 트리거 = authenticated admin server action (정확한 UI 위치 OOS — writing-plans 후속).
+ * cron caller session 결정 = OOS S7b parking.
+ */
 import { NextResponse, type NextRequest } from "next/server";
 import {
   buildSchedulerFailAlert,
