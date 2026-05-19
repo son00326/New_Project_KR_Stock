@@ -167,12 +167,14 @@ begin
     raise exception 'invalid_badge_for_full_report';
   end if;
 
-  insert into public.stock_reports (month, ticker, section_8, consensus_badge, created_at, updated_at)
-  values (p_month, p_ticker, p_section_8, p_consensus_badge, now(), now())
+  -- omxy final R1 BLOCKER: stock_reports schema (0003) = month date / generated_at only.
+  -- created_at/updated_at 컬럼 미존재 → 명시적 date cast + generated_at 사용.
+  insert into public.stock_reports (month, ticker, section_8, consensus_badge, generated_at)
+  values (to_date(p_month || '-01', 'YYYY-MM-DD'), p_ticker, p_section_8, p_consensus_badge, now())
   on conflict (month, ticker) do update
     set section_8 = excluded.section_8,
         consensus_badge = excluded.consensus_badge,
-        updated_at = now()
+        generated_at = now()
   returning id into v_report_id;
 
   delete from public.committee_votes where report_id = v_report_id;
@@ -228,11 +230,13 @@ begin
     raise exception 'invalid_badge_for_badge_only';
   end if;
 
-  insert into public.stock_reports (month, ticker, consensus_badge, created_at, updated_at)
-  values (p_month, p_ticker, p_consensus_badge, now(), now())
+  -- omxy final R1 BLOCKER: stock_reports schema (0003) = month date / generated_at only.
+  -- created_at/updated_at 컬럼 미존재 → 명시적 date cast + generated_at 사용.
+  insert into public.stock_reports (month, ticker, consensus_badge, generated_at)
+  values (to_date(p_month || '-01', 'YYYY-MM-DD'), p_ticker, p_consensus_badge, now())
   on conflict (month, ticker) do update
     set consensus_badge = excluded.consensus_badge,
-        updated_at = now();
+        generated_at = now();
 
   return jsonb_build_object('success', true);
 end;
