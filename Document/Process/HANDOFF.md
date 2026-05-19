@@ -1,8 +1,8 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-19 (50차 §1 B-17 EXECUTED ✅ — **🎉 push fast-forward + 마이그 0016a + 0017 production apply + PR #1 OPEN + Vercel preview Ready + omxy 50 rounds CONVERGED** · `feat/s7a-anthropic-wrapper` branch (**34+ commits ahead of main**, HEAD = 50차 §1 B-17 박제 commit + R11 cleanup or higher, push 완료; 정확한 값은 `git rev-list --count main..HEAD`) · B-17 execution head: `a9c9c93` (fix S7a 0016a) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · omxy debate 누적 **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6) · **다음 1순위 = 사용자 PR #1 review/merge** → §2.B billing-on smoke (B-6) → §2.C format-error hotfix → §2.D Tier 2/Reflection)
+Last updated: 2026-05-20 (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED — **🎉 §2 신규 15-step 선형 출시 Runbook + §2.0 Default-progress policy + §2.1 Step 6-column matrix + §2.2 S9 OK 7 enriched criteria + §8 시나리오 분기 제거 + §9 Owner 분리 (USER/CLAUDE/SHARED) 박제**) · 50차 §1 B-17 EXECUTED ✅ (push fast-forward + 마이그 0016a + 0017 production apply + PR #1 OPEN + Vercel preview Ready) · `feat/s7a-anthropic-wrapper` branch (**34+ commits ahead of main**, HEAD = 50차 §2 Runbook 박제 commit or higher, push 완료; 정확한 값은 `git rev-list --count main..HEAD`) · B-17 execution head: `a9c9c93` (fix S7a 0016a) · 검증 게이트 통과: build OK / lint 0 errors / test:ci **522 pass / 60 files** / tsc clean · omxy debate 누적 **50 rounds CONVERGED** (25 진입 전 + 13 task R1+R2 + 3 49차 final + 1 49차 박제 R1 + 2 50차 §0 박제 R2+R3 (R1 CONTINUE 불산정) + 6 50차 §1 B-17 R1~R6; 50차 §1 박제 R7~R10 + 50차 §2 Runbook R14~R17 = post-execution docs phase, not counted in stable 50) · **현재 위치 = §2.1 Step 1 USER 대기 (PR #1 review/merge)** · 자동 진행 가능한 다음 CLAUDE Step = Step 2 (§2.C format-error hotfix 별도 branch)
 
-**목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 **PR #1 review/merge 후속** → **billing 충전 시 §C smoke** → **후속 PR 큐** (Tier 2 / Reflection / format-error 추가 매핑) 순으로 자동 진행 가능하도록 한다.
+**목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 **§2.1 Runbook 박제된 순서대로 자동 진행** (§2.0 default-progress policy 준수 — 옵션 재질문 루프 금지). USER-gated Step은 background blocker로 표시 + 다음 unblocked CLAUDE Step 자동 시작. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 
 **운영 원칙**: 미래 지향. 49차 Task 1~17 진행 상세는 git log + `docs/superpowers/specs/2026-05-19-s7a-anthropic-wrapper-design.md` + `docs/superpowers/plans/2026-05-19-s7a-anthropic-wrapper.md` + `Document/Build/Slices/S7-RealData.md` + `Document/Build/ProgressDashboard.md`에 위임. CLAUDE.md 자동 로드 — 본 HANDOFF는 미래 진행에 필요한 정보만 박제.
 
@@ -20,11 +20,16 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 **현 branch = `feat/s7a-anthropic-wrapper`** (49차 신설, **push 완료**). main 직접 작업 금지. 검증 게이트 baseline (50차 §1 B-17 EXECUTED 시점) = build OK · lint 0 · test:ci **522 / 60 files** · tsc clean.
 
-### 진입자 핵심 액션 순서
+### 진입자 핵심 액션 순서 (§2.0 default-progress policy 준수)
 
-1. **본 §1 § 2 § 3 § 8 읽기** (자동 진행 가능 여부 판단).
-2. **PR #1 review/merge 여부 확인** (`gh pr view 1`) — merge 되었다면 §2.B billing-on smoke 또는 §2.C format-error hotfix로 진행. 미merge면 사용자 review/merge 대기.
-3. **§7 omxy 적대적 코드 검토 패턴**은 후속 PR 진입 시 재사용 (Tier 2 / Reflection / format-error inventory 시).
+1. **§8.1 현재 위치 확인 자동 실행** (git/gh/list_migrations/검증 게이트).
+2. **§2.1 Runbook 매트릭스 보고 마지막 완료 Step 식별** → 다음 Step Owner 확인.
+3. **§8.2 자동 진행 결정** — Owner 별 행동:
+   - [CLAUDE] / [CLAUDE stacked] → 즉시 자동 시작 (stacked는 진입 의사 1회 확인)
+   - [SHARED] → "이어서 진행" 권한으로 prepare/commit/PR-create 자동
+   - [USER] / [USER cluster] → background blocker 보고 + 동시 가능한 stacked CLAUDE Step 자동 시작
+4. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기.
+5. **§7 omxy 적대적 코드 검토 패턴**은 모든 신규 작업 branch에서 강제 적용.
 
 ---
 
@@ -99,92 +104,63 @@ a9c9c93 fix(S7a 0016a): add legacy cost_log cleanup migration with row-count saf
 
 ---
 
-## 2. 다음 작업 (우선순위 큐)
+## 2. 출시까지 선형 Runbook (50차 §2 박제 — omxy R14~R16 CONVERGED)
 
-### A. 1순위 — ✅ B-17 EXECUTED (50차 §1 사용자 트리거 완료, 2026-05-19) → 다음 = 사용자 PR #1 review/merge
+### §2.0 Default-progress policy (자동 진행 기본 정책)
 
-**B-17 결과** (50차 §1 사용자 트리거로 EXECUTED): push fast-forward `1c3dc26..a9c9c93` (B-17 execution head), 마이그 `drop_legacy_cost_log` (20260519135017) + `cost_log_and_batch_runs` (20260519135341) 적용 완료, PR #1 OPEN (현 head는 박제 commit으로 fast-forwarded), Vercel preview Ready. omxy 6 rounds R1~R6 CONVERGED.
+**"이어서 진행해줘" 받았을 때 Claude의 행동 규칙**:
 
-**B-17 migration recovery cleanup 2건** (omxy R3+R6 catch):
-① legacy cost_log (0005+0008 OpenAI-style schema, row_count=0) → 새 마이그 0016a (`drop_legacy_cost_log.sql` + `.rollback.sql`, DO-block row-count guard + 0005+0008 shape recreate)
-② orphan unique index `committee_votes_report_persona_uniq` (49차 manual testing 잔재, no constraint) → promote-in-place via `ALTER TABLE … UNIQUE USING INDEX` (one-off execute_sql, fresh-DB unaffected since 0017 fresh-DB-correct)
+- **If current step is USER-gated, report it briefly as background blocker and proceed to the next unblocked CLAUDE step.**
+- **Do not repeatedly ask which option to choose when the runbook already defines the next CLAUDE step.**
+- **Stop only at explicit USER-gated operations or the exception list below.**
 
-**🔴 다음 1순위 = 사용자 PR #1 review/merge** (별도 사용자 트리거):
+옵션 재질문 루프 금지. Runbook 박제된 다음 unblocked CLAUDE step을 즉시 자동 진행한다. USER-gated step은 background blocker로 표시만 하고 다음 CLAUDE step으로 이동.
 
-```bash
-# 1. PR #1 검토 (Vercel preview Ready URL + 코드 diff)
-gh pr view 1
-# Preview: https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app
+**Ask user before (7 exception buckets)**:
+1. **scope expansion** (HANDOFF 범위 초과 새 작업)
+2. **product spec changes** (D-decision 변경)
+3. **new risk profile** (가드레일 / 보안 정책 변경)
+4. **real-money / live-account / order-path changes** (실 체결 토글 / 자동매매 토글 변경)
+5. **secrets / billing / external account actions** (env / 키 / 외부 계정 트리거)
+6. **destructive shared-state actions** (push / PR merge / production migration apply / production deploy / 외부 메시지 발송)
+7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-# 2. Merge (사용자 정책 — squash 또는 merge commit)
-gh pr merge 1 --merge   # 또는 --squash
+### §2.1 Step matrix (현재 위치 = Step 1 USER 대기)
 
-# 3. Vercel production auto-deploy (origin/main 갱신 후 자동)
-```
+Owner 의미:
+- **USER** = 사용자만 가능 (외부 계정 / 결제 / 키 발급 / production merge 등)
+- **CLAUDE** = Claude 자동 가능 (코드 / 문서 / 로컬 commit / 검증)
+- **SHARED** = Claude가 prepare/commit/PR-create 가능, 단 "이어서 진행" 권한이 명시적으로 부여된 경우에만. destructive merge/deploy/migration/billing은 USER에 남는다.
 
-**완료 후 다음 세션 진입자가 할 일**: PR #1 merged 확인 → §2.B billing-on smoke (B-6) 또는 §2.C format-error hotfix 진입.
+| Step | Owner | Trigger / Precondition | Default action on "이어서 진행" | Branch/PR policy | Verification / Exit | Blocks next |
+|---|---|---|---|---|---|---|
+| **1** | **USER** | PR #1 OPEN (현재) | background blocker 보고 + Step 2 자동 시작 | `gh pr merge 1 --merge` 또는 `--squash` → main → Vercel prod auto-deploy | PR #1 MERGED 확인 (`gh pr view 1` state=MERGED) | Step 5 (B-6) trigger 가능 시점 |
+| **2** | **CLAUDE** | Step 1과 독립 (별도 branch) | 즉시 자동 시작 — 별도 branch `fix/s7a-format-error-inventory`에 13건 매핑 추가 + tests + commit + push branch + PR create | new branch from main (또는 Step 1 merge 후); PR create = SHARED ("이어서 진행" 권한으로 OK); merge는 USER | `format-error.ts` KOREAN_MAPPINGS에 13 신규 코드 + tests pass | 후속 hotfix PR review |
+| **3** | **CLAUDE stacked** | Step 1 merge 전이면 `feat/s7a-anthropic-wrapper`에서 stacked branch | 진입 의사 1회 확인 (1세션+ 작업) → 사용자 OK 시 자동 진행 | stacked PR base = feat/s7a-anthropic-wrapper; Step 1 merge 후 rebase 필요 가능 | Tier 2 Sector Board 14×10 plan verbatim 구현 + tests + commit + push branch + PR create | Step 4 stacked |
+| **4** | **CLAUDE stacked** | Step 3 commit 후 stacked from Step 3 | 진입 의사 1회 확인 (1세션+ 작업) → 사용자 OK 시 자동 진행 | stacked PR base = Step 3 branch; Step 1 merge 후 rebase 필요 가능 | Reflection 자가학습 (reflection_log 마이그 + Tier 1 context 주입 + tests) + PR create | Step 5 trigger 가능 시점 |
+| **5** | **USER** | Step 1 merge 후 권장 (production env 적용 시점) | background blocker 보고 + 사용자 트리거 대기 | — | `vercel env add ANTHROPIC_API_KEY` (Preview+Production) + `AI_PROMPT_CACHE_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true` + Anthropic console billing 충전 + `vercel deploy --prod` | Step 6 |
+| **6** | **CLAUDE** | Step 5 USER 트리거 후 | 즉시 자동 시작 — admin server action 1 ticker × 1 persona 호출 + 검증 + runtime hotfix (예: fetchFinancials column 매핑) + commit + push branch + PR create | new branch `fix/s7a-billing-on-smoke-hotfix`; PR create = SHARED | cost_log row INSERT + section_8 jsonb persist + stock_reports.consensus_badge populated. fetchFinancials 0014 schema 매핑 hotfix 적용 | Step 7 trigger 가능 시점 |
+| **7** | **USER** | Step 6 commit 후 권장 | background blocker 보고 + 사용자 트리거 대기 | — | B-7 Resend 도메인 인증 + B-8 Naver key rotate + Vercel env 추가 | Step 8 |
+| **8** | **CLAUDE** | Step 7 USER 트리거 후 | 즉시 자동 시작 — S7b 슬라이스 진입 (뉴스 sweep + 모닝 브리핑) + tests + commit + push + PR create | new branch `feat/s7b-news-briefing`; PR create = SHARED | S7b DoD: 뉴스 수집 → 어드민 3인 이메일 발송 동작 확인 | Step 9 |
+| **9** | **CLAUDE + USER 시간** | Step 8 merge 후 | 즉시 D11 진입 활성화 + 어드민 3인 운용 시작 보고 | branch에서 모니터링 코드 추가 가능. PR create 없음 (운용 단계). | D11 AI 가상 포트 1차 가동. 어드민 3인 며칠~1주 운용. BL-KRIT catch 시 hotfix branch. OK 신호 = "운용 OK"를 사용자가 신호 | Step 10 trigger 가능 시점 |
+| **10** | **USER** | Step 9 OK 신호 후 | background blocker 보고 + 사용자 트리거 대기 | — | B-10 KIS 본인 1개 (한투 OpenAPI key/account) 발급 + Vercel env | Step 11 |
+| **11** | **CLAUDE** | Step 10 USER 트리거 후 | 즉시 자동 시작 — S7c 슬라이스 진입 (KIS WebSocket read-only 본인 1계좌 + 장중 데이터) + tests + commit + push + PR create | new branch `feat/s7c-intraday-kis`; PR create = SHARED | S7c DoD: 장중 가격 스트림 수신 + UI 반영 | Step 12 |
+| **12** | **CLAUDE** | Step 11 merge 후 | 즉시 자동 시작 — S7d 슬라이스 진입 (Silent Health 일일 batch 안정화) + tests + commit + push + PR create | new branch `feat/s7d-silent-health`; PR create = SHARED | S7d DoD: heartbeat_log 일일 1건 + Critical alert 0건 안정 | Step 13 trigger 가능 시점 |
+| **13** | **USER cluster** | Step 12 merge 후 | background blocker 보고 (USER 클러스터 — 동시 다수 트리거 필요) | — | B-1 친구 비번 + B-2 KIS 슬롯 정리 + B-3 RLS QA + B-4 Smoke #5 + B-5 Session 4 QA + B-11 Binance key (testnet 우선) | Step 14 |
+| **14** | **CLAUDE** | Step 13 USER 트리거 후 | 즉시 자동 시작 — S8 슬라이스 진입 (자동매매 frame Strategy drop-in + AI 어댑터 embed + Risk Policy Engine) + Binance Smoke #3 + tests + commit + push + PR create | new branch `feat/s8-auto-trading`; PR create = SHARED | S8 DoD: 모의 체결 동작 + Risk 가드레일 enforced (레버리지 ≤ 5x · 일일 손실 -3% 자동 정지 · AI 일 주문 ≤ 20회) + Binance Smoke #3 통과 | Step 15 |
+| **15** | **USER + CLAUDE** | Step 14 merge 후 | 즉시 S9 운용 검증 1개월+ 진입 + Claude 모니터링 시작 | hotfix branch들로 BL-KRIT 발견 시 patch | §2.2 7 criteria 모두 만족 (USER 신호 + Claude 자동 검증) | ✅ 어드민 내부 도구 출시 |
 
-### B. 2순위 — §C billing 충전 후 smoke (별도 PR · 본 PR scope 외)
+### §2.2 ✅ 어드민 내부 도구 출시 게이트 (S9 OK 신호 — 7 criteria, omxy R15 enriched)
 
-**진입점**: HANDOFF B-6 사용자 트리거 (`ANTHROPIC_API_KEY` Vercel env + billing 충전).
+S9 운용 검증 1개월+ 종료 후 **아래 7개 모두 만족** 시 "어드민 내부 도구 출시" 선언:
 
-```bash
-# 1. Vercel env 추가
-vercel env add ANTHROPIC_API_KEY  # Preview + Production
-# 2. flag 토글
-vercel env add AI_PROMPT_CACHE_ENABLED=true
-vercel env add AI_COST_LOG_REAL_INSERT_ENABLED=true
-# 3. 배포
-vercel deploy --prod
-# 4. admin server action 1 ticker × 1 persona 호출 (`/admin/track-record`에서 트리거)
-# 5. 검증:
-#    - cost_log row 1건 INSERT 확인
-#    - section_8 jsonb persist 확인
-#    - stock_reports.consensus_badge 컬럼 값 확인
-#    - 마이그 0017 RPC가 schema 호환 (omxy final R1/R2 fix 적용 확인)
-```
-
-**runtime-only known issue (HANDOFF §C scope)**: admin server action의 `fetchFinancials` closure가 `dart_financial_cache.{quarter_revenue, trailing_revenue, quality_score}`를 query하지만 실 0014 schema는 `revenue/op_income/...` (corp_code 키). billing-on 시 첫 실 호출에서 `financials_fetch_failed:*` throw 예상 — 그 때 actions.ts의 fetchFinancials를 0014 실 schema에 맞춰 컬럼 매핑 (별도 hotfix PR).
-
-### C. 3순위 — format-error.ts 추가 매핑 hotfix (후속 PR · 5분 작업)
-
-**진입점**: `tudal/src/lib/admin/format-error.ts` KOREAN_MAPPINGS에 13 신규 코드 추가.
-
-본 PR에서 Task 11이 plan-verbatim으로 6 코드만 추가했으나, Task 5~13에서 더 많은 에러 코드 사용:
-
-```
-financials_fetch_failed:* (Task 13 R1 fix)
-admin_required (Task 13)
-shortlist_empty (Task 13)
-batch_lock_acquire_failed (Task 8)
-batch_lock_release_failed:* (Task 8)
-cost_log_insert_failed:* (Task 5)
-cost_log_select_failed:* (Task 5)
-commit_persona_eval_failed:* (Task 10)
-commit_badge_only_failed:* (Task 10)
-writer_persona_count_mismatch (Task 10)
-ai_key_unavailable (Task 6)
-ai_billing_exhausted (Task 9 가정)
-unknown_persona_id:* (Task 6)
-```
-
-prefix matching (`cost_log_insert_failed:` 같은 코드는 prefix handler로 cover) 또는 13 entry 직접 추가. 한국어 매핑 권장 (admin UI 노출).
-
-### D. 4순위 — Tier 2 / Reflection 후속 PR (S7a 후속)
-
-본 PR은 **HANDOFF 범위 B** (Tier 1 + 합의 배지 5종 + Section 8 + 30 mock e2e) 한정. 다음 단계:
-
-- **Tier 2 Sector Board 14×10**: 30 종목 해당 섹터 14명만 활성화. Section 8 `partA` 0 → 14 채움. plan verbatim 후속.
-- **Reflection 자가학습** (TradingAgents 차용): 매월 말 실현 수익률 → 다음달 prompt 주입. `reflection_log` 테이블 + Tier 1 prompt context 주입 메커니즘.
-- **writer-layer versioning**: 현재 (ticker, month) 1회만 매월 INSERT. 재실행 시 같은 row UPDATE. version=2+ + is_latest=false 전환은 별도 application-layer 책임 (writer transaction).
-
-### E. 5순위 — 후속 슬라이스 시퀀스
-
-```
-S7a (49차 ✅ — push 대기) → S7b (뉴스+브리핑) → D11 가상 포트 1차 가동 → S7c → S7d → S8 → S9
-```
-
-상세 = `Document/Build/ProgressDashboard.md §2 v3.1`.
+1. **최소 1개월 운용** (어드민 3인 일일 사용 + 운영 로그 기록)
+2. **BL-KRIT open 0개** (ProgressDashboard §Global Blocker 모두 해소)
+3. **3인 admin 핵심 플로우 일일 완료**: Short List 30 생성 → 풀 리포트 → 승인 → 가상 포트 추가 → 알림 발송. **추가**: 고정 disclaimer / non-advice wording이 노출되는 모든 화면에 visible 유지 (BusinessPlan §7 standing 법적 constraint)
+4. **cron / health 안정**: Silent Health red_alert 0건 + 5 파이프라인 success_rate ≥ 99% + **추가**: Vercel production canary OK (admin routes load + server actions no unexpected 5xx + latest production deploy matches intended main)
+5. **비용 hardcap 정상**: 월 400,000 KRW 미만 + AI 일 주문 ≤ 20회 + `cost_log` 정확 적재 + dashboard 표시 일치
+6. **RLS / credential smoke 통과**: advisor anon WARN 0 + Smoke #3 (Binance) + #4 + #5 + #6 모두 통과 + credential 평문 UI/로그 노출 0건
+7. **(자동매매 가동 시) guardrail 위반 0**: 레버리지 ≤ 5x · 일일 손실 -3% 자동 정지 · AI 일 주문 ≤ 20회 모두 enforced + 운영 1개월 위반 0건
 
 ---
 
@@ -446,52 +422,59 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
 
 ## 8. 다음 세션 진입자 자동 진행 체크리스트
 
-### 8.1 PR #1 review/merge 여부 확인 (B-17 EXECUTED 후 default state)
+### §8.1 현재 위치 확인 (자동 실행 1회)
 
-- [ ] §0 세션 시작 루틴 실행 → branch `feat/s7a-anthropic-wrapper` + HEAD 확인 (50차 §1 B-17 박제 commit 또는 그 이상)
-- [ ] **`gh pr view 1` — PR #1 state 확인 (OPEN/MERGED/CLOSED)**
-- [ ] **Supabase MCP `list_migrations` — `drop_legacy_cost_log` + `cost_log_and_batch_runs` 박제 확인 (50차 §1 B-17 EXECUTED 박제)**
-- [ ] **`git log --oneline main..HEAD | head -40` — 34+ commits 박제 + 50차 §1 박제 commit 확인**
+```bash
+git status --short --branch                       # branch = feat/s7a-anthropic-wrapper (또는 후속 branch)
+git log --oneline main..HEAD | head -40           # commits 박제 확인
+gh pr view 1 --json state,url                     # PR #1 state (OPEN/MERGED/CLOSED)
+# Supabase MCP: list_migrations — drop_legacy_cost_log + cost_log_and_batch_runs 박제 확인
+cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
+```
 
-### 8.2 시나리오별 분기
+### §8.2 자동 진행 결정 (§2 Runbook 따라)
 
-**[시나리오 C-default] B-17 EXECUTED + PR #1 OPEN** (default state, post-B-17):
-- 사용자에게 PR #1 review/merge 진행 여부 확인. Vercel preview Ready URL 제공.
-- merge 시점은 사용자 결정 (Vercel preview QA 후).
-- merge 전 진행 가능한 후속 작업: §2.C format-error 추가 매핑 hotfix는 별도 branch로 즉시 가능 (5분 작업).
+1. **마지막 완료 Step 식별** → §2.1 매트릭스에서 다음 Step 확인
+2. **다음 Step Owner 별 행동** (§2.0 default-progress policy 적용):
+   - **[CLAUDE]** → 즉시 자동 진행 시작 + commit 단위 진행
+   - **[CLAUDE stacked]** (Step 3/4 같은 1세션+ 작업) → 진입 의사 1회 확인 후 자동 진행
+   - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/PR-create까지 자동. merge/deploy/migration은 USER 별도 트리거
+   - **[USER]** / **[USER cluster]** → 트리거 보고 (필요한 정확한 명령 + 외부 액션) + 동시 진행 가능한 stacked [CLAUDE] Step 자동 시작 + 사용자 응답 대기
+3. **§2.0 7 exception buckets 도달 시 USER 직접 묻기**: scope expansion / product spec / 새 risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium
 
-**[시나리오 D] PR #1 MERGED** (사용자 merge 완료):
-- §2.B billing-on smoke (B-6 사용자 트리거 필요) 또는 §2.D Tier 2/Reflection 후속 PR 진입
-- 사용자에게 우선순위 확인 (B-6 트리거 여부 / Tier 2 별도 PR 시작)
+### §8.3 후속 PR 진입 시 omxy 적대적 검토 (§7 패턴 재사용)
 
-**[시나리오 E] PR #1 CLOSED unmerged** (rare):
-- 사용자에게 closed 이유 확인
-- 본 PR 재오픈 또는 새 branch로 작업 분기 결정
-
-### 8.3 후속 PR (Tier 2 / Reflection / format-error inventory) 진입 시
-
-- [ ] 새 branch 생성 (`feat/s7a-tier2` 또는 `fix/s7a-format-error-inventory` 등)
+- [ ] 새 branch 생성 (Step 2 → `fix/s7a-format-error-inventory`, Step 3 → `feat/s7a-tier2`, Step 4 → `feat/s7a-reflection`, Step 8 → `feat/s7b-news-briefing`, Step 11 → `feat/s7c-intraday-kis`, Step 12 → `feat/s7d-silent-health`, Step 14 → `feat/s8-auto-trading`)
 - [ ] §7.3 cmux helper script 재생성 (`/tmp/cmux-send-helper.py`)
 - [ ] §7.2 cmux peer surface 갱신 (`cmux list-panes`로 omxy 탐색)
 - [ ] §7.4 omxy 적대적 검토 패턴 매 task 강제 적용
 - [ ] §7.6 결함 카탈로그 grep 검증 (특히 stock_reports schema + writer vote 매핑)
 
-### 8.4 billing-on smoke (HANDOFF §C) 진입 시
+### §8.4 Step 6 billing-on smoke (Step 5 USER 트리거 후) 진입 시
 
-- [ ] B-6 사용자 트리거 확인 (`ANTHROPIC_API_KEY` Vercel env 추가 + billing 충전)
-- [ ] flag 토글 (`AI_PROMPT_CACHE_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true`)
-- [ ] admin server action 1 ticker × 1 persona 호출
+- [ ] Step 5 USER 트리거 완료 확인 (`vercel env ls`에 ANTHROPIC_API_KEY + 2 flag + Anthropic console billing 충전)
+- [ ] admin server action 1 ticker × 1 persona 호출 (`/admin/track-record`)
 - [ ] cost_log row + section_8 jsonb persist + stock_reports.consensus_badge 컬럼 값 확인
-- [ ] **fetchFinancials runtime fail 예상** (dart_financial_cache 실 schema 컬럼 매핑 — `financials_fetch_failed:*` throw) → 즉시 hotfix PR (actions.ts에서 revenue/op_income/... 매핑 + corp_code 키 사용)
+- [ ] **fetchFinancials runtime fail 예상** (dart_financial_cache 실 schema 컬럼 매핑 — `financials_fetch_failed:*` throw) → 즉시 hotfix branch (actions.ts에서 revenue/op_income/... 매핑 + corp_code 키 사용)
+
+### §8.5 Step 9 D11 AI 가상 포트 1차 가동 시
+
+- [ ] 어드민 3인 일일 운용 시작 + 모니터링 로그 수집 (며칠~1주)
+- [ ] BL-KRIT catch 시 hotfix branch + commit
+- [ ] 사용자 "운용 OK" 신호 수신 → Step 10 USER 트리거 큐
 
 ---
 
-## 9. 사용자 운영 원칙 박제 (49차)
+## 9. 사용자 운영 원칙 박제 (49차 + 50차 §2 Runbook 추가)
 
 - **omxy 토론 = 무조건 subagent/skill 활용해 정말 완벽하게 검토** (사용자 명시).
 - **사용자 승인 게이트 제거** (omxy CONVERGED = 사용자 승인 등가).
 - **목표 박제 = HANDOFF 범위 B** (Tier 1 + 합의 배지 5종 + Section 8 + 30 mock e2e). 이 범위 초과 또는 product spec 결정만 사용자 직접 묻기.
 - **omxy 토론 진입 시 scope guard 4종 박제 필수**: 목적 / 컨텍스트 / 선택지 / Out-of-Scope ([[feedback_omxy_debate_scope_guard]] memory).
-- **commit pattern**: 자동 commit (amend 금지 — 사용자 명시 시만). push는 **사용자 트리거**. branch 분리 = main 직접 commit 금지.
-- **destructive shared-state 행동은 사용자 트리거**: push / production migration apply / PR merge / Vercel deploy / billing 충전 등. Claude 자동화 금지.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: header + §1 + §2 + §8 모두 stale 0. 본 49차 종료 시점 omxy 박제 R1 CONVERGED + **50차 §0 R1+R2+R3 stale 0 박제 CONVERGED** + **50차 §1 B-17 EXECUTED + 박제 R7~R10 CONVERGED** 받은 후 안전 (commit count 34 + HEAD = 50차 §1 B-17 박제 commit 또는 그 이상 박제).
+- **commit pattern**: 자동 commit (amend 금지 — 사용자 명시 시만). branch 분리 = main 직접 commit 금지.
+- **Owner 분리 (omxy R15 박제)**:
+  - **USER** = 사용자만 가능: PR merge / production deploy / production migration apply / billing / external account or key. Claude 자동화 금지.
+  - **CLAUDE** = Claude 자동: 코드 / 문서 / 로컬 commit / 로컬 검증.
+  - **SHARED** = push / PR create: Claude가 prepare/commit/PR-create 가능, 단 "이어서 진행" 권한이 명시적으로 부여된 경우에만. destructive merge/deploy/migration/billing은 USER에 남는다.
+- **Default-progress policy (§2.0 박제)**: "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Runbook 박제된 다음 unblocked CLAUDE step 자동 시작 + USER-gated step은 background blocker로 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: header + §1 + §2 + §8 모두 stale 0. 본 49차 종료 시점 omxy 박제 R1 CONVERGED + **50차 §0 R1+R2+R3 stale 0 박제 CONVERGED** + **50차 §1 B-17 EXECUTED + 박제 R7~R10 CONVERGED** + **50차 §2 Runbook 재구조 R14~R16 CONVERGED** 받은 후 안전 (commit count 34+ + HEAD = 50차 §2 Runbook 박제 commit 또는 그 이상, Runbook 현재 위치 = Step 1 USER 대기).

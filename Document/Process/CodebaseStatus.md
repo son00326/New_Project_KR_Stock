@@ -12,6 +12,8 @@
 
 ## 최근 갱신
 
+**2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): **HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix (USER/CLAUDE/SHARED) + §2.2 S9 OK 7 enriched criteria + §8 시나리오 분기 제거 + §9 Owner 분리 박제**. 출시까지 가는 순서 + 자동/수동 트리거 분리 단일 SoT. **현재 Runbook 위치 = §2.1 Step 1 USER 대기**. 자동 진행 가능한 다음 CLAUDE Step = Step 2 (§2.C format-error hotfix 별도 branch). omxy 50 rounds stable (박제 phase R14~R17 not counted).
+
 **2026-05-19** (50차 §1 B-17 EXECUTED ✅): **S7a Anthropic wrapper Task 17/17 ✅ + 50차 §1 B-17 EXECUTED (push + 0016a + 0017 + PR #1) + omxy 50 rounds CONVERGED**. PR #1 OPEN, Vercel preview Ready, 사용자 review/merge 대기.
 - **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, **34+ commits ahead** (33 pre-박제 + 1 50차 §1 박제 commit + R11 cleanup + 후속 minor docs cleanup 포함; 정확 값 `git rev-list --count main..HEAD`), **push 완료**).
 - **HEAD**: **50차 §1 B-17 박제 commit** 또는 그 이상 (HEAD direct ref via `git log`). **B-17 execution head** = `a9c9c93` (fix S7a 0016a).
