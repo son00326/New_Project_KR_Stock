@@ -1,4 +1,4 @@
-# 주픽 (JooPick) 투심보고서 프레임워크 v2.0
+# 주픽 (JooPick) 투심보고서 프레임워크 v2.4 (2026-05-19, S7a 49차 — 5종 배지 + section_8 SoT pointer)
 
 Last updated: 2026-04-13
 Status: **확정** (Section 0~8 + Appendix 구조)
@@ -636,6 +636,8 @@ Part A: 섹터 보드 (10명)
 
 ## 8. 에이전트 오케스트레이션 (확정)
 
+> **2026-05-19 (S7a 49차, v2.4)**: 5종 배지 박제 (🟡 관망 신규, Q5b CONVERGED) + Step 2에 `section_8 jsonb schema SoT = ServicePlan-Admin §4.2.1` 포인터 추가. canonical contract 박제 위치 = `ServicePlan-Admin.md §4.2.1` + 코드 SoT = `tudal/src/lib/report/section-8-schema.ts`.
+>
 > **2026-05-08 (D19, 35차)**: Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가. Step 1~4 풀 리포트 작성 흐름은 변경 없음 — 외부 레퍼런스 [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. SoT: `ServicePlan-Admin.md §1A.5 D19`.
 
 ### Step 0 (D19, 신규): 30개 선정 합의 에이전트
@@ -661,11 +663,12 @@ Step 0b — Tier 1: Core 11 페르소나 평가 (AI 키 필요)
     → 단/중/장 각 10 = 30 선정
     → 🤖 AI 점수(0~100) per (종목, 시간대)
 
-Step 0c — 합의 에이전트 (4종 배지)
+Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 숫자 점수 vs AI 점수 비교
 ├── 🟢 강한 합의: 둘 다 상위 (우선 노출)
 ├── 🔵 숫자 우세: 모멘텀 강하나 AI 정성 우려 (검토 배지)
 ├── 🟣 AI 우세: 정성 좋으나 차트 약함 (검토 배지)
+├── 🟡 관망: 둘 다 비-top tier, 시기 미상 (49차 신규)
 └── ⚪ AI 분석 대기: AI 키 미발급 → 🔢만 표시(placeholder)
 
 산출: 30종목 + 합의 배지 + AI 코멘트 1~2줄 → Step 1 진입 트리거
@@ -687,11 +690,12 @@ Step 1: 리서치 + 분석 (병렬)
     pykrx 실데이터, 밸류에이션, 시나리오 TP, 리스크 매트릭스
     → .omc/research/{종목명}-analysis.md
 
-Step 2: 작성
+Step 2: 작성 (v2.4 49차 — section_8 jsonb schema SoT = ServicePlan-Admin §4.2.1)
 └── writer (opus) → Section 0~8 + Appendix 풀 보고서 통합 작성
     → Document/{섹터}SectorReport-{종목명}_{종목코드}.md
     ★ 반드시 본 프레임워크(ReportFramework.md) 참조하여 작성
     ★ Section 0(요약)에 Step 0 산출(🔢/🤖/배지) 1행 노출
+       — 배지는 5종 (🟢/🔵/🟣/🟡/⚪, 49차 Q5b: 🟡 관망 추가)
     ★ Section 8(투심위)은 4종 표 박제 (D20, 2026-05-12 45차):
       ① Sector Board 위원별 한 줄 의견 표 (해당 섹터 14명 전원,
          번호·이름·배경 한 줄·BUY/HOLD/SELL·한 줄 논거)
@@ -796,6 +800,7 @@ Step 4: 수정 반영 → 최종본 확정
 | 2026-04-13 | **v2.1** | Section 2(회사 개요)에 **성장 배경 추적(Track Record)** 필수 항목 추가 — 가이던스 vs 실적 비교로 경영진 신뢰도 판단. 비교 분석에 **딜/계약 조건 상대 비교** 원칙 추가 (로열티율, 딜밸류 등 업계 기준 대비 평가). 경쟁사 비교 **국내+해외 모두 필수** 원칙 강화. |
 | 2026-05-12 | **v2.3** | **§8 Step 2에 Section 8 정적 표 4종 박제 — D20 (45차).** 사용자 요구 직접 반영: ① Sector Board 위원별 한 줄 의견 표 (14명 전원), ② **Core 11 위원별 한 줄 의견 표 (11명 전원, 신규)**, ③ 쟁점별 찬반 토론 인용 3~5건, ④ 최종 합의 패널(Sector·Core 집계 + Co-Chair 만장일치 여부 + 공식 판정 + 근거). Reference 알테오젠 v3-Readable §Section 8 Part A/B/C 패턴을 Core·Sector 양쪽에 대칭 적용. 인터랙티브 페르소나 탐색은 Should S2 유지. SoT: `ServicePlan-Admin.md §6 D20` + `§3.7 R3.7-6/7/8`. |
 | 2026-05-08 | **v2.2** | **§8에 Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가 — D19 박제 (35차).** TauricResearch/TradingAgents Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. Tier 0 인디케이터 게이트(AI 키 불필요) + Tier 1 Core 11 평가(시간대별 페르소나 가중치) + 합의 배지 4종(🟢 강한 합의/🔵 숫자 우세/🟣 AI 우세/⚪ AI 분석 대기) + 매월 말 Reflection(실현 수익률 prompt 주입). 어드민 카드 노출 = 🔢 숫자 점수 + 🤖 AI 점수 + 합의 배지 + AI 코멘트 1~2줄 + 클릭→풀 리포트. AI 키 미발급 시 Tier 0 단독 fallback (진짜 코스피·코스닥 30종목 자동 선정). 비용 통제 = Sector Board 활성화는 30종목 해당 섹터 14명만(140명 X). 신규 엔티티 후보 `reflection_log` 박제. SoT: `ServicePlan-Admin.md §1A.5 D19`. |
+| 2026-05-19 | **v2.4** | **S7a 49차 — 5종 배지 + section_8 SoT pointer.** Q5b omxy CONVERGED: 합의 배지 4종 → **5종 (🟡 관망 신규)**. 비-top tier + 비-top tier + AI 가용 케이스를 ⚪(AI 분석 대기)와 구별. §8 Step 0c + Step 2(Section 0 1행) 5종 갱신. **§8 Step 2에 `section_8 jsonb schema SoT = ServicePlan-Admin §4.2.1` 포인터 명시** — canonical contract(partA 0\|14 / partB 3~5 / partC / partD 11) 박제 위치는 ServicePlan-Admin §4.2.1, 코드 SoT는 `tudal/src/lib/report/section-8-schema.ts` zod schema. SoT: `ServicePlan-Admin.md §1A.5 D19` + `§3.1 R3.1-6` + `§4.2.1`. |
 
 ---
 
