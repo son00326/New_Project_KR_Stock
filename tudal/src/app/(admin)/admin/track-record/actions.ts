@@ -52,11 +52,16 @@ export async function triggerMonthlyPersonaEvalAction(month: string) {
       tickers,
       adminUserId: user.id,
       fetchFinancials: async (ticker) => {
-        const { data } = await supabase
+        // omxy R1 BLOCKER: schema mismatch (실 0014는 corp_code 키, quarter/trailing/quality 컬럼 미존재)는
+        // billing-on smoke (HANDOFF §C, 별도 PR)에서 실 컬럼 매핑. 본 PR은 silent bad input 방지만 보장.
+        const { data, error } = await supabase
           .from('dart_financial_cache')
           .select('quarter_revenue, trailing_revenue, quality_score')
           .eq('ticker', ticker)
           .single();
+        if (error) {
+          throw new Error(`financials_fetch_failed:${error.code ?? 'unknown'}`);
+        }
         return JSON.stringify(data ?? {});
       },
     });
