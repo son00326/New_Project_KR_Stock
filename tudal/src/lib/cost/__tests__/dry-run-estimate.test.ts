@@ -17,9 +17,10 @@ describe("anthropic-pricing", () => {
     expect(krw).toBe(25_740);
   });
 
-  it("Opus 4.7: 1M input + 1M output = 90 USD = ₩128,700", () => {
+  it("Opus 4.7: 1M input + 1M output = 30 USD = ₩42,900 (50차 §2.D 정정)", () => {
     const krw = computeCostKrw("claude-opus-4-7", 1_000_000, 1_000_000);
-    expect(krw).toBe(128_700);
+    // 공식 Opus 4.7 단가 $5 input + $25 output → (5 + 25) USD × 1430 = 42,900
+    expect(krw).toBe(42_900);
   });
 
   it("Haiku 4.5: 1M input + 1M output = 6 USD = ₩8,580", () => {
