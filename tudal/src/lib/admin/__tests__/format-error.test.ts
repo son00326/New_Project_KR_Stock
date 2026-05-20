@@ -207,7 +207,9 @@ describe("formatErrorMessage", () => {
       );
     });
 
-    it("ai_billing_exhausted — Anthropic 결제 한도 소진", () => {
+    // 방어 매핑 (PR #1 source 직접 throw 0건; persona-eval.ts catch list에서만 식별).
+    // 향후 Anthropic SDK 결제 한도 신호 분리 throw 시 raw 영문 노출 방지를 위해 사전 매핑.
+    it("ai_billing_exhausted — Anthropic 결제 한도 소진 (방어 매핑)", () => {
       expect(formatErrorMessage("ai_billing_exhausted")).toBe(
         "Anthropic 결제 한도가 소진되었습니다 — billing 충전 후 재시도",
       );
