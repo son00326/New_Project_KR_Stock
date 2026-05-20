@@ -6,7 +6,7 @@
 // Kevin v3.1 inquiry pattern follow (200자 argument 한계 내) = `Document/Outputs/Report-Alteogen_196170_v3-Readable.md`
 //                                                          + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign}.md`
 //                                                          + `Document/Service/Report/ReaderAnalogyCards-ConstructionToBio.md`
-// (omxy R4 polish: "quality target" → "inquiry pattern follow" — Kevin v3.1 풀 리포트 600줄 DCF/Half Kelly depth는 200자 argument 재현 불가, inquiry pattern (4 axes)만 적용)
+// (omxy R4/R5 polish: 풀 리포트 600줄 depth 재현 X — inquiry pattern 4 axes 적용 reframe)
 //
 // Tier 2 Sector Board 14 persona slot 별 production system prompt 생성기.
 // 196 = 14 canonical sectors × 14 slot/sector (10 base + 2 primary overlay + 2 sub_tag overlay).
@@ -78,7 +78,7 @@ export const BASE_SLOT_PRINCIPLES: Record<string, string> = {
 /**
  * Kevin v3.1 inquiry pattern enforce 규칙 (모든 sector persona system prompt에 일관 inject).
  *
- * omxy R1 BLOCKER 4 정정: "quality target" → "inquiry pattern" reframing.
+ * omxy R1 BLOCKER 4 정정: overpromise → "inquiry pattern" reframing.
  * 200자 argument는 Kevin v3.1의 DCF/Half Kelly depth를 재현하지 않는다 — Kevin의 inquiry pattern
  * (어떻게 의심하고, 어떻게 계산하고, 어떻게 판단을 보여주는가)을 따른다.
  *
