@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-20 (52차 — **🎉 Tier 2 SoT (PR #4) + Tier 2 implementation (PR #5) 둘 다 OPEN MERGEABLE ✅ + omxy 66+ rounds CONVERGED** · branch `feat/tier2-implementation` (stacked on `feat/tier2-sot-overlay`) · 게이트 ALL GREEN (build 25 routes / lint 0 err 6 warn / **test:ci 606 passed / 63 files** / tsc clean) + Vercel preview 둘 다 SUCCESS · D21 박제 = **canonical 14 sectors × 14 personas/sector overlay** (10 base + 2 primary + 2 sub_tag) · sub_tag crosswalk 7개 (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW + 엔터/미디어 · 가전→유통/소비재 · 제약→바이오 · 부동산→건설) · **`commit_sector_personas` 신규 RPC (마이그 0019)** + `commitSectorReport` writer + `runSectorEval` scaffold + 196 mock stub · **Kevin IMVCOM branch reference 박제** (Tier 2 production prompts quality target = `origin/IMVCOM @ 1faee1b` v3.1 초보 친화 알테오젠 리포트) · 현재 위치 = **Step 3 DONE, Step 3a (Kevin IMVCOM 분석) 진입 대기**)
+Last updated: 2026-05-20 (52차 — **🎉 Tier 2 SoT (PR #4) + Tier 2 implementation (PR #5) 둘 다 OPEN MERGEABLE ✅ + omxy 69 rounds CONVERGED (52차 종료 박제 R1 포함)** · branch `feat/tier2-implementation` (stacked on `feat/tier2-sot-overlay`) · 게이트 ALL GREEN (build 25 routes / lint 0 err 6 warn / **test:ci 606 passed / 63 files** / tsc clean) + Vercel preview 둘 다 SUCCESS · D21 박제 = **canonical 14 sectors × 14 personas/sector overlay** (10 base + 2 primary + 2 sub_tag) · sub_tag crosswalk 7개 (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW + 엔터/미디어 · 가전→유통/소비재 · 제약→바이오 · 부동산→건설) · **`commit_sector_personas` 신규 RPC (마이그 0019)** + `commitSectorReport` writer + `runSectorEval` scaffold + 196 mock stub · **Kevin IMVCOM branch reference 박제** (Tier 2 production prompts quality target = `origin/IMVCOM @ 1faee1b` v3.1 초보 친화 알테오젠 리포트) · 현재 위치 = **Step 3 DONE, Step 3a (Kevin IMVCOM 분석) 진입 대기**)
 
 ## ⭐ 다음 세션 진입자 5줄 요약
 
@@ -65,7 +65,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0002~0010 + 0012~0014 + 0015a + 0016 + 0016a + 0017 적용 완료. **마이그 0018 (`short_list_30.sub_tags jsonb` + GIN) + 0019 (`commit_sector_personas` RPC) = 본 세션 신규, production apply 미실행 (USER-gated)**. |
 | OPEN PRs (52차 종료 기준) | **#2** OPEN: `fix/s7a-format-error-inventory` (format-error 13 신규 매핑, 보류) · **#4** OPEN MERGEABLE: `feat/tier2-sot-overlay` (Tier 2 SoT D21 + mig 0018) · **#5** OPEN MERGEABLE: `feat/tier2-implementation` (Tier 2 impl + mig 0019, stacked on PR #4) |
 | 검증 게이트 | build OK · lint 0 errors · **test:ci 606 / 63 files** (baseline 522→560→606, +84 over 52차) · tsc clean (52차 종료 baseline) |
-| omxy debate 누적 | **66+ rounds CONVERGED** (50 + 51차 6 + 52차 SoT 6 + 52차 impl 6). 적대적 검토 = 본 PR 운영 원칙. 다음 세션 후속 PR도 동일 강제 적용. |
+| omxy debate 누적 | **69 rounds CONVERGED (52차 종료 박제 R1 포함)** (50 + 51차 6 + 52차 SoT 6 + 52차 impl 6). 적대적 검토 = 본 PR 운영 원칙. 다음 세션 후속 PR도 동일 강제 적용. |
 
 ### 49차 본 세션 추가 commits (oldest → newest)
 
