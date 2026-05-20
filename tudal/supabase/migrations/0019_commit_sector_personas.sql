@@ -61,6 +61,7 @@ begin
   end if;
 
   -- R3 acc#1: p_sector_aggregate exact keys {buy,hold,sell} (extra key reject)
+  -- omxy final R1 B-final-2: integer check (jsonb_typeof='number'만으로는 1.5 통과 — mod 1 = 0 강제 + 음수 reject)
   if p_sector_aggregate is null or jsonb_typeof(p_sector_aggregate) is distinct from 'object' then
     raise exception 'sector_aggregate_must_be_object';
   end if;
@@ -73,7 +74,18 @@ begin
   if jsonb_typeof(p_sector_aggregate->'buy') <> 'number'
      or jsonb_typeof(p_sector_aggregate->'hold') <> 'number'
      or jsonb_typeof(p_sector_aggregate->'sell') <> 'number' then
+    raise exception 'sector_aggregate_values_must_be_number';
+  end if;
+  -- integer + non-negative 강제 (B-final-2 정정)
+  if mod((p_sector_aggregate->>'buy')::numeric, 1) <> 0
+     or mod((p_sector_aggregate->>'hold')::numeric, 1) <> 0
+     or mod((p_sector_aggregate->>'sell')::numeric, 1) <> 0 then
     raise exception 'sector_aggregate_values_must_be_int';
+  end if;
+  if (p_sector_aggregate->>'buy')::numeric < 0
+     or (p_sector_aggregate->>'hold')::numeric < 0
+     or (p_sector_aggregate->>'sell')::numeric < 0 then
+    raise exception 'sector_aggregate_values_must_be_nonneg';
   end if;
 
   -- R1 #1: p_votes length=14 + persona_layer='sector' + vote enum + required fields

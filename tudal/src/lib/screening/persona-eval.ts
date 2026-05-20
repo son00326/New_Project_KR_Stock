@@ -8,7 +8,7 @@ import {
   resolveSlotTemplate,
 } from '@/lib/screening/canonical-sectors';
 // TIER2_CALLS_PER_TICKER (25 = Core 11 + Sector 14) cost guard 상수는 canonical-sectors.ts에서 export.
-// chair = Core 11 마지막 위원 (별도 추가 X). rg "780" tudal/src/ = 0 DoD 준수.
+// chair = Core 11 마지막 위원 (별도 추가 X — 본 PR scope 박제, OOS lift는 별도 PR).
 
 export interface RunMonthlyPersonaEvalInput {
   month: string;

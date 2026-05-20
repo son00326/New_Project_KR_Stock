@@ -123,7 +123,8 @@ export const PRIMARY_OVERLAY_BY_SECTOR: Record<CanonicalSector, readonly [string
  * cost worst-case = 30 stocks × 25 = 750 calls/month (M17 hardcap 400k KRW 내).
  * regen 2× = 1,500 calls/month worst-case ≈ 33만원 cache-off.
  *
- * 본 상수는 production 검증 게이트 (rg "780" tudal/src/ = 0) 박제 — chair separation은 별도 PR 시 OOS.
+ * 본 상수는 production 검증 게이트 박제 (canonical-sectors.test.ts에서 `monthlyCalls === 750`
+ * 단정 + chair separation 미적용 verify) — chair 별도 추가는 OOS.
  */
 export const SECTOR_PERSONA_COUNT = 14 as const;
 export const TIER2_CALLS_PER_TICKER = 25 as const;

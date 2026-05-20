@@ -214,4 +214,60 @@ describe('commitSectorReport (Tier 2 D21, 52차)', () => {
       sectorPersonaIds: sectorIds,
     })).rejects.toThrow('commit_sector_personas_failed');
   });
+
+  // omxy final R1 B-final-3 hotfix: strict parser — malformed content RPC 호출 차단
+  it('JSON parse 실패 시 sector_writer_invalid_persona_content + RPC not called (B-final-3)', async () => {
+    const sectorIds = Array.from({ length: SECTOR_PERSONA_COUNT }, (_, i) => `sector-바이오-slot-${i + 1}`);
+    const results = Array.from({ length: SECTOR_PERSONA_COUNT }, () => happyPersonaResult);
+    // slot 5 만 malformed
+    results[4] = { ...happyPersonaResult, content: 'not-json' };
+    await expect(
+      commitSectorReport({
+        month: '2026-05',
+        ticker: '005930',
+        sector: '바이오',
+        sectorPersonaResults: results,
+        sectorPersonaIds: sectorIds,
+      }),
+    ).rejects.toThrow('sector_writer_invalid_persona_content');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('vote enum 불일치 시 sector_writer_invalid_persona_content (B-final-3)', async () => {
+    const sectorIds = Array.from({ length: SECTOR_PERSONA_COUNT }, (_, i) => `sector-바이오-slot-${i + 1}`);
+    const results = Array.from({ length: SECTOR_PERSONA_COUNT }, () => happyPersonaResult);
+    results[0] = {
+      ...happyPersonaResult,
+      content: '{"vote":"NEUTRAL","one_line":"x","argument_excerpt":"x"}',
+    };
+    await expect(
+      commitSectorReport({
+        month: '2026-05',
+        ticker: '005930',
+        sector: '바이오',
+        sectorPersonaResults: results,
+        sectorPersonaIds: sectorIds,
+      }),
+    ).rejects.toThrow('sector_writer_invalid_persona_content:invalid_vote');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('필수 필드 누락 (one_line=empty) 시 sector_writer_invalid_persona_content (B-final-3)', async () => {
+    const sectorIds = Array.from({ length: SECTOR_PERSONA_COUNT }, (_, i) => `sector-바이오-slot-${i + 1}`);
+    const results = Array.from({ length: SECTOR_PERSONA_COUNT }, () => happyPersonaResult);
+    results[3] = {
+      ...happyPersonaResult,
+      content: '{"vote":"BUY","one_line":"","argument_excerpt":"x"}',
+    };
+    await expect(
+      commitSectorReport({
+        month: '2026-05',
+        ticker: '005930',
+        sector: '바이오',
+        sectorPersonaResults: results,
+        sectorPersonaIds: sectorIds,
+      }),
+    ).rejects.toThrow('sector_writer_invalid_persona_content:invalid_one_line');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
 });
