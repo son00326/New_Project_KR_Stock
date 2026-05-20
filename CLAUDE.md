@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## ⭐ 프로젝트 재정의 (2026-04-21 D16 · 2026-05-08 D18 시퀀스 v3 · 2026-05-08 D19 AI 강화 v3.1)
+## ⭐ 프로젝트 재정의 (2026-04-21 D16 · 2026-05-08 D18 시퀀스 v3 · 2026-05-08 D19 AI 강화 v3.1 · **2026-05-20 D21·D22 Tier 2 14×14 overlay + Kevin v3.1 quality target v3.2**)
 
 **어드민 = 본인 + 친구 2명(총 3명)이 주식·코인 투자를 편하게 하기 위한 내부 도구**.
 
@@ -31,15 +31,14 @@ Mock Skeleton ✅
        ├ T7e.5 regen-counters CAS race-safe ✅ (39차)
        ├ T7e.6 access-logs/performance/decision-tree ✅ (40차)
        └ T7e.8 Tier 0 인디케이터 (마이그 0012 name/sector + 0013 dart_corp_codes + 0014 dart_financial_cache · `short_list_30` 2026-05-01 30 rows production 적용 · DART 실 standalone/quality 기반 Signal 4·5) ✅ (41~45차)
-  → S7a (Anthropic wrapper) ── 🟢 **49차 Task 17/17 ✅ + 50차 §1 B-17 EXECUTED ✅ + 50차 §2 출시 Runbook 재구조 R14~R16 ✅ + omxy 50 rounds CONVERGED (stable)** · `feat/s7a-anthropic-wrapper` branch (34+ commits ahead, push 완료, **PR #1 OPEN**) · B-17 execution head: `a9c9c93` · billing 미충전 mock 100% 구축
-       · **출시 Runbook 진입점 = `Document/Process/HANDOFF.md §2`** (15-step 선형 + §2.0 default-progress policy + Owner 분리 USER/CLAUDE/SHARED). 현재 위치 = §2.1 Step 1 USER 대기 (PR #1 review/merge). 자동 진행 가능 다음 = Step 2 §2.C format-error hotfix.
-       · **현재 범위 B**: Tier 1 Core 11 페르소나 평가 + 합의 배지 **5종** (🟢🔵🟣🟡⚪) + Section 8 jsonb writer + 30 mock e2e ✅
-       · Tier 2 Sector Board 14×10 + Reflection 자가학습 = **후속 PR로 분리** (본 PR 범위 외)
-       · D20 Section 8 위원 전원 표 박제 = `ServicePlan-Admin §3.7 R3.7-6/7/8` + `§6 D20` + `ReportFramework §8` (45차 박제)
-       · 마이그 **0016a + 0017 production apply 완료** (Supabase MCP, project `rbrpcynhphrpljbjirfo`): `drop_legacy_cost_log` (20260519135017) + `cost_log_and_batch_runs` (20260519135341). schema-existence smoke 7/7 PASS. **B-17 migration recovery cleanup 2건**: ① legacy cost_log via 0016a ② orphan unique index promoted in-place.
-       · **PR #1 OPEN**: https://github.com/son00326/New_Project_KR_Stock/pull/1 · **Vercel preview Ready**: https://tudal-git-feat-s7a-anthropic-wrapper-son00326s-projects.vercel.app
-       · 다음 1순위 = **사용자 PR #1 review/merge** (상세 = `HANDOFF.md §2.A` + `§3 표 B-17b`)
-       · T7e.7 RLS 브라우저 수동 QA는 S7a 진행 중 병행 또는 D11 운용 검증 직전 마무리 (1시간 안짝 수동)
+  → S7a (Anthropic wrapper) ── ✅ **완료 (51차 PR #1 MERGED, main 박제, mergeCommit `61653d22`)** · 17/17 task + B-17 migration recovery + 마이그 0017 production apply
+  → **Tier 2 D21 (52차)** ── 🟢 **scaffold 완료, PR #4 + PR #5 OPEN MERGEABLE + omxy 12 rounds CONVERGED** · `feat/tier2-implementation` branch (stacked on `feat/tier2-sot-overlay`)
+       · **D21 박제**: canonical 14 sectors × 14 personas/sector overlay (10 base + 2 primary + 2 sub_tag) + sub_tag crosswalk 7개 (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW+엔터/미디어 · 가전→유통/소비재 · 제약→바이오 · 부동산→건설)
+       · **신규 SoT 코드**: `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS 14 + 상수 + helper) · `writer.ts` commitSectorReport + parseSectorContentStrict · `persona-eval.ts` runSectorEval scaffold · `mock-admin-committee-personas.ts` 196 stub (legacy 5인 105 격리 보존) · 마이그 0018 (sub_tags jsonb) + 0019 (commit_sector_personas RPC)
+       · **D22 박제**: Tier 2 production prompts 196 quality target = **`origin/IMVCOM @ 1faee1b` Kevin v3.1 reference** (Step 3a Kevin 정합 머지 PR 진입 대기)
+       · **출시 Runbook 진입점 = `Document/Process/HANDOFF.md §2`** · 현재 위치 = §2.1 Step 1c USER 대기 (PR #4/#5 review/merge + 마이그 0018·0019 production apply) + 동시 Step 3a CLAUDE 자동 진행 가능
+       · 다음 1순위 = **(USER) PR #4/#5 머지** → **(CLAUDE) Step 3a Kevin IMVCOM 정합 머지 PR** → Step 3b production prompts 196 (Kevin v3.1 target) → Step 3c caller wiring (cron + admin action + Section 8 partA UI) → Step 4 Reflection
+       · T7e.7 RLS 브라우저 수동 QA는 D11 운용 검증 직전 마무리 (1시간 안짝 수동)
   → S7b (뉴스+브리핑)
   → ★ D11 AI 가상 포트 1차 가동 (KIS 0개 · Tier 0 단독 가능 · Tier 1·2 키 있으면 plug-in)
     어드민 3인 운용 검증 며칠~1주 (실 종목 30개 + 합의 배지 + AI 코멘트 검증)
