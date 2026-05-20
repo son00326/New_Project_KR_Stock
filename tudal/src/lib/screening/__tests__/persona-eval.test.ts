@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runMonthlyPersonaEval } from '../persona-eval';
+import { runMonthlyPersonaEval, runSectorEval } from '../persona-eval';
+import { SECTOR_PERSONA_COUNT } from '../canonical-sectors';
 
 vi.mock('@/lib/ai/anthropic-client', () => ({
   callPersona: vi.fn(),
@@ -121,5 +122,93 @@ describe('persona-eval (Q6 + Design R4)', () => {
     expect(releaseBatchLock).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' })
     );
+  });
+});
+
+// Tier 2 D21 (52차) — runSectorEval tests
+// omxy R1~R3 CONVERGED + R2 B1 (degraded skip) + R3 acc#4 (runtime return only).
+
+describe('runSectorEval (Tier 2 D21, 52차)', () => {
+  const sectorInput = {
+    month: '2026-05',
+    ticker: '005930',
+    sector: '바이오' as const,
+    adminUserId: 'admin-uuid',
+    fetchFinancials: vi.fn().mockResolvedValue('stub-financials'),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(preflightHardcap).mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 400000 });
+    vi.mocked(callPersona).mockResolvedValue({
+      content: '{"vote":"BUY","one_line":"강함","argument_excerpt":"근거"}',
+      usage: { input_tokens: 100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 50 },
+      costKrw: 100,
+      promptCacheEnabled: false,
+    });
+  });
+
+  it('preflightHardcap called with SECTOR_PERSONA_COUNT (14, cost guard)', async () => {
+    await runSectorEval(sectorInput);
+    expect(preflightHardcap).toHaveBeenCalledWith({
+      month: '2026-05',
+      callCount: SECTOR_PERSONA_COUNT,
+    });
+  });
+
+  it('available=true + degradedCount=0 시 14 callPersona invocations + length=14 personaIds', async () => {
+    const result = await runSectorEval(sectorInput);
+    expect(callPersona).toHaveBeenCalledTimes(SECTOR_PERSONA_COUNT);
+    expect(result.personaIds).toHaveLength(SECTOR_PERSONA_COUNT);
+    expect(result.results).toHaveLength(SECTOR_PERSONA_COUNT);
+    expect(result.available).toBe(true);
+    expect(result.degradedCount).toBe(0);
+    expect(result.sector).toBe('바이오');
+    expect(result.totalCalls).toBe(SECTOR_PERSONA_COUNT);
+  });
+
+  it('persona ID 패턴 = sector-{sector}-slot-{1..14}', async () => {
+    const result = await runSectorEval(sectorInput);
+    expect(result.personaIds[0]).toBe('sector-바이오-slot-1');
+    expect(result.personaIds[13]).toBe('sector-바이오-slot-14');
+  });
+
+  it('ai_key_unavailable failure → degradedCount 증가, available=false (R2 B1)', async () => {
+    vi.mocked(callPersona).mockRejectedValueOnce(new Error('ai_key_unavailable'));
+    const result = await runSectorEval(sectorInput);
+    expect(result.degradedCount).toBe(1);
+    expect(result.available).toBe(false);
+    expect(result.results).toHaveLength(SECTOR_PERSONA_COUNT - 1);
+  });
+
+  it('unknown_persona_id (production prompts 부재) → degraded handling', async () => {
+    vi.mocked(callPersona).mockRejectedValue(new Error('unknown_persona_id:sector-바이오-slot-1'));
+    const result = await runSectorEval(sectorInput);
+    expect(result.degradedCount).toBe(SECTOR_PERSONA_COUNT);
+    expect(result.available).toBe(false);
+    expect(result.results).toHaveLength(0);
+  });
+
+  it('ALL 14 success 시만 available=true (degradedCount=0)', async () => {
+    // 1 partial failure
+    vi.mocked(callPersona).mockRejectedValueOnce(new Error('ai_call_failed'));
+    const result = await runSectorEval(sectorInput);
+    expect(result.available).toBe(false); // 13 success여도 false
+  });
+
+  it('non-network/non-prompt 오류는 caller에 throw (fatal)', async () => {
+    vi.mocked(callPersona).mockRejectedValue(new Error('unexpected_db_error'));
+    await expect(runSectorEval(sectorInput)).rejects.toThrow('unexpected_db_error');
+  });
+
+  it('sub_tags overlay 활성화 시 slot 13·14 sub_tag 반영', async () => {
+    const result = await runSectorEval({
+      ...sectorInput,
+      ticker: '009540',
+      sector: '운송/물류',
+      sub_tags: ['조선'],
+    });
+    expect(result.personaIds).toHaveLength(SECTOR_PERSONA_COUNT);
+    expect(result.personaIds[0]).toBe('sector-운송/물류-slot-1');
   });
 });

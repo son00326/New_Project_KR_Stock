@@ -12,8 +12,11 @@ import {
   SUB_TAG_CROSSWALK,
   SUB_TAG_OVERLAY_ROLES,
   LEGACY_ALIAS_MAP,
+  SECTOR_PERSONA_COUNT,
+  TIER2_CALLS_PER_TICKER,
   isCanonicalSector,
   resolveSubTag,
+  resolveSlotTemplate,
   type CanonicalSector,
 } from "../canonical-sectors";
 
@@ -219,5 +222,96 @@ describe("D21 박제 정합 — partA contract", () => {
     const personas_per_sector = BASE_SLOTS.length + OVERLAY_SLOTS.length;
     const roster = CANONICAL_SECTORS.length * personas_per_sector;
     expect(roster).toBe(196);
+  });
+});
+
+// Tier 2 D21 (52차) — runtime cost guard 상수 + resolveSlotTemplate + SQL drift snapshot
+// omxy R3 acc#2: SQL in-list (마이그 0019)와 TS canonical 14 drift 방지.
+
+describe("Tier 2 cost guard 상수 박제 (D21, 52차)", () => {
+  it("SECTOR_PERSONA_COUNT === 14 (10 base + 2 primary + 2 sub_tag)", () => {
+    expect(SECTOR_PERSONA_COUNT).toBe(14);
+    expect(SECTOR_PERSONA_COUNT).toBe(BASE_SLOTS.length + OVERLAY_SLOTS.length);
+  });
+
+  it("TIER2_CALLS_PER_TICKER === 25 (Core 11 + Sector 14, chair = Core 11 마지막)", () => {
+    expect(TIER2_CALLS_PER_TICKER).toBe(25);
+    expect(TIER2_CALLS_PER_TICKER).toBe(11 + SECTOR_PERSONA_COUNT);
+  });
+
+  it("780 어휘 silent 금지 — chair 별도 추가 X (R1 #3)", () => {
+    // 30 stocks × 25 calls = 750 (cost guard 박제)
+    const monthlyCalls = 30 * TIER2_CALLS_PER_TICKER;
+    expect(monthlyCalls).toBe(750);
+    // 780이 silent로 잘못 박힌 경우 catch
+    expect(monthlyCalls).not.toBe(780);
+  });
+});
+
+describe("resolveSlotTemplate — 14 slot 결정성 (D21)", () => {
+  it("바이오 + sub_tags=[] (base axis backup) → 14 slot 반환", () => {
+    const slots = resolveSlotTemplate("바이오");
+    expect(slots).toHaveLength(SECTOR_PERSONA_COUNT);
+    expect(slots[0].slot_type).toBe("base");
+    expect(slots[9].slot_type).toBe("base");
+    expect(slots[10].slot_type).toBe("primary_overlay");
+    expect(slots[11].slot_type).toBe("primary_overlay");
+    expect(slots[12].slot_type).toBe("sub_tag_overlay");
+    expect(slots[13].slot_type).toBe("sub_tag_overlay");
+  });
+
+  it("운송/물류 + sub_tags=['조선'] → slot 13·14 조선 overlay 활성", () => {
+    const slots = resolveSlotTemplate("운송/물류", ["조선"]);
+    expect(slots[12].sub_tag).toBe("조선");
+    expect(slots[13].sub_tag).toBe("조선");
+    expect(slots[12].role).toContain("조선");
+    expect(slots[13].role).toContain("조선");
+  });
+
+  it("게임 sub_tag → IT/SW canonical에서 활성 (resolveSubTag와 통합)", () => {
+    const slots = resolveSlotTemplate("IT/SW", ["게임"]);
+    expect(slots[12].sub_tag).toBe("게임");
+    expect(slots[13].sub_tag).toBe("게임");
+  });
+
+  it("매칭 sub_tag 없으면 slot 13·14 = base axis backup (deterministic)", () => {
+    const slots = resolveSlotTemplate("반도체", ["unknown_tag"]);
+    expect(slots[12].sub_tag).toBeUndefined();
+    expect(slots[13].sub_tag).toBeUndefined();
+  });
+
+  it("모든 14 canonical sectors에 대해 14 slot 반환 (drift 방지)", () => {
+    for (const sector of CANONICAL_SECTORS) {
+      const slots = resolveSlotTemplate(sector);
+      expect(slots).toHaveLength(SECTOR_PERSONA_COUNT);
+      expect(slots[0].slot_index).toBe(1);
+      expect(slots[13].slot_index).toBe(14);
+    }
+  });
+
+  it("slot_index 1~14 unique + 순서 보존", () => {
+    const slots = resolveSlotTemplate("자동차");
+    const indices = slots.map((s) => s.slot_index);
+    expect(indices).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  });
+});
+
+describe("SQL/TS canonical 14 drift 방지 snapshot (R3 acc#2)", () => {
+  // 마이그 0019의 in-list와 동일한 14 sector name (canonical-sectors.ts SoT).
+  // 둘 중 하나라도 변경 시 본 test fail → 동시 갱신 강제.
+  const MIG_0019_IN_LIST = [
+    "바이오", "반도체", "건설", "금융", "2차전지", "자동차", "IT/SW",
+    "유통/소비재", "에너지", "엔터/미디어", "통신", "철강/소재", "운송/물류", "보험/증권",
+  ] as const;
+
+  it("마이그 0019 in-list snapshot === CANONICAL_SECTORS verbatim", () => {
+    expect(MIG_0019_IN_LIST).toEqual(CANONICAL_SECTORS);
+    expect(MIG_0019_IN_LIST.length).toBe(14);
+  });
+
+  it("마이그 0019 in-list 순서 = CANONICAL_SECTORS 순서 (lexical sort 적용 시도 거부)", () => {
+    for (let i = 0; i < CANONICAL_SECTORS.length; i++) {
+      expect(MIG_0019_IN_LIST[i]).toBe(CANONICAL_SECTORS[i]);
+    }
   });
 });
