@@ -6,9 +6,11 @@ import {
   resolveSectorPersona,
   SECTOR_PHILOSOPHIES,
   BASE_SLOT_PRINCIPLES,
+  SECTOR_BASE_SLOT_ADJUSTMENTS,
 } from '../personas/sector-persona-builder';
 import { getPersonaById } from '../personas';
 import {
+  BASE_SLOTS,
   CANONICAL_SECTORS,
   SECTOR_PERSONA_COUNT,
   resolveSlotTemplate,
@@ -266,11 +268,10 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       }
     });
 
-    it('BLOCKER 3: high-risk slot (4·5·8·10) sector adjustment present for prototype sectors', () => {
-      // 바이오/반도체/건설/금융/IT/SW — 5 sectors × 4 high-risk slots = 20 adjustments 박제
-      const protoSectors = ['바이오', '반도체', '건설', '금융', 'IT/SW'] as const;
+    it('BLOCKER 3 + B: 14 sectors × 4 high-risk slots = 56 adjustments full coverage', () => {
+      // Step 3b §5 fanout 완료 — 14 sectors 모두 high-risk slot adjustment 정의됨.
       const highRiskSlots = [4, 5, 8, 10];
-      for (const sector of protoSectors) {
+      for (const sector of CANONICAL_SECTORS) {
         for (const slotIdx of highRiskSlots) {
           const tmpl = resolveSlotTemplate(sector, []);
           const slot = tmpl[slotIdx - 1];
@@ -280,16 +281,78 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       }
     });
 
-    it('BLOCKER 3: 9 unfilled sectors high-risk slot → BASE_SLOT_PRINCIPLES만 fallback (adjustment 미포함)', () => {
-      // 본 commit 시점: 바이오/반도체/건설/금융/IT/SW만 SECTOR_BASE_SLOT_ADJUSTMENTS에 정의됨.
-      // 나머지 9 sectors는 후속 fanout commit에서 추가 — 현재는 base lens fallback.
-      const unfilledSectors = ['2차전지', '자동차', '유통/소비재', '에너지', '엔터/미디어', '통신', '철강/소재', '운송/물류', '보험/증권'] as const;
-      const tmpl = resolveSlotTemplate(unfilledSectors[0], []);
-      const slot = tmpl[3]; // slot 4 (high-risk)
-      const c = buildSectorPersonaContract(unfilledSectors[0], slot);
-      expect(c.systemPrompt).not.toContain('섹터-특화 adjustment');
-      // 그래도 base principle는 포함됨
-      expect(c.systemPrompt).toContain('국내 섹터 특수 전문가');
+    it('BLOCKER A: SECTOR_BASE_SLOT_ADJUSTMENTS key는 모두 BASE_SLOTS 서브셋 (typo 차단)', () => {
+      // BaseSlotRole type-tightened 후 typo는 컴파일 차단. 추가로 runtime 검증.
+      const validKeys = new Set<string>(BASE_SLOTS);
+      for (const sector of Object.keys(SECTOR_BASE_SLOT_ADJUSTMENTS) as Array<keyof typeof SECTOR_BASE_SLOT_ADJUSTMENTS>) {
+        const adj = SECTOR_BASE_SLOT_ADJUSTMENTS[sector];
+        if (adj === undefined) continue;
+        for (const key of Object.keys(adj)) {
+          expect(validKeys).toContain(key);
+        }
+      }
+    });
+
+    it('BLOCKER A: high-risk slot 4 keys = domestic_special_expert (BASE_SLOTS[3])', () => {
+      expect(BASE_SLOTS[3]).toBe('domestic_special_expert');
+      expect(BASE_SLOTS[4]).toBe('domestic_academic');
+      expect(BASE_SLOTS[7]).toBe('global_industry_veteran');
+      expect(BASE_SLOTS[9]).toBe('global_adjacent_expert');
+    });
+
+    it('BLOCKER C: buildSectorPersonaContract direct call cross-sector mismatch → throw', () => {
+      // sector='바이오' with slot.sub_tag='조선' (cross-sector) → throw
+      expect(() => {
+        buildSectorPersonaContract('바이오', {
+          slot_index: 13,
+          slot_type: 'sub_tag_overlay',
+          role: '조선 PE/PC 엔지니어',
+          sub_tag: '조선',
+        });
+      }).toThrow(/sub_tag_sector_mismatch/);
+
+      // 반도체 + 제약 (제약 primary=바이오) → throw
+      expect(() => {
+        buildSectorPersonaContract('반도체', {
+          slot_index: 14,
+          slot_type: 'sub_tag_overlay',
+          role: '제약 R&D 임원',
+          sub_tag: '제약',
+        });
+      }).toThrow(/sub_tag_sector_mismatch/);
+    });
+
+    it('BLOCKER C: unknown sub_tag → throw', () => {
+      expect(() => {
+        buildSectorPersonaContract('바이오', {
+          slot_index: 13,
+          slot_type: 'sub_tag_overlay',
+          role: 'fake role',
+          sub_tag: '비존재',
+        });
+      }).toThrow(/unknown_sub_tag/);
+    });
+
+    it('BLOCKER C: valid sub_tag combination (primary or secondary) → no throw', () => {
+      // 운송/물류 + 조선 (primary 매치) → OK
+      expect(() => {
+        buildSectorPersonaContract('운송/물류', {
+          slot_index: 13,
+          slot_type: 'sub_tag_overlay',
+          role: '조선 PE/PC 엔지니어',
+          sub_tag: '조선',
+        });
+      }).not.toThrow();
+
+      // 엔터/미디어 + 게임 (secondary 매치) → OK
+      expect(() => {
+        buildSectorPersonaContract('엔터/미디어', {
+          slot_index: 14,
+          slot_type: 'sub_tag_overlay',
+          role: 'IP/콘텐츠 라이센싱',
+          sub_tag: '게임',
+        });
+      }).not.toThrow();
     });
 
     it('BLOCKER 4: KEVIN_V31_TONE_RULES → "inquiry pattern" reframing 적용', () => {

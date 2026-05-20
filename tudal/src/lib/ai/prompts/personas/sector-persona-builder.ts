@@ -18,6 +18,7 @@
 import {
   type CanonicalSector,
   type SlotMeta,
+  type BaseSlotRole,
   CANONICAL_SECTORS,
   PRIMARY_OVERLAY_BY_SECTOR,
   SUB_TAG_OVERLAY_ROLES,
@@ -107,11 +108,10 @@ const KEVIN_V31_TONE_RULES = `톤·서술 규칙 (Kevin v3.1 inquiry pattern fol
  * high-risk slot = 4 (domestic_special_expert) / 5 (domestic_academic) / 8 (global_industry_veteran) / 10 (global_adjacent_expert)
  * — 위 4개는 sector context 없이는 평가 lens가 흐려진다. 14 sectors × 4 high-risk roles = 56 adjustments.
  *
- * 14 sectors 점진적 fill — 본 commit에서 핵심 sector (바이오·반도체·건설·금융·IT/SW)부터.
- * 나머지 9 sectors는 후속 fanout commit에서 채운다 (미정의 시 fallback = BASE_SLOT_PRINCIPLES만 사용).
+ * 14 sectors 모두 full coverage 완료 (Step 3b §5, omxy R2 BLOCKER B 정정).
  */
 export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
-  Record<CanonicalSector, Partial<Record<string, string>>>
+  Record<CanonicalSector, Partial<Record<BaseSlotRole, string>>>
 > = {
   "바이오": {
     domestic_special_expert: "국내 바이오 PM/임상 책임자 시각. 파이프라인 단계(전임상→1상→2상→3상)·국내 식약처/MFDS 일정·라이센싱 deal 협상력을 본다.",
@@ -142,6 +142,60 @@ export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
     domestic_academic: "국내 컴퓨터과학 학계 시각. AI·클라우드·블록체인 핵심 IP·국내 우수 인재 채용 능력을 본다.",
     global_industry_veteran: "Salesforce/AWS/MS Azure 전직 임원 시각. 글로벌 SaaS unit economics·API 생태계·platform vs commodity 위험을 본다.",
     global_adjacent_expert: "통신·미디어·금융 인접 시각. SaaS의 산업별 vertical 진출·M&A 가능성·OEM 통합을 본다.",
+  },
+  "2차전지": {
+    domestic_special_expert: "국내 배터리 셀 공정 엔지니어/제조 PM 시각. LFP/NCM mix 변화·수율·CAPEX 회수 일정·고객사(LG에너지솔루션/SK on/삼성SDI) 다변화를 본다.",
+    domestic_academic: "국내 화학공학 학계 시각. 전고체·리튬황·실리콘 음극재 등 차세대 배터리 학술 동향·핵심 IP·핵심 인재 풀을 본다.",
+    global_industry_veteran: "CATL/BYD/Panasonic 전직 임원 시각. 글로벌 EV 보급 곡선·OEM(테슬라·GM·VW) 수주 변화·중국 본토 가격 경쟁을 본다.",
+    global_adjacent_expert: "EV 완성차·ESS·전력 인프라 인접 시각. 배터리와 OEM 통합·ESS 시장 진입·polysilicon/리튬 원자재 통합을 본다.",
+  },
+  "자동차": {
+    domestic_special_expert: "국내 OEM(현대/기아) 또는 부품사(만도/현모/덴소) 출신 PM 시각. EV 라인 전환·자율주행 ECU sourcing·중국 시장 점유율 회복을 본다.",
+    domestic_academic: "국내 자동차공학 학계 시각. 자율주행(L3·L4) 알고리즘·전기 powertrain·SDV(Software-Defined Vehicle) 학술 동향을 본다.",
+    global_industry_veteran: "Toyota/VW/Ford/Tesla 전직 임원 시각. 글로벌 OEM sourcing·자율주행 robotaxi·중국 NEV·미국 IRA 영향을 본다.",
+    global_adjacent_expert: "반도체·배터리·로보틱스·UAM 인접 시각. SDV 전환·차량용 반도체 부족·자율주행 SW와 hardware 통합을 본다.",
+  },
+  "유통/소비재": {
+    domestic_special_expert: "국내 retail/이커머스 PM 시각. 매장당 매출·옴니채널 통합·DTC 전환 진척·핵심 brand 트렌드 회전 속도를 본다.",
+    domestic_academic: "국내 소비자행동 학계 시각. 인구통계 변화·MZ세대 소비 패턴·고령화 영향·로컬 commerce vs 글로벌 platform을 본다.",
+    global_industry_veteran: "Amazon/Walmart/Costco/Uniqlo 전직 임원 시각. 글로벌 retail 마진 trend·DTC 침투율·물류 비용·해외 K-소비재 확장을 본다.",
+    global_adjacent_expert: "물류·결제·미디어 인접 시각. retail tech·라이브커머스·인플루언서 마케팅·core 소비자 데이터 활용을 본다.",
+  },
+  "에너지": {
+    domestic_special_expert: "국내 전력시장 정책 전문가/한전 출신 시각. 신재생 RPS·SMP·발전 capacity 입찰·송전망 제약을 본다.",
+    domestic_academic: "국내 에너지공학 학계 시각. 수소 경제·SMR·CCUS·태양광 효율 향상·전력 grid 안정성을 본다.",
+    global_industry_veteran: "Shell/Equinor/Vestas/Ørsted 전직 임원 시각. 글로벌 신재생 grid 확장·녹색 수소·해상 풍력·에너지 전환 정책을 본다.",
+    global_adjacent_expert: "전기차·ESS·전력 인프라 인접 시각. 신재생 발전+ESS 통합·V2G·산업 가스·LNG 트레이딩 통합을 본다.",
+  },
+  "엔터/미디어": {
+    domestic_special_expert: "국내 콘텐츠 PD/제작사 임원 시각. 드라마·K-팝·웹툰·게임 IP 라이센싱 deal·아티스트 계약 안정성을 본다.",
+    domestic_academic: "국내 미디어 학계 시각. OTT 시청 패턴·콘텐츠 IP 경제학·K-콘텐츠 글로벌 영향력 학술 분석을 본다.",
+    global_industry_veteran: "Netflix/Disney/Spotify/Sony Music 전직 임원 시각. 글로벌 OTT 콘텐츠 acquisition·K-콘텐츠 라이센싱 마진·아티스트 360 deal을 본다.",
+    global_adjacent_expert: "게임·SNS·라이브 commerce 인접 시각. IP cross-media 활용·아티스트 commerce·메타버스/AR 통합·NFT/web3 기회를 본다.",
+  },
+  "통신": {
+    domestic_special_expert: "국내 통신 3사 네트워크 엔지니어/B2B 영업 시각. 5G CAPEX 회수·기업 B2B 매출·MVNO 위협·정부 주파수 정책을 본다.",
+    domestic_academic: "국내 통신공학 학계 시각. 6G/오픈랜·NTN(non-terrestrial network)·양자 통신 학술 동향·핵심 표준 기여도를 본다.",
+    global_industry_veteran: "Vodafone/AT&T/NTT 전직 임원 시각. 글로벌 5G 보급·통신 인프라 CAPEX 사이클·해외 진출(MENA·동남아)을 본다.",
+    global_adjacent_expert: "클라우드·IoT·자율주행·미디어 인접 시각. 통신+클라우드 통합(SK스토아·MEC)·OTT 콘텐츠 통신 패키지·5G IoT 시장을 본다.",
+  },
+  "철강/소재": {
+    domestic_special_expert: "국내 POSCO·현대제철 공정 엔지니어/원자재 trader 시각. 스프레드·원료(철광석·점결탄) 가격·고부가가치 제품 mix·중국 수출 회피를 본다.",
+    domestic_academic: "국내 금속재료 학계 시각. 친환경 제강(수소환원제철)·고부가가치 합금·EV용 강재·핵심 IP를 본다.",
+    global_industry_veteran: "ArcelorMittal/Nippon Steel/Baowu 전직 임원 시각. 글로벌 강재 수급·중국 수출 통제·미국 IRA 철강 보조금·EU CBAM을 본다.",
+    global_adjacent_expert: "에너지·EV·반도체·건설 인접 시각. 신재생용 구리·반도체용 소재·EV 차체 강재·건설 강재 수요 변화를 본다.",
+  },
+  "운송/물류": {
+    domestic_special_expert: "국내 해운/항공/택배 PM 시각. 운임 사이클·연료비 hedging·선대(船隊) 규모·핵심 노선 수익성을 본다.",
+    domestic_academic: "국내 물류공학/항만 학계 시각. 글로벌 무역 흐름·자동화 항만·스마트 물류·핵심 IP를 본다.",
+    global_industry_veteran: "Maersk/MSC/FedEx/UPS 전직 임원 시각. 글로벌 BDI/SCFI·항공 cargo 시장·운하 통과량·코로나 후 정상화 속도를 본다.",
+    global_adjacent_expert: "이커머스·자동차·에너지 인접 시각. 이커머스 물류 수요·EV 운송 물량·LNG/석유 해상 운송·항공 cargo 인프라를 본다.",
+  },
+  "보험/증권": {
+    domestic_special_expert: "국내 IFRS17 적용 actuarial 임원/AM IR 시각. 자산운용 수익률·신계약 ARPU·계약유지율·자기자본수익률을 본다.",
+    domestic_academic: "국내 보험학/금융학 학계 시각. IFRS17 시장 영향·고령화 보험 수요·자산운용 alternatives·디지털 보험을 본다.",
+    global_industry_veteran: "Allianz/AXA/BlackRock 전직 임원 시각. 글로벌 자산운용 trend·alternatives·ESG·active vs passive 시장 점유율을 본다.",
+    global_adjacent_expert: "금융지주·은행·핀테크·자산운용 인접 시각. 보험+은행 cross-selling·인슈어테크·디지털 자산관리·웰스 매니지먼트를 본다.",
   },
 };
 
@@ -176,6 +230,21 @@ export function buildSectorPersonaContract(
     evaluationPrinciple = sectorAdjustment !== undefined
       ? `${baseSlotPrinciple}\n섹터-특화 adjustment: ${sectorAdjustment}`
       : baseSlotPrinciple;
+  } else if (slot.slot_type === "sub_tag_overlay" && slot.sub_tag !== undefined) {
+    // omxy R2 BLOCKER C 정정: builder 직접 호출 시 cross-sector subtag mismatch 가드 (throw).
+    // parseSectorPersonaId는 이미 guard하지만, generateAllSectorPersonas / direct caller에는 guard 필요.
+    const mapping = SUB_TAG_CROSSWALK[slot.sub_tag];
+    if (mapping === undefined) {
+      throw new Error(`unknown_sub_tag:${slot.sub_tag}`);
+    }
+    if (mapping.primary !== sector && mapping.secondary !== sector) {
+      throw new Error(`sub_tag_sector_mismatch:${sector}/${slot.sub_tag}`);
+    }
+    // (fall through to overlay 처리 below)
+    id = `sector-${sector}-slot-${slotIndex}-subtag-${slot.sub_tag}`;
+    label = `${sector} (${slot.sub_tag}) ${slot.role}`;
+    roleDescription = `${slot.sub_tag} 전문가: ${slot.role}`;
+    evaluationPrinciple = `${slot.sub_tag} sub-tag 활성화 시 본 sector 평가의 보완 시각을 제공한다. ${slot.role} 전문성으로 ${slot.sub_tag} 관련 dynamics(예: ${slot.sub_tag === "조선" ? "수주잔고·선가" : slot.sub_tag === "방산" ? "수출 정책·국방예산" : slot.sub_tag === "화학" ? "원가 스프레드·정유 마진" : slot.sub_tag === "게임" ? "IP 라이센싱·게임 PD" : slot.sub_tag === "가전" ? "프리미엄 가전·스마트홈" : slot.sub_tag === "제약" ? "임상 단계·GMP 규제" : slot.sub_tag === "부동산" ? "REITs·도시 개발" : "별도 dynamics"})를 평가에 반영한다.`;
   } else if (slot.slot_type === "primary_overlay") {
     // slot 11~12: sector primary overlay
     id = `sector-${sector}-slot-${slotIndex}`;
@@ -183,21 +252,14 @@ export function buildSectorPersonaContract(
     roleDescription = slot.role;
     evaluationPrinciple = `${sector} 섹터의 ${slot.role} 시각으로 평가합니다. 본 sector의 핵심 dynamics(${sectorPhilosophy.split(".")[0]})를 기준으로 회사의 경쟁 우위·기술 leap·정책 노출도를 본다.`;
   } else {
-    // slot 13~14: sub_tag overlay or backup
-    if (slot.sub_tag !== undefined) {
-      id = `sector-${sector}-slot-${slotIndex}-subtag-${slot.sub_tag}`;
-      label = `${sector} (${slot.sub_tag}) ${slot.role}`;
-      roleDescription = `${slot.sub_tag} 전문가: ${slot.role}`;
-      evaluationPrinciple = `${slot.sub_tag} sub-tag 활성화 시 본 sector 평가의 보완 시각을 제공한다. ${slot.role} 전문성으로 ${slot.sub_tag} 관련 dynamics(예: ${slot.sub_tag === "조선" ? "수주잔고·선가" : slot.sub_tag === "방산" ? "수출 정책·국방예산" : slot.sub_tag === "화학" ? "원가 스프레드·정유 마진" : slot.sub_tag === "게임" ? "IP 라이센싱·게임 PD" : slot.sub_tag === "가전" ? "프리미엄 가전·스마트홈" : slot.sub_tag === "제약" ? "임상 단계·GMP 규제" : slot.sub_tag === "부동산" ? "REITs·도시 개발" : "별도 dynamics"})를 평가에 반영한다.`;
-    } else {
-      // backup: no suffix (52차 박제 backwards-compat)
-      id = `sector-${sector}-slot-${slotIndex}`;
-      label = `${sector} ${slot.role}`;
-      roleDescription = slot.role;
-      evaluationPrinciple = slotIndex === 13
-        ? `섹터 quant/data 시각. ${sector} 섹터의 수치 모델·통계적 anomaly·factor exposure(value·growth·quality·momentum)를 본다. 정성 평가를 보완하는 양적 시그널을 평가에 반영.`
-        : `섹터 글로벌 관점. ${sector} 섹터를 한국 외 글로벌 시장(미국·중국·유럽·일본)의 동일/유사 산업과 비교한다. 한국 기업의 글로벌 상대 가치·해외 노출도를 평가.`;
-    }
+    // slot 13~14: sub_tag overlay backup (sub_tag === undefined case, 52차 박제 backwards-compat)
+    // sub_tag !== undefined 처리는 위 sub_tag_overlay branch에서 cross-sector guard 포함하여 처리.
+    id = `sector-${sector}-slot-${slotIndex}`;
+    label = `${sector} ${slot.role}`;
+    roleDescription = slot.role;
+    evaluationPrinciple = slotIndex === 13
+      ? `섹터 quant/data 시각. ${sector} 섹터의 수치 모델·통계적 anomaly·factor exposure(value·growth·quality·momentum)를 본다. 정성 평가를 보완하는 양적 시그널을 평가에 반영.`
+      : `섹터 글로벌 관점. ${sector} 섹터를 한국 외 글로벌 시장(미국·중국·유럽·일본)의 동일/유사 산업과 비교한다. 한국 기업의 글로벌 상대 가치·해외 노출도를 평가.`;
   }
 
   const systemPrompt = `당신은 ${roleDescription}입니다.
