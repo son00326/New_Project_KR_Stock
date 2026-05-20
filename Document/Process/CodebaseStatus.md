@@ -12,18 +12,18 @@
 
 ## 최근 갱신
 
-**2026-05-20** (52차 — Tier 2 SoT PR #4 + impl PR #5 + HANDOFF 박제): **D21 Tier 2 Sector Board canonical 14 sectors × 14 personas/sector overlay scaffold 완료 + Mock 196 stub + Kevin v3.1 reference 박제 (D22)**. PR #4 (Tier 2 SoT, OPEN MERGEABLE) + PR #5 (Tier 2 impl, OPEN MERGEABLE, stacked on PR #4) · omxy 누적 69 rounds CONVERGED · 게이트 ALL GREEN (build 25 / lint 0 err / **test:ci 606 / 63 files** / tsc clean). 신규 코드 SoT:
+**2026-05-20** (53차 §1 — Tier 2 stacked PRs 머지 + 마이그 production apply 완료): **52차 PR #4 (Tier 2 SoT) + PR #5 (Tier 2 impl) + 53차 §0 PR #6 (stale-fix) 3개 모두 MERGED + 마이그 0018·0019 production apply + SECURITY DEFINER triad 검증**. main HEAD `8108d058` · omxy 77 rounds CONVERGED 누적 (53차 §1 R1~R5 12 BLOCKERS catch) · 게이트 ALL GREEN (build 25 / lint 0 err / **test:ci 606 / 63 files** / tsc clean) · Vercel canary 4/4 OK. main에 박제된 코드 SoT:
 - `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS 14 + SECTOR_PERSONA_COUNT=14 + TIER2_CALLS_PER_TICKER=25 + SUB_TAG_CROSSWALK 7 + PRIMARY_OVERLAY_BY_SECTOR 14×2 + SUB_TAG_OVERLAY_ROLES 7×2 + LEGACY_ALIAS_MAP + resolveSlotTemplate)
 - `tudal/src/lib/report/writer.ts` (commitSectorReport + parseSectorContentStrict 추가, Core 11 path 변경 0)
 - `tudal/src/lib/screening/persona-eval.ts` (runSectorEval scaffold, Core 11 path 변경 0)
 - `tudal/src/lib/data/mock-admin-committee-personas.ts` (CANONICAL_SECTOR_PERSONAS 196 stub + getCanonicalSectorPersonas, legacy 5인 lean 105 격리 보존)
-- `tudal/supabase/migrations/0018_short_list_30_sub_tags.sql` (jsonb 컬럼 + GIN index, **production apply 미실행 — USER-gated**)
-- `tudal/supabase/migrations/0019_commit_sector_personas.sql` (SECURITY DEFINER + SELECT FOR UPDATE race-free + section_8 coalesce/jsonb_build_object Core 보존 + integer/non-negative validation + DELETE persona_layer='sector' first → INSERT 14 idempotency, **production apply 미실행 — USER-gated**)
+- `tudal/supabase/migrations/0018_short_list_30_sub_tags.sql` (jsonb 컬럼 + GIN index, **production apply ✅ `20260520141739`**) — smoke: sub_tags=jsonb / GIN idx 존재 / row count 30 unchanged
+- `tudal/supabase/migrations/0019_commit_sector_personas.sql` (SECURITY DEFINER + SELECT FOR UPDATE race-free + section_8 coalesce/jsonb_build_object Core 보존 + integer/non-negative validation + DELETE persona_layer='sector' first → INSERT 14 idempotency, **production apply ✅ `20260520141835`**) — smoke: prosecdef=true / proconfig="search_path=public, pg_temp" / anon_exec=false / auth_exec=true
 - +46 tests (legacy.5lean + canonical-sector-personas + canonical-sectors 추가 + persona-eval 추가 + writer 추가 + strict parser)
 
-**📌 main 미반영 reference (다음 세션 Step 3a 진입 대상)**: `origin/IMVCOM` branch (Kevin) 4 commits — v3.1 초보 친화 알테오젠 리포트 + NarrativeDesign + Section4-Trial + ReportFramework v3 진화분. Tier 2 production prompts 196 quality target.
+**📌 Kevin v3.1 reference (Step 3b production prompts quality target — main 보존, 53차 §0 박제 확정)**: `Document/Outputs/Report-Alteogen_196170_v3-Readable.{md,html}` + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign,Decisions,ValuationTrial}.md` + `Document/Service/Report/ReaderAnalogyCards-ConstructionToBio.md` + `Document/Outputs/Report-Samchundang_000250.{md,html}` + `Document/Service/Report/ReportFramework-BioSector.md` + `Document/Outputs/BioSectorReport-Alteogen_196170.md` + `Document/Outputs/Report-Alteogen_196170_v{1,2}.{md,html}`. IMVCOM 4 commits 모두 main의 ancestor (53차 §0 박제) — Step 3a SKIPPED, Step 3b 시 위 자료 직접 reference.
 
-**현재 Runbook 위치**: HANDOFF §2.1 Step 1c USER 대기 (PR #4/#5 review/merge + 마이그 0018·0019 production apply) + 동시 Step 3a CLAUDE 자동 진행 가능 (Kevin IMVCOM 정합 머지 PR).
+**현재 Runbook 위치**: HANDOFF §2.1 Step 3b 진행 중 (branch `feat/tier2-production-prompts` from main `8108d058`, production prompts 196 + Kevin v3.1 quality target). Step 1c/3a/B-17c 모두 해소.
 
 이전 갱신: **2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix + §9 Owner 분리 박제.
 
