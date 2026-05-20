@@ -15,6 +15,7 @@ import {
   SECTOR_PERSONA_COUNT,
   TIER2_CALLS_PER_TICKER,
   isCanonicalSector,
+  isSubTagAllowedForSector,
   resolveSubTag,
   resolveSlotTemplate,
   type CanonicalSector,
@@ -292,6 +293,64 @@ describe("resolveSlotTemplate — 14 slot 결정성 (D21)", () => {
     const slots = resolveSlotTemplate("자동차");
     const indices = slots.map((s) => s.slot_index);
     expect(indices).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  });
+});
+
+describe("isSubTagAllowedForSector — shared SoT (omxy R3 답변 f drift 방지)", () => {
+  it("primary 매치 → allowed", () => {
+    expect(isSubTagAllowedForSector("조선", "운송/물류")).toBe(true);
+    expect(isSubTagAllowedForSector("제약", "바이오")).toBe(true);
+    expect(isSubTagAllowedForSector("화학", "철강/소재")).toBe(true);
+    expect(isSubTagAllowedForSector("부동산", "건설")).toBe(true);
+    expect(isSubTagAllowedForSector("가전", "유통/소비재")).toBe(true);
+    expect(isSubTagAllowedForSector("방산", "철강/소재")).toBe(true);
+    expect(isSubTagAllowedForSector("게임", "IT/SW")).toBe(true);
+  });
+
+  it("secondary 매치 (게임 → 엔터/미디어) → allowed", () => {
+    expect(isSubTagAllowedForSector("게임", "엔터/미디어")).toBe(true);
+  });
+
+  it("cross-sector mismatch → false", () => {
+    expect(isSubTagAllowedForSector("조선", "바이오")).toBe(false);
+    expect(isSubTagAllowedForSector("제약", "반도체")).toBe(false);
+    expect(isSubTagAllowedForSector("게임", "자동차")).toBe(false);
+    expect(isSubTagAllowedForSector("가전", "통신")).toBe(false);
+  });
+
+  it("unknown sub_tag → false", () => {
+    expect(isSubTagAllowedForSector("비존재", "바이오")).toBe(false);
+    expect(isSubTagAllowedForSector("", "바이오")).toBe(false);
+  });
+
+  it("BLOCKER D: resolveSlotTemplate cross-sector sub_tag → backup slot fallback", () => {
+    // omxy R3 BLOCKER D: 바이오 + sub_tags=['조선'] (mismatch) → 단순 in-check fail이 아닌
+    // isSubTagAllowedForSector로 sector compatibility까지 검증 → slot 13/14 = backup
+    const slots = resolveSlotTemplate("바이오", ["조선"]);
+    expect(slots[12].sub_tag).toBeUndefined();
+    expect(slots[13].sub_tag).toBeUndefined();
+    expect(slots[12].slot_type).toBe("sub_tag_overlay");
+    expect(slots[13].slot_type).toBe("sub_tag_overlay");
+  });
+
+  it("BLOCKER D: resolveSlotTemplate valid primary match → overlay 활성", () => {
+    const slots = resolveSlotTemplate("바이오", ["제약"]);
+    expect(slots[12].sub_tag).toBe("제약");
+    expect(slots[13].sub_tag).toBe("제약");
+    expect(slots[12].role).toContain("제약");
+  });
+
+  it("BLOCKER D: resolveSlotTemplate valid secondary match (엔터/미디어 + 게임) → 활성", () => {
+    const slots = resolveSlotTemplate("엔터/미디어", ["게임"]);
+    expect(slots[12].sub_tag).toBe("게임");
+    expect(slots[13].sub_tag).toBe("게임");
+  });
+
+  it("BLOCKER D: resolveSlotTemplate multi sub_tag — 첫 valid sub_tag deterministic", () => {
+    // 두 sub_tag 중 첫번째 valid를 선택 (deterministic)
+    const slots = resolveSlotTemplate("바이오", ["조선", "제약"]);
+    // 조선은 바이오에 invalid (mismatch), 제약은 valid → 제약 선택
+    expect(slots[12].sub_tag).toBe("제약");
   });
 });
 
