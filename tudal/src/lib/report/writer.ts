@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { getPersonaById } from '@/lib/ai/prompts/personas';
 import type { CallPersonaResult } from '@/lib/ai/anthropic-client';
 import type { ConsensusBadge } from '@/lib/screening/consensus';
+import {
+  type CanonicalSector,
+  SECTOR_PERSONA_COUNT,
+  resolveSlotTemplate,
+} from '@/lib/screening/canonical-sectors';
 import type { Section8 } from './section-8-schema';
 
 interface ParsedPersonaResponse {
@@ -141,4 +146,91 @@ export async function commitBadgeOnly(input: { month: string; ticker: string }):
   });
   if (error) throw new Error(`commit_badge_only_failed:${error.code ?? 'unknown'}`);
   return { ok: true };
+}
+
+// Tier 2 implementation (52차 D21) — Sector Board 14 personas commit.
+// SoT = ServicePlan-Admin §1A.5 D21 + ReportFramework §7.2/§7.3 v2.5 + 마이그 0019.
+// omxy R1~R3 CONVERGED + 4 acceptance details + subagent gsd BLOCKERS.
+//
+// 호출 조건: Core 11 (commitTickerReport) 성공 후 + Tier 2 degraded 아님 (persona-eval 결정).
+// degraded 케이스 = 본 함수 호출 자체 skip (R2 B1 + R3 acc#4 — committee_votes 오염 0).
+// caller wiring (cron/admin server action)은 별도 PR (R1 #7 OOS).
+
+export interface CommitSectorReportInput {
+  month: string;                               // 'YYYY-MM'
+  ticker: string;                              // 6자리 KRX
+  sector: CanonicalSector;                     // canonical 14 (canonical-sectors.ts)
+  sub_tags?: readonly string[];                // 운영 UI sub_tags (D21 crosswalk)
+  sectorPersonaResults: CallPersonaResult[];   // length 14 happy-path만 (degraded면 caller가 skip)
+  sectorPersonaIds: string[];                  // length 14, slot_index 1~14 순서
+}
+
+export async function commitSectorReport(
+  input: CommitSectorReportInput,
+): Promise<{ reportId: string; votesInserted: number }> {
+  // R2 B2 + R3 acc#3: length=14 가드
+  if (
+    input.sectorPersonaResults.length !== SECTOR_PERSONA_COUNT ||
+    input.sectorPersonaIds.length !== SECTOR_PERSONA_COUNT
+  ) {
+    throw new Error('sector_writer_persona_count_mismatch');
+  }
+
+  const slotTemplate = resolveSlotTemplate(input.sector, input.sub_tags ?? []);
+
+  // partA = 14 sectorVoteRow (writer composes rich labels from canonical-sectors.ts crosswalk)
+  const partA = input.sectorPersonaIds.map((id, i) => {
+    const parsed = parseContent(input.sectorPersonaResults[i].content);
+    const slot = slotTemplate[i];
+    return {
+      persona_id: id,
+      label: slot.role,
+      background:
+        slot.slot_type === 'sub_tag_overlay' && slot.sub_tag !== undefined
+          ? `${slot.role} (sub_tag: ${slot.sub_tag})`
+          : slot.role,
+      vote: parsed.vote,
+      one_line: parsed.one_line,
+    };
+  });
+
+  // sector_aggregate = vote 카운트 (R3 acc#1 exact keys)
+  const sectorAggregate = partA.reduce(
+    (acc, row) => {
+      if (row.vote === 'BUY') acc.buy++;
+      else if (row.vote === 'HOLD') acc.hold++;
+      else if (row.vote === 'SELL') acc.sell++;
+      return acc;
+    },
+    { buy: 0, hold: 0, sell: 0 },
+  );
+
+  // committee_votes payload — persona_layer='sector', slim
+  const votes = input.sectorPersonaIds.map((id, i) => {
+    const parsed = parseContent(input.sectorPersonaResults[i].content);
+    return {
+      persona_id: id,
+      persona_layer: 'sector',
+      vote: parsed.vote,
+      argument_excerpt: parsed.argument_excerpt,
+    };
+  });
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('commit_sector_personas', {
+    p_month: input.month,
+    p_ticker: input.ticker,
+    p_sector: input.sector,
+    p_part_a: partA,
+    p_sector_aggregate: sectorAggregate,
+    p_votes: votes,
+  });
+
+  if (error) {
+    throw new Error(`commit_sector_personas_failed:${error.code ?? 'unknown'}`);
+  }
+  if (!data?.success) {
+    throw new Error('commit_sector_personas_failed:no_success');
+  }
+  return { reportId: data.report_id, votesInserted: data.votes_inserted };
 }

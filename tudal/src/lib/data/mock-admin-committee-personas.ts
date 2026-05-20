@@ -2,7 +2,13 @@
 // 출처: ReportFramework.md §6 Core 11 + §7 Sector Board 원칙 (축약).
 //
 // Core 11: 전 섹터 공통 참여. 철학적 다양성 확보 (가치·성장·매크로·리스크·퀀트 등).
-// Sector Board: 섹터별 10인 (MVP에서는 섹터당 5인 lean 로스터 채택).
+//
+// Sector Board:
+//   - 기존 (Legacy): 21 sector × 5인 = 110 mock (UI consumer 호환 유지).
+//   - **D21 (52차) Tier 2 신규**: canonical 14 sectors × 14 personas/sector overlay = 196 stub.
+//     SoT = ReportFramework.md §7.2 v2.5 + canonical-sectors.ts SECTOR_SLOT_TEMPLATE.
+//     persona ID 패턴 = `sector-{canonical-sector}-slot-{slotIndex 1~14}`.
+//     production sector persona prompts (@/lib/ai/prompts/personas)는 후속 PR.
 
 export type PersonaLayer = "core" | "sector";
 
@@ -263,3 +269,64 @@ export const SECTOR_PERSONAS: CommitteePersona[] = Object.entries(SECTOR_ROSTER)
 export function getSectorPersonas(sector: string): CommitteePersona[] {
   return SECTOR_PERSONAS.filter((p) => p.sector === sector);
 }
+
+// ─── Tier 2 D21 (52차) canonical 14 sectors × 14 personas/sector stub ─────────
+// production import 활성화 — canonical-sectors.ts SECTOR_SLOT_TEMPLATE 기반.
+// SoT = ReportFramework §7.2/§7.3 v2.5 + canonical-sectors.ts.
+
+import {
+  CANONICAL_SECTORS,
+  type CanonicalSector,
+  type SlotMeta,
+  SECTOR_PERSONA_COUNT,
+  resolveSlotTemplate,
+} from "@/lib/screening/canonical-sectors";
+
+/**
+ * canonical sector → 14 stub personas.
+ * sub_tags 없이 base 14 slot 생성 (slot 13·14는 base axis backup).
+ * 본 함수는 production code import 활성화 대상 (writer.ts, persona-eval.ts 호환).
+ */
+function generateCanonicalSectorPersonas(
+  sector: CanonicalSector,
+  sub_tags: readonly string[] = [],
+): CommitteePersona[] {
+  const slots = resolveSlotTemplate(sector, sub_tags);
+  return slots.map((slot: SlotMeta) => ({
+    id: `sector-${sector}-slot-${slot.slot_index}`,
+    name: `Mock Persona ${sector} #${slot.slot_index}`,
+    layer: "sector" as const,
+    archetype: slot.slot_type,
+    bio: slot.role,
+    sector,
+  }));
+}
+
+/**
+ * canonical 14 sectors × 14 stub personas = 196 roster.
+ * D21 박제 = ServicePlan-Admin §1A.5 D21 + ReportFramework §7.2 v2.5.
+ */
+export const CANONICAL_SECTOR_PERSONAS: readonly CommitteePersona[] = CANONICAL_SECTORS.flatMap(
+  (sector) => generateCanonicalSectorPersonas(sector),
+);
+
+/**
+ * canonical sector lookup helper (sub_tags 옵션 적용).
+ * 호출자: writer.ts commitSectorReport / persona-eval.ts runSectorEval (production import scope).
+ *
+ * @param sector canonical 14 enum
+ * @param sub_tags 선택적 sub_tag list (예: ['조선'] → slot 13·14가 sub_tag overlay)
+ * @returns 14 CommitteePersona stub array (slot 1~14 순서)
+ */
+export function getCanonicalSectorPersonas(
+  sector: CanonicalSector,
+  sub_tags: readonly string[] = [],
+): CommitteePersona[] {
+  return generateCanonicalSectorPersonas(sector, sub_tags);
+}
+
+/**
+ * 14×14 stub total count assertion guard (R3 acc#2 drift 방지 helper).
+ */
+export const CANONICAL_SECTOR_PERSONAS_TOTAL =
+  CANONICAL_SECTORS.length * SECTOR_PERSONA_COUNT; // = 14 × 14 = 196

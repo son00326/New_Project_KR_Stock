@@ -2,10 +2,10 @@
 //
 // SoT = `Document/Service/Report/ReportFramework.md §7.2 + §7.3` (v2.5, D21 52차)
 // SoT = `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D21`
+// SoT = `tudal/supabase/migrations/0019_commit_sector_personas.sql` (canonical 14 in-list 동기 — drift 방지)
 //
-// 본 PR 시점 production code import 0 (tests/만 활성).
-// `commit_sector_personas` RPC + Section 8 partA render + mock fixture migration = Tier 2
-// implementation 후속 PR OOS.
+// PR #4 (Tier 2 SoT): production import 0 (tests/만 활성).
+// PR (Tier 2 implementation, 본 세션): production import 활성화 = persona-eval/writer/mock-fixture 3 파일 한정.
 //
 // 변경 시 별도 PR + 위 SoT 동시 갱신.
 
@@ -115,6 +115,20 @@ export const PRIMARY_OVERLAY_BY_SECTOR: Record<CanonicalSector, readonly [string
 };
 
 /**
+ * D21 cost guard 상수. Tier 2 implementation PR (52차) 박제.
+ *
+ * SECTOR_PERSONA_COUNT = base 10 + primary overlay 2 + sub_tag overlay 2 = 14 (canonical/sector).
+ * TIER2_CALLS_PER_TICKER = Core 11 + Sector 14 = 25 (chair = Core 11 마지막 위원, 별도 추가 X).
+ *
+ * cost worst-case = 30 stocks × 25 = 750 calls/month (M17 hardcap 400k KRW 내).
+ * regen 2× = 1,500 calls/month worst-case ≈ 33만원 cache-off.
+ *
+ * 본 상수는 production 검증 게이트 (rg "780" tudal/src/ = 0) 박제 — chair separation은 별도 PR 시 OOS.
+ */
+export const SECTOR_PERSONA_COUNT = 14 as const;
+export const TIER2_CALLS_PER_TICKER = 25 as const;
+
+/**
  * Sub-tag crosswalk (운영 UI taxonomy proxy).
  *
  * primary = canonical sector resolution. sub_tags secondary는 sub_tag overlay (slot 13·14)
@@ -209,4 +223,84 @@ export const LEGACY_ALIAS_MAP: Record<string, CanonicalSector> = {
  */
 export function resolveSubTag(sub_tag: string): SubTagMapping | null {
   return SUB_TAG_CROSSWALK[sub_tag] ?? null;
+}
+
+/**
+ * D21 slot template — canonical sector + (옵션) sub_tags → 14 persona slot 메타 list 반환.
+ *
+ * slot 1~10 = base (sector-agnostic role)
+ * slot 11~12 = primary overlay (sector primary axis — PRIMARY_OVERLAY_BY_SECTOR)
+ * slot 13~14 = sub_tag overlay (sub_tag 매칭 시 SUB_TAG_OVERLAY_ROLES, 매칭 없으면 base axis backup)
+ *
+ * 매칭 sub_tag가 여러 개일 경우 첫번째 매칭 sub_tag만 사용 (deterministic).
+ * "게임" sub_tag는 secondary "엔터/미디어"가 있지만 본 함수에서는 primary sector 기준 slot만 결정 —
+ * secondary canonical은 별도 routing이 필요한 경우 SubTagMapping.secondary 사용.
+ */
+export interface SlotMeta {
+  slot_index: number;        // 1~14
+  slot_type: "base" | "primary_overlay" | "sub_tag_overlay";
+  role: string;              // 슬롯 역할 description
+  sub_tag?: string;          // sub_tag overlay 활성 시 매칭 sub_tag (slot 13·14)
+}
+
+const BASE_SLOT_ROLES: Record<BaseSlotRole, string> = {
+  domestic_insider_1: "국내 산업 내부자 (경영자/CTO 출신) #1",
+  domestic_insider_2: "국내 산업 내부자 (경영자/CTO 출신) #2",
+  domestic_sector_analyst: "국내 섹터 전문 애널리스트",
+  domestic_special_expert: "국내 섹터 특수 전문가",
+  domestic_academic: "국내 학술/연구 전문가",
+  global_sector_analyst_1: "해외 글로벌 섹터 애널리스트 #1",
+  global_sector_analyst_2: "해외 글로벌 섹터 애널리스트 #2",
+  global_industry_veteran: "해외 업계 경험자",
+  global_sector_investor: "해외 산업 투자 전문가",
+  global_adjacent_expert: "해외 인접 분야 전문가",
+};
+
+export function resolveSlotTemplate(
+  sector: CanonicalSector,
+  sub_tags: readonly string[] = [],
+): readonly SlotMeta[] {
+  const slots: SlotMeta[] = [];
+
+  // slot 1~10 = base
+  BASE_SLOTS.forEach((role, idx) => {
+    slots.push({
+      slot_index: idx + 1,
+      slot_type: "base",
+      role: BASE_SLOT_ROLES[role],
+    });
+  });
+
+  // slot 11·12 = primary overlay
+  const primaryRoles = PRIMARY_OVERLAY_BY_SECTOR[sector];
+  slots.push({ slot_index: 11, slot_type: "primary_overlay", role: primaryRoles[0] });
+  slots.push({ slot_index: 12, slot_type: "primary_overlay", role: primaryRoles[1] });
+
+  // slot 13·14 = sub_tag overlay (첫 매칭 sub_tag deterministic — 매칭 없으면 base axis backup)
+  const activeSubTag = sub_tags.find((tag) => tag in SUB_TAG_OVERLAY_ROLES);
+  if (activeSubTag !== undefined) {
+    const subRoles = SUB_TAG_OVERLAY_ROLES[activeSubTag];
+    slots.push({
+      slot_index: 13,
+      slot_type: "sub_tag_overlay",
+      role: subRoles[0],
+      sub_tag: activeSubTag,
+    });
+    slots.push({
+      slot_index: 14,
+      slot_type: "sub_tag_overlay",
+      role: subRoles[1],
+      sub_tag: activeSubTag,
+    });
+  } else {
+    // sub_tag 없으면 base axis backup (primary overlay와 다른 generic role)
+    slots.push({ slot_index: 13, slot_type: "sub_tag_overlay", role: "섹터 quant/data 전문가 backup" });
+    slots.push({ slot_index: 14, slot_type: "sub_tag_overlay", role: "섹터 글로벌 관점 backup" });
+  }
+
+  if (slots.length !== SECTOR_PERSONA_COUNT) {
+    throw new Error(`resolveSlotTemplate produced ${slots.length} slots, expected ${SECTOR_PERSONA_COUNT}`);
+  }
+
+  return slots;
 }
