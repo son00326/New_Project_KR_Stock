@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatErrorMessage } from "@/lib/admin/format-error";
 
-// 46차 기준 서버 액션 코드 inventory snapshot.
+// 46차 기준 서버 액션 코드 inventory snapshot + 50차 §2.C 13 신규.
 // 신규 액션 코드 추가 시 KOREAN_MAPPINGS + 본 list 같이 갱신.
 const KNOWN_ACTION_CODES = [
   // 인증·세션
@@ -45,6 +45,13 @@ const KNOWN_ACTION_CODES = [
   // credentials 방어 매핑
   "Invalid id format",
   "pending-s8",
+  // 50차 §2.C — S7a 신규 literal 6종 (AI / batch / writer / admin)
+  "ai_key_unavailable",
+  "ai_billing_exhausted",
+  "batch_lock_acquire_failed",
+  "writer_persona_count_mismatch",
+  "admin_required",
+  "shortlist_empty",
 ];
 
 describe("formatErrorMessage", () => {
@@ -186,6 +193,121 @@ describe("formatErrorMessage", () => {
       // so it falls through to the generic 오류: ${code} fallback.
       expect(formatErrorMessage("accept_gate_blocked")).toBe(
         "오류: accept_gate_blocked",
+      );
+    });
+  });
+
+  // 50차 §2.C — S7a 인벤토리 13 신규 코드 매핑 (6 literal + 7 prefix).
+  // emit 위치 = anthropic-client / cost-logger / writer / admin-batch-runs /
+  // track-record actions (모두 PR #1 feat/s7a-anthropic-wrapper에서 도입).
+  describe("S7a §2.C (50차) — 13 신규 코드: literal outputs", () => {
+    it("ai_key_unavailable — ANTHROPIC_API_KEY 미설정", () => {
+      expect(formatErrorMessage("ai_key_unavailable")).toBe(
+        "AI 키가 설정되지 않았습니다 — ANTHROPIC_API_KEY 환경변수 확인 필요",
+      );
+    });
+
+    // 방어 매핑 (PR #1 source 직접 throw 0건; persona-eval.ts catch list에서만 식별).
+    // 향후 Anthropic SDK 결제 한도 신호 분리 throw 시 raw 영문 노출 방지를 위해 사전 매핑.
+    it("ai_billing_exhausted — Anthropic 결제 한도 소진 (방어 매핑)", () => {
+      expect(formatErrorMessage("ai_billing_exhausted")).toBe(
+        "Anthropic 결제 한도가 소진되었습니다 — billing 충전 후 재시도",
+      );
+    });
+
+    it("batch_lock_acquire_failed — 월간 배치 락 획득 실패", () => {
+      expect(formatErrorMessage("batch_lock_acquire_failed")).toBe(
+        "월간 배치 락 획득 실패 — 잠시 후 다시 시도하세요",
+      );
+    });
+
+    it("writer_persona_count_mismatch — Core 11 위원 수 불일치", () => {
+      expect(formatErrorMessage("writer_persona_count_mismatch")).toBe(
+        "페르소나 평가 개수가 일치하지 않습니다 — 운영자 검토 필요",
+      );
+    });
+
+    it("admin_required — 어드민 권한 결여", () => {
+      expect(formatErrorMessage("admin_required")).toBe(
+        "어드민 권한이 필요합니다",
+      );
+    });
+
+    it("shortlist_empty — Short List 30 비어 있음", () => {
+      expect(formatErrorMessage("shortlist_empty")).toBe(
+        "이번 달 Short List가 비어 있습니다 — 먼저 스크리닝을 실행하세요",
+      );
+    });
+  });
+
+  describe("S7a §2.C (50차) — 13 신규 코드: prefix handlers", () => {
+    it("unknown_persona_id:<id> → 페르소나 ID 미발견", () => {
+      expect(formatErrorMessage("unknown_persona_id:warren_buffett")).toBe(
+        "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
+      );
+    });
+
+    it("cost_log_insert_failed:<pgcode> → 비용 로그 INSERT 실패", () => {
+      expect(formatErrorMessage("cost_log_insert_failed:23505")).toBe(
+        "비용 로그 저장 실패 — 잠시 후 다시 시도하세요",
+      );
+    });
+
+    it("cost_log_select_failed:<pgcode> → 비용 로그 SELECT 실패", () => {
+      expect(formatErrorMessage("cost_log_select_failed:42P01")).toBe(
+        "비용 로그 조회 실패 — 잠시 후 다시 시도하세요",
+      );
+    });
+
+    it("commit_persona_eval_failed:no_success → RPC success=false 분기", () => {
+      expect(formatErrorMessage("commit_persona_eval_failed:no_success")).toBe(
+        "페르소나 평가 저장 실패 — 다시 시도하세요",
+      );
+    });
+
+    it("commit_persona_eval_failed:<pgcode> → RPC error.code 분기", () => {
+      expect(formatErrorMessage("commit_persona_eval_failed:PGRST116")).toBe(
+        "페르소나 평가 저장 실패 — 다시 시도하세요",
+      );
+    });
+
+    it("commit_badge_only_failed:<pgcode> → 합의 배지 저장 실패", () => {
+      expect(formatErrorMessage("commit_badge_only_failed:unknown")).toBe(
+        "합의 배지 저장 실패 — 다시 시도하세요",
+      );
+    });
+
+    it("batch_lock_release_failed:<pgcode> → 배치 락 해제 실패", () => {
+      expect(formatErrorMessage("batch_lock_release_failed:unknown")).toBe(
+        "월간 배치 락 해제 실패 — 운영자 검토 필요",
+      );
+    });
+
+    it("financials_fetch_failed:<pgcode> → 재무 데이터 조회 실패", () => {
+      expect(formatErrorMessage("financials_fetch_failed:42703")).toBe(
+        "재무 데이터 조회 실패 — 데이터 소스 점검 필요",
+      );
+    });
+  });
+
+  // accept_gate_blocked:* 패턴 일관성 — 7개 신규 prefix도 같은 edge case 처리.
+  describe("S7a §2.C (50차) — prefix edge cases (accept_gate_blocked 패턴 일관성)", () => {
+    it("unknown_persona_id: with empty suffix still matches", () => {
+      expect(formatErrorMessage("unknown_persona_id:")).toBe(
+        "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
+      );
+    });
+
+    it("financials_fetch_failed without colon does NOT match prefix handler", () => {
+      // accept_gate_blocked 패턴 동일: colon 없으면 prefix 매칭 안 됨 → fallback
+      expect(formatErrorMessage("financials_fetch_failed")).toBe(
+        "오류: financials_fetch_failed",
+      );
+    });
+
+    it("cost_log_insert_failed without colon does NOT match prefix handler", () => {
+      expect(formatErrorMessage("cost_log_insert_failed")).toBe(
+        "오류: cost_log_insert_failed",
       );
     });
   });

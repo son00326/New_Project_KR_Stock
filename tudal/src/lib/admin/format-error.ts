@@ -5,8 +5,17 @@
 //   - portfolio-panel.tsx / regenerate-panel.tsx / exit-decision-form.tsx
 //   - settings-form.tsx / brokerage·binance form.tsx + delete-button.tsx
 //
-// KOREAN_MAPPINGS는 서버 액션 코드 inventory snapshot (46차 기준). 신규 코드 추가 시 이 표 + 테스트
+// KOREAN_MAPPINGS는 서버 액션 코드 inventory snapshot (46차 + 50차 §2.C). 신규 코드 추가 시 이 표 + 테스트
 // inventory도 같이 갱신해야 한다.
+//
+// 50차 §2.C (S7a Anthropic wrapper PR #1과 코드 인벤토리는 disjoint한 hotfix branch): 13 신규 코드 —
+// anthropic-client / cost-logger / writer / admin-batch-runs / track-record actions 에서 emit하는
+// 에러를 한국어 운영자 메시지로 매핑. PR #1의 §11 6 코드(consensus_rank_invalid /
+// consensus_undefined_case / batch_already_running / batch_already_completed / persona_eval_fatal /
+// ai_call_failed)와 본 13건은 disjoint하지만, KOREAN_MAPPINGS 같은 객체 같은 anchor 위치에 모두 삽입
+// 되므로 git 3-way merge 시 mechanical conflict 발생 — 양쪽 mapping 모두 keep으로 resolve.
+// `ai_billing_exhausted`는 persona-eval.ts catch list에서 식별하는 방어 매핑(향후 Anthropic SDK가
+// 결제 한도 신호를 분리 throw할 경우 대비 — PR #1 source에서 직접 throw 0건, 박제용 mapping).
 
 const KOREAN_MAPPINGS: Record<string, string> = {
   // 인증·세션 공통
@@ -50,14 +59,43 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // credentials lib 방어 매핑 (lib 레벨도 한국어 직접 반환 — 이중 보호)
   "Invalid id format": "잘못된 ID 형식입니다",
   "pending-s8": "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
+  // 50차 §2.C — S7a 인벤토리 13 신규: 아래 6 literal + PREFIX_MAPPINGS 7 prefix.
+  // `ai_billing_exhausted`는 persona-eval.ts catch list 방어 매핑(직접 throw 0건, 향후 SDK 결제 한도 신호 대비).
+  ai_key_unavailable:
+    "AI 키가 설정되지 않았습니다 — ANTHROPIC_API_KEY 환경변수 확인 필요",
+  ai_billing_exhausted:
+    "Anthropic 결제 한도가 소진되었습니다 — billing 충전 후 재시도",
+  batch_lock_acquire_failed: "월간 배치 락 획득 실패 — 잠시 후 다시 시도하세요",
+  writer_persona_count_mismatch:
+    "페르소나 평가 개수가 일치하지 않습니다 — 운영자 검토 필요",
+  admin_required: "어드민 권한이 필요합니다",
+  shortlist_empty:
+    "이번 달 Short List가 비어 있습니다 — 먼저 스크리닝을 실행하세요",
 };
+
+// PREFIX_MAPPINGS — `prefix:<dynamic-suffix>` 패턴 처리.
+// suffix는 운영자 메시지에 노출하지 않는다. accept_gate_blocked:* 와 §2.C 7 prefix가 동일 패턴.
+// 빈 suffix("prefix:")는 매칭, colon 없는 경우는 fallback으로 떨어진다.
+// 총 8 항목 = 1 baseline (accept_gate_blocked) + 7 §2.C (50차 S7a 인벤토리).
+const PREFIX_MAPPINGS: ReadonlyArray<readonly [string, string]> = [
+  ["accept_gate_blocked:", "승인 조건을 충족하지 못했습니다"],
+  [
+    "unknown_persona_id:",
+    "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
+  ],
+  ["cost_log_insert_failed:", "비용 로그 저장 실패 — 잠시 후 다시 시도하세요"],
+  ["cost_log_select_failed:", "비용 로그 조회 실패 — 잠시 후 다시 시도하세요"],
+  ["commit_persona_eval_failed:", "페르소나 평가 저장 실패 — 다시 시도하세요"],
+  ["commit_badge_only_failed:", "합의 배지 저장 실패 — 다시 시도하세요"],
+  ["batch_lock_release_failed:", "월간 배치 락 해제 실패 — 운영자 검토 필요"],
+  ["financials_fetch_failed:", "재무 데이터 조회 실패 — 데이터 소스 점검 필요"],
+];
 
 export function formatErrorMessage(code: string): string {
   if (code in KOREAN_MAPPINGS) return KOREAN_MAPPINGS[code];
-  // accept_gate_blocked:* prefix → 게이트 종류는 숨김 (P1.1 hotfix scope).
-  // 후속에서 hold_24h / viewers_insufficient 별 안내로 분기 가능.
-  if (code.startsWith("accept_gate_blocked:")) {
-    return "승인 조건을 충족하지 못했습니다";
+  // prefix 매핑 (accept_gate_blocked:* 동일 패턴, 50차 §2.C 7 신규 포함).
+  for (const [prefix, message] of PREFIX_MAPPINGS) {
+    if (code.startsWith(prefix)) return message;
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
