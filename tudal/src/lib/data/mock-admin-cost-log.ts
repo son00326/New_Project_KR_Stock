@@ -173,7 +173,8 @@ logs.push(
 export const MOCK_ADMIN_COST_LOG: CostLog[] = logs;
 
 // 검증용 — 35만 경보 강제 트리거 (40만 hardcap 미만, 별도 month로 격리)
-// Opus 5M in + 2.5M out = (75 + 187.5) USD × 1430 = ₩375,375 → 경보 ✅ / hardcap ✗
+// 50차 §2.D Opus 4.7 단가 $5/$25 정정 반영: 동일 ₩375,375 트리거를 위해 토큰 3배 확대.
+// Opus 15M in + 7.5M out = (75 + 187.5) USD × 1430 = ₩375,375 → 경보 ✅ / hardcap ✗
 export const MOCK_ADMIN_COST_LOG_OVER_WARNING: CostLog[] = [
   {
     id: "cost-warn-001",
@@ -184,14 +185,15 @@ export const MOCK_ADMIN_COST_LOG_OVER_WARNING: CostLog[] = [
     ticker: "TEST",
     personaId: null,
     section: "stress_test",
-    tokensPrompt: 5_000_000,
-    tokensCompletion: 2_500_000,
-    costKrw: computeCostKrw(MODEL_OPUS, 5_000_000, 2_500_000),
+    tokensPrompt: 15_000_000,
+    tokensCompletion: 7_500_000,
+    costKrw: computeCostKrw(MODEL_OPUS, 15_000_000, 7_500_000),
   },
 ];
 
 // 검증용 — 40만 hardcap 강제 트리거 (재생성 차단 테스트용)
-// Opus 6M in + 3M out = (90 + 225) USD × 1430 = ₩450,450 → 경보 ✅ / hardcap ✅
+// 50차 §2.D Opus 4.7 단가 $5/$25 정정 반영: 동일 ₩450,450 트리거를 위해 토큰 3배 확대.
+// Opus 18M in + 9M out = (90 + 225) USD × 1430 = ₩450,450 → 경보 ✅ / hardcap ✅
 export const MOCK_ADMIN_COST_LOG_OVER_HARDCAP: CostLog[] = [
   {
     id: "cost-cap-001",
@@ -202,8 +204,8 @@ export const MOCK_ADMIN_COST_LOG_OVER_HARDCAP: CostLog[] = [
     ticker: "TEST",
     personaId: null,
     section: "stress_test",
-    tokensPrompt: 6_000_000,
-    tokensCompletion: 3_000_000,
-    costKrw: computeCostKrw(MODEL_OPUS, 6_000_000, 3_000_000),
+    tokensPrompt: 18_000_000,
+    tokensCompletion: 9_000_000,
+    costKrw: computeCostKrw(MODEL_OPUS, 18_000_000, 9_000_000),
   },
 ];
