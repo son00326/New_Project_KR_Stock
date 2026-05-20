@@ -12,7 +12,20 @@
 
 ## 최근 갱신
 
-**2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): **HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix (USER/CLAUDE/SHARED) + §2.2 S9 OK 7 enriched criteria + §8 시나리오 분기 제거 + §9 Owner 분리 박제**. 출시까지 가는 순서 + 자동/수동 트리거 분리 단일 SoT. **현재 Runbook 위치 = §2.1 Step 1 USER 대기**. 자동 진행 가능한 다음 CLAUDE Step = Step 2 (§2.C format-error hotfix 별도 branch). omxy 50 rounds stable (50차 §2 Runbook docs verification rounds (R14+) = not counted, durable).
+**2026-05-20** (52차 — Tier 2 SoT PR #4 + impl PR #5 + HANDOFF 박제): **D21 Tier 2 Sector Board canonical 14 sectors × 14 personas/sector overlay scaffold 완료 + Mock 196 stub + Kevin v3.1 reference 박제 (D22)**. PR #4 (Tier 2 SoT, OPEN MERGEABLE) + PR #5 (Tier 2 impl, OPEN MERGEABLE, stacked on PR #4) · omxy 누적 69 rounds CONVERGED · 게이트 ALL GREEN (build 25 / lint 0 err / **test:ci 606 / 63 files** / tsc clean). 신규 코드 SoT:
+- `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS 14 + SECTOR_PERSONA_COUNT=14 + TIER2_CALLS_PER_TICKER=25 + SUB_TAG_CROSSWALK 7 + PRIMARY_OVERLAY_BY_SECTOR 14×2 + SUB_TAG_OVERLAY_ROLES 7×2 + LEGACY_ALIAS_MAP + resolveSlotTemplate)
+- `tudal/src/lib/report/writer.ts` (commitSectorReport + parseSectorContentStrict 추가, Core 11 path 변경 0)
+- `tudal/src/lib/screening/persona-eval.ts` (runSectorEval scaffold, Core 11 path 변경 0)
+- `tudal/src/lib/data/mock-admin-committee-personas.ts` (CANONICAL_SECTOR_PERSONAS 196 stub + getCanonicalSectorPersonas, legacy 5인 lean 105 격리 보존)
+- `tudal/supabase/migrations/0018_short_list_30_sub_tags.sql` (jsonb 컬럼 + GIN index, **production apply 미실행 — USER-gated**)
+- `tudal/supabase/migrations/0019_commit_sector_personas.sql` (SECURITY DEFINER + SELECT FOR UPDATE race-free + section_8 coalesce/jsonb_build_object Core 보존 + integer/non-negative validation + DELETE persona_layer='sector' first → INSERT 14 idempotency, **production apply 미실행 — USER-gated**)
+- +46 tests (legacy.5lean + canonical-sector-personas + canonical-sectors 추가 + persona-eval 추가 + writer 추가 + strict parser)
+
+**📌 main 미반영 reference (다음 세션 Step 3a 진입 대상)**: `origin/IMVCOM` branch (Kevin) 4 commits — v3.1 초보 친화 알테오젠 리포트 + NarrativeDesign + Section4-Trial + ReportFramework v3 진화분. Tier 2 production prompts 196 quality target.
+
+**현재 Runbook 위치**: HANDOFF §2.1 Step 1c USER 대기 (PR #4/#5 review/merge + 마이그 0018·0019 production apply) + 동시 Step 3a CLAUDE 자동 진행 가능 (Kevin IMVCOM 정합 머지 PR).
+
+이전 갱신: **2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix + §9 Owner 분리 박제.
 
 **2026-05-19** (50차 §1 B-17 EXECUTED ✅): **S7a Anthropic wrapper Task 17/17 ✅ + 50차 §1 B-17 EXECUTED (push + 0016a + 0017 + PR #1) + omxy 50 rounds CONVERGED**. PR #1 OPEN, Vercel preview Ready, 사용자 review/merge 대기.
 - **Branch**: `feat/s7a-anthropic-wrapper` (main에서 분기, **34+ commits ahead** (33 pre-박제 + 1 50차 §1 박제 commit + R11 cleanup + 후속 minor docs cleanup 포함; 정확 값 `git rev-list --count main..HEAD`), **push 완료**).
