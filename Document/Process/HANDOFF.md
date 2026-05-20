@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-21 (53차 §2 — **🎯 Step 3b §1+§5 sector-persona-builder 완성 + omxy R1~R4 4 rounds CONVERGED + 81 rounds 누적**) · branch `feat/tier2-production-prompts` HEAD `2b4904c+` · 14 sectors × 14 slot = 196 cells dynamic resolution + 14 SECTOR_PHILOSOPHIES + 56 SECTOR_BASE_SLOT_ADJUSTMENTS (high-risk roles 4/5/8/10) + isSubTagAllowedForSector shared SoT (drift 방지) · 검증 게이트 ALL GREEN (test:ci 650/64, +44 over 53차 §1 main 606) · 다음 = Step 3b §6 PR create
+Last updated: 2026-05-21 (53차 §2 — **🎯 Step 3b §1+§5+§6 sector-persona-builder 완성 + PR #7 OPEN MERGEABLE + omxy R1~R5 5 rounds CONVERGED + 82 rounds 누적**) · branch `feat/tier2-production-prompts` HEAD `139c954+` (6 commits ahead of main) · **PR #7** OPEN MERGEABLE: https://github.com/son00326/New_Project_KR_Stock/pull/7 · 14 sectors × 14 slot = 196 cells dynamic resolution + 14 SECTOR_PHILOSOPHIES + 56 SECTOR_BASE_SLOT_ADJUSTMENTS (high-risk roles 4/5/8/10) + isSubTagAllowedForSector shared SoT (drift 방지) · 검증 게이트 ALL GREEN (test:ci 650/64, +44 over 53차 §1 main 606) · 다음 = USER PR #7 review/merge → Step 3c caller wiring
 
 이전 갱신: 2026-05-20 (53차 §1 — **🚀 Tier 2 stacked PRs 머지 + 마이그 0018·0019 production apply 완료** · branch `feat/tier2-production-prompts` (main에서 신규, Step 3b 진입) · PR #4/#5/#6 모두 MERGED (3 stacked rebase) · 마이그 0018 (`short_list_30.sub_tags jsonb` + GIN) + 0019 (`commit_sector_personas` RPC SECURITY DEFINER triad) production 적용 + smoke ALL GREEN · omxy R1~R5 CONVERGED (12 BLOCKERS catch: stacked merge semantics + scope guard 정정 + post-edit recheck + force-with-lease conditional push + file-exact migration + SECURITY DEFINER pg_proc smoke 등) · 77 rounds 누적 · Vercel production canary 4/4 OK · **현재 위치 = Step 3b 진입 (production prompts 196, Kevin v3.1 quality target)**)
 
@@ -8,10 +8,10 @@ Last updated: 2026-05-21 (53차 §2 — **🎯 Step 3b §1+§5 sector-persona-bu
 
 ## ⭐ 다음 세션 진입자 5줄 요약
 
-1. **현재 branch**: `feat/tier2-production-prompts` (53차 §2 종료 시점, 5 commits ahead of main). 53차 §1 박제 + Step 3b §1 builder + R1/R2/R3 fix + §5 fanout + polish 모두 적용.
-2. **OPEN PRs (53차 §2 종료 시점)**: **#2** (format-error CONFLICTING, 보류 유지) + **본 branch PR (Step 3b §6에서 create 진행)**.
-3. **USER-gated 대기**: 본 branch PR review/merge (53차 §2 종료 시 create됨).
-4. **다음 1순위 CLAUDE 작업**: (USER 본 branch PR merge 완료 후) §2.1 **Step 3c — caller wiring** (cron mock dry-run 폐기 + admin server action Tier 2 branch 추가 + `/admin/report/[ticker]/page.tsx` Section 8 partA UI render).
+1. **현재 branch**: `feat/tier2-production-prompts` (53차 §2 종료 시점, HEAD `139c954+`, **6 commits ahead of main**). 53차 §1 박제 + Step 3b §1 builder + R1/R2/R3 fix + §5 fanout + R4 polish + R5 final-state fix 모두 적용.
+2. **OPEN PRs (53차 §2 종료 시점)**: **#2** (format-error CONFLICTING, 보류 유지) + **PR #7** OPEN MERGEABLE: https://github.com/son00326/New_Project_KR_Stock/pull/7 (base main ← head feat/tier2-production-prompts).
+3. **USER-gated 대기**: PR #7 review/merge (53차 §2에서 create 완료).
+4. **다음 1순위 CLAUDE 작업**: (USER PR #7 merge 완료 후) §2.1 **Step 3c — caller wiring** (cron mock dry-run 폐기 + admin server action Tier 2 branch 추가 + `/admin/report/[ticker]/page.tsx` Section 8 partA UI render).
 5. **자동 진행**: §2.0 default-progress policy + §7 omxy 적대적 검토 패턴 강제 적용. context handoff 시 본 §0 5줄 요약 + §1 표 + §2.1 Step 3c row + §6 53차 §2 entry로 재개.
 
 **목적**: 새 세션에서 사용자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행"이라고 하면, 이 파일만으로 **§2.1 Runbook 박제된 순서대로 자동 진행** (§2.0 default-progress policy 준수 — 옵션 재질문 루프 금지). USER-gated Step은 background blocker로 표시 + 다음 unblocked CLAUDE Step 자동 시작. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
@@ -262,11 +262,12 @@ S9 운용 검증 1개월+ 종료 후 **아래 7개 모두 만족** 시 "어드�
 
 - **53차 §2 Step 3b §1 builder + §5 fanout 완성 (branch `feat/tier2-production-prompts`, 2026-05-21)**:
   - **scope**: 사용자 "진입 — 196 prompts 자동 작성 시작" + "3b 6 끝날때까지는 omxy랑의 대화 멈추지 말고 계속 진행해" 트리거. Step 3b §1~§6 omxy iterate CONVERGED까지 자동 진행.
-  - **omxy R1~R4 4 rounds CONVERGED (9 BLOCKERS catch)**:
+  - **omxy R1~R5 5 rounds CONVERGED (12 BLOCKERS catch — 사용자 "omxy랑도 제대로 확인한거야?" catch가 R5 final-state drift catalyst)**:
     - R1 5 BLOCKERS: (1) malformed personaId silent accept (slot 1~12 + subtag suffix / unknown subtag) / (2) cross-sector subtag mismatch (예: 바이오-조선) silent accept / (3) base slot depth too generic (global_industry_veteran + 바이오 = generic supply chain) / (4) Kevin v3.1 overpromise (200자에서 DCF/Half Kelly 재현 불가, "quality target" → "inquiry pattern") / (5) tests=coverage-not-invariants
     - R2 3 NEW BLOCKERS: (A) Partial<Record<string,string>> 키 타입 loose (typo silent drop) / (B) "9 unfilled sectors fallback" test가 incompleteness를 expected behavior로 freeze (PR reviewer가 intentional로 오인) / (C) buildSectorPersonaContract direct call에서 cross-sector mismatch silent accept
     - R3 1 NEW BLOCKER + 답변 (f): (D) resolveSlotTemplate이 SUB_TAG_OVERLAY_ROLES in-check만 하고 sector compatibility 미검증 → `runSectorEval({sector:'바이오', sub_tags:['조선']})` invalid personaId 발급 / (f) sub_tag validity 로직 2곳 duplicate → drift 위험, shared helper 권고
-    - R4 CONVERGED: 모든 BLOCKERS fix 검증 + polish 3 items noted (Kevin v3.1 코멘트 wording / 2차전지 polysilicon / 자동차 덴소 / 바이오 imminent BLA)
+    - R4 CONVERGED-track: 모든 BLOCKERS fix 검증 + polish 3 items noted (Kevin v3.1 코멘트 wording / 2차전지 polysilicon / 자동차 덴소 / 바이오 imminent BLA)
+    - R5 3 final-state BLOCKERS catch (사용자 catalyst): (1) "quality target" 코멘트 line 9/81 잔존 (R5 grep 기대 0 fail) / (2) commit count drift (docs "5 commits" actual 6) / (3) docs stale post-PR-create (HANDOFF/Dashboard "PR create 진행 중" but PR #7 OPEN MERGEABLE 존재). 모두 fix 후 R5 CONVERGED.
   - **구현 결과 (3 commits + polish)**:
     - `df8ef0e` (53차 §1 박제 docs first commit) → builder phase 진입 시 context handoff 안전 확보
     - `d666e3b` Step 3b §1 builder: sector-persona-builder.ts (330 lines) + tests (180 lines) — 14 SECTOR_PHILOSOPHIES + 10 BASE_SLOT_PRINCIPLES + KEVIN_V31_TONE_RULES + buildSectorPersonaContract + parseSectorPersonaId + resolveSectorPersona + generateAllSectorPersonas + getPersonaById dynamic fallback + runSectorEval sub_tag personaId encoding
@@ -592,11 +593,12 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
   R1 5 BLOCKERS catch (silent malformed ID + cross-sector subtag + base depth + Kevin v3.1 overpromise + tests=coverage-not-invariants) 1 round   CONTINUE→CONVERGED-track
   R2 3 NEW BLOCKERS (loose type + tests freeze incompleteness + direct builder mismatch)                                                  1 round   CONTINUE→CONVERGED-track
   R3 BLOCKER D (resolveSlotTemplate cross-sector silent accept) + 답변 f drift                                                            1 round   CONTINUE→CONVERGED-track
-  R4 CONVERGED (BLOCKER D fix + shared SoT consolidation + polish 3 items noted)                                                          1 round   CONVERGED
+  R4 CONVERGED-track (BLOCKER D fix + shared SoT consolidation + polish 3 items noted)                                                    1 round   CONVERGED-track
+  R5 3 final-state BLOCKERS (사용자 catch가 catalyst — "quality target" 코멘트 잔존 + commit count drift 5→6 + docs stale post-PR-create) 1 round   CONVERGED
 ─────────────────────────────────────────────
-                                          4 rounds  CONVERGED (53차 §2)
+                                          5 rounds  CONVERGED (53차 §2)
 
-총 누적 (CONVERGED only):                 81 rounds  CONVERGED (53차 §2 Step 3b 종료 시점, 안정)
+총 누적 (CONVERGED only):                 82 rounds  CONVERGED (53차 §2 Step 3b 종료 시점, 안정)
 ```
 
 ---
