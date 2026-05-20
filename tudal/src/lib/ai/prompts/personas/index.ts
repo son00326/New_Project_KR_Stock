@@ -33,6 +33,13 @@ export const CORE_11_PERSONAS: PersonaContract[] = [
   chair,
 ];
 
+// D21 Tier 2 (53차+) — sector persona IDs는 dynamic resolution (sector-persona-builder).
+// Core 11 lookup 실패 시 fallback. 미정의 패턴이면 undefined.
+import { resolveSectorPersona } from "./sector-persona-builder";
+
 export function getPersonaById(id: string): PersonaContract | undefined {
-  return CORE_11_PERSONAS.find((p) => p.id === id);
+  const core = CORE_11_PERSONAS.find((p) => p.id === id);
+  if (core !== undefined) return core;
+  const sector = resolveSectorPersona(id);
+  return sector ?? undefined;
 }

@@ -1,0 +1,274 @@
+// tudal/src/lib/ai/prompts/personas/sector-persona-builder.ts
+//
+// SoT = `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D21` (canonical 14 × 14 overlay)
+// SoT = `Document/Service/Report/ReportFramework.md §7.2 + §7.3 v2.5`
+// SoT = `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS / PRIMARY_OVERLAY_BY_SECTOR / SUB_TAG_OVERLAY_ROLES)
+// Kevin v3.1 quality target = `Document/Outputs/Report-Alteogen_196170_v3-Readable.md`
+//                           + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign}.md`
+//
+// Tier 2 Sector Board 14 persona slot 별 production system prompt 생성기.
+// 196 = 14 canonical sectors × 14 slot/sector (10 base + 2 primary overlay + 2 sub_tag overlay).
+// 본 builder는 runtime resolution — getPersonaById가 personaId 패턴을 parse해 sector + slot meta를 복원 후 본 함수로 PersonaContract 생성.
+//
+// PersonaId 패턴 (runSectorEval에서 발급, 52차 박제와 backwards-compat):
+//   slot 1~12: `sector-${sector}-slot-${slotIndex}`
+//   slot 13~14 (no sub_tag match): `sector-${sector}-slot-${slotIndex}` (= backup, no suffix)
+//   slot 13~14 (sub_tag matched): `sector-${sector}-slot-${slotIndex}-subtag-${subTag}`
+
+import {
+  type CanonicalSector,
+  type SlotMeta,
+  CANONICAL_SECTORS,
+  PRIMARY_OVERLAY_BY_SECTOR,
+  SUB_TAG_OVERLAY_ROLES,
+  BASE_SLOTS,
+  SECTOR_PERSONA_COUNT,
+  isCanonicalSector,
+  resolveSlotTemplate,
+} from "@/lib/screening/canonical-sectors";
+import { CORE_USER_PROMPT_TEMPLATE } from "../user-prompt-template";
+import type { PersonaContract } from "./index";
+
+/**
+ * canonical sector philosophy (Kevin v3.1 톤 적응).
+ *
+ * 형식 = 200자 내외 prose. 1 일상 비유 + 1 평가 핵심.
+ * Section 8 persona가 200자 argument를 작성할 때 sector context로 일관 활용.
+ */
+export const SECTOR_PHILOSOPHIES: Record<CanonicalSector, string> = {
+  "바이오": "바이오는 임상 결과 1건이 시총을 2배로 만들거나 80% 날려버리는 binary 산업입니다. 신약 1개 개발에 10년·1조원이 들지만 성공 시 글로벌 매출 5조원이 가능합니다. 핵심 판단: 파이프라인 단계(전임상→3상)·FDA/식약처 일정·매출 다각화·현금 소진 속도.",
+  "반도체": "반도체는 4년 주기 사이클(호황 2년·불황 2년)을 반복하는 자본 게임입니다. EUV·3nm 같은 공정 leap이 시장 점유율을 5년간 결정합니다. 핵심 판단: DRAM/NAND 가격 흐름·CAPEX 규모·고객사 다변화(애플·삼성·MS 등)·재고 사이클 단계.",
+  "건설": "건설은 수주(2~3년 전) → 매출 → 손익으로 시차가 큰 산업입니다. PF(프로젝트 파이낸싱) 부실 한 건이 자본을 잠식할 수 있습니다. 핵심 판단: 미분양 비율·PF 잔액·해외 수주 마진·원자재(시멘트·철근) 가격 전가력.",
+  "금융": "금융은 NIM(순이자마진)·자산 건전성·자기자본비율 3축으로 평가합니다. 금리 1% 변화가 은행 순이익을 10~20% 흔듭니다. 핵심 판단: 연체율 추세·BIS 비율·디지털 전환 속도·핵심 예금 비중.",
+  "2차전지": "2차전지는 LFP(저가)·NCM(고에너지) 화학 노선과 EV 보급 곡선이 엮인 산업입니다. 1개 메이저 OEM 수주 변경이 매출 30% 좌우합니다. 핵심 판단: 셀 제조 mix·OEM 고객 분산·리튬/니켈 원가·차세대 전고체 R&D 진척.",
+  "자동차": "자동차는 ICE→EV 전환과 ADAS·자율주행 기술 leap이 동시 진행되는 transition 산업입니다. 글로벌 OEM 1개 sourcing 변경이 부품사 매출 50%를 흔듭니다. 핵심 판단: EV 비중·자율주행 SW 역량·중국 시장 노출·반도체 공급망 회복도.",
+  "IT/SW": "IT/SW는 SaaS·클라우드 인프라가 성장의 핵심이며 retention(고객 유지율)·NRR(순매출 유지율) 100% 초과가 quality 시그널입니다. 핵심 판단: ARR 성장률·net dollar retention·R&D 효율·플랫폼 락인 vs commodity 위험.",
+  "유통/소비재": "유통/소비재는 옴니채널(온라인+오프라인) 통합과 DTC(direct-to-consumer) 전환이 마진 구조를 바꿉니다. 1개 핵심 brand 트렌드 변화가 영업이익을 30% 흔듭니다. 핵심 판단: 매장당 매출·이커머스 비중·재고 회전·소비자 신뢰지수.",
+  "에너지": "에너지는 신재생(태양광·풍력·수소) 비중 확대와 전력시장 design 변화가 장기 가치를 결정합니다. 정책 1건이 사업성을 reset할 수 있습니다. 핵심 판단: 신재생 발전 capacity·전력 가격 hedging·정책 노출도·CAPEX 회수 기간.",
+  "엔터/미디어": "엔터/미디어는 OTT 글로벌 라이센싱과 K-콘텐츠(드라마·K-팝·게임 IP) 수출이 매출 다각화의 핵심입니다. 1개 hit IP가 시총을 2배로 만들 수 있습니다. 핵심 판단: 글로벌 라이센스 매출 비중·IP 포트폴리오 다양성·아티스트/창작자 계약 안정성.",
+  "통신": "통신은 5G·6G CAPEX 사이클과 ARPU(가입자당 매출) 안정성이 cash flow를 결정합니다. 정부 주파수 배정 1건이 5년 경쟁 구도를 결정합니다. 핵심 판단: 5G/6G 투자 회수 단계·기업 B2B 매출 비중·MVNO 위협 정도·해외 진출.",
+  "철강/소재": "철강/소재는 글로벌 수급(중국 수출·인프라 수요)·원자재(철광석·니켈) 가격·스프레드(판매가-원가) 3축 게임입니다. 1년 사이클이 영업이익을 -50%~+50% 흔듭니다. 핵심 판단: 글로벌 강재 수급·중국 정책·에너지 전환 수혜(니켈·구리)·고부가가치 비중.",
+  "운송/물류": "운송/물류는 글로벌 무역 흐름·BDI(벌크 운임)·항공/해운 운임이 매출을 직격합니다. 코로나·운하 사고 같은 외부 충격이 운임을 10배 만들 수 있습니다. 핵심 판단: 운임 사이클 단계·선대(船隊) 규모·연료비 hedging·환율 노출.",
+  "보험/증권": "보험/증권은 운용자산 규모·운용수익률·신계약 ARPU 3축으로 평가합니다. 보험은 actuarial(보험수리) 정확도, 증권은 시장 사이클이 핵심입니다. 핵심 판단: 운용자산 성장률·계약유지율·자기자본수익률·디지털 채널 전환.",
+};
+
+/**
+ * 10 base slot 별 평가 원칙 (sector-agnostic).
+ *
+ * 각 항목 = persona 의 evaluation lens (200자 argument 작성 시 기준).
+ * sector philosophy와 결합되어 sector-aware 평가가 자연스럽게 되도록 일반 원칙 위주.
+ */
+export const BASE_SLOT_PRINCIPLES: Record<string, string> = {
+  domestic_insider_1: "국내 산업의 1선 경영진/CTO 시각. 사업의 실행 가능성·경쟁사 대비 실력·핵심 인재 영입력·내부 cash flow 운영 효율을 본다. 경영진의 capital allocation 의사결정 이력·R&D 우선순위·M&A 트랙 레코드를 평가.",
+  domestic_insider_2: "국내 산업 내부의 2번째 관점 (영업/마케팅 출신 또는 전직 임원). 매출 다각화·핵심 고객 의존도·국내 채널 경쟁력·B2B vs B2C mix·영업이익률 안정성을 본다. 한국 시장 특수성(재벌 구조·수출 의존)을 평가에 반영.",
+  domestic_sector_analyst: "국내 증권사 섹터 전문 애널리스트 시각. EV/EBITDA·PER·PBR 등 multiple 비교·peer 그룹 매출 성장률 대비 위치·earnings revision 흐름을 본다. 컨센서스 대비 회사 가이던스의 보수성·실적 surprise/miss 패턴·target price 도출 근거를 평가.",
+  domestic_special_expert: "국내 섹터 특수 전문가 (전직 PM·연구원·정책 관계자). 산업 구조 변화(규제·정책·기술)·핵심 keyword(예: AI·전력 부족·고령화) 노출도·국가 정책 수혜/피해 가능성을 본다. macro·정책·기술 trend가 회사 실적에 미치는 lag·magnitude를 평가.",
+  domestic_academic: "국내 학술/연구 관점 (교수·연구원). 기술 fundamental·IP(특허) 포트폴리오·산업 학술 동향·차세대 기술 시점을 본다. 회사 R&D의 학술 contribution·핵심 인재의 학계 네트워크·기초 연구의 사업화 가능성을 평가.",
+  global_sector_analyst_1: "해외 글로벌 섹터 애널리스트 (Goldman Sachs·MS 등 sell-side 시각). 글로벌 peer 그룹 valuation 비교·달러 매출 비중·해외 수익성·환율 hedging 정책을 본다. 한국 기업이 글로벌 베스트 인 클래스 대비 어디에 있는지·premium/discount 정당성을 평가.",
+  global_sector_analyst_2: "해외 글로벌 섹터의 2번째 시각 (buy-side 또는 hedge fund 시각). 단기/장기 trading 관점·실적 modeling 정밀도·event-driven catalysts(분할·M&A·자사주)·기술적 시그널·외국인 매매 동향을 본다. 글로벌 자금 흐름이 한국 종목에 미치는 영향을 평가.",
+  global_industry_veteran: "해외 업계 경험자 (전직 글로벌 임원·해외 컨설턴트). 글로벌 supply chain·해외 진출 전략·다국적 경쟁사 동향·글로벌 talent 시장·M&A 시장을 본다. 한국 기업의 글로벌 경쟁력·해외 영업 효율·M&A 활용도를 평가.",
+  global_sector_investor: "해외 산업 투자 전문가 (PE·VC·activist 시각). 자본 구조·shareholder return(배당·자사주)·governance·CEO 인센티브·자본 효율(ROIC·NOPAT)을 본다. 자본 배분의 합리성·소수주주 보호·activism 표적 가능성을 평가.",
+  global_adjacent_expert: "해외 인접 분야 전문가 (cross-industry 시각). 회사 사업이 인접 산업(예: 바이오↔의료기기, 반도체↔AI 클라우드)에서 어떤 시너지·위협·disruption을 받는지를 본다. 단일 sector view를 넘어 산업 간 boundary 변화를 평가.",
+};
+
+/**
+ * Kevin v3.1 톤 enforce 규칙 (모든 sector persona system prompt에 일관 inject).
+ *
+ * 5요소 적응:
+ *   1. 일상 비유 우선 (200자 argument 안에서 1회 활용 가능 시)
+ *   2. 5질문 서사 (① 뭐 하는데 ② 왜 지금 ③ 얼마가 맞나 ④ 뭐가 틀어지면 ⑤ 살까)
+ *   3. 팩트 우선 (출처·숫자 임의 fabrication 금지)
+ *   4. trial valuation (계산 가정 노출)
+ *   5. 200자 cap + BUY/HOLD/SELL 명시
+ */
+const KEVIN_V31_TONE_RULES = `톤·서술 규칙 (Kevin v3.1 quality target):
+1. 200자 이내 argument에 1회 일상 비유를 자연스럽게 활용 (예: "프랜차이즈 가맹 계약 같은", "월세 건물 보유한 셈"). 비유로 팩트·숫자를 왜곡 금지.
+2. 5질문 서사 중 본 종목에 가장 관련된 1~2개 질문에 답한다 (① 뭐 하는데 ② 왜 지금 ③ 얼마가 맞나 ④ 뭐가 틀어지면 ⑤ 살까).
+3. 숫자·출처는 financials에서 직접 인용. 추정치는 "추정" 명시.
+4. 판단 근거를 보여라 ("PSR 31배가 peer median 10배 대비 3배 비싼 이유 = …").
+5. 응답은 BUY/HOLD/SELL 명시 + 200자 이내 argument_excerpt 필수.`;
+
+/**
+ * Slot type별 system prompt 빌더.
+ *
+ * @param sector canonical sector (14개 중 1)
+ * @param slot SlotMeta from resolveSlotTemplate
+ * @returns PersonaContract (id·label·philosophy·systemPrompt·userPromptTemplate)
+ */
+export function buildSectorPersonaContract(
+  sector: CanonicalSector,
+  slot: SlotMeta,
+): PersonaContract {
+  const sectorPhilosophy = SECTOR_PHILOSOPHIES[sector];
+  const slotIndex = slot.slot_index;
+
+  let id: string;
+  let label: string;
+  let roleDescription: string;
+  let evaluationPrinciple: string;
+
+  if (slot.slot_type === "base") {
+    // slot 1~10: base role (sector-agnostic 평가 원칙)
+    const baseRole = BASE_SLOTS[slotIndex - 1];
+    id = `sector-${sector}-slot-${slotIndex}`;
+    label = `${sector} ${slot.role}`;
+    roleDescription = slot.role;
+    evaluationPrinciple = BASE_SLOT_PRINCIPLES[baseRole];
+  } else if (slot.slot_type === "primary_overlay") {
+    // slot 11~12: sector primary overlay
+    id = `sector-${sector}-slot-${slotIndex}`;
+    label = `${sector} ${slot.role}`;
+    roleDescription = slot.role;
+    evaluationPrinciple = `${sector} 섹터의 ${slot.role} 시각으로 평가합니다. 본 sector의 핵심 dynamics(${sectorPhilosophy.split(".")[0]})를 기준으로 회사의 경쟁 우위·기술 leap·정책 노출도를 본다.`;
+  } else {
+    // slot 13~14: sub_tag overlay or backup
+    if (slot.sub_tag !== undefined) {
+      id = `sector-${sector}-slot-${slotIndex}-subtag-${slot.sub_tag}`;
+      label = `${sector} (${slot.sub_tag}) ${slot.role}`;
+      roleDescription = `${slot.sub_tag} 전문가: ${slot.role}`;
+      evaluationPrinciple = `${slot.sub_tag} sub-tag 활성화 시 본 sector 평가의 보완 시각을 제공한다. ${slot.role} 전문성으로 ${slot.sub_tag} 관련 dynamics(예: ${slot.sub_tag === "조선" ? "수주잔고·선가" : slot.sub_tag === "방산" ? "수출 정책·국방예산" : slot.sub_tag === "화학" ? "원가 스프레드·정유 마진" : slot.sub_tag === "게임" ? "IP 라이센싱·게임 PD" : slot.sub_tag === "가전" ? "프리미엄 가전·스마트홈" : slot.sub_tag === "제약" ? "임상 단계·GMP 규제" : slot.sub_tag === "부동산" ? "REITs·도시 개발" : "별도 dynamics"})를 평가에 반영한다.`;
+    } else {
+      // backup: no suffix (52차 박제 backwards-compat)
+      id = `sector-${sector}-slot-${slotIndex}`;
+      label = `${sector} ${slot.role}`;
+      roleDescription = slot.role;
+      evaluationPrinciple = slotIndex === 13
+        ? `섹터 quant/data 시각. ${sector} 섹터의 수치 모델·통계적 anomaly·factor exposure(value·growth·quality·momentum)를 본다. 정성 평가를 보완하는 양적 시그널을 평가에 반영.`
+        : `섹터 글로벌 관점. ${sector} 섹터를 한국 외 글로벌 시장(미국·중국·유럽·일본)의 동일/유사 산업과 비교한다. 한국 기업의 글로벌 상대 가치·해외 노출도를 평가.`;
+    }
+  }
+
+  const systemPrompt = `당신은 ${roleDescription}입니다.
+${sectorPhilosophy}
+
+평가 원칙: ${evaluationPrinciple}
+
+${KEVIN_V31_TONE_RULES}
+
+한국 코스피·코스닥 종목의 ${sector} 섹터 안에서 위 시각으로 평가하세요. 응답 형식은 user message에서 안내합니다.`;
+
+  return {
+    id,
+    label,
+    version: "2026-05-20",
+    philosophy: `${sector} - ${slot.role}`,
+    systemPrompt,
+    userPromptTemplate: CORE_USER_PROMPT_TEMPLATE,
+  };
+}
+
+/**
+ * personaId pattern parsing → (sector, slot_index, sub_tag?) tuple.
+ *
+ * 패턴 (52차 박제와 backwards-compat):
+ *   slot 1~12: `sector-${sector}-slot-${slotIndex}`
+ *   slot 13~14 (no sub_tag): `sector-${sector}-slot-${slotIndex}` (= backup, no suffix)
+ *   slot 13~14 (sub_tag matched): `sector-${sector}-slot-${slotIndex}-subtag-${subTag}`
+ *
+ * 결과 null = 본 personaId가 sector pattern이 아님 (Core 11 또는 미정의).
+ */
+export interface ParsedSectorPersonaId {
+  sector: CanonicalSector;
+  slot_index: number;
+  sub_tag?: string;
+  is_backup: boolean;
+}
+
+export function parseSectorPersonaId(personaId: string): ParsedSectorPersonaId | null {
+  // Pattern: `sector-${sector}-slot-${index}` + optional `-subtag-${subtag}`
+  const match = personaId.match(
+    /^sector-(.+?)-slot-(\d{1,2})(?:-subtag-(.+))?$/,
+  );
+  if (match === null) return null;
+
+  const sector = match[1];
+  const slotIndex = parseInt(match[2], 10);
+  const subTag = match[3];
+
+  if (!isCanonicalSector(sector)) return null;
+  if (slotIndex < 1 || slotIndex > SECTOR_PERSONA_COUNT) return null;
+
+  // backup = slot 13/14 with no sub_tag matched
+  const isBackup = (slotIndex === 13 || slotIndex === 14) && subTag === undefined;
+
+  return {
+    sector,
+    slot_index: slotIndex,
+    sub_tag: subTag,
+    is_backup: isBackup,
+  };
+}
+
+/**
+ * Dynamic PersonaContract resolution for sector persona IDs.
+ *
+ * personaId가 sector pattern이면 buildSectorPersonaContract로 contract 생성 반환.
+ * Core 11 (sector- prefix 없음) 또는 미정의 패턴이면 null 반환 (caller가 getPersonaById fallback 처리).
+ *
+ * sub_tag 매칭은 SUB_TAG_OVERLAY_ROLES에서 lookup. 매칭 없으면 backup slot로 resolve.
+ */
+export function resolveSectorPersona(personaId: string): PersonaContract | null {
+  const parsed = parseSectorPersonaId(personaId);
+  if (parsed === null) return null;
+
+  // SlotMeta 재구성 (resolveSlotTemplate는 sub_tags array가 필요하므로 직접 재구성)
+  let slot: SlotMeta;
+  if (parsed.slot_index <= 10) {
+    // base slot
+    slot = {
+      slot_index: parsed.slot_index,
+      slot_type: "base",
+      role: BASE_SLOTS[parsed.slot_index - 1],
+    };
+    // BASE_SLOT_ROLES 매핑은 buildSectorPersonaContract 내부에서 BASE_SLOTS 인덱스로 처리
+    const tmpl = resolveSlotTemplate(parsed.sector, []);
+    slot = tmpl[parsed.slot_index - 1];
+  } else if (parsed.slot_index === 11 || parsed.slot_index === 12) {
+    // primary overlay
+    const primaryRoles = PRIMARY_OVERLAY_BY_SECTOR[parsed.sector];
+    slot = {
+      slot_index: parsed.slot_index,
+      slot_type: "primary_overlay",
+      role: parsed.slot_index === 11 ? primaryRoles[0] : primaryRoles[1],
+    };
+  } else if (parsed.slot_index === 13 || parsed.slot_index === 14) {
+    if (parsed.sub_tag !== undefined && parsed.sub_tag in SUB_TAG_OVERLAY_ROLES) {
+      const subRoles = SUB_TAG_OVERLAY_ROLES[parsed.sub_tag];
+      slot = {
+        slot_index: parsed.slot_index,
+        slot_type: "sub_tag_overlay",
+        role: parsed.slot_index === 13 ? subRoles[0] : subRoles[1],
+        sub_tag: parsed.sub_tag,
+      };
+    } else {
+      // backup
+      slot = {
+        slot_index: parsed.slot_index,
+        slot_type: "sub_tag_overlay",
+        role: parsed.slot_index === 13
+          ? "섹터 quant/data 전문가 backup"
+          : "섹터 글로벌 관점 backup",
+      };
+    }
+  } else {
+    return null;
+  }
+
+  return buildSectorPersonaContract(parsed.sector, slot);
+}
+
+/**
+ * Test helper: 14 sectors × 14 slots = 196 cell 전체에 대해 valid PersonaContract 생성 가능 여부 검증.
+ *
+ * sub_tags 인자 0개 = backup slot 사용. 다른 sub_tags 시나리오는 별도 test.
+ */
+export function generateAllSectorPersonas(): PersonaContract[] {
+  const contracts: PersonaContract[] = [];
+  for (const sector of CANONICAL_SECTORS) {
+    const slotTemplate = resolveSlotTemplate(sector, []);
+    for (const slot of slotTemplate) {
+      contracts.push(buildSectorPersonaContract(sector, slot));
+    }
+  }
+  return contracts;
+}
