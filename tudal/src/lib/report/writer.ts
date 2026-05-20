@@ -165,6 +165,41 @@ export interface CommitSectorReportInput {
   sectorPersonaIds: string[];                  // length 14, slot_index 1~14 순서
 }
 
+// omxy final R1 B-final-3: malformed AI content가 HOLD stub으로 RPC persist되는 risk 차단.
+// parseContent(catch) → {vote:'HOLD', one_line:'parse failed'} 패턴이 commit_sector_personas로
+// 흘러가는 것을 strict parser로 차단. JSON parse 실패 / vote enum 불일치 / 필수 필드 누락 시
+// sector_writer_invalid_persona_content throw + RPC not called.
+//
+// Core 11 path(commitTickerReport)는 기존 parseContent 유지 — degraded 정책 차이 (Core 11은
+// HOLD stub 허용, Sector는 R2 B1 "persist 금지").
+function parseSectorContentStrict(
+  content: string,
+): { vote: 'BUY' | 'HOLD' | 'SELL'; one_line: string; argument_excerpt: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error('sector_writer_invalid_persona_content:parse_failed');
+  }
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new Error('sector_writer_invalid_persona_content:not_object');
+  }
+  const record = parsed as Record<string, unknown>;
+  const vote = record.vote;
+  const one_line = record.one_line;
+  const argument_excerpt = record.argument_excerpt;
+  if (vote !== 'BUY' && vote !== 'HOLD' && vote !== 'SELL') {
+    throw new Error('sector_writer_invalid_persona_content:invalid_vote');
+  }
+  if (typeof one_line !== 'string' || one_line.length === 0) {
+    throw new Error('sector_writer_invalid_persona_content:invalid_one_line');
+  }
+  if (typeof argument_excerpt !== 'string' || argument_excerpt.length === 0) {
+    throw new Error('sector_writer_invalid_persona_content:invalid_argument_excerpt');
+  }
+  return { vote, one_line, argument_excerpt };
+}
+
 export async function commitSectorReport(
   input: CommitSectorReportInput,
 ): Promise<{ reportId: string; votesInserted: number }> {
@@ -178,9 +213,12 @@ export async function commitSectorReport(
 
   const slotTemplate = resolveSlotTemplate(input.sector, input.sub_tags ?? []);
 
+  // omxy final R1 B-final-3: strict parse 먼저 — 14 중 하나라도 malformed면 RPC 호출 자체 차단
+  const parsedRows = input.sectorPersonaResults.map((r) => parseSectorContentStrict(r.content));
+
   // partA = 14 sectorVoteRow (writer composes rich labels from canonical-sectors.ts crosswalk)
   const partA = input.sectorPersonaIds.map((id, i) => {
-    const parsed = parseContent(input.sectorPersonaResults[i].content);
+    const parsed = parsedRows[i];
     const slot = slotTemplate[i];
     return {
       persona_id: id,
@@ -207,7 +245,7 @@ export async function commitSectorReport(
 
   // committee_votes payload — persona_layer='sector', slim
   const votes = input.sectorPersonaIds.map((id, i) => {
-    const parsed = parseContent(input.sectorPersonaResults[i].content);
+    const parsed = parsedRows[i];
     return {
       persona_id: id,
       persona_layer: 'sector',

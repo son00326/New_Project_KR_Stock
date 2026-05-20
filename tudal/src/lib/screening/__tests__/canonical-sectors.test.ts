@@ -239,12 +239,11 @@ describe("Tier 2 cost guard 상수 박제 (D21, 52차)", () => {
     expect(TIER2_CALLS_PER_TICKER).toBe(11 + SECTOR_PERSONA_COUNT);
   });
 
-  it("780 어휘 silent 금지 — chair 별도 추가 X (R1 #3)", () => {
-    // 30 stocks × 25 calls = 750 (cost guard 박제)
+  it("monthly calls === 750 — chair 별도 추가 X (R1 #3, omxy final R1 B-final-1 정정)", () => {
+    // 30 stocks × 25 calls = 750 (cost guard 박제). chair 추가 시 780 (silent 금지 — assertion으로 catch).
     const monthlyCalls = 30 * TIER2_CALLS_PER_TICKER;
     expect(monthlyCalls).toBe(750);
-    // 780이 silent로 잘못 박힌 경우 catch
-    expect(monthlyCalls).not.toBe(780);
+    expect(monthlyCalls).not.toBe(30 * 26);
   });
 });
 
