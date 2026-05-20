@@ -196,10 +196,129 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('모든 systemPrompt 길이 ≥ 300 (Kevin v3.1 quality minimum)', () => {
+    it('모든 systemPrompt 길이 ≥ 300 (Kevin v3.1 inquiry pattern minimum)', () => {
       const all = generateAllSectorPersonas();
       for (const c of all) {
         expect(c.systemPrompt.length).toBeGreaterThanOrEqual(300);
+      }
+    });
+  });
+
+  // omxy R1 BLOCKER 5 invariant tests (53차 Step 3b R2 박제)
+  describe('omxy R1 fixes — invariant tests', () => {
+    it('BLOCKER 1: slot 1~12 + sub_tag suffix → parseSectorPersonaId null', () => {
+      expect(parseSectorPersonaId('sector-바이오-slot-1-subtag-조선')).toBeNull();
+      expect(parseSectorPersonaId('sector-반도체-slot-12-subtag-제약')).toBeNull();
+      expect(parseSectorPersonaId('sector-IT/SW-slot-5-subtag-게임')).toBeNull();
+    });
+
+    it('BLOCKER 1: slot 13/14 + unknown sub_tag → parseSectorPersonaId null', () => {
+      expect(parseSectorPersonaId('sector-바이오-slot-13-subtag-비존재')).toBeNull();
+      expect(parseSectorPersonaId('sector-운송/물류-slot-14-subtag-fake')).toBeNull();
+    });
+
+    it('BLOCKER 2: cross-sector subtag mismatch → null', () => {
+      // 조선 sub_tag의 primary는 운송/물류 — 바이오에 attach는 invalid
+      expect(parseSectorPersonaId('sector-바이오-slot-13-subtag-조선')).toBeNull();
+      // 제약은 바이오 primary — 반도체에 attach는 invalid
+      expect(parseSectorPersonaId('sector-반도체-slot-13-subtag-제약')).toBeNull();
+      // 가전은 유통/소비재 primary — 자동차에 attach는 invalid
+      expect(parseSectorPersonaId('sector-자동차-slot-13-subtag-가전')).toBeNull();
+    });
+
+    it('BLOCKER 2: sub_tag primary == sector OR secondary == sector → valid', () => {
+      // 조선 primary = 운송/물류 → OK
+      expect(parseSectorPersonaId('sector-운송/물류-slot-13-subtag-조선')).not.toBeNull();
+      // 제약 primary = 바이오 → OK
+      expect(parseSectorPersonaId('sector-바이오-slot-13-subtag-제약')).not.toBeNull();
+      // 게임 secondary = 엔터/미디어 → OK
+      expect(parseSectorPersonaId('sector-엔터/미디어-slot-13-subtag-게임')).not.toBeNull();
+      // 게임 primary = IT/SW → OK
+      expect(parseSectorPersonaId('sector-IT/SW-slot-13-subtag-게임')).not.toBeNull();
+    });
+
+    it('BLOCKER 5: resolveSectorPersona returned contract.id === requested id', () => {
+      const cases = [
+        'sector-바이오-slot-1',
+        'sector-반도체-slot-11',
+        'sector-IT/SW-slot-14',
+        'sector-운송/물류-slot-13-subtag-조선',
+        'sector-바이오-slot-13-subtag-제약',
+      ];
+      for (const id of cases) {
+        const c = resolveSectorPersona(id);
+        expect(c).not.toBeNull();
+        expect(c!.id).toBe(id);
+      }
+    });
+
+    it('BLOCKER 5: malformed IDs all return null in resolveSectorPersona', () => {
+      const malformed = [
+        'sector-바이오-slot-1-subtag-조선', // slot 1 + sub_tag
+        'sector-바이오-slot-13-subtag-비존재', // unknown subtag
+        'sector-바이오-slot-13-subtag-조선', // cross-sector mismatch
+        'peter-lynch', // Core 11
+        'sector-비존재-slot-1', // invalid sector
+        'sector-바이오-slot-15', // invalid slot
+      ];
+      for (const id of malformed) {
+        expect(resolveSectorPersona(id)).toBeNull();
+      }
+    });
+
+    it('BLOCKER 3: high-risk slot (4·5·8·10) sector adjustment present for prototype sectors', () => {
+      // 바이오/반도체/건설/금융/IT/SW — 5 sectors × 4 high-risk slots = 20 adjustments 박제
+      const protoSectors = ['바이오', '반도체', '건설', '금융', 'IT/SW'] as const;
+      const highRiskSlots = [4, 5, 8, 10];
+      for (const sector of protoSectors) {
+        for (const slotIdx of highRiskSlots) {
+          const tmpl = resolveSlotTemplate(sector, []);
+          const slot = tmpl[slotIdx - 1];
+          const c = buildSectorPersonaContract(sector, slot);
+          expect(c.systemPrompt).toContain('섹터-특화 adjustment');
+        }
+      }
+    });
+
+    it('BLOCKER 3: 9 unfilled sectors high-risk slot → BASE_SLOT_PRINCIPLES만 fallback (adjustment 미포함)', () => {
+      // 본 commit 시점: 바이오/반도체/건설/금융/IT/SW만 SECTOR_BASE_SLOT_ADJUSTMENTS에 정의됨.
+      // 나머지 9 sectors는 후속 fanout commit에서 추가 — 현재는 base lens fallback.
+      const unfilledSectors = ['2차전지', '자동차', '유통/소비재', '에너지', '엔터/미디어', '통신', '철강/소재', '운송/물류', '보험/증권'] as const;
+      const tmpl = resolveSlotTemplate(unfilledSectors[0], []);
+      const slot = tmpl[3]; // slot 4 (high-risk)
+      const c = buildSectorPersonaContract(unfilledSectors[0], slot);
+      expect(c.systemPrompt).not.toContain('섹터-특화 adjustment');
+      // 그래도 base principle는 포함됨
+      expect(c.systemPrompt).toContain('국내 섹터 특수 전문가');
+    });
+
+    it('BLOCKER 4: KEVIN_V31_TONE_RULES → "inquiry pattern" reframing 적용', () => {
+      const slot = resolveSlotTemplate('바이오', [])[0];
+      const c = buildSectorPersonaContract('바이오', slot);
+      // inquiry pattern (4 axes 명시)
+      expect(c.systemPrompt).toContain('inquiry pattern');
+      expect(c.systemPrompt).toContain('inquiry axes');
+      // 일상 비유는 강제 아님 (자연스러울 때만)
+      expect(c.systemPrompt).toContain('자연스러울 때만');
+    });
+
+    it('BLOCKER 5: 모든 systemPrompt에 sector + slot role + sector-specific keyword 포함', () => {
+      // 5 prototype sectors의 high-risk slot에서 sector-specific keyword (philosophy 첫 문장에서 추출) 확인
+      const checks: Array<{ sector: 'CanonicalSector' | string; keyword: string }> = [
+        { sector: '바이오', keyword: '임상' },
+        { sector: '반도체', keyword: '사이클' },
+        { sector: '건설', keyword: '수주' },
+        { sector: '금융', keyword: 'NIM' },
+        { sector: 'IT/SW', keyword: 'SaaS' },
+      ];
+      for (const { sector, keyword } of checks) {
+        const tmpl = resolveSlotTemplate(sector as never, []);
+        for (const slot of tmpl) {
+          const c = buildSectorPersonaContract(sector as never, slot);
+          expect(c.systemPrompt).toContain(sector);
+          // sector philosophy 키워드 포함 (sector context가 system prompt에 반영됨을 보장)
+          expect(c.systemPrompt).toContain(keyword);
+        }
       }
     });
   });

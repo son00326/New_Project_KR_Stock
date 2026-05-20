@@ -21,6 +21,7 @@ import {
   CANONICAL_SECTORS,
   PRIMARY_OVERLAY_BY_SECTOR,
   SUB_TAG_OVERLAY_ROLES,
+  SUB_TAG_CROSSWALK,
   BASE_SLOTS,
   SECTOR_PERSONA_COUNT,
   isCanonicalSector,
@@ -72,21 +73,77 @@ export const BASE_SLOT_PRINCIPLES: Record<string, string> = {
 };
 
 /**
- * Kevin v3.1 톤 enforce 규칙 (모든 sector persona system prompt에 일관 inject).
+ * Kevin v3.1 inquiry pattern enforce 규칙 (모든 sector persona system prompt에 일관 inject).
+ *
+ * omxy R1 BLOCKER 4 정정: "quality target" → "inquiry pattern" reframing.
+ * 200자 argument는 Kevin v3.1의 DCF/Half Kelly depth를 재현하지 않는다 — Kevin의 inquiry pattern
+ * (어떻게 의심하고, 어떻게 계산하고, 어떻게 판단을 보여주는가)을 따른다.
  *
  * 5요소 적응:
- *   1. 일상 비유 우선 (200자 argument 안에서 1회 활용 가능 시)
- *   2. 5질문 서사 (① 뭐 하는데 ② 왜 지금 ③ 얼마가 맞나 ④ 뭐가 틀어지면 ⑤ 살까)
- *   3. 팩트 우선 (출처·숫자 임의 fabrication 금지)
- *   4. trial valuation (계산 가정 노출)
+ *   1. 1~2 concrete inquiry axes (다음 중 가장 본 종목에 적합한 1~2개에 답한다)
+ *   2. 일상 비유는 자연스러울 때만 (강제 X — 진지한 평가에 비유가 오히려 약화시키면 생략)
+ *   3. 팩트 우선 (financials 직접 인용, 임의 fabrication 금지)
+ *   4. 판단 가정 노출 (peer multiple·growth 가정 명시)
  *   5. 200자 cap + BUY/HOLD/SELL 명시
  */
-const KEVIN_V31_TONE_RULES = `톤·서술 규칙 (Kevin v3.1 quality target):
-1. 200자 이내 argument에 1회 일상 비유를 자연스럽게 활용 (예: "프랜차이즈 가맹 계약 같은", "월세 건물 보유한 셈"). 비유로 팩트·숫자를 왜곡 금지.
-2. 5질문 서사 중 본 종목에 가장 관련된 1~2개 질문에 답한다 (① 뭐 하는데 ② 왜 지금 ③ 얼마가 맞나 ④ 뭐가 틀어지면 ⑤ 살까).
-3. 숫자·출처는 financials에서 직접 인용. 추정치는 "추정" 명시.
-4. 판단 근거를 보여라 ("PSR 31배가 peer median 10배 대비 3배 비싼 이유 = …").
+const KEVIN_V31_TONE_RULES = `톤·서술 규칙 (Kevin v3.1 inquiry pattern follow — 200자 argument format):
+1. 다음 inquiry axes 중 본 종목에 가장 적합한 1~2개에 답한다:
+   - 사업이 뭐 하는지 (모르는 독자에게 핵심 1문장)
+   - 왜 지금 살까/팔까 (트리거·catalyst·우려)
+   - 얼마가 맞나 (peer multiple/PSR/PER 비교 가정 노출)
+   - 뭐가 틀어지면 thesis가 깨지는가 (invalidation)
+2. 일상 비유는 자연스러울 때만 — 진지한 평가에 약화시키면 생략. 비유로 팩트·숫자 왜곡 금지.
+3. 숫자·출처는 financials에서 직접 인용. 추정은 "추정" 명시.
+4. 판단 가정을 짧게 노출 (예: "PSR 31배 ÷ peer median 10배 = 3배 premium, 신약 1상 catalysts 반영시 정당화").
 5. 응답은 BUY/HOLD/SELL 명시 + 200자 이내 argument_excerpt 필수.`;
+
+/**
+ * Sector-specific adjustment for high-risk base slots (omxy R1 BLOCKER 3 정정).
+ *
+ * BASE_SLOT_PRINCIPLES만으로는 "global_industry_veteran + 바이오" 같은 cross에서 generic
+ * supply-chain 톤이 나옴. 본 record는 (sector, baseSlotRole) → 추가 sector-specific 시각을
+ * inject하여 ex-pharma operator lens 등으로 구체화한다.
+ *
+ * high-risk slot = 4 (domestic_special_expert) / 5 (domestic_academic) / 8 (global_industry_veteran) / 10 (global_adjacent_expert)
+ * — 위 4개는 sector context 없이는 평가 lens가 흐려진다. 14 sectors × 4 high-risk roles = 56 adjustments.
+ *
+ * 14 sectors 점진적 fill — 본 commit에서 핵심 sector (바이오·반도체·건설·금융·IT/SW)부터.
+ * 나머지 9 sectors는 후속 fanout commit에서 채운다 (미정의 시 fallback = BASE_SLOT_PRINCIPLES만 사용).
+ */
+export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
+  Record<CanonicalSector, Partial<Record<string, string>>>
+> = {
+  "바이오": {
+    domestic_special_expert: "국내 바이오 PM/임상 책임자 시각. 파이프라인 단계(전임상→1상→2상→3상)·국내 식약처/MFDS 일정·라이센싱 deal 협상력을 본다.",
+    domestic_academic: "국내 약학·생명공학 학계 시각. 핵심 IP·신약 표적·논문 인용·임상 reviewer 평판을 본다.",
+    global_industry_veteran: "글로벌 빅파마(Pfizer/Roche/Novartis) 또는 바이오텍(Moderna/BioNTech) 전직 임원 시각. 글로벌 라이센싱 deal·FDA fast-track·imminent BLA 가능성을 본다.",
+    global_adjacent_expert: "의료기기·진단 인접 시각. 바이오 신약과 진단/의료기기 시너지·합병 가능성·hospital channel 효율을 본다.",
+  },
+  "반도체": {
+    domestic_special_expert: "국내 반도체 라인 엔지니어/공정 관리자 시각. 수율 변화·CAPEX 효율·핵심 장비(EUV·ALD) 도입 일정을 본다.",
+    domestic_academic: "국내 전자공학 학계 시각. 차세대 공정(GAA·HBM·3D NAND) 학술 동향·핵심 인재 양성을 본다.",
+    global_industry_veteran: "TSMC/Intel/Micron 전직 엔지니어/임원 시각. 글로벌 메모리 가격·OEM 고객 다변화·중국 수출 통제 영향을 본다.",
+    global_adjacent_expert: "AI 클라우드·서버·자동차 반도체 인접 시각. HBM·차량용 MCU 수요 변화·glass substrate 같은 신규 시장 진입을 본다.",
+  },
+  "건설": {
+    domestic_special_expert: "국내 PF 리스크 분석가 시각. 미분양 추세·PF 잔액·중도금 회수율·도시정비 사업 진행률을 본다.",
+    domestic_academic: "국내 토목·건축 학계 시각. 친환경 건축·인프라 디지털화·BIM 활용도를 본다.",
+    global_industry_veteran: "Bechtel/Vinci/Daewoo E&C 글로벌 EPC 임원 시각. 해외 수주 마진·환율 hedging·중동/동남아 시장 점유율을 본다.",
+    global_adjacent_expert: "REITs/부동산 인접 시각. 디벨로퍼 → 운용 transition 가능성·임대 수익률·도시 재생 정책을 본다.",
+  },
+  "금융": {
+    domestic_special_expert: "국내 신용 리스크 분석가 시각. 연체율 추세·중소기업 대출 비중·DSR 규제 영향을 본다.",
+    domestic_academic: "국내 금융학 학계 시각. 금리 1% 변동의 NIM 민감도·BIS 규제 변화·Basel IV 적용을 본다.",
+    global_industry_veteran: "Goldman Sachs/JP Morgan/HSBC 글로벌 IB 임원 시각. 글로벌 자본 이동·달러 funding cost·핀테크 disruption을 본다.",
+    global_adjacent_expert: "보험·증권·자산운용 인접 시각. 금융지주 cross-selling·자회사 시너지·디지털 금융 전환을 본다.",
+  },
+  "IT/SW": {
+    domestic_special_expert: "국내 SaaS PM/창업가 시각. ARR 성장률·NRR·고객 acquisition cost·플랫폼 락인 강도를 본다.",
+    domestic_academic: "국내 컴퓨터과학 학계 시각. AI·클라우드·블록체인 핵심 IP·국내 우수 인재 채용 능력을 본다.",
+    global_industry_veteran: "Salesforce/AWS/MS Azure 전직 임원 시각. 글로벌 SaaS unit economics·API 생태계·platform vs commodity 위험을 본다.",
+    global_adjacent_expert: "통신·미디어·금융 인접 시각. SaaS의 산업별 vertical 진출·M&A 가능성·OEM 통합을 본다.",
+  },
+};
 
 /**
  * Slot type별 system prompt 빌더.
@@ -108,12 +165,17 @@ export function buildSectorPersonaContract(
   let evaluationPrinciple: string;
 
   if (slot.slot_type === "base") {
-    // slot 1~10: base role (sector-agnostic 평가 원칙)
+    // slot 1~10: base role (sector-agnostic 평가 원칙 + optional sector adjustment for high-risk slots 4/5/8/10)
     const baseRole = BASE_SLOTS[slotIndex - 1];
     id = `sector-${sector}-slot-${slotIndex}`;
     label = `${sector} ${slot.role}`;
     roleDescription = slot.role;
-    evaluationPrinciple = BASE_SLOT_PRINCIPLES[baseRole];
+    const baseSlotPrinciple = BASE_SLOT_PRINCIPLES[baseRole];
+    // omxy R1 BLOCKER 3 정정: sector-specific adjustment 추가 시 base lens가 ex-pharma/biotech operator 등으로 구체화
+    const sectorAdjustment = SECTOR_BASE_SLOT_ADJUSTMENTS[sector]?.[baseRole];
+    evaluationPrinciple = sectorAdjustment !== undefined
+      ? `${baseSlotPrinciple}\n섹터-특화 adjustment: ${sectorAdjustment}`
+      : baseSlotPrinciple;
   } else if (slot.slot_type === "primary_overlay") {
     // slot 11~12: sector primary overlay
     id = `sector-${sector}-slot-${slotIndex}`;
@@ -188,6 +250,26 @@ export function parseSectorPersonaId(personaId: string): ParsedSectorPersonaId |
   if (!isCanonicalSector(sector)) return null;
   if (slotIndex < 1 || slotIndex > SECTOR_PERSONA_COUNT) return null;
 
+  // omxy R1 BLOCKER 1 fix: malformed personaId 거부.
+  //   sub_tag suffix는 slot 13/14 전용. slot 1~12 + sub_tag suffix = invalid.
+  if (subTag !== undefined && slotIndex !== 13 && slotIndex !== 14) {
+    return null;
+  }
+
+  // omxy R1 BLOCKER 1 fix (cont.): slot 13/14 + sub_tag suffix는 known sub_tag만 허용.
+  if (subTag !== undefined && !(subTag in SUB_TAG_OVERLAY_ROLES)) {
+    return null;
+  }
+
+  // omxy R1 BLOCKER 2 fix: cross-sector subtag mismatch 거부.
+  //   SUB_TAG_CROSSWALK[subTag].primary === sector OR secondary === sector만 허용.
+  if (subTag !== undefined) {
+    const mapping = SUB_TAG_CROSSWALK[subTag];
+    if (mapping === undefined) return null;
+    const allowed = mapping.primary === sector || mapping.secondary === sector;
+    if (!allowed) return null;
+  }
+
   // backup = slot 13/14 with no sub_tag matched
   const isBackup = (slotIndex === 13 || slotIndex === 14) && subTag === undefined;
 
@@ -211,16 +293,10 @@ export function resolveSectorPersona(personaId: string): PersonaContract | null 
   const parsed = parseSectorPersonaId(personaId);
   if (parsed === null) return null;
 
-  // SlotMeta 재구성 (resolveSlotTemplate는 sub_tags array가 필요하므로 직접 재구성)
+  // SlotMeta 재구성. base slot은 resolveSlotTemplate으로부터 role description 추출 (BLOCKER answer h fix).
   let slot: SlotMeta;
   if (parsed.slot_index <= 10) {
-    // base slot
-    slot = {
-      slot_index: parsed.slot_index,
-      slot_type: "base",
-      role: BASE_SLOTS[parsed.slot_index - 1],
-    };
-    // BASE_SLOT_ROLES 매핑은 buildSectorPersonaContract 내부에서 BASE_SLOTS 인덱스로 처리
+    // base slot — role description은 resolveSlotTemplate가 BASE_SLOT_ROLES로 변환한 결과 사용
     const tmpl = resolveSlotTemplate(parsed.sector, []);
     slot = tmpl[parsed.slot_index - 1];
   } else if (parsed.slot_index === 11 || parsed.slot_index === 12) {
