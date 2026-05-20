@@ -3,8 +3,10 @@
 // SoT = `Document/Service/Planning/ServicePlan-Admin.md §1A.5 D21` (canonical 14 × 14 overlay)
 // SoT = `Document/Service/Report/ReportFramework.md §7.2 + §7.3 v2.5`
 // SoT = `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS / PRIMARY_OVERLAY_BY_SECTOR / SUB_TAG_OVERLAY_ROLES)
-// Kevin v3.1 quality target = `Document/Outputs/Report-Alteogen_196170_v3-Readable.md`
-//                           + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign}.md`
+// Kevin v3.1 inquiry pattern follow (200자 argument 한계 내) = `Document/Outputs/Report-Alteogen_196170_v3-Readable.md`
+//                                                          + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign}.md`
+//                                                          + `Document/Service/Report/ReaderAnalogyCards-ConstructionToBio.md`
+// (omxy R4 polish: "quality target" → "inquiry pattern follow" — Kevin v3.1 풀 리포트 600줄 DCF/Half Kelly depth는 200자 argument 재현 불가, inquiry pattern (4 axes)만 적용)
 //
 // Tier 2 Sector Board 14 persona slot 별 production system prompt 생성기.
 // 196 = 14 canonical sectors × 14 slot/sector (10 base + 2 primary overlay + 2 sub_tag overlay).
@@ -116,7 +118,7 @@ export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
   "바이오": {
     domestic_special_expert: "국내 바이오 PM/임상 책임자 시각. 파이프라인 단계(전임상→1상→2상→3상)·국내 식약처/MFDS 일정·라이센싱 deal 협상력을 본다.",
     domestic_academic: "국내 약학·생명공학 학계 시각. 핵심 IP·신약 표적·논문 인용·임상 reviewer 평판을 본다.",
-    global_industry_veteran: "글로벌 빅파마(Pfizer/Roche/Novartis) 또는 바이오텍(Moderna/BioNTech) 전직 임원 시각. 글로벌 라이센싱 deal·FDA fast-track·imminent BLA 가능성을 본다.",
+    global_industry_veteran: "글로벌 빅파마(Pfizer/Roche/Novartis) 또는 바이오텍(Moderna/BioNTech) 전직 임원 시각. 글로벌 라이센싱 deal·FDA fast-track 지정·신약허가신청(NDA/BLA) 진행 단계·소분자 vs biologics 균형을 본다.",
     global_adjacent_expert: "의료기기·진단 인접 시각. 바이오 신약과 진단/의료기기 시너지·합병 가능성·hospital channel 효율을 본다.",
   },
   "반도체": {
@@ -147,10 +149,10 @@ export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
     domestic_special_expert: "국내 배터리 셀 공정 엔지니어/제조 PM 시각. LFP/NCM mix 변화·수율·CAPEX 회수 일정·고객사(LG에너지솔루션/SK on/삼성SDI) 다변화를 본다.",
     domestic_academic: "국내 화학공학 학계 시각. 전고체·리튬황·실리콘 음극재 등 차세대 배터리 학술 동향·핵심 IP·핵심 인재 풀을 본다.",
     global_industry_veteran: "CATL/BYD/Panasonic 전직 임원 시각. 글로벌 EV 보급 곡선·OEM(테슬라·GM·VW) 수주 변화·중국 본토 가격 경쟁을 본다.",
-    global_adjacent_expert: "EV 완성차·ESS·전력 인프라 인접 시각. 배터리와 OEM 통합·ESS 시장 진입·polysilicon/리튬 원자재 통합을 본다.",
+    global_adjacent_expert: "EV 완성차·ESS·전력 인프라 인접 시각. 배터리와 OEM 통합·ESS 시장 진입·리튬/니켈/코발트 원자재 통합·재활용 시장 진입을 본다.",
   },
   "자동차": {
-    domestic_special_expert: "국내 OEM(현대/기아) 또는 부품사(만도/현모/덴소) 출신 PM 시각. EV 라인 전환·자율주행 ECU sourcing·중국 시장 점유율 회복을 본다.",
+    domestic_special_expert: "국내 OEM(현대/기아) 또는 부품사(만도/현대모비스/한온시스템) 출신 PM 시각. EV 라인 전환·자율주행 ECU sourcing·중국 시장 점유율 회복을 본다.",
     domestic_academic: "국내 자동차공학 학계 시각. 자율주행(L3·L4) 알고리즘·전기 powertrain·SDV(Software-Defined Vehicle) 학술 동향을 본다.",
     global_industry_veteran: "Toyota/VW/Ford/Tesla 전직 임원 시각. 글로벌 OEM sourcing·자율주행 robotaxi·중국 NEV·미국 IRA 영향을 본다.",
     global_adjacent_expert: "반도체·배터리·로보틱스·UAM 인접 시각. SDV 전환·차량용 반도체 부족·자율주행 SW와 hardware 통합을 본다.",
