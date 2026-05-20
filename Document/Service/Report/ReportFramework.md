@@ -1,7 +1,7 @@
-# 주픽 (JooPick) 투심보고서 프레임워크 v2.4 (2026-05-19, S7a 49차 — 5종 배지 + section_8 SoT pointer)
+# 주픽 (JooPick) 투심보고서 프레임워크 v2.5 (2026-05-20, 52차 — D21 Tier 2 Sector Board slot 모델 정정)
 
-Last updated: 2026-04-13
-Status: **확정** (Section 0~8 + Appendix 구조)
+Last updated: 2026-05-20
+Status: **확정** (Section 0~8 + Appendix 구조 + §7.2 14-slot 재작성 + §7.3 sub_tag 크로스워크)
 
 > **이 문서는 주픽 AI 투자위원회의 모든 보고서 생성을 위한 정의서(definitive guide)입니다.**
 > 어떤 AI 에이전트든 이 문서만 읽으면 섹터에 관계없이 일관된 품질의 보고서를 생성할 수 있어야 합니다.
@@ -596,41 +596,69 @@ Part A: 섹터 보드 (10명)
 | **논거 차별화 강제** | 독립성 원칙 동일 적용. 동일 논거 2명 이상 금지. |
 | **실명 사용 + 면책** | 투자 스타일 시뮬레이션 목적 명시. §5.4 면책 문구 필수. |
 
-### 7.2 섹터별 슬롯 구성 가이드
+### 7.2 섹터별 슬롯 구성 가이드 (v2.5, D21 52차 재작성)
 
-**14개 섹터 공통 슬롯 템플릿**:
+> **D21 (52차, 2026-05-20) 정정**: 본 §7.2의 구 표현(섹터별 공통 슬롯 10개 템플릿)은 `ServicePlan-Admin.md §4.2.1` partA contract (`length ∈ {0, 14}`)와 사전 충돌이었음. **Option C overlay 박제**로 정정 — 각 canonical 섹터는 **10 base slot + 2 primary overlay + 2 sub_tag overlay = 14 personas/sector fixed**.
 
-| 슬롯 | 역할 | 선정 기준 |
-|------|------|----------|
-| 국내 1~2 | 산업 내부자 (경영자/CTO 출신) | 해당 산업 대기업 또는 핵심 기업의 현직/전직 경영진. 깊은 산업 이해. |
-| 국내 3 | 섹터 전문 애널리스트 | 증권사 해당 섹터 수석 애널리스트. 밸류에이션 전문. |
-| 국내 4 | 섹터 특수 전문가 | 산업별로 다름: 바이오→의사, 반도체→공학자, 건설→감정평가사, 금융→리스크관리자 등. |
-| 국내 5 | 학술/연구 전문가 | 해당 기술/산업의 학술 연구자 또는 기초과학 전문가. |
-| 해외 6~7 | 글로벌 섹터 애널리스트 | 월가/유럽 대형 IB의 해당 섹터 헤드. |
-| 해외 8 | 업계 경험자 | 해당 산업 글로벌 기업의 전직 경영자(현재 이해관계 없음). |
-| 해외 9 | 산업 투자 전문가 | 해당 섹터 전문 펀드 매니저 또는 VC. |
-| 해외 10 | 인접 분야 전문가 | 해당 산업의 상류/하류 또는 대체 기술 전문가. 다른 관점 제공. |
+**canonical 14 sectors × 14 personas/sector 공통 템플릿**:
 
-### 7.3 섹터별 특수 슬롯 조정 (추후 조정 가능)
+| slot # | 분류 | 역할 | 선정 기준 |
+|---|---|---|---|
+| 1~2 | **base — 국내** | 산업 내부자 (경영자/CTO 출신) | 해당 산업 대기업 또는 핵심 기업의 현직/전직 경영진. 깊은 산업 이해. |
+| 3 | **base — 국내** | 섹터 전문 애널리스트 | 증권사 해당 섹터 수석 애널리스트. 밸류에이션 전문. |
+| 4 | **base — 국내** | 섹터 특수 전문가 | 산업별로 다름 (§7.3 표). 예: 바이오→의사, 반도체→공학자, 건설→감정평가사, 금융→리스크관리자. |
+| 5 | **base — 국내** | 학술/연구 전문가 | 해당 기술/산업의 학술 연구자 또는 기초과학 전문가. |
+| 6~7 | **base — 해외** | 글로벌 섹터 애널리스트 | 월가/유럽 대형 IB의 해당 섹터 헤드. |
+| 8 | **base — 해외** | 업계 경험자 | 해당 산업 글로벌 기업의 전직 경영자(현재 이해관계 없음). |
+| 9 | **base — 해외** | 산업 투자 전문가 | 해당 섹터 전문 펀드 매니저 또는 VC. |
+| 10 | **base — 해외** | 인접 분야 전문가 | 해당 산업의 상류/하류 또는 대체 기술 전문가. 다른 관점 제공. |
+| 11 | **primary overlay #1** | 섹터 primary 심화 (D21 신규) | 해당 canonical 섹터의 primary axis 심화 전문가 (§7.3 표의 primary overlay 컬럼). |
+| 12 | **primary overlay #2** | 섹터 primary 보강 (D21 신규) | primary axis 보강 (글로벌 관점 또는 quant/data). |
+| 13 | **sub_tag overlay #1** | sub_tag 특수 영역 (D21 신규) | `short_list_30.sub_tags` 매칭 시 활성화 (예: 조선 sub_tag → 운송/물류 sector의 조선 specialist). sub_tags NULL이면 base 11~12 stance backup. |
+| 14 | **sub_tag overlay #2** | sub_tag 보강 (D21 신규) | sub_tag #1과 다른 관점 (예: 조선 regulatory vs. 조선 ESG). |
 
-| 섹터 | 슬롯 4 (특수 전문가) | 슬롯 5 (학술) | 슬롯 8 (업계) 주의 |
-|------|---------------------|-------------|------------------|
-| 바이오 | 의사 출신 투자자 | 해당 기술 플랫폼 연구자 | 전직 경쟁사 CTO (현 이해관계 없음만) |
-| 반도체 | 반도체 공정 엔지니어 | 반도체 물리학 교수 | 전직 파운드리/팹리스 경영자 |
-| 건설 | 감정평가사/부동산 전문가 | 도시공학 교수 | 전직 건설사 임원 |
-| 금융 | 리스크관리(CRO) 전문가 | 금융공학 교수 | 전직 은행장/증권사 CEO |
-| 2차전지 | 배터리 소재 엔지니어 | 전기화학 교수 | 전직 배터리/소재 임원 |
-| 자동차 | 전동화/자율주행 엔지니어 | 기계공학 교수 | 전직 OEM 임원 |
-| IT/SW | UX/제품 전문가 | 컴퓨터과학 교수 | 전직 테크 기업 CTO |
-| 유통/소비재 | 소비 트렌드 전문가 | 경영학(마케팅) 교수 | 전직 유통 기업 임원 |
-| 에너지 | 에너지 정책 전문가 | 에너지공학 교수 | 전직 에너지 기업 임원 |
-| 엔터/미디어 | IP/저작권 전문가 | 문화산업 교수 | 전직 미디어 기업 임원 |
-| 통신 | 네트워크 인프라 전문가 | 전자공학 교수 | 전직 통신사 CTO |
-| 철강/소재 | 소재 엔지니어 | 재료공학 교수 | 전직 철강사 임원 |
-| 운송/물류 | SCM 전문가 | 물류학 교수 | 전직 해운/항공 임원 |
-| 보험/증권 | 보험계리사 | 보험수리학 교수 | 전직 보험사 임원 |
+**slot 모델 합계**: base 10 + primary overlay 2 + sub_tag overlay 2 = **14 personas/sector fixed**. canonical 14 sectors × 14 = **196 personas roster total**. per-stock 활성화 = 해당 섹터 14인 (Tier 2 Sector Board overlay).
 
-> **개별 인물은 각 보고서에서 종목/산업 맥락에 맞게 결정합니다.** 위 가이드는 슬롯 설계 원칙만 제공합니다.
+> **partA contract 정합**: `ServicePlan-Admin.md §4.2.1` partA `length ∈ {0, 14}` 조건과 §7.2 14-slot이 일치. zod schema 변경 불필요.
+
+### 7.3 섹터별 특수 슬롯 조정 + sub_tag crosswalk (v2.5, D21 52차)
+
+**canonical 14 sector × slot 4·5·8 + overlay 11~14 조정 표**:
+
+| canonical sector | slot 4 (특수 전문가) | slot 5 (학술) | slot 8 (업계 주의) | primary overlay (11·12) | sub_tag overlay (13·14, 활성 sub_tag 존재 시) |
+|------|------|------|------|------|------|
+| 바이오 | 의사 출신 투자자 | 해당 기술 플랫폼 연구자 | 전직 경쟁사 CTO (현 이해관계 없음만) | 임상시험 통계학자 / FDA 정책 전문가 | sub_tag=제약 → 제약 R&D 임원 + GMP 규제 전문가 |
+| 반도체 | 반도체 공정 엔지니어 | 반도체 물리학 교수 | 전직 파운드리/팹리스 경영자 | EUV/3nm 공정 전문가 / 메모리 사이클 분석가 | (sub_tag 없음 — base only) |
+| 건설 | 감정평가사/부동산 전문가 | 도시공학 교수 | 전직 건설사 임원 | PF 리스크 분석가 / 인프라 PPP 전문가 | sub_tag=부동산 → REITs 운용역 + 도시 디벨로퍼 |
+| 금융 | 리스크관리(CRO) 전문가 | 금융공학 교수 | 전직 은행장/증권사 CEO | 신용 분석가 / 거시 금리 전문가 | (sub_tag 없음) |
+| 2차전지 | 배터리 소재 엔지니어 | 전기화학 교수 | 전직 배터리/소재 임원 | LFP/NCM 공정 전문가 / EV 보급 모델러 | (sub_tag 없음) |
+| 자동차 | 전동화/자율주행 엔지니어 | 기계공학 교수 | 전직 OEM 임원 | ADAS 시스템 / OEM 글로벌 sourcing | (sub_tag 없음) |
+| IT/SW | UX/제품 전문가 | 컴퓨터과학 교수 | 전직 테크 기업 CTO | 클라우드 인프라 / SaaS 비즈니스 모델 | sub_tag=게임 → 게임 PD + IP/콘텐츠 라이센싱 (game primary) |
+| 유통/소비재 | 소비 트렌드 전문가 | 경영학(마케팅) 교수 | 전직 유통 기업 임원 | 옴니채널 commerce / DTC 브랜드 운영 | sub_tag=가전 → 가전 디스플레이/스마트홈 전문가 + 가전 소비자 신뢰지수 분석가 |
+| 에너지 | 에너지 정책 전문가 | 에너지공학 교수 | 전직 에너지 기업 임원 | 신재생 grid / 전력 시장 design | (sub_tag 없음) |
+| 엔터/미디어 | IP/저작권 전문가 | 문화산업 교수 | 전직 미디어 기업 임원 | OTT 비즈니스 / K-콘텐츠 글로벌 라이센싱 | sub_tag=게임 (secondary) → 게임 시나리오 작가 + 게임 IP 라이센싱 (game secondary) |
+| 통신 | 네트워크 인프라 전문가 | 전자공학 교수 | 전직 통신사 CTO | 5G/6G 표준 / 통신 인프라 CAPEX 모델러 | (sub_tag 없음) |
+| 철강/소재 | 소재 엔지니어 | 재료공학 교수 | 전직 철강사 임원 | 스프레드/원자재 trader / 글로벌 강재 수급 | sub_tag=화학 → 정유 마진 분석가 + 화학 capacity 모델러 / sub_tag=방산 → 방산 system integrator + 국방 export 정책 전문가 |
+| 운송/물류 | SCM 전문가 | 물류학 교수 | 전직 해운/항공 임원 | 해운 BDI 분석가 / 항공 cargo 시장 | sub_tag=조선 → 조선 PE/PC 엔지니어 + 조선 finance/수주 분석가 |
+| 보험/증권 | 보험계리사 | 보험수리학 교수 | 전직 보험사 임원 | 자산운용/AM IR 전문가 / 보험상품 actuarial | (sub_tag 없음) |
+
+#### sub_tag crosswalk (운영 UI taxonomy proxy, D21 신규)
+
+> **운영 UI taxonomy proxy 매핑**. canonical 14 sector (§7.2 baseline)를 유지하기 위해 §7.3에 명시되지 않은 운영 도메인(조선·방산·화학·게임·가전·제약·부동산)을 가장 인접한 canonical로 proxy. **개념 정합이 아니라 운영 분류 목적**. 후속 PR에서 sector 확장 필요 시 신규 D-decision으로 supersede.
+
+| sub_tag | primary canonical sector | secondary canonical (있는 경우) | proxy 사유 (운영 분류 only) |
+|---|---|---|---|
+| 조선 | 운송/물류 | — | 운송장비 (선박) proxy. 한국 KRX 분류상 조선은 별도지만 JooPick 14 내에서 운송 산업과 최인접. |
+| 방산 | 철강/소재 | — | 산업재 sector 부재로 인한 proxy. 한화에어로/LIG넥스원의 중공업·금속 가공 측면 활용. 후속 sector 확장 시 분리 권장. |
+| 화학 | 철강/소재 | — | 소재 통합. LG화학/SK이노가 한국 GICS에 소재로 분류. 자연스러운 매핑. |
+| 게임 | IT/SW | 엔터/미디어 | software primary, IP/콘텐츠 secondary. 게임은 코드 + IP 양면 — primary IT/SW로 결정, sub_tag overlay에 엔터/미디어 활용. |
+| 가전 | 유통/소비재 | — | consumer product 측면. LG전자/삼성전자 가전부문이 소비재 성격. (반도체 ≠ 전기전자로 alias 분리; `LEGACY_ALIAS_MAP`에서 "전기전자" broad alias 미지정). |
+| 제약 | 바이오 | — | 한미약품·셀트리온 등 인접 (개념 정합). |
+| 부동산 | 건설 | — | REITs/디벨로퍼 인접 (개념 정합). |
+
+> **결정성**: sub_tags jsonb 컬럼에는 `["조선"]` `["가전", "디스플레이"]` 같은 string array로 저장. canonical sector 결정은 primary sector 컬럼 (`short_list_30.sector`)이 우선. sub_tags는 secondary descriptors — Tier 2 implementation PR에서 sub_tag overlay slot 13·14를 활성화하는 lookup 키.
+
+> **개별 인물은 각 보고서에서 종목/산업 맥락에 맞게 결정합니다.** 위 가이드는 슬롯 설계 원칙만 제공합니다. **코드 SoT** = `tudal/src/lib/screening/canonical-sectors.ts` (canonical 14 sector enum + slot 14-template + sub_tag crosswalk + `LEGACY_ALIAS_MAP` 좁게).
 
 ---
 
@@ -638,7 +666,9 @@ Part A: 섹터 보드 (10명)
 
 > **2026-05-19 (S7a 49차, v2.4)**: 5종 배지 박제 (🟡 관망 신규, Q5b CONVERGED) + Step 2에 `section_8 jsonb schema SoT = ServicePlan-Admin §4.2.1` 포인터 추가. canonical contract 박제 위치 = `ServicePlan-Admin.md §4.2.1` + 코드 SoT = `tudal/src/lib/report/section-8-schema.ts`.
 >
-> **2026-05-08 (D19, 35차)**: Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가. Step 1~4 풀 리포트 작성 흐름은 변경 없음 — 외부 레퍼런스 [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. SoT: `ServicePlan-Admin.md §1A.5 D19`.
+> **2026-05-20 (D21, 52차)**: §7.2 14-slot 재작성 (10 base + 2 primary overlay + 2 sub_tag overlay) + §7.3 sub_tag crosswalk 7개 신설 (운영 UI taxonomy proxy). canonical 14 sectors × 14 personas/sector overlay 박제. SoT: `ServicePlan-Admin.md §1A.5 D21`.
+>
+> **2026-05-08 (D19, 35차)**: Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가. Step 1~4 풀 리포트 작성 흐름은 변경 없음 — 외부 레퍼런스 [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector Board (canonical 14 sectors × 14 personas overlay — slot 모델은 D21 supersede) 박제 보존. SoT: `ServicePlan-Admin.md §1A.5 D19` + `§1A.5 D21`.
 
 ### Step 0 (D19, 신규): 30개 선정 합의 에이전트
 
@@ -799,8 +829,9 @@ Step 4: 수정 반영 → 최종본 확정
 | 2026-04-13 | **v2.0** | Section 0~8 + Appendix로 구조 변경. 투자 서사/회사 개요 신설. 촉매+리스크 통합. 투심위 토론 구조 "쟁점별 찬반 대결"로 변경. Core Committee 투자 철학 매핑. Sector Board 14개 섹터 가이드. 용어/독자수준/비교분석 가이드라인 추가. |
 | 2026-04-13 | **v2.1** | Section 2(회사 개요)에 **성장 배경 추적(Track Record)** 필수 항목 추가 — 가이던스 vs 실적 비교로 경영진 신뢰도 판단. 비교 분석에 **딜/계약 조건 상대 비교** 원칙 추가 (로열티율, 딜밸류 등 업계 기준 대비 평가). 경쟁사 비교 **국내+해외 모두 필수** 원칙 강화. |
 | 2026-05-12 | **v2.3** | **§8 Step 2에 Section 8 정적 표 4종 박제 — D20 (45차).** 사용자 요구 직접 반영: ① Sector Board 위원별 한 줄 의견 표 (14명 전원), ② **Core 11 위원별 한 줄 의견 표 (11명 전원, 신규)**, ③ 쟁점별 찬반 토론 인용 3~5건, ④ 최종 합의 패널(Sector·Core 집계 + Co-Chair 만장일치 여부 + 공식 판정 + 근거). Reference 알테오젠 v3-Readable §Section 8 Part A/B/C 패턴을 Core·Sector 양쪽에 대칭 적용. 인터랙티브 페르소나 탐색은 Should S2 유지. SoT: `ServicePlan-Admin.md §6 D20` + `§3.7 R3.7-6/7/8`. |
-| 2026-05-08 | **v2.2** | **§8에 Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가 — D19 박제 (35차).** TauricResearch/TradingAgents Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector 14×10 박제 보존. Tier 0 인디케이터 게이트(AI 키 불필요) + Tier 1 Core 11 평가(시간대별 페르소나 가중치) + 합의 배지 4종(🟢 강한 합의/🔵 숫자 우세/🟣 AI 우세/⚪ AI 분석 대기) + 매월 말 Reflection(실현 수익률 prompt 주입). 어드민 카드 노출 = 🔢 숫자 점수 + 🤖 AI 점수 + 합의 배지 + AI 코멘트 1~2줄 + 클릭→풀 리포트. AI 키 미발급 시 Tier 0 단독 fallback (진짜 코스피·코스닥 30종목 자동 선정). 비용 통제 = Sector Board 활성화는 30종목 해당 섹터 14명만(140명 X). 신규 엔티티 후보 `reflection_log` 박제. SoT: `ServicePlan-Admin.md §1A.5 D19`. |
+| 2026-05-08 | **v2.2** | **§8에 Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가 — D19 박제 (35차).** TauricResearch/TradingAgents Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector Board (canonical 14 sectors × 14 personas overlay — slot 모델은 D21/52차 supersede) 박제 보존. Tier 0 인디케이터 게이트(AI 키 불필요) + Tier 1 Core 11 평가(시간대별 페르소나 가중치) + 합의 배지 4종(🟢 강한 합의/🔵 숫자 우세/🟣 AI 우세/⚪ AI 분석 대기) + 매월 말 Reflection(실현 수익률 prompt 주입). 어드민 카드 노출 = 🔢 숫자 점수 + 🤖 AI 점수 + 합의 배지 + AI 코멘트 1~2줄 + 클릭→풀 리포트. AI 키 미발급 시 Tier 0 단독 fallback (진짜 코스피·코스닥 30종목 자동 선정). 비용 통제 = Sector Board 활성화는 30종목 해당 섹터 14인만 (per-stock 활성화 14). 신규 엔티티 후보 `reflection_log` 박제. SoT: `ServicePlan-Admin.md §1A.5 D19`. |
 | 2026-05-19 | **v2.4** | **S7a 49차 — 5종 배지 + section_8 SoT pointer.** Q5b omxy CONVERGED: 합의 배지 4종 → **5종 (🟡 관망 신규)**. 비-top tier + 비-top tier + AI 가용 케이스를 ⚪(AI 분석 대기)와 구별. §8 Step 0c + Step 2(Section 0 1행) 5종 갱신. **§8 Step 2에 `section_8 jsonb schema SoT = ServicePlan-Admin §4.2.1` 포인터 명시** — canonical contract(partA 0\|14 / partB 3~5 / partC / partD 11) 박제 위치는 ServicePlan-Admin §4.2.1, 코드 SoT는 `tudal/src/lib/report/section-8-schema.ts` zod schema. SoT: `ServicePlan-Admin.md §1A.5 D19` + `§3.1 R3.1-6` + `§4.2.1`. |
+| 2026-05-20 | **v2.5** | **52차 — D21 Tier 2 Sector Board slot 모델 정정 + sub_tag crosswalk 박제.** §7.2 14-slot 재작성 (10 base + 2 primary overlay + 2 sub_tag overlay = canonical 14 personas/sector fixed). canonical 14 sectors × 14 = 196 roster total. per-stock 활성화 = 해당 섹터 14인. **partA contract (`length ∈ {0,14}`, ServicePlan-Admin §4.2.1) 사전 정합 확보** — 구 §7.2 10-slot 템플릿과 §4.2.1 14 충돌이 D21에서 해소. **§7.3 sub_tag crosswalk 7개 신설** (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW + 엔터/미디어 secondary · 가전→유통/소비재 · 제약→바이오 · 부동산→건설). **운영 UI taxonomy proxy** (개념 정합 아님 — canonical 14 유지 목적). 본 PR 시점 production code import 0 (tests/만). **`commit_sector_personas` RPC + Section 8 partA render + mock fixture migration = Tier 2 implementation 후속 PR OOS**. SoT: `ServicePlan-Admin.md §1A.5 D21` + `§4.2.1` + 코드 SoT `tudal/src/lib/screening/canonical-sectors.ts` + 마이그 `tudal/supabase/migrations/0018_short_list_30_sub_tags.sql`. |
 
 ---
 
