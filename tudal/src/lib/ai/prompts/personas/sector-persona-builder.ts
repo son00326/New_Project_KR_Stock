@@ -22,10 +22,10 @@ import {
   CANONICAL_SECTORS,
   PRIMARY_OVERLAY_BY_SECTOR,
   SUB_TAG_OVERLAY_ROLES,
-  SUB_TAG_CROSSWALK,
   BASE_SLOTS,
   SECTOR_PERSONA_COUNT,
   isCanonicalSector,
+  isSubTagAllowedForSector,
   resolveSlotTemplate,
 } from "@/lib/screening/canonical-sectors";
 import { CORE_USER_PROMPT_TEMPLATE } from "../user-prompt-template";
@@ -231,13 +231,12 @@ export function buildSectorPersonaContract(
       ? `${baseSlotPrinciple}\n섹터-특화 adjustment: ${sectorAdjustment}`
       : baseSlotPrinciple;
   } else if (slot.slot_type === "sub_tag_overlay" && slot.sub_tag !== undefined) {
-    // omxy R2 BLOCKER C 정정: builder 직접 호출 시 cross-sector subtag mismatch 가드 (throw).
-    // parseSectorPersonaId는 이미 guard하지만, generateAllSectorPersonas / direct caller에는 guard 필요.
-    const mapping = SUB_TAG_CROSSWALK[slot.sub_tag];
-    if (mapping === undefined) {
+    // omxy R2 BLOCKER C 정정 + R3 답변 (f) drift 방지: isSubTagAllowedForSector SoT 사용.
+    // direct external caller / generateAllSectorPersonas 경유 시 cross-sector mismatch throw guard.
+    if (!(slot.sub_tag in SUB_TAG_OVERLAY_ROLES)) {
       throw new Error(`unknown_sub_tag:${slot.sub_tag}`);
     }
-    if (mapping.primary !== sector && mapping.secondary !== sector) {
+    if (!isSubTagAllowedForSector(slot.sub_tag, sector)) {
       throw new Error(`sub_tag_sector_mismatch:${sector}/${slot.sub_tag}`);
     }
     // (fall through to overlay 처리 below)
@@ -318,18 +317,9 @@ export function parseSectorPersonaId(personaId: string): ParsedSectorPersonaId |
     return null;
   }
 
-  // omxy R1 BLOCKER 1 fix (cont.): slot 13/14 + sub_tag suffix는 known sub_tag만 허용.
-  if (subTag !== undefined && !(subTag in SUB_TAG_OVERLAY_ROLES)) {
+  // omxy R1 BLOCKER 1+2 + R3 답변 (f) drift 방지: isSubTagAllowedForSector SoT 사용 (known overlay + primary/secondary match)
+  if (subTag !== undefined && !isSubTagAllowedForSector(subTag, sector)) {
     return null;
-  }
-
-  // omxy R1 BLOCKER 2 fix: cross-sector subtag mismatch 거부.
-  //   SUB_TAG_CROSSWALK[subTag].primary === sector OR secondary === sector만 허용.
-  if (subTag !== undefined) {
-    const mapping = SUB_TAG_CROSSWALK[subTag];
-    if (mapping === undefined) return null;
-    const allowed = mapping.primary === sector || mapping.secondary === sector;
-    if (!allowed) return null;
   }
 
   // backup = slot 13/14 with no sub_tag matched

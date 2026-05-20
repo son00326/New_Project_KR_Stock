@@ -227,6 +227,27 @@ export function resolveSubTag(sub_tag: string): SubTagMapping | null {
 }
 
 /**
+ * sub_tag가 주어진 sector에 허용되는지 검증 (shared SoT, omxy R3 답변 f drift 방지).
+ *
+ * 허용 조건:
+ *   1. sub_tag가 SUB_TAG_OVERLAY_ROLES에 정의됨 (known overlay)
+ *   2. SUB_TAG_CROSSWALK[sub_tag].primary === sector
+ *   3. 또는 SUB_TAG_CROSSWALK[sub_tag].secondary === sector
+ *
+ * 본 helper는 resolveSlotTemplate + builder parseSectorPersonaId + buildSectorPersonaContract에서
+ * 공통 사용 — sub_tag validity 검증 로직을 single SoT로 통합.
+ */
+export function isSubTagAllowedForSector(
+  sub_tag: string,
+  sector: CanonicalSector,
+): boolean {
+  if (!(sub_tag in SUB_TAG_OVERLAY_ROLES)) return false;
+  const mapping = SUB_TAG_CROSSWALK[sub_tag];
+  if (mapping === undefined) return false;
+  return mapping.primary === sector || mapping.secondary === sector;
+}
+
+/**
  * D21 slot template — canonical sector + (옵션) sub_tags → 14 persona slot 메타 list 반환.
  *
  * slot 1~10 = base (sector-agnostic role)
@@ -277,8 +298,10 @@ export function resolveSlotTemplate(
   slots.push({ slot_index: 11, slot_type: "primary_overlay", role: primaryRoles[0] });
   slots.push({ slot_index: 12, slot_type: "primary_overlay", role: primaryRoles[1] });
 
-  // slot 13·14 = sub_tag overlay (첫 매칭 sub_tag deterministic — 매칭 없으면 base axis backup)
-  const activeSubTag = sub_tags.find((tag) => tag in SUB_TAG_OVERLAY_ROLES);
+  // slot 13·14 = sub_tag overlay (첫 매칭 sub_tag deterministic — 매칭 없거나 sector mismatch 시 base axis backup)
+  // omxy R3 BLOCKER D 정정: 단순 "tag in SUB_TAG_OVERLAY_ROLES"만 체크하면 cross-sector mismatch (예: 바이오 + 조선)도 활성화 → invalid persona IDs.
+  // isSubTagAllowedForSector로 sector compatibility까지 검증.
+  const activeSubTag = sub_tags.find((tag) => isSubTagAllowedForSector(tag, sector));
   if (activeSubTag !== undefined) {
     const subRoles = SUB_TAG_OVERLAY_ROLES[activeSubTag];
     slots.push({
