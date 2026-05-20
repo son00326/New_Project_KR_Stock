@@ -34,7 +34,7 @@ Status: 인덱스 전환 — 어드민/멤버 기획 분리 구조 · 2026-04-21
 |---|---|---|
 | 가격 | 월 19,900원 | → BusinessPlan §Q11 |
 | 사용자 규모·법·언어 | 500명 cap · 초대 전용 · 매수/매도 추천 금지 · Footer 면책 · Korean-first | → BusinessPlan §7 |
-| 핵심 시스템 1 — AI 투심위 | 2-Layer(Core 11명 + Sector 14×10명), Section 0~8 + Appendix | → BusinessPlan §8 / ReportFramework.md §1·§5~§7 |
+| 핵심 시스템 1 — AI 투심위 | 2-Layer(Core 11명 + Sector Board canonical 14 sectors × 14 personas/sector overlay — D21 52차 박제), Section 0~8 + Appendix | → BusinessPlan §8 / ReportFramework.md §1·§5~§7·§7.2/§7.3 v2.5 |
 | 핵심 시스템 2 — Quant 분석 엔진 | 3축(스코어링·위기감지·리밸런싱), EW + Crisis Layer, 단기30%/중기40%/장기30% | → BusinessPlan §9 (분석 엔진은 전 Stage 공통, 자동매매 실행은 Stage 2~3) |
 | 핵심 시스템 3 — 매뉴얼 트레이딩 (어드민 전용) | Short List 30개(10+10+10), 월 1회 재선정 | → BusinessPlan §10 |
 | ~~트레이딩 실행 3-Stage 로드맵~~ | **폐기 (2026-04-21 D16)**. 자동매매 = S8 단일 슬라이스로 통합. 내부 단계: 모의↔실 체결 토글 + Strategy drop-in↔AI 어댑터 embed | → BusinessPlan §12 (2026-04-21 정정) / `Slices/S8-AutoTrading.md` |
