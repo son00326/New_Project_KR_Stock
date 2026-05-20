@@ -175,9 +175,17 @@ export async function runSectorEval(input: RunSectorEvalInput): Promise<SectorEv
   });
 
   const slotTemplate = resolveSlotTemplate(input.sector, input.sub_tags ?? []);
-  const personaIds = slotTemplate.map(
-    (slot) => `sector-${input.sector}-slot-${slot.slot_index}`,
-  );
+  // 53차+: slot 13/14에서 sub_tag 매칭된 경우만 personaId에 sub_tag encode (dynamic resolution).
+  // Pattern (기존 52차 박제와 backwards-compat — slot 1~12 + slot 13/14 no-match 그대로):
+  //   slot 1~12 + slot 13/14 (no sub_tag match): `sector-${sector}-slot-${idx}` (= backup)
+  //   slot 13~14 (sub_tag matched): `sector-${sector}-slot-${idx}-subtag-${subTag}`
+  const personaIds = slotTemplate.map((slot) => {
+    const base = `sector-${input.sector}-slot-${slot.slot_index}`;
+    if (slot.slot_type === "sub_tag_overlay" && slot.sub_tag !== undefined) {
+      return `${base}-subtag-${slot.sub_tag}`;
+    }
+    return base;
+  });
 
   const financials = await input.fetchFinancials(input.ticker);
 
