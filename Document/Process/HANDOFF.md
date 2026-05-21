@@ -1,20 +1,20 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-22 (54차 §1 — **PR2 Tier 1 AI 30 선정 screening IMPLEMENTED + PR #11 OPEN CLEAN + omxy 8 rounds CONVERGED**) · main HEAD = `131ac38f` · current branch = `docs/53-step4-runbook-update` (PR #10 OPEN, 53차 §5 정정 박제 + 본 cleanup commit 진행) · OPEN PRs: **#2** (format-error, 보류) + **#10** (HANDOFF docs cleanup + §5 정정) + **#11** (PR2 Tier 1 screening, ⭐ canonical 5-PR 첫 PR)
+Last updated: 2026-05-22 (54차 §2 — **PR #11 (PR2) MERGED + PR #10 (cleanup) merge sequence in progress** · omxy R1~R13 13 rounds CONVERGED) · main HEAD = `d518979` (PR #11 머지 후 7 commits FF) · current branch = `docs/53-step4-runbook-update` (PR #10 OPEN, 본 post-merge refresh commit 진행) · OPEN PRs: **#2** (format-error, 보류) + **#10** (HANDOFF cleanup + §5 정정 + PR #11 MERGED 박제 정정, 본 PR)
 
 ---
 
-## ⭐ 다음 세션 진입자 5줄 요약 (54차 §1 종료 시점)
+## ⭐ 다음 세션 진입자 5줄 요약 (54차 §2 종료 시점)
 
-1. **PR2 (Tier 1 AI 30 선정 screening) IMPLEMENTED + PR #11 OPEN CLEAN**. 7 commits / +1873 lines / 47 신규 TDD tests (baseline 699 → 746, 회귀 0). omxy R1~R8 8 rounds CONVERGED, ~17 BLOCKERS catch & fix. gsd-code-reviewer 11 findings (2 Critical + 5 Warning + 4 Info) 모두 fix 또는 PR1/PR4로 분리.
-2. **다음 1순위 = USER PR #11 머지** (`gh pr merge 11 --rebase`) → **CLAUDE PR3a (Group H schema drift fix, Critical Hard gate)** 자동 진입.
-3. **canonical 5-PR 순서** (53차 §5 spec doc 박제, 절대 보존): **PR2 → PR3a → PR1 → PR3b → PR4**. **Hard gate**: PR1 cron 가동 ⊥ PR3a schema drift fix 미선행 = `/admin/report/[ticker]` page crash inevitable.
-4. **메인 path = Tier 0 + Tier 1 AI 합의 → 30 선정 + 30 풀 리포트 단일 산출물**. 현재 production = Tier 0 단독 30 직선정 (fallback, AI 키 미발급 baseline). PR #11 머지 후 PR1 wire로 Tier 1 메인 path 가동 가능.
+1. **PR2 (Tier 1 AI 30 선정 screening) ✅ MERGED in main** (`d518979`, 7 commits FF). 6 files / +1873 lines / 47 TDD tests (baseline 699 → 746, 회귀 0). omxy R1~R8 8 rounds CONVERGED, ~17 BLOCKERS catch & fix. gsd-code-reviewer 11 findings (2 Critical + 5 Warning + 4 Info) 모두 fix 또는 PR1/PR4로 분리.
+2. **다음 1순위 = CLAUDE PR3a (Group H schema drift fix, Critical Hard gate)** 진입 의사 1회 확인 후 자동 시작. PR2 main 박제 의존 0 → main에서 새 branch.
+3. **canonical 5-PR 순서** (53차 §5 spec doc 박제, 절대 보존): **PR2 ✅ → PR3a → PR1 → PR3b → PR4**. **Hard gate**: PR1 cron 가동 ⊥ PR3a schema drift fix 미선행 = `/admin/report/[ticker]` page crash inevitable.
+4. **메인 path = Tier 0 + Tier 1 AI 합의 → 30 선정 + 30 풀 리포트 단일 산출물**. 현재 production = Tier 0 단독 30 직선정 (fallback, AI 키 미발급 baseline). PR2 코드 main 박제 — PR1 wire 시점부터 Tier 1 메인 path 가동.
 5. **운영 SoT**: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 사용자 lock-in 8 항목 + Group A-H mismatch + Hard gate) + `docs/superpowers/plans/2026-05-21-pr2-tier1-screening.md` + `docs/superpowers/reviews/2026-05-21-pr2-tier1-screening-review.md` (PR2 gsd 검토 REVIEW.md).
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked CLAUDE step 자동 시작 + USER-gated step은 background blocker로 보고. PR #11 머지 후 PR3a 진입 의사 1회 확인 후 자동 시작.
+**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked CLAUDE step 자동 시작. **PR3a 진입 의사 1회 확인 후 자동 시작** (independent, PR2 main 박제 의존 0).
 
-**운영 원칙**: 미래 지향. 49차~53차 historical 진행 상세 = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. §6 완료 이력은 직전 2 entry (53차 §5 + 54차 §1 PR2)만 inline.
+**운영 원칙**: 미래 지향. 49차~53차 historical 진행 상세 = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. §6 완료 이력은 직전 2 entry (53차 §5 + 54차 §1·§2 PR2 MERGED)만 inline.
 
 ---
 
@@ -32,12 +32,11 @@ git status --short                                # working tree state
 # 2. OPEN PRs (현재 baseline: #2 보류 + #10 HANDOFF 정정 + #11 PR2)
 gh pr list --state open --json number,title,headRefName,mergeable
 
-# 3. PR #11 state (PR2 — canonical 5-PR 첫 PR)
-gh pr view 11 --json state,baseRefName,headRefOid,mergeStateStatus,url
+# 3. PR3a 진입 가능 branch 준비 (PR #11 MERGED, PR #10 cleanup도 머지 후 main fast-forward 박제)
+git fetch origin main && git rev-parse --short origin/main
 
-# 4. 검증 게이트 (baseline = 53차 §3 종료 + PR2 신규 47 tests)
+# 4. 검증 게이트 (post-PR #11 merge main = build 25 routes / lint 0 err 6 warn / test:ci 746/68 / tsc clean)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
-# expect: build 25 routes / lint 0 err 6 warn / test:ci 746/68 (PR #11 worktree) or 699/66 (main) / tsc clean
 ```
 
 ### 진입자 자동 행동 (§2.0 default-progress policy)
@@ -57,22 +56,22 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | `131ac38f` (53차 §4+ PR #9 머지 historical) |
-| 현재 branch | `docs/53-step4-runbook-update` (PR #10, 53차 §5 정정 + 본 cleanup commit) |
+| main HEAD | `d518979` (PR #11 PR2 머지 + 7 commits FF, 54차 §2). 이전 = `131ac38f` (53차 §4+ PR #9 historical). |
+| 현재 branch | `docs/53-step4-runbook-update` (PR #10, 본 post-merge refresh commit. PR #10 머지 후 main HEAD 갱신) |
 | Mock Skeleton + DQ-7 + S7e | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) |
 | S7a Anthropic wrapper | ✅ 완료 (51차 PR #1 MERGED, main 박제) |
 | Tier 2 D21 (Sector 14 overlay) | ✅ scaffold + production schema + builder + 207 persona Kevin v3.1 quality 본문 모두 main 박제 (52차 + 53차 §2·§3 PR #7/#8 MERGED) |
 | Step 3c caller wiring | ⚠️ **PARTIAL — dangling server action** (53차 §5 정정). server action export OK / page render·import 0 / cron real 0 / UI caller 0. **PR1 (cron wire) + PR4 (UI wire)에서 해소**. |
-| **PR #11 (PR2 Tier 1 screening)** | 🟢 **IMPLEMENTED, OPEN MERGEABLE CLEAN**. branch `feat/pr2-tier1-screening` (main 기준 7 commits). 6 files / +1873 lines / 47 TDD tests. omxy R1~R8 CONVERGED. **다음 = USER 머지**. |
-| 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). PR #11 머지 후 PR1 wire로 메인 path 가동. |
+| **PR #11 (PR2 Tier 1 screening)** | ✅ **MERGED in main `d518979`** (54차 §2). 7 commits FF / 6 files / +1873 lines / 47 TDD tests. omxy R1~R8 CONVERGED. Remote branch deleted. **PR3a NEXT (CLAUDE 자동)**. |
+| 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR2 코드 main 박제** — PR1 wire 시점부터 메인 path 가동. |
 | 풀 리포트 흐름 | 🟢 writer Section 0~7 통합 + Section 8 partA/partD = 단일 산출물. 현재 = section_8 jsonb commit만 가능. Section 0~7 본문 구현 = PR3b scope. |
-| **Group H Critical Hard gate** | 🔴 **stock_reports schema drift + report page crash 위험** (53차 §5 spec §2). `admin-reports.ts` validation 0 + `page.tsx` section0.conviction early deref + Section 0~7 nested deref + Section 8 shape mismatch. **PR1 cron 가동 ⊥ PR3a 미선행 = page crash inevitable**. |
-| OPEN PRs | **#2** OPEN CONFLICTING (format-error, 보류) + **#10** OPEN (HANDOFF 정정 + cleanup, 본 commit) + **#11** OPEN MERGEABLE CLEAN (PR2 ⭐) |
+| **Group H Critical Hard gate** | 🔴 **stock_reports schema drift + report page crash 위험** (53차 §5 spec §2). `admin-reports.ts` validation 0 + `page.tsx` section0.conviction early deref + Section 0~7 nested deref + Section 8 shape mismatch. **PR1 cron 가동 ⊥ PR3a 미선행 = page crash inevitable**. **PR3a가 NEXT (1순위)**. |
+| OPEN PRs | **#2** OPEN CONFLICTING (format-error, 보류) + **#10** OPEN (HANDOFF cleanup + §5 정정 + PR #11 MERGED 박제, 본 PR) |
 | 실 AI 호출 | 0 (Vercel env 3 vars Production 배포는 53차 §4++ PHASE A/B 완료). 실 호출은 canonical 5-PR 머지 후 PR1 cron 또는 PR4 UI trigger로만. |
-| Production deploy | Vercel `https://tudal-tawny.vercel.app` (origin/main HEAD `131ac38f`, deploy `4765936291` Ready) · canary 4/4 PASS |
+| Production deploy | Vercel `https://tudal-tawny.vercel.app` (origin/main HEAD `d518979` 또는 PR #10 머지 후 갱신) · 본 PR2 머지 시점 canary 검증 진행 |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0019 적용 완료 (19 migrations) |
-| 검증 게이트 (PR #11 worktree) | build 25 routes / lint 0 err 6 warn / test:ci 746/68 (+47 over baseline 699) / tsc clean |
-| omxy debate 누적 | **159 rounds CONVERGED** (53차 §5 종료 151 + PR2 R1~R8 +8) · ~17 BLOCKERS PR2 catch & fix |
+| 검증 게이트 (post-PR #11 merge main) | build 25 routes / lint 0 err 6 warn / **test:ci 746/68** / tsc clean — PHASE A 검증 통과 |
+| omxy debate 누적 | **172 rounds CONVERGED** (53차 §5 종료 151 + PR2 R1~R8 +8 + cleanup R9~R11 +3 + merge sequence R12~R13 +2) · ~17 BLOCKERS PR2 catch & fix |
 
 ---
 
@@ -98,15 +97,15 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (54차 §1 active steps — DONE rows 축약, historical = git log + PR body 위임)
 
-**현재 위치 = PR #11 OPEN MERGEABLE CLEAN, USER 머지 대기 + 동시 CLAUDE PR3a 진입 가능**.
+**현재 위치 = PR2 ✅ MERGED in main `d518979` (PR #11). PR #10 머지 sequence in progress. 다음 1순위 = CLAUDE PR3a 진입 의사 1회 확인 후 자동 시작**.
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
 | Step | Owner | Trigger | Default action | Verification | Blocks next |
 |---|---|---|---|---|---|
 | **Historical** ✅ DONE | — | Step 1 (PR #1), 1c (PR #4/#5/#6), 3 (Tier 2 SoT+impl), 3a (Step 3a SKIPPED), 3b (PR #7/#8 207 persona Kevin v3.1), 3c (PR #9 PARTIAL — caller wiring scope shifted to PR1/PR4), 5 (B-6 billing 완료 PHASE A/B), B-6c PHASE C 폐기 | — | 상세 = git log + PR body + §6 53차 §5 entry | — |
-| **PR2** ✅ IMPLEMENTED | USER → SHARED | **PR #11 OPEN MERGEABLE CLEAN** (본 세션 54차 §1 박제) | USER `gh pr merge 11 --rebase` | merge SHA → main fast-forward 7 commits | PR3a 진입 |
-| **PR3a** ⭐ NEXT | **CLAUDE** | PR #11 머지 후 자동 진입 의사 1회 확인 | Group H schema drift fix only: (a) `admin-reports.ts` transformStockReportRow validation + Section type guard (b) `/admin/report/[ticker]/page.tsx` early null guard at section0.conviction + Section 0~7 fallback UI + Section 8 partA~D shape 호환 (writer Section 0~7 본문은 PR3b 별개) | omxy R1~Rn + gsd reviewer | PR1 cron 가동 전 Hard gate 선행 필수 |
+| **PR2** ✅ MERGED | — | PR #11 MERGED in main `d518979` (54차 §2) | — | main fast-forward 7 commits + 검증 게이트 통과 + remote branch 삭제 | (해소) PR3a 진입 |
+| **PR3a** ⭐ NEXT | **CLAUDE** | 본 PR #10 머지 후 main에서 새 branch (`fix/pr3a-group-h-schema-drift` 등) + 진입 의사 1회 확인 | Group H schema drift fix only: (a) `admin-reports.ts` transformStockReportRow validation + Section type guard (b) `/admin/report/[ticker]/page.tsx` early null guard at section0.conviction + Section 0~7 fallback UI + Section 8 partA~D shape 호환 (writer Section 0~7 본문은 PR3b 별개) | omxy R1~Rn + gsd reviewer | PR1 cron 가동 전 Hard gate 선행 필수 |
 | **PR1** | **CLAUDE** | PR3a 머지 후 | cron `monthly-batch` real path enable + server-callable trigger function (Task 12 mock dry-run 폐기). cron이 PR #11의 `runTier1Screening` 호출. **UI 버튼은 PR4 scope**. 또는 first-iteration = "real cron disabled behind flag". | omxy + gsd | PR3b 진입 시점 |
 | **PR3b** | **CLAUDE** | PR1 머지 후 (또는 병렬) | writer Section 0~7 본문 구현 (document-specialist + analyst + writer + critic 4-step). PR3b 마이그: `sector_reference_backlog` DB table (53차 §5 spec §3.5). | omxy + gsd | PR4 UI 진입 |
 | **PR4** | **CLAUDE** | PR3b 머지 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). | omxy + gsd + UI smoke | §2.2 출시 게이트 진입 |
@@ -130,8 +129,8 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 
 | 우선 | 작업 | 필요한 사용자 액션 |
 |---|---|---|
-| **B-11pr-merge** ⭐최우선 | PR #11 (PR2) 머지 | `gh pr merge 11 --rebase` → main 7 commits fast-forward. omxy R1~R8 CONVERGED + gsd reviewer 11 findings fix 완료. |
-| B-10pr-merge | PR #10 (HANDOFF cleanup + 53차 §5 정정) 머지 | 본 cleanup commit 검토 후 `gh pr merge 10 --rebase`. |
+| ~~B-11pr-merge~~ ✅ DONE | ~~PR #11 (PR2) 머지~~ MERGED in 54차 §2 (`d518979`, 7 commits FF + canary 검증) | ✅ |
+| B-10pr-merge ⭐최우선 | PR #10 (HANDOFF cleanup + 53차 §5 정정 + PR #11 MERGED 박제 정정) 머지 | `gh pr merge 10 --rebase` — 본 post-merge refresh commit 검토 후 머지. main fast-forward + canary 검증. |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
@@ -195,10 +194,24 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 1세션만 inline 박제.
 
-### 54차 §1 PR2 Tier 1 AI 30 선정 screening (branch `feat/pr2-tier1-screening`, PR #11 OPEN, 2026-05-22)
+### 54차 §2 PR #11 (PR2) MERGED + PR #10 cleanup sequence (omxy R12~R13 CONVERGED C′, 2026-05-22)
+
+- **scope**: 사용자 트리거 "PR #10, #11 둘 다 머지. OMXY와 교차 검증해서 올바르게 머지" — SHARED 위임 (exception bucket 6 USER 트리거).
+- **omxy R12~R13 CONVERGED-track**:
+  - R12: Option C′ 권장 (PR #11 first → docs refresh → PR #10) + 2 BLOCKERS (PR #10 post-fix 범위 확대 grep CLAUDE.md+Document+docs/superpowers / rollback range revert 변수화 OLD_MAIN+AFTER_PR11+BEFORE_PR10+AFTER_PR10)
+  - R13: full SHA `80166f94f8487ad822aeb17b54e18d563a2c9501` lock-in + rollback ranges 변수화 + sequence 10-step 승인 → CONVERGED
+- **실행 결과**:
+  - PHASE 0 preflight: 두 worktree clean + PR #2 untouched + OLD_MAIN=`131ac38f`
+  - PHASE A PR #11 merge: `gh pr merge 11 --rebase --match-head-commit <full-SHA>` → main fast-forward 7 commits (`d518979`) + remote branch deleted (local 보존 — pr2 worktree 사용 중) + 검증 게이트 ALL GREEN (build 25 routes / lint 0 err 6 warn / **test:ci 746/68** / tsc clean)
+  - PHASE B PR #10 post-merge refresh: docs branch rebase origin/main (4 commits replay, conflict 0) + HANDOFF/ProgressDashboard 등 "PR #11 OPEN" → "PR #11 MERGED" 박제 정정 + 본 commit
+  - PHASE C PR #10 merge: 진행 예정 (본 commit push 후 USER 트리거)
+- **rollback ranges 박제**: OLD_MAIN=`131ac38f` / AFTER_PR11=`d518979efc79befd278f8c69f170b49c20105b1a` / BEFORE_PR10 = AFTER_PR11 / AFTER_PR10 = PR #10 머지 후
+- **다음 1순위**: PR #10 머지 후 main에서 새 branch (PR3a). 진입 의사 1회 확인 후 자동 시작.
+
+### 54차 §1 PR2 Tier 1 AI 30 선정 screening (branch `feat/pr2-tier1-screening`, PR #11 MERGED in §2, 2026-05-22)
 
 - **scope**: 53차 §5 정정 spec doc §1.1 (canonical 5-PR 첫 PR). Tier 0 단독 30 직선정 fallback에서 메인 path (Tier 0 + Tier 1 AI 합의)로 전환하는 in-memory pure screening module 도입.
-- **branch**: `feat/pr2-tier1-screening` (worktree `/Users/yong/New_Project_KR_Stock-pr2`, main `131ac38f` 기준 7 commits, HEAD `80166f9`).
+- **branch**: `feat/pr2-tier1-screening` (worktree `/Users/yong/New_Project_KR_Stock-pr2`, main `131ac38f` 기준 7 commits, head `80166f9`). MERGED into main `d518979` in §2.
 - **7 commits**:
   - `83521d1` docs(PR2): plan — omxy R1~R4 CONVERGED lock-in
   - `92ebe28` feat(PR2): tier1-schema + runTier1Screening + 20 TDD tests
@@ -222,7 +235,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
   - R8 CONVERGED: "Push + PR create 진행 가능"
   - R9 (push-후 final sanity): PR body test count "53 → 47" mismatch catch → fix via gh pr edit. Task A CLEAN.
 - **검증 게이트 (54차 §1 종료)**: build 25 routes / lint 0 err 6 warn / **test:ci 746/68** (baseline 699 → +47, regression 0) / tsc clean / scope grep 0 DB write code / 회사명 invariant PR2 new code 0 매치.
-- **다음 1순위 (54차 §1+)**: USER PR #11 머지 → CLAUDE PR3a (Group H schema drift fix Hard gate) 자동 진입.
+- **다음 1순위 (54차 §1+)**: ✅ PR #11 머지 완료 (54차 §2 `d518979`). 다음 = CLAUDE PR3a (Group H schema drift fix Hard gate) 자동 진입.
 
 ### 53차 §5 shortlist 30 + 풀 리포트 흐름 정정 spec doc 작성 + OMXY R1~R7 CONVERGED + HANDOFF 박제 정정 (branch `docs/53-step4-runbook-update`, 2026-05-21)
 
@@ -363,4 +376,4 @@ omxy R1에서 결함 발견 시:
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제): PR2 → PR3a → PR1 → PR3b → PR4. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행 = page crash inevitable) 위반 금지.
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. 후속 PR3b writer 본문도 동일 quality target.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 54차 §1 종료 시점 = PR #11 OPEN MERGEABLE CLEAN + 다음 = USER 머지 → CLAUDE PR3a 자동 진입.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 54차 §2 종료 시점 = PR #11 MERGED in main `d518979` + PR #10 cleanup merge sequence in progress + 다음 = PR #10 머지 후 CLAUDE PR3a 자동 진입.
