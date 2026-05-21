@@ -35,6 +35,7 @@ function makeTickerAggregate(
     primary_timeframe: 'long',
     consensus_badges_by_timeframe: { short: '🟡', mid: '🟡', long: '🟢' },
     assigned_by: 'primary',
+    assigned_timeframe: 'long',
     prompt_version_id: 'tier1-v1.0.0',
     personas_version_id: 'core11-v1.0.0',
     ...overrides,
@@ -101,7 +102,10 @@ describe('tier1-schema (PR2 lock-in)', () => {
         makeTickerAggregate(`S${String(i).padStart(3, '0')}`)
       );
       const notSelected = Array.from({ length: notSelectedCount }, (_, i) =>
-        makeTickerAggregate(`N${String(i).padStart(3, '0')}`)
+        makeTickerAggregate(`N${String(i).padStart(3, '0')}`, {
+          assigned_by: null,
+          assigned_timeframe: null,
+        })
       );
       return {
         selected,
@@ -147,6 +151,87 @@ describe('tier1-schema (PR2 lock-in)', () => {
       bad.notSelected[1] = { ...bad.notSelected[0] };
       expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
         /notSelected_tickers_must_be_unique/
+      );
+    });
+
+    it('omxy R5 BLOCKER 3 fix — selected ∩ notSelected ≠ ∅ throws', () => {
+      const bad = buildResult(30, 120);
+      // S000 appears in both selected and notSelected
+      bad.notSelected[0] = { ...bad.selected[0], assigned_by: null, assigned_timeframe: null };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /selected_and_notSelected_must_be_disjoint/
+      );
+    });
+
+    it('omxy R5 BLOCKER 1 fix — selected without assigned_timeframe throws', () => {
+      const bad = buildResult(30, 120);
+      bad.selected[0] = { ...bad.selected[0], assigned_timeframe: null };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /selected_must_have_assigned_metadata/
+      );
+    });
+
+    it('omxy R5 BLOCKER 1 fix — notSelected with non-null assigned_timeframe throws', () => {
+      const bad = buildResult(30, 120);
+      bad.notSelected[0] = {
+        ...bad.notSelected[0],
+        assigned_by: 'primary',
+        assigned_timeframe: 'short',
+      };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /notSelected_must_have_null_assigned_metadata/
+      );
+    });
+  });
+
+  describe('PersonaPanelSchema (omxy R5 BLOCKER 2 fix)', () => {
+    function makeValidPanel() {
+      const ids = [
+        'warren-buffett',
+        'stanley-druckenmiller',
+        'cathie-wood',
+        'peter-lynch',
+        'charlie-munger',
+        'phil-fisher',
+        'rakesh-jhunjhunwala',
+        'mohnish-pabrai',
+        'michael-burry',
+        'nassim-taleb',
+        'chair',
+      ];
+      return ids.map((id) => ({
+        persona_id: id,
+        scores: { short: 50, mid: 50, long: 50 },
+        winning_timeframe: 'short' as const,
+        rationale_kr: 'mock',
+        conviction: 50,
+      }));
+    }
+
+    it('accepts exactly 11 unique personas', async () => {
+      const { PersonaPanelSchema } = await import('../tier1-schema');
+      expect(() => PersonaPanelSchema.parse(makeValidPanel())).not.toThrow();
+    });
+
+    it('rejects panel of length 10 (panel_must_have_11_personas)', async () => {
+      const { PersonaPanelSchema } = await import('../tier1-schema');
+      expect(() => PersonaPanelSchema.parse(makeValidPanel().slice(0, 10))).toThrow(
+        /panel_must_have_11_personas/
+      );
+    });
+
+    it('rejects panel of length 12', async () => {
+      const { PersonaPanelSchema } = await import('../tier1-schema');
+      const panel12 = [...makeValidPanel(), { ...makeValidPanel()[0], persona_id: 'extra' }];
+      expect(() => PersonaPanelSchema.parse(panel12)).toThrow();
+    });
+
+    it('rejects duplicate persona_id (panel_persona_ids_must_be_unique)', async () => {
+      const { PersonaPanelSchema } = await import('../tier1-schema');
+      const dup = makeValidPanel();
+      dup[1] = { ...dup[0] }; // duplicate persona_id
+      expect(() => PersonaPanelSchema.parse(dup)).toThrow(
+        /panel_persona_ids_must_be_unique/
       );
     });
   });
