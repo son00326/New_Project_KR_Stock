@@ -65,7 +65,29 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       ];
       for (const role of baseRoles) {
         expect(BASE_SLOT_PRINCIPLES[role]).toBeTruthy();
-        expect(BASE_SLOT_PRINCIPLES[role].length).toBeGreaterThan(50);
+        // 53차 §2 Layer (c) 보강 후: 재무 확인 label 추가로 ≥190자 (base prose 평균 ~150자 + 재무 확인 anchor 평균 ~60자)
+        expect(BASE_SLOT_PRINCIPLES[role].length).toBeGreaterThan(190);
+      }
+    });
+
+    it('10 base slot 모두 "재무 확인:" label (M2 enforce) 포함 — 53차 Layer (c)', () => {
+      // sector-agnostic financial lens 일관 적용. sector philosophy `재무 확인:`은 sector dynamics,
+      // base slot `재무 확인:`은 persona type별 보는 line items.
+      const baseRoles = Object.keys(BASE_SLOT_PRINCIPLES);
+      expect(baseRoles).toHaveLength(10);
+      for (const role of baseRoles) {
+        const principle = BASE_SLOT_PRINCIPLES[role];
+        expect(principle, `${role}: '재무 확인:' label 누락`).toContain('재무 확인:');
+      }
+    });
+
+    it('10 base slot 안에 banned literal 0 match (Layer a R2 invariant)', () => {
+      const baseRoles = Object.keys(BASE_SLOT_PRINCIPLES);
+      for (const role of baseRoles) {
+        const principle = BASE_SLOT_PRINCIPLES[role];
+        expect(principle, `${role}: "Peer 5축" 등장`).not.toContain('Peer 5축');
+        expect(principle, `${role}: "Pure-play" 등장`).not.toContain('Pure-play');
+        expect(principle, `${role}: "Bridge" 등장`).not.toContain('Bridge');
       }
     });
   });
