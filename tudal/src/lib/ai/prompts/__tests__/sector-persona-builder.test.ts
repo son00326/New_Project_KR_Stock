@@ -100,9 +100,9 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       for (const sector of CANONICAL_SECTORS) {
         const pair = PRIMARY_OVERLAY_PRINCIPLES[sector];
         expect(pair).toHaveLength(2);
-        // role-specific principle + 재무 확인 anchor 합쳐 ≥90자 (가장 짧은 사례 ~95자)
-        expect(pair[0].length).toBeGreaterThan(90);
-        expect(pair[1].length).toBeGreaterThan(90);
+        // role-specific principle + 재무 확인 anchor 합쳐 ≥85자 (가장 짧은 사례 ~88자, omxy R1 bridge→브릿지론 5자 감소 반영)
+        expect(pair[0].length).toBeGreaterThan(85);
+        expect(pair[1].length).toBeGreaterThan(85);
       }
     });
 
@@ -114,13 +114,37 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       }
     });
 
-    it('28 primary overlay principles 안에 banned literal 0 match', () => {
+    it('28 primary overlay principles 안에 banned literal 0 match (case-insensitive bridge — omxy R1 BLOCKER 1)', () => {
+      // omxy Layer (d) R1 BLOCKER 1 박제: case-sensitive "Bridge"만 막으면 "bridge loan" 통과 — case-insensitive로 확장.
       for (const sector of CANONICAL_SECTORS) {
         const [p1, p2] = PRIMARY_OVERLAY_PRINCIPLES[sector];
         for (const p of [p1, p2]) {
           expect(p).not.toContain('Peer 5축');
           expect(p).not.toContain('Pure-play');
-          expect(p).not.toContain('Bridge');
+          expect(p.toLowerCase()).not.toContain('bridge');
+        }
+      }
+    });
+
+    it('28 primary overlay principles 안에 specific 회사명/브랜드 0 (omxy R1 BLOCKER 2)', () => {
+      // omxy Layer (d) R1 BLOCKER 2 박제: 회사/브랜드 0 assertion 추가.
+      // 자주 등장 가능한 글로벌/국내 specific company/brand 직접 인용 차단.
+      const bannedCompanies = [
+        'Apple', 'Microsoft', 'Google', 'Amazon', 'Meta', 'NVIDIA',
+        'TSMC', 'Intel', 'Samsung', '삼성전자', '삼성',
+        'Tesla', 'Toyota', '현대', '기아', '현대차',
+        'Pfizer', 'Roche', 'Novartis', 'Moderna', 'BioNTech',
+        'JPMorgan', 'Goldman Sachs', 'BlackRock', 'Allianz', 'AXA',
+        'Netflix', '넷플릭스', 'Disney', 'Spotify', 'Sony Music',
+        'Maersk', 'MSC', 'FedEx', 'UPS',
+        'Halozyme', 'Bechtel', 'Vinci',
+      ];
+      for (const sector of CANONICAL_SECTORS) {
+        const [p1, p2] = PRIMARY_OVERLAY_PRINCIPLES[sector];
+        for (const p of [p1, p2]) {
+          for (const company of bannedCompanies) {
+            expect(p, `${sector}: "${company}" 직접 인용`).not.toContain(company);
+          }
         }
       }
     });
