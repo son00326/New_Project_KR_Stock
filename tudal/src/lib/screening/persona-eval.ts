@@ -16,6 +16,7 @@ import {
   type Tier1ScreeningResult,
   Tier1ScreeningResultSchema,
   PersonaPanelSchema,
+  assertPanelMatchesCore11,
   personaWeightFor,
 } from '@/lib/screening/tier1-schema';
 // TIER2_CALLS_PER_TICKER (25 = Core 11 + Sector 14) cost guard 상수는 canonical-sectors.ts에서 export.
@@ -431,9 +432,15 @@ export async function runTier1Screening(
     input.candidates.map(async (c): Promise<EnrichedItem> => {
       const financials = await input.fetchFinancials(c.ticker);
       const raw = await input.callPersonaPanel({ ticker: c.ticker, financials });
-      // 53차 §5 reviewer omxy R5 BLOCKER 2 정정 박제 — runtime panel validation.
-      // PersonaPanelSchema 위반 (length≠11 / duplicate persona_id) 시 throw → catch 됨 → null fallback.
+      // 53차 §5 reviewer omxy R5 BLOCKER 2 + R6 BLOCKER 1 정정 박제 — runtime panel validation.
+      // PersonaPanelSchema: length=11 + unique persona_id.
+      // assertPanelMatchesCore11: exact set equality vs production CORE_11_PERSONAS (unknown/sector id 차단).
+      // 위반 시 throw → Promise.allSettled catch → null fallback → ⚪ 자동.
       const personaScores = PersonaPanelSchema.parse(raw);
+      assertPanelMatchesCore11(
+        personaScores,
+        CORE_11_PERSONAS.map((p) => p.id)
+      );
       return { candidate: c, personaScores };
     })
   );

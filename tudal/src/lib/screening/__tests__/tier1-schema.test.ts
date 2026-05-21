@@ -98,22 +98,36 @@ describe('tier1-schema (PR2 lock-in)', () => {
 
   describe('Tier1ScreeningResultSchema', () => {
     function buildResult(selectedCount: number, notSelectedCount: number) {
-      const selected = Array.from({ length: selectedCount }, (_, i) =>
-        makeTickerAggregate(`S${String(i).padStart(3, '0')}`)
-      );
+      // 30 selected = 10 short + 10 mid + 10 long primary (R6 BLOCKER 2 refinement 만족).
+      const selected = Array.from({ length: selectedCount }, (_, i) => {
+        const tf: 'short' | 'mid' | 'long' =
+          i < Math.floor(selectedCount / 3)
+            ? 'short'
+            : i < Math.floor((2 * selectedCount) / 3)
+              ? 'mid'
+              : 'long';
+        return makeTickerAggregate(`S${String(i).padStart(3, '0')}`, {
+          primary_timeframe: tf,
+          assigned_by: 'primary',
+          assigned_timeframe: tf,
+        });
+      });
       const notSelected = Array.from({ length: notSelectedCount }, (_, i) =>
         makeTickerAggregate(`N${String(i).padStart(3, '0')}`, {
           assigned_by: null,
           assigned_timeframe: null,
         })
       );
+      const shortCount = selected.filter((a) => a.assigned_timeframe === 'short').length;
+      const midCount = selected.filter((a) => a.assigned_timeframe === 'mid').length;
+      const longCount = selected.filter((a) => a.assigned_timeframe === 'long').length;
       return {
         selected,
         notSelected,
         selectionMeta: {
-          shortCount: 10,
-          midCount: 10,
-          longCount: 10,
+          shortCount,
+          midCount,
+          longCount,
           backfillCounts: { short: 0, mid: 0, long: 0 },
           promptVersionId: 'tier1-v1.0.0',
           personasVersionId: 'core11-v1.0.0',
@@ -251,6 +265,111 @@ describe('tier1-schema (PR2 lock-in)', () => {
 
     it('production CORE_11_PERSONAS has exactly 11 entries', () => {
       expect(CORE_11_PERSONAS).toHaveLength(11);
+    });
+  });
+
+  describe('assertPanelMatchesCore11 (omxy R6 BLOCKER 1 fix)', () => {
+    function makeUniqueButWrongPanel(ids: string[]) {
+      return ids.map((id) => ({
+        persona_id: id,
+        scores: { short: 50, mid: 50, long: 50 },
+        winning_timeframe: 'short' as const,
+        rationale_kr: 'mock',
+        conviction: 50,
+      }));
+    }
+    const productionIds = CORE_11_PERSONAS.map((p) => p.id);
+
+    it('accepts exact production CORE_11 set', async () => {
+      const { assertPanelMatchesCore11, PersonaPanelSchema } = await import('../tier1-schema');
+      const panel = PersonaPanelSchema.parse(makeUniqueButWrongPanel(productionIds));
+      expect(() => assertPanelMatchesCore11(panel, productionIds)).not.toThrow();
+    });
+
+    it('rejects 11 unique but unknown persona IDs (sector persona IDs)', async () => {
+      const { assertPanelMatchesCore11, PersonaPanelSchema } = await import('../tier1-schema');
+      const sectorIds = Array.from({ length: 11 }, (_, i) => `sector-바이오-slot-${i + 1}`);
+      const panel = PersonaPanelSchema.parse(makeUniqueButWrongPanel(sectorIds));
+      expect(() => assertPanelMatchesCore11(panel, productionIds)).toThrow(
+        /panel_persona_ids_must_match_core11/
+      );
+    });
+
+    it('rejects 11 unique IDs with one missing core (10 production + 1 unknown)', async () => {
+      const { assertPanelMatchesCore11, PersonaPanelSchema } = await import('../tier1-schema');
+      const mixed = [...productionIds.slice(0, 10), 'unknown-persona'];
+      const panel = PersonaPanelSchema.parse(makeUniqueButWrongPanel(mixed));
+      expect(() => assertPanelMatchesCore11(panel, productionIds)).toThrow(
+        /panel_persona_ids_must_match_core11/
+      );
+    });
+  });
+
+  describe('SelectionMeta count consistency (omxy R6 BLOCKER 2 fix)', () => {
+    function buildResultWithTfs(tfDistribution: { short: number; mid: number; long: number }) {
+      let i = 0;
+      const tfArr: ('short' | 'mid' | 'long')[] = [
+        ...Array(tfDistribution.short).fill('short'),
+        ...Array(tfDistribution.mid).fill('mid'),
+        ...Array(tfDistribution.long).fill('long'),
+      ];
+      const selected = tfArr.map((tf) =>
+        makeTickerAggregate(`S${String(i++).padStart(3, '0')}`, {
+          primary_timeframe: tf,
+          assigned_by: 'primary',
+          assigned_timeframe: tf,
+        })
+      );
+      const notSelected = Array.from({ length: 120 }, (_, idx) =>
+        makeTickerAggregate(`N${String(idx).padStart(3, '0')}`, {
+          assigned_by: null,
+          assigned_timeframe: null,
+        })
+      );
+      return {
+        selected,
+        notSelected,
+        selectionMeta: {
+          shortCount: tfDistribution.short,
+          midCount: tfDistribution.mid,
+          longCount: tfDistribution.long,
+          backfillCounts: { short: 0, mid: 0, long: 0 },
+          promptVersionId: 'tier1-v1.0.0',
+          personasVersionId: 'core11-v1.0.0',
+          generatedAt: '2026-05-21T15:00:00.000Z',
+        },
+      };
+    }
+
+    it('rejects shortCount=10/mid=10/long=10 but all selected.assigned_timeframe="short"', () => {
+      const bad = buildResultWithTfs({ short: 30, mid: 0, long: 0 });
+      bad.selectionMeta.shortCount = 10;
+      bad.selectionMeta.midCount = 10;
+      bad.selectionMeta.longCount = 10;
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /selectionMeta_counts_must_match_assigned_timeframe/
+      );
+    });
+
+    it('rejects backfillCounts mismatch with assigned_by="backfill" actuals', () => {
+      const bad = buildResultWithTfs({ short: 10, mid: 10, long: 10 });
+      bad.selectionMeta.backfillCounts = { short: 5, mid: 0, long: 0 };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /selectionMeta_backfillCounts_must_match_assigned/
+      );
+    });
+
+    it('rejects primary selected with assigned_timeframe ≠ primary_timeframe', () => {
+      const bad = buildResultWithTfs({ short: 10, mid: 10, long: 10 });
+      bad.selected[0] = {
+        ...bad.selected[0],
+        primary_timeframe: 'short',
+        assigned_by: 'primary',
+        assigned_timeframe: 'mid',
+      };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /primary_assigned_timeframe_must_equal_primary_timeframe/
+      );
     });
   });
 });

@@ -136,6 +136,10 @@ export type TickerAggregate = z.infer<typeof TickerAggregateSchema>;
  * 53차 §5 reviewer omxy R5 BLOCKER 2 정정 박제 — callPersonaPanel 반환을 runtime 검증.
  *   - length = 11 (Core 11 보장)
  *   - persona_id 중복 0
+ *
+ * 추가 invariant: panel persona_id set이 production CORE_11과 exact 일치해야 함.
+ * zod static schema로는 동적 import 불가 → `assertPanelMatchesCore11(panel, expectedIds)` 별도 호출.
+ * 53차 §5 reviewer omxy R6 BLOCKER 1 정정 박제 — unknown persona ID (sector persona 등) silent ranking 왜곡 차단.
  */
 export const PersonaPanelSchema = z
   .array(PersonaScoreSchema)
@@ -145,6 +149,30 @@ export const PersonaPanelSchema = z
     { message: 'panel_persona_ids_must_be_unique' }
   );
 export type PersonaPanel = z.infer<typeof PersonaPanelSchema>;
+
+/**
+ * Panel persona_id가 production Core 11 expected set과 exact 일치하는지 검증.
+ * 위반 시 throw 'panel_persona_ids_must_match_core11'.
+ *
+ * 사용 예 (persona-eval.ts):
+ *   const panel = PersonaPanelSchema.parse(raw);
+ *   assertPanelMatchesCore11(panel, CORE_11_PERSONAS.map((p) => p.id));
+ */
+export function assertPanelMatchesCore11(
+  panel: PersonaPanel,
+  expectedIds: readonly string[]
+): void {
+  const actual = new Set(panel.map((p) => p.persona_id));
+  const expected = new Set(expectedIds);
+  if (actual.size !== expected.size) {
+    throw new Error('panel_persona_ids_must_match_core11');
+  }
+  for (const id of expected) {
+    if (!actual.has(id)) {
+      throw new Error('panel_persona_ids_must_match_core11');
+    }
+  }
+}
 
 /**
  * Selection meta (산출 통계 + version id + timestamp).
@@ -218,6 +246,43 @@ export const Tier1ScreeningResultSchema = z
         (a) => a.assigned_by === null && a.assigned_timeframe === null
       ),
     { message: 'notSelected_must_have_null_assigned_metadata' }
+  )
+  // 53차 §5 reviewer omxy R6 BLOCKER 2 정정 박제 — selectionMeta count가 selected.assigned_timeframe 실 분포와 일치.
+  .refine(
+    (v) => {
+      const shortActual = v.selected.filter((a) => a.assigned_timeframe === 'short').length;
+      const midActual = v.selected.filter((a) => a.assigned_timeframe === 'mid').length;
+      const longActual = v.selected.filter((a) => a.assigned_timeframe === 'long').length;
+      return (
+        v.selectionMeta.shortCount === shortActual &&
+        v.selectionMeta.midCount === midActual &&
+        v.selectionMeta.longCount === longActual
+      );
+    },
+    { message: 'selectionMeta_counts_must_match_assigned_timeframe' }
+  )
+  // backfillCounts[tf] === selected.filter(backfill && assigned_timeframe===tf).length
+  .refine(
+    (v) => {
+      const backfillByTf = (tf: Timeframe) =>
+        v.selected.filter(
+          (a) => a.assigned_by === 'backfill' && a.assigned_timeframe === tf
+        ).length;
+      return (
+        v.selectionMeta.backfillCounts.short === backfillByTf('short') &&
+        v.selectionMeta.backfillCounts.mid === backfillByTf('mid') &&
+        v.selectionMeta.backfillCounts.long === backfillByTf('long')
+      );
+    },
+    { message: 'selectionMeta_backfillCounts_must_match_assigned' }
+  )
+  // primary 선정은 assigned_timeframe === primary_timeframe.
+  .refine(
+    (v) =>
+      v.selected.every(
+        (a) => a.assigned_by !== 'primary' || a.assigned_timeframe === a.primary_timeframe
+      ),
+    { message: 'primary_assigned_timeframe_must_equal_primary_timeframe' }
   );
 export type Tier1ScreeningResult = z.infer<typeof Tier1ScreeningResultSchema>;
 
