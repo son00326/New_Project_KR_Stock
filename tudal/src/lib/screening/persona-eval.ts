@@ -7,6 +7,16 @@ import {
   SECTOR_PERSONA_COUNT,
   resolveSlotTemplate,
 } from '@/lib/screening/canonical-sectors';
+import { assignBadge, isTopTier, type ConsensusBadge } from '@/lib/screening/consensus';
+import {
+  TIMEFRAMES,
+  type Timeframe,
+  type PersonaScore,
+  type TickerAggregate,
+  type Tier1ScreeningResult,
+  Tier1ScreeningResultSchema,
+  personaWeightFor,
+} from '@/lib/screening/tier1-schema';
 // TIER2_CALLS_PER_TICKER (25 = Core 11 + Sector 14) cost guard 상수는 canonical-sectors.ts에서 export.
 // chair = Core 11 마지막 위원 (별도 추가 X — 본 PR scope 박제, OOS lift는 별도 PR).
 
@@ -244,4 +254,265 @@ export async function runSectorEval(input: RunSectorEvalInput): Promise<SectorEv
     degradedCount,
     totalCalls: results.length,
   };
+}
+
+// ============================================================================
+// PR2 — Tier 1 AI 30 선정 screening (53차 §5 lock-in, omxy R1~R4 CONVERGED).
+//
+// SoT:
+// - docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md §1.1
+// - docs/superpowers/plans/2026-05-21-pr2-tier1-screening.md
+//
+// Scope purity (PR2 박제):
+//   ✅ in-memory screening logic only.
+//   ❌ DB write · cron wire · UI wire · writer touch · backlog table (PR1/PR3a/PR3b/PR4로 분리).
+//
+// PR3b 권장: sector_reference_backlog DB table 도입 (referenceCoverage metadata SoT).
+// ============================================================================
+
+export interface Tier1Candidate {
+  ticker: string;
+  sector: CanonicalSector | null;
+  tier0_buckets: { short: boolean; mid: boolean; long: boolean };
+  /**
+   * Tier 0 raw score per timeframe (higher = better).
+   * null = ticker is NOT a Tier 0 candidate in that timeframe.
+   */
+  tier0_scores: { short: number | null; mid: number | null; long: number | null };
+}
+
+export interface RunTier1ScreeningInput {
+  /**
+   * 150 candidates = Tier 0 short top 50 + mid top 50 + long top 50.
+   * 한 ticker가 여러 bucket에 포함될 수 있음 (caller normalize 책임 — 본 함수는 ticker 중복 검사 X).
+   */
+  candidates: Tier1Candidate[];
+  /**
+   * 단일 ticker × Core 11 페르소나 panel call. 반환은 11 PersonaScore (timeframe별 score map 포함).
+   * 실제 LLM 호출 wire는 caller scope (PR1 cron 또는 PR4 UI trigger).
+   */
+  callPersonaPanel: (input: { ticker: string; financials: string }) => Promise<PersonaScore[]>;
+  fetchFinancials: (ticker: string) => Promise<string>;
+  promptVersionId: string;
+  personasVersionId: string;
+}
+
+const BADGE_PRIORITY: Record<ConsensusBadge, number> = {
+  '🟢': 4,
+  '🔵': 3,
+  '🟣': 2,
+  '🟡': 1,
+  '⚪': 0,
+};
+
+function computeWeightedScores(personas: PersonaScore[]): Record<Timeframe, number> {
+  const result: Record<Timeframe, number> = { short: 0, mid: 0, long: 0 };
+  for (const tf of TIMEFRAMES) {
+    let weightedSum = 0;
+    let weightTotal = 0;
+    for (const p of personas) {
+      const w = personaWeightFor(p.persona_id, tf);
+      weightedSum += w * p.scores[tf];
+      weightTotal += w;
+    }
+    result[tf] = weightTotal > 0 ? weightedSum / weightTotal : 0;
+  }
+  return result;
+}
+
+function argmaxTimeframe(scores: Record<Timeframe, number>): Timeframe {
+  // Deterministic tie-break: short > mid > long (TIMEFRAMES 선언 순서).
+  if (scores.short >= scores.mid && scores.short >= scores.long) return 'short';
+  if (scores.mid >= scores.long) return 'mid';
+  return 'long';
+}
+
+function computeTier0Ranks(candidates: Tier1Candidate[]): Record<Timeframe, Map<string, number>> {
+  const out: Record<Timeframe, Map<string, number>> = {
+    short: new Map(),
+    mid: new Map(),
+    long: new Map(),
+  };
+  for (const tf of TIMEFRAMES) {
+    const scored = candidates
+      .filter((c) => c.tier0_scores[tf] != null)
+      .map((c) => ({ ticker: c.ticker, score: c.tier0_scores[tf] as number }));
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.ticker.localeCompare(b.ticker);
+    });
+    scored.forEach((c, i) => out[tf].set(c.ticker, i + 1));
+  }
+  return out;
+}
+
+function computeTier1Ranks(aggregates: TickerAggregate[]): Record<Timeframe, Map<string, number>> {
+  const out: Record<Timeframe, Map<string, number>> = {
+    short: new Map(),
+    mid: new Map(),
+    long: new Map(),
+  };
+  for (const tf of TIMEFRAMES) {
+    const sorted = [...aggregates].sort((a, b) => {
+      if (b.weighted_scores[tf] !== a.weighted_scores[tf]) {
+        return b.weighted_scores[tf] - a.weighted_scores[tf];
+      }
+      return a.ticker.localeCompare(b.ticker);
+    });
+    sorted.forEach((c, i) => out[tf].set(c.ticker, i + 1));
+  }
+  return out;
+}
+
+function compareForTimeframe(a: TickerAggregate, b: TickerAggregate, tf: Timeframe): number {
+  if (a.weighted_scores[tf] !== b.weighted_scores[tf]) {
+    return b.weighted_scores[tf] - a.weighted_scores[tf];
+  }
+  const aBadge = BADGE_PRIORITY[a.consensus_badges_by_timeframe[tf]];
+  const bBadge = BADGE_PRIORITY[b.consensus_badges_by_timeframe[tf]];
+  if (aBadge !== bBadge) return bBadge - aBadge;
+  return a.ticker.localeCompare(b.ticker);
+}
+
+/**
+ * Tier 1 AI 30 선정 screening (PR2 deliverable).
+ *
+ * 알고리즘 (5-step, omxy R4 lock-in):
+ *   1. 150 candidates × callPersonaPanel = 150 panel calls (Core 11 페르소나 score matrix).
+ *   2. server-side aggregate: timeframe별 페르소나 가중치 적용 (단 Druckenmiller/Burry 1.5x · 중 Lynch 1.5x · 장 Buffett/Munger/Fisher/Pabrai 1.5x).
+ *   3. primary_timeframe = argmax(weighted_scores).
+ *   4. timeframe별 primary 후보를 (weighted_score, badge, ticker) 순으로 정렬해 최대 10개 선발.
+ *   5. <10 timeframe은 global unselected pool에서 해당 timeframe score 내림차순으로 backfill (short → mid → long 순).
+ *
+ * 반환: 30 selected + 120 notSelected + selectionMeta (counts + version id + generatedAt).
+ *
+ * scope purity: in-memory only. DB write 0. caller responsibility (PR1):
+ *   - cost_log INSERT
+ *   - short_list_30 row persist (assigned_by/version_id 컬럼 마이그)
+ *   - acquireBatchLock / releaseBatchLock
+ *   - preflightHardcap
+ */
+export async function runTier1Screening(
+  input: RunTier1ScreeningInput
+): Promise<Tier1ScreeningResult> {
+  if (input.candidates.length !== 150) {
+    throw new Error(`tier1_candidates_must_be_150 (got ${input.candidates.length})`);
+  }
+
+  const generatedAt = new Date().toISOString();
+
+  // 1. Call panel for each ticker (parallel)
+  const enriched = await Promise.all(
+    input.candidates.map(async (c) => {
+      const financials = await input.fetchFinancials(c.ticker);
+      const personaScores = await input.callPersonaPanel({ ticker: c.ticker, financials });
+      return { candidate: c, personaScores };
+    })
+  );
+
+  // 2. Compute weighted_scores + primary_timeframe per ticker
+  const aggregates: TickerAggregate[] = enriched.map((e) => {
+    const weighted = computeWeightedScores(e.personaScores);
+    const primary_timeframe = argmaxTimeframe(weighted);
+    return {
+      ticker: e.candidate.ticker,
+      sector: e.candidate.sector,
+      weighted_scores: weighted,
+      primary_timeframe,
+      // Placeholder — overwritten in step 3.
+      consensus_badges_by_timeframe: { short: '⚪', mid: '⚪', long: '⚪' },
+      assigned_by: 'primary' as const,
+      prompt_version_id: input.promptVersionId,
+      personas_version_id: input.personasVersionId,
+    };
+  });
+
+  // 3. Compute consensus badges per timeframe (Tier 0 + Tier 1 ranking)
+  const tier0Ranks = computeTier0Ranks(input.candidates);
+  const tier1Ranks = computeTier1Ranks(aggregates);
+
+  for (const agg of aggregates) {
+    for (const tf of TIMEFRAMES) {
+      const t0Rank = tier0Ranks[tf].get(agg.ticker);
+      const t0Total = tier0Ranks[tf].size;
+      const tier0IsTop = t0Rank != null && t0Total > 0 && isTopTier(t0Rank, t0Total);
+
+      const t1Rank = tier1Ranks[tf].get(agg.ticker);
+      const t1Total = tier1Ranks[tf].size;
+      const tier1IsTop = t1Rank != null && t1Total > 0 && isTopTier(t1Rank, t1Total);
+
+      // PR2 scope 박제: Tier 1 always available (caller responsibility — PR1 wire).
+      // PR1 wiring 시 degraded ticker는 tier1Available=false 전달해야 ⚪ 배지 산출.
+      agg.consensus_badges_by_timeframe[tf] = assignBadge({
+        tier1Available: true,
+        tier0IsTop,
+        tier1IsTop,
+      });
+    }
+  }
+
+  // 4. Group by primary_timeframe + select top 10 per timeframe
+  const byPrimary: Record<Timeframe, TickerAggregate[]> = { short: [], mid: [], long: [] };
+  for (const agg of aggregates) byPrimary[agg.primary_timeframe].push(agg);
+
+  const primarySelected: Record<Timeframe, TickerAggregate[]> = {
+    short: [],
+    mid: [],
+    long: [],
+  };
+  for (const tf of TIMEFRAMES) {
+    byPrimary[tf].sort((a, b) => compareForTimeframe(a, b, tf));
+    primarySelected[tf] = byPrimary[tf].slice(0, 10);
+  }
+
+  // 5. Backfill timeframes with <10 from global unselected pool
+  const primaryTickers = new Set(
+    [
+      ...primarySelected.short,
+      ...primarySelected.mid,
+      ...primarySelected.long,
+    ].map((a) => a.ticker)
+  );
+  const pool: TickerAggregate[] = aggregates.filter((a) => !primaryTickers.has(a.ticker));
+
+  const backfillCounts: Record<Timeframe, number> = { short: 0, mid: 0, long: 0 };
+  const backfilled: Record<Timeframe, TickerAggregate[]> = { short: [], mid: [], long: [] };
+  for (const tf of TIMEFRAMES) {
+    const needed = 10 - primarySelected[tf].length;
+    if (needed <= 0) continue;
+    pool.sort((a, b) => compareForTimeframe(a, b, tf));
+    const taken = pool.splice(0, needed);
+    backfilled[tf] = taken;
+    backfillCounts[tf] = taken.length;
+  }
+
+  // 6. Assemble selected[] ordered [short top10, mid top10, long top10]
+  const selected: TickerAggregate[] = [];
+  for (const tf of TIMEFRAMES) {
+    for (const a of primarySelected[tf]) {
+      selected.push({ ...a, assigned_by: 'primary' });
+    }
+    for (const a of backfilled[tf]) {
+      selected.push({ ...a, assigned_by: 'backfill' });
+    }
+  }
+
+  const selectedTickers = new Set(selected.map((a) => a.ticker));
+  const notSelected = aggregates.filter((a) => !selectedTickers.has(a.ticker));
+
+  const result: Tier1ScreeningResult = {
+    selected,
+    notSelected,
+    selectionMeta: {
+      shortCount: primarySelected.short.length + backfilled.short.length,
+      midCount: primarySelected.mid.length + backfilled.mid.length,
+      longCount: primarySelected.long.length + backfilled.long.length,
+      backfillCounts,
+      promptVersionId: input.promptVersionId,
+      personasVersionId: input.personasVersionId,
+      generatedAt,
+    },
+  };
+
+  return Tier1ScreeningResultSchema.parse(result);
 }
