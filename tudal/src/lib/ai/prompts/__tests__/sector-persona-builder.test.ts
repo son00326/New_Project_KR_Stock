@@ -625,14 +625,15 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       }).not.toThrow();
     });
 
-    it('BLOCKER 4: KEVIN_V31_TONE_RULES → "inquiry pattern" reframing 적용', () => {
+    it('BLOCKER 4: Kevin v3.1 inquiry pattern reframing 적용 (53차 Layer g 후 KEVIN_V31_RUBRIC_INSTRUCTION 경유)', () => {
       const slot = resolveSlotTemplate('바이오', [])[0];
       const c = buildSectorPersonaContract('바이오', slot);
-      // inquiry pattern (4 axes 명시)
-      expect(c.systemPrompt).toContain('inquiry pattern');
-      expect(c.systemPrompt).toContain('inquiry axes');
-      // 일상 비유는 강제 아님 (자연스러울 때만)
-      expect(c.systemPrompt).toContain('자연스러울 때만');
+      // inquiry pattern + 4 axes 명시 (KEVIN_V31_RUBRIC_INSTRUCTION 안)
+      expect(c.systemPrompt).toContain('Kevin v3.1 inquiry pattern');
+      expect(c.systemPrompt).toContain('Q1:');
+      expect(c.systemPrompt).toContain('Q4:');
+      // 일상 비유 marker (M7 enforce, 강제 + 영어 약자 풀이 시 사용)
+      expect(c.systemPrompt).toContain('일상 비유');
     });
 
     it('BLOCKER 5: 모든 systemPrompt에 sector + slot role + sector-specific keyword 포함', () => {
