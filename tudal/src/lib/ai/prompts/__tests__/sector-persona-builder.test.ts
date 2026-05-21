@@ -275,9 +275,32 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
     it('Core 11 persona individuality 보존 — label 한국어 이름이 systemPrompt에 유지', () => {
       // omxy R3 catch vi 박제: rubric = wrapper, NOT replacement.
       // 각 persona의 label (한국어 이름)이 systemPrompt 안에 보존되어야 함.
-      // (label 검증이 individuality keyword 검증의 robust proxy — brittle한 keyword 매칭 회피)
       for (const p of CORE_11_PERSONAS) {
         expect(p.systemPrompt, `${p.id}: label "${p.label}" 누락 (individuality 손실)`).toContain(p.label);
+      }
+    });
+
+    it('Core 11 persona individuality 보존 — 고유 lens keyword 유지 (omxy Layer f R1 BLOCKER 박제)', () => {
+      // omxy Layer (f) R1 BLOCKER: label-only test는 tautology — 각 persona 고유 lens keyword 검증.
+      // 각 persona는 아래 keywords 중 1개 이상 systemPrompt에 포함해야 함.
+      const lensKeywords: Record<string, string[]> = {
+        'warren-buffett': ['해자', 'Moat', 'Circle of Competence', 'Intrinsic Value'],
+        'stanley-druckenmiller': ['매크로', '비대칭', '모멘텀'],
+        'cathie-wood': ['파괴적 혁신', 'TAM', '플랫폼'],
+        'peter-lynch': ['PEG', '일상', 'Invest in what you know'],
+        'charlie-munger': ['격자형', 'Latticework', 'Wonderful business'],
+        'phil-fisher': ['15 포인트', 'Scuttlebutt', 'R&D'],
+        'rakesh-jhunjhunwala': ['신흥', '컴파운딩', 'ROE'],
+        'mohnish-pabrai': ['Dhandho', '다바왈라', 'Cloning', '복제'],
+        'michael-burry': ['컨트래리언', 'Free Cash Flow', 'FCF Yield', '컴퍼라리언'],
+        'nassim-taleb': ['반취약성', '블랙스완', 'Antifragile', '볼록성'],
+        'chair': ['위원장', '11명', '5종 배지'],
+      };
+      for (const p of CORE_11_PERSONAS) {
+        const expected = lensKeywords[p.id];
+        expect(expected, `${p.id}: lens keywords 정의 누락 (test fixture 갱신 필요)`).toBeDefined();
+        const found = expected.some((k) => p.systemPrompt.includes(k));
+        expect(found, `${p.id}: 어떤 lens keyword도 발견 못함 (${expected.join(' / ')})`).toBe(true);
       }
     });
 
