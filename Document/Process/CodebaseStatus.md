@@ -1,6 +1,8 @@
 # CodebaseStatus.md — 현재 구현 스냅샷
 
 > **용도**: 이 문서는 **"지금 코드에 무엇이 있는가"**의 스냅샷이다. 덮어쓰기 중심 — 과거 상태는 git log에 있고 여기는 **현재**만 유지한다.
+
+> **53차 §3 종료 (2026-05-21)**: Step 3b 207 persona Kevin v3.1 quality 본문 완성 (PR #8 OPEN). 신규 코드 SoT: `tudal/src/lib/ai/prompts/kevin-v31-rubric.ts` (4 inquiry axes + 8 markers M1~M8 + applyKevinV31Rubric helper + persona individuality wrapper) + `personas/sector-persona-builder.ts` 확장 (SECTOR_PHILOSOPHIES 14 4-anchor + BASE_SLOT_PRINCIPLES 10 재무 확인 + PRIMARY_OVERLAY_PRINCIPLES 28 신규 + SUB_TAG_OVERLAY_PRINCIPLES 14 신규 + ADJUSTMENTS 회사명 cleanup) + `personas/index.ts` (Core 11 wrapping). 신규 docs: `docs/superpowers/specs/2026-05-21-kevin-v31-rubric.md` (rationale only, CI 검증 X) + `docs/superpowers/snapshots/2026-05-21-step3b-prompt-samples.md` (28 manual review sample fixture, **CI gate 아님 — manual review only**). test:ci 65/691, 회사명 grep 0 match.
 >
 > **HANDOFF.md와의 구분**:
 > - `HANDOFF.md` = 미래 지향 ("다음 세션에 무엇을 할지")
