@@ -63,11 +63,16 @@ describe("kevin-v31-rubric", () => {
       });
     });
 
-    it("explicitly forbids meta analysis terms in body output", () => {
-      // rubric instruction은 본문 금지 단어 ("Peer 5축", "Pure-play", "Bridge")를 "금지" 문맥에서 명시
+    it("forbids meta analysis terms abstractly without naming them (omxy R2 BLOCKER)", () => {
+      // omxy R2 BLOCKER 정정: banned literal ("Peer 5축", "Pure-play", "Bridge")을 instruction 안에 나열하지 않는다.
+      // 추상 표현 "메타 분석 용어" + "본문에 노출하지 않는다"만 사용 + grep invariant.
       const instruction = KEVIN_V31_RUBRIC_INSTRUCTION;
       expect(instruction).toContain("메타 분석 용어");
-      expect(instruction).toContain("출현 금지");
+      expect(instruction).toContain("노출하지 않는다");
+      // banned literal 0 grep invariant (LLM이 예시 복사할 위험 차단)
+      expect(instruction).not.toContain("Peer 5축");
+      expect(instruction).not.toContain("Pure-play");
+      expect(instruction).not.toContain("Bridge");
     });
 
     it("mentions persona individuality wrapper principle", () => {
