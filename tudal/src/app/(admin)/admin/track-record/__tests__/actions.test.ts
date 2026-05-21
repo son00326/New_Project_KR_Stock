@@ -19,6 +19,18 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { CallPersonaInput, CallPersonaResult } from '@/lib/ai/anthropic-client';
+import type { Tier2Counters, TriggerMonthlyPersonaEvalActionResult } from '../actions';
+
+// Type-assertion helper for discriminated union narrowing.
+// `if (!result.ok) throw ...`만으로는 dynamic import 컨텍스트에서 narrowing이 손실되는 케이스가 있다
+// (TS 5.x `possibly undefined` 18048). assertion function으로 명시적 narrowing.
+function assertOk(
+  result: TriggerMonthlyPersonaEvalActionResult,
+): asserts result is { ok: true; totalCalls: number; tier2: Tier2Counters } {
+  if (!result.ok) {
+    throw new Error(`expected ok=true, got error: ${result.error}`);
+  }
+}
 
 // --- callPersona mock (per-test 재정의 가능) ---
 const mockCallPersona = vi.fn();
@@ -229,7 +241,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('unreachable');
+    assertOk(result);
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(mockRunSectorEval).not.toHaveBeenCalled();
     expect(result.tier2).toBeDefined();
@@ -249,7 +261,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('unreachable');
+    assertOk(result);
     expect(mockRunSectorEval).not.toHaveBeenCalled();
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(result.tier2.skippedSector).toBeGreaterThan(0);
@@ -268,7 +280,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('unreachable');
+    assertOk(result);
     expect(mockRunSectorEval).not.toHaveBeenCalled();
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(result.tier2.skippedSector).toBeGreaterThan(0);
@@ -289,7 +301,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('unreachable');
+    assertOk(result);
     expect(mockRunSectorEval).toHaveBeenCalledTimes(1);
     expect(mockCommitSectorReport).toHaveBeenCalledTimes(1);
     expect(result.tier2.committed).toBe(1);
@@ -314,7 +326,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const resultA = await triggerMonthlyPersonaEvalAction('2026-05');
     expect(resultA.ok).toBe(true);
-    if (!resultA.ok) throw new Error('unreachable');
+    assertOk(resultA);
     expect(resultA.tier2.committed).toBe(1);
     const argsA = mockRunSectorEval.mock.calls[0][0] as { sub_tags: readonly string[] };
     expect(argsA.sub_tags).toEqual([]); // fallback
@@ -330,7 +342,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
 
     const resultB = await triggerMonthlyPersonaEvalAction('2026-05');
     expect(resultB.ok).toBe(true);
-    if (!resultB.ok) throw new Error('unreachable');
+    assertOk(resultB);
     expect(resultB.tier2.committed).toBe(1);
     const argsB = mockRunSectorEval.mock.calls[0][0] as { sub_tags: readonly string[] };
     expect(argsB.sub_tags).toEqual([]); // fallback
@@ -349,7 +361,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('unreachable');
+    assertOk(result);
     expect(mockRunSectorEval).toHaveBeenCalledTimes(1);
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(result.tier2.skippedUnavailable).toBeGreaterThan(0);
@@ -389,7 +401,7 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('unreachable');
+    assertOk(result);
     expect(mockCommitSectorReport).toHaveBeenCalledTimes(1);
 
     // strict args verify
