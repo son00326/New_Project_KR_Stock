@@ -65,7 +65,7 @@ export const KEVIN_V31_RUBRIC_INSTRUCTION = `Kevin v3.1 inquiry pattern (200자 
 2. 가정 명시 — "추정 시" 또는 "가정" 명시 (예: peer median 수렴 추정 시 -N% 하향).
 3. 근거 부족 fallback — 재무 데이터 부재 시 "근거 부족" 명시. 숫자 환각 금지.
 4. 비교 가능한 회사 명시 — peer 1개 이상 명시 (회사명은 제공된 컨텍스트에서만 사용).
-5. 일상 비유 — 영어 약자 (PSR/PER/WACC 등) 첫 등장 시 일상 비유 선행 (예: PSR을 "월세 N만원 받는 건물이 얼마에 팔리는가 배수"로 풀어 쓰기). 메타 분석 용어 ("Peer 5축", "Pure-play", "Bridge") 본문 출현 금지.
+5. 일상 비유 — 영어 약자 (PSR/PER/WACC 등) 첫 등장 시 일상 비유 선행 (예: PSR을 "월세 N만원 받는 건물이 얼마에 팔리는가 배수"로 풀어 쓰기). 내부 메타 분석 용어(분석 기법명·내부 frameworks)는 본문에 노출하지 않는다. 독자에게 보이는 문장은 기업·재무·판단 중심으로만 쓴다.
 6. BUY/HOLD/SELL 명시 — 응답 JSON의 vote 필드 + argument에 판단 근거 노출.
 7. 영어 약자는 한글 풀이 후 병기 — 첫 등장 시 PSR/PER/WACC/DCF/LTM/NTM/OPM/EV/EBITDA/CAGR/TP 등 일상 비유로 풀어 쓰고, 영어 약자를 괄호 또는 후행 병기.
 8. argument_excerpt는 200자 이내 — 위 규칙들을 200자 cap 안에서 압축. 80자 one_line + 200자 argument_excerpt 분리.
