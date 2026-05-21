@@ -7,24 +7,26 @@ import { runTier1Screening } from '../persona-eval';
 import type { PersonaScore } from '../tier1-schema';
 import type { RunTier1ScreeningInput } from '../persona-eval';
 
+// 53차 §5 reviewer WR-04 정정 박제 — production persona ID (kebab-case) 동기.
+// Source: tudal/src/lib/ai/prompts/personas/*.ts id 필드.
 const CORE_11_IDS = [
-  'warren_buffett',
-  'charlie_munger',
-  'phil_fisher',
-  'peter_lynch',
-  'ben_graham',
-  'stanley_druckenmiller',
-  'michael_burry',
-  'mohnish_pabrai',
-  'rakesh_jhunjhunwala',
-  'aswath_damodaran',
-  'cathie_wood',
+  'warren-buffett',
+  'stanley-druckenmiller',
+  'cathie-wood',
+  'peter-lynch',
+  'charlie-munger',
+  'phil-fisher',
+  'rakesh-jhunjhunwala',
+  'mohnish-pabrai',
+  'michael-burry',
+  'nassim-taleb',
+  'chair',
 ] as const;
 
 const TIMEFRAME_HEAVY_PERSONAS = {
-  short: ['stanley_druckenmiller', 'michael_burry'],
-  mid: ['peter_lynch'],
-  long: ['warren_buffett', 'charlie_munger', 'phil_fisher', 'mohnish_pabrai'],
+  short: ['stanley-druckenmiller', 'michael-burry'],
+  mid: ['peter-lynch'],
+  long: ['warren-buffett', 'charlie-munger', 'phil-fisher', 'mohnish-pabrai'],
 } as const;
 
 /** Build a deterministic panel callback. score[tf] for ticker T at persona P = formula(T, P, tf). */
@@ -95,6 +97,34 @@ describe('runTier1Screening (PR2 lock-in)', () => {
     });
   });
 
+  describe('Input validation', () => {
+    it('IN-04 reviewer fix — throws on candidates.length !== 150', async () => {
+      const badInput: RunTier1ScreeningInput = {
+        candidates: makeCandidates(149),
+        callPersonaPanel: makePanelCallback(() => 50),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      };
+      await expect(runTier1Screening(badInput)).rejects.toThrow(/tier1_candidates_must_be_150/);
+    });
+
+    it('CR-02 reviewer fix — throws on duplicate ticker', async () => {
+      const dups = makeCandidates(150);
+      dups[1] = { ...dups[0] }; // T000 repeated
+      const dupInput: RunTier1ScreeningInput = {
+        candidates: dups,
+        callPersonaPanel: makePanelCallback(() => 50),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      };
+      await expect(runTier1Screening(dupInput)).rejects.toThrow(
+        /tier1_candidates_have_duplicate_tickers/
+      );
+    });
+  });
+
   describe('Primary assignment (argmax)', () => {
     it('Test 7 — ticker scores favoring "mid" → primary_timeframe = "mid"', async () => {
       // Make one specific ticker (T000) have mid >> short, long
@@ -109,6 +139,19 @@ describe('runTier1Screening (PR2 lock-in)', () => {
       );
       const t000 = [...result.selected, ...result.notSelected].find((a) => a.ticker === 'T000');
       expect(t000?.primary_timeframe).toBe('mid');
+    });
+
+    it('Test 8 — argmax tie on weighted_scores: short wins over mid/long (TIMEFRAMES declaration order)', async () => {
+      // T000: short=mid=75, long=50 → primary should be 'short' (TIMEFRAMES order short>mid>long).
+      // Other tickers uniform low.
+      const result = await runTier1Screening(
+        makeInput((ticker, _pid, tf) => {
+          if (ticker === 'T000') return tf === 'long' ? 50 : 75;
+          return 40;
+        })
+      );
+      const t000 = [...result.selected, ...result.notSelected].find((a) => a.ticker === 'T000');
+      expect(t000?.primary_timeframe).toBe('short');
     });
 
     it('Test 9 — extreme: every ticker primary "short" → 10 short primary + mid/long backfill from unselected pool', async () => {
@@ -252,6 +295,41 @@ describe('runTier1Screening (PR2 lock-in)', () => {
       midBackfill.forEach((a) => {
         expect(['🟢', '🔵', '🟣', '🟡', '⚪']).toContain(a.consensus_badges_by_timeframe.mid);
       });
+    });
+  });
+
+  describe('Tier 1 availability seam (WR-02 reviewer fix)', () => {
+    it('callPersonaPanel rejection → ticker tier1Available=false → ⚪ badge', async () => {
+      const result = await runTier1Screening({
+        candidates: makeCandidates(150),
+        callPersonaPanel: async ({ ticker }) => {
+          // T000 always fails (Tier 1 degraded), others succeed
+          if (ticker === 'T000') throw new Error('ai_call_failed');
+          return CORE_11_IDS.map((pid) => ({
+            persona_id: pid,
+            scores: { short: 50, mid: 50, long: 50 },
+            winning_timeframe: 'short' as const,
+            rationale_kr: 'mock',
+            conviction: 50,
+          }));
+        },
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      });
+      const t000 = [...result.selected, ...result.notSelected].find((a) => a.ticker === 'T000');
+      expect(t000?.consensus_badges_by_timeframe.short).toBe('⚪');
+      expect(t000?.consensus_badges_by_timeframe.mid).toBe('⚪');
+      expect(t000?.consensus_badges_by_timeframe.long).toBe('⚪');
+    });
+
+    it('tier1AvailableByTicker override forces ⚪ for caller-marked degraded tickers', async () => {
+      const result = await runTier1Screening({
+        ...makeInput(() => 50),
+        tier1AvailableByTicker: { T005: false },
+      });
+      const t005 = [...result.selected, ...result.notSelected].find((a) => a.ticker === 'T005');
+      expect(t005?.consensus_badges_by_timeframe.short).toBe('⚪');
     });
   });
 

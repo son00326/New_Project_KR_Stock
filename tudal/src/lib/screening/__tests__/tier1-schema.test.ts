@@ -8,8 +8,10 @@ import {
   TickerAggregateSchema,
   Tier1ScreeningResultSchema,
   TIMEFRAMES,
+  TIMEFRAME_HEAVY_PERSONAS,
 } from '../tier1-schema';
 import type { TickerAggregate } from '../tier1-schema';
+import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 
 function makePersonaScore(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -130,6 +132,40 @@ describe('tier1-schema (PR2 lock-in)', () => {
       const bad = buildResult(30, 120);
       bad.selectionMeta.shortCount = 9;
       expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow();
+    });
+
+    it('CR-02 reviewer fix — duplicate ticker in selected throws', () => {
+      const bad = buildResult(30, 120);
+      bad.selected[1] = { ...bad.selected[0] }; // first two identical ticker
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /selected_tickers_must_be_unique/
+      );
+    });
+
+    it('CR-02 reviewer fix — duplicate ticker in notSelected throws', () => {
+      const bad = buildResult(30, 120);
+      bad.notSelected[1] = { ...bad.notSelected[0] };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /notSelected_tickers_must_be_unique/
+      );
+    });
+  });
+
+  describe('TIMEFRAME_HEAVY_PERSONAS production invariant (CR-01 reviewer fix)', () => {
+    it('every heavy-list ID exists in production CORE_11_PERSONAS', () => {
+      const productionIds = new Set(CORE_11_PERSONAS.map((p) => p.id));
+      const allHeavy = [
+        ...TIMEFRAME_HEAVY_PERSONAS.short,
+        ...TIMEFRAME_HEAVY_PERSONAS.mid,
+        ...TIMEFRAME_HEAVY_PERSONAS.long,
+      ];
+      for (const id of allHeavy) {
+        expect(productionIds.has(id)).toBe(true);
+      }
+    });
+
+    it('production CORE_11_PERSONAS has exactly 11 entries', () => {
+      expect(CORE_11_PERSONAS).toHaveLength(11);
     });
   });
 });
