@@ -111,17 +111,40 @@ export const ConsensusBadgesByTimeframeSchema = z.object({
  * - assigned_by: 'primary' = argmax timeframe에 자연 선발 / 'backfill' = 부족 timeframe에 보충
  * - prompt_version_id / personas_version_id: 재현성 (cost_log 또는 short_list_30 row 박제 — PR1 scope)
  */
+/**
+ * TickerAggregate. selected vs notSelected에서 의미 차이:
+ *   - selected: assigned_by + assigned_timeframe 모두 non-null. assigned_timeframe = primary면 primary_timeframe, backfill이면 채워진 timeframe.
+ *   - notSelected: assigned_by + assigned_timeframe 모두 null (선정 안 됨).
+ *
+ * 53차 §5 reviewer omxy R5 BLOCKER 1 정정 박제 — backfill row가 어떤 timeframe에 assign되었는지 명시.
+ */
 export const TickerAggregateSchema = z.object({
   ticker: z.string().min(1),
   sector: SectorSchema,
   weighted_scores: ScoresByTimeframeSchema,
   primary_timeframe: z.enum(TIMEFRAMES),
   consensus_badges_by_timeframe: ConsensusBadgesByTimeframeSchema,
-  assigned_by: z.enum(['primary', 'backfill']),
+  assigned_by: z.enum(['primary', 'backfill']).nullable(),
+  assigned_timeframe: z.enum(TIMEFRAMES).nullable(),
   prompt_version_id: z.string().min(1),
   personas_version_id: z.string().min(1),
 });
 export type TickerAggregate = z.infer<typeof TickerAggregateSchema>;
+
+/**
+ * Panel output schema — Core 11 페르소나 각각 1회 호출 결과.
+ * 53차 §5 reviewer omxy R5 BLOCKER 2 정정 박제 — callPersonaPanel 반환을 runtime 검증.
+ *   - length = 11 (Core 11 보장)
+ *   - persona_id 중복 0
+ */
+export const PersonaPanelSchema = z
+  .array(PersonaScoreSchema)
+  .length(11, { message: 'panel_must_have_11_personas' })
+  .refine(
+    (panel) => new Set(panel.map((p) => p.persona_id)).size === panel.length,
+    { message: 'panel_persona_ids_must_be_unique' }
+  );
+export type PersonaPanel = z.infer<typeof PersonaPanelSchema>;
 
 /**
  * Selection meta (산출 통계 + version id + timestamp).
@@ -171,6 +194,30 @@ export const Tier1ScreeningResultSchema = z
   .refine(
     (v) => new Set(v.notSelected.map((a) => a.ticker)).size === v.notSelected.length,
     { message: 'notSelected_tickers_must_be_unique' }
+  )
+  // 53차 §5 reviewer omxy R5 BLOCKER 3 정정 박제 — selected ∩ notSelected = ∅ 보장.
+  .refine(
+    (v) => {
+      const selSet = new Set(v.selected.map((a) => a.ticker));
+      return v.notSelected.every((a) => !selSet.has(a.ticker));
+    },
+    { message: 'selected_and_notSelected_must_be_disjoint' }
+  )
+  // selected items는 assigned_by + assigned_timeframe 모두 non-null.
+  .refine(
+    (v) =>
+      v.selected.every(
+        (a) => a.assigned_by !== null && a.assigned_timeframe !== null
+      ),
+    { message: 'selected_must_have_assigned_metadata' }
+  )
+  // notSelected items는 assigned_by + assigned_timeframe 모두 null (선정 안 됨).
+  .refine(
+    (v) =>
+      v.notSelected.every(
+        (a) => a.assigned_by === null && a.assigned_timeframe === null
+      ),
+    { message: 'notSelected_must_have_null_assigned_metadata' }
   );
 export type Tier1ScreeningResult = z.infer<typeof Tier1ScreeningResultSchema>;
 

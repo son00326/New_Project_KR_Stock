@@ -15,6 +15,7 @@ import {
   type TickerAggregate,
   type Tier1ScreeningResult,
   Tier1ScreeningResultSchema,
+  PersonaPanelSchema,
   personaWeightFor,
 } from '@/lib/screening/tier1-schema';
 // TIER2_CALLS_PER_TICKER (25 = Core 11 + Sector 14) cost guard 상수는 canonical-sectors.ts에서 export.
@@ -429,14 +430,15 @@ export async function runTier1Screening(
   const enrichedSettled = await Promise.allSettled(
     input.candidates.map(async (c): Promise<EnrichedItem> => {
       const financials = await input.fetchFinancials(c.ticker);
-      const personaScores = await input.callPersonaPanel({ ticker: c.ticker, financials });
+      const raw = await input.callPersonaPanel({ ticker: c.ticker, financials });
+      // 53차 §5 reviewer omxy R5 BLOCKER 2 정정 박제 — runtime panel validation.
+      // PersonaPanelSchema 위반 (length≠11 / duplicate persona_id) 시 throw → catch 됨 → null fallback.
+      const personaScores = PersonaPanelSchema.parse(raw);
       return { candidate: c, personaScores };
     })
   );
-  const failedTickers = new Set<string>();
   const enriched: EnrichedItem[] = enrichedSettled.map((r, i) => {
     if (r.status === 'fulfilled') return r.value;
-    failedTickers.add(input.candidates[i].ticker);
     return { candidate: input.candidates[i], personaScores: null };
   });
 
@@ -460,15 +462,28 @@ export async function runTier1Screening(
         available: false,
       };
     }
+    const overrideAvail = input.tier1AvailableByTicker?.[e.candidate.ticker];
+    const available = overrideAvail !== undefined ? overrideAvail : true;
+    // 53차 §5 reviewer omxy R5 Warning 정정 박제 — degraded ticker는 selection ranking에서도 제외
+    // (badge ⚪뿐 아니라 weighted_score zero → 자연스럽게 ranking 하위). caller가 unavailable 명시 시
+    // Tier 1 데이터 신뢰 불가 → score 사용 금지 (전체 일관성: panel fail 케이스와 동일 처리).
+    if (!available) {
+      return {
+        ticker: e.candidate.ticker,
+        sector: e.candidate.sector,
+        weighted_scores: ZERO_SCORES,
+        primary_timeframe: 'short' as Timeframe,
+        available: false,
+      };
+    }
     const weighted = computeWeightedScores(e.personaScores);
     const primary_timeframe = argmaxTimeframe(weighted);
-    const overrideAvail = input.tier1AvailableByTicker?.[e.candidate.ticker];
     return {
       ticker: e.candidate.ticker,
       sector: e.candidate.sector,
       weighted_scores: weighted,
       primary_timeframe,
-      available: overrideAvail !== undefined ? overrideAvail : true,
+      available: true,
     };
   });
 
@@ -493,13 +508,15 @@ export async function runTier1Screening(
         tier1IsTop,
       });
     }
+    // assigned_by + assigned_timeframe은 selection 단계에서 set (selected) / notSelected는 null 유지.
     return {
       ticker: p.ticker,
       sector: p.sector,
       weighted_scores: p.weighted_scores,
       primary_timeframe: p.primary_timeframe,
       consensus_badges_by_timeframe: badges,
-      assigned_by: 'primary' as const,
+      assigned_by: null,
+      assigned_timeframe: null,
       prompt_version_id: input.promptVersionId,
       personas_version_id: input.personasVersionId,
     };
@@ -541,17 +558,20 @@ export async function runTier1Screening(
     backfillCounts[tf] = taken.length;
   }
 
-  // 6. Assemble selected[] ordered [short top10, mid top10, long top10]
+  // 6. Assemble selected[] ordered [short top10, mid top10, long top10].
+  // selected items: assigned_by + assigned_timeframe 모두 non-null로 set.
+  // assigned_timeframe = primary면 primary_timeframe, backfill이면 채워진 timeframe (tf).
   const selected: TickerAggregate[] = [];
   for (const tf of TIMEFRAMES) {
     for (const a of primarySelected[tf]) {
-      selected.push({ ...a, assigned_by: 'primary' });
+      selected.push({ ...a, assigned_by: 'primary', assigned_timeframe: tf });
     }
     for (const a of backfilled[tf]) {
-      selected.push({ ...a, assigned_by: 'backfill' });
+      selected.push({ ...a, assigned_by: 'backfill', assigned_timeframe: tf });
     }
   }
 
+  // notSelected items: assigned_by + assigned_timeframe 모두 null 유지 (aggregates 초기값).
   const selectedTickers = new Set(selected.map((a) => a.ticker));
   const notSelected = aggregates.filter((a) => !selectedTickers.has(a.ticker));
 

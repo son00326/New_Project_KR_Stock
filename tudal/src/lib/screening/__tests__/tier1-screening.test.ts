@@ -197,6 +197,50 @@ describe('runTier1Screening (PR2 lock-in)', () => {
       expect(backfillTickers.length).toBeGreaterThan(0);
       backfillTickers.forEach((a) => {
         expect(a.assigned_by).toBe('backfill');
+        // omxy R5 BLOCKER 1 fix: assigned_timeframe must be set (non-null)
+        expect(a.assigned_timeframe).not.toBeNull();
+      });
+    });
+
+    it('omxy R5 BLOCKER 1 fix — backfill ticker assigned_timeframe = filled bucket (not primary_timeframe)', async () => {
+      // Every ticker primary=mid → short + long need backfill.
+      const result = await runTier1Screening(
+        makeInput((_ticker, _pid, tf) => (tf === 'mid' ? 90 : 30))
+      );
+      const shortBackfill = result.selected.filter(
+        (a) => a.assigned_by === 'backfill' && a.assigned_timeframe === 'short'
+      );
+      const longBackfill = result.selected.filter(
+        (a) => a.assigned_by === 'backfill' && a.assigned_timeframe === 'long'
+      );
+      expect(shortBackfill).toHaveLength(10);
+      expect(longBackfill).toHaveLength(10);
+      // Backfill tickers' primary_timeframe is 'mid' (their argmax) but assigned_timeframe = short/long.
+      shortBackfill.forEach((a) => expect(a.primary_timeframe).toBe('mid'));
+      longBackfill.forEach((a) => expect(a.primary_timeframe).toBe('mid'));
+    });
+
+    it('omxy R5 BLOCKER 1 fix — primary selected has assigned_timeframe == primary_timeframe', async () => {
+      const result = await runTier1Screening(
+        makeInput((ticker, _pid, tf) => {
+          const idx = parseInt(ticker.slice(1), 10);
+          const norm = (idx / 149) * 100;
+          if (tf === 'short') return norm * 0.6;
+          if (tf === 'mid') return norm * 0.8;
+          return norm;
+        })
+      );
+      const primarySelected = result.selected.filter((a) => a.assigned_by === 'primary');
+      primarySelected.forEach((a) => {
+        expect(a.assigned_timeframe).toBe(a.primary_timeframe);
+      });
+    });
+
+    it('omxy R5 BLOCKER 1 fix — notSelected items have null assigned metadata', async () => {
+      const result = await runTier1Screening(makeInput(() => 50));
+      result.notSelected.forEach((a) => {
+        expect(a.assigned_by).toBeNull();
+        expect(a.assigned_timeframe).toBeNull();
       });
     });
 
