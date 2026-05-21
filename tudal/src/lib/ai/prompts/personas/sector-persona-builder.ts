@@ -261,7 +261,7 @@ export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
     global_adjacent_expert: "물류·결제·미디어 인접 시각. retail tech·라이브커머스·인플루언서 마케팅·core 소비자 데이터 활용을 본다.",
   },
   "에너지": {
-    domestic_special_expert: "국내 전력시장 정책 전문가/한전 출신 시각. 신재생 RPS·SMP·발전 capacity 입찰·송전망 제약을 본다.",
+    domestic_special_expert: "국내 전력시장 정책 전문가/전력 공기업 출신 시각. 신재생 RPS·SMP·발전 capacity 입찰·송전망 제약을 본다.",
     domestic_academic: "국내 에너지공학 학계 시각. 수소 경제·SMR·CCUS·태양광 효율 향상·전력 grid 안정성을 본다.",
     global_industry_veteran: "글로벌 oil major/신재생 전직 임원 시각. 글로벌 신재생 grid 확장·녹색 수소·해상 풍력·에너지 전환 정책을 본다.",
     global_adjacent_expert: "전기차·ESS·전력 인프라 인접 시각. 신재생 발전+ESS 통합·V2G·산업 가스·LNG 트레이딩 통합을 본다.",
@@ -276,10 +276,10 @@ export const SECTOR_BASE_SLOT_ADJUSTMENTS: Partial<
     domestic_special_expert: "국내 통신 3사 네트워크 엔지니어/B2B 영업 시각. 5G CAPEX 회수·기업 B2B 매출·MVNO 위협·정부 주파수 정책을 본다.",
     domestic_academic: "국내 통신공학 학계 시각. 6G/오픈랜·NTN(non-terrestrial network)·양자 통신 학술 동향·핵심 표준 기여도를 본다.",
     global_industry_veteran: "글로벌 통신사 전직 임원 시각. 글로벌 5G 보급·통신 인프라 CAPEX 사이클·해외 진출(MENA·동남아)을 본다.",
-    global_adjacent_expert: "클라우드·IoT·자율주행·미디어 인접 시각. 통신+클라우드 통합(SK스토아·MEC)·OTT 콘텐츠 통신 패키지·5G IoT 시장을 본다.",
+    global_adjacent_expert: "클라우드·IoT·자율주행·미디어 인접 시각. 통신+클라우드 통합(통신사 커머스·MEC)·OTT 콘텐츠 통신 패키지·5G IoT 시장을 본다.",
   },
   "철강/소재": {
-    domestic_special_expert: "국내 POSCO·현대제철 공정 엔지니어/원자재 trader 시각. 스프레드·원료(철광석·점결탄) 가격·고부가가치 제품 mix·중국 수출 회피를 본다.",
+    domestic_special_expert: "국내 대형 철강사 공정 엔지니어/원자재 trader 시각. 스프레드·원료(철광석·점결탄) 가격·고부가가치 제품 mix·중국 수출 회피를 본다.",
     domestic_academic: "국내 금속재료 학계 시각. 친환경 제강(수소환원제철)·고부가가치 합금·EV용 강재·핵심 IP를 본다.",
     global_industry_veteran: "글로벌 철강 메이저 전직 임원 시각. 글로벌 강재 수급·중국 수출 통제·미국 IRA 철강 보조금·EU CBAM을 본다.",
     global_adjacent_expert: "에너지·EV·반도체·건설 인접 시각. 신재생용 구리·반도체용 소재·EV 차체 강재·건설 강재 수요 변화를 본다.",
