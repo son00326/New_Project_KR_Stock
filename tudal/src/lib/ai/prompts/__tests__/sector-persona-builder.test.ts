@@ -15,6 +15,7 @@ import {
   BASE_SLOTS,
   CANONICAL_SECTORS,
   SECTOR_PERSONA_COUNT,
+  SUB_TAG_OVERLAY_ROLES,
   resolveSlotTemplate,
 } from '@/lib/screening/canonical-sectors';
 
@@ -165,7 +166,27 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
   });
 
   describe('SUB_TAG_OVERLAY_PRINCIPLES coverage (53차 Layer e)', () => {
-    const subTags = ['조선', '방산', '화학', '게임', '가전', '제약', '부동산'];
+    // omxy Layer (e) R1 BLOCKER 2 정정: hardcoded subTags 대신 canonical SoT 사용 — drift 차단.
+    const subTags = Object.keys(SUB_TAG_OVERLAY_ROLES);
+
+    it('SUB_TAG_OVERLAY_PRINCIPLES keys === SUB_TAG_OVERLAY_ROLES keys (canonical SoT 1:1)', () => {
+      const principleKeys = Object.keys(SUB_TAG_OVERLAY_PRINCIPLES).sort();
+      const roleKeys = Object.keys(SUB_TAG_OVERLAY_ROLES).sort();
+      expect(principleKeys).toEqual(roleKeys);
+    });
+
+    it('각 sub_tag pair principle이 SUB_TAG_OVERLAY_ROLES role name 포함', () => {
+      // 각 principle 안에 해당 sub_tag role 이름이 직접 등장하여 drift 방지
+      for (const subTag of subTags) {
+        const [r1, r2] = SUB_TAG_OVERLAY_ROLES[subTag];
+        const [p1, p2] = SUB_TAG_OVERLAY_PRINCIPLES[subTag];
+        // role name 첫 핵심어 (앞 4~6자) substring 검증 — 전체 match는 too brittle
+        const r1Core = r1.split(/[ /·]/)[0]; // e.g. "조선 PE/PC 엔지니어" → "조선"
+        const r2Core = r2.split(/[ /·]/)[0];
+        expect(p1, `${subTag} principle[0]에 role[0] 핵심어 "${r1Core}" 누락`).toContain(r1Core);
+        expect(p2, `${subTag} principle[1]에 role[1] 핵심어 "${r2Core}" 누락`).toContain(r2Core);
+      }
+    });
 
     it('7 sub_tags × 2 = 14 sub_tag overlay principles 정의됨', () => {
       expect(Object.keys(SUB_TAG_OVERLAY_PRINCIPLES)).toHaveLength(7);

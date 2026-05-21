@@ -364,14 +364,13 @@ export function buildSectorPersonaContract(
     label = `${sector} (${slot.sub_tag}) ${slot.role}`;
     roleDescription = `${slot.sub_tag} 전문가: ${slot.role}`;
     // 53차 §2 Layer (e) 보강: SUB_TAG_OVERLAY_PRINCIPLES Record로 sub_tag + slot specific principle.
-    // 이전 inline ternary 폐기.
+    // 이전 inline ternary 폐기. omxy Layer (e) R1 BLOCKER 1 정정: fallback "보완 시각" 폐기 (재무 확인 누락이라 품질 invariant 위반).
+    // SUB_TAG_OVERLAY_PRINCIPLES 누락은 programmer error — fail-fast throw.
     const subTagPrinciples = SUB_TAG_OVERLAY_PRINCIPLES[slot.sub_tag];
     if (subTagPrinciples === undefined) {
-      // SUB_TAG_OVERLAY_ROLES에는 있지만 SUB_TAG_OVERLAY_PRINCIPLES에 없는 케이스 — fail-safe fallback.
-      evaluationPrinciple = `${slot.sub_tag} sub-tag 활성화 시 본 sector 평가의 보완 시각을 제공한다.`;
-    } else {
-      evaluationPrinciple = slotIndex === 13 ? subTagPrinciples[0] : subTagPrinciples[1];
+      throw new Error(`missing_sub_tag_overlay_principle:${slot.sub_tag}`);
     }
+    evaluationPrinciple = slotIndex === 13 ? subTagPrinciples[0] : subTagPrinciples[1];
   } else if (slot.slot_type === "primary_overlay") {
     // slot 11~12: sector primary overlay
     id = `sector-${sector}-slot-${slotIndex}`;
