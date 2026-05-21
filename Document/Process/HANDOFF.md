@@ -25,7 +25,7 @@ Last updated: 2026-05-21 (53차 §3 종료 — **🎯 Step 3b 207 persona Kevin 
 ```bash
 cd /Users/yong/New_Project_KR_Stock
 # 정확 branch state runtime 확인 (docs hardcoded 박제 회피 — omxy R7 Option A 권고)
-git rev-parse --abbrev-ref HEAD                      # 현재 branch (예상: feat/tier2-production-prompts 또는 후속 branch)
+git rev-parse --abbrev-ref HEAD                      # 현재 branch (예상: feat/tier2-step3b-prompts-196 또는 PR #8 merge 후 후속 branch)
 git rev-parse --short HEAD                           # 현재 commit hash
 git rev-list --count main..HEAD                      # branch ahead count
 git log --oneline main..HEAD | head -10              # commit history
@@ -34,7 +34,7 @@ git log --oneline main..HEAD | head -10              # commit history
 gh pr list --state open --json number,title,headRefName,mergeable
 
 # PR #7 (53차 §2 deliverable) state 확인
-gh pr view 7 --json state,baseRefName,headRefOid,mergeStateStatus,url
+gh pr view 8 --json state,baseRefName,headRefOid,mergeStateStatus,url
 
 # Supabase production schema 확인 (53차 §1 baseline = 19 migrations)
 # (Supabase MCP `list_migrations` 또는 `gh api` 호출)
@@ -81,7 +81,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Production deploy | Vercel `https://tudal-tawny.vercel.app` (origin/main HEAD `02c7947a`) · 53차 §2 PR #7 머지 후 canary `/` 200, `/login` 200, `/macro` 200, `/admin` 307 (auth redirect, expected) |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0017 + **0018 + 0019** production 적용 완료 (53차 §1). 19 migrations 총. 53차 §3 마이그 변경 0 (Step 3b는 production code only). |
 | 검증 게이트 (53차 §3 종료) | build OK 25 routes · lint 0 errors 6 warnings (pre-existing) · **test:ci 65 / 691** (PR #7 baseline 650 → **+41 신규 Step 3b tests**) · tsc clean · 회사명 grep 0 match (50+ tokens) |
-| omxy debate 누적 | **123 rounds CONVERGED (53차 §3 +38 rounds, 18 BLOCKERS total catch & fix)** = 마무리 R1~R3 3 (PR state + 16 buckets + HEAD 고정) + Layer (a~g) Step 3 R1~R2 16 (16 Layer BLOCKERS) + 53차 §2 종료 시점 85. 적대적 검토 = 본 PR 운영 원칙. Step 3c 이후 작업에도 동일 강제 적용. |
+| omxy debate 누적 | **125 rounds CONVERGED (53차 §3 +40 rounds including Final R1+R2+R3, 18 BLOCKERS total catch & fix)** = 마무리 R1~R3 3 (PR state + 16 buckets + HEAD 고정) + Layer (a~g) Step 3 R1~R2 16 (16 Layer BLOCKERS) + 53차 §2 종료 시점 85. 적대적 검토 = 본 PR 운영 원칙. Step 3c 이후 작업에도 동일 강제 적용. |
 
 ### 49차 본 세션 추가 commits (oldest → newest)
 
@@ -649,7 +649,7 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
 ─────────────────────────────────────────────
                                         22 rounds  CONVERGED (53차 §3, 18 BLOCKERS total catch & fix)
 
-총 누적 (CONVERGED only):                123 rounds  CONVERGED (53차 §3 종료 시점, 안정, Final omxy R1 별도)
+총 누적 (CONVERGED only):                125 rounds  CONVERGED (53차 §3 종료, 마무리 + Final R1+R2+R3 포함, production canary 4/4 PASS evidence 박제)
 ```
 
 ---
@@ -667,7 +667,7 @@ git log --oneline main..HEAD | head -40           # 본 branch commit history (d
 
 # PR state (mergeStateStatus 매 push마다 재계산 — polling으로 CLEAN/UNSTABLE 확인)
 gh pr list --state open --json number,title,headRefName,mergeable
-gh pr view 7 --json baseRefName,headRefOid,mergeStateStatus
+gh pr view 8 --json baseRefName,headRefOid,mergeStateStatus  # PR #7은 53차 §3 머지 완료 (historical)
 
 # Supabase MCP: list_migrations — 19 migrations 박제 확인 (0018/0019 포함)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
@@ -685,7 +685,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ### §8.3 후속 PR 진입 시 omxy 적대적 검토 (§7 패턴 재사용)
 
 - [ ] 새 branch 생성 (Step 3a는 53차 §0 SKIPPED 박제로 제외):
-  - Step 3b (production prompts 196) → `feat/tier2-production-prompts`
+  - ~~Step 3b (production prompts 196) → `feat/tier2-production-prompts` / `feat/tier2-step3b-prompts-196`~~ ✅ DONE (53차 §2 PR #7 MERGED + 53차 §3 PR #8 OPEN)
   - Step 3c (caller wiring) → `feat/tier2-caller-wiring`
   - Step 4 (Reflection) → `feat/tier2-reflection`
   - Step 8 (S7b) → `feat/s7b-news-briefing`
@@ -696,7 +696,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - [ ] §7.2 cmux peer surface 갱신 (`cmux list-panes`로 omxy 탐색)
 - [ ] §7.4 omxy 적대적 검토 패턴 매 task 강제 적용 + subagent gsd 정밀 검토 병렬
 - [ ] §7.6 결함 카탈로그 grep 검증 (특히 stock_reports schema + writer vote 매핑 + p_sector_aggregate integer + parseSectorContentStrict + canonical 14 drift + production import 정확 3 파일 등)
-- [ ] **Step 3b 진입 시**: main 보존 Kevin reference 자료 (Outputs/v3-Readable.{md,html} + Service/Report/v3-NarrativeDesign + DraftPhilosophy + ReaderAnalogyCards 등) 톤·구조·깊이 분석 → 196 sector persona system prompt 박제 (`@/lib/ai/prompts/personas/` 신규 디렉토리)
+- [x] ~~**Step 3b 진입 시**~~ ✅ DONE (53차 §3): main 보존 Kevin reference 자료 분석 → 207 persona system prompt 박제 완료 (`@/lib/ai/prompts/kevin-v31-rubric.ts` + `@/lib/ai/prompts/personas/sector-persona-builder.ts` 확장 + `personas/index.ts` Core 11 wrapping). 207 × 8 markers = 1656 assertions 전수 통과.
 - [ ] **Step 3c 진입 시**: cron route 변경 (S7a §12 박제 mock dry-run 폐기, billing 충전 후) + admin server action Tier 2 branch + Section 8 partA UI render
 - [ ] **ExecutionPlaybook.md 갱신 필요 여부 판단** (Step 3b/3c가 새 execution routing 카테고리라면 §2 매핑 표 보강)
 
