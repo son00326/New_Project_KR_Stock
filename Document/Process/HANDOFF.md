@@ -20,7 +20,7 @@ Last updated: 2026-05-21 (53차 §3 종료 — **🎯 Step 3b 207 persona Kevin 
 
 ---
 
-## 0. 세션 시작 루틴 (53차 §2 종료 시점 갱신 — omxy R7 Option A generic 적용)
+## 0. 세션 시작 루틴 (53차 §3 종료 시점 갱신 — omxy R7 Option A generic 적용)
 
 ```bash
 cd /Users/yong/New_Project_KR_Stock
@@ -30,7 +30,7 @@ git rev-parse --short HEAD                           # 현재 commit hash
 git rev-list --count main..HEAD                      # branch ahead count
 git log --oneline main..HEAD | head -10              # commit history
 
-# OPEN PRs 확인 (53차 §2 종료 baseline = #2 보류 + #7 OPEN, hardcoded 가정 금지 — runtime 확인)
+# OPEN PRs 확인 (53차 §3 종료 baseline = #2 보류 + #8 OPEN MERGEABLE CLEAN, hardcoded 가정 금지 — runtime 확인)
 gh pr list --state open --json number,title,headRefName,mergeable
 
 # PR #7 (53차 §2 deliverable) state 확인
@@ -39,7 +39,7 @@ gh pr view 7 --json state,baseRefName,headRefOid,mergeStateStatus,url
 # Supabase production schema 확인 (53차 §1 baseline = 19 migrations)
 # (Supabase MCP `list_migrations` 또는 `gh api` 호출)
 
-# 검증 게이트 baseline (53차 §2 종료) = build 25 routes · lint 0 err 6 warn · test:ci 650 / 64 files · tsc clean
+# 검증 게이트 baseline (53차 §3 종료) = build 25 routes · lint 0 err 6 warn · test:ci 65 / 691 files · tsc clean
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
@@ -158,7 +158,7 @@ a9c9c93 fix(S7a 0016a): add legacy cost_log cleanup migration with row-count saf
 6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용 — 본 exception에서 제외.
 7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-### §2.1 Step matrix (53차 §1 종료 시점 — 현재 위치 = **Step 3b 진행 중 (branch `feat/tier2-production-prompts`)** + **Step 1c = ✅ DONE (53차 §1)** + **Step 3a = SKIPPED (53차 §0 박제)**)
+### §2.1 Step matrix (53차 §3 종료 시점 — 현재 위치 = **Step 3b ✅ DONE (branch `feat/tier2-step3b-prompts-196` PR #8 OPEN)** + **Step 1c = ✅ DONE (53차 §1)** + **Step 3a = SKIPPED (53차 §0 박제)** + Step 3c 진입 게이트 = PR #8 USER 머지 후)
 
 Owner 의미:
 - **USER** = 사용자만 가능 (외부 계정 / 결제 / 키 발급 / production merge 등)
@@ -660,7 +660,7 @@ code-review R1~R3 (4 commits, 진입 전):    3 rounds  CONVERGED
 
 ```bash
 # 정확 branch state (HEAD/count는 매 push마다 변동 — docs에 hardcoded 박제 회피)
-git rev-parse --abbrev-ref HEAD                   # 53차 §2 종료 = feat/tier2-production-prompts (또는 후속 branch)
+git rev-parse --abbrev-ref HEAD                   # 53차 §3 종료 = feat/tier2-step3b-prompts-196 (또는 후속 branch)
 git rev-parse --short HEAD                        # 본 commit hash
 git rev-list --count main..HEAD                   # 본 branch commits count
 git log --oneline main..HEAD | head -40           # 본 branch commit history (df8ef0e first commit 시작)
@@ -728,4 +728,4 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
   - **SHARED** = push / PR create: Claude가 prepare/commit/PR-create 가능, 단 "이어서 진행" 권한이 명시적으로 부여된 경우에만. destructive merge/deploy/migration/billing은 USER에 남는다.
 - **Default-progress policy (§2.0 박제)**: "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Runbook 박제된 다음 unblocked CLAUDE step 자동 시작 + USER-gated step은 background blocker로 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **📌 Tier 2 production prompts quality target = Kevin v3.1 reference (52차 박제 + 53차 §0 위치 정정 [[handoff_kevin_v31_quality_target]])**: 다음 세션 Step 3b (production sector persona prompts 196 작성) 시 **main 보존 자료의 톤·구조·깊이를 따라야 함** — `Document/Outputs/Report-Alteogen_196170_v3-Readable.{md,html}` 본문 + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign,Decisions,ValuationTrial}.md` 프레임워크 + `Document/Service/Report/ReaderAnalogyCards-ConstructionToBio.md` 비유 카드 + `Document/Outputs/Report-Samchundang_000250.{md,html}` 보조 reference. 단순 lorem-ipsum / "Mock Persona" stub 금지. 14 sector × 14 persona system prompt 박제. **53차 §0 박제**: Kevin IMVCOM 4 commits는 이미 main의 ancestor이므로 별도 정합 머지 PR 불필요 — main 보존 자료를 직접 reference. 자세한 SoT pointer = §5 표 + ServicePlan-Admin §1A.5 D22.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: header (5줄 요약) + §1 + §2 + §8 모두 stale 0. 본 53차 §2 종료 시점 omxy R1~R8 8 rounds CONVERGED + 85 rounds 누적 + branch `feat/tier2-production-prompts` (push 완료, PR #7 OPEN) + Runbook 현재 위치 = **Step 3b §6 DONE (PR #7 USER review/merge 대기)** → **Step 3c (caller wiring) 진입 게이트 = PR #7 머지 후** + Step 1c/3a/3b/B-17c 모두 해소. PR #2 + PR #7 = 2건 OPEN.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: header (5줄 요약) + §1 + §2 + §8 모두 stale 0. 본 53차 §3 종료 시점 omxy 125 rounds CONVERGED 누적 (Layer a~g + 마무리 + Final R1~R2) + 18 BLOCKERS catch & fix + branch `feat/tier2-step3b-prompts-196` (push 완료, **PR #8 OPEN MERGEABLE CLEAN**) + Runbook 현재 위치 = **Step 3b ✅ DONE (PR #8 USER review/merge 대기)** → **Step 3c (caller wiring) 진입 게이트 = PR #8 머지 후** + Step 1c/3a/3b/B-17c/B-17e 모두 해소. PR #2 + PR #8 = 2건 OPEN. **Production canary 4/4 PASS** (`/`200·`/login`200·`/macro`200·`/admin`307 + Location: `/login?next=%2Fadmin`).
