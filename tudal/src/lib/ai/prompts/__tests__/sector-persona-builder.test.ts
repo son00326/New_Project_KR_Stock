@@ -317,6 +317,53 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
     });
   });
 
+  describe('196 sector personas Kevin v3.1 rubric inject coverage (53차 Layer g step 2)', () => {
+    it('196 sector personas 모두 KEVIN_V31_RUBRIC_INSTRUCTION inject', () => {
+      const all = generateAllSectorPersonas();
+      expect(all).toHaveLength(196);
+      for (const p of all) {
+        expect(p.systemPrompt, `${p.id}: KEVIN_V31_RUBRIC_INSTRUCTION 누락`).toContain(
+          KEVIN_V31_RUBRIC_INSTRUCTION,
+        );
+      }
+    });
+
+    it('196 sector personas 모두 8 markers (M1~M8) substring 포함', () => {
+      const all = generateAllSectorPersonas();
+      for (const p of all) {
+        for (const [key, marker] of Object.entries(KEVIN_V31_QUALITY_MARKERS)) {
+          expect(p.systemPrompt, `${p.id}: marker ${key} (${marker}) 누락`).toContain(marker);
+        }
+      }
+    });
+
+    it('196 sector personas wrapper 순서: core principle → sector philosophy → rubric', () => {
+      // applyKevinV31Rubric(corePrincipleText, sectorPhilosophy)
+      // 결과: corePrincipleText + "\n\n" + sectorPhilosophy + "\n\n" + KEVIN_V31_RUBRIC_INSTRUCTION
+      const all = generateAllSectorPersonas();
+      for (const p of all) {
+        const rubricIdx = p.systemPrompt.indexOf(KEVIN_V31_RUBRIC_INSTRUCTION);
+        expect(rubricIdx, `${p.id}: rubric idx`).toBeGreaterThan(0);
+        // rubric 앞 텍스트에 평가 원칙 + 한국 코스피·코스닥 substring 보존
+        const before = p.systemPrompt.substring(0, rubricIdx);
+        expect(before, `${p.id}: 평가 원칙 누락`).toContain('평가 원칙');
+        expect(before, `${p.id}: 한국 코스피·코스닥 누락`).toContain('한국 코스피·코스닥');
+      }
+    });
+
+    it('196 sector personas sector identity 보존 — sector name이 systemPrompt 안에 등장', () => {
+      const all = generateAllSectorPersonas();
+      for (const p of all) {
+        // p.label = "<sector> <role>" 형태. label 첫 부분 (sector name)이 systemPrompt에 등장해야 함.
+        // 단, sector name에 "/"가 들어간 경우 ("IT/SW", "유통/소비재", "엔터/미디어", "철강/소재", "운송/물류", "보험/증권") 처리
+        const sectorName = p.label.split(' ')[0]; // "바이오 임상시험 통계학자" → "바이오"
+        // sector name with "/" — 부분 매칭으로 검증
+        const sectorCore = sectorName.split('/')[0]; // "IT/SW" → "IT"
+        expect(p.systemPrompt, `${p.id}: sector identity "${sectorCore}" 누락`).toContain(sectorCore);
+      }
+    });
+  });
+
   describe('buildSectorPersonaContract', () => {
     it('14 sectors × 14 slots = 196 contracts 모두 valid PersonaContract', () => {
       const all = generateAllSectorPersonas();
