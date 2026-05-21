@@ -292,9 +292,10 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
         'phil-fisher': ['15 포인트', 'Scuttlebutt', 'R&D'],
         'rakesh-jhunjhunwala': ['신흥', '컴파운딩', 'ROE'],
         'mohnish-pabrai': ['Dhandho', '다바왈라', 'Cloning', '복제'],
-        'michael-burry': ['컨트래리언', 'Free Cash Flow', 'FCF Yield', '컴퍼라리언'],
+        'michael-burry': ['컨트래리언', 'Free Cash Flow', 'FCF Yield'],
         'nassim-taleb': ['반취약성', '블랙스완', 'Antifragile', '볼록성'],
-        'chair': ['위원장', '11명', '5종 배지'],
+        // chair: '위원장'은 label과 중복 — tautology 회피 위해 individuality keyword에서 제외 (omxy Layer f R2 박제)
+        'chair': ['11명', '5종 배지'],
       };
       for (const p of CORE_11_PERSONAS) {
         const expected = lensKeywords[p.id];
