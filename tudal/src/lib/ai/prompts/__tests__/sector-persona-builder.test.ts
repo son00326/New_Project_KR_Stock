@@ -337,29 +337,63 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       }
     });
 
-    it('196 sector personas wrapper 순서: core principle → sector philosophy → rubric', () => {
-      // applyKevinV31Rubric(corePrincipleText, sectorPhilosophy)
-      // 결과: corePrincipleText + "\n\n" + sectorPhilosophy + "\n\n" + KEVIN_V31_RUBRIC_INSTRUCTION
+    it('196 sector personas wrapper 순서: core principle → sector philosophy → rubric (index 전수 검증)', () => {
+      // omxy Layer (g) Step 2 R1 BLOCKER 1 박제: sector position을 전수 index로 검증.
+      // applyKevinV31Rubric(corePrincipleText, sectorPhilosophy):
+      //   결과: corePrincipleText + "\n\n" + sectorPhilosophy + "\n\n" + KEVIN_V31_RUBRIC_INSTRUCTION
       const all = generateAllSectorPersonas();
       for (const p of all) {
+        const sectorName = p.label.split(' ')[0]; // canonical sector (공백 없음) — "IT/SW", "유통/소비재" 등 그대로
+        const sectorPhilosophy = SECTOR_PHILOSOPHIES[sectorName as keyof typeof SECTOR_PHILOSOPHIES];
+        expect(sectorPhilosophy, `${p.id}: SECTOR_PHILOSOPHIES["${sectorName}"] 미정의`).toBeTruthy();
+
+        const coreIdx = p.systemPrompt.indexOf('평가 원칙');
+        const sectorIdx = p.systemPrompt.indexOf(sectorPhilosophy);
         const rubricIdx = p.systemPrompt.indexOf(KEVIN_V31_RUBRIC_INSTRUCTION);
-        expect(rubricIdx, `${p.id}: rubric idx`).toBeGreaterThan(0);
-        // rubric 앞 텍스트에 평가 원칙 + 한국 코스피·코스닥 substring 보존
-        const before = p.systemPrompt.substring(0, rubricIdx);
-        expect(before, `${p.id}: 평가 원칙 누락`).toContain('평가 원칙');
-        expect(before, `${p.id}: 한국 코스피·코스닥 누락`).toContain('한국 코스피·코스닥');
+
+        expect(coreIdx, `${p.id}: '평가 원칙' 누락`).toBeGreaterThanOrEqual(0);
+        expect(sectorIdx, `${p.id}: sector philosophy 누락`).toBeGreaterThan(0);
+        expect(rubricIdx, `${p.id}: rubric 누락`).toBeGreaterThan(0);
+        // 순서 = core < sector < rubric
+        expect(coreIdx, `${p.id}: 순서 위반 (core < sector)`).toBeLessThan(sectorIdx);
+        expect(sectorIdx, `${p.id}: 순서 위반 (sector < rubric)`).toBeLessThan(rubricIdx);
       }
     });
 
-    it('196 sector personas sector identity 보존 — sector name이 systemPrompt 안에 등장', () => {
+    it('196 sector personas sector identity 보존 — full sector name이 systemPrompt 안에 등장 (BLOCKER 2)', () => {
+      // omxy Layer (g) Step 2 R1 BLOCKER 2 박제: "/" sector도 full name으로 검증.
+      // canonical sector는 공백이 없으므로 label.split(' ')[0]이 전체 sector name.
       const all = generateAllSectorPersonas();
       for (const p of all) {
-        // p.label = "<sector> <role>" 형태. label 첫 부분 (sector name)이 systemPrompt에 등장해야 함.
-        // 단, sector name에 "/"가 들어간 경우 ("IT/SW", "유통/소비재", "엔터/미디어", "철강/소재", "운송/물류", "보험/증권") 처리
-        const sectorName = p.label.split(' ')[0]; // "바이오 임상시험 통계학자" → "바이오"
-        // sector name with "/" — 부분 매칭으로 검증
-        const sectorCore = sectorName.split('/')[0]; // "IT/SW" → "IT"
-        expect(p.systemPrompt, `${p.id}: sector identity "${sectorCore}" 누락`).toContain(sectorCore);
+        const sectorName = p.label.split(' ')[0]; // "IT/SW", "유통/소비재" 등 full name
+        expect(p.systemPrompt, `${p.id}: full sector identity "${sectorName}" 누락`).toContain(sectorName);
+      }
+    });
+
+    it('7 sub_tag × 2 = 14 sub_tag matched personas rubric inject smoke (omxy R1 claim correction)', () => {
+      // omxy claim correction 박제: generateAllSectorPersonas()는 sub_tag matched personas (sub_tag suffix) 생성 안 함.
+      // 별도 smoke: 각 sub_tag별 canonical sector에 활성화한 contracts 14개 검증.
+      // SUB_TAG_CROSSWALK 박제: 조선 → 운송/물류, 방산 → 철강/소재, 화학 → 철강/소재, 게임 → IT/SW, 가전 → 유통/소비재, 제약 → 바이오, 부동산 → 건설
+      const subTagToSector: Record<string, string> = {
+        '조선': '운송/물류',
+        '방산': '철강/소재',
+        '화학': '철강/소재',
+        '게임': 'IT/SW',
+        '가전': '유통/소비재',
+        '제약': '바이오',
+        '부동산': '건설',
+      };
+      for (const [subTag, sector] of Object.entries(subTagToSector)) {
+        for (const slotIdx of [13, 14]) {
+          const personaId = `sector-${sector}-slot-${slotIdx}-subtag-${subTag}`;
+          const contract = resolveSectorPersona(personaId);
+          expect(contract, `${personaId} 생성 실패`).not.toBeNull();
+          expect(contract!.systemPrompt).toContain(KEVIN_V31_RUBRIC_INSTRUCTION);
+          // 8 markers
+          for (const marker of Object.values(KEVIN_V31_QUALITY_MARKERS)) {
+            expect(contract!.systemPrompt, `${personaId}: marker "${marker}" 누락`).toContain(marker);
+          }
+        }
       }
     });
   });
