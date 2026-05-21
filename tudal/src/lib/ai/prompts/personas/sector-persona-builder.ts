@@ -82,7 +82,7 @@ export const BASE_SLOT_PRINCIPLES: Record<string, string> = {
   global_sector_analyst_2: "해외 글로벌 섹터의 2번째 시각 (글로벌 buy-side 또는 hedge fund 시각). 단기/장기 trading 관점·실적 modeling 정밀도·event-driven catalysts(분할·M&A·자사주)·기술적 시그널·외국인 매매 동향을 본다. 글로벌 자금 흐름이 한국 종목에 미치는 영향을 평가. 재무 확인: 외국인 보유 비중·자사주 비중·M&A/spin-off pipeline·earnings beat ratio (8Q)·공매도 잔고 추이.",
   global_industry_veteran: "해외 업계 경험자 (전직 글로벌 임원·해외 컨설턴트). 글로벌 supply chain·해외 진출 전략·다국적 경쟁사 동향·글로벌 talent 시장·M&A 시장을 본다. 한국 기업의 글로벌 경쟁력·해외 영업 효율·M&A 활용도를 평가. 재무 확인: 해외 매출 비중·글로벌 시장 점유율·해외 영업이익률·글로벌 인건비 비중·M&A 인수가 vs 회복기.",
   global_sector_investor: "해외 산업 투자 전문가 (PE·VC·activist 시각). 자본 구조·shareholder return(배당·자사주)·governance·CEO 인센티브·자본 효율(ROIC·NOPAT)을 본다. 자본 배분의 합리성·소수주주 보호·activism 표적 가능성을 평가. 재무 확인: ROIC·NOPAT margin·net debt/EBITDA·배당성향·자사주 매입액·CEO 보상 vs 실적 성과.",
-  global_adjacent_expert: "해외 인접 분야 전문가 (cross-industry 시각). 회사 사업이 인접 산업(예: 바이오↔의료기기, 반도체↔AI 클라우드)에서 어떤 시너지·위협·disruption을 받는지를 본다. 단일 sector view를 넘어 산업 간 boundary 변화를 평가. 재무 확인: 인접 산업 매출 비중·cross-licensing 매출·M&A pipeline·R&D collaboration 건수·인접 시장 진출 후 1Y 매출.",
+  global_adjacent_expert: "해외 인접 분야 전문가 (cross-industry 시각). 회사 사업이 인접 산업(예: 본업↔인접 산업, 제조↔플랫폼, 하드웨어↔서비스)에서 어떤 시너지·위협·disruption을 받는지를 본다. 단일 sector view를 넘어 산업 간 boundary 변화를 평가. 재무 확인: 인접 산업 매출 비중·cross-licensing 매출·M&A pipeline·R&D collaboration 건수·인접 시장 진출 후 1Y 매출.",
 };
 
 /**
