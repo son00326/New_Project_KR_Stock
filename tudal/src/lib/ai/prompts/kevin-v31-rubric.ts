@@ -28,9 +28,10 @@ export const KEVIN_V31_INQUIRY_AXES = [
 /**
  * 8 quality markers — KEVIN_V31_RUBRIC_INSTRUCTION 안에 모두 substring 포함.
  *
- * CI invariant test (kevin-v31-rubric.test.ts + persona-rubric-coverage.test.ts)에서:
- *   - 본 rubric instruction 자체에 8 marker substring 포함 검증
- *   - 207 persona system prompt 각각이 rubric instruction을 inject했는지 검증
+ * CI invariant test 위치:
+ *   - kevin-v31-rubric.test.ts → 본 rubric instruction 자체에 8 marker substring 포함 검증
+ *   - sector-persona-builder.test.ts → 207 persona system prompt 각각이 rubric instruction을 inject했는지 검증
+ *     (Core 11 inject + 196 sector coverage 모두 본 단일 spec 파일에서 enforce)
  *
  * marker substring은 "brittle exact match" 방지 위해 짧은 안정 문자열 선택 (omxy R3 implementation note).
  */

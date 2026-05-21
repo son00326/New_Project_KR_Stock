@@ -120,10 +120,10 @@ Kevin reference 본문 (600~1500 lines)을 200자 argument에 reproduce 불가. 
 - `KEVIN_V31_RUBRIC_INSTRUCTION`: 8 marker substring 모두 포함
 - `applyKevinV31Rubric(core, sectorContext?)`: persona individuality wrapper (core가 rubric보다 선행) + sectorContext optional 처리
 
-후속 207 persona 통합 검증은:
-`tudal/src/lib/ai/prompts/__tests__/persona-rubric-coverage.test.ts` (Step 3b §4 layer (f) 완료 후 작성):
-- Core 11 + sector 196 generation 각각 8 markers substring 검증
-- Core 11 persona individuality keyword 보존 검증 (Buffett: 해자, Lynch: 이해 등)
+207 persona 통합 검증 (53차 §3 Layer (f)/(g) 완료 후 실제 위치):
+`tudal/src/lib/ai/prompts/__tests__/sector-persona-builder.test.ts` (별도 `persona-rubric-coverage.test.ts` 미작성 — 본 단일 spec 파일에서 모두 enforce):
+- Core 11 + sector 196 generation 각각 8 markers substring 검증 (`describe('Core 11 Kevin v3.1 rubric injection (53차 Layer f)')` + `describe('196 sector personas Kevin v3.1 rubric coverage (53차 Layer g step 2)')` 블록)
+- Core 11 persona individuality lensKeywords 보존 검증 (label-only tautology 회피 — 53차 §3 Layer (f) R1+R2 BLOCKER 박제)
 
 ---
 
