@@ -179,6 +179,46 @@ export const PRIMARY_OVERLAY_PRINCIPLES: Record<CanonicalSector, readonly [strin
 };
 
 /**
+ * 14 sub_tag overlay principles (7 sub_tags × 2 roles).
+ *
+ * 53차 §2 Layer (e) 신설 — 이전 inline ternary "${slot.sub_tag === '조선' ? ... : ...}" 폐기.
+ * sub_tag 매칭 시 slot 13/14에서 활성화. 각 principle = sub_tag dynamics + `재무 확인:` label.
+ *
+ * 회사명/브랜드 직접 인용 0 (Layer b/c/d invariant 박제).
+ * SUB_TAG_OVERLAY_ROLES (canonical-sectors.ts) role description과 1:1.
+ */
+export const SUB_TAG_OVERLAY_PRINCIPLES: Record<string, readonly [string, string]> = {
+  "조선": [
+    "조선 PE/PC 엔지니어 시각. 선박 설계·블록 의장 공정·생산 일정·인도 schedule 안정성을 본다. 재무 확인: 수주잔고·선가 평균·인도 schedule·블록 생산 가동률·운영 마진.",
+    "조선 finance/수주 분석가 시각. 수주 cycle·수주잔고 회복·LNG선/컨테이너선 sub-segment mix·환율 노출을 본다. 재무 확인: 수주잔고·매출 잔고/매출 비율·sub-segment 매출 mix·환율 sensitivity.",
+  ],
+  "방산": [
+    "방산 system integrator 시각. 무기 system 통합 능력·핵심 sub-system 국산화율·다국적 component sourcing·인증 진행을 본다. 재무 확인: 국산화율·sub-system 매출 mix·인증 비용·R&D 비중.",
+    "국방 export 정책 전문가 시각. K-방산 수출 deal·정부 G2G 협상·동맹국 무기체계 통일 정책·핵심 기술 통제 영향을 본다. 재무 확인: 수출 매출 비중·G2G deal 잔고·국방예산 의존도·기술 통제 비용.",
+  ],
+  "화학": [
+    "정유 마진 분석가 시각. 정제 마진·복합 정제 능력·납사·등유 sub-product 마진·정책(탄소세) 영향을 본다. 재무 확인: 정제 마진·복합 정제 capacity·sub-product 매출 mix·탄소세 비용.",
+    "화학 capacity 모델러 시각. NCC(나프타분해)·PE/PP 기초 화학 capacity·신증설 cycle·중국 capacity 수입 영향을 본다. 재무 확인: NCC capacity·신증설 CAPEX·중국 수출/수입 영향·기초 화학 매출 mix.",
+  ],
+  "게임": [
+    "게임 PD 시각. 게임 launch timing·신작 retention curve·서비스 운영 안정성·MAU/DAU·in-app 결제 효율을 본다. 재무 확인: MAU/DAU·ARPPU·in-app 결제 매출·신작 launch 일정·게임별 매출 mix.",
+    "IP/콘텐츠 라이센싱 시각. 게임 IP 다각화·글로벌 라이센스 deal·IP cross-media 활용·아티스트/스튜디오 계약을 본다. 재무 확인: IP 라이센스 매출·cross-media 매출·계약 잔여·IP 포트폴리오 다양성.",
+  ],
+  "가전": [
+    "가전 디스플레이/스마트홈 전문가 시각. OLED/QD display 침투율·스마트홈 IoT 연동·프리미엄 가전 비중·신기술 launch timing을 본다. 재무 확인: 프리미엄 가전 매출 비중·OLED/QD 매출·스마트홈 IoT 매출·R&D 비중.",
+    "가전 소비자 신뢰지수 분석가 시각. 소비자 신뢰지수 동향·가전 교체 주기·인플레이션 영향·DTC 채널 매출을 본다. 재무 확인: 소비자 신뢰지수·평균 가전 교체 주기·DTC 매출 비중·재고 회전.",
+  ],
+  "제약": [
+    "제약 R&D 임원 시각. 신약 파이프라인·임상 단계·국내 식약처 일정·라이센싱 deal 진척·M&A pipeline을 본다. 재무 확인: 파이프라인 단계별 R&D 비용·식약처 일정·라이센싱 매출·M&A 인수가.",
+    "GMP 규제 전문가 시각. cGMP 인증 유지·국내외 식약처 inspection·생산 시설 audit·정책 변경 영향을 본다. 재무 확인: GMP 인증 비용·inspection 결과 영향·생산 시설 CAPEX·정책 변경 매출 timeline.",
+  ],
+  "부동산": [
+    "REITs 운용역 시각. REITs 분배율·자산 가치 평가·임대료 수익률·공실률·자산 회전을 본다. 재무 확인: 분배율·자산 가치 NAV·임대료 수익률·공실률·자산 회전율.",
+    "도시 디벨로퍼 시각. 도시정비 사업 진행률·민간 시행자 매출 비중·재개발 사업 진행단계·정부 정책 영향을 본다. 재무 확인: 도시정비 매출 비중·시행자 매출·사업별 진행률·정책 보조금.",
+  ],
+};
+
+/**
  * Sector-specific adjustment for high-risk base slots (omxy R1 BLOCKER 3 정정).
  *
  * BASE_SLOT_PRINCIPLES만으로는 "global_industry_veteran + 바이오" 같은 cross에서 generic
@@ -323,7 +363,15 @@ export function buildSectorPersonaContract(
     id = `sector-${sector}-slot-${slotIndex}-subtag-${slot.sub_tag}`;
     label = `${sector} (${slot.sub_tag}) ${slot.role}`;
     roleDescription = `${slot.sub_tag} 전문가: ${slot.role}`;
-    evaluationPrinciple = `${slot.sub_tag} sub-tag 활성화 시 본 sector 평가의 보완 시각을 제공한다. ${slot.role} 전문성으로 ${slot.sub_tag} 관련 dynamics(예: ${slot.sub_tag === "조선" ? "수주잔고·선가" : slot.sub_tag === "방산" ? "수출 정책·국방예산" : slot.sub_tag === "화학" ? "원가 스프레드·정유 마진" : slot.sub_tag === "게임" ? "IP 라이센싱·게임 PD" : slot.sub_tag === "가전" ? "프리미엄 가전·스마트홈" : slot.sub_tag === "제약" ? "임상 단계·GMP 규제" : slot.sub_tag === "부동산" ? "REITs·도시 개발" : "별도 dynamics"})를 평가에 반영한다.`;
+    // 53차 §2 Layer (e) 보강: SUB_TAG_OVERLAY_PRINCIPLES Record로 sub_tag + slot specific principle.
+    // 이전 inline ternary 폐기.
+    const subTagPrinciples = SUB_TAG_OVERLAY_PRINCIPLES[slot.sub_tag];
+    if (subTagPrinciples === undefined) {
+      // SUB_TAG_OVERLAY_ROLES에는 있지만 SUB_TAG_OVERLAY_PRINCIPLES에 없는 케이스 — fail-safe fallback.
+      evaluationPrinciple = `${slot.sub_tag} sub-tag 활성화 시 본 sector 평가의 보완 시각을 제공한다.`;
+    } else {
+      evaluationPrinciple = slotIndex === 13 ? subTagPrinciples[0] : subTagPrinciples[1];
+    }
   } else if (slot.slot_type === "primary_overlay") {
     // slot 11~12: sector primary overlay
     id = `sector-${sector}-slot-${slotIndex}`;

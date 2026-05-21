@@ -8,6 +8,7 @@ import {
   BASE_SLOT_PRINCIPLES,
   SECTOR_BASE_SLOT_ADJUSTMENTS,
   PRIMARY_OVERLAY_PRINCIPLES,
+  SUB_TAG_OVERLAY_PRINCIPLES,
 } from '../personas/sector-persona-builder';
 import { getPersonaById } from '../personas';
 import {
@@ -160,6 +161,71 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
         // 이전 generic phrase 폐기 확인
         expect(contract11?.systemPrompt).not.toContain(`${sector} 섹터의`);
       }
+    });
+  });
+
+  describe('SUB_TAG_OVERLAY_PRINCIPLES coverage (53차 Layer e)', () => {
+    const subTags = ['조선', '방산', '화학', '게임', '가전', '제약', '부동산'];
+
+    it('7 sub_tags × 2 = 14 sub_tag overlay principles 정의됨', () => {
+      expect(Object.keys(SUB_TAG_OVERLAY_PRINCIPLES)).toHaveLength(7);
+      for (const subTag of subTags) {
+        const pair = SUB_TAG_OVERLAY_PRINCIPLES[subTag];
+        expect(pair, `${subTag} principles 누락`).toBeDefined();
+        expect(pair).toHaveLength(2);
+        expect(pair[0].length).toBeGreaterThan(85);
+        expect(pair[1].length).toBeGreaterThan(85);
+      }
+    });
+
+    it('14 sub_tag overlay principles 모두 "재무 확인:" label (M2 enforce) 포함', () => {
+      for (const subTag of subTags) {
+        const [p1, p2] = SUB_TAG_OVERLAY_PRINCIPLES[subTag];
+        expect(p1, `${subTag} sub_tag[0]: 재무 확인: 누락`).toContain('재무 확인:');
+        expect(p2, `${subTag} sub_tag[1]: 재무 확인: 누락`).toContain('재무 확인:');
+      }
+    });
+
+    it('14 sub_tag overlay principles 안에 banned literal 0 (case-insensitive bridge 포함)', () => {
+      for (const subTag of subTags) {
+        const [p1, p2] = SUB_TAG_OVERLAY_PRINCIPLES[subTag];
+        for (const p of [p1, p2]) {
+          expect(p).not.toContain('Peer 5축');
+          expect(p).not.toContain('Pure-play');
+          expect(p.toLowerCase()).not.toContain('bridge');
+        }
+      }
+    });
+
+    it('14 sub_tag overlay principles 안에 specific 회사명/브랜드 0', () => {
+      const bannedCompanies = [
+        'Apple', 'Microsoft', 'Google', 'Amazon', 'NVIDIA',
+        'TSMC', 'Intel', 'Samsung', '삼성전자',
+        'Tesla', 'Toyota',
+        'Pfizer', 'Roche', 'Moderna', 'Halozyme',
+        'JPMorgan', 'Goldman Sachs', 'BlackRock',
+        'Netflix', '넷플릭스', 'Disney', 'Sony Music',
+        'Maersk', 'FedEx',
+      ];
+      for (const subTag of subTags) {
+        const [p1, p2] = SUB_TAG_OVERLAY_PRINCIPLES[subTag];
+        for (const p of [p1, p2]) {
+          for (const company of bannedCompanies) {
+            expect(p, `${subTag}: "${company}" 직접 인용`).not.toContain(company);
+          }
+        }
+      }
+    });
+
+    it('sub_tag_overlay branch가 SUB_TAG_OVERLAY_PRINCIPLES 사용 (이전 inline ternary 폐기)', () => {
+      // 바이오 sector + 제약 sub_tag = canonical 매칭 case
+      const [제약P1, 제약P2] = SUB_TAG_OVERLAY_PRINCIPLES['제약'];
+      const contract13 = resolveSectorPersona(`sector-바이오-slot-13-subtag-제약`);
+      const contract14 = resolveSectorPersona(`sector-바이오-slot-14-subtag-제약`);
+      expect(contract13?.systemPrompt).toContain(제약P1);
+      expect(contract14?.systemPrompt).toContain(제약P2);
+      // 이전 inline ternary 텍스트 폐기 확인
+      expect(contract13?.systemPrompt).not.toContain('보완 시각을 제공한다.');
     });
   });
 
