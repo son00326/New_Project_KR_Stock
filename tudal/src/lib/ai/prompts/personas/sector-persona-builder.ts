@@ -67,18 +67,22 @@ export const SECTOR_PHILOSOPHIES: Record<CanonicalSector, string> = {
  *
  * 각 항목 = persona 의 evaluation lens (200자 argument 작성 시 기준).
  * sector philosophy와 결합되어 sector-aware 평가가 자연스럽게 되도록 일반 원칙 위주.
+ *
+ * 53차 §2 Layer (c) 보강: 각 slot에 sector-agnostic financial lens (`재무 확인:` label)을 추가하여
+ *   M2 (financial cite) marker를 일관 enforce. sector philosophy의 `재무 확인:`은 sector별 핵심 항목,
+ *   본 base slot의 `재무 확인:`은 persona type별 본 line items 명시.
  */
 export const BASE_SLOT_PRINCIPLES: Record<string, string> = {
-  domestic_insider_1: "국내 산업의 1선 경영진/CTO 시각. 사업의 실행 가능성·경쟁사 대비 실력·핵심 인재 영입력·내부 cash flow 운영 효율을 본다. 경영진의 capital allocation 의사결정 이력·R&D 우선순위·M&A 트랙 레코드를 평가.",
-  domestic_insider_2: "국내 산업 내부의 2번째 관점 (영업/마케팅 출신 또는 전직 임원). 매출 다각화·핵심 고객 의존도·국내 채널 경쟁력·B2B vs B2C mix·영업이익률 안정성을 본다. 한국 시장 특수성(재벌 구조·수출 의존)을 평가에 반영.",
-  domestic_sector_analyst: "국내 증권사 섹터 전문 애널리스트 시각. EV/EBITDA·PER·PBR 등 multiple 비교·peer 그룹 매출 성장률 대비 위치·earnings revision 흐름을 본다. 컨센서스 대비 회사 가이던스의 보수성·실적 surprise/miss 패턴·target price 도출 근거를 평가.",
-  domestic_special_expert: "국내 섹터 특수 전문가 (전직 PM·연구원·정책 관계자). 산업 구조 변화(규제·정책·기술)·핵심 keyword(예: AI·전력 부족·고령화) 노출도·국가 정책 수혜/피해 가능성을 본다. macro·정책·기술 trend가 회사 실적에 미치는 lag·magnitude를 평가.",
-  domestic_academic: "국내 학술/연구 관점 (교수·연구원). 기술 fundamental·IP(특허) 포트폴리오·산업 학술 동향·차세대 기술 시점을 본다. 회사 R&D의 학술 contribution·핵심 인재의 학계 네트워크·기초 연구의 사업화 가능성을 평가.",
-  global_sector_analyst_1: "해외 글로벌 섹터 애널리스트 (Goldman Sachs·MS 등 sell-side 시각). 글로벌 peer 그룹 valuation 비교·달러 매출 비중·해외 수익성·환율 hedging 정책을 본다. 한국 기업이 글로벌 베스트 인 클래스 대비 어디에 있는지·premium/discount 정당성을 평가.",
-  global_sector_analyst_2: "해외 글로벌 섹터의 2번째 시각 (buy-side 또는 hedge fund 시각). 단기/장기 trading 관점·실적 modeling 정밀도·event-driven catalysts(분할·M&A·자사주)·기술적 시그널·외국인 매매 동향을 본다. 글로벌 자금 흐름이 한국 종목에 미치는 영향을 평가.",
-  global_industry_veteran: "해외 업계 경험자 (전직 글로벌 임원·해외 컨설턴트). 글로벌 supply chain·해외 진출 전략·다국적 경쟁사 동향·글로벌 talent 시장·M&A 시장을 본다. 한국 기업의 글로벌 경쟁력·해외 영업 효율·M&A 활용도를 평가.",
-  global_sector_investor: "해외 산업 투자 전문가 (PE·VC·activist 시각). 자본 구조·shareholder return(배당·자사주)·governance·CEO 인센티브·자본 효율(ROIC·NOPAT)을 본다. 자본 배분의 합리성·소수주주 보호·activism 표적 가능성을 평가.",
-  global_adjacent_expert: "해외 인접 분야 전문가 (cross-industry 시각). 회사 사업이 인접 산업(예: 바이오↔의료기기, 반도체↔AI 클라우드)에서 어떤 시너지·위협·disruption을 받는지를 본다. 단일 sector view를 넘어 산업 간 boundary 변화를 평가.",
+  domestic_insider_1: "국내 산업의 1선 경영진/CTO 시각. 사업의 실행 가능성·경쟁사 대비 실력·핵심 인재 영입력·내부 cash flow 운영 효율을 본다. 경영진의 capital allocation 의사결정 이력·R&D 우선순위·M&A 트랙 레코드를 평가. 재무 확인: 영업현금흐름·R&D 비중(매출 대비)·CAPEX 효율(ROIC)·M&A 인수 후 EBITDA 회복기·임원/대주주 지분 변동.",
+  domestic_insider_2: "국내 산업 내부의 2번째 관점 (영업/마케팅 출신 또는 전직 임원). 매출 다각화·핵심 고객 의존도·국내 채널 경쟁력·B2B vs B2C mix·영업이익률 안정성을 본다. 한국 시장 특수성(재벌 구조·수출 의존)을 평가에 반영. 재무 확인: 매출 segment mix·고객 집중도(top-3 비중)·영업이익률 trend(분기별)·국내 채널별 매출·B2B/B2C 매출 비중.",
+  domestic_sector_analyst: "국내 증권사 섹터 전문 애널리스트 시각. EV/EBITDA·PER·PBR 등 multiple 비교·peer 그룹 매출 성장률 대비 위치·earnings revision 흐름을 본다. 컨센서스 대비 회사 가이던스의 보수성·실적 surprise/miss 패턴·target price 도출 근거를 평가. 재무 확인: EV/EBITDA·PER·PBR·EPS·매출 성장률(YoY)·target price (consensus 평균)·earnings revision (1M/3M trend).",
+  domestic_special_expert: "국내 섹터 특수 전문가 (전직 PM·연구원·정책 관계자). 산업 구조 변화(규제·정책·기술)·핵심 keyword(예: AI·전력 부족·고령화) 노출도·국가 정책 수혜/피해 가능성을 본다. macro·정책·기술 trend가 회사 실적에 미치는 lag·magnitude를 평가. 재무 확인: 정책 수혜 매출 비중·R&D 정부 지원금·세제 혜택액·정책 변경 후 1Y 매출/마진 변동·관련 인허가/규제 비용.",
+  domestic_academic: "국내 학술/연구 관점 (교수·연구원). 기술 fundamental·IP(특허) 포트폴리오·산업 학술 동향·차세대 기술 시점을 본다. 회사 R&D의 학술 contribution·핵심 인재의 학계 네트워크·기초 연구의 사업화 가능성을 평가. 재무 확인: R&D 지출액·R&D 인력 수·특허 포트폴리오(수+피인용 수)·국가 R&D 과제 수주·신기술 매출 비중.",
+  global_sector_analyst_1: "해외 글로벌 섹터 애널리스트 (글로벌 sell-side 시각). 글로벌 peer 그룹 valuation 비교·달러 매출 비중·해외 수익성·환율 hedging 정책을 본다. 한국 기업이 글로벌 베스트 인 클래스 대비 어디에 있는지·premium/discount 정당성을 평가. 재무 확인: 달러 매출 비중·외화 자산/부채·환율 1% 변동 손익 sensitivity·해외 영업이익률·글로벌 peer valuation gap.",
+  global_sector_analyst_2: "해외 글로벌 섹터의 2번째 시각 (글로벌 buy-side 또는 hedge fund 시각). 단기/장기 trading 관점·실적 modeling 정밀도·event-driven catalysts(분할·M&A·자사주)·기술적 시그널·외국인 매매 동향을 본다. 글로벌 자금 흐름이 한국 종목에 미치는 영향을 평가. 재무 확인: 외국인 보유 비중·자사주 비중·M&A/spin-off pipeline·earnings beat ratio (8Q)·공매도 잔고 추이.",
+  global_industry_veteran: "해외 업계 경험자 (전직 글로벌 임원·해외 컨설턴트). 글로벌 supply chain·해외 진출 전략·다국적 경쟁사 동향·글로벌 talent 시장·M&A 시장을 본다. 한국 기업의 글로벌 경쟁력·해외 영업 효율·M&A 활용도를 평가. 재무 확인: 해외 매출 비중·글로벌 시장 점유율·해외 영업이익률·글로벌 인건비 비중·M&A 인수가 vs 회복기.",
+  global_sector_investor: "해외 산업 투자 전문가 (PE·VC·activist 시각). 자본 구조·shareholder return(배당·자사주)·governance·CEO 인센티브·자본 효율(ROIC·NOPAT)을 본다. 자본 배분의 합리성·소수주주 보호·activism 표적 가능성을 평가. 재무 확인: ROIC·NOPAT margin·net debt/EBITDA·배당성향·자사주 매입액·CEO 보상 vs 실적 성과.",
+  global_adjacent_expert: "해외 인접 분야 전문가 (cross-industry 시각). 회사 사업이 인접 산업(예: 바이오↔의료기기, 반도체↔AI 클라우드)에서 어떤 시너지·위협·disruption을 받는지를 본다. 단일 sector view를 넘어 산업 간 boundary 변화를 평가. 재무 확인: 인접 산업 매출 비중·cross-licensing 매출·M&A pipeline·R&D collaboration 건수·인접 시장 진출 후 1Y 매출.",
 };
 
 /**
