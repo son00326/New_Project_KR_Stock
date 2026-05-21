@@ -23,7 +23,29 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
     it('14 canonical sectors 각각 philosophy 정의됨', () => {
       for (const sector of CANONICAL_SECTORS) {
         expect(SECTOR_PHILOSOPHIES[sector]).toBeTruthy();
-        expect(SECTOR_PHILOSOPHIES[sector].length).toBeGreaterThan(100);
+        // 53차 §2 Layer (b) 보강 후: 4 anchor (재무/peer/밸류/일상비유) 추가로 ≥300자
+        expect(SECTOR_PHILOSOPHIES[sector].length).toBeGreaterThan(300);
+      }
+    });
+
+    it('14 sectors 모두 4 anchor (M2/M4/M5/M7 enforce) 포함 — 53차 Layer (b)', () => {
+      // 재무 인용 (M2), peer 비교 (M4), 밸류 가정 패턴 (M5), 일상 비유 (M7) — KEVIN_V31_QUALITY_MARKERS와 정합
+      for (const sector of CANONICAL_SECTORS) {
+        const philosophy = SECTOR_PHILOSOPHIES[sector];
+        expect(philosophy, `${sector}: 재무 인용 anchor 누락`).toContain('재무 인용 anchor');
+        expect(philosophy, `${sector}: peer 비교 anchor 누락`).toContain('peer 비교 anchor');
+        expect(philosophy, `${sector}: 밸류 가정 패턴 누락`).toContain('밸류 가정 패턴');
+        expect(philosophy, `${sector}: 일상 비유 anchor 누락`).toContain('일상 비유 anchor');
+      }
+    });
+
+    it('14 sectors philosophies 안에 banned literal 0 match (Layer a R2 invariant)', () => {
+      // omxy Layer (a) R2 BLOCKER 박제 — banned literal이 sector philosophy에도 출현 금지
+      for (const sector of CANONICAL_SECTORS) {
+        const philosophy = SECTOR_PHILOSOPHIES[sector];
+        expect(philosophy, `${sector}: "Peer 5축" 등장`).not.toContain('Peer 5축');
+        expect(philosophy, `${sector}: "Pure-play" 등장`).not.toContain('Pure-play');
+        expect(philosophy, `${sector}: "Bridge" 등장`).not.toContain('Bridge');
       }
     });
 
