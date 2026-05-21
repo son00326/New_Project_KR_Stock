@@ -129,7 +129,7 @@ export const PRIMARY_OVERLAY_PRINCIPLES: Record<CanonicalSector, readonly [strin
     "메모리 사이클 분석가 시각. DRAM/NAND ASP 흐름·재고 사이클 단계·고객 수요 회복 시점·공급 절감(CAPEX 축소) timing을 본다. 재무 확인: ASP 추세·재고일수·고객별 매출 mix·재고 충당금.",
   ],
   "건설": [
-    "PF 리스크 분석가 시각. PF 잔액·bridge loan 만기·중도금 회수율·미분양 추세를 본다. 재무 확인: PF 우발채무·미분양 호수·중도금 회수율·자산건전성 비율.",
+    "PF 리스크 분석가 시각. PF 잔액·브릿지론 만기·중도금 회수율·미분양 추세를 본다. 재무 확인: PF 우발채무·미분양 호수·중도금 회수율·자산건전성 비율.",
     "인프라 PPP 전문가 시각. 정부/지자체 PPP 사업 수주·해외 EPC 수주 마진·수익형 vs 임대형 사업 mix를 본다. 재무 확인: PPP 수주잔고·해외 EPC 영업이익률·민간 vs 공공 매출 비중.",
   ],
   "금융": [
