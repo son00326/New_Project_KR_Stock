@@ -118,6 +118,36 @@ describe("kevin-v31-rubric", () => {
       expect(between).toBe("\n\n");
     });
 
+    it("omits sector block when sectorContext is empty string (omxy R1 BLOCKER 1)", () => {
+      const core = "당신은 워런 버핏입니다.";
+      const result = applyKevinV31Rubric(core, "");
+      const coreIdx = result.indexOf(core);
+      const rubricIdx = result.indexOf(KEVIN_V31_RUBRIC_INSTRUCTION);
+      const between = result.substring(coreIdx + core.length, rubricIdx);
+      // sectorContext === "" 전달 시에도 sector block 0 (\n\n\n\n 발생 금지)
+      expect(between).toBe("\n\n");
+    });
+
+    it("omits sector block when sectorContext is whitespace-only", () => {
+      const core = "당신은 워런 버핏입니다.";
+      const result = applyKevinV31Rubric(core, "   \n  \t  ");
+      const coreIdx = result.indexOf(core);
+      const rubricIdx = result.indexOf(KEVIN_V31_RUBRIC_INSTRUCTION);
+      const between = result.substring(coreIdx + core.length, rubricIdx);
+      expect(between).toBe("\n\n");
+    });
+
+    it("trims sector context whitespace before injecting", () => {
+      const core = "Core principle.";
+      const sector = "  바이오는 binary 산업입니다.  ";
+      const result = applyKevinV31Rubric(core, sector);
+      // trimmed version만 inject
+      expect(result).toContain("바이오는 binary 산업입니다.");
+      // leading/trailing whitespace 그대로 inject 금지
+      expect(result).not.toContain("  바이오는");
+      expect(result).not.toContain("산업입니다.  ");
+    });
+
     it("result contains all 8 markers via rubric injection", () => {
       const core = "당신은 워런 버핏입니다.";
       const result = applyKevinV31Rubric(core);

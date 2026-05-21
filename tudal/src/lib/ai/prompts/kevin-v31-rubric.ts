@@ -55,20 +55,22 @@ export const KEVIN_V31_QUALITY_MARKERS = {
 export const KEVIN_V31_RUBRIC_INSTRUCTION = `Kevin v3.1 inquiry pattern (200자 argument 표현 규칙):
 
 다음 4 inquiry axes 중 본 종목에 가장 적합한 1~2개에 답한다:
-- Q1: 이 회사 뭐 하는데? (사업 모델 1문장 + 섹터 일상 비유, 예: "카페 본사가 가맹점 매출의 5% 받는 모델")
+- Q1: 이 회사 뭐 하는데? (사업 모델 1문장 + 섹터 일상 비유)
 - Q2: 왜 지금 주목/조심/관망? (트리거·catalyst·우려)
-- Q3: 얼마가 적정가인데? (peer multiple/PSR/PER 비교 + 가정 노출, 예: "PSR 31배 ÷ peer median 10배 = 3배 premium, 신약 1상 catalyst로 정당화 추정 시")
+- Q3: 얼마가 적정가인데? (peer multiple/PSR/PER 비교 + 가정 노출)
 - Q4: 뭐가 틀어지면 안 되나? (invalidation: price·event·deadline)
 
 품질 규칙 (8 markers):
-1. 재무 데이터 직접 인용 — 제공된 financials에서 숫자만 인용 (예: "PSR 31배 · 매출 YoY +110%"). 자유 fabrication 금지.
-2. 가정 명시 — "추정 시" / "가정" 명시 (예: "peer multiple median 10배로 수렴 추정 시 -67% 하향").
+1. 재무 데이터 직접 인용 — 제공된 financials에서 숫자만 인용. 자유 fabrication 금지.
+2. 가정 명시 — "추정 시" 또는 "가정" 명시 (예: peer median 수렴 추정 시 -N% 하향).
 3. 근거 부족 fallback — 재무 데이터 부재 시 "근거 부족" 명시. 숫자 환각 금지.
-4. 비교 가능한 회사 명시 — peer 1개 이상 명시 (예: "비교 가능한 회사 Halozyme 대비 2.4배 비쌈").
-5. 일상 비유 — 영어 약자 (PSR/PER/WACC 등) 첫 등장 시 일상 비유 선행 (예: "PSR = 월세 100만원 건물이 얼마에 팔리는가 배수"). 메타 분석 용어 ("Peer 5축", "Pure-play", "Bridge") 본문 출현 금지.
+4. 비교 가능한 회사 명시 — peer 1개 이상 명시 (회사명은 제공된 컨텍스트에서만 사용).
+5. 일상 비유 — 영어 약자 (PSR/PER/WACC 등) 첫 등장 시 일상 비유 선행 (예: PSR을 "월세 N만원 받는 건물이 얼마에 팔리는가 배수"로 풀어 쓰기). 메타 분석 용어 ("Peer 5축", "Pure-play", "Bridge") 본문 출현 금지.
 6. BUY/HOLD/SELL 명시 — 응답 JSON의 vote 필드 + argument에 판단 근거 노출.
 7. 영어 약자는 한글 풀이 후 병기 — 첫 등장 시 PSR/PER/WACC/DCF/LTM/NTM/OPM/EV/EBITDA/CAGR/TP 등 일상 비유로 풀어 쓰고, 영어 약자를 괄호 또는 후행 병기.
 8. argument_excerpt는 200자 이내 — 위 규칙들을 200자 cap 안에서 압축. 80자 one_line + 200자 argument_excerpt 분리.
+
+본 instruction 안의 예시 문구(예: "peer median 수렴", "월세 N만원 건물 배수")는 **형식 가이드**입니다. 실제 응답의 숫자·회사명·산업 이벤트는 user message가 제공한 financials/context에서 **직접 인용**하고, 본 예시를 그대로 복사하지 않습니다.
 
 페르소나 고유 평가 원칙은 본 rubric의 wrapper로 적용 — 본인의 평가 lens (예: Buffett의 해자, Lynch의 이해 가능성)는 답변에 반드시 선행하고, Kevin rubric은 그 답변의 표현 방식·근거 품질·환각 방지에 적용한다.`;
 
@@ -91,6 +93,10 @@ export function applyKevinV31Rubric(
   corePrincipleText: string,
   sectorContext?: string,
 ): string {
-  const sectorBlock = sectorContext !== undefined ? `\n\n${sectorContext}` : "";
+  // omxy Layer (a) R1 BLOCKER 1 정정: sectorContext === "" / "   " (whitespace) edge.
+  // 빈 문자열/공백만 전달 시 sector block 0건 (core + "\n\n" + rubric만).
+  const trimmed = sectorContext?.trim();
+  const sectorBlock =
+    trimmed !== undefined && trimmed.length > 0 ? `\n\n${trimmed}` : "";
   return `${corePrincipleText}${sectorBlock}\n\n${KEVIN_V31_RUBRIC_INSTRUCTION}`;
 }
