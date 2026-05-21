@@ -32,6 +32,15 @@ function assertOk(
   }
 }
 
+/**
+ * Tier2Counters 파티션 invariant (code-quality reviewer Important 2):
+ * attempted === committed + skippedSector + skippedUnavailable.
+ * skippedGate는 attempted를 증가시키지 않으므로 분리.
+ */
+function expectTier2Partition(t: Tier2Counters) {
+  expect(t.committed + t.skippedSector + t.skippedUnavailable).toBe(t.attempted);
+}
+
 // --- callPersona mock (per-test 재정의 가능) ---
 const mockCallPersona = vi.fn();
 vi.mock('@/lib/ai/anthropic-client', () => ({
@@ -240,13 +249,13 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
-    expect(result.ok).toBe(true);
     assertOk(result);
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(mockRunSectorEval).not.toHaveBeenCalled();
     expect(result.tier2).toBeDefined();
     expect(result.tier2.skippedGate).toBeGreaterThan(0);
     expect(result.tier2.committed).toBe(0);
+    expectTier2Partition(result.tier2);
   });
 
   it('env true + sector NULL → skippedSector > 0 (omxy R1 BLOCKER 3)', async () => {
@@ -260,12 +269,12 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
-    expect(result.ok).toBe(true);
     assertOk(result);
     expect(mockRunSectorEval).not.toHaveBeenCalled();
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(result.tier2.skippedSector).toBeGreaterThan(0);
     expect(result.tier2.committed).toBe(0);
+    expectTier2Partition(result.tier2);
   });
 
   it('env true + sector unknown (non-canonical) → skippedSector > 0', async () => {
@@ -279,12 +288,12 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
-    expect(result.ok).toBe(true);
     assertOk(result);
     expect(mockRunSectorEval).not.toHaveBeenCalled();
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(result.tier2.skippedSector).toBeGreaterThan(0);
     expect(result.tier2.committed).toBe(0);
+    expectTier2Partition(result.tier2);
   });
 
   it('env true + sector canonical + sub_tags NULL → subTags=[] → committed=1', async () => {
@@ -300,52 +309,46 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
-    expect(result.ok).toBe(true);
     assertOk(result);
     expect(mockRunSectorEval).toHaveBeenCalledTimes(1);
     expect(mockCommitSectorReport).toHaveBeenCalledTimes(1);
     expect(result.tier2.committed).toBe(1);
     expect(result.tier2.attempted).toBe(1);
+    expectTier2Partition(result.tier2);
     // sub_tags=[] verified via runSectorEval call args
     const runSectorEvalArgs = mockRunSectorEval.mock.calls[0][0] as { sub_tags: readonly string[] };
     expect(runSectorEvalArgs.sub_tags).toEqual([]);
   });
 
-  it('env true + sector canonical + sub_tags malformed (string OR object) → fallback [] (omxy R1 BLOCKER 2)', async () => {
+  it('env true + sector canonical + sub_tags malformed (string/object/number/boolean) → fallback [] (omxy R1 BLOCKER 2)', async () => {
     vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
-
-    // case A: sub_tags = "string-not-array" (non-array jsonb)
-    const tickerA = '000005';
-    currentShortlist = [
-      { ticker: tickerA, bucket: 'short', composite_score: 100, sector: 'IT/SW', sub_tags: 'string-not-array' },
-    ];
-    mockCore11Happy(tickerA);
     const personaIds = Array.from({ length: 14 }, (_, i) => `sector-IT/SW-slot-${i + 1}`);
-    mockSectorEvalAvailable(personaIds);
-
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
-    const resultA = await triggerMonthlyPersonaEvalAction('2026-05');
-    expect(resultA.ok).toBe(true);
-    assertOk(resultA);
-    expect(resultA.tier2.committed).toBe(1);
-    const argsA = mockRunSectorEval.mock.calls[0][0] as { sub_tags: readonly string[] };
-    expect(argsA.sub_tags).toEqual([]); // fallback
 
-    // case B: sub_tags = { not: 'array' } (object jsonb)
-    vi.clearAllMocks();
-    const tickerB = '000006';
-    currentShortlist = [
-      { ticker: tickerB, bucket: 'short', composite_score: 100, sector: 'IT/SW', sub_tags: { not: 'array' } },
+    // jsonb는 4 non-array shape (string/object/number/boolean) 모두 [] fallback.
+    // null/undefined는 Test 4 (sector NULL)가 이미 cover.
+    const malformedCases: Array<{ label: string; ticker: string; malformed: unknown }> = [
+      { label: 'string', ticker: '000005', malformed: 'string-not-array' },
+      { label: 'object', ticker: '000006', malformed: { not: 'array' } },
+      { label: 'number', ticker: '000007', malformed: 42 },
+      { label: 'boolean', ticker: '000008', malformed: true },
     ];
-    mockCore11Happy(tickerB);
-    mockSectorEvalAvailable(personaIds);
 
-    const resultB = await triggerMonthlyPersonaEvalAction('2026-05');
-    expect(resultB.ok).toBe(true);
-    assertOk(resultB);
-    expect(resultB.tier2.committed).toBe(1);
-    const argsB = mockRunSectorEval.mock.calls[0][0] as { sub_tags: readonly string[] };
-    expect(argsB.sub_tags).toEqual([]); // fallback
+    for (const { label, ticker, malformed } of malformedCases) {
+      vi.clearAllMocks();
+      currentShortlist = [
+        { ticker, bucket: 'short', composite_score: 100, sector: 'IT/SW', sub_tags: malformed },
+      ];
+      mockCore11Happy(ticker);
+      mockSectorEvalAvailable(personaIds);
+
+      const result = await triggerMonthlyPersonaEvalAction('2026-05');
+      assertOk(result);
+      expect(result.tier2.committed, `malformed=${label} should commit`).toBe(1);
+      expectTier2Partition(result.tier2);
+      const args = mockRunSectorEval.mock.calls[0][0] as { sub_tags: readonly string[] };
+      expect(args.sub_tags, `malformed=${label} sub_tags fallback`).toEqual([]);
+    }
   });
 
   it('env true + sector canonical + tier2.available=false (degraded) → skippedUnavailable > 0', async () => {
@@ -360,12 +363,12 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
-    expect(result.ok).toBe(true);
     assertOk(result);
     expect(mockRunSectorEval).toHaveBeenCalledTimes(1);
     expect(mockCommitSectorReport).not.toHaveBeenCalled();
     expect(result.tier2.skippedUnavailable).toBeGreaterThan(0);
     expect(result.tier2.committed).toBe(0);
+    expectTier2Partition(result.tier2);
   });
 
   it('happy path strict verify — commitSectorReport args length + regex pattern + sub_tag matched ID (omxy R3+R4)', async () => {
@@ -400,7 +403,6 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     const { triggerMonthlyPersonaEvalAction } = await import('../actions');
     const result = await triggerMonthlyPersonaEvalAction('2026-05');
 
-    expect(result.ok).toBe(true);
     assertOk(result);
     expect(mockCommitSectorReport).toHaveBeenCalledTimes(1);
 
@@ -436,5 +438,6 @@ describe('Step 3c — Tier 2 branch (omxy 53차 §3 R3 D6 cost gate + D4 R1~R4 B
     // counter check
     expect(result.tier2.committed).toBe(1);
     expect(result.tier2.attempted).toBe(1);
+    expectTier2Partition(result.tier2);
   });
 });

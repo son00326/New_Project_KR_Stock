@@ -54,6 +54,8 @@ export type TriggerMonthlyPersonaEvalActionResult =
  */
 export function shouldRunTier2(badge: ConsensusBadge): boolean {
   if (badge === '⚪') return false;
+  // strict 'true' literal match — 'TRUE' / '1' / 'yes' / ' true ' (case+whitespace) do NOT enable.
+  // Vercel env vars are exposed verbatim; operator는 정확히 'true' string으로 세팅 필요.
   return process.env.AI_COST_LOG_REAL_INSERT_ENABLED === 'true';
 }
 
