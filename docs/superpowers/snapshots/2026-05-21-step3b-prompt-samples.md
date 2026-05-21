@@ -11,17 +11,30 @@
 
 ## Spot-check helper script
 
-```bash
-# 28 samples 출력 (모든 sample의 systemPrompt 출력)
-cd tudal && npx vitest --run --reporter verbose -t "samples spot-check" \
-  src/lib/ai/prompts/__tests__/sector-persona-builder.test.ts 2>&1 | less
+> 참고: CI에는 별도 "samples spot-check" test title이 없습니다 (omxy R1 catch 후 정정). LLM judge 없이 manual reviewer가 28 systemPrompt 본문을 직접 출력해서 검토하는 용도. structural invariants는 `sector-persona-builder.test.ts` + `kevin-v31-rubric.test.ts`에서 이미 CI enforce.
 
-# 또는 개별 sample 확인:
-node -e "
-require('tsx/cjs');
-const { resolveSectorPersona } = require('./src/lib/ai/prompts/personas/sector-persona-builder');
-const c = resolveSectorPersona('sector-바이오-slot-8');  // 변경
-console.log(c.systemPrompt);
+```bash
+# 개별 sample systemPrompt 출력 (sector-persona-builder.ts API 직접 호출):
+cd tudal && npx tsx -e "
+import { resolveSectorPersona } from './src/lib/ai/prompts/personas/sector-persona-builder';
+const c = resolveSectorPersona('sector-바이오-slot-8');  // personaId 변경하여 28 samples 순회
+console.log(c?.systemPrompt);
+" | less
+
+# 또는 28 samples 한번에 dump (operator가 필요 시 임시 script로 작성):
+cd tudal && npx tsx -e "
+import { resolveSectorPersona } from './src/lib/ai/prompts/personas/sector-persona-builder';
+const ids = [
+  'sector-바이오-slot-8','sector-바이오-slot-11',
+  'sector-반도체-slot-8','sector-반도체-slot-11',
+  'sector-건설-slot-4','sector-건설-slot-12',
+  // ... 28 samples matrix는 아래 표 참조
+];
+for (const id of ids) {
+  console.log('=== ' + id + ' ===');
+  console.log(resolveSectorPersona(id)?.systemPrompt);
+  console.log();
+}
 " | less
 ```
 
