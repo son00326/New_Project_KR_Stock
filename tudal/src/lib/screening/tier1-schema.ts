@@ -41,11 +41,14 @@ const ConsensusBadgeSchema = z.union([
  * 나머지 페르소나 weight 1.0 (대칭).
  *
  * Heavy 가중치 1.5x. Light 가중치 1.0x.
+ *
+ * IDs는 production CORE_11_PERSONAS와 동일 형식 (kebab-case) — 53차 §5 reviewer CR-01 정정 박제.
+ * 정합성 invariant test = `__tests__/tier1-schema.test.ts` (CORE_11_PERSONAS import 후 includes 검증).
  */
 export const TIMEFRAME_HEAVY_PERSONAS: Record<Timeframe, readonly string[]> = {
-  short: ['stanley_druckenmiller', 'michael_burry'],
-  mid: ['peter_lynch'],
-  long: ['warren_buffett', 'charlie_munger', 'phil_fisher', 'mohnish_pabrai'],
+  short: ['stanley-druckenmiller', 'michael-burry'],
+  mid: ['peter-lynch'],
+  long: ['warren-buffett', 'charlie-munger', 'phil-fisher', 'mohnish-pabrai'],
 } as const;
 
 export const PERSONA_WEIGHT_HEAVY = 1.5;
@@ -159,6 +162,15 @@ export const Tier1ScreeningResultSchema = z
         v.selectionMeta.longCount ===
       v.selected.length,
     { message: 'selectionMeta_count_mismatch' }
+  )
+  // 53차 §5 reviewer CR-02 정정 박제 — duplicate ticker silent corruption 차단.
+  .refine(
+    (v) => new Set(v.selected.map((a) => a.ticker)).size === v.selected.length,
+    { message: 'selected_tickers_must_be_unique' }
+  )
+  .refine(
+    (v) => new Set(v.notSelected.map((a) => a.ticker)).size === v.notSelected.length,
+    { message: 'notSelected_tickers_must_be_unique' }
   );
 export type Tier1ScreeningResult = z.infer<typeof Tier1ScreeningResultSchema>;
 

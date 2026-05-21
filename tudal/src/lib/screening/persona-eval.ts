@@ -284,17 +284,25 @@ export interface Tier1Candidate {
 export interface RunTier1ScreeningInput {
   /**
    * 150 candidates = Tier 0 short top 50 + mid top 50 + long top 50.
-   * 한 ticker가 여러 bucket에 포함될 수 있음 (caller normalize 책임 — 본 함수는 ticker 중복 검사 X).
+   * 53차 §5 reviewer CR-02 정정 박제: ticker 중복 시 함수가 entry에서 throw —
+   * caller (PR1) Tier 0 union 시 dedup 책임. tier0_buckets 다중 true는 dedup 후 단일 row로 표현.
    */
   candidates: Tier1Candidate[];
   /**
    * 단일 ticker × Core 11 페르소나 panel call. 반환은 11 PersonaScore (timeframe별 score map 포함).
    * 실제 LLM 호출 wire는 caller scope (PR1 cron 또는 PR4 UI trigger).
+   * Promise reject 시 본 함수가 settled 처리 → tier1AvailableByTicker[ticker]=false로 자동 fallback.
    */
   callPersonaPanel: (input: { ticker: string; financials: string }) => Promise<PersonaScore[]>;
   fetchFinancials: (ticker: string) => Promise<string>;
   promptVersionId: string;
   personasVersionId: string;
+  /**
+   * 선택적 per-ticker tier1 availability override (53차 §5 reviewer WR-02 정정 박제 — caller seam).
+   * 미지정 ticker는 default true. callPersonaPanel reject 발생 시 본 함수가 자동 false로 표시 (settled handling).
+   * PR1 wire 시 degraded ticker (LLM 키 미발급/billing 소진 등)를 caller가 사전 false로 명시 가능.
+   */
+  tier1AvailableByTicker?: Readonly<Record<string, boolean>>;
 }
 
 const BADGE_PRIORITY: Record<ConsensusBadge, number> = {
@@ -346,14 +354,20 @@ function computeTier0Ranks(candidates: Tier1Candidate[]): Record<Timeframe, Map<
   return out;
 }
 
-function computeTier1Ranks(aggregates: TickerAggregate[]): Record<Timeframe, Map<string, number>> {
+/**
+ * Rank tickers per timeframe by `weighted_scores[tf]` desc, ticker alphabetical tie-break.
+ * Generic over any record carrying `ticker` + `weighted_scores` (TickerAggregate / partial).
+ */
+function computeTier1Ranks(
+  rows: ReadonlyArray<{ ticker: string; weighted_scores: Record<Timeframe, number> }>
+): Record<Timeframe, Map<string, number>> {
   const out: Record<Timeframe, Map<string, number>> = {
     short: new Map(),
     mid: new Map(),
     long: new Map(),
   };
   for (const tf of TIMEFRAMES) {
-    const sorted = [...aggregates].sort((a, b) => {
+    const sorted = [...rows].sort((a, b) => {
       if (b.weighted_scores[tf] !== a.weighted_scores[tf]) {
         return b.weighted_scores[tf] - a.weighted_scores[tf];
       }
@@ -398,58 +412,98 @@ export async function runTier1Screening(
   if (input.candidates.length !== 150) {
     throw new Error(`tier1_candidates_must_be_150 (got ${input.candidates.length})`);
   }
+  // 53차 §5 reviewer CR-02 정정 박제 — duplicate ticker silent corruption 차단.
+  const distinctTickers = new Set(input.candidates.map((c) => c.ticker));
+  if (distinctTickers.size !== input.candidates.length) {
+    throw new Error(
+      `tier1_candidates_have_duplicate_tickers (distinct=${distinctTickers.size}/150)`
+    );
+  }
 
   const generatedAt = new Date().toISOString();
 
-  // 1. Call panel for each ticker (parallel)
-  const enriched = await Promise.all(
-    input.candidates.map(async (c) => {
+  // 1. Call panel for each ticker (settled — 53차 §5 reviewer WR-03 정정 박제).
+  // 단일 ticker fail이 batch 전체 reject 시키지 않도록 allSettled. concurrency cap은 callPersonaPanel
+  // 구현측 책임 (PR1 wiring 시 결정 — Anthropic rate limit / DART quota 고려).
+  type EnrichedItem = { candidate: Tier1Candidate; personaScores: PersonaScore[] | null };
+  const enrichedSettled = await Promise.allSettled(
+    input.candidates.map(async (c): Promise<EnrichedItem> => {
       const financials = await input.fetchFinancials(c.ticker);
       const personaScores = await input.callPersonaPanel({ ticker: c.ticker, financials });
       return { candidate: c, personaScores };
     })
   );
+  const failedTickers = new Set<string>();
+  const enriched: EnrichedItem[] = enrichedSettled.map((r, i) => {
+    if (r.status === 'fulfilled') return r.value;
+    failedTickers.add(input.candidates[i].ticker);
+    return { candidate: input.candidates[i], personaScores: null };
+  });
 
-  // 2. Compute weighted_scores + primary_timeframe per ticker
-  const aggregates: TickerAggregate[] = enriched.map((e) => {
+  // 2. Compute weighted_scores + primary_timeframe per ticker (53차 §5 reviewer WR-05 immutable build).
+  const ZERO_SCORES: Record<Timeframe, number> = { short: 0, mid: 0, long: 0 };
+  type EnrichedAggregate = {
+    ticker: string;
+    sector: TickerAggregate['sector'];
+    weighted_scores: Record<Timeframe, number>;
+    primary_timeframe: Timeframe;
+    available: boolean;
+  };
+  const partial: EnrichedAggregate[] = enriched.map((e) => {
+    if (e.personaScores === null) {
+      // Degraded ticker — Tier 1 unavailable. weighted_scores=0 (lowest), primary=short (deterministic).
+      return {
+        ticker: e.candidate.ticker,
+        sector: e.candidate.sector,
+        weighted_scores: ZERO_SCORES,
+        primary_timeframe: 'short' as Timeframe,
+        available: false,
+      };
+    }
     const weighted = computeWeightedScores(e.personaScores);
     const primary_timeframe = argmaxTimeframe(weighted);
+    const overrideAvail = input.tier1AvailableByTicker?.[e.candidate.ticker];
     return {
       ticker: e.candidate.ticker,
       sector: e.candidate.sector,
       weighted_scores: weighted,
       primary_timeframe,
-      // Placeholder — overwritten in step 3.
-      consensus_badges_by_timeframe: { short: '⚪', mid: '⚪', long: '⚪' },
+      available: overrideAvail !== undefined ? overrideAvail : true,
+    };
+  });
+
+  // 3. Compute consensus badges per timeframe (Tier 0 + Tier 1 ranking) — immutable aggregate build.
+  const tier0Ranks = computeTier0Ranks(input.candidates);
+  const tier1Ranks = computeTier1Ranks(partial);
+
+  const aggregates: TickerAggregate[] = partial.map((p) => {
+    const badges: Record<Timeframe, ConsensusBadge> = { short: '⚪', mid: '⚪', long: '⚪' };
+    for (const tf of TIMEFRAMES) {
+      const t0Rank = tier0Ranks[tf].get(p.ticker);
+      const t0Total = tier0Ranks[tf].size;
+      const tier0IsTop = t0Rank != null && t0Total > 0 && isTopTier(t0Rank, t0Total);
+
+      const t1Rank = tier1Ranks[tf].get(p.ticker);
+      const t1Total = tier1Ranks[tf].size;
+      const tier1IsTop = t1Rank != null && t1Total > 0 && isTopTier(t1Rank, t1Total);
+
+      badges[tf] = assignBadge({
+        tier1Available: p.available,
+        tier0IsTop,
+        tier1IsTop,
+      });
+    }
+    return {
+      ticker: p.ticker,
+      sector: p.sector,
+      weighted_scores: p.weighted_scores,
+      primary_timeframe: p.primary_timeframe,
+      consensus_badges_by_timeframe: badges,
       assigned_by: 'primary' as const,
       prompt_version_id: input.promptVersionId,
       personas_version_id: input.personasVersionId,
     };
   });
-
-  // 3. Compute consensus badges per timeframe (Tier 0 + Tier 1 ranking)
-  const tier0Ranks = computeTier0Ranks(input.candidates);
-  const tier1Ranks = computeTier1Ranks(aggregates);
-
-  for (const agg of aggregates) {
-    for (const tf of TIMEFRAMES) {
-      const t0Rank = tier0Ranks[tf].get(agg.ticker);
-      const t0Total = tier0Ranks[tf].size;
-      const tier0IsTop = t0Rank != null && t0Total > 0 && isTopTier(t0Rank, t0Total);
-
-      const t1Rank = tier1Ranks[tf].get(agg.ticker);
-      const t1Total = tier1Ranks[tf].size;
-      const tier1IsTop = t1Rank != null && t1Total > 0 && isTopTier(t1Rank, t1Total);
-
-      // PR2 scope 박제: Tier 1 always available (caller responsibility — PR1 wire).
-      // PR1 wiring 시 degraded ticker는 tier1Available=false 전달해야 ⚪ 배지 산출.
-      agg.consensus_badges_by_timeframe[tf] = assignBadge({
-        tier1Available: true,
-        tier0IsTop,
-        tier1IsTop,
-      });
-    }
-  }
 
   // 4. Group by primary_timeframe + select top 10 per timeframe
   const byPrimary: Record<Timeframe, TickerAggregate[]> = { short: [], mid: [], long: [] };
@@ -465,7 +519,8 @@ export async function runTier1Screening(
     primarySelected[tf] = byPrimary[tf].slice(0, 10);
   }
 
-  // 5. Backfill timeframes with <10 from global unselected pool
+  // 5. Backfill timeframes with <10 from global unselected pool.
+  // pool 정렬은 timeframe별 재정렬 + splice 누적 — short→mid→long 순서 박제 (TIMEFRAMES 선언 순).
   const primaryTickers = new Set(
     [
       ...primarySelected.short,
