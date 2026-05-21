@@ -14,7 +14,34 @@
 
 ## 최근 갱신
 
-**2026-05-20** (53차 §1 — Tier 2 stacked PRs 머지 + 마이그 production apply 완료): **52차 PR #4 (Tier 2 SoT) + PR #5 (Tier 2 impl) + 53차 §0 PR #6 (stale-fix) 3개 모두 MERGED + 마이그 0018·0019 production apply + SECURITY DEFINER triad 검증**. main HEAD `8108d058` · omxy 77 rounds CONVERGED 누적 (53차 §1 R1~R5 12 BLOCKERS catch) · 게이트 ALL GREEN (build 25 / lint 0 err / **test:ci 606 / 63 files** / tsc clean) · Vercel canary 4/4 OK. main에 박제된 코드 SoT:
+**2026-05-21** (53차 §5 정정 — 박제 vs 코드 mismatch catch + canonical PR 순서 박제):
+- **omxy 적대적 검토 5 rounds CONVERGED + 누적 16 BLOCKERS catch & fix** (R1 6 + R2 4 + R3 6). 정정 spec doc: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md`. 21 BLOCKERS 박제 (16 catch + 5 정정 박제).
+- **Group H Critical 박제 (신규)** — `stock_reports` schema drift + report page crash 위험 (Hard gate 선행 필수):
+  - `tudal/src/lib/data/admin-reports.ts` `getReportByTicker` + `transformStockReportRow` = **mapping/validation 0** (DB jsonb를 raw unknown 그대로 반환)
+  - `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` header `section0.conviction` **early deref** (page 진입 직후 crash 위험 첫 지점)
+  - Section 0~7 entire nested deref (`data.headline`·`data.technicals.map`·`data.dataSources.map` 등 array/string deref)
+  - Section 8 shape mismatch — writer 신규 schema = `partA/partB/partC/partD` vs page old shape = `conclusion/recommendation/keyQuotes`
+  - DB 0003: `stock_reports.section_0~8` 컬럼 모두 nullable. 0017 `commit_persona_eval`은 `section_8` jsonb만 INSERT/UPDATE + `consensus_badge` ADD. **section_0~7는 다른 RPC 또는 path로 채워져야 하나 코드 path 0**.
+  - **Critical**: PR1 cron 가동 시 commit_persona_eval 호출 → row INSERT 시 section_0~7 null + section_8 신규 partA/B/C/D shape → page.tsx old shape deref 시도 → **early crash at section0.conviction header**. 사용자가 admin UI에서 종목 클릭 시 발화.
+  - **PR3a Hard gate**: PR1 cron 가동 전 PR3a (admin-reports.ts validation + page.tsx null guard + Section 0~7 fallback UI + Section 8 신규 shape 처리) 선행 필수.
+- **Group E (신규) 박제** — `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 함수로 `section_8` jsonb commit만 가능. **Section 0~7 본문 작성 path 미구현**. `parseSectorContentStrict`는 Section 8 parser only. 후속 **PR3b** (writer Section 0~7 본문 구현 = document-specialist + analyst + writer + critic 4-step) 별개 진행 — PR1 cron 가동 후 가능 (PR3a Hard gate는 별도).
+- **Group D 박제 — dangling server action**:
+  - `tudal/src/app/(admin)/admin/track-record/actions.ts::triggerMonthlyPersonaEvalAction` = **dangling server action** (export 존재 / page render·import 0 / cron real 0 / UI caller 0). UI wiring PR4 + cron wiring PR1에서 해소.
+- **Group B 박제 — short_list_30 Tier 0 단독**:
+  - 현재 = Tier 0 단독 30 rows production (Tier 1 AI 0 호출) — **fallback 상태**, 메인 path 아님.
+  - 메인 path = Tier 1 AI 30 선정 (PR2 후속 — persona-eval.ts 확장으로 Tier 0 150 후보 → Core 11 AI 평가 + 시간대별 페르소나 가중치 → 단/중/장 top 10 = 30 선정).
+- **Group C 박제 — cron monthly-batch mock dry-run only**:
+  - `tudal/src/app/api/cron/monthly-batch/route.ts` = mock dry-run only. 실 AI 호출 없음. PR1 후속 implementation으로 enable 필요 (Task 12 박제 "활성"은 실제로 mock dry-run).
+- **Group F 박제 — Track Record 의미 재정의**:
+  - `tudal/src/app/(admin)/admin/track-record/page.tsx` = 누적 성과 대시보드만 (5 summary cards + 월별 + 버킷별 + Counterfactual). **trigger button 0**.
+  - 정정 후 = 누적 성과 + 과거 월별 리포트 아카이브를 한 페이지에 둘 다 (탭 분리). PR4 후속.
+- **Regen path 박제 — UI 존재 + Regen UI + quota counter 박제 OK, 실 AI 재생성 실 호출 0** (OMXY R1 BLOCKER 6):
+  - 종목별 'Regen' 버튼 UI + quota counter 박제 OK 존재 (`/admin/report/[ticker]/regenerate` + regenerate-panel.tsx + regen_counter race-safe CAS).
+  - 실 AI 재생성 호출 = **0** (PR4 wire 후속).
+- **canonical PR 순서 박제** (OMXY R2 BLOCKER 2 + R3 BLOCKER 1 정정): **PR2 (Tier 1 AI 30 선정 screening) → PR3a (Group H schema drift fix Hard gate · PR1 선행 필수) → PR1 (cron monthly-batch real path · server-side only) → PR3b (writer Section 0~7 본문 구현) → PR4 (UI trigger 버튼 + Track Record 탭 + Regen 실 호출 wire)**. Hard gate 위반 시 사용자 종목 클릭 시 page crash inevitable.
+- **편집 문서 4개**: ProgressDashboard.md + CLAUDE.md (v3.2 → v3.3 + D23 신설) + 이 문서 (53차 §5 entry + Group H Critical 박제) + S7-RealData.md (T7e.8 fallback 명시 + Step 3c PARTIAL + 53차 §5 변경 이력). **코드 변경 0건**. 회귀 무관 (docs only).
+
+이전 갱신: **2026-05-20** (53차 §1 — Tier 2 stacked PRs 머지 + 마이그 production apply 완료): **52차 PR #4 (Tier 2 SoT) + PR #5 (Tier 2 impl) + 53차 §0 PR #6 (stale-fix) 3개 모두 MERGED + 마이그 0018·0019 production apply + SECURITY DEFINER triad 검증**. main HEAD `8108d058` · omxy 77 rounds CONVERGED 누적 (53차 §1 R1~R5 12 BLOCKERS catch) · 게이트 ALL GREEN (build 25 / lint 0 err / **test:ci 606 / 63 files** / tsc clean) · Vercel canary 4/4 OK. main에 박제된 코드 SoT:
 - `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS 14 + SECTOR_PERSONA_COUNT=14 + TIER2_CALLS_PER_TICKER=25 + SUB_TAG_CROSSWALK 7 + PRIMARY_OVERLAY_BY_SECTOR 14×2 + SUB_TAG_OVERLAY_ROLES 7×2 + LEGACY_ALIAS_MAP + resolveSlotTemplate)
 - `tudal/src/lib/report/writer.ts` (commitSectorReport + parseSectorContentStrict 추가, Core 11 path 변경 0)
 - `tudal/src/lib/screening/persona-eval.ts` (runSectorEval scaffold, Core 11 path 변경 0)

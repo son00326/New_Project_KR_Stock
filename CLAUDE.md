@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## ⭐ 프로젝트 재정의 (2026-04-21 D16 · 2026-05-08 D18 시퀀스 v3 · 2026-05-08 D19 AI 강화 v3.1 · **2026-05-20 D21·D22 Tier 2 14×14 overlay + Kevin v3.1 quality target v3.2**)
+## ⭐ 프로젝트 재정의 (2026-04-21 D16 · 2026-05-08 D18 시퀀스 v3 · 2026-05-08 D19 AI 강화 v3.1 · 2026-05-20 D21·D22 Tier 2 14×14 overlay + Kevin v3.1 quality target v3.2 · **2026-05-21 D23 53차 §5 정정 (메인 path = Tier 0 + Tier 1 AI 합의) v3.3**)
 
 **어드민 = 본인 + 친구 2명(총 3명)이 주식·코인 투자를 편하게 하기 위한 내부 도구**.
 
@@ -15,11 +15,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 리스크 가드레일 기본값 (S8에서 박제): 레버리지 ≤ 5x · 일일 손실 -3% 자동 정지 · AI 일 주문 ≤ 20회.
 - 법무(Q16)·이용약관(Q17): Deferred-D 재개 전까지 불필요. Footer 면책으로 충분.
 - **D18 (2026-05-08)**: KIS는 **자동매매 전용** (S7c WS read-only는 본인 1개 충분, 일간 데이터·AI 가상 포트는 KRX/pykrx/DART/네이버로 KIS 0개). son00326·Kevin KIS 발급 지연 = S7c까지 비블로커. S8 자동매매는 D11 AI 가상 포트 운용 검증 후로 분리.
-- **D19 (2026-05-08, 35차)**: Short List 30 선정 = **"숫자(인디케이터) + AI(Core 11 페르소나) 병렬 + 합의 에이전트" + Reflection(자가학습)** 구조. **Tier 0** = 인디케이터 자동 스크리닝(코스피·코스닥 → 단/중/장 후보 50씩, AI 키 불필요). **Tier 1** = Core 11 평가 + 시간대별 페르소나 가중치(단/중/장 각 10). **Tier 2** = Sector Board 14×10에서 30종목 해당 섹터 14명만 활성화(비용 통제, S7a 후속 PR). **합의 배지 5종 (49차 Q5b)**: 🟢 강한 합의 · 🔵 숫자 우세 · 🟣 AI 우세 · 🟡 관망(신규) · ⚪ AI 분석 대기. **AI 키 미발급 fallback** = Tier 0 단독으로 실 코스피·코스닥 30종목 + 실 가격·재무·뉴스. AI 키 발급 시 Tier 1·2 plug-in. **Reflection** = 매월 말 실현 수익률 → 다음달 prompt 주입 (TauricResearch/TradingAgents 차용, S7a 후속 PR). **Smoke #3 (Binance) ⏸ 유예** (S8까지). 상세 SoT: `ServicePlan-Admin.md §1A.5 D19` + `Service/Report/ReportFramework.md §8`.
+- **D19 (2026-05-08, 35차 · 2026-05-21 53차 §5 정정)**: Short List 30 선정 = **"숫자(인디케이터) + AI(Core 11 페르소나) 병렬 + 합의 에이전트" + Reflection(자가학습)** 구조. **Tier 0** = 인디케이터 자동 스크리닝(코스피·코스닥 → 단/중/장 후보 50씩, AI 키 불필요). **Tier 1** = Core 11 평가 + 시간대별 페르소나 가중치(단/중/장 각 10). **Tier 2** = Sector Board 14×10에서 30종목 해당 섹터 14명만 활성화(비용 통제, S7a 후속 PR). **합의 배지 5종 (49차 Q5b)**: 🟢 강한 합의 · 🔵 숫자 우세 · 🟣 AI 우세 · 🟡 관망(신규) · ⚪ AI 분석 대기. **메인 path = Tier 0 + Tier 1 AI 합의** (Tier 0 단/중/장 후보 150 → Tier 1 Core 11 AI 평가 + 시간대별 페르소나 가중치 → 단/중/장 top 10 = 30 선정 + 30 풀 리포트 단일 산출물). **fallback = AI 키 미발급 시 Tier 0 단독 30 직선정** (현 production 상태 — 메인 path 아님). AI 키 발급 시 Tier 1·2 plug-in으로 메인 path 가동. **Reflection** = 매월 말 실현 수익률 → 다음달 prompt 주입 (TauricResearch/TradingAgents 차용, S7a 후속 PR). **Smoke #3 (Binance) ⏸ 유예** (S8까지). 상세 SoT: `ServicePlan-Admin.md §1A.5 D19` + `Service/Report/ReportFramework.md §8`.
+- **D23 (2026-05-21, 53차 §5 정정)**: 박제 vs 코드 mismatch 정정 spec 박제 — Group A-H 8그룹 catch (A track-record trigger 위치 오해 / B 30종목 AI 부재 / C cron mock dry-run / D Step 3c "DONE" 박제 → **PARTIAL — dangling server action** / E writer Section 0~7 미구현 / F Track Record 의미 / G Sector reference 3-level 분류 / **H stock_reports schema drift + report page crash 위험 Critical**). **canonical PR 순서 = PR2 → PR3a → PR1 → PR3b → PR4** (PR3a Group H schema drift fix가 PR1 cron 가동 전 Hard gate 선행 필수). omxy 적대적 검토 5 rounds CONVERGED + 누적 16 BLOCKERS catch & fix. 정정 spec doc: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md`.
 
 > **세션별 진행 박제** (36차~49차 등): `Document/Process/HANDOFF.md §6` (최근 1차) + `Document/Build/ProgressDashboard.md` + `Document/Build/Slices/S7-RealData.md` + `git log`. CLAUDE.md는 자동 로드되므로 세션 박제 잔존 금지 — 사업/데이터 모델 차원 결정(D16~D20)만 남긴다.
 
-**현 진행 순서 v3.1 (SoT: `Document/Process/HANDOFF.md` · `Document/Build/ProgressDashboard.md §2`)**:
+**현 진행 순서 v3.3 (53차 §5 정정 박제 · SoT: `Document/Process/HANDOFF.md` · `Document/Build/ProgressDashboard.md §2`)**:
 ```
 Mock Skeleton ✅
   → DQ-7 Admin Credential (Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예 · Session 4 QA 잔여)
@@ -37,10 +38,10 @@ Mock Skeleton ✅
        · **신규 SoT 코드**: `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS 14 + 상수 + helper) · `writer.ts` commitSectorReport + parseSectorContentStrict · `persona-eval.ts` runSectorEval scaffold · `mock-admin-committee-personas.ts` 196 stub (legacy 5인 105 격리 보존) · 마이그 0018 (sub_tags jsonb) + 0019 (commit_sector_personas RPC)
        · **D22 박제**: Tier 2 production prompts 196 quality target = **`origin/IMVCOM @ 1faee1b` Kevin v3.1 reference** (Step 3a Kevin 정합 머지 PR 진입 대기)
        · **출시 Runbook 진입점 = `Document/Process/HANDOFF.md §2`** · 현재 위치 = §2.1 Step 1c USER 대기 (PR #4/#5 review/merge + 마이그 0018·0019 production apply) + 동시 Step 3a CLAUDE 자동 진행 가능
-       · 다음 1순위 = **(USER) PR #4/#5 머지** → **(CLAUDE) Step 3a Kevin IMVCOM 정합 머지 PR** → Step 3b production prompts 196 (Kevin v3.1 target) → Step 3c caller wiring (cron + admin action + Section 8 partA UI) → Step 4 Reflection
+       · 다음 1순위 = **(USER) PR #4/#5 머지** → **(CLAUDE) Step 3a Kevin IMVCOM 정합 머지 PR** → Step 3b production prompts 196 (Kevin v3.1 target) → **Step 3c caller wiring = PARTIAL (dangling server action — 53차 §5 정정)** → **53차 §5 정정 후속 canonical PR 순서: PR2 (Tier 1 AI 30 선정 메인 path) → PR3a (Group H schema drift fix Hard gate · PR1 선행 필수) → PR1 (cron monthly-batch real path · server-side only) → PR3b (writer Section 0~7 본문 구현) → PR4 (UI trigger 버튼 + Track Record 탭 + Regen 실 호출 wire)** → Step 4 Reflection
        · T7e.7 RLS 브라우저 수동 QA는 D11 운용 검증 직전 마무리 (1시간 안짝 수동)
   → S7b (뉴스+브리핑)
-  → ★ D11 AI 가상 포트 1차 가동 (KIS 0개 · Tier 0 단독 가능 · Tier 1·2 키 있으면 plug-in)
+  → ★ D11 AI 가상 포트 1차 가동 (KIS 0개 · **메인 path = Tier 0 + Tier 1 AI 합의 + Tier 2 plug-in** · fallback = AI 키 미발급 시 Tier 0 단독 30 직선정)
     어드민 3인 운용 검증 며칠~1주 (실 종목 30개 + 합의 배지 + AI 코멘트 검증)
   → S7c (장중·KIS WS · 본인 1개) → S7d (Silent Health)
   → S8 자동매매 (분리 단독 진입 · Binance Smoke #3 여기서 진행) → S9 운용 검증

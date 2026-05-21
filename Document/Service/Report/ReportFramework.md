@@ -674,6 +674,18 @@ Part A: 섹터 보드 (canonical 14인 overlay — D21 52차)
 
 > 풀 리포트(Step 1~4) 진입 전, **이 종목이 왜 30종목 안에 들어왔는지**를 결정한다. 어드민 Short List 30 홈 카드의 🔢 숫자 점수 / 🤖 AI 점수 / 합의 배지가 이 단계 산출물.
 
+#### Step 0 AI 호출 trigger 3 path (v2.6, 53차 §5 정정 박제)
+
+> **사용자 final intent §1.3 박제** (spec doc `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md`). 본 3 path는 메인 path = (a)·(b)·(c) 어느 path든 동일 함수(`runTier1Screening` 또는 동일)를 호출하여 30 선정 + 30 풀 리포트 단일 산출물을 생성하는 entry point들이다.
+
+| Path | 설명 | 빈도 | 현 코드 상태 | 후속 PR |
+|---|---|---|---|---|
+| (a) **cron 매월 자동** | 30종목 미리 선정 + 30 풀 리포트 미리 생성 | 매월 1회 (`vercel.json` monthly-batch) | **mock dry-run only** (`tudal/src/app/api/cron/monthly-batch/route.ts` = 실 AI 호출 0) | **PR1** (cron real path enable, server-side only) |
+| (b) **reject 후 사용자 trigger 버튼** | 새 30 선정 + 새 풀 리포트 | 수동 종목당 월 2회 (D8 박제) | **dangling server action** (`triggerMonthlyPersonaEvalAction` export 존재 / page import·render 0 / UI caller 0) | **PR4** (UI trigger 버튼 wire) |
+| (c) **종목별 'Regen' 버튼** | 단일 종목 풀 리포트 재생성 | 종목당 월 2회 quota 공유 | **UI + quota counter 박제만, 실 AI 재생성 호출 0** (OMXY R1 BLOCKER 6 정정) | **PR4** (Regen 실 호출 wire) |
+
+> **Hard gate (Group H Critical)**: 위 3 path 어느 것이든 실 AI 호출 시 `commit_persona_eval` RPC → `stock_reports.section_8` 신규 partA/partB/partC/partD jsonb INSERT 발생. 그러나 `/admin/report/[ticker]/page.tsx`는 **old conclusion/recommendation/keyQuotes shape dereference** 잔존 + section_0~7 nested deref 잔존 → 사용자 종목 클릭 시 **page crash 위험**. **PR1·PR4 진입 전 PR3a (schema drift fix) 선행 필수** (canonical 순서: PR2 → PR3a → PR1 → PR3b → PR4).
+
 ```
 Step 0a — Tier 0: 인디케이터 자동 스크리닝 (AI 키 불필요)
 └── 숫자 에이전트 (pykrx·KRX·DART)
@@ -709,6 +721,24 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 ### Step 1~4: 풀 리포트 작성 (선정된 30종목만)
 
 > **Tier 2 Sector Board 활성화**: 30종목 각자의 섹터 14명만 호출 (전체 140명 X). 종목당 Core 11 + Sector 14 = 25명 × 30종 ≈ 750 LLM call/월 (M17 hardcap 40만원 내 통제).
+
+> **(v2.6, 53차 §5 — Group E) writer Section 0~7 본문 작성 path 미구현 박제**:
+> 현재 `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 두 함수만 존재하며, **`stock_reports.section_8` jsonb commit만 가능**. Section 0~7 본문(투자 서사·산업 기초·회사 개요·이익 모델·밸류에이션·거시 민감도·시나리오·촉매&리스크) 작성 path = **미구현**. `parseSectorContentStrict`도 Section 8 parser only.
+> → 후속 **PR3b** (writer Section 0~7 본문 구현) 분리: document-specialist + analyst + writer + critic 4-step. PR1 머지 후 또는 PR1과 병렬 진행 가능.
+
+> **(v2.6, 53차 §5 — Group H Critical) `stock_reports` schema drift + page render crash 위험 박제** (OMXY R1 BLOCKER 5 + R2 BLOCKER 3 신규):
+> - `commit_persona_eval` RPC (마이그 0017) = `section_8` jsonb INSERT + `consensus_badge` ADD만. section_0~7 컬럼은 nullable 잔존 (마이그 0003).
+> - writer 신규 schema = `partA/partB/partC/partD` jsonb shape (Section 8 contract = `ServicePlan-Admin.md §4.2.1` + `tudal/src/lib/report/section-8-schema.ts` zod).
+> - `/admin/report/[ticker]/page.tsx` = old `section8.recommendation` / `section8.keyQuotes` / `section8.conclusion` shape dereference + section0.conviction early header deref + Section 0~7 entire nested deref.
+> - `tudal/src/lib/data/admin-reports.ts` `getReportByTicker` + `transformStockReportRow` = mapping/validation **0** (DB jsonb raw unknown 그대로 반환).
+> - **Hard gate**: PR1 cron 가동 시 `commit_persona_eval` 호출 → row INSERT 시 section_0~7 null + section_8 신규 shape → page deref **early crash at section0.conviction header**.
+> → 후속 **PR3a** (Group H schema drift fix only, Critical 선행) 분리:
+>   - (a) `admin-reports.ts` `transformStockReportRow` validation + Section type guard
+>   - (b) `report/[ticker]/page.tsx` early null guard at section0.conviction + Section 0~7 fallback UI
+>   - (c) section_8 jsonb shape 호환 helper (old conclusion/recommendation/keyQuotes ↔ 신규 partA/partB/partC/partD)
+> → **PR3a는 PR1 cron 가동 전 Hard gate 선행 필수** (PR3b writer Section 0~7 본문 구현은 별개 — PR1 후 가능). 위반 시 사용자 admin UI 종목 클릭 시 page crash inevitable.
+>
+> canonical PR 순서: **PR2 (Tier 1 AI 30 선정) → PR3a (schema drift fix Hard gate) → PR1 (cron real path) → PR3b (writer Section 0~7 본문) → PR4 (UI trigger + Track Record 탭 + Regen 실 호출)**.
 
 ```
 Step 1: 리서치 + 분석 (병렬)
@@ -798,6 +828,25 @@ Step 4: 수정 반영 → 최종본 확정
 
 ### 9.2 섹터별 추가 체크리스트 (추후 조정 가능)
 
+#### 9.2.0 Sector reference 자료 3-level 분류 (v2.6, 53차 §5 — Group G 정정)
+
+> **OMXY R1 BLOCKER 3 + R3 BLOCKER 3 정정**: "12 sectors 부족"이라는 어휘가 어떤 level의 부족을 가리키는지 박제 불명확이었음. 본 §9.2.0은 sector reference 자료를 **Level A·B·C 3-level**로 명확 분리하여 박제. spec doc §1.7 참조.
+
+| Level | 정의 | 보유 | 부족 |
+|---|---|---|---|
+| **Level A** — 풀 리포트 본문 reference (실 작성된 본문 `.md`/`.html`) | `Document/Outputs/Report-Alteogen_*` + `Report-Samchundang_000250` + `BioSectorReport-Alteogen` + `Samsung_005930_v2` + `Samsung Section5-8 ExecSummary` | **2 sectors** (바이오·반도체) | **12 sectors** (건설·금융·2차전지·자동차·IT/SW·유통/소비재·에너지·엔터/미디어·통신·철강/소재·운송/물류·보험/증권) |
+| **Level B** — `ReportFramework.md §9.2` 섹터별 추가 체크리스트 (본 절 하단 4 sectors) | 바이오·반도체·건설·금융 | **4 sectors** | **10 sectors** |
+| **Level C** — `tudal/src/lib/screening/sector-persona-builder.ts SECTOR_PHILOSOPHIES` (53차 §3 PR #8 박제) | 14 canonical sectors 모두 (Level C는 페르소나 prompt에 inject되는 sector philosophy — 보고서 본문 reference와 별개) | **14 sectors** | **0** |
+
+**운용 방향** (사용자 lock-in §1.7):
+- **Level A** 12 sectors 부족 → 운용 중 lazy 추가 (eager pre-fill **금지**). 첫 풀 리포트 작성 시 해당 sector 본문 reference 1편 작성하여 누적.
+- **Level B** 10 sectors 부족 → 첫 풀 리포트 작성 시 해당 sector 체크리스트 추가 (본 §9.2 하단에 신규 절 추가).
+- **Level C** 완전 박제 (부족 0) → 어느 sector 종목 클릭해도 페르소나 prompt가 sector philosophy를 inject 받아 동작.
+
+> "12 sectors 부족"이라는 어휘 등장 시 = **Level A 본문 reference 부족**을 가리킴. Level B 체크리스트는 10 sectors 부족, Level C philosophies는 부족 0.
+
+#### 9.2.1 섹터별 추가 체크리스트 (Level B — 4 sectors 보유)
+
 **바이오**:
 - [ ] Trailing PER이 Forward PER과 혼동되지 않았는가?
 - [ ] 로열티율이 [확정] vs [추정]으로 구분되었는가?
@@ -817,7 +866,7 @@ Step 4: 수정 반영 → 최종본 확정
 - [ ] NIM 추이가 포함되었는가?
 - [ ] 건전성 지표(NPL, 충당금)가 평가되었는가?
 
-> 나머지 섹터별 체크리스트는 해당 섹터 첫 보고서 작성 시 추가합니다.
+> 나머지 10 섹터별 체크리스트는 해당 섹터 첫 보고서 작성 시 추가합니다 (Level B lazy 추가).
 
 ---
 
@@ -832,6 +881,7 @@ Step 4: 수정 반영 → 최종본 확정
 | 2026-05-08 | **v2.2** | **§8에 Step 0 (30개 선정 합의 에이전트) + Step 4 후속 (Reflection) 추가 — D19 박제 (35차).** TauricResearch/TradingAgents Analyst Team + memory 패턴 차용 + JooPick Core 11 + Sector Board (canonical 14 sectors × 14 personas overlay — slot 모델은 D21/52차 supersede) 박제 보존. Tier 0 인디케이터 게이트(AI 키 불필요) + Tier 1 Core 11 평가(시간대별 페르소나 가중치) + 합의 배지 4종(🟢 강한 합의/🔵 숫자 우세/🟣 AI 우세/⚪ AI 분석 대기) + 매월 말 Reflection(실현 수익률 prompt 주입). 어드민 카드 노출 = 🔢 숫자 점수 + 🤖 AI 점수 + 합의 배지 + AI 코멘트 1~2줄 + 클릭→풀 리포트. AI 키 미발급 시 Tier 0 단독 fallback (진짜 코스피·코스닥 30종목 자동 선정). 비용 통제 = Sector Board 활성화는 30종목 해당 섹터 14인만 (per-stock 활성화 14). 신규 엔티티 후보 `reflection_log` 박제. SoT: `ServicePlan-Admin.md §1A.5 D19`. |
 | 2026-05-19 | **v2.4** | **S7a 49차 — 5종 배지 + section_8 SoT pointer.** Q5b omxy CONVERGED: 합의 배지 4종 → **5종 (🟡 관망 신규)**. 비-top tier + 비-top tier + AI 가용 케이스를 ⚪(AI 분석 대기)와 구별. §8 Step 0c + Step 2(Section 0 1행) 5종 갱신. **§8 Step 2에 `section_8 jsonb schema SoT = ServicePlan-Admin §4.2.1` 포인터 명시** — canonical contract(partA 0\|14 / partB 3~5 / partC / partD 11) 박제 위치는 ServicePlan-Admin §4.2.1, 코드 SoT는 `tudal/src/lib/report/section-8-schema.ts` zod schema. SoT: `ServicePlan-Admin.md §1A.5 D19` + `§3.1 R3.1-6` + `§4.2.1`. |
 | 2026-05-20 | **v2.5** | **52차 — D21 Tier 2 Sector Board slot 모델 정정 + sub_tag crosswalk 박제.** §7.2 14-slot 재작성 (10 base + 2 primary overlay + 2 sub_tag overlay = canonical 14 personas/sector fixed). canonical 14 sectors × 14 = 196 roster total. per-stock 활성화 = 해당 섹터 14인. **partA contract (`length ∈ {0,14}`, ServicePlan-Admin §4.2.1) 사전 정합 확보** — 구 §7.2 10-slot 템플릿과 §4.2.1 14 충돌이 D21에서 해소. **§7.3 sub_tag crosswalk 7개 신설** (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW + 엔터/미디어 secondary · 가전→유통/소비재 · 제약→바이오 · 부동산→건설). **운영 UI taxonomy proxy** (개념 정합 아님 — canonical 14 유지 목적). 본 PR 시점 production code import 0 (tests/만). **`commit_sector_personas` RPC + Section 8 partA render + mock fixture migration = Tier 2 implementation 후속 PR OOS**. SoT: `ServicePlan-Admin.md §1A.5 D21` + `§4.2.1` + 코드 SoT `tudal/src/lib/screening/canonical-sectors.ts` + 마이그 `tudal/supabase/migrations/0018_short_list_30_sub_tags.sql`. |
+| 2026-05-21 | **v2.6** | **53차 §5 — shortlist 30 + 풀 리포트 흐름 정정 박제.** OMXY 적대적 검토 5 rounds CONVERGED (R1 6 + R2 4 + R3 6 = 16 BLOCKERS catch & fix). v2.5 (52차 D21·D22) 충돌 없음. (a) **§8 Step 0 AI 호출 trigger 3 path 박제** — (a) cron 매월 자동 (현 mock dry-run, PR1 후 real) (b) reject 후 사용자 trigger 버튼 (현 dangling server action, PR4 후 real) (c) 종목별 'Regen' 버튼 (현 UI+quota만, PR4 후 실 호출). (b) **§8 Step 1~4 — Group E writer Section 0~7 본문 미구현 박제** (`writer.ts` = `section_8` jsonb commit만, PR3b 분리). (c) **§8 Step 1~4 — Group H Critical schema drift 박제** (writer 신규 partA/partB/partC/partD shape vs page render old conclusion/recommendation/keyQuotes shape mismatch + section0.conviction early deref + admin-reports validation 0 → page crash 위험). **Hard gate: PR1 cron 가동 ⊥ PR3a 미선행 = page crash inevitable**. canonical PR 순서 = **PR2 → PR3a → PR1 → PR3b → PR4**. (d) **§9.2 Sector reference 3-level 분류 박제** (Level A 본문 reference 2/12 · Level B §9.2 체크리스트 4/10 · Level C `SECTOR_PHILOSOPHIES` 14/0). 운용 방향 = Level A·B lazy 추가, Level C 완전 박제. spec doc: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md`. 사용자 lock-in 8 항목 절대 보존. |
 
 ---
 
