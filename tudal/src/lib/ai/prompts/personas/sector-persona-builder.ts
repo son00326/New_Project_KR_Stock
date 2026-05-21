@@ -31,6 +31,7 @@ import {
   resolveSlotTemplate,
 } from "@/lib/screening/canonical-sectors";
 import { CORE_USER_PROMPT_TEMPLATE } from "../user-prompt-template";
+import { applyKevinV31Rubric } from "../kevin-v31-rubric";
 import type { PersonaContract } from "./index";
 
 /**
@@ -85,30 +86,8 @@ export const BASE_SLOT_PRINCIPLES: Record<string, string> = {
   global_adjacent_expert: "해외 인접 분야 전문가 (cross-industry 시각). 회사 사업이 인접 산업(예: 본업↔인접 산업, 제조↔플랫폼, 하드웨어↔서비스)에서 어떤 시너지·위협·disruption을 받는지를 본다. 단일 sector view를 넘어 산업 간 boundary 변화를 평가. 재무 확인: 인접 산업 매출 비중·cross-licensing 매출·M&A pipeline·R&D collaboration 건수·인접 시장 진출 후 1Y 매출.",
 };
 
-/**
- * Kevin v3.1 inquiry pattern enforce 규칙 (모든 sector persona system prompt에 일관 inject).
- *
- * omxy R1 BLOCKER 4 정정: overpromise → "inquiry pattern" reframing.
- * 200자 argument는 Kevin v3.1의 DCF/Half Kelly depth를 재현하지 않는다 — Kevin의 inquiry pattern
- * (어떻게 의심하고, 어떻게 계산하고, 어떻게 판단을 보여주는가)을 따른다.
- *
- * 5요소 적응:
- *   1. 1~2 concrete inquiry axes (다음 중 가장 본 종목에 적합한 1~2개에 답한다)
- *   2. 일상 비유는 자연스러울 때만 (강제 X — 진지한 평가에 비유가 오히려 약화시키면 생략)
- *   3. 팩트 우선 (financials 직접 인용, 임의 fabrication 금지)
- *   4. 판단 가정 노출 (peer multiple·growth 가정 명시)
- *   5. 200자 cap + BUY/HOLD/SELL 명시
- */
-const KEVIN_V31_TONE_RULES = `톤·서술 규칙 (Kevin v3.1 inquiry pattern follow — 200자 argument format):
-1. 다음 inquiry axes 중 본 종목에 가장 적합한 1~2개에 답한다:
-   - 사업이 뭐 하는지 (모르는 독자에게 핵심 1문장)
-   - 왜 지금 살까/팔까 (트리거·catalyst·우려)
-   - 얼마가 맞나 (peer multiple/PSR/PER 비교 가정 노출)
-   - 뭐가 틀어지면 thesis가 깨지는가 (invalidation)
-2. 일상 비유는 자연스러울 때만 — 진지한 평가에 약화시키면 생략. 비유로 팩트·숫자 왜곡 금지.
-3. 숫자·출처는 financials에서 직접 인용. 추정은 "추정" 명시.
-4. 판단 가정을 짧게 노출 (예: "PSR 31배 ÷ peer median 10배 = 3배 premium, 신약 1상 catalysts 반영시 정당화").
-5. 응답은 BUY/HOLD/SELL 명시 + 200자 이내 argument_excerpt 필수.`;
+// 53차 §2 Layer (g) — KEVIN_V31_TONE_RULES는 `kevin-v31-rubric.ts`의 KEVIN_V31_RUBRIC_INSTRUCTION으로
+// 전환됨. buildSectorPersonaContract는 이제 applyKevinV31Rubric helper 경유로 합성. const 자체 폐기 완료.
 
 /**
  * 28 primary overlay principles (14 sectors × 2 roles).
@@ -391,14 +370,15 @@ export function buildSectorPersonaContract(
       : `섹터 글로벌 관점. ${sector} 섹터를 한국 외 글로벌 시장(미국·중국·유럽·일본)의 동일/유사 산업과 비교한다. 한국 기업의 글로벌 상대 가치·해외 노출도를 평가.`;
   }
 
-  const systemPrompt = `당신은 ${roleDescription}입니다.
-${sectorPhilosophy}
+  // 53차 §2 Layer (g): KEVIN_V31_TONE_RULES inline inject → applyKevinV31Rubric helper 경유로 전환.
+  // sector philosophy + 평가 원칙(base/primary/sub_tag 별) = corePrincipleText로 묶고,
+  // applyKevinV31Rubric이 KEVIN_V31_RUBRIC_INSTRUCTION을 후단 inject.
+  const corePrincipleText = `당신은 ${roleDescription}입니다.
 
 평가 원칙: ${evaluationPrinciple}
 
-${KEVIN_V31_TONE_RULES}
-
 한국 코스피·코스닥 종목의 ${sector} 섹터 안에서 위 시각으로 평가하세요. 응답 형식은 user message에서 안내합니다.`;
+  const systemPrompt = applyKevinV31Rubric(corePrincipleText, sectorPhilosophy);
 
   return {
     id,
