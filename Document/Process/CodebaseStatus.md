@@ -25,7 +25,7 @@
 
 **📌 Kevin v3.1 reference (Step 3b production prompts quality target — main 보존, 53차 §0 박제 확정)**: `Document/Outputs/Report-Alteogen_196170_v3-Readable.{md,html}` + `Document/Service/Report/ReportFramework-v3-{DraftPhilosophy,NarrativeDesign,Decisions,ValuationTrial}.md` + `Document/Service/Report/ReaderAnalogyCards-ConstructionToBio.md` + `Document/Outputs/Report-Samchundang_000250.{md,html}` + `Document/Service/Report/ReportFramework-BioSector.md` + `Document/Outputs/BioSectorReport-Alteogen_196170.md` + `Document/Outputs/Report-Alteogen_196170_v{1,2}.{md,html}`. IMVCOM 4 commits 모두 main의 ancestor (53차 §0 박제) — Step 3a SKIPPED, Step 3b 시 위 자료 직접 reference.
 
-**현재 Runbook 위치**: HANDOFF §2.1 Step 3b 진행 중 (branch `feat/tier2-production-prompts` from main `8108d058`, production prompts 196 + Kevin v3.1 quality target). Step 1c/3a/B-17c 모두 해소.
+**현재 Runbook 위치**: HANDOFF §2.1 Step 3b ✅ DONE (53차 §3 — branch `feat/tier2-step3b-prompts-196` Layer (a~g) ALL CONVERGED, PR #8 OPEN MERGEABLE CLEAN, 207 persona Kevin v3.1 quality 본문 완성). main HEAD `02c7947a` (53차 §2 PR #7 MERGED). Step 1c/3a/B-17c/B-17e 모두 해소. **다음 = USER PR #8 review/merge → Step 3c caller wiring**.
 
 이전 갱신: **2026-05-20** (50차 §2 출시 Runbook 재구조 R14~R16 CONVERGED): HANDOFF §2 신규 15-step 선형 Runbook + §2.0 default-progress policy + §2.1 Step 6-column matrix + §9 Owner 분리 박제.
 
