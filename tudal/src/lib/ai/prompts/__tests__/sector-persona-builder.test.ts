@@ -10,7 +10,11 @@ import {
   PRIMARY_OVERLAY_PRINCIPLES,
   SUB_TAG_OVERLAY_PRINCIPLES,
 } from '../personas/sector-persona-builder';
-import { getPersonaById } from '../personas';
+import { CORE_11_PERSONAS, getPersonaById } from '../personas';
+import {
+  KEVIN_V31_QUALITY_MARKERS,
+  KEVIN_V31_RUBRIC_INSTRUCTION,
+} from '../kevin-v31-rubric';
 import {
   BASE_SLOTS,
   CANONICAL_SECTORS,
@@ -247,6 +251,45 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       expect(contract14?.systemPrompt).toContain(제약P2);
       // 이전 inline ternary 텍스트 폐기 확인
       expect(contract13?.systemPrompt).not.toContain('보완 시각을 제공한다.');
+    });
+  });
+
+  describe('Core 11 Kevin v3.1 rubric inject (53차 Layer f)', () => {
+    it('Core 11 personas 모두 KEVIN_V31_RUBRIC_INSTRUCTION inject', () => {
+      expect(CORE_11_PERSONAS).toHaveLength(11);
+      for (const p of CORE_11_PERSONAS) {
+        expect(p.systemPrompt, `${p.id}: KEVIN_V31_RUBRIC_INSTRUCTION 누락`).toContain(
+          KEVIN_V31_RUBRIC_INSTRUCTION,
+        );
+      }
+    });
+
+    it('Core 11 personas 모두 8 markers (M1~M8) substring 포함', () => {
+      for (const p of CORE_11_PERSONAS) {
+        for (const [key, marker] of Object.entries(KEVIN_V31_QUALITY_MARKERS)) {
+          expect(p.systemPrompt, `${p.id}: marker ${key} (${marker}) 누락`).toContain(marker);
+        }
+      }
+    });
+
+    it('Core 11 persona individuality 보존 — label 한국어 이름이 systemPrompt에 유지', () => {
+      // omxy R3 catch vi 박제: rubric = wrapper, NOT replacement.
+      // 각 persona의 label (한국어 이름)이 systemPrompt 안에 보존되어야 함.
+      // (label 검증이 individuality keyword 검증의 robust proxy — brittle한 keyword 매칭 회피)
+      for (const p of CORE_11_PERSONAS) {
+        expect(p.systemPrompt, `${p.id}: label "${p.label}" 누락 (individuality 손실)`).toContain(p.label);
+      }
+    });
+
+    it('Core 11 rubric inject 후에도 기존 평가 원칙 keyword 등장 (wrapper 순서)', () => {
+      // applyKevinV31Rubric은 core principle을 rubric보다 먼저 배치 — Layer a R3 catch vi
+      for (const p of CORE_11_PERSONAS) {
+        const rubricIdx = p.systemPrompt.indexOf(KEVIN_V31_RUBRIC_INSTRUCTION);
+        expect(rubricIdx).toBeGreaterThan(0);
+        // rubric 앞에는 persona-specific core principle이 있어야 함
+        const before = p.systemPrompt.substring(0, rubricIdx).trim();
+        expect(before.length, `${p.id}: rubric 앞 core principle 없음`).toBeGreaterThan(50);
+      }
     });
   });
 
