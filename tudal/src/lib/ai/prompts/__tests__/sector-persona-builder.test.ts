@@ -32,10 +32,11 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
       // 재무 인용 (M2), peer 비교 (M4), 밸류 가정 패턴 (M5), 일상 비유 (M7) — KEVIN_V31_QUALITY_MARKERS와 정합
       for (const sector of CANONICAL_SECTORS) {
         const philosophy = SECTOR_PHILOSOPHIES[sector];
-        expect(philosophy, `${sector}: 재무 인용 anchor 누락`).toContain('재무 인용 anchor');
-        expect(philosophy, `${sector}: peer 비교 anchor 누락`).toContain('peer 비교 anchor');
-        expect(philosophy, `${sector}: 밸류 가정 패턴 누락`).toContain('밸류 가정 패턴');
-        expect(philosophy, `${sector}: 일상 비유 anchor 누락`).toContain('일상 비유 anchor');
+        // omxy Layer (b) R1 BLOCKER 3: markdown ** + 'anchor' scaffold 누출 회피 — 자연어 label로 교체
+        expect(philosophy, `${sector}: '재무 확인:' label 누락`).toContain('재무 확인:');
+        expect(philosophy, `${sector}: '비교 기준:' label 누락`).toContain('비교 기준:');
+        expect(philosophy, `${sector}: '밸류 가정:' label 누락`).toContain('밸류 가정:');
+        expect(philosophy, `${sector}: '쉬운 비유:' label 누락`).toContain('쉬운 비유:');
       }
     });
 
