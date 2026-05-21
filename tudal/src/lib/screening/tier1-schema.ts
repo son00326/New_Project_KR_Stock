@@ -283,6 +283,24 @@ export const Tier1ScreeningResultSchema = z
         (a) => a.assigned_by !== 'primary' || a.assigned_timeframe === a.primary_timeframe
       ),
     { message: 'primary_assigned_timeframe_must_equal_primary_timeframe' }
+  )
+  // 53차 §5 reviewer omxy R7 BLOCKER 정정 박제 — 단기·중기·장기 각 10개 lock-in (Q1 §1.1) schema 보장.
+  // shortCount=30/mid=0/long=0 corruption bypass 차단.
+  .refine(
+    (v) =>
+      v.selectionMeta.shortCount === 10 &&
+      v.selectionMeta.midCount === 10 &&
+      v.selectionMeta.longCount === 10,
+    { message: 'selectionMeta_timeframe_counts_must_be_10_each' }
+  )
+  // 53차 §5 reviewer omxy R7 optional 박제 — backfill row는 assigned_timeframe !== primary_timeframe 보장.
+  // (생성 로직: ticker가 mid primary면 mid에 primary로 들어가지 backfill 안 됨.)
+  .refine(
+    (v) =>
+      v.selected.every(
+        (a) => a.assigned_by !== 'backfill' || a.assigned_timeframe !== a.primary_timeframe
+      ),
+    { message: 'backfill_assigned_timeframe_must_differ_from_primary' }
   );
 export type Tier1ScreeningResult = z.infer<typeof Tier1ScreeningResultSchema>;
 

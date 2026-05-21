@@ -371,5 +371,30 @@ describe('tier1-schema (PR2 lock-in)', () => {
         /primary_assigned_timeframe_must_equal_primary_timeframe/
       );
     });
+
+    it('omxy R7 BLOCKER fix — rejects shortCount=30/mid=0/long=0 (10/10/10 not enforced)', () => {
+      const bad = buildResultWithTfs({ short: 30, mid: 0, long: 0 });
+      // selectionMeta counts match selected distribution (so other refinements pass)
+      // but 10/10/10 lock-in is violated.
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /selectionMeta_timeframe_counts_must_be_10_each/
+      );
+    });
+
+    it('omxy R7 optional fix — rejects backfill with assigned_timeframe === primary_timeframe', () => {
+      const bad = buildResultWithTfs({ short: 10, mid: 10, long: 10 });
+      // Convert one primary selection to backfill with mismatched semantic:
+      // assigned_timeframe stays equal to primary_timeframe → should be reject (backfill semantic violation)
+      bad.selected[0] = {
+        ...bad.selected[0],
+        assigned_by: 'backfill',
+        // primary_timeframe and assigned_timeframe both 'short' → semantic violation
+      };
+      // backfillCounts also needs to reflect this for prior refinement to pass first.
+      bad.selectionMeta.backfillCounts = { short: 1, mid: 0, long: 0 };
+      expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
+        /backfill_assigned_timeframe_must_differ_from_primary/
+      );
+    });
   });
 });
