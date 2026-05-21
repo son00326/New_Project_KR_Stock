@@ -18,8 +18,21 @@ import { mohnishPabrai } from './mohnish-pabrai';
 import { michaelBurry } from './michael-burry';
 import { nassimTaleb } from './nassim-taleb';
 import { chair } from './chair';
+import { applyKevinV31Rubric } from '../kevin-v31-rubric';
 
-export const CORE_11_PERSONAS: PersonaContract[] = [
+// 53차 §2 Layer (f) — Core 11 inject Kevin v3.1 rubric.
+// persona individuality wrapper 원칙 (Layer a R3 catch vi 박제):
+//   - 각 persona 파일의 systemPrompt = corePrincipleText (Buffett 4 buckets, Lynch 이해 등) 보존
+//   - applyKevinV31Rubric이 KEVIN_V31_RUBRIC_INSTRUCTION을 후단 inject (답변 방식·근거 품질·환각 방지)
+// 결과 = corePrinciple + "\n\n" + KEVIN_V31_RUBRIC_INSTRUCTION
+function applyRubricToPersona(p: PersonaContract): PersonaContract {
+  return {
+    ...p,
+    systemPrompt: applyKevinV31Rubric(p.systemPrompt),
+  };
+}
+
+const RAW_CORE_11: PersonaContract[] = [
   warrenBuffett,
   stanleyDruckenmiller,
   cathieWood,
@@ -32,6 +45,8 @@ export const CORE_11_PERSONAS: PersonaContract[] = [
   nassimTaleb,
   chair,
 ];
+
+export const CORE_11_PERSONAS: PersonaContract[] = RAW_CORE_11.map(applyRubricToPersona);
 
 // D21 Tier 2 (53차+) — sector persona IDs는 dynamic resolution (sector-persona-builder).
 // Core 11 lookup 실패 시 fallback. 미정의 패턴이면 undefined.
