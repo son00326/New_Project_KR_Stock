@@ -7,6 +7,7 @@ import {
   SECTOR_PHILOSOPHIES,
   BASE_SLOT_PRINCIPLES,
   SECTOR_BASE_SLOT_ADJUSTMENTS,
+  PRIMARY_OVERLAY_PRINCIPLES,
 } from '../personas/sector-persona-builder';
 import { getPersonaById } from '../personas';
 import {
@@ -88,6 +89,52 @@ describe('sector-persona-builder (D21 Tier 2, 53차 Step 3b)', () => {
         expect(principle, `${role}: "Peer 5축" 등장`).not.toContain('Peer 5축');
         expect(principle, `${role}: "Pure-play" 등장`).not.toContain('Pure-play');
         expect(principle, `${role}: "Bridge" 등장`).not.toContain('Bridge');
+      }
+    });
+  });
+
+  describe('PRIMARY_OVERLAY_PRINCIPLES coverage (53차 Layer d)', () => {
+    it('14 sectors × 2 = 28 primary overlay principles 정의됨', () => {
+      const sectors = Object.keys(PRIMARY_OVERLAY_PRINCIPLES);
+      expect(sectors).toHaveLength(14);
+      for (const sector of CANONICAL_SECTORS) {
+        const pair = PRIMARY_OVERLAY_PRINCIPLES[sector];
+        expect(pair).toHaveLength(2);
+        // role-specific principle + 재무 확인 anchor 합쳐 ≥90자 (가장 짧은 사례 ~95자)
+        expect(pair[0].length).toBeGreaterThan(90);
+        expect(pair[1].length).toBeGreaterThan(90);
+      }
+    });
+
+    it('28 primary overlay principles 모두 "재무 확인:" label (M2 enforce) 포함', () => {
+      for (const sector of CANONICAL_SECTORS) {
+        const [p1, p2] = PRIMARY_OVERLAY_PRINCIPLES[sector];
+        expect(p1, `${sector} primary[0]: 재무 확인: 누락`).toContain('재무 확인:');
+        expect(p2, `${sector} primary[1]: 재무 확인: 누락`).toContain('재무 확인:');
+      }
+    });
+
+    it('28 primary overlay principles 안에 banned literal 0 match', () => {
+      for (const sector of CANONICAL_SECTORS) {
+        const [p1, p2] = PRIMARY_OVERLAY_PRINCIPLES[sector];
+        for (const p of [p1, p2]) {
+          expect(p).not.toContain('Peer 5축');
+          expect(p).not.toContain('Pure-play');
+          expect(p).not.toContain('Bridge');
+        }
+      }
+    });
+
+    it('primary_overlay branch가 PRIMARY_OVERLAY_PRINCIPLES 사용 (이전 generic 폐기)', () => {
+      // sector primary overlay (slot 11/12) PersonaContract systemPrompt에 새 principle substring 포함
+      for (const sector of CANONICAL_SECTORS) {
+        const [p1, p2] = PRIMARY_OVERLAY_PRINCIPLES[sector];
+        const contract11 = resolveSectorPersona(`sector-${sector}-slot-11`);
+        const contract12 = resolveSectorPersona(`sector-${sector}-slot-12`);
+        expect(contract11?.systemPrompt).toContain(p1);
+        expect(contract12?.systemPrompt).toContain(p2);
+        // 이전 generic phrase 폐기 확인
+        expect(contract11?.systemPrompt).not.toContain(`${sector} 섹터의`);
       }
     });
   });

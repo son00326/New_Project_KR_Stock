@@ -111,6 +111,74 @@ const KEVIN_V31_TONE_RULES = `톤·서술 규칙 (Kevin v3.1 inquiry pattern fol
 5. 응답은 BUY/HOLD/SELL 명시 + 200자 이내 argument_excerpt 필수.`;
 
 /**
+ * 28 primary overlay principles (14 sectors × 2 roles).
+ *
+ * 53차 §2 Layer (d) 신설 — 이전 generic "${sector} 섹터의 ${slot.role} 시각으로 평가합니다..." 폐기.
+ * 각 principle = role-specific evaluation lens + `재무 확인:` label (M2 enforce).
+ * sector philosophy + base slot principle과 합쳐 inject 시 sector + role + persona type 3축 cite.
+ *
+ * 회사명/브랜드 직접 인용 0 (omxy Layer b/c R1 박제 invariant).
+ */
+export const PRIMARY_OVERLAY_PRINCIPLES: Record<CanonicalSector, readonly [string, string]> = {
+  "바이오": [
+    "임상시험 통계학자 시각. 1상→2상→3상 base rate(전임상→FDA 승인 평균 ~10%)·primary endpoint 적중률·통계적 유의성(p-value) 신뢰도를 본다. 재무 확인: 임상 단계별 R&D 비용·임상 1건당 평균 비용·임상 실패 시 sunk cost·임상 진행 중 파이프라인 NPV.",
+    "FDA 정책 전문가 시각. fast-track / breakthrough designation / orphan drug 지정 가능성·FDA advisory committee 일정·정책 변경(가속승인 절차)이 회사 매출 timeline에 미치는 lag을 본다. 재무 확인: 정책 변경 후 매출 timeline 시프트·인허가 인력 비용·FDA 수수료.",
+  ],
+  "반도체": [
+    "EUV/3nm 공정 전문가 시각. 신규 공정 양산 진척률·수율(yield)·CAPEX 회수 일정·핵심 장비(EUV 노광·ALD/CVD) 도입 일정을 본다. 재무 확인: 공정 노드별 수율·CAPEX·신규 노드 매출 비중·R&D 비중.",
+    "메모리 사이클 분석가 시각. DRAM/NAND ASP 흐름·재고 사이클 단계·고객 수요 회복 시점·공급 절감(CAPEX 축소) timing을 본다. 재무 확인: ASP 추세·재고일수·고객별 매출 mix·재고 충당금.",
+  ],
+  "건설": [
+    "PF 리스크 분석가 시각. PF 잔액·bridge loan 만기·중도금 회수율·미분양 추세를 본다. 재무 확인: PF 우발채무·미분양 호수·중도금 회수율·자산건전성 비율.",
+    "인프라 PPP 전문가 시각. 정부/지자체 PPP 사업 수주·해외 EPC 수주 마진·수익형 vs 임대형 사업 mix를 본다. 재무 확인: PPP 수주잔고·해외 EPC 영업이익률·민간 vs 공공 매출 비중.",
+  ],
+  "금융": [
+    "신용 분석가 시각. 대출 portfolio 신용도(NPL·연체율·DSR)·산업별 익스포저·중소기업 대출 비중을 본다. 재무 확인: NPL 비율·대손충당금·DSR·산업별 대출 익스포저·중소기업 대출 비중.",
+    "거시 금리 전문가 시각. 금리 1% 변동의 NIM 민감도·기준금리 사이클·yield curve 변화가 NIM과 자산건전성에 미치는 영향을 본다. 재무 확인: NIM·금리 sensitivity·예대 마진·yield curve gap.",
+  ],
+  "2차전지": [
+    "LFP/NCM 공정 전문가 시각. 셀 화학 노선(LFP 저가·NCM 고에너지)·수율·CAPEX 효율·신규 라인 가동률을 본다. 재무 확인: 화학별 매출 mix·수율·CAPEX·신규 라인 가동률.",
+    "EV 보급 모델러 시각. 글로벌 EV 보급률·지역별 보조금 변동·OEM별 EV 차종 launch timing이 셀 수요에 미치는 영향을 본다. 재무 확인: OEM 고객별 매출 비중·EV penetration·셀 출하량 forecast.",
+  ],
+  "자동차": [
+    "ADAS 시스템 시각. ADAS L2~L4 등급별 launch timing·자율주행 SW 역량·핵심 컴퓨팅 칩 sourcing·OEM internal vs 외주 mix를 본다. 재무 확인: ADAS 매출 비중·자율주행 R&D 비중·핵심 컴퓨팅 sourcing 비용.",
+    "OEM 글로벌 sourcing 시각. 글로벌 OEM의 한국 부품사 sourcing 패턴·중국 시장 노출·미국 IRA 영향·반도체 공급망 정상화 속도를 본다. 재무 확인: OEM별 매출 mix·중국 매출 비중·IRA 보조금 영향·반도체 비용.",
+  ],
+  "IT/SW": [
+    "클라우드 인프라 시각. hyperscaler 의존도·자체 데이터센터 capacity·서비스별 가용성(SLA)·infrastructure cost 효율을 본다. 재무 확인: 클라우드 비용 비중·자체 데이터센터 CAPEX·SLA·infrastructure margin.",
+    "SaaS 비즈니스 모델 시각. ARR/NRR/Rule of 40·고객 retention curve·가격 인상 수용도·플랫폼 락인 강도를 본다. 재무 확인: ARR·NRR·Rule of 40·CAC·LTV/CAC ratio·고객당 평균 매출.",
+  ],
+  "유통/소비재": [
+    "옴니채널 commerce 시각. 온라인+오프라인 통합·매장당 매출·물류 효율·이커머스 침투율을 본다. 재무 확인: 매장당 매출·이커머스 매출 비중·물류 비용 비중·재고 회전.",
+    "DTC 브랜드 운영 시각. DTC 직판 채널 매출 비중·브랜드 충성도·소비자 신뢰지수·신규 브랜드 launch 효율을 본다. 재무 확인: DTC 매출 비중·브랜드별 매출·신규 브랜드 launch ROI·고객 retention rate.",
+  ],
+  "에너지": [
+    "신재생 grid 시각. 신재생 발전 capacity·전력망 연계 비용·저장(ESS) 통합·송전 제약 완화 timing을 본다. 재무 확인: 신재생 capacity·계통연계 CAPEX·전력 판매단가·ESS 통합 비중.",
+    "전력 시장 design 시각. SMP/REC 가격 정책·RPS 비율·전력 거래 시장 design 변경·정책 보조금 수령액을 본다. 재무 확인: SMP·REC·RPS 의무 비율·정책 보조금·전력판매 매출.",
+  ],
+  "엔터/미디어": [
+    "OTT 비즈니스 시각. OTT 글로벌 라이센싱 매출·구독자 증가·콘텐츠 acquisition cost·IP 재유통 매출을 본다. 재무 확인: 글로벌 라이센스 매출 비중·구독자 수·콘텐츠 비용·재유통 매출.",
+    "K-콘텐츠 글로벌 라이센싱 시각. K-드라마·K-팝·게임 IP 글로벌 라이센스 deal·아티스트 360 계약·콘텐츠 hit ratio를 본다. 재무 확인: 글로벌 라이센스 매출·아티스트 계약 잔여·hit IP 매출 비중.",
+  ],
+  "통신": [
+    "5G/6G 표준 시각. 5G/6G 핵심 표준 기여도·주파수 배정·기지국 CAPEX 회수·기업 B2B 전용망 매출을 본다. 재무 확인: 5G/6G CAPEX·주파수 사용료·5G ARPU·기업 B2B 매출.",
+    "통신 인프라 CAPEX 모델러 시각. 5G 인프라 CAPEX cycle·기지국 신설/업그레이드 비중·인프라 sharing(주파수/기지국 공동 사용)을 본다. 재무 확인: 인프라 CAPEX·기지국 신설 vs 업그레이드 비중·인프라 sharing 비용.",
+  ],
+  "철강/소재": [
+    "스프레드/원자재 trader 시각. 철광석/점결탄 가격·강재 판매가·스프레드 변동·헷지 정책을 본다. 재무 확인: 톤당 판매단가·톤당 원가·스프레드·원자재 hedge 비중.",
+    "글로벌 강재 수급 시각. 중국 강재 수출 통제·미국 IRA 보조금·EU CBAM·인도 인프라 수요가 글로벌 수급에 미치는 영향을 본다. 재무 확인: 글로벌 강재 수급·수출 매출 비중·정책 영향(IRA/CBAM).",
+  ],
+  "운송/물류": [
+    "해운 BDI 분석가 시각. BDI/SCFI 운임 사이클·연료비 hedging·선대 capacity 증감·핵심 노선 수익성을 본다. 재무 확인: BDI/SCFI·평균 운임·연료비 비중·노선별 수익성.",
+    "항공 cargo 시장 시각. 항공 cargo 수요·코로나 후 정상화 속도·항공 fuel cost·전자상거래 물량 증감을 본다. 재무 확인: cargo 매출 비중·평균 cargo 운임·항공 fuel 비중·전자상거래 매출.",
+  ],
+  "보험/증권": [
+    "자산운용/AM IR 전문가 시각. 운용자산 성장·운용 수익률·alternative 자산 비중·ESG 포트폴리오 비중을 본다. 재무 확인: AUM·운용 수익률·alternative 비중·ESG portfolio 비중.",
+    "보험상품 actuarial 시각. IFRS17 자본요건·신계약 ARPU·계약유지율·고령화/저출산 영향을 본다. 재무 확인: IFRS17 자본요건·신계약 ARPU·계약유지율·연령별 가입자 mix.",
+  ],
+};
+
+/**
  * Sector-specific adjustment for high-risk base slots (omxy R1 BLOCKER 3 정정).
  *
  * BASE_SLOT_PRINCIPLES만으로는 "global_industry_veteran + 바이오" 같은 cross에서 generic
@@ -261,7 +329,10 @@ export function buildSectorPersonaContract(
     id = `sector-${sector}-slot-${slotIndex}`;
     label = `${sector} ${slot.role}`;
     roleDescription = slot.role;
-    evaluationPrinciple = `${sector} 섹터의 ${slot.role} 시각으로 평가합니다. 본 sector의 핵심 dynamics(${sectorPhilosophy.split(".")[0]})를 기준으로 회사의 경쟁 우위·기술 leap·정책 노출도를 본다.`;
+    // 53차 §2 Layer (d) 보강: PRIMARY_OVERLAY_PRINCIPLES Record로 sector + slot specific principle.
+    // 이전 generic "${sector} 섹터의 ${slot.role} 시각으로 평가합니다..." 폐기.
+    const overlayPrinciples = PRIMARY_OVERLAY_PRINCIPLES[sector];
+    evaluationPrinciple = slotIndex === 11 ? overlayPrinciples[0] : overlayPrinciples[1];
   } else {
     // slot 13~14: sub_tag overlay backup (sub_tag === undefined case, 52차 박제 backwards-compat)
     // sub_tag !== undefined 처리는 위 sub_tag_overlay branch에서 cross-sector guard 포함하여 처리.
