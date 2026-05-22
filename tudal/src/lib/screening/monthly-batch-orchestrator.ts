@@ -133,7 +133,6 @@ export async function runMonthlyBatchOrchestrator(
         callCountDone,
       });
     } catch (alertErr) {
-      // eslint-disable-next-line no-console
       console.warn(
         '[orchestrator] scheduler_fail alert insert error:',
         alertErr,
