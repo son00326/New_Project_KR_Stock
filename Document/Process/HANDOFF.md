@@ -1,20 +1,39 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-22 (54차 §3 — **PR #12 (PR3a Group H schema drift fix) MERGED + post-merge docs refresh** · omxy R1~R12 12 rounds CONVERGED) · PR3a merge point = `0813a41` (PR #12 머지 후 11 commits FF · main HEAD는 docs commit으로 runtime 갱신) · current branch = `main` · OPEN PRs: **#2** (format-error, 보류)
+Last updated: 2026-05-22 (54차 §4 — **PR1 (cron monthly-batch real path + server-callable trigger) OPEN PR #13** · branch `feat/pr1-cron-real-path` `3ac5dd0` (15 commits ahead) · omxy R1~R12 12 rounds CONVERGED · **23 BLOCKERS catch & fix** · 3-track deep review (gstack-review + general-purpose agent + superpowers code-review) Fix-First 적용) · current main HEAD = `f8138a7` (54차 §3 PR3a post-merge) · OPEN PRs: **#2** (format-error, 보류) + **#13** (PR1 NEW)
 
 ---
 
-## ⭐ 다음 세션 진입자 5줄 요약 (54차 §3 종료 시점)
+## ⭐ 다음 세션 진입자 5줄 요약 (54차 §4 종료 시점)
 
-1. **PR3a (Group H stock_reports schema drift fix, Critical Hard gate) ✅ MERGED in main** (`0813a41`, 11 commits FF). 7 files / +3300 lines / 56 TDD tests (baseline 746 → 802, 회귀 0). **omxy R1~R12 12 rounds CONVERGED** + 21 BLOCKERS catch & fix (R1~R4 plan B1~B10 + R5~R6 impl B11 + R7 Codex /review GATE PASS + R8 merge preflight B12~B14 + R9~R10 docs verify B15~B19 + R11 B20 + R12 B21). gsd-code-reviewer 11 findings (1 Critical + 6 Warning + 4 Info) + gstack testing 11 + gstack red-team 9 Fix-First 적용.
-2. **다음 1순위 = CLAUDE PR1 (cron `monthly-batch` real path enable + server-callable trigger)** 진입 의사 1회 확인 후 자동 시작. PR3a main 박제 의존 0 → main에서 새 branch.
-3. **canonical 5-PR 순서** (53차 §5 spec doc 박제, 절대 보존): **PR2 ✅ → PR3a ✅ → PR1 → PR3b → PR4**. **Hard gate 해소**: PR3a 머지로 `/admin/report/[ticker]` page crash 차단 (null guard + Section 8 dual-shape renderer + zod validation). PR1 cron 가동 가능.
-4. **메인 path = Tier 0 + Tier 1 AI 합의 → 30 선정 + 30 풀 리포트 단일 산출물**. 현재 production = Tier 0 단독 30 직선정 (fallback, AI 키 미발급 baseline). PR2 + PR3a 코드 main 박제 — PR1 wire 시점부터 Tier 1 메인 path 가동.
-5. **운영 SoT**: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 사용자 lock-in 8 항목 + Group A-H mismatch + Hard gate) + `docs/superpowers/plans/2026-05-22-pr3a-group-h-schema-drift.md` + `docs/superpowers/reviews/2026-05-22-pr3a-group-h-schema-drift-review.md` (PR3a gsd 검토 REVIEW.md).
+1. **PR1 (cron monthly-batch real path + server-callable trigger function) 🟢 OPEN PR #13** (https://github.com/son00326/New_Project_KR_Stock/pull/13, branch `feat/pr1-cron-real-path` `3ac5dd0`, 15 commits ahead of main). 25 files / +2759/-158 / +60 TDD tests (baseline 802 → **862**, 회귀 0). **omxy R1~R12 12 rounds CONVERGED + 23 BLOCKERS catch & fix** (R1~R8 plan 20 + R9~R10 impl 2 + R11~R12 3-track deep review Fix-First B23 ticker PostgREST injection guard). **3-track deep review** = (a) gstack-review skill inline + (b) **general-purpose agent (depth=deep)** + (c) **superpowers code-review skill 5-angle**. 24 findings total (1 Critical + 7 Warning + 6 Info from agent-1; 5 CONFIRMED + 4 PLAUSIBLE from agent-2). C1+MF1~MF5+B23 Fix-First / 7 defer (W1/W3/W4/W6/W7/#4/#9 follow-up tickets).
+2. **다음 1순위 = USER PR #13 review/merge** → 다음 CLAUDE = **PR3b** (writer Section 0~7 본문 구현, document-specialist + analyst + writer + critic 4-step + `sector_reference_backlog` DB table 마이그). canonical 5-PR PR1 머지 후 자동 진입 가능.
+3. **canonical 5-PR 순서 — 8 Group ↔ PR 매핑** (53차 §5 spec doc 박제, Group A~H 8개 mismatch 매핑 박제):
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked CLAUDE step 자동 시작. **PR1 진입 의사 1회 확인 후 자동 시작** (independent, PR3a main 박제 의존 0).
+   | Group | 잘못된 박제 / 미구현 | 담당 PR | 상태 |
+   |---|---|---|---|
+   | **B** | 30종목 선정 AI 부재 (메인 path Tier 1 누락) | PR2 | ✅ MERGED `f85fb69` |
+   | **H** | Critical — stock_reports schema drift + page crash | PR3a | ✅ MERGED `0813a41` |
+   | **C** | cron monthly-batch mock dry-run only | **PR1** | 🟢 OPEN PR #13 |
+   | **D** (절반) | Step 3c dangling server action — server-side cron path | **PR1** | 🟢 OPEN PR #13 |
+   | **E** | writer Section 0~7 본문 미구현 | PR3b | 대기 |
+   | **G** | Sector reference 3-level (A 2/12 · B 4/10 · C 14/0) | PR3b | 대기 |
+   | **A** | track-record trigger 위치 박제 오류 | PR4 | 대기 |
+   | **F** | Track Record 누적 성과 vs 아카이브 탭 분리 | PR4 | 대기 |
+   | **D** (잔여) | UI caller wire (Regen 실 호출 / Track Record / admin trigger 버튼) | PR4 | 대기 |
+4. **메인 path = Tier 0 + Tier 1 AI 합의 → 30 선정 + 30 풀 리포트 단일 산출물**. 현재 production = Tier 0 단독 30 직선정 (fallback). PR2 + PR3a + **PR1 OPEN** 코드 main 박제 — PR1 머지 + Tier 0 source 실 wire(후속 PR) + 실 LLM 키 발급 후 메인 path 가동.
+5. **운영 SoT**: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 lock-in 8 항목 + Group A-H mismatch + Hard gate 8 매핑) + `docs/superpowers/plans/2026-05-22-pr1-cron-real-path.md` (PR1 plan v8, omxy R1~R10 CONVERGED + 22 BLOCKERS + 3-track deep review Fix-First v8 헤더).
 
-**운영 원칙**: 미래 지향. 49차~53차 historical 진행 상세 = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. §6 완료 이력은 직전 2 entry (54차 §2 PR2 MERGED + 54차 §3 PR3a MERGED)만 inline.
+**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked step. **PR1은 USER merge 대기** (omxy + 3-track CONVERGED). USER merge 후 CLAUDE PR3b 자동 진입.
+
+**운영 원칙**: 미래 지향. 49차~54차 historical 진행 상세 = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. §6 완료 이력은 직전 2 entry (54차 §3 PR3a MERGED + 54차 §4 PR1 OPEN)만 inline.
+
+**⚠️ gsd-code-reviewer 환경 부재 대체 정책 (54차 §4 박제)**: 현 Claude Code 환경에서 `gsd-code-reviewer` agent type은 더 이상 사용 불가 (외부 환경 agent였음). PR3b/PR4/후속 모든 PR의 deep code review는 **3-track 대체 패턴**으로 진행:
+- **Track 1**: `gstack-review` skill (pre-landing PR review, structural/SQL/LLM trust/concurrency)
+- **Track 2**: `general-purpose` agent (depth=deep adversarial prompt — gsd 동등 책임)
+- **Track 3**: `superpowers:code-review` skill 또는 5-angle scan agent (recall mode bug catch)
+
+PR1에서 첫 적용 (R11 B23 catch가 효과 검증). §7.x omxy pattern 박제 갱신.
 
 ---
 
@@ -29,13 +48,16 @@ git rev-parse --short HEAD                        # HEAD commit
 git rev-list --count main..HEAD                   # branch ahead count
 git status --short                                # working tree state
 
-# 2. OPEN PRs (현재 baseline: #2 보류만)
+# 2. OPEN PRs (54차 §4 baseline: #2 + #13 NEW)
 gh pr list --state open --json number,title,headRefName,mergeable
 
-# 3. PR1 진입 가능 branch 준비 (PR #12 PR3a MERGED, main fast-forward 박제)
-git fetch origin main && git rev-parse --short origin/main
+# 3. PR1 OPEN PR #13 review 대기 (USER merge 후 PR3b 자동 진입)
+git fetch origin main && git rev-parse --short origin/main  # 현재 main HEAD = f8138a7
+gh pr view 13 --json state,mergeable,headRefName  # PR1 state 확인
 
-# 4. 검증 게이트 (post-PR #12 merge main = build 25 routes / lint 0 err 6 warn / test:ci 802/69 / tsc clean)
+# 4. 검증 게이트
+#    - main (54차 §3 PR3a 후 docs commit) baseline = build 25 routes / lint 0 err 6 warn / test:ci 802/69 / tsc clean
+#    - PR1 branch (`feat/pr1-cron-real-path` `3ac5dd0`) baseline = build 25 routes / lint 0 err 6 warn / test:ci 862/75 / tsc clean / 5 grep gates 0
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
@@ -52,27 +74,29 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ---
 
-## 1. 현재 상태 (54차 §3 종료 시점, 2026-05-22)
+## 1. 현재 상태 (54차 §4 종료 시점, 2026-05-22)
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | `0813a41` (PR3a **merge point**, AFTER_PR12). docs commit 후 runtime 갱신 — 진입 시 §0 `git rev-parse --short HEAD`로 확인 (B15 정정). 이전 = `f85fb69` (54차 §2 PR #11 PR2 historical). |
-| 현재 branch | `main` (PR #12 머지 후 worktree 정리 진행 중. PR3a worktree `/Users/yong/New_Project_KR_Stock-pr3a`는 docs push 후 `git worktree remove --force` 예정) |
+| main HEAD | `f8138a7` (54차 §3 PR3a MERGED 후 docs commit). 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. 이전 = `0813a41` (54차 §3 PR3a merge point, AFTER_PR12). |
+| 현재 branch | `main` + PR1 worktree `/Users/yong/New_Project_KR_Stock-pr1` branch `feat/pr1-cron-real-path` `3ac5dd0` (15 commits ahead). PR3a worktree (`-pr3a`)는 PR #12 머지 후 정리됨. |
 | Mock Skeleton + DQ-7 + S7e | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) |
 | S7a Anthropic wrapper | ✅ 완료 (51차 PR #1 MERGED, main 박제) |
 | Tier 2 D21 (Sector 14 overlay) | ✅ scaffold + production schema + builder + 207 persona Kevin v3.1 quality 본문 모두 main 박제 (52차 + 53차 §2·§3 PR #7/#8 MERGED) |
-| Step 3c caller wiring | ⚠️ **PARTIAL — dangling server action** (53차 §5 정정). server action export OK / page render·import 0 / cron real 0 / UI caller 0. **PR1 (cron wire) + PR4 (UI wire)에서 해소**. |
+| Step 3c caller wiring | ⚠️ **PR1 OPEN (server-side 절반 해소) + PR4 잔여 (UI caller wire)**. server action export OK + **PR1 OPEN PR #13에서 cron wire 추가** + UI caller는 PR4. |
 | **PR #11 (PR2 Tier 1 screening)** | ✅ **MERGED in main `f85fb69`** (54차 §2). 7 commits FF / 6 files / +1873 lines / 47 TDD tests. omxy R1~R8 CONVERGED. |
-| **PR #12 (PR3a Group H schema drift fix)** | ✅ **MERGED in main `0813a41`** (54차 §3). 11 commits FF / 7 files / +3300 lines / 56 TDD tests. omxy R1~R12 + gsd + gstack testing + red-team CONVERGED. omxy R7 Codex structured `/review` = **GATE PASS**. **PR1 NEXT (CLAUDE 자동)**. |
-| 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR2 + PR3a 코드 main 박제** — PR1 wire 시점부터 메인 path 가동. |
+| **PR #12 (PR3a Group H schema drift fix)** | ✅ **MERGED in main `0813a41`** (54차 §3). 11 commits FF / 7 files / +3300 lines / 56 TDD tests. omxy R1~R12 + gsd-code-reviewer + gstack testing + red-team CONVERGED. omxy R7 Codex structured `/review` = **GATE PASS**. |
+| **PR #13 (PR1 cron monthly-batch real path)** | 🟢 **OPEN** (54차 §4). branch `feat/pr1-cron-real-path` `3ac5dd0`, 15 commits ahead of main, **25 files / +2759 / -158 / 60 TDD tests (802 → 862)**. omxy R1~R12 + **3-track deep review (gstack-review + general-purpose depth=deep + superpowers code-review 5-angle)** CONVERGED. **23 BLOCKERS catch & fix** (plan 20 + impl 2 + Fix-First B23 PostgREST injection guard). R12 = R7 Codex `/review` GATE PASS 등가. **USER review/merge 대기** → CLAUDE PR3b 자동 진입. |
+| 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR2 + PR3a + PR1 OPEN 코드 박제** — PR1 머지 + Tier 0 source 실 wire (후속 PR) + 실 키 발급 후 메인 path 가동. |
 | 풀 리포트 흐름 | 🟢 writer Section 0~7 통합 + Section 8 partA/partD = 단일 산출물. 현재 = section_8 jsonb commit만 가능 + page null guard + Section 8 dual-shape renderer (modern partA~D + legacy 호환). Section 0~7 본문 구현 = PR3b scope. |
-| **Group H Critical Hard gate** | ✅ **해소** (54차 §3 PR3a MERGED). `admin-reports.ts` zod safeParse validation + nullable typed `ValidatedStockReport` + `parseSectionSafe`/`parseReportSection8` onError 콜백 (console.warn) + `page.tsx` `as` 어서션 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer + `partCToCommitteeAgg` helper. **PR1 cron 가동 가능**. |
-| OPEN PRs | **#2** OPEN CONFLICTING (format-error, 보류) |
-| 실 AI 호출 | 0 (Vercel env 3 vars Production 배포는 53차 §4++ PHASE A/B 완료). 실 호출은 PR1 cron wire 또는 PR4 UI trigger로만. |
-| Production deploy | Vercel `https://tudal-tawny.vercel.app` (PR3a merge point `0813a41` 기준 canary 검증, origin/main은 docs push 후 runtime 갱신 — B19 정정). |
-| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0019 적용 완료 (19 migrations) |
-| 검증 게이트 (post-PR #12 merge main) | build 25 routes / lint 0 err 6 warn / **test:ci 802/69** / tsc clean / forbidden grep 5종 0 매치 — PHASE A 검증 통과 |
-| omxy debate 누적 | **184+ rounds CONVERGED** (54차 §2 종료 172 + 54차 §3 PR3a R1~R12 +12 CONVERGED) · ~17 BLOCKERS PR2 + 21 BLOCKERS PR3a catch & fix (R1~R4 B1~B10 plan + R5~R6 B11 impl + R7 Codex GATE PASS + R8 B12~B14 merge preflight + R9 B15~B18 docs verify + R10 B19 self-stale + R11 B20 round count + R12 B21 BLOCKERS count CLAUDE.md D24) |
+| **Group H Critical Hard gate** | ✅ **해소** (54차 §3 PR3a MERGED). `admin-reports.ts` zod safeParse validation + nullable typed `ValidatedStockReport` + `parseSectionSafe`/`parseReportSection8` onError 콜백 (console.warn) + `page.tsx` `as` 어서션 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer + `partCToCommitteeAgg` helper. **PR1 cron 가동 가능 (PR #13 머지 후)**. |
+| OPEN PRs | **#2** OPEN CONFLICTING (format-error, 보류) + **#13** OPEN PR1 (cron real path, USER review/merge 대기) |
+| 실 AI 호출 | 0 (Vercel env 3 vars Production 배포는 53차 §4++ PHASE A/B 완료). 실 호출은 PR1 머지 + Tier 0 실 source wire (후속 PR) + 실 키 발급 후. |
+| Production deploy | Vercel `https://tudal-tawny.vercel.app` (main `f8138a7` 기준 canary 검증, 54차 §3 PR3a 머지 + docs commit 후 상태). |
+| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0019 main 적용 완료 (19 migrations) · 0020 + 0021 PR1 branch에 박제 (PR #13 머지 후 production apply) |
+| 검증 게이트 (main baseline) | build 25 routes / lint 0 err 6 warn / **test:ci 802/69** / tsc clean / forbidden grep 5종 0 매치 |
+| 검증 게이트 (PR1 branch `3ac5dd0`) | build 25 routes / lint 0 err 6 warn / **test:ci 862/75 (+60)** / tsc clean / **5 grep gates 0 매치** (isProductionLike monthly-batch / mockMode-monthly-batch / as ReportSection PR3a regression / service-role import boundary narrow / server-only marker present) |
+| omxy debate 누적 | **196+ rounds CONVERGED** (54차 §3 종료 184+ + 54차 §4 PR1 R1~R12 = +12) · 누적 BLOCKERS: ~17 PR2 + 21 PR3a + **23 PR1** (R1~R8 plan 20 + R9~R10 impl 2 + R11~R12 Fix-First B23 PostgREST injection guard) catch & fix |
 
 ---
 
@@ -96,9 +120,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용.
 7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-### §2.1 Step matrix (54차 §3 active steps — DONE rows 축약, historical = git log + PR body 위임)
+### §2.1 Step matrix (54차 §4 active steps — DONE rows 축약, historical = git log + PR body 위임)
 
-**현재 위치 = PR3a ✅ MERGED in main `0813a41` (PR #12). 다음 1순위 = CLAUDE PR1 (cron real path) 진입 의사 1회 확인 후 자동 시작**.
+**현재 위치 = PR1 🟢 OPEN PR #13 (omxy R1~R12 CONVERGED + 3-track deep review Fix-First). USER review/merge 대기. 다음 CLAUDE = PR3b (writer Section 0~7) — PR1 머지 후 자동 진입**.
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -107,10 +131,10 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | **Historical** ✅ DONE | — | Step 1 (PR #1), 1c (PR #4/#5/#6), 3 (Tier 2 SoT+impl), 3a (Step 3a SKIPPED), 3b (PR #7/#8 207 persona Kevin v3.1), 3c (PR #9 PARTIAL — caller wiring scope shifted to PR1/PR4), 5 (B-6 billing 완료 PHASE A/B), B-6c PHASE C 폐기 | — | 상세 = git log + PR body + §6 53차 §5 entry | — |
 | **PR2** ✅ MERGED | — | PR #11 MERGED in main `f85fb69` (54차 §2) | — | main fast-forward 7 commits + 검증 게이트 통과 + remote branch 삭제 | (해소) PR3a 진입 |
 | **PR3a** ✅ MERGED | — | PR #12 MERGED in main `0813a41` (54차 §3) | — | main fast-forward 11 commits + 검증 게이트 통과 (test:ci 746→802) + omxy R7 GATE PASS + 5 grep gates 0 매치 | (해소) PR1 진입 |
-| **PR1** ⭐ NEXT | **CLAUDE** | PR #12 머지 후 main에서 새 branch (`feat/pr1-cron-real-path` 등) + 진입 의사 1회 확인 | cron `monthly-batch` real path enable + server-callable trigger function (Task 12 mock dry-run 폐기). cron이 PR #11의 `runTier1Screening` 호출 + PR #12의 zod validation 거쳐 `commit_persona_eval` RPC. **UI 버튼은 PR4 scope**. 또는 first-iteration = "real cron disabled behind flag". P2 (gsd CR-01 + red-team RT#2 + omxy R7): `parseSectionSafe` console.warn을 metric/structured log로 격상 권장. | omxy R1~Rn + gsd reviewer | PR3b 진입 시점 |
-| **PR3b** | **CLAUDE** | PR1 머지 후 (또는 병렬) | writer Section 0~7 본문 구현 (document-specialist + analyst + writer + critic 4-step). PR3b 마이그: `sector_reference_backlog` DB table (53차 §5 spec §3.5). | omxy + gsd | PR4 UI 진입 |
-| **PR4** | **CLAUDE** | PR3b 머지 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). | omxy + gsd + UI smoke | §2.2 출시 게이트 진입 |
-| **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + gsd | — |
+| **PR1** 🟢 OPEN PR #13 | **USER** review/merge | 54차 §4 (2026-05-22) — branch `feat/pr1-cron-real-path` `3ac5dd0`, 15 commits ahead. PR plan v8 박제: `docs/superpowers/plans/2026-05-22-pr1-cron-real-path.md` | cron `monthly-batch` real path enable + server-callable trigger function (Task 12 mock dry-run 폐기). 신규 SoT 코드: 마이그 0020 (short_list_30 metadata 컬럼) + 마이그 0021 (acquire_batch_lock_v2 cron caller path SECURITY DEFINER) + service-role client (`import 'server-only'` + vitest alias) + cron lock helper + alert insert helper + orchestrator (8 DI fields) + persist (client DI + stale row delete + ticker validation) + cron route refactor + triggerMonthlyBatch admin action + format-error +16 keys +6 prefix. **UI 버튼은 PR4 scope**. | **omxy R1~R12 12 rounds CONVERGED + 23 BLOCKERS catch & fix** (R1~R8 plan 20 + R9~R10 impl plan-vs-commit 2 + R11~R12 Fix-First B23 ticker PostgREST injection guard) + **3-track deep review** (gstack-review skill + general-purpose agent depth=deep + superpowers code-review 5-angle) Fix-First C1+MF1~MF5+B23 + 검증 게이트 (build 25 routes / lint 0 err 6 warn / **test:ci 862/75 +60** / tsc clean / 5 grep gates 0 매치) | (해소 시점) PR3b 진입 |
+| **PR3b** | **CLAUDE** | PR1 머지 후 (또는 병렬) | writer Section 0~7 본문 구현 (document-specialist + analyst + writer + critic 4-step). PR3b 마이그: `sector_reference_backlog` DB table (53차 §5 spec §3.5). **Group E + G 해소.** | omxy R1~Rn + **3-track deep review** (gstack-review skill + general-purpose agent (depth=deep adversarial) + superpowers code-review skill 5-angle) — gsd-code-reviewer 부재 대체 패턴 박제 (PR1에서 첫 적용 검증) | PR4 UI 진입 |
+| **PR4** | **CLAUDE** | PR3b 머지 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). **Group A + F + D 잔여 + PR3a OOS 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) | §2.2 출시 게이트 진입 |
+| **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + **3-track deep review** | — |
 | **Step 7~14** (S7b → S7c → S7d → S8) | USER 트리거 + CLAUDE 구현 | canonical 5-PR 완료 후 | S7b 뉴스+브리핑 → D11 AI 가상 포트 1차 가동 (어드민 3인 운용 검증) → S7c 장중·KIS WS → S7d Silent Health → S8 자동매매 (Binance Smoke #3) | 각 슬라이스 DoD | §2.2 출시 게이트 |
 | **Step 15** S9 운용 | USER 1개월+ 운용 + CLAUDE 모니터링 hotfix | S8 머지 후 | 어드민 3인 실 사용 + hotfix branch로 BL-KRIT patch | §2.2 7 criteria 만족 | ✅ 어드민 내부 도구 출시 |
 
@@ -197,6 +221,54 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 ## 6. 완료 이력 (직전 2 entry inline · older = git log + PR body)
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
+
+### 54차 §4 PR1 (cron monthly-batch real path + server-callable trigger) OPEN PR #13 (omxy R1~R12 CONVERGED + 23 BLOCKERS + 3-track deep review Fix-First, 2026-05-22)
+
+- **scope**: 53차 §5 정정 spec §1.1 canonical 5-PR 세 번째. Group **C** (cron monthly-batch mock dry-run only) + Group **D** 절반 (Step 3c dangling server action server-side) 해소. UI 트리거 버튼은 PR4 scope.
+- **branch**: `feat/pr1-cron-real-path` (worktree `/Users/yong/New_Project_KR_Stock-pr1`, main `f8138a7` 기준 15 commits, head `3ac5dd0`). OPEN PR **#13**: https://github.com/son00326/New_Project_KR_Stock/pull/13.
+- **15 commits** (1 plan + 7 impl + 1 lint fix + 3 omxy fix + 1 C1 fix + 1 MF1~MF5 Fix-First + 1 B23 fix):
+  - `17019dc` docs(PR1): plan v8 (omxy R1~R8 CONVERGED, 20 BLOCKERS catch & fix)
+  - `a4ebcad` feat(PR1 Task1): migration 0020 — short_list_30 screening metadata 컬럼
+  - `5d7ee01` feat(PR1 Task1b): migration 0021 — acquire_batch_lock_v2 cron caller path (B1 fix)
+  - `2a961ed` build(PR1 Task1c-pre): server-only dep + vitest alias stub (B13+B16 fix)
+  - `9a5b59a` feat(PR1 Task1c): service-role + cron lock + scheduler_fail alert helpers (B1+B2+B8+B11+B17)
+  - `4b296df` feat(PR1 Task2): orchestrator + 9 TDD tests (B2+B3+B5)
+  - `8e01688` feat(PR1 Task3): upsertShortList30 + 5 TDD tests (B4)
+  - `0fa1ce6` feat(PR1 Task4): cron route real path refactor (B1+B9+B12+B15)
+  - `06a9c65` feat(PR1 Task5): triggerMonthlyBatch admin action + 6 tests
+  - `1459e43` feat(PR1 Task6): format-error 4 키 + 2 prefix (B6+B10)
+  - `bb0cbad` fix(PR1 lint): unused eslint-disable
+  - `1a230d8` fix(PR1 omxy R9 B21+B22): marker test + grep gate accuracy
+  - `5a2d34c` fix(PR1 gsd-deep R1 C1): migration 0021 started_by lineage comment
+  - `3c698e0` fix(PR1 3-track deep-review): MF1+MF2+MF4+MF5 Fix-First
+  - `3ac5dd0` fix(PR1 omxy R11 B23): MF2 ticker PostgREST filter injection guard
+- **신규 SoT 코드 (25 files / +2759 / -158)**:
+  - `tudal/supabase/migrations/0020_short_list_30_screening_metadata.sql` + rollback (assigned_by/prompt_version_id/personas_version_id nullable)
+  - `tudal/supabase/migrations/0021_acquire_batch_lock_v2.sql` + rollback (SECURITY DEFINER 4-grant + cron caller path + started_by nullable + C1 lineage comment)
+  - `tudal/src/lib/supabase/service-role.ts` (cached client + `import 'server-only'`) + test
+  - `tudal/src/lib/data/admin-batch-runs-cron.ts` (cron lock helper) + test
+  - `tudal/src/lib/data/admin-alerts-insert.ts` (DI scheduler_fail alert, 9 snake_case col) + test
+  - `tudal/src/lib/screening/monthly-batch-orchestrator.ts` (8 DI fields + B3 allSettled degraded success + B5 assigned_timeframe-only badge-only + B2 alert chain) + 9 tests
+  - `tudal/src/lib/data/admin-shortlist-persist.ts` (client DI + B4 delta_status='new' + MF2 stale delete + B23 TICKER_RE validation) + 10 tests
+  - `tudal/src/app/api/cron/monthly-batch/route.ts` (orchestrator wire + MF4 CRON_SECRET fail-closed) + 6 tests
+  - `tudal/src/app/(admin)/admin/portfolio/actions.ts` (`triggerMonthlyBatch` 추가) + 6 tests
+  - `tudal/src/lib/admin/format-error.ts` (+16 keys + 6 prefix handler) — 66 tests
+  - `tudal/vitest.config.ts` (`resolve.alias 'server-only' → empty stub`) + `tudal/src/test/server-only-empty.ts`
+- **omxy R1~R12 12 rounds CONVERGED + 23 BLOCKERS catch & fix**:
+  - R1~R4 (plan v1→v4): B1 cron auth/lock 분리 / B2 scheduler_fail alert wire / B3 allSettled 의미 정정 / B4 delta_status NOT NULL / B5 badge-only condition / B6 formatErrorMessage 함수명 / B7 service_role EXECUTE grant / B8 alert_event 9 컬럼 / B9 cron route alert 위치 / B10 format-error prefix / B11 import 'server-only' / B12 plan vs Task 4 모순 / B13 server-only npm install / B14 grep gate Task 7 박제 / B15 mock 주석 정정 (15 BLOCKERS)
+  - R5~R8 (plan v5→v8): B16 vitest alias / B17 boundary narrow / B18 vite-tsconfig-paths 미설치 / B19 vitest 검증 / B20 pipe exit code (5 BLOCKERS) → R8 CONVERGED → implementer 진입
+  - R9~R10 (impl plan-vs-commit): B21 grep gate accuracy / B22 service-role marker test (2 BLOCKERS)
+  - R11~R12 (3-track deep review Fix-First 검증): B23 MF2 ticker PostgREST filter injection guard (1 BLOCKER) → R12 **CONVERGED, GATE PASS 등가**
+- **3-track deep review (gsd-code-reviewer 대체 패턴 첫 적용, 54차 §4 박제)**:
+  - **Track 1**: `gstack-review` skill (inline, scope detection: BACKEND + AUTH + MIGRATIONS)
+  - **Track 2**: `general-purpose` agent (depth=deep adversarial prompt) — 14 findings (1 Critical / 7 Warning / 6 Info). C1 + W2/W5/W7 fix, W1/W3/W4/W6 defer.
+  - **Track 3**: `superpowers:code-review` skill 5-angle scan via Agent tool — 10 findings (5 CONFIRMED / 4 PLAUSIBLE / 1 PR2 boundary). Cross-confirmed CRITICAL #1 (RLS bypass) + #2 (stale rows) + #8 (format-error gaps) + #10 (CRON_SECRET).
+  - **Fix-First adoption**: C1 + MF1~MF5 (cross-confirmed 5종) → 2 commits (`5a2d34c` + `3c698e0`). R11 B23 catch → `3ac5dd0`.
+  - **Defer (follow-up tickets, non-blocking)**: W1 (cache rotation) / W3 (release_v2 RPC) / W4 (alert source col) / W6 (LLM flag) / W7 (app-layer is_admin) / #4 (concurrency cap PR2 boundary) / #9 (NOT NULL CHECK 대체)
+- **검증 게이트 (54차 §4 종료)**: build 25 routes / lint 0 err 6 warn / **test:ci 862/75 (+60 over 802)** / tsc clean / 5 grep gates 0 매치 (isProductionLike / monthly-batch mockMode / as ReportSection / service-role boundary / server-only marker present)
+- **rollback ranges 박제**: OLD_MAIN=`f8138a7` (54차 §3 post-merge) / PR1_HEAD=`3ac5dd0` / AFTER_PR1_MERGE=(PR #13 머지 후 갱신).
+- **OOS findings PR body 박제 (defer 7 follow-up tickets)**: W1 service-role cache stale rotation / W3 release_batch_lock_cron SECURITY DEFINER RPC / W4 alert_event source col / W6 real-LLM feature flag / W7 triggerMonthlyBatch app-layer is_admin / #4 runTier1Screening 동시성 cap (PR2 boundary) / #9 monthly_batch_runs started_by NOT NULL CHECK 대체.
+- **다음**: USER PR #13 review/merge → CLAUDE PR3b (writer Section 0~7 본문) 자동 진입. PR3b scope = Group E + G 해소 + `sector_reference_backlog` 마이그.
 
 ### 54차 §3 PR #12 (PR3a Group H schema drift fix) MERGED + post-merge docs refresh (omxy R1~R12 CONVERGED + R7 Codex GATE PASS, 2026-05-22)
 
@@ -370,6 +442,45 @@ omxy R1에서 결함 발견 시:
 - **count consistency refinement**: 분포 fields (counts, distributions)는 source field와 cross-refinement로 corruption 차단. SelectionMeta vs selected.assigned_timeframe 분포 일치 등.
 - **scope purity grep**: PR boundary 검증 — 외부 모듈 import (writer / admin-* / cron / migration) 0 매치. DB write keyword (cost_log INSERT / SET / UPDATE) doc comments 외 0 매치.
 - **Promise.allSettled**: 다수 외부 호출 batch는 Promise.all (single fail → batch reject) 대신 Promise.allSettled + fail-fallback 권장.
+
+### 7.8 PR1 신규 lesson 박제 (54차 §4) — gsd-code-reviewer 대체 + 3-track deep review 패턴
+
+**⚠️ gsd-code-reviewer agent 부재**: 현 Claude Code 환경에 `gsd-code-reviewer` subagent type 없음 (외부 환경 agent였음). PR3a 박제는 historical reference 그대로 유지. **PR3b/PR4 이후 모든 PR의 deep review는 아래 3-track 대체 패턴 강제 적용**.
+
+**3-track deep review 패턴** (gsd 동등 책임 대체):
+
+1. **Track 1 — `gstack-review` skill** (inline):
+   - SQL safety / LLM trust boundary / concurrency / enum completeness / cross-file impact
+   - Scope detection (BACKEND/AUTH/FRONTEND/MIGRATIONS/API) 자동
+   - 사용 방법: `Skill` 도구로 `gstack-review` 호출. 별도 dispatch 0 (inline 분석).
+
+2. **Track 2 — `general-purpose` agent (depth=deep adversarial)** (background):
+   - gsd 동등 deep code review 책임. 1500+ words 구조화 보고서.
+   - 프롬프트에 명시: depth=deep / Critical/Warning/Info 분류 / BLOCKER 매핑 검증 / file:line 증거 / Ship recommendation.
+   - PR1에서 검증: 14 findings (1 Critical / 7 Warning / 6 Info), C1 + W2/W5/W7 fix.
+
+3. **Track 3 — `superpowers:code-review` skill 5-angle scan** (background agent):
+   - 5-angle (line-by-line / removed-behavior / cross-file / language-pitfall / wrapper-proxy) + 1-vote verify + sweep.
+   - 출력: JSON array of ≤15 findings. Confidence 7+ surface.
+   - PR1에서 검증: 10 findings (5 CONFIRMED / 4 PLAUSIBLE), B23 ticker injection catch.
+
+**Fix-First adoption**: 3 트랙 cross-confirmed CRITICAL/CONFIRMED 결함은 즉시 fix. PLAUSIBLE은 사용자 판단. defer는 follow-up ticket으로 PR body 박제.
+
+**호출 순서 권장**:
+1. PR plan 완성 + omxy R1~Rn debate CONVERGED (BLOCKERS catch & fix)
+2. impl commit + omxy R(n+1)~R(n+2) plan-vs-commit verify
+3. 3-track deep review 병렬 dispatch:
+   - `Skill` (`gstack-review`) inline
+   - `Agent` (`general-purpose`, depth=deep prompt) background
+   - `Agent` (`general-purpose`, 5-angle prompt) background
+4. 모든 트랙 응답 종합 + Fix-First adoption + omxy R(n+3) verify
+5. CONVERGED 시 push/PR create
+
+**PR1 검증 결과**: 3-track 모두 동작. R11 B23 catch (Fix-First 단독 도입한 PostgREST injection)가 핵심 가치 입증. 본 패턴이 PR3b/PR4부터 default.
+
+**code-review skill 변경 사항 박제**: PR3a까지의 "gsd-code-reviewer agent" 박제는 historical. PR3b부터 "3-track deep review" 명시. Step matrix Verification 컬럼 일괄 갱신.
+
+**MF2 신규 lesson (B23 PostgREST filter injection)**: Supabase `.not('col', 'in', rawString)` 같은 raw filter string 조립 시 입력 검증 필수. zod `z.string().min(1)`만으로 부족 — format regex (`/^\d{6}$/` 등) 추가. 입력값을 string interpolation으로 PostgREST/SQL syntax에 합치는 path는 모두 동등 위험.
 
 ---
 
