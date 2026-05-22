@@ -489,3 +489,73 @@ export async function resolveDispute(input: {
     return { success: false, error: "approval_not_found" };
   }
 }
+
+// ---------------------------------------------------------------------------
+// PR1 — triggerMonthlyBatch admin server action (omxy R1~R8 CONVERGED).
+// admin caller가 cron flow와 동일한 orchestrator를 호출. cron secret 분리 (admin auth.uid() + is_admin()).
+// 본 PR scope: server action까지만. UI 버튼은 PR4 scope.
+// ---------------------------------------------------------------------------
+
+const TRIGGER_MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export async function triggerMonthlyBatch(input: {
+  month: string;
+}): Promise<
+  | { success: true; data: { selectedCount: number } }
+  | { success: false; error: string }
+> {
+  // Dynamic import — heavy lib (orchestrator + screening) lazy load.
+  const { runMonthlyBatchOrchestrator } = await import(
+    "@/lib/screening/monthly-batch-orchestrator"
+  );
+  const { acquireBatchLock, releaseBatchLock } = await import(
+    "@/lib/data/admin-batch-runs"
+  );
+  const { upsertShortList30 } = await import(
+    "@/lib/data/admin-shortlist-persist"
+  );
+
+  if (!input || typeof input.month !== "string") {
+    return { success: false, error: "invalid_input" };
+  }
+  if (!TRIGGER_MONTH_YM_RE.test(input.month)) {
+    return { success: false, error: "invalid_month" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) return { success: false, error: "auth_unavailable" };
+
+  try {
+    const outcome = await runMonthlyBatchOrchestrator({
+      month: input.month,
+      adminUserId: user.id,
+      promptVersionId:
+        process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
+      personasVersionId:
+        process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
+      tier0Source: async () => {
+        throw new Error("tier0_source_not_wired_pr1_followup");
+      },
+      callPersonaPanel: async () => {
+        throw new Error("persona_panel_not_wired_pr1_followup");
+      },
+      fetchFinancials: async () => "",
+      lock: { acquire: acquireBatchLock, release: releaseBatchLock },
+      persist: upsertShortList30,
+      commitBadgeOnly: async () => {
+        throw new Error("commit_badge_only_not_wired_pr1_followup");
+      },
+      // server action path는 alert noop wire (admin trigger fail은 UI toast로 — PR4 scope)
+      recordSchedulerFailAlert: async () => {},
+    });
+    return { success: true, data: { selectedCount: outcome.selectedCount } };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "orchestrator_failed",
+    };
+  }
+}
