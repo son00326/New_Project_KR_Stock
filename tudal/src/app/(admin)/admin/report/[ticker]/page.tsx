@@ -22,6 +22,10 @@ import {
   type ReportSection8,
   type ReportAppendix,
 } from "@/lib/data/admin-reports";
+import type {
+  ReportSection8Modern,
+  ReportSection8Legacy,
+} from "@/lib/data/report-section-schemas";
 import {
   aggregateVotes,
   getVotesByReportId,
@@ -79,16 +83,18 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
   const viewerCount = getDistinctViewerCount(report.id);
   const neighbors = deriveBucketNeighbors(ticker, shortlist);
 
-  const section0 = report.section_0 as ReportSection0;
-  const section1 = report.section_1 as ReportSection1;
-  const section2 = report.section_2 as ReportSection2;
-  const section3 = report.section_3 as ReportSection3;
-  const section4 = report.section_4 as ReportSection4;
-  const section5 = report.section_5 as ReportSection5;
-  const section6 = report.section_6 as ReportSection6;
-  const section7 = report.section_7 as ReportSection7;
-  const section8 = report.section_8 as ReportSection8;
-  const appendix = report.appendix as ReportAppendix;
+  // PR3a — getReportByTicker returns ValidatedStockReport. 각 section은
+  // zod safeParse 결과로 ReportSectionX | null. 미구현 본문은 fallback UI 렌더.
+  const section0 = report.section_0;
+  const section1 = report.section_1;
+  const section2 = report.section_2;
+  const section3 = report.section_3;
+  const section4 = report.section_4;
+  const section5 = report.section_5;
+  const section6 = report.section_6;
+  const section7 = report.section_7;
+  const section8 = report.section_8;
+  const appendix = report.appendix;
 
   return (
     <div className="flex flex-col-reverse gap-6 md:flex-row md:gap-8">
@@ -167,7 +173,9 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
             </span>
             <span>
               Conviction{" "}
-              <b className="font-mono tabular-nums">{section0.conviction}</b>
+              <b className="font-mono tabular-nums">
+                {section0?.conviction ?? "—"}
+              </b>
             </span>
             <DeltaPill status={shortListRow.deltaStatus} />
           </div>
@@ -243,16 +251,16 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
 
 // ─── 섹션 디스패처 ───────────────────────────────────────────────────────────
 interface SectionBag {
-  section0: ReportSection0;
-  section1: ReportSection1;
-  section2: ReportSection2;
-  section3: ReportSection3;
-  section4: ReportSection4;
-  section5: ReportSection5;
-  section6: ReportSection6;
-  section7: ReportSection7;
-  section8: ReportSection8;
-  appendix: ReportAppendix;
+  section0: ReportSection0 | null;
+  section1: ReportSection1 | null;
+  section2: ReportSection2 | null;
+  section3: ReportSection3 | null;
+  section4: ReportSection4 | null;
+  section5: ReportSection5 | null;
+  section6: ReportSection6 | null;
+  section7: ReportSection7 | null;
+  section8: ReportSection8 | null;
+  appendix: ReportAppendix | null;
   sector: string;
   coreAgg: { approve: number; reject: number; abstain: number };
   sectorAgg: { approve: number; reject: number; abstain: number };
@@ -322,9 +330,24 @@ function ReportSectionAccordion({
   );
 }
 
+// PR3a — Section 0~7 본문 미구현 / validation 실패 시 fallback UI.
+// 후속 PR3b (writer Section 0~7 본문 구현)에서 채워진다.
+function SectionFallback({ sectionId }: { sectionId: string }) {
+  return (
+    <div className="rounded border border-dashed bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
+      <div className="font-medium">본문 미작성</div>
+      <p className="mt-1 text-xs">
+        {sectionId} 본문은 후속 PR3b (writer Section 0~7 본문 구현)에서 채워집니다.
+        DB에 jsonb가 비어 있거나 validation 실패 상태입니다.
+      </p>
+    </div>
+  );
+}
+
 // ─── 섹션별 렌더러 ───────────────────────────────────────────────────────────
 
-function Section0View({ data }: { data: ReportSection0 }) {
+function Section0View({ data }: { data: ReportSection0 | null }) {
+  if (!data) return <SectionFallback sectionId="0 · 투자 요약" />;
   return (
     <div className="space-y-4">
       <h3 className="text-base font-semibold">{data.headline}</h3>
@@ -356,7 +379,8 @@ function Section0View({ data }: { data: ReportSection0 }) {
   );
 }
 
-function Section1View({ data }: { data: ReportSection1 }) {
+function Section1View({ data }: { data: ReportSection1 | null }) {
+  if (!data) return <SectionFallback sectionId="1 · 기업 개요" />;
   return (
     <div className="space-y-3">
       <p>{data.description}</p>
@@ -390,7 +414,8 @@ function Section1View({ data }: { data: ReportSection1 }) {
   );
 }
 
-function Section2View({ data }: { data: ReportSection2 }) {
+function Section2View({ data }: { data: ReportSection2 | null }) {
+  if (!data) return <SectionFallback sectionId="2 · 재무 분석" />;
   if (data.revenue.length === 0) {
     return (
       <div className="space-y-2">
@@ -440,7 +465,8 @@ function Section2View({ data }: { data: ReportSection2 }) {
   );
 }
 
-function Section3View({ data }: { data: ReportSection3 }) {
+function Section3View({ data }: { data: ReportSection3 | null }) {
+  if (!data) return <SectionFallback sectionId="3 · 밸류에이션" />;
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
@@ -470,7 +496,8 @@ function Section3View({ data }: { data: ReportSection3 }) {
   );
 }
 
-function Section4View({ data }: { data: ReportSection4 }) {
+function Section4View({ data }: { data: ReportSection4 | null }) {
+  if (!data) return <SectionFallback sectionId="4 · 성장성" />;
   return (
     <div className="space-y-2">
       <p>{data.summary}</p>
@@ -484,7 +511,8 @@ function Section4View({ data }: { data: ReportSection4 }) {
   );
 }
 
-function Section5View({ data }: { data: ReportSection5 }) {
+function Section5View({ data }: { data: ReportSection5 | null }) {
+  if (!data) return <SectionFallback sectionId="5 · 리스크" />;
   return (
     <div className="space-y-2">
       <p>{data.summary}</p>
@@ -506,7 +534,8 @@ function Section5View({ data }: { data: ReportSection5 }) {
   );
 }
 
-function Section6View({ data }: { data: ReportSection6 }) {
+function Section6View({ data }: { data: ReportSection6 | null }) {
+  if (!data) return <SectionFallback sectionId="6 · 모멘텀 (5-Signal·3축)" />;
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
@@ -539,7 +568,8 @@ function Section6View({ data }: { data: ReportSection6 }) {
   );
 }
 
-function Section7View({ data }: { data: ReportSection7 }) {
+function Section7View({ data }: { data: ReportSection7 | null }) {
+  if (!data) return <SectionFallback sectionId="7 · Exit 조건" />;
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
@@ -573,7 +603,167 @@ function Section8View({
   sector,
   votes,
 }: {
-  data: ReportSection8;
+  data: ReportSection8 | null;
+  coreAgg: { approve: number; reject: number; abstain: number };
+  sectorAgg: { approve: number; reject: number; abstain: number };
+  sector: string;
+  votes: CommitteeVote[];
+}) {
+  if (!data) return <SectionFallback sectionId="8 · 최종 의견" />;
+  if (data.shape === "modern") {
+    return (
+      <Section8ModernView
+        data={data.data}
+        coreAgg={coreAgg}
+        sectorAgg={sectorAgg}
+        sector={sector}
+        votes={votes}
+      />
+    );
+  }
+  return (
+    <Section8LegacyView
+      data={data.data}
+      coreAgg={coreAgg}
+      sectorAgg={sectorAgg}
+      sector={sector}
+      votes={votes}
+    />
+  );
+}
+
+// PR3a — modern (writer.ts 신규 출력) 렌더러.
+// B3 정정: partC.core_revote + partC.sector_aggregate 가 authoritative.
+// 외부 committee_votes aggregation (coreAgg/sectorAgg)은 별도 audit 패널로
+// 분리해 drift 위험 표면화 (정상 시 partC와 일치; lag/empty 시 partC 우선).
+function Section8ModernView({
+  data,
+  coreAgg,
+  sectorAgg,
+  sector,
+  votes,
+}: {
+  data: ReportSection8Modern;
+  coreAgg: { approve: number; reject: number; abstain: number };
+  sectorAgg: { approve: number; reject: number; abstain: number };
+  sector: string;
+  votes: CommitteeVote[];
+}) {
+  const coreVotes = votes.filter((v) => v.personaLayer === "core");
+  const sectorVotes = votes.filter((v) => v.personaLayer === "sector");
+  const verdictLabel =
+    data.partC.verdict === "BUY"
+      ? "매수"
+      : data.partC.verdict === "SELL"
+        ? "매도"
+        : "관망";
+
+  // B3 — partC authoritative aggregate (BUY/HOLD/SELL → approve/abstain/reject 매핑).
+  // RPC commit_persona_eval이 동일 매핑으로 committee_votes INSERT하므로
+  // 정상 상태에서 partC와 voteAgg가 일치. drift 시 partC 우선.
+  const partCCoreAgg = {
+    approve: data.partC.core_revote.buy,
+    abstain: data.partC.core_revote.hold,
+    reject: data.partC.core_revote.sell,
+  };
+  const partCSectorAgg = {
+    approve: data.partC.sector_aggregate.buy,
+    abstain: data.partC.sector_aggregate.hold,
+    reject: data.partC.sector_aggregate.sell,
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded border bg-muted/20 px-3 py-2">
+        <div className="mb-0.5 text-xs font-semibold text-muted-foreground">
+          최종 판정 (Part C — 합의 패널)
+        </div>
+        <p className="font-medium">{verdictLabel}</p>
+        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
+          {data.partC.rationale.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Core 11 재투표: 찬성 {data.partC.core_revote.buy} · 관망{" "}
+          {data.partC.core_revote.hold} · 반대 {data.partC.core_revote.sell}
+          {data.partC.co_chair_unanimous ? " · 위원장 만장일치" : ""}
+        </div>
+      </div>
+
+      {/* B3 정정 — partC authoritative 집계 */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <VoteAggCard title="Core Committee (Part C 재투표)" agg={partCCoreAgg} />
+        <VoteAggCard
+          title={`Sector Board — ${sector} (Part C 집계)`}
+          agg={partCSectorAgg}
+        />
+      </div>
+
+      {data.partB.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
+            쟁점 (Part B)
+          </div>
+          <ul className="space-y-1.5">
+            {data.partB.map((b, i) => (
+              <li
+                key={i}
+                className="rounded border bg-muted/10 px-3 py-2 text-sm"
+              >
+                <div className="font-medium">{b.issue}</div>
+                <div className="mt-1 text-xs">
+                  <span className="text-[color:var(--color-market-up)]">
+                    찬:
+                  </span>{" "}
+                  {b.pro_quote}
+                </div>
+                <div className="text-xs">
+                  <span className="text-[color:var(--color-market-down)]">
+                    반:
+                  </span>{" "}
+                  {b.con_quote}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* B3 정정 — committee_votes 외부 집계는 audit 패널로 분리. drift 시 사용자 확인. */}
+      <details className="rounded border bg-muted/10">
+        <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
+          ▸ committee_votes audit ({coreVotes.length + sectorVotes.length}건 / Part C와 일치 시 정상)
+        </summary>
+        <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
+          <VoteAggCard title="Core (committee_votes 집계)" agg={coreAgg} />
+          <VoteAggCard
+            title={`Sector — ${sector} (committee_votes 집계)`}
+            agg={sectorAgg}
+          />
+        </div>
+        <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
+          <VoteList title="Core" votes={coreVotes} personas={CORE_PERSONAS} />
+          <VoteList
+            title={`Sector — ${sector}`}
+            votes={sectorVotes}
+            personas={getSectorPersonas(sector)}
+          />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+// PR3a — legacy shape (전환기 잔존 row) 렌더러. 기존 Section8View 본문 보존.
+function Section8LegacyView({
+  data,
+  coreAgg,
+  sectorAgg,
+  sector,
+  votes,
+}: {
+  data: ReportSection8Legacy;
   coreAgg: { approve: number; reject: number; abstain: number };
   sectorAgg: { approve: number; reject: number; abstain: number };
   sector: string;
@@ -589,7 +779,6 @@ function Section8View({
         <p className="mt-1 text-sm">{data.conclusion}</p>
       </div>
 
-      {/* 집계 표 (Core + Sector) — M3 AC-2 */}
       <div className="grid gap-3 md:grid-cols-2">
         <VoteAggCard title="Core Committee (11명)" agg={coreAgg} />
         <VoteAggCard
@@ -598,7 +787,6 @@ function Section8View({
         />
       </div>
 
-      {/* 핵심 인용 */}
       <div>
         <div className="mb-1.5 text-xs font-semibold text-muted-foreground">핵심 논거 인용</div>
         <ul className="space-y-1.5">
@@ -624,7 +812,6 @@ function Section8View({
         </ul>
       </div>
 
-      {/* 위원별 개별 투표 (정적 표 — 인터랙티브 탐색 Should S2 범위) */}
       <details className="rounded border bg-muted/10">
         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
           ▸ 위원별 개별 투표 보기 ({coreVotes.length + sectorVotes.length}건)
@@ -646,9 +833,10 @@ function AppendixView({
   data,
   viewers,
 }: {
-  data: ReportAppendix;
+  data: ReportAppendix | null;
   viewers: number;
 }) {
+  if (!data) return <SectionFallback sectionId="Appendix" />;
   return (
     <div className="space-y-3">
       <div>
