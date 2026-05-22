@@ -12,6 +12,20 @@
 
 ## Scope (53차 §5 spec doc §4 박제)
 
+**Canonical PR 순서 (B10 정정 — 절대 보존)**:
+```
+PR2 ✅ MERGED (Tier 1 AI 30 선정 screening, main 박제)
+  ↓
+PR3a (본 PR — Group H schema drift fix Critical Hard gate)
+  ↓
+PR1 (cron monthly-batch real path, server-side only)
+  ↓
+PR3b (writer Section 0~7 본문 구현)
+  ↓
+PR4 (UI trigger 버튼 + Track Record 탭 + Regen 실 호출)
+```
+**Hard gate**: PR1 cron 가동 ⊥ 본 PR3a 미선행 = `/admin/report/[ticker]` page crash inevitable. 본 PR3a가 PR1 진입 전 머지 완료되어야 한다.
+
 **In-scope (PR3a only)**:
 - (a) `tudal/src/lib/data/admin-reports.ts` — `transformStockReportRow` validation + Section type guard
 - (b) `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` — early null guard at `section0.conviction` + Section 0~7 fallback UI + Section 8 partA~D shape 호환
@@ -23,6 +37,7 @@
 - UI trigger 버튼 / Track Record 탭 / Regen 실 호출 = **PR4**
 - 기존 `StockReport` 타입 자체의 광범위 refactor (현 callers 안전 보존)
 - mock-admin-report.ts (별도 mock SoT, S7-RealData PR1 wire 시점에 deprecation)
+- Tier 1 AI 30 선정 screening 로직 = **PR2 (이미 main `f85fb69` 박제)**
 
 ---
 
@@ -1492,44 +1507,55 @@ Expected ALL GREEN:
 - test:ci: 746 + new = 765+
 - tsc: clean
 
-- [ ] **Step 4: scope purity + forbidden grep gate (B7 정정 — executable, 0 매치 expected)**
+- [ ] **Step 4: scope purity + forbidden grep gate (B7+B8+B9 정정 — executable)**
 
-Run from worktree root. **각 명령 expected: 0 매치 (no output)**. 매치 ≥1이면 BLOCKER.
+Run from worktree root. 명령별로 expected가 다름 (B9 정정).
 
 ```bash
-# (1) scope purity — 5 files diff only
+# (1a) scope purity — diff stat: PLAN docs 포함해 최대 6 files (5 코드 + plan markdown).
 git diff main --stat
+# Expected: 정확히 5 코드 파일 + plan.md (총 6) listed. 그 외 0.
+#   tudal/src/lib/data/report-section-schemas.ts
+#   tudal/src/lib/data/__tests__/report-section-schemas.test.ts
+#   tudal/src/lib/data/admin-reports.ts
+#   tudal/src/lib/data/__tests__/admin-reports.test.ts
+#   tudal/src/app/(admin)/admin/report/[ticker]/page.tsx
+#   docs/superpowers/plans/2026-05-22-pr3a-group-h-schema-drift.md
+
+# (1b) scope guard — restricted paths diff: empty expected (PR1/PR3b/PR4/mock SoT/section-8-schema.ts territory).
 git diff main -- 'tudal/src/lib/screening/' 'tudal/src/lib/report/writer.ts' \
   'tudal/src/lib/report/section-8-schema.ts' \
   'tudal/src/app/api/cron/' 'tudal/supabase/migrations/' \
   'tudal/src/lib/data/mock-admin-report.ts'
-# Expected: empty output (PR3a scope guard — PR1/PR3b/PR4/mock SoT/section-8-schema.ts territory)
+# Expected: empty output (0 lines)
 
-# (2) forbidden type assertion 잔존 — page.tsx에 `as ReportSection` 0 매치
+# (2) forbidden type assertion 잔존 — page.tsx에 `as ReportSection` 0 매치.
 rg "as ReportSection" tudal/src/app/\(admin\)/admin/report/\[ticker\]/page.tsx
 # Expected: no matches
 
-# (3) section_X early deref (validated nullable이므로 X=0~8 직접 . 액세스 금지)
-# nullable optional chaining (section0?. )은 허용. raw (section0. ) 만 매치
-rg "section_[0-8]\.[a-zA-Z_]" tudal/src/app/\(admin\)/admin/report/\[ticker\]/page.tsx
-# Expected: no matches (section0?.conviction 같은 optional chain은 'section0?.' 패턴이라 미매치)
+# (3) section[0-8] early deref (B8 정정 — page.tsx 실제 변수명은 section0, section1, ..., section8.
+# 'section_0'이 아님. validated nullable이므로 X=0~8 raw . 액세스 금지.
+# optional chain section0?. 은 정규식상 미매치 — 의도된 동작).
+rg "\bsection[0-8]\.[A-Za-z_]" tudal/src/app/\(admin\)/admin/report/\[ticker\]/page.tsx
+# Expected: no matches
 
 # (4) 타입 검사 우회 잔존
 rg "@ts-expect-error|eslint-disable.*any" tudal/src/lib/data tudal/src/app/\(admin\)/admin/report
 # Expected: no matches
 
-# (5) Section 8 schema 재정의 잔존 (B4 invariant — section8Schema 는 import only)
+# (5) Section 8 schema 재정의 잔존 (B4 invariant — section8Schema 는 import only).
 rg "z\.object.*partA|sectorVoteRowSchema|coreVoteRowSchema|finalConsensusPanelSchema" \
   tudal/src/lib/data/report-section-schemas.ts
 # Expected: no matches (re-export만 있어야 함, z.object로 partA 재정의 0)
 ```
 
-**Expected diff scope (5 files)**:
+**Expected diff scope (5 코드 파일 + 1 plan = 6 files)**:
 - (1) 신설 `tudal/src/lib/data/report-section-schemas.ts`
 - (2) 신설 `tudal/src/lib/data/__tests__/report-section-schemas.test.ts`
 - (3) modify `tudal/src/lib/data/admin-reports.ts`
 - (4) modify 기존 `tudal/src/lib/data/__tests__/admin-reports.test.ts` (B1 정정)
 - (5) modify `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx`
+- (6) 누적 plan commits (`docs/superpowers/plans/2026-05-22-pr3a-group-h-schema-drift.md`)
 
 - [ ] **Step 5: Push + PR create (SHARED 권한)**
 
