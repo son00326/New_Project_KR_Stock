@@ -59,6 +59,11 @@ const KOREAN_MAPPINGS: Record<string, string> = {
     "이번 달 분석이 이미 완료되었습니다. 다시 실행하려면 명시적 rerun 액션을 사용하세요.",
   persona_eval_fatal: "분석 실행 중 치명적 오류 — 운영자 검토 필요",
   ai_call_failed: "AI 호출 실패 — 분석 결과 ⚪(분석 대기)로 처리됨",
+  // PR1 — orchestrator + persist + commit_badge_only error codes (54차 §4 v8)
+  tier1_candidates_must_be_150: "Tier 0 후보 수가 150개가 아닙니다",
+  tier1_screening_failed: "Tier 1 평가에 실패했습니다",
+  shortlist_persist_failed: "Short List 저장에 실패했습니다",
+  commit_badge_only_failed: "배지 commit에 실패했습니다",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -67,6 +72,17 @@ export function formatErrorMessage(code: string): string {
   // 후속에서 hold_24h / viewers_insufficient 별 안내로 분기 가능.
   if (code.startsWith("accept_gate_blocked:")) {
     return "승인 조건을 충족하지 못했습니다";
+  }
+  // PR1 B10 fix (omxy R2) — orchestrator suffix throw 호환:
+  //   `tier1_candidates_must_be_150 (got N)` / `shortlist_persist_failed:<code>`
+  if (code.startsWith("tier1_candidates_must_be_150")) {
+    return KOREAN_MAPPINGS["tier1_candidates_must_be_150"];
+  }
+  if (
+    code.startsWith("shortlist_persist_failed:") ||
+    code.startsWith("shortlist_persist_failed ")
+  ) {
+    return KOREAN_MAPPINGS["shortlist_persist_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;

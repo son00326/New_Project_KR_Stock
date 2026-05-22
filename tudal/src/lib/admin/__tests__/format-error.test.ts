@@ -257,4 +257,29 @@ describe("formatErrorMessage", () => {
       expect(warn).not.toHaveBeenCalled();
     });
   });
+
+  // PR1 — orchestrator + persist + commit_badge_only error codes (54차 §4 omxy R1~R8 CONVERGED)
+  describe("PR1 신규 error codes", () => {
+    it.each([
+      ["tier1_candidates_must_be_150", "Tier 0 후보 수가 150개가 아닙니다"],
+      ["tier1_screening_failed", "Tier 1 평가에 실패했습니다"],
+      ["shortlist_persist_failed", "Short List 저장에 실패했습니다"],
+      ["commit_badge_only_failed", "배지 commit에 실패했습니다"],
+    ])("maps %s to %s", (code, expected) => {
+      expect(formatErrorMessage(code)).toBe(expected);
+    });
+
+    // B10 fix (omxy R2) — suffix throw 호환:
+    it("prefix handler: tier1_candidates_must_be_150 (got N)", () => {
+      expect(formatErrorMessage("tier1_candidates_must_be_150 (got 0)")).toBe(
+        "Tier 0 후보 수가 150개가 아닙니다",
+      );
+    });
+
+    it("prefix handler: shortlist_persist_failed:<pg-code>", () => {
+      expect(formatErrorMessage("shortlist_persist_failed:23505")).toBe(
+        "Short List 저장에 실패했습니다",
+      );
+    });
+  });
 });
