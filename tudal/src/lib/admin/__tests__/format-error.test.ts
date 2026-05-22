@@ -282,4 +282,48 @@ describe("formatErrorMessage", () => {
       );
     });
   });
+
+  // MF5 fix (3-track deep-review #8) — orchestrator/persist/lock/alert suffix throw 매핑
+  describe("PR1 MF5 — 추가 error code 매핑 + prefix handler", () => {
+    it.each([
+      ["tier1_candidates_have_duplicate_tickers", "Tier 0 후보에 중복 종목코드가 있습니다"],
+      ["assigned_timeframe_null_for_selected", "선정 종목에 시간대 정보가 누락되었습니다"],
+      ["batch_lock_acquire_failed", "월간 배치 락 획득에 실패했습니다"],
+      ["batch_lock_release_failed", "월간 배치 락 해제에 실패했습니다"],
+      ["scheduler_fail_alert_insert_failed", "실패 알림 저장에 실패했습니다"],
+      ["tier0_source_not_wired_pr1_followup", "Tier 0 데이터 소스가 아직 연결되지 않았습니다 (후속 PR)"],
+      ["persona_panel_not_wired_pr1_followup", "AI 페르소나 패널이 아직 연결되지 않았습니다 (후속 PR)"],
+      ["commit_badge_only_not_wired_pr1_followup", "배지 commit RPC가 아직 연결되지 않았습니다 (후속 PR)"],
+      ["cron_caller_requires_service_role", "Cron 호출자는 service-role 권한이 필요합니다"],
+      ["invalid_caller_kind", "잘못된 호출자 종류입니다"],
+      ["service_role_key_missing", "서비스 키 환경 변수가 설정되지 않았습니다"],
+      ["supabase_url_missing", "Supabase URL 환경 변수가 설정되지 않았습니다"],
+    ])("maps exact %s to %s", (code, expected) => {
+      expect(formatErrorMessage(code)).toBe(expected);
+    });
+
+    it("prefix: tier1_candidates_have_duplicate_tickers (distinct=149/150)", () => {
+      expect(
+        formatErrorMessage("tier1_candidates_have_duplicate_tickers (distinct=149/150)"),
+      ).toBe("Tier 0 후보에 중복 종목코드가 있습니다");
+    });
+
+    it("prefix: assigned_timeframe_null_for_selected:<ticker>", () => {
+      expect(
+        formatErrorMessage("assigned_timeframe_null_for_selected:005930"),
+      ).toBe("선정 종목에 시간대 정보가 누락되었습니다");
+    });
+
+    it("prefix: batch_lock_release_failed:<pg-code>", () => {
+      expect(formatErrorMessage("batch_lock_release_failed:42501")).toBe(
+        "월간 배치 락 해제에 실패했습니다",
+      );
+    });
+
+    it("prefix: scheduler_fail_alert_insert_failed:<pg-code>", () => {
+      expect(
+        formatErrorMessage("scheduler_fail_alert_insert_failed:PGRST116"),
+      ).toBe("실패 알림 저장에 실패했습니다");
+    });
+  });
 });
