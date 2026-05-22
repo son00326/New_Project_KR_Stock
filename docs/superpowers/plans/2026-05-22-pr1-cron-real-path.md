@@ -1096,25 +1096,31 @@ git commit -m "feat(PR1 Task6): format-error 4 신규 키 매핑 추가 (B6 form
 Run: `cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit`
 Expected: build 25 routes pass / lint 0 err 6 warn (baseline) / test:ci 802 + N new tests / tsc clean
 
-- [ ] **Step 2: forbidden grep 게이트** (B14 fix — service-role import boundary 실제 실행)
+- [ ] **Step 2: forbidden grep 게이트** (B14+B21 fix — narrow scope + quote-agnostic marker)
 
 Run:
 ```bash
 cd tudal && \
 echo "=== isProductionLike in cron path (expect 0) ===" && \
 grep -rn "isProductionLike()" src/app/api/cron/monthly-batch/ | grep -v __tests__ ; \
-echo "=== mock-mode short-circuit residue (expect 0) ===" && \
-grep -rn "mockMode: true\|monthly_batch_real_pipeline_not_configured" src/ ; \
+echo "=== monthly-batch mock-mode residue (expect 0) ===" && \
+grep -rn "mockMode: true\|monthly_batch_real_pipeline_not_configured" \
+  src/app/api/cron/monthly-batch/ \
+  src/lib/screening/ \
+  src/lib/data/admin-batch-runs-cron.ts \
+  src/lib/data/admin-shortlist-persist.ts \
+  src/lib/data/admin-alerts-insert.ts \
+  src/lib/supabase/service-role.ts ; \
 echo "=== PR3a regression (expect 0) ===" && \
 grep -rn "as ReportSection\b" 'src/app/(admin)/admin/report/' ; \
 echo "=== service-role import boundary (expect 0) ===" && \
 grep -rn "@/lib/supabase/service-role\|from.*service-role" src --exclude-dir=__tests__ \
   | grep -vE "src/(app/api/cron/monthly-batch/|lib/data/admin-batch-runs-cron\.ts|lib/supabase/service-role\.ts)" ; \
-echo "=== server-only marker (expect 1) ===" && \
-grep -n 'import "server-only"' src/lib/supabase/service-role.ts ; \
+echo "=== server-only marker (expect 1+) ===" && \
+grep -nE "import ['\"]server-only['\"]" src/lib/supabase/service-role.ts ; \
 echo DONE
 ```
-Expected: 첫 4개 grep 모두 0 매치 + 마지막 1 매치 + `DONE` 출력.
+Expected: 첫 4개 grep 모두 0 매치 + 마지막 1+ 매치 + `DONE`. **B21 fix (omxy R9)**: mockMode grep을 PR1 신규 모듈 path에 narrow (broad `src/` grep은 silent-health/notify/email 등 unrelated 잔존 → false-positive). marker는 quote-agnostic `grep -E "['\"]"` (코드가 single quote `'server-only'` 사용).
 
 - [ ] **Step 3: 종합 verification commit (필요 시)**
 

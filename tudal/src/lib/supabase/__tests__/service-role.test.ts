@@ -1,4 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   createServiceRoleClient,
   __resetServiceRoleClientForTests,
@@ -36,5 +38,15 @@ describe('createServiceRoleClient', () => {
     const c1 = createServiceRoleClient();
     const c2 = createServiceRoleClient();
     expect(c1).toBe(c2);
+  });
+
+  // B11+B22 fix (omxy R3+R9) — source contains import "server-only" marker.
+  // Next.js 빌드타임에 client import 차단 보장 (주석/grep gate 보조 검증).
+  it('source file contains server-only import marker', () => {
+    const source = readFileSync(
+      path.resolve(__dirname, '../service-role.ts'),
+      'utf8',
+    );
+    expect(source).toMatch(/import ['"]server-only['"]/);
   });
 });
