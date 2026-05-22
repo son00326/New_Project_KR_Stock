@@ -684,7 +684,7 @@ Part A: 섹터 보드 (canonical 14인 overlay — D21 52차)
 | (b) **reject 후 사용자 trigger 버튼** | 새 30 선정 + 새 풀 리포트 | 수동 종목당 월 2회 (D8 박제) | **dangling server action** (`triggerMonthlyPersonaEvalAction` export 존재 / page import·render 0 / UI caller 0) | **PR4** (UI trigger 버튼 wire) |
 | (c) **종목별 'Regen' 버튼** | 단일 종목 풀 리포트 재생성 | 종목당 월 2회 quota 공유 | **UI + quota counter 박제만, 실 AI 재생성 호출 0** (OMXY R1 BLOCKER 6 정정) | **PR4** (Regen 실 호출 wire) |
 
-> **Hard gate (Group H Critical)**: 위 3 path 어느 것이든 실 AI 호출 시 `commit_persona_eval` RPC → `stock_reports.section_8` 신규 partA/partB/partC/partD jsonb INSERT 발생. 그러나 `/admin/report/[ticker]/page.tsx`는 **old conclusion/recommendation/keyQuotes shape dereference** 잔존 + section_0~7 nested deref 잔존 → 사용자 종목 클릭 시 **page crash 위험**. **PR1·PR4 진입 전 PR3a (schema drift fix) 선행 필수** (canonical 순서: PR2 → PR3a → PR1 → PR3b → PR4).
+> **Hard gate (Group H) ✅ 해소** (54차 §3 PR3a MERGED `0813a41`): 위 3 path 어느 것이든 실 AI 호출 시 `commit_persona_eval` RPC → `stock_reports.section_8` 신규 partA/partB/partC/partD jsonb INSERT 발생. `/admin/report/[ticker]/page.tsx` = `as` 어서션 전면 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer (modern + legacy 호환) + `partCToCommitteeAgg` helper로 crash 차단. canonical 순서: PR2 ✅ → PR3a ✅ → PR1 → PR3b → PR4.
 
 ```
 Step 0a — Tier 0: 인디케이터 자동 스크리닝 (AI 키 불필요)
@@ -726,19 +726,14 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 > 현재 `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 두 함수만 존재하며, **`stock_reports.section_8` jsonb commit만 가능**. Section 0~7 본문(투자 서사·산업 기초·회사 개요·이익 모델·밸류에이션·거시 민감도·시나리오·촉매&리스크) 작성 path = **미구현**. `parseSectorContentStrict`도 Section 8 parser only.
 > → 후속 **PR3b** (writer Section 0~7 본문 구현) 분리: document-specialist + analyst + writer + critic 4-step. PR1 머지 후 또는 PR1과 병렬 진행 가능.
 
-> **(v2.6, 53차 §5 — Group H Critical) `stock_reports` schema drift + page render crash 위험 박제** (OMXY R1 BLOCKER 5 + R2 BLOCKER 3 신규):
-> - `commit_persona_eval` RPC (마이그 0017) = `section_8` jsonb INSERT + `consensus_badge` ADD만. section_0~7 컬럼은 nullable 잔존 (마이그 0003).
-> - writer 신규 schema = `partA/partB/partC/partD` jsonb shape (Section 8 contract = `ServicePlan-Admin.md §4.2.1` + `tudal/src/lib/report/section-8-schema.ts` zod).
-> - `/admin/report/[ticker]/page.tsx` = old `section8.recommendation` / `section8.keyQuotes` / `section8.conclusion` shape dereference + section0.conviction early header deref + Section 0~7 entire nested deref.
-> - `tudal/src/lib/data/admin-reports.ts` `getReportByTicker` + `transformStockReportRow` = mapping/validation **0** (DB jsonb raw unknown 그대로 반환).
-> - **Hard gate**: PR1 cron 가동 시 `commit_persona_eval` 호출 → row INSERT 시 section_0~7 null + section_8 신규 shape → page deref **early crash at section0.conviction header**.
-> → 후속 **PR3a** (Group H schema drift fix only, Critical 선행) 분리:
->   - (a) `admin-reports.ts` `transformStockReportRow` validation + Section type guard
->   - (b) `report/[ticker]/page.tsx` early null guard at section0.conviction + Section 0~7 fallback UI
->   - (c) section_8 jsonb shape 호환 helper (old conclusion/recommendation/keyQuotes ↔ 신규 partA/partB/partC/partD)
-> → **PR3a는 PR1 cron 가동 전 Hard gate 선행 필수** (PR3b writer Section 0~7 본문 구현은 별개 — PR1 후 가능). 위반 시 사용자 admin UI 종목 클릭 시 page crash inevitable.
+> **(v2.7, 54차 §3 — Group H ✅ 해소) `stock_reports` schema drift fix MERGED** (PR3a, main `0813a41`):
+> - `commit_persona_eval` RPC (마이그 0017) = `section_8` jsonb INSERT + `consensus_badge` ADD만. section_0~7 컬럼은 nullable 잔존 (마이그 0003) — PR3b writer 본문 구현으로 채워질 예정.
+> - writer 신규 schema = `partA/partB/partC/partD` jsonb shape (Section 8 contract = `ServicePlan-Admin.md §4.2.1` + `tudal/src/lib/report/section-8-schema.ts` zod). `tudal/src/lib/data/report-section-schemas.ts`가 본 schema를 alias import (재정의 0).
+> - `/admin/report/[ticker]/page.tsx` = `as` 어서션 전면 제거 + section null guard + 헤더 `section0?.conviction ?? '—'` + `SectionFallback` 단일 helper + `Section8View` 3분기 (null/modern/legacy) + `Section8ModernView` partC.core_revote/sector_aggregate authoritative (`partCToCommitteeAgg` BUY→approve/HOLD→abstain/SELL→reject 매핑, RPC와 1:1 정합) + `Section8LegacyView` 기존 본문 보존.
+> - `tudal/src/lib/data/admin-reports.ts` `getReportByTicker` → `Promise<ValidatedStockReport | null>` 반환 (per-section `parseSectionSafe` + ticker/section context `console.warn` + onError 콜백).
+> - **silent null drop log 격상** (P2, 비차단): 현재 `console.warn`으로 위임. PR1 cron wire 시점에 metric/structured log로 격상 권장 (gsd CR-01 + red-team RT#2 + omxy R7 P2).
 >
-> canonical PR 순서: **PR2 (Tier 1 AI 30 선정) → PR3a (schema drift fix Hard gate) → PR1 (cron real path) → PR3b (writer Section 0~7 본문) → PR4 (UI trigger + Track Record 탭 + Regen 실 호출)**.
+> canonical PR 순서: **PR2 ✅ → PR3a ✅ → PR1 (cron real path) → PR3b (writer Section 0~7 본문) → PR4 (UI trigger + Track Record 탭 + Regen 실 호출 + PR3a OOS findings)**.
 
 ```
 Step 1: 리서치 + 분석 (병렬)

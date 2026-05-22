@@ -14,16 +14,29 @@
 
 ## 최근 갱신
 
-**2026-05-21** (53차 §5 정정 — 박제 vs 코드 mismatch catch + canonical PR 순서 박제):
+**2026-05-22** (54차 §3 — PR #12 (PR3a Group H schema drift fix Critical Hard gate) MERGED + post-merge docs refresh):
+- **PR3a MERGED in main `0813a41`** (11 commits FF / 7 files / +3300 lines / 56 TDD tests, baseline 746 → 802, 회귀 0). omxy R1~R12 CONVERGED + R7 Codex structured `/review` GATE PASS + gsd-code-reviewer + gstack testing + red-team 다중 review (42 findings + 11 BLOCKERS, 17 Fix-First, 24 OOS).
+- **Group H Critical ✅ 해소** — `stock_reports` schema drift + report page crash 차단:
+  - `tudal/src/lib/data/report-section-schemas.ts` **신설 단일 SoT**: Section 0~7 + Appendix zod schemas (`score0to100`/`voteCount` 공통 helpers + `.min/.max/.finite()` bounds) + Section 8 modern은 `@/lib/report/section-8-schema`에서 import + alias (B4 재정의 금지) + `reportSection8LegacySchema` + `parseReportSection8` dual-shape parser + `parseSectionSafe` generic helper + onError 콜백 (`ParseErrorContext` / `ParseSection8ErrorContext`) + `partCToCommitteeAgg` pure helper (BUY→approve / HOLD→abstain / SELL→reject)
+  - `tudal/src/lib/data/admin-reports.ts` 확장: `ValidatedStockReport extends Omit<StockReport, keyof StockReportSections>` (WR-01 lockstep) + `transformStockReportRow` per-section `parseSectionSafe(...)` + ticker/section context `console.warn` + `getReportByTicker` 반환 타입 → `Promise<ValidatedStockReport | null>`
+  - `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` 확장: `as ReportSection` 강제 어서션 10개 전면 제거 + section null guard + 헤더 `section0?.conviction ?? '—'` + `SectionFallback` 단일 helper component + Section 0~7 + AppendixView가 `data: ReportSectionX | null` 처리 + `Section8View` 3분기 (null/modern/legacy) + `Section8ModernView` (`data.partC.core_revote`/`partC.sector_aggregate`가 authoritative + `partCToCommitteeAgg` helper + committee_votes 외부 집계는 audit details 패널로 분리) + `Section8LegacyView` (기존 본문 보존)
+- **silent null drop log 격상 박제 (PR1 wire 시점)**: 현재 `console.warn`으로 위임 (P2 비차단). PR1 cron 가동 시 metric/structured log로 격상해서 production blind spot 차단 (gsd CR-01 + red-team RT#2 + omxy R7 P2).
+- **Group D 박제 (Step 3c dangling) 잔존**: PR1 cron real path + PR4 UI trigger에서 wire 예정.
+- **Group B 박제 (short_list_30 Tier 0 단독)**: PR1 cron wire 후 Tier 1 AI 30 선정 메인 path 가동 (PR2 코드 + PR3a 검증 인프라 모두 main 박제 완료).
+- **canonical PR 순서 갱신**: ~~PR2~~ ✅ → ~~PR3a~~ ✅ → **PR1** → **PR3b** → **PR4** (잔여 3 task). Hard gate 해소.
+- **OOS findings (54차 §3 PR3a, 후속 PR로 분리)**: partA Tier 2 silent drop (RT#1, PR4 Tier 2 wiring) / aggregateVotes NaN risk (RT#3, PR1 admin-committee wire) / LLM string/array max bound (RT#4/RT#5, PR1 wire) / React Testing Library Section view render tests (T#4, 별도 infra PR).
+- **편집 문서 7개** (B16 정정): HANDOFF.md(§0/§1/§2.1/§3/§4/§5/§6/§8 54차 §3 entry) + ProgressDashboard.md(상단 박스 + Last updated + 진행률 + 변경 이력) + 이 문서(54차 §3 entry + PR3a 신규 SoT 박제 + 53차 §5 entry strikethrough) + CLAUDE.md(v3.3 → v3.4 + D24 신설) + ServicePlan-Admin.md(v1.9 → v2.0 + §3 IA Group H 해소) + Slices/S7-RealData.md(54차 §3 박제 + 53차 §5 entry strikethrough) + Service/Report/ReportFramework.md(§8 Hard gate 해소 + v2.7).
+- 박제 자료: `docs/superpowers/plans/2026-05-22-pr3a-group-h-schema-drift.md` (1693 lines, 4 omxy rounds CONVERGED) + `docs/superpowers/reviews/2026-05-22-pr3a-group-h-schema-drift-review.md` (gsd-code-reviewer 11 findings depth=deep).
+
+이전 갱신: **2026-05-21** (53차 §5 정정 — 박제 vs 코드 mismatch catch + canonical PR 순서 박제):
 - **omxy 적대적 검토 5 rounds CONVERGED + 누적 16 BLOCKERS catch & fix** (R1 6 + R2 4 + R3 6). 정정 spec doc: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md`. 21 BLOCKERS 박제 (16 catch + 5 정정 박제).
-- **Group H Critical 박제 (신규)** — `stock_reports` schema drift + report page crash 위험 (Hard gate 선행 필수):
-  - `tudal/src/lib/data/admin-reports.ts` `getReportByTicker` + `transformStockReportRow` = **mapping/validation 0** (DB jsonb를 raw unknown 그대로 반환)
-  - `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` header `section0.conviction` **early deref** (page 진입 직후 crash 위험 첫 지점)
-  - Section 0~7 entire nested deref (`data.headline`·`data.technicals.map`·`data.dataSources.map` 등 array/string deref)
-  - Section 8 shape mismatch — writer 신규 schema = `partA/partB/partC/partD` vs page old shape = `conclusion/recommendation/keyQuotes`
-  - DB 0003: `stock_reports.section_0~8` 컬럼 모두 nullable. 0017 `commit_persona_eval`은 `section_8` jsonb만 INSERT/UPDATE + `consensus_badge` ADD. **section_0~7는 다른 RPC 또는 path로 채워져야 하나 코드 path 0**.
-  - **Critical**: PR1 cron 가동 시 commit_persona_eval 호출 → row INSERT 시 section_0~7 null + section_8 신규 partA/B/C/D shape → page.tsx old shape deref 시도 → **early crash at section0.conviction header**. 사용자가 admin UI에서 종목 클릭 시 발화.
-  - **PR3a Hard gate**: PR1 cron 가동 전 PR3a (admin-reports.ts validation + page.tsx null guard + Section 0~7 fallback UI + Section 8 신규 shape 처리) 선행 필수.
+- **Group H Critical 박제 (신규, 54차 §3에서 해소됨)** — `stock_reports` schema drift + report page crash 위험 (Hard gate 선행 필수):
+  - ~~`tudal/src/lib/data/admin-reports.ts` `getReportByTicker` + `transformStockReportRow` = **mapping/validation 0**~~ ✅ 54차 §3 PR3a 해소
+  - ~~`tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` header `section0.conviction` **early deref**~~ ✅ 54차 §3 PR3a 해소
+  - ~~Section 0~7 entire nested deref~~ ✅ 54차 §3 PR3a 해소
+  - ~~Section 8 shape mismatch~~ ✅ 54차 §3 PR3a dual-shape parser 해소
+  - DB 0003: `stock_reports.section_0~8` 컬럼 모두 nullable. 0017 `commit_persona_eval`은 `section_8` jsonb만 INSERT/UPDATE + `consensus_badge` ADD. **section_0~7는 PR3b writer 본문 구현 후 채워짐** (PR3a는 nullable validated transformer + fallback UI로 PR3b 전 ship-safe).
+  - ~~**PR3a Hard gate**~~ ✅ **해소** (54차 §3 PR #12 MERGED `0813a41`).
 - **Group E (신규) 박제** — `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 함수로 `section_8` jsonb commit만 가능. **Section 0~7 본문 작성 path 미구현**. `parseSectorContentStrict`는 Section 8 parser only. 후속 **PR3b** (writer Section 0~7 본문 구현 = document-specialist + analyst + writer + critic 4-step) 별개 진행 — PR1 cron 가동 후 가능 (PR3a Hard gate는 별도).
 - **Group D 박제 — dangling server action**:
   - `tudal/src/app/(admin)/admin/track-record/actions.ts::triggerMonthlyPersonaEvalAction` = **dangling server action** (export 존재 / page render·import 0 / cron real 0 / UI caller 0). UI wiring PR4 + cron wiring PR1에서 해소.
