@@ -10,7 +10,12 @@ import {
   reportSection7Schema,
   reportAppendixSchema,
   parseSectionSafe,
+  parseReportSection8,
 } from '../report-section-schemas';
+import {
+  section8HappyExample,
+  section8BScopeExample,
+} from '@/lib/report/section-8-schema';
 
 describe('reportSection0Schema', () => {
   it('accepts a valid section 0', () => {
@@ -140,5 +145,236 @@ describe('reportSection1Schema + reportSection2Schema + reportSection3Schema + r
       alternatives: [{ label: '대안 1', detail: '상세' }],
     };
     expect(reportSection7Schema.safeParse(valid).success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Section 8 dual-shape detection + B2 edge-case TDD 전수 + B4 cross-check
+// ---------------------------------------------------------------------------
+
+const modernValidBScope = {
+  partA: [], // B scope (length 0)
+  partB: [
+    { issue: '특허', pro_quote: 'p', con_quote: 'c' },
+    { issue: '수수료', pro_quote: 'p', con_quote: 'c' },
+    { issue: '신약', pro_quote: 'p', con_quote: 'c' },
+  ],
+  partC: {
+    sector_aggregate: { buy: 0, hold: 0, sell: 0 },
+    core_revote: { buy: 7, hold: 3, sell: 1 },
+    co_chair_unanimous: false,
+    verdict: 'BUY' as const,
+    rationale: ['근거 1'],
+  },
+  partD: Array.from({ length: 11 }, (_, i) => ({
+    persona_id: `core-${i}`,
+    label: `Core ${i}`,
+    philosophy: 'value',
+    vote: 'BUY',
+    one_line: 'one',
+  })),
+};
+
+const legacyValid = {
+  conclusion: '결론',
+  recommendation: '매수',
+  keyQuotes: [{ side: 'pro', quote: '근거' }],
+};
+
+describe('parseReportSection8 (dual-shape detection)', () => {
+  it('detects modern shape (B scope, partA=0) and tags it', () => {
+    const result = parseReportSection8(modernValidBScope);
+    expect(result?.shape).toBe('modern');
+    if (result?.shape === 'modern') {
+      expect(result.data.partD).toHaveLength(11);
+      expect(result.data.partA).toHaveLength(0);
+    }
+  });
+
+  it('detects modern shape (Tier 2 active, partA=14) using section8HappyExample (B4 cross-check)', () => {
+    const result = parseReportSection8(section8HappyExample);
+    expect(result?.shape).toBe('modern');
+    if (result?.shape === 'modern') {
+      expect(result.data.partA).toHaveLength(14);
+    }
+  });
+
+  it('detects modern shape using section8BScopeExample (B4 cross-check)', () => {
+    const result = parseReportSection8(section8BScopeExample);
+    expect(result?.shape).toBe('modern');
+  });
+
+  it('detects legacy shape and tags it', () => {
+    const result = parseReportSection8(legacyValid);
+    expect(result?.shape).toBe('legacy');
+    if (result?.shape === 'legacy') {
+      expect(result.data.conclusion).toBe('결론');
+    }
+  });
+
+  it('returns null on neither shape (malformed)', () => {
+    expect(parseReportSection8({ foo: 'bar' })).toBeNull();
+  });
+
+  it('returns null on null input', () => {
+    expect(parseReportSection8(null)).toBeNull();
+  });
+
+  it('prefers modern over legacy when both could match', () => {
+    const ambiguous = {
+      ...modernValidBScope,
+      conclusion: 'stray',
+      recommendation: 'stray',
+      keyQuotes: [],
+    };
+    expect(parseReportSection8(ambiguous)?.shape).toBe('modern');
+  });
+});
+
+describe('Section 8 modern refinements (B2)', () => {
+  it('rejects partA length 1 (must be 0 or 14)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partA: [
+        { persona_id: 'p', label: 'l', background: 'b', vote: 'BUY', one_line: 'o' },
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partA length 13 (must be 0 or 14)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partA: Array.from({ length: 13 }, (_, i) => ({
+        persona_id: `s${i}`,
+        label: `l${i}`,
+        background: 'b',
+        vote: 'BUY',
+        one_line: 'o',
+      })),
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partB length 2 (min 3)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partB: modernValidBScope.partB.slice(0, 2),
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('accepts partB length 5 (max boundary)', () => {
+    const valid = {
+      ...modernValidBScope,
+      partB: [
+        ...modernValidBScope.partB,
+        { issue: 'i4', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i5', pro_quote: 'p', con_quote: 'c' },
+      ],
+    };
+    expect(parseReportSection8(valid)?.shape).toBe('modern');
+  });
+
+  it('rejects partB length 6 (max 5)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partB: [
+        ...modernValidBScope.partB,
+        { issue: 'i4', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i5', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i6', pro_quote: 'p', con_quote: 'c' },
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partD length 10 (must be exactly 11)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partD: modernValidBScope.partD.slice(0, 10),
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partD length 12 (must be exactly 11)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partD: [
+        ...modernValidBScope.partD,
+        { persona_id: 'extra', label: 'l', philosophy: 'v', vote: 'BUY', one_line: 'o' },
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partC.rationale length 0 (min 1)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partC: { ...modernValidBScope.partC, rationale: [] },
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partC.rationale length 6 (max 5)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partC: {
+        ...modernValidBScope.partC,
+        rationale: ['1', '2', '3', '4', '5', '6'],
+      },
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partD with invalid vote enum', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partD: [
+        { ...modernValidBScope.partD[0], vote: 'STRONG_BUY' },
+        ...modernValidBScope.partD.slice(1),
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partA with invalid vote enum (Tier 2 active, partA=14, B6 정정)', () => {
+    const modernValidTier2 = {
+      ...modernValidBScope,
+      partA: Array.from({ length: 14 }, (_, i) => ({
+        persona_id: `s${i}`,
+        label: `l${i}`,
+        background: 'b',
+        vote: 'BUY' as const,
+        one_line: 'o',
+      })),
+    };
+    const invalid = {
+      ...modernValidTier2,
+      partA: [
+        { ...modernValidTier2.partA[0], vote: 'STRONG_BUY' },
+        ...modernValidTier2.partA.slice(1),
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partC.verdict outside enum', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partC: { ...modernValidBScope.partC, verdict: 'STRONG_SELL' },
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+});
+
+describe('Section 8 legacy refinements (B2)', () => {
+  it('rejects keyQuotes.side outside enum', () => {
+    const invalid = {
+      conclusion: 'c',
+      recommendation: 'r',
+      keyQuotes: [{ side: 'bullish', quote: 'q' }],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
   });
 });

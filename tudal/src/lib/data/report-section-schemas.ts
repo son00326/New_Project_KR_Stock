@@ -117,3 +117,44 @@ export function parseSectionSafe<T>(
   const result = schema.safeParse(value);
   return result.success ? result.data : null;
 }
+
+// ---------------------------------------------------------------------------
+// Section 8 dual-shape — PR3a 전환 기간 대응.
+//   modern = writer.ts::commitTickerReport 신규 출력 {partA, partB, partC, partD}
+//            → B4 정정: 단일 SoT는 lib/report/section-8-schema.ts. 본 파일은
+//              import + alias만 (재정의 금지).
+//   legacy = 이전 박제 shape {conclusion, recommendation, keyQuotes}
+// 둘 중 하나라도 valid 시 tagged union으로 반환. 둘 다 invalid 시 null.
+// modern 우선 (현 writer 출력이 modern shape이므로).
+// ---------------------------------------------------------------------------
+
+import {
+  section8Schema as reportSection8ModernSchema,
+  type Section8 as ReportSection8Modern,
+} from '@/lib/report/section-8-schema';
+export { reportSection8ModernSchema };
+export type { ReportSection8Modern };
+
+export const reportSection8LegacySchema = z.object({
+  conclusion: z.string(),
+  recommendation: z.string(),
+  keyQuotes: z.array(
+    z.object({
+      side: z.enum(['pro', 'con', 'neutral']),
+      quote: z.string(),
+    }),
+  ),
+});
+export type ReportSection8Legacy = z.infer<typeof reportSection8LegacySchema>;
+
+export type ReportSection8 =
+  | { shape: 'modern'; data: ReportSection8Modern }
+  | { shape: 'legacy'; data: ReportSection8Legacy };
+
+export function parseReportSection8(value: unknown): ReportSection8 | null {
+  const modern = reportSection8ModernSchema.safeParse(value);
+  if (modern.success) return { shape: 'modern', data: modern.data };
+  const legacy = reportSection8LegacySchema.safeParse(value);
+  if (legacy.success) return { shape: 'legacy', data: legacy.data };
+  return null;
+}
