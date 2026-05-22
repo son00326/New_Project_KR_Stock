@@ -1,9 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const { upsertMock, fromMock } = vi.hoisted(() => {
+const { upsertMock, deleteEqNotMock, deleteEqMock, deleteMock, fromMock } = vi.hoisted(() => {
   const upsertMock = vi.fn();
-  const fromMock = vi.fn(() => ({ upsert: upsertMock }));
-  return { upsertMock, fromMock };
+  const deleteEqNotMock = vi.fn();
+  const deleteEqMock = vi.fn(() => ({ not: deleteEqNotMock }));
+  const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
+  const fromMock = vi.fn(() => ({ upsert: upsertMock, delete: deleteMock }));
+  return { upsertMock, deleteEqNotMock, deleteEqMock, deleteMock, fromMock };
 });
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -36,7 +39,12 @@ function buildSelected30(): TickerAggregate[] {
 
 beforeEach(() => {
   upsertMock.mockReset();
+  deleteEqNotMock.mockReset();
+  deleteEqMock.mockClear();
+  deleteMock.mockClear();
   fromMock.mockClear();
+  // 기본 delete 성공 (DI 없는 test에서는 stale delete가 먼저 실행됨)
+  deleteEqNotMock.mockResolvedValue({ error: null });
 });
 
 describe('upsertShortList30', () => {
@@ -86,5 +94,55 @@ describe('upsertShortList30', () => {
     await expect(
       upsertShortList30('2026-06', buildSelected30()),
     ).rejects.toThrow(/shortlist_persist_failed:23505/);
+  });
+
+  // MF1 fix — supabase client DI (cron path service-role 주입)
+  it('MF1: accepts injected supabase client via options.client (DI for cron)', async () => {
+    upsertMock.mockResolvedValue({ error: null });
+    const customUpsert = vi.fn().mockResolvedValue({ error: null });
+    const customDeleteEqNot = vi.fn().mockResolvedValue({ error: null });
+    const customDeleteEq = vi.fn(() => ({ not: customDeleteEqNot }));
+    const customDelete = vi.fn(() => ({ eq: customDeleteEq }));
+    const customFrom = vi.fn(() => ({
+      upsert: customUpsert,
+      delete: customDelete,
+    }));
+    const injectedClient = { from: customFrom } as unknown as NonNullable<
+      Parameters<typeof upsertShortList30>[2]
+    >['client'];
+
+    await upsertShortList30('2026-06', buildSelected30(), {
+      client: injectedClient,
+    });
+    expect(customFrom).toHaveBeenCalledWith('short_list_30');
+    expect(customUpsert).toHaveBeenCalledTimes(1);
+    // 주입 client 사용 시 default createClient/fromMock은 호출되지 않음
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  // MF2 fix — stale row delete (month-level idempotency)
+  it('MF2: deletes stale rows for the month (ticker NOT IN new set) before upsert', async () => {
+    upsertMock.mockResolvedValue({ error: null });
+    await upsertShortList30('2026-06', buildSelected30());
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(deleteEqMock).toHaveBeenCalledWith('month', '2026-06-01');
+    expect(deleteEqNotMock).toHaveBeenCalledTimes(1);
+    const [col, op, value] = deleteEqNotMock.mock.calls[0];
+    expect(col).toBe('ticker');
+    expect(op).toBe('in');
+    expect(value).toMatch(/^\(.*\)$/);
+    // 모든 30 새 ticker가 NOT IN 절에 포함
+    for (const tf of ['short', 'mid', 'long'] as const) {
+      for (let i = 0; i < 10; i++) {
+        expect(value).toContain(`"${tf}-${String(i).padStart(3, '0')}"`);
+      }
+    }
+  });
+
+  it('MF2: delete failure surfaces as shortlist_persist_failed', async () => {
+    deleteEqNotMock.mockResolvedValue({ error: { code: '42501' } });
+    await expect(
+      upsertShortList30('2026-06', buildSelected30()),
+    ).rejects.toThrow(/shortlist_persist_failed:42501/);
   });
 });

@@ -18,11 +18,22 @@ import type { PersonaScore } from '@/lib/screening/tier1-schema';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// MF4 fix (3-track deep-review W2 + #10): production-like env에서는 CRON_SECRET 강제 (NODE_ENV 단독 의존 차단).
+// VERCEL_ENV production/preview + NEXT_PUBLIC_APP_ENV production은 모두 fail-closed.
+function isProductionLikeForAuth(): boolean {
+  return (
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'preview' ||
+    process.env.NEXT_PUBLIC_APP_ENV === 'production'
+  );
+}
+
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    // dev/mock: secret 미설정 시 통과 (배포 전 반드시 세팅).
-    return process.env.NODE_ENV !== 'production';
+    // dev only: secret 미설정 시 통과. production-like (NODE_ENV/VERCEL_ENV/NEXT_PUBLIC_APP_ENV) 환경은 fail-closed.
+    return !isProductionLikeForAuth();
   }
   const header = request.headers.get('authorization');
   return header === `Bearer ${secret}`;
@@ -51,6 +62,16 @@ async function mockFetchFinancials(): Promise<string> {
 
 async function commitBadgeOnlyPlaceholder(): Promise<void> {
   throw new Error('commit_badge_only_not_wired_pr1_followup');
+}
+
+// MF1 fix (3-track deep-review): cron path는 service-role client을 upsertShortList30에 명시 주입.
+// session-based createClient는 cron 환경에서 auth.uid()=null → RLS rejects → persist 항상 실패.
+async function persistForCron(
+  month: string,
+  selected: Parameters<typeof upsertShortList30>[1],
+): Promise<void> {
+  const supabase = createServiceRoleClient();
+  await upsertShortList30(month, selected, { client: supabase });
 }
 
 // orchestrator interface 요구에 맞춰 cron route 내부 wrapper.
@@ -106,7 +127,7 @@ export async function GET(request: NextRequest) {
         acquire: acquireBatchLockCron,
         release: releaseBatchLockCron,
       },
-      persist: upsertShortList30,
+      persist: persistForCron,
       commitBadgeOnly: commitBadgeOnlyPlaceholder,
       recordSchedulerFailAlert: recordSchedulerFailAlertForCron,
     });

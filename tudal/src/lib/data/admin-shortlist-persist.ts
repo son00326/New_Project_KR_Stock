@@ -1,7 +1,10 @@
 // PR1 Task 3 — upsertShortList30 helper.
 // runTier1Screening 산출 30 selected를 short_list_30 (month, ticker) 유니크 키로 UPSERT.
 // B4 fix (omxy R1): delta_status NOT NULL constraint 통과 — 모든 row 'new' (전월 diff는 후속 PR scope).
+// MF1 fix (deep-review #1, 3-track Fix-First): supabase client DI — cron path는 service-role, server action은 session-based.
+// MF2 fix (deep-review #2): month-level idempotency — 신규 30 set 외 기존 row DELETE (stale row 누적 차단).
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TickerAggregate } from '@/lib/screening/tier1-schema';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -26,9 +29,14 @@ function toMonthDate(monthYM: string): string {
   return `${monthYM}-01`;
 }
 
+/**
+ * MF1 fix: 선택적 DI supabase client. 미지정 시 session-based createClient (admin server action 경로).
+ * cron route는 service-role client를 명시 주입 — RLS bypass + auth.uid()=null 환경 호환.
+ */
 export async function upsertShortList30(
   monthYM: string,
   selected: readonly TickerAggregate[],
+  options: { client?: SupabaseClient } = {},
 ): Promise<void> {
   if (selected.length !== 30) {
     throw new Error(
@@ -52,6 +60,7 @@ export async function upsertShortList30(
   }
 
   const rows: ShortListRow[] = [];
+  const newTickers: string[] = [];
   for (const tf of ['short', 'mid', 'long'] as const) {
     byTf[tf].forEach((agg, idx) => {
       rows.push({
@@ -66,10 +75,23 @@ export async function upsertShortList30(
         delta_status: 'new',
         delta_reason: null,
       });
+      newTickers.push(agg.ticker);
     });
   }
 
-  const supabase = await createClient();
+  const supabase = options.client ?? (await createClient());
+
+  // MF2 fix — 신규 30 외 기존 row DELETE (prior failed run의 stale ticker 차단).
+  // 동일 month + ticker NOT IN new set.
+  const { error: delError } = await supabase
+    .from('short_list_30')
+    .delete()
+    .eq('month', monthDate)
+    .not('ticker', 'in', `(${newTickers.map((t) => `"${t}"`).join(',')})`);
+  if (delError) {
+    throw new Error(`shortlist_persist_failed:${delError.code ?? 'unknown'}`);
+  }
+
   const { error } = await supabase
     .from('short_list_30')
     .upsert(rows, { onConflict: 'month,ticker' });

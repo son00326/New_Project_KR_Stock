@@ -64,6 +64,19 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   tier1_screening_failed: "Tier 1 평가에 실패했습니다",
   shortlist_persist_failed: "Short List 저장에 실패했습니다",
   commit_badge_only_failed: "배지 commit에 실패했습니다",
+  // MF5 fix (3-track deep-review #8): orchestrator/persist/lock/alert throw 코드 매핑 보강.
+  tier1_candidates_have_duplicate_tickers: "Tier 0 후보에 중복 종목코드가 있습니다",
+  assigned_timeframe_null_for_selected: "선정 종목에 시간대 정보가 누락되었습니다",
+  batch_lock_acquire_failed: "월간 배치 락 획득에 실패했습니다",
+  batch_lock_release_failed: "월간 배치 락 해제에 실패했습니다",
+  scheduler_fail_alert_insert_failed: "실패 알림 저장에 실패했습니다",
+  tier0_source_not_wired_pr1_followup: "Tier 0 데이터 소스가 아직 연결되지 않았습니다 (후속 PR)",
+  persona_panel_not_wired_pr1_followup: "AI 페르소나 패널이 아직 연결되지 않았습니다 (후속 PR)",
+  commit_badge_only_not_wired_pr1_followup: "배지 commit RPC가 아직 연결되지 않았습니다 (후속 PR)",
+  cron_caller_requires_service_role: "Cron 호출자는 service-role 권한이 필요합니다",
+  invalid_caller_kind: "잘못된 호출자 종류입니다",
+  service_role_key_missing: "서비스 키 환경 변수가 설정되지 않았습니다",
+  supabase_url_missing: "Supabase URL 환경 변수가 설정되지 않았습니다",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -83,6 +96,19 @@ export function formatErrorMessage(code: string): string {
     code.startsWith("shortlist_persist_failed ")
   ) {
     return KOREAN_MAPPINGS["shortlist_persist_failed"];
+  }
+  // MF5 fix (3-track deep-review #8) — suffix throw 호환 prefix handler 추가.
+  if (code.startsWith("tier1_candidates_have_duplicate_tickers")) {
+    return KOREAN_MAPPINGS["tier1_candidates_have_duplicate_tickers"];
+  }
+  if (code.startsWith("assigned_timeframe_null_for_selected:")) {
+    return KOREAN_MAPPINGS["assigned_timeframe_null_for_selected"];
+  }
+  if (code.startsWith("batch_lock_release_failed:")) {
+    return KOREAN_MAPPINGS["batch_lock_release_failed"];
+  }
+  if (code.startsWith("scheduler_fail_alert_insert_failed:")) {
+    return KOREAN_MAPPINGS["scheduler_fail_alert_insert_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
