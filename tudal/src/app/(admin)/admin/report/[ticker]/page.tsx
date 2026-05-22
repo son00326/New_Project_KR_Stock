@@ -22,9 +22,10 @@ import {
   type ReportSection8,
   type ReportAppendix,
 } from "@/lib/data/admin-reports";
-import type {
-  ReportSection8Modern,
-  ReportSection8Legacy,
+import {
+  partCToCommitteeAgg,
+  type ReportSection8Modern,
+  type ReportSection8Legacy,
 } from "@/lib/data/report-section-schemas";
 import {
   aggregateVotes,
@@ -658,19 +659,11 @@ function Section8ModernView({
         ? "매도"
         : "관망";
 
-  // B3 — partC authoritative aggregate (BUY/HOLD/SELL → approve/abstain/reject 매핑).
-  // RPC commit_persona_eval이 동일 매핑으로 committee_votes INSERT하므로
-  // 정상 상태에서 partC와 voteAgg가 일치. drift 시 partC 우선.
-  const partCCoreAgg = {
-    approve: data.partC.core_revote.buy,
-    abstain: data.partC.core_revote.hold,
-    reject: data.partC.core_revote.sell,
-  };
-  const partCSectorAgg = {
-    approve: data.partC.sector_aggregate.buy,
-    abstain: data.partC.sector_aggregate.hold,
-    reject: data.partC.sector_aggregate.sell,
-  };
+  // B3 + testing T#5 정정 — partC authoritative aggregate.
+  // 매핑 (BUY→approve / HOLD→abstain / SELL→reject) = RPC commit_persona_eval과 동일.
+  // 매핑 convention drift 시 partCToCommitteeAgg unit test가 즉시 catch.
+  const partCCoreAgg = partCToCommitteeAgg(data.partC.core_revote);
+  const partCSectorAgg = partCToCommitteeAgg(data.partC.sector_aggregate);
 
   return (
     <div className="space-y-4">

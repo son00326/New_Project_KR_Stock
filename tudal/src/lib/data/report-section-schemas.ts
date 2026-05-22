@@ -6,20 +6,26 @@ import { z } from 'zod';
 // writer가 채우지 않은 section은 transformer가 null로 반환 → page.tsx fallback UI.
 // ---------------------------------------------------------------------------
 
+// PR3a multi-source review (gsd WR-04 + testing T#6/T#8 + red-team RT#4) —
+// 숫자 필드에 sanity bound 추가. Section 0/6은 UI에 직접 노출되는 0-100 점수.
+// NaN/Infinity는 zod 기본 reject이지만 명시적 .finite()로 박제. 음수/거대값 차단.
+const score0to100 = z.number().min(0).max(100).finite();
+const voteCount = z.number().int().nonnegative().finite();
+
 export const reportSection0Schema = z.object({
   headline: z.string(),
   thesis: z.array(z.string()),
-  conviction: z.number(),
+  conviction: score0to100,
   committeeMini: z.object({
     core: z.object({
-      approve: z.number(),
-      reject: z.number(),
-      abstain: z.number(),
+      approve: voteCount,
+      reject: voteCount,
+      abstain: voteCount,
     }),
     sector: z.object({
-      approve: z.number(),
-      reject: z.number(),
-      abstain: z.number(),
+      approve: voteCount,
+      reject: voteCount,
+      abstain: voteCount,
     }),
   }),
   priceBands: z.object({
@@ -84,11 +90,12 @@ export const reportSection6Schema = z.object({
     }),
   ),
   axis: z.object({
-    trend: z.number(),
-    momentum: z.number(),
-    volatility: z.number(),
+    trend: score0to100,
+    momentum: score0to100,
+    volatility: score0to100,
   }),
-  divergencePct: z.number(),
+  // divergencePct는 음수 허용 (m60 괴리율). .finite()만 박제.
+  divergencePct: z.number().finite(),
 });
 export type ReportSection6 = z.infer<typeof reportSection6Schema>;
 
@@ -108,14 +115,42 @@ export type ReportAppendix = z.infer<typeof reportAppendixSchema>;
 // ---------------------------------------------------------------------------
 // Generic safe parser — validation 실패 또는 null 입력 시 null 반환.
 // transformer가 호출 후 page가 null guard로 fallback UI 렌더.
+// PR3a multi-source review (gsd CR-01 + red-team RT#2 + omxy R7 P2):
+// silent null drop은 PR1 cron 가동 후 운영 모니터링 blind spot 위험.
+// onError 콜백 제공해서 caller (transformer)가 ticker/section context 박제하도록 함.
+// 본 PR3a scope에서는 caller가 console.warn으로 위임 — 후속 PR1에서 metric으로 격상 예정.
 // ---------------------------------------------------------------------------
+
+export interface ParseErrorContext {
+  /** zod error path (e.g. ['partA', 0, 'vote']) — symbol 키는 제외 (jsonb path는 string|number만). */
+  readonly path: ReadonlyArray<string | number>;
+  /** zod error message */
+  readonly message: string;
+}
+
+function normalizePath(
+  path: ReadonlyArray<PropertyKey>,
+): ReadonlyArray<string | number> {
+  return path.filter((p): p is string | number => typeof p !== 'symbol');
+}
 
 export function parseSectionSafe<T>(
   schema: z.ZodType<T>,
   value: unknown,
+  onError?: (ctx: ParseErrorContext) => void,
 ): T | null {
+  // null/undefined 입력은 writer가 채우지 않은 정상 케이스 — 로그하지 않음.
+  if (value === null || value === undefined) return null;
   const result = schema.safeParse(value);
-  return result.success ? result.data : null;
+  if (result.success) return result.data;
+  if (onError) {
+    const first = result.error.issues[0];
+    onError({
+      path: first ? normalizePath(first.path) : [],
+      message: first?.message ?? 'unknown',
+    });
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,10 +186,63 @@ export type ReportSection8 =
   | { shape: 'modern'; data: ReportSection8Modern }
   | { shape: 'legacy'; data: ReportSection8Legacy };
 
-export function parseReportSection8(value: unknown): ReportSection8 | null {
+export interface ParseSection8ErrorContext {
+  readonly modernError: ParseErrorContext;
+  readonly legacyError: ParseErrorContext;
+}
+
+export function parseReportSection8(
+  value: unknown,
+  onError?: (ctx: ParseSection8ErrorContext) => void,
+): ReportSection8 | null {
+  if (value === null || value === undefined) return null;
   const modern = reportSection8ModernSchema.safeParse(value);
   if (modern.success) return { shape: 'modern', data: modern.data };
   const legacy = reportSection8LegacySchema.safeParse(value);
   if (legacy.success) return { shape: 'legacy', data: legacy.data };
+  if (onError) {
+    const m = modern.error.issues[0];
+    const l = legacy.error.issues[0];
+    onError({
+      modernError: {
+        path: m ? normalizePath(m.path) : [],
+        message: m?.message ?? 'unknown',
+      },
+      legacyError: {
+        path: l ? normalizePath(l.path) : [],
+        message: l?.message ?? 'unknown',
+      },
+    });
+  }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// PR3a testing T#5 catch — Section 8 partC core_revote / sector_aggregate를
+// committee aggregate shape ({approve, reject, abstain})로 매핑하는 pure helper.
+// RPC commit_persona_eval enum 매핑 (BUY→approve / HOLD→abstain / SELL→reject)과
+// 1:1 정합. JSX 내부에 인라인되어 있던 매핑 로직을 unit-testable 함수로 추출.
+// 매핑 convention drift 시 unit test가 즉시 catch.
+// ---------------------------------------------------------------------------
+
+export interface PartCVoteCounts {
+  readonly buy: number;
+  readonly hold: number;
+  readonly sell: number;
+}
+
+export interface CommitteeVoteAggregate {
+  readonly approve: number;
+  readonly reject: number;
+  readonly abstain: number;
+}
+
+export function partCToCommitteeAgg(
+  counts: PartCVoteCounts,
+): CommitteeVoteAggregate {
+  return {
+    approve: counts.buy,
+    abstain: counts.hold,
+    reject: counts.sell,
+  };
 }

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ShortListItem, StockReport } from "@/types/admin";
+import type { ShortListItem, StockReport, StockReportSections } from "@/types/admin";
 import {
   reportSection0Schema,
   reportSection1Schema,
@@ -22,6 +22,7 @@ import {
   type ReportSection7,
   type ReportSection8,
   type ReportAppendix,
+  type ParseErrorContext,
 } from "./report-section-schemas";
 
 // PR3a — page.tsx의 기존 type import path 보존 (re-export).
@@ -66,21 +67,11 @@ export interface StockReportDbRow {
 
 // PR3a — 각 section을 zod safeParse 통과시켜 nullable typed 결과로 반환.
 // page.tsx는 본 결과를 받아 null guard로 fallback UI 렌더.
-interface StockReportSectionsTyped {
-  section_0: unknown;
-  section_1: unknown;
-  section_2: unknown;
-  section_3: unknown;
-  section_4: unknown;
-  section_5: unknown;
-  section_6: unknown;
-  section_7: unknown;
-  section_8: unknown;
-  appendix: unknown;
-}
-
+// PR3a multi-source review (gsd WR-01): ValidatedStockReport는 StockReportSections
+// (admin.ts SoT) 전체 키를 omit해서 lockstep 보존 — 후속 PR이 admin.ts에 신규 section
+// 추가 시 ValidatedStockReport도 자동 갱신 필요 박제.
 export interface ValidatedStockReport
-  extends Omit<StockReport, keyof StockReportSectionsTyped> {
+  extends Omit<StockReport, keyof StockReportSections> {
   section_0: ReportSection0 | null;
   section_1: ReportSection1 | null;
   section_2: ReportSection2 | null;
@@ -96,9 +87,27 @@ export interface ValidatedStockReport
 const REPORT_COLUMNS =
   "id, ticker, month, version, schema_version, is_latest, section_0, section_1, section_2, section_3, section_4, section_5, section_6, section_7, section_8, appendix, regen_auto_count, regen_manual_count, generated_at";
 
+// PR3a multi-source review (gsd CR-01 + red-team RT#2 + omxy R7 P2):
+// silent null drop은 PR1 cron 가동 후 운영 monitoring blind spot. transformer가
+// section context와 ticker를 cline → console.warn으로 위임. PR1 wire 시점에
+// metric/logger로 격상하기 좋은 분리 지점.
+function warnSectionValidationFailure(
+  ticker: string,
+  section: string,
+  ctx: ParseErrorContext,
+): void {
+  const pathStr = ctx.path.length > 0 ? ctx.path.join('.') : '<root>';
+  console.warn(
+    `[admin-reports] ${section} validation failed for ticker=${ticker} ` +
+      `path=${pathStr} message=${ctx.message}`,
+  );
+}
+
 export function transformStockReportRow(
   row: StockReportDbRow,
 ): ValidatedStockReport {
+  const warn = (section: string) => (ctx: ParseErrorContext) =>
+    warnSectionValidationFailure(row.ticker, section, ctx);
   return {
     id: row.id,
     ticker: row.ticker,
@@ -106,16 +115,24 @@ export function transformStockReportRow(
     version: row.version,
     schemaVersion: row.schema_version,
     isLatest: row.is_latest,
-    section_0: parseSectionSafe(reportSection0Schema, row.section_0),
-    section_1: parseSectionSafe(reportSection1Schema, row.section_1),
-    section_2: parseSectionSafe(reportSection2Schema, row.section_2),
-    section_3: parseSectionSafe(reportSection3Schema, row.section_3),
-    section_4: parseSectionSafe(reportSection4Schema, row.section_4),
-    section_5: parseSectionSafe(reportSection5Schema, row.section_5),
-    section_6: parseSectionSafe(reportSection6Schema, row.section_6),
-    section_7: parseSectionSafe(reportSection7Schema, row.section_7),
-    section_8: parseReportSection8(row.section_8),
-    appendix: parseSectionSafe(reportAppendixSchema, row.appendix),
+    section_0: parseSectionSafe(reportSection0Schema, row.section_0, warn('section_0')),
+    section_1: parseSectionSafe(reportSection1Schema, row.section_1, warn('section_1')),
+    section_2: parseSectionSafe(reportSection2Schema, row.section_2, warn('section_2')),
+    section_3: parseSectionSafe(reportSection3Schema, row.section_3, warn('section_3')),
+    section_4: parseSectionSafe(reportSection4Schema, row.section_4, warn('section_4')),
+    section_5: parseSectionSafe(reportSection5Schema, row.section_5, warn('section_5')),
+    section_6: parseSectionSafe(reportSection6Schema, row.section_6, warn('section_6')),
+    section_7: parseSectionSafe(reportSection7Schema, row.section_7, warn('section_7')),
+    section_8: parseReportSection8(row.section_8, (s8ctx) => {
+      console.warn(
+        `[admin-reports] section_8 validation failed for ticker=${row.ticker} ` +
+          `modernPath=${s8ctx.modernError.path.join('.') || '<root>'} ` +
+          `modernMsg=${s8ctx.modernError.message} ` +
+          `legacyPath=${s8ctx.legacyError.path.join('.') || '<root>'} ` +
+          `legacyMsg=${s8ctx.legacyError.message}`,
+      );
+    }),
+    appendix: parseSectionSafe(reportAppendixSchema, row.appendix, warn('appendix')),
     regenAutoCount: row.regen_auto_count,
     regenManualCount: row.regen_manual_count,
     generatedAt: row.generated_at,
