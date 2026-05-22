@@ -1,74 +1,41 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ShortListItem, StockReport } from "@/types/admin";
+import {
+  reportSection0Schema,
+  reportSection1Schema,
+  reportSection2Schema,
+  reportSection3Schema,
+  reportSection4Schema,
+  reportSection5Schema,
+  reportSection6Schema,
+  reportSection7Schema,
+  reportAppendixSchema,
+  parseReportSection8,
+  parseSectionSafe,
+  type ReportSection0,
+  type ReportSection1,
+  type ReportSection2,
+  type ReportSection3,
+  type ReportSection4,
+  type ReportSection5,
+  type ReportSection6,
+  type ReportSection7,
+  type ReportSection8,
+  type ReportAppendix,
+} from "./report-section-schemas";
 
-// ---------------------------------------------------------------------------
-// jsonb section 타입 (T7e.3) — `stock_reports.section_X` 컬럼은 jsonb이고
-// `StockReport.section_X`는 `unknown`이다. 아래 타입들은 UI 렌더 시점의
-// shape 가정이며 실제 jsonb 적재는 S5 M10 / S7a 배치가 보증한다.
-// ---------------------------------------------------------------------------
-
-export type ReportSection0 = {
-  headline: string;
-  thesis: string[];
-  conviction: number;
-  committeeMini: {
-    core: { approve: number; reject: number; abstain: number };
-    sector: { approve: number; reject: number; abstain: number };
-  };
-  priceBands: { bear: string; base: string; bull: string };
-};
-
-export type ReportSection1 = {
-  description: string;
-  segments: { name: string; share: string }[];
-  keyFacts: { label: string; value: string }[];
-};
-
-export type ReportSection2 = {
-  summary: string;
-  revenue: { fy: string; value: string; yoy: string }[];
-  margins: { operating: string; net: string };
-  balance: { debtRatio: string; cash: string };
-};
-
-export type ReportSection3 = {
-  summary: string;
-  multiples: { metric: string; value: string; peer: string }[];
-};
-
-export type ReportSection4 = {
-  summary: string;
-  drivers: string[];
-  tam: string;
-};
-
-export type ReportSection5 = {
-  summary: string;
-  risks: { title: string; severity: "high" | "medium" | "low"; detail: string }[];
-};
-
-export type ReportSection6 = {
-  summary: string;
-  signals: { name: string; state: "on" | "watch" | "off"; note: string }[];
-  axis: { trend: number; momentum: number; volatility: number };
-  divergencePct: number;
-};
-
-export type ReportSection7 = {
-  summary: string;
-  triggers: string[];
-  alternatives: { label: string; detail: string }[];
-};
-
-export type ReportSection8 = {
-  conclusion: string;
-  recommendation: string;
-  keyQuotes: { side: "pro" | "con" | "neutral"; quote: string }[];
-};
-
-export type ReportAppendix = {
-  technicals: { name: string; value: string }[];
-  dataSources: string[];
+// PR3a — page.tsx의 기존 type import path 보존 (re-export).
+export type {
+  ReportSection0,
+  ReportSection1,
+  ReportSection2,
+  ReportSection3,
+  ReportSection4,
+  ReportSection5,
+  ReportSection6,
+  ReportSection7,
+  ReportSection8,
+  ReportAppendix,
 };
 
 // ---------------------------------------------------------------------------
@@ -97,10 +64,41 @@ export interface StockReportDbRow {
   generated_at: string;
 }
 
+// PR3a — 각 section을 zod safeParse 통과시켜 nullable typed 결과로 반환.
+// page.tsx는 본 결과를 받아 null guard로 fallback UI 렌더.
+interface StockReportSectionsTyped {
+  section_0: unknown;
+  section_1: unknown;
+  section_2: unknown;
+  section_3: unknown;
+  section_4: unknown;
+  section_5: unknown;
+  section_6: unknown;
+  section_7: unknown;
+  section_8: unknown;
+  appendix: unknown;
+}
+
+export interface ValidatedStockReport
+  extends Omit<StockReport, keyof StockReportSectionsTyped> {
+  section_0: ReportSection0 | null;
+  section_1: ReportSection1 | null;
+  section_2: ReportSection2 | null;
+  section_3: ReportSection3 | null;
+  section_4: ReportSection4 | null;
+  section_5: ReportSection5 | null;
+  section_6: ReportSection6 | null;
+  section_7: ReportSection7 | null;
+  section_8: ReportSection8 | null;
+  appendix: ReportAppendix | null;
+}
+
 const REPORT_COLUMNS =
   "id, ticker, month, version, schema_version, is_latest, section_0, section_1, section_2, section_3, section_4, section_5, section_6, section_7, section_8, appendix, regen_auto_count, regen_manual_count, generated_at";
 
-export function transformStockReportRow(row: StockReportDbRow): StockReport {
+export function transformStockReportRow(
+  row: StockReportDbRow,
+): ValidatedStockReport {
   return {
     id: row.id,
     ticker: row.ticker,
@@ -108,16 +106,16 @@ export function transformStockReportRow(row: StockReportDbRow): StockReport {
     version: row.version,
     schemaVersion: row.schema_version,
     isLatest: row.is_latest,
-    section_0: row.section_0,
-    section_1: row.section_1,
-    section_2: row.section_2,
-    section_3: row.section_3,
-    section_4: row.section_4,
-    section_5: row.section_5,
-    section_6: row.section_6,
-    section_7: row.section_7,
-    section_8: row.section_8,
-    appendix: row.appendix,
+    section_0: parseSectionSafe(reportSection0Schema, row.section_0),
+    section_1: parseSectionSafe(reportSection1Schema, row.section_1),
+    section_2: parseSectionSafe(reportSection2Schema, row.section_2),
+    section_3: parseSectionSafe(reportSection3Schema, row.section_3),
+    section_4: parseSectionSafe(reportSection4Schema, row.section_4),
+    section_5: parseSectionSafe(reportSection5Schema, row.section_5),
+    section_6: parseSectionSafe(reportSection6Schema, row.section_6),
+    section_7: parseSectionSafe(reportSection7Schema, row.section_7),
+    section_8: parseReportSection8(row.section_8),
+    appendix: parseSectionSafe(reportAppendixSchema, row.appendix),
     regenAutoCount: row.regen_auto_count,
     regenManualCount: row.regen_manual_count,
     generatedAt: row.generated_at,
@@ -132,7 +130,7 @@ export function transformStockReportRow(row: StockReportDbRow): StockReport {
 export async function getReportByTicker(
   ticker: string,
   options?: { month?: string },
-): Promise<StockReport | null> {
+): Promise<ValidatedStockReport | null> {
   const client = await createClient();
   let query = client
     .from("stock_reports")

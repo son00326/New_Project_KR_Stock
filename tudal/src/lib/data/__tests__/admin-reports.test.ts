@@ -4,6 +4,7 @@ import {
   deriveBucketNeighbors,
   getReportByTicker,
   type StockReportDbRow,
+  type ValidatedStockReport,
 } from "@/lib/data/admin-reports";
 import type { ShortListItem } from "@/types/admin";
 
@@ -20,6 +21,19 @@ vi.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
+// PR3a — 유효한 full-shape section fixture. validation 도입 후 partial shape는
+// null로 떨어지므로 의도적으로 valid full shape 사용.
+const validSection0 = {
+  headline: "테스트 헤드라인",
+  thesis: ["논제 1", "논제 2"],
+  conviction: 80,
+  committeeMini: {
+    core: { approve: 7, reject: 2, abstain: 2 },
+    sector: { approve: 8, reject: 4, abstain: 2 },
+  },
+  priceBands: { bear: "5만원", base: "7만원", bull: "9만원" },
+};
+
 const baseRow: StockReportDbRow = {
   id: "11111111-1111-1111-1111-111111111111",
   ticker: "005930",
@@ -27,16 +41,16 @@ const baseRow: StockReportDbRow = {
   version: 1,
   schema_version: 1,
   is_latest: true,
-  section_0: { headline: "테스트 헤드라인", conviction: 80 },
-  section_1: { description: "기업 개요" },
-  section_2: { summary: "재무" },
-  section_3: { summary: "밸류에이션" },
-  section_4: { summary: "성장성" },
-  section_5: { summary: "리스크" },
-  section_6: { summary: "모멘텀", axis: { trend: 80, momentum: 70, volatility: 85 } },
-  section_7: { summary: "Exit" },
-  section_8: { conclusion: "최종" },
-  appendix: { dataSources: ["pykrx"] },
+  section_0: validSection0,
+  section_1: null,
+  section_2: null,
+  section_3: null,
+  section_4: null,
+  section_5: null,
+  section_6: null,
+  section_7: null,
+  section_8: null,
+  appendix: null,
   regen_auto_count: 0,
   regen_manual_count: 0,
   generated_at: "2026-04-01T00:05:00.000Z",
@@ -56,8 +70,8 @@ beforeEach(() => {
 });
 
 describe("transformStockReportRow", () => {
-  it("maps snake_case DB columns to camelCase StockReport fields", () => {
-    const report = transformStockReportRow(baseRow);
+  it("maps snake_case DB columns to camelCase ValidatedStockReport fields", () => {
+    const report: ValidatedStockReport = transformStockReportRow(baseRow);
     expect(report.id).toBe(baseRow.id);
     expect(report.ticker).toBe("005930");
     expect(report.month).toBe("2026-04-01");
@@ -69,24 +83,86 @@ describe("transformStockReportRow", () => {
     expect(report.generatedAt).toBe("2026-04-01T00:05:00.000Z");
   });
 
-  it("preserves jsonb section payloads as-is (no shape mutation)", () => {
+  it("validates and returns typed section_0 when full-shape jsonb", () => {
     const report = transformStockReportRow(baseRow);
-    expect(report.section_0).toEqual(baseRow.section_0);
-    expect(report.section_6).toEqual(baseRow.section_6);
-    expect(report.appendix).toEqual(baseRow.appendix);
+    expect(report.section_0).not.toBeNull();
+    expect(report.section_0?.conviction).toBe(80);
+    expect(report.section_0?.headline).toBe("테스트 헤드라인");
   });
 
-  it("preserves null jsonb sections without coercion", () => {
+  it("returns null for partial/invalid section_0 (missing thesis/committeeMini)", () => {
+    const row: StockReportDbRow = {
+      ...baseRow,
+      section_0: { headline: "h", conviction: 80 },
+    };
+    expect(transformStockReportRow(row).section_0).toBeNull();
+  });
+
+  it("returns null for every section when DB row is fully null (PR3b 미구현 상태)", () => {
     const sparse: StockReportDbRow = {
       ...baseRow,
-      section_2: null,
-      section_5: null,
-      appendix: null,
+      section_0: null,
     };
     const report = transformStockReportRow(sparse);
+    expect(report.section_0).toBeNull();
+    expect(report.section_1).toBeNull();
     expect(report.section_2).toBeNull();
+    expect(report.section_3).toBeNull();
+    expect(report.section_4).toBeNull();
     expect(report.section_5).toBeNull();
+    expect(report.section_6).toBeNull();
+    expect(report.section_7).toBeNull();
+    expect(report.section_8).toBeNull();
     expect(report.appendix).toBeNull();
+  });
+
+  it("detects modern section_8 shape (writer.ts 신규 출력)", () => {
+    const row: StockReportDbRow = {
+      ...baseRow,
+      section_8: {
+        partA: [],
+        partB: [
+          { issue: "i1", pro_quote: "p", con_quote: "c" },
+          { issue: "i2", pro_quote: "p", con_quote: "c" },
+          { issue: "i3", pro_quote: "p", con_quote: "c" },
+        ],
+        partC: {
+          sector_aggregate: { buy: 0, hold: 0, sell: 0 },
+          core_revote: { buy: 7, hold: 3, sell: 1 },
+          co_chair_unanimous: false,
+          verdict: "BUY",
+          rationale: ["근거"],
+        },
+        partD: Array.from({ length: 11 }, (_, i) => ({
+          persona_id: `c${i}`,
+          label: `l${i}`,
+          philosophy: "v",
+          vote: "BUY",
+          one_line: "o",
+        })),
+      },
+    };
+    expect(transformStockReportRow(row).section_8?.shape).toBe("modern");
+  });
+
+  it("detects legacy section_8 shape (전환기 잔존 row)", () => {
+    const row: StockReportDbRow = {
+      ...baseRow,
+      section_8: {
+        conclusion: "c",
+        recommendation: "r",
+        keyQuotes: [{ side: "pro", quote: "q" }],
+      },
+    };
+    expect(transformStockReportRow(row).section_8?.shape).toBe("legacy");
+  });
+
+  it("returns null section_8 when neither shape matches", () => {
+    const row: StockReportDbRow = {
+      ...baseRow,
+      section_8: { foo: "bar" },
+    };
+    expect(transformStockReportRow(row).section_8).toBeNull();
   });
 });
 
