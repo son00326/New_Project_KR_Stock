@@ -22,7 +22,9 @@ function buildSelected30(): TickerAggregate[] {
   for (const tf of timeframes) {
     for (let i = 0; i < 10; i++) {
       rows.push({
-        ticker: `${tf}-${String(i).padStart(3, '0')}`,
+        // B23 fix (omxy R11): 6-digit ticker로 fixture 갱신 (TICKER_RE=^\d{6}$ 통과).
+        // tf-index encoding: short=0, mid=1, long=2 → "${prefix}${index 2-digit}${00}".
+        ticker: `${({ short: '00', mid: '01', long: '02' } as const)[tf]}${String(i).padStart(2, '0')}00`,
         sector: null,
         weighted_scores: { short: 70, mid: 70, long: 70 },
         primary_timeframe: tf,
@@ -131,12 +133,35 @@ describe('upsertShortList30', () => {
     expect(col).toBe('ticker');
     expect(op).toBe('in');
     expect(value).toMatch(/^\(.*\)$/);
-    // 모든 30 새 ticker가 NOT IN 절에 포함
+    // 모든 30 새 ticker가 NOT IN 절에 포함 (B23 fix: 6-digit format)
     for (const tf of ['short', 'mid', 'long'] as const) {
+      const prefix = ({ short: '00', mid: '01', long: '02' } as const)[tf];
       for (let i = 0; i < 10; i++) {
-        expect(value).toContain(`"${tf}-${String(i).padStart(3, '0')}"`);
+        const ticker = `${prefix}${String(i).padStart(2, '0')}00`;
+        expect(value).toContain(`"${ticker}"`);
       }
     }
+  });
+
+  // B23 fix (omxy R11): malicious ticker (PostgREST filter injection) reject
+  it('B23: rejects ticker with non-6-digit format (PostgREST injection guard)', async () => {
+    const rows = buildSelected30();
+    // PostgREST filter break attempt
+    rows[0] = { ...rows[0], ticker: '005930")...)' };
+    await expect(upsertShortList30('2026-06', rows)).rejects.toThrow(
+      /invalid_ticker:/,
+    );
+    // DELETE/UPSERT 모두 0회 호출 (early throw)
+    expect(deleteMock).not.toHaveBeenCalled();
+    expect(upsertMock).not.toHaveBeenCalled();
+  });
+
+  it('B23: rejects ticker with letters (e.g., short-000 legacy format)', async () => {
+    const rows = buildSelected30();
+    rows[5] = { ...rows[5], ticker: 'short-000' };
+    await expect(upsertShortList30('2026-06', rows)).rejects.toThrow(
+      /invalid_ticker:short-000/,
+    );
   });
 
   it('MF2: delete failure surfaces as shortlist_persist_failed', async () => {

@@ -8,6 +8,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TickerAggregate } from '@/lib/screening/tier1-schema';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+// B23 fix (omxy R11): ticker는 한국 종목 6자리 숫자만 허용. MF2 stale delete의 PostgREST filter
+// raw string 조립 안전성 보장 (malformed ticker → invalid_ticker throw, DELETE 미호출).
+const TICKER_RE = /^\d{6}$/;
 
 interface ShortListRow {
   month: string; // YYYY-MM-01 date literal
@@ -51,6 +54,10 @@ export async function upsertShortList30(
     long: [],
   };
   for (const agg of selected) {
+    // B23 fix (omxy R11): ticker 형식 검증 — MF2 DELETE PostgREST filter 조립 안전성.
+    if (!TICKER_RE.test(agg.ticker)) {
+      throw new Error(`invalid_ticker:${agg.ticker}`);
+    }
     if (agg.assigned_timeframe === null) {
       throw new Error(
         `assigned_timeframe_null_for_selected:${agg.ticker}`,
