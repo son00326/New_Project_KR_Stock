@@ -30,11 +30,11 @@
 
 | File | Action | Responsibility |
 |---|---|---|
-| `tudal/src/lib/data/report-section-schemas.ts` | **Create** | zod schemas (Section 0~8 + Appendix) + `parseReportSection8` dual-shape parser + `parseSectionSafe<T>` generic helper. SoT for jsonb shape validation. |
-| `tudal/src/lib/data/__tests__/report-section-schemas.test.ts` | **Create** | schema valid/invalid/null/empty 입력 케이스. Section 8 modern vs legacy detection. |
+| `tudal/src/lib/data/report-section-schemas.ts` | **Create** | zod schemas (Section 0~7 + Appendix) + Section 8 modern = `section8Schema` (from `@/lib/report/section-8-schema` import, **재정의 금지 — B4 single SoT**) + legacy schema + `parseReportSection8` dual-shape parser + `parseSectionSafe<T>` generic helper. |
+| `tudal/src/lib/data/__tests__/report-section-schemas.test.ts` | **Create** | schema valid/invalid/null/empty + zod edge-case 전수 (B2): partA 0/14 pass + 1/13 reject, partB 2/6 reject + 3/5 pass, partD 10/12 reject, rationale 0/6 reject, vote/severity/state/keyQuotes.side enum invalid reject. Section 8 modern vs legacy detection + cross-check (`section8HappyExample`/`BScopeExample`이 modern으로 detect). |
 | `tudal/src/lib/data/admin-reports.ts` | **Modify** | `ReportSectionX` 타입 정의를 `report-section-schemas.ts`에서 re-export. `transformStockReportRow` 안에서 각 section을 `safeParse` 통과시킨 후 nullable typed 객체로 반환. 신규 `ValidatedStockReport` 타입 export. |
-| `tudal/src/lib/data/__tests__/admin-reports-transformer.test.ts` | **Create** | `transformStockReportRow` validation 테스트 — null section pass-through, malformed → null, valid → typed object. Section 8 modern + legacy shape 모두. |
-| `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` | **Modify** | `as ReportSectionX` 강제 어서션 전면 제거 + section null guard + 헤더 `section0?.conviction ?? '—'` + Section 8 modern/legacy 분기 렌더러 + 미구현 본문 fallback UI ("PR3b에서 채워집니다") + 모든 SectionXView가 `data: ReportSectionX \| null` 처리. |
+| `tudal/src/lib/data/__tests__/admin-reports.test.ts` | **Modify (B1)** | 기존 test 파일 갱신. (1) `baseRow`의 partial invalid sections (section_0 = `{headline, conviction}` 등)을 valid full shape로 교체. (2) "preserves jsonb payload as-is" assertions를 "validates and returns typed sections" + "returns null for invalid/null sections"로 교체. (3) Section 8 modern + legacy shape detection 추가. **신규 파일 생성 금지 (B1 정정)**. |
+| `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` | **Modify** | `as ReportSectionX` 강제 어서션 전면 제거 + section null guard + 헤더 `section0?.conviction ?? '—'` + Section 8 modern/legacy 분기 렌더러 + **modern view = `data.partC.core_revote`/`partC.sector_aggregate` authoritative 렌더 (B3 정정 — 외부 `aggregateVotes` 결과는 committee_votes 디테일 패널로 분리, partC drift 차단)** + 미구현 본문 fallback UI ("PR3b에서 채워집니다") + 모든 SectionXView가 `data: ReportSectionX \| null` 처리. |
 
 **Pattern compliance**: `section-8-schema.ts`와 `tier1-schema.ts`의 zod refinement 패턴 재사용. 새 abstraction 도입 최소화. PR2의 PersonaPanelSchema invariant test 패턴 참고.
 
@@ -309,55 +309,71 @@ git commit -m "feat(PR3a): Section 0~7 + Appendix zod schemas (Group H drift fix
 - Modify: `tudal/src/lib/data/report-section-schemas.ts`
 - Test: `tudal/src/lib/data/__tests__/report-section-schemas.test.ts`
 
-- [ ] **Step 1: Write failing tests for Section 8 dual-shape parser**
+- [ ] **Step 1: Write failing tests for Section 8 dual-shape parser + zod edge cases (B2)**
 
 ```typescript
 // Append to tudal/src/lib/data/__tests__/report-section-schemas.test.ts
 
 import { parseReportSection8 } from '../report-section-schemas';
+import {
+  section8HappyExample,
+  section8BScopeExample,
+} from '@/lib/report/section-8-schema';
 
-describe('parseReportSection8 (dual-shape)', () => {
-  const modernValid = {
-    partA: [], // B 범위 = 0 또는 14
-    partB: [
-      { issue: '특허', pro_quote: 'p', con_quote: 'c' },
-      { issue: '수수료', pro_quote: 'p', con_quote: 'c' },
-      { issue: '신약', pro_quote: 'p', con_quote: 'c' },
-    ],
-    partC: {
-      sector_aggregate: { buy: 0, hold: 0, sell: 0 },
-      core_revote: { buy: 7, hold: 3, sell: 1 },
-      co_chair_unanimous: false,
-      verdict: 'BUY',
-      rationale: ['근거 1'],
-    },
-    partD: Array.from({ length: 11 }, (_, i) => ({
-      persona_id: `core-${i}`,
-      label: `Core ${i}`,
-      philosophy: 'value',
-      vote: 'BUY',
-      one_line: 'one',
-    })),
-  };
+const modernValidBScope = {
+  partA: [], // B scope (length 0)
+  partB: [
+    { issue: '특허', pro_quote: 'p', con_quote: 'c' },
+    { issue: '수수료', pro_quote: 'p', con_quote: 'c' },
+    { issue: '신약', pro_quote: 'p', con_quote: 'c' },
+  ],
+  partC: {
+    sector_aggregate: { buy: 0, hold: 0, sell: 0 },
+    core_revote: { buy: 7, hold: 3, sell: 1 },
+    co_chair_unanimous: false,
+    verdict: 'BUY' as const,
+    rationale: ['근거 1'],
+  },
+  partD: Array.from({ length: 11 }, (_, i) => ({
+    persona_id: `core-${i}`,
+    label: `Core ${i}`,
+    philosophy: 'value',
+    vote: 'BUY',
+    one_line: 'one',
+  })),
+};
 
-  const legacyValid = {
-    conclusion: '결론',
-    recommendation: '매수',
-    keyQuotes: [{ side: 'pro', quote: '근거' }],
-  };
+const legacyValid = {
+  conclusion: '결론',
+  recommendation: '매수',
+  keyQuotes: [{ side: 'pro', quote: '근거' }],
+};
 
-  it('detects modern shape and tags it', () => {
-    const result = parseReportSection8(modernValid);
-    expect(result).not.toBeNull();
+describe('parseReportSection8 (dual-shape detection)', () => {
+  it('detects modern shape (B scope, partA=0) and tags it', () => {
+    const result = parseReportSection8(modernValidBScope);
     expect(result?.shape).toBe('modern');
     if (result?.shape === 'modern') {
       expect(result.data.partD).toHaveLength(11);
+      expect(result.data.partA).toHaveLength(0);
     }
+  });
+
+  it('detects modern shape (Tier 2 active, partA=14) using section8HappyExample (B4 cross-check)', () => {
+    const result = parseReportSection8(section8HappyExample);
+    expect(result?.shape).toBe('modern');
+    if (result?.shape === 'modern') {
+      expect(result.data.partA).toHaveLength(14);
+    }
+  });
+
+  it('detects modern shape using section8BScopeExample (B4 cross-check)', () => {
+    const result = parseReportSection8(section8BScopeExample);
+    expect(result?.shape).toBe('modern');
   });
 
   it('detects legacy shape and tags it', () => {
     const result = parseReportSection8(legacyValid);
-    expect(result).not.toBeNull();
     expect(result?.shape).toBe('legacy');
     if (result?.shape === 'legacy') {
       expect(result.data.conclusion).toBe('결론');
@@ -372,42 +388,173 @@ describe('parseReportSection8 (dual-shape)', () => {
     expect(parseReportSection8(null)).toBeNull();
   });
 
-  it('rejects modern partA length 1~13 (must be 0 or 14)', () => {
-    const invalid = {
-      ...modernValid,
-      partA: [
-        {
-          persona_id: 'p',
-          label: 'l',
-          background: 'b',
-          vote: 'BUY',
-          one_line: 'o',
-        },
-      ],
-    };
-    const result = parseReportSection8(invalid);
-    // partA invalid + legacy fields 없음 → null
-    expect(result).toBeNull();
-  });
-
   it('prefers modern over legacy when both could match', () => {
-    // 실 production에서 안 일어나지만 invariant 검증
     const ambiguous = {
-      ...modernValid,
+      ...modernValidBScope,
       conclusion: 'stray',
       recommendation: 'stray',
       keyQuotes: [],
     };
-    const result = parseReportSection8(ambiguous);
-    expect(result?.shape).toBe('modern');
+    expect(parseReportSection8(ambiguous)?.shape).toBe('modern');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B2 — zod refinement edge-case TDD 전수
+// ---------------------------------------------------------------------------
+
+describe('Section 8 modern refinements (B2)', () => {
+  it('rejects partA length 1 (must be 0 or 14)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partA: [
+        { persona_id: 'p', label: 'l', background: 'b', vote: 'BUY', one_line: 'o' },
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partA length 13 (must be 0 or 14)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partA: Array.from({ length: 13 }, (_, i) => ({
+        persona_id: `s${i}`,
+        label: `l${i}`,
+        background: 'b',
+        vote: 'BUY',
+        one_line: 'o',
+      })),
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partB length 2 (min 3)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partB: modernValidBScope.partB.slice(0, 2),
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('accepts partB length 5 (max boundary)', () => {
+    const valid = {
+      ...modernValidBScope,
+      partB: [
+        ...modernValidBScope.partB,
+        { issue: 'i4', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i5', pro_quote: 'p', con_quote: 'c' },
+      ],
+    };
+    expect(parseReportSection8(valid)?.shape).toBe('modern');
+  });
+
+  it('rejects partB length 6 (max 5)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partB: [
+        ...modernValidBScope.partB,
+        { issue: 'i4', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i5', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i6', pro_quote: 'p', con_quote: 'c' },
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partD length 10 (must be exactly 11)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partD: modernValidBScope.partD.slice(0, 10),
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partD length 12 (must be exactly 11)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partD: [
+        ...modernValidBScope.partD,
+        { persona_id: 'extra', label: 'l', philosophy: 'v', vote: 'BUY', one_line: 'o' },
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partC.rationale length 0 (min 1)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partC: { ...modernValidBScope.partC, rationale: [] },
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partC.rationale length 6 (max 5)', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partC: {
+        ...modernValidBScope.partC,
+        rationale: ['1', '2', '3', '4', '5', '6'],
+      },
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partD with invalid vote enum', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partD: [
+        { ...modernValidBScope.partD[0], vote: 'STRONG_BUY' },
+        ...modernValidBScope.partD.slice(1),
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
+  it('rejects partC.verdict outside enum', () => {
+    const invalid = {
+      ...modernValidBScope,
+      partC: { ...modernValidBScope.partC, verdict: 'STRONG_SELL' },
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+});
+
+describe('Section 8 legacy refinements (B2)', () => {
+  it('rejects keyQuotes.side outside enum', () => {
+    const invalid = {
+      conclusion: 'c',
+      recommendation: 'r',
+      keyQuotes: [{ side: 'bullish', quote: 'q' }],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+});
+
+describe('Section 5 + 6 enum refinements (B2)', () => {
+  it('rejects section 5 risk.severity outside enum', () => {
+    const invalid = {
+      summary: 's',
+      risks: [{ title: 't', severity: 'critical', detail: 'd' }],
+    };
+    expect(reportSection5Schema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('rejects section 6 signal.state outside enum', () => {
+    const invalid = {
+      summary: 's',
+      signals: [{ name: 'm5', state: 'flashing', note: '' }],
+      axis: { trend: 0, momentum: 0, volatility: 0 },
+      divergencePct: 0,
+    };
+    expect(reportSection6Schema.safeParse(invalid).success).toBe(false);
   });
 });
 ```
 
 Run: `cd tudal && npm run test:ci -- src/lib/data/__tests__/report-section-schemas.test.ts`
-Expected: FAIL (parseReportSection8 not exported).
+Expected: FAIL (parseReportSection8 / reportSection5Schema / reportSection6Schema not exported).
 
-- [ ] **Step 2: Add Section 8 dual-shape schemas + parseReportSection8**
+- [ ] **Step 2: Add Section 8 dual-shape parser (import modern schema from existing SoT — B4 정정)**
 
 ```typescript
 // Append to tudal/src/lib/data/report-section-schemas.ts
@@ -415,63 +562,19 @@ Expected: FAIL (parseReportSection8 not exported).
 // ---------------------------------------------------------------------------
 // Section 8 dual-shape — PR3a 전환 기간 대응.
 //   modern = writer.ts::commitTickerReport 신규 출력 {partA, partB, partC, partD}
+//            → B4 정정: 단일 SoT는 lib/report/section-8-schema.ts. 본 파일은
+//              import + alias만 (재정의 금지).
 //   legacy = 이전 박제 shape {conclusion, recommendation, keyQuotes}
 // 둘 중 하나라도 valid 시 tagged union으로 반환. 둘 다 invalid 시 null.
 // modern 우선 (현 writer 출력이 modern shape이므로).
 // ---------------------------------------------------------------------------
 
-const voteEnum = z.enum(['BUY', 'HOLD', 'SELL']);
-
-const sectorVoteRowSchema = z.object({
-  persona_id: z.string(),
-  label: z.string(),
-  background: z.string(),
-  vote: voteEnum,
-  one_line: z.string(),
-});
-
-const coreVoteRowSchema = z.object({
-  persona_id: z.string(),
-  label: z.string(),
-  philosophy: z.string(),
-  vote: voteEnum,
-  one_line: z.string(),
-});
-
-const issueDebateExcerptSchema = z.object({
-  issue: z.string(),
-  pro_quote: z.string(),
-  con_quote: z.string(),
-  arbiter_quote: z.string().optional(),
-});
-
-const finalConsensusPanelSchema = z.object({
-  sector_aggregate: z.object({
-    buy: z.number().int().nonnegative(),
-    hold: z.number().int().nonnegative(),
-    sell: z.number().int().nonnegative(),
-  }),
-  core_revote: z.object({
-    buy: z.number().int().nonnegative(),
-    hold: z.number().int().nonnegative(),
-    sell: z.number().int().nonnegative(),
-  }),
-  co_chair_unanimous: z.boolean(),
-  verdict: voteEnum,
-  rationale: z.array(z.string()).min(1).max(5),
-});
-
-export const reportSection8ModernSchema = z.object({
-  partA: z
-    .array(sectorVoteRowSchema)
-    .refine((arr) => arr.length === 0 || arr.length === 14, {
-      message: 'partA length must be 0 (B scope) or 14 (Tier 2 active)',
-    }),
-  partB: z.array(issueDebateExcerptSchema).min(3).max(5),
-  partC: finalConsensusPanelSchema,
-  partD: z.array(coreVoteRowSchema).length(11),
-});
-export type ReportSection8Modern = z.infer<typeof reportSection8ModernSchema>;
+import {
+  section8Schema as reportSection8ModernSchema,
+  type Section8 as ReportSection8Modern,
+} from '@/lib/report/section-8-schema';
+export { reportSection8ModernSchema };
+export type { ReportSection8Modern };
 
 export const reportSection8LegacySchema = z.object({
   conclusion: z.string(),
@@ -498,6 +601,8 @@ export function parseReportSection8(value: unknown): ReportSection8 | null {
 }
 ```
 
+**B4 정정**: `lib/report/section-8-schema.ts`의 `section8Schema` + `Section8` 타입을 alias로 import + re-export만 한다. 본 파일에 `partA/partB/partC/partD` schemas를 재정의하지 않는다. 단일 SoT 보존. writer.ts와 본 parser가 동일 schema 인스턴스를 사용하므로 drift 위험 0. 위 Step 1 cross-check tests (`section8HappyExample`/`section8BScopeExample`)가 이 invariant를 단단히 묶는다.
+
 Run: `cd tudal && npm run test:ci -- src/lib/data/__tests__/report-section-schemas.test.ts`
 Expected: PASS (all 14+ tests).
 
@@ -510,31 +615,63 @@ git commit -m "feat(PR3a): Section 8 dual-shape schema (modern partA~D + legacy 
 
 ---
 
-## Task 3: transformStockReportRow validation refactor
+## Task 3: transformStockReportRow validation refactor (B1 — 기존 test 갱신)
 
 **Files:**
 - Modify: `tudal/src/lib/data/admin-reports.ts`
-- Test: `tudal/src/lib/data/__tests__/admin-reports-transformer.test.ts`
+- Modify: `tudal/src/lib/data/__tests__/admin-reports.test.ts` **(기존 파일 갱신 — 신규 파일 생성 금지, B1 정정)**
 
-- [ ] **Step 1: Write failing tests for validated transformer**
+- [ ] **Step 1: Modify existing `admin-reports.test.ts` — replace pass-through assertions with validation assertions**
+
+기존 파일의 (a) `baseRow` partial invalid sections (b) `"preserves jsonb section payloads as-is"` (c) `"preserves null jsonb sections without coercion"` 3 구역만 교체. `getReportByTicker` + `deriveBucketNeighbors` 테스트는 그대로 유지.
 
 ```typescript
-// tudal/src/lib/data/__tests__/admin-reports-transformer.test.ts
-import { describe, it, expect } from 'vitest';
+// Replace top of tudal/src/lib/data/__tests__/admin-reports.test.ts (imports + baseRow)
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   transformStockReportRow,
+  deriveBucketNeighbors,
+  getReportByTicker,
   type StockReportDbRow,
   type ValidatedStockReport,
-} from '../admin-reports';
+} from "@/lib/data/admin-reports";
+import type { ShortListItem } from "@/types/admin";
+
+const mocks = vi.hoisted(() => ({
+  from: vi.fn(),
+  select: vi.fn(),
+  eq: vi.fn(),
+  maybeSingle: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    from: mocks.from,
+  })),
+}));
+
+// PR3a — 유효한 full-shape section fixture. 기존 partial shape는 validation
+// 도입 후 null로 떨어지므로 의도적으로 valid full shape로 교체.
+const validSection0 = {
+  headline: "테스트 헤드라인",
+  thesis: ["논제 1", "논제 2"],
+  conviction: 80,
+  committeeMini: {
+    core: { approve: 7, reject: 2, abstain: 2 },
+    sector: { approve: 8, reject: 4, abstain: 2 },
+  },
+  priceBands: { bear: "5만원", base: "7만원", bull: "9만원" },
+};
 
 const baseRow: StockReportDbRow = {
-  id: 'r1',
-  ticker: '005930',
-  month: '2026-05-01',
+  id: "11111111-1111-1111-1111-111111111111",
+  ticker: "005930",
+  month: "2026-04-01",
   version: 1,
   schema_version: 1,
   is_latest: true,
-  section_0: null,
+  section_0: validSection0,
   section_1: null,
   section_2: null,
   section_3: null,
@@ -546,99 +683,128 @@ const baseRow: StockReportDbRow = {
   appendix: null,
   regen_auto_count: 0,
   regen_manual_count: 0,
-  generated_at: '2026-05-22T00:00:00Z',
+  generated_at: "2026-04-01T00:05:00.000Z",
 };
 
-describe('transformStockReportRow', () => {
-  it('returns null for every section when DB row is fully null (PR3b 미구현 상태)', () => {
-    const result: ValidatedStockReport = transformStockReportRow(baseRow);
-    expect(result.section_0).toBeNull();
-    expect(result.section_1).toBeNull();
-    expect(result.section_2).toBeNull();
-    expect(result.section_3).toBeNull();
-    expect(result.section_4).toBeNull();
-    expect(result.section_5).toBeNull();
-    expect(result.section_6).toBeNull();
-    expect(result.section_7).toBeNull();
-    expect(result.section_8).toBeNull();
-    expect(result.appendix).toBeNull();
-    expect(result.id).toBe('r1');
-    expect(result.ticker).toBe('005930');
+beforeEach(() => {
+  vi.clearAllMocks();
+  const query = {
+    select: mocks.select,
+    eq: mocks.eq,
+    maybeSingle: mocks.maybeSingle,
+  };
+  mocks.from.mockReturnValue(query);
+  mocks.select.mockReturnValue(query);
+  mocks.eq.mockReturnValue(query);
+  mocks.maybeSingle.mockResolvedValue({ data: baseRow, error: null });
+});
+```
+
+Replace the `describe('transformStockReportRow', ...)` block (originally 3 it() blocks asserting pass-through) with:
+
+```typescript
+describe("transformStockReportRow", () => {
+  it("maps snake_case DB columns to camelCase ValidatedStockReport fields", () => {
+    const report: ValidatedStockReport = transformStockReportRow(baseRow);
+    expect(report.id).toBe(baseRow.id);
+    expect(report.ticker).toBe("005930");
+    expect(report.month).toBe("2026-04-01");
+    expect(report.version).toBe(1);
+    expect(report.schemaVersion).toBe(1);
+    expect(report.isLatest).toBe(true);
+    expect(report.regenAutoCount).toBe(0);
+    expect(report.regenManualCount).toBe(0);
+    expect(report.generatedAt).toBe("2026-04-01T00:05:00.000Z");
   });
 
-  it('validates and returns typed section_0 when valid jsonb', () => {
-    const row: StockReportDbRow = {
-      ...baseRow,
-      section_0: {
-        headline: 'h',
-        thesis: ['t'],
-        conviction: 80,
-        committeeMini: {
-          core: { approve: 7, reject: 2, abstain: 2 },
-          sector: { approve: 8, reject: 4, abstain: 2 },
-        },
-        priceBands: { bear: '5', base: '7', bull: '9' },
-      },
-    };
-    const result = transformStockReportRow(row);
-    expect(result.section_0).not.toBeNull();
-    expect(result.section_0?.conviction).toBe(80);
+  it("validates and returns typed section_0 when full-shape jsonb", () => {
+    const report = transformStockReportRow(baseRow);
+    expect(report.section_0).not.toBeNull();
+    expect(report.section_0?.conviction).toBe(80);
+    expect(report.section_0?.headline).toBe("테스트 헤드라인");
   });
 
-  it('returns null for section_0 when shape is malformed', () => {
+  it("returns null for partial/invalid section_0 (no thesis/committeeMini)", () => {
     const row: StockReportDbRow = {
       ...baseRow,
-      section_0: { headline: 'h', thesis: 'not-array', conviction: 'NaN' },
+      section_0: { headline: "h", conviction: 80 },
     };
     expect(transformStockReportRow(row).section_0).toBeNull();
   });
 
-  it('detects modern section_8 shape', () => {
+  it("returns null for every section when DB row is fully null (PR3b 미구현 상태)", () => {
+    const sparse: StockReportDbRow = {
+      ...baseRow,
+      section_0: null,
+    };
+    const report = transformStockReportRow(sparse);
+    expect(report.section_0).toBeNull();
+    expect(report.section_1).toBeNull();
+    expect(report.section_2).toBeNull();
+    expect(report.section_3).toBeNull();
+    expect(report.section_4).toBeNull();
+    expect(report.section_5).toBeNull();
+    expect(report.section_6).toBeNull();
+    expect(report.section_7).toBeNull();
+    expect(report.section_8).toBeNull();
+    expect(report.appendix).toBeNull();
+  });
+
+  it("detects modern section_8 shape (writer.ts 신규 출력)", () => {
     const row: StockReportDbRow = {
       ...baseRow,
       section_8: {
         partA: [],
         partB: [
-          { issue: 'i1', pro_quote: 'p', con_quote: 'c' },
-          { issue: 'i2', pro_quote: 'p', con_quote: 'c' },
-          { issue: 'i3', pro_quote: 'p', con_quote: 'c' },
+          { issue: "i1", pro_quote: "p", con_quote: "c" },
+          { issue: "i2", pro_quote: "p", con_quote: "c" },
+          { issue: "i3", pro_quote: "p", con_quote: "c" },
         ],
         partC: {
           sector_aggregate: { buy: 0, hold: 0, sell: 0 },
           core_revote: { buy: 7, hold: 3, sell: 1 },
           co_chair_unanimous: false,
-          verdict: 'BUY',
-          rationale: ['근거'],
+          verdict: "BUY",
+          rationale: ["근거"],
         },
         partD: Array.from({ length: 11 }, (_, i) => ({
           persona_id: `c${i}`,
           label: `l${i}`,
-          philosophy: 'v',
-          vote: 'BUY',
-          one_line: 'o',
+          philosophy: "v",
+          vote: "BUY",
+          one_line: "o",
         })),
       },
     };
-    const result = transformStockReportRow(row);
-    expect(result.section_8?.shape).toBe('modern');
+    expect(transformStockReportRow(row).section_8?.shape).toBe("modern");
   });
 
-  it('detects legacy section_8 shape', () => {
+  it("detects legacy section_8 shape (전환기 잔존 row)", () => {
     const row: StockReportDbRow = {
       ...baseRow,
       section_8: {
-        conclusion: 'c',
-        recommendation: 'r',
-        keyQuotes: [{ side: 'pro', quote: 'q' }],
+        conclusion: "c",
+        recommendation: "r",
+        keyQuotes: [{ side: "pro", quote: "q" }],
       },
     };
-    expect(transformStockReportRow(row).section_8?.shape).toBe('legacy');
+    expect(transformStockReportRow(row).section_8?.shape).toBe("legacy");
+  });
+
+  it("returns null section_8 when neither shape matches", () => {
+    const row: StockReportDbRow = {
+      ...baseRow,
+      section_8: { foo: "bar" },
+    };
+    expect(transformStockReportRow(row).section_8).toBeNull();
   });
 });
 ```
 
-Run: `cd tudal && npm run test:ci -- src/lib/data/__tests__/admin-reports-transformer.test.ts`
-Expected: FAIL (`ValidatedStockReport` not exported, transformer returns `StockReport` with `unknown` sections).
+Leave `describe('getReportByTicker', ...)` + `describe('deriveBucketNeighbors', ...)` unchanged.
+
+Run: `cd tudal && npm run test:ci -- src/lib/data/__tests__/admin-reports.test.ts`
+Expected: FAIL (`ValidatedStockReport` not exported, transformer returns `StockReport`).
 
 - [ ] **Step 2: Refactor `admin-reports.ts` to use schemas + return `ValidatedStockReport`**
 
@@ -814,7 +980,7 @@ Expected: PASS / no new tsc errors except inside page.tsx (we will fix in Task 4
 - [ ] **Step 4: Commit**
 
 ```bash
-git add tudal/src/lib/data/admin-reports.ts tudal/src/lib/data/__tests__/admin-reports-transformer.test.ts
+git add tudal/src/lib/data/admin-reports.ts tudal/src/lib/data/__tests__/admin-reports.test.ts
 git commit -m "feat(PR3a): validated transformer returns nullable typed sections"
 ```
 
@@ -996,7 +1162,9 @@ function Section8View({
 }
 
 // PR3a — modern (writer.ts 신규 출력) 렌더러.
-// partC.verdict / partC.rationale / partD 위주.
+// B3 정정: partC.core_revote + partC.sector_aggregate 가 authoritative.
+// 외부 committee_votes aggregation (coreAgg/sectorAgg)은 별도 "audit" 카드로
+// 분리해 drift 위험 표면화 (정상 시 partC와 일치; lag/empty 시 partC 우선).
 function Section8ModernView({
   data,
   coreAgg,
@@ -1018,11 +1186,26 @@ function Section8ModernView({
       : data.partC.verdict === "SELL"
         ? "매도"
         : "관망";
+
+  // B3 — partC authoritative aggregate (BUY/HOLD/SELL → approve/abstain/reject 매핑).
+  // RPC commit_persona_eval이 동일 매핑으로 committee_votes INSERT하므로
+  // 정상 상태에서 partC와 voteAgg가 일치. drift 시 partC 우선.
+  const partCCoreAgg = {
+    approve: data.partC.core_revote.buy,
+    abstain: data.partC.core_revote.hold,
+    reject: data.partC.core_revote.sell,
+  };
+  const partCSectorAgg = {
+    approve: data.partC.sector_aggregate.buy,
+    abstain: data.partC.sector_aggregate.hold,
+    reject: data.partC.sector_aggregate.sell,
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded border bg-muted/20 px-3 py-2">
         <div className="mb-0.5 text-xs font-semibold text-muted-foreground">
-          최종 판정
+          최종 판정 (Part C — 합의 패널)
         </div>
         <p className="font-medium">{verdictLabel}</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
@@ -1037,11 +1220,12 @@ function Section8ModernView({
         </div>
       </div>
 
+      {/* B3 정정 — partC authoritative 집계 */}
       <div className="grid gap-3 md:grid-cols-2">
-        <VoteAggCard title="Core Committee (11명)" agg={coreAgg} />
+        <VoteAggCard title="Core Committee (Part C 재투표)" agg={partCCoreAgg} />
         <VoteAggCard
-          title={`Sector Board — ${sector} (${sectorVotes.length}명)`}
-          agg={sectorAgg}
+          title={`Sector Board — ${sector} (Part C 집계)`}
+          agg={partCSectorAgg}
         />
       </div>
 
@@ -1075,10 +1259,18 @@ function Section8ModernView({
         </div>
       )}
 
+      {/* B3 정정 — committee_votes 외부 집계는 audit 카드로 분리. drift 시 사용자가 확인. */}
       <details className="rounded border bg-muted/10">
         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
-          ▸ 위원별 개별 투표 보기 ({coreVotes.length + sectorVotes.length}건)
+          ▸ committee_votes audit ({coreVotes.length + sectorVotes.length}건 / Part C와 일치 시 정상)
         </summary>
+        <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
+          <VoteAggCard title="Core (committee_votes 집계)" agg={coreAgg} />
+          <VoteAggCard
+            title={`Sector — ${sector} (committee_votes 집계)`}
+            agg={sectorAgg}
+          />
+        </div>
         <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
           <VoteList title="Core" votes={coreVotes} personas={CORE_PERSONAS} />
           <VoteList
@@ -1209,7 +1401,7 @@ npm run build
 Expected:
 - `tsc`: clean (0 errors)
 - `lint`: 0 errors (warnings may remain at pre-PR baseline 6)
-- `test:ci`: 746 + 19 = 765+ passed (Task 1+2 adds 14, Task 3 adds 5)
+- `test:ci`: 746 + N passed (Task 1 ~10 + Task 2 ~25 (B2 edge cases) + Task 3 modify existing admin-reports.test.ts net +5 = ~+40, regression 0)
 - `build`: 25 routes, success
 
 If any gate fails, fix before commit. Do **not** mask errors with `// @ts-expect-error` or `// eslint-disable`.
@@ -1289,8 +1481,8 @@ git diff main -- 'tudal/src/lib/screening/' 'tudal/src/lib/report/writer.ts' 'tu
 ```
 
 Expected:
-- diff scope = `report-section-schemas.ts` + `admin-reports.ts` + page.tsx + 2 tests (5 files only)
-- 0 changes to screening / writer / cron / migrations (PR3a scope guard — PR1/PR3b/PR4 territory)
+- diff scope = (1) 신설 `report-section-schemas.ts` + (2) 신설 `report-section-schemas.test.ts` + (3) modify `admin-reports.ts` + (4) modify 기존 `admin-reports.test.ts` (B1 정정) + (5) modify page.tsx = **5 files total**
+- 0 changes to screening / writer / cron / migrations / section-8-schema.ts (PR3a scope guard — PR1/PR3b/PR4 territory + B4 SoT 보존)
 
 - [ ] **Step 5: Push + PR create (SHARED 권한)**
 
@@ -1358,13 +1550,19 @@ USER가 머지 트리거 후 main 갱신 → HANDOFF.md §6에 PR3a 완료 entry
 - writer Section 0~7 본문 구현 = PR3b (correctly out of scope)
 - cron monthly-batch = PR1 (correctly out of scope)
 
+**omxy R1 BLOCKERS 정정 박제**:
+- **B1** (기존 admin-reports.test.ts 충돌): Task 3 → 기존 파일 `tudal/src/lib/data/__tests__/admin-reports.test.ts` modify (신규 transformer test file 생성 금지). baseRow의 partial invalid section_0를 valid full shape로 교체 + pass-through assertions를 validation assertions로 교체.
+- **B2** (zod edge-case 부족): Task 2 Step 1 — partA 0/14 pass + 1/13 reject + partB 2/6 reject + 3/5 pass + partD 10/12 reject + rationale 0/6 reject + vote/severity/state/keyQuotes.side enum invalid reject 전수.
+- **B3** (Section8ModernView aggregate drift): Task 4 Step 6 → `data.partC.core_revote` + `data.partC.sector_aggregate`가 authoritative. 외부 `coreAgg`/`sectorAgg` (`aggregateVotes` 결과)은 audit 패널로 분리.
+- **B4** (Section 8 SoT 중복): Task 2 Step 2 → `section8Schema` + `Section8` 타입을 `@/lib/report/section-8-schema`에서 import + alias re-export. 본 파일에 partA~D schemas 재정의 0. Task 1 cross-check tests (`section8HappyExample`/`section8BScopeExample`)가 invariant 단단히 유지.
+
 **Placeholder scan**: no TBD / TODO / "appropriate error handling" / "similar to Task N" / "fill in" found. Every test has actual code. Every command has expected output.
 
 **Type consistency**:
 - `ReportSection0` defined in report-section-schemas.ts (Task 1), used in admin-reports.ts (Task 3) re-export, used in page.tsx (Task 4 imports).
 - `ValidatedStockReport` defined in admin-reports.ts (Task 3), used as `getReportByTicker` return type (Task 3 Step 2) — page.tsx inherits via `report.section_X` access (Task 4).
 - `ReportSection8` tagged union defined in report-section-schemas.ts (Task 2), shape discriminator `'modern' | 'legacy'` matches Task 4 Step 6 branch.
-- `ReportSection8Modern` and `ReportSection8Legacy` imported separately in page.tsx (Task 4 Step 7) for `Section8ModernView` / `Section8LegacyView` props.
+- `ReportSection8Modern` = alias of `Section8` (B4 정정 — `@/lib/report/section-8-schema`의 `Section8` import). `ReportSection8Legacy` separately defined in `report-section-schemas.ts`. 둘 다 page.tsx (Task 4 Step 7)에서 `Section8ModernView` / `Section8LegacyView` props로 import.
 
 **Spec requirement with no task**: none found.
 
