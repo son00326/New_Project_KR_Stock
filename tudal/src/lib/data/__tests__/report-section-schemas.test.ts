@@ -94,6 +94,16 @@ describe('reportSection6Schema', () => {
     };
     expect(reportSection6Schema.safeParse(valid).success).toBe(true);
   });
+
+  it('rejects section 6 signal.state outside enum (B11 정정 — plan v3 B2 누락 보완)', () => {
+    const invalid = {
+      summary: 's',
+      signals: [{ name: 'm5', state: 'flashing', note: '' }],
+      axis: { trend: 0, momentum: 0, volatility: 0 },
+      divergencePct: 0,
+    };
+    expect(reportSection6Schema.safeParse(invalid).success).toBe(false);
+  });
 });
 
 describe('reportAppendixSchema', () => {
