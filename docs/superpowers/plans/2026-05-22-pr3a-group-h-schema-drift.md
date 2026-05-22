@@ -510,6 +510,27 @@ describe('Section 8 modern refinements (B2)', () => {
     expect(parseReportSection8(invalid)).toBeNull();
   });
 
+  it('rejects partA with invalid vote enum (Tier 2 active, partA=14, B6 정정)', () => {
+    const modernValidTier2 = {
+      ...modernValidBScope,
+      partA: Array.from({ length: 14 }, (_, i) => ({
+        persona_id: `s${i}`,
+        label: `l${i}`,
+        background: 'b',
+        vote: 'BUY' as const,
+        one_line: 'o',
+      })),
+    };
+    const invalid = {
+      ...modernValidTier2,
+      partA: [
+        { ...modernValidTier2.partA[0], vote: 'STRONG_BUY' },
+        ...modernValidTier2.partA.slice(1),
+      ],
+    };
+    expect(parseReportSection8(invalid)).toBeNull();
+  });
+
   it('rejects partC.verdict outside enum', () => {
     const invalid = {
       ...modernValidBScope,
@@ -969,8 +990,8 @@ export async function getReportByTicker(
 
 Keep the rest of the file (`reportExistsForMonth`, `BucketNeighbor`, `deriveBucketNeighbors`) unchanged.
 
-Run: `cd tudal && npm run test:ci -- src/lib/data/__tests__/admin-reports-transformer.test.ts`
-Expected: PASS (all 5 tests).
+Run: `cd tudal && npm run test:ci -- src/lib/data/__tests__/admin-reports.test.ts`
+Expected: PASS (기존 deriveBucketNeighbors + getReportByTicker 13 tests + 신규 transformer 7 tests = ~20 tests, regression 0).
 
 - [ ] **Step 3: Run full test suite + tsc to catch type drift in callers**
 
@@ -1448,9 +1469,9 @@ prompt: Review the PR3a Group H schema drift fix on branch fix/pr3a-group-h-sche
 Files to review:
 - tudal/src/lib/data/report-section-schemas.ts (new)
 - tudal/src/lib/data/__tests__/report-section-schemas.test.ts (new)
-- tudal/src/lib/data/__tests__/admin-reports-transformer.test.ts (new)
-- tudal/src/lib/data/admin-reports.ts (modified, transformer + types)
-- tudal/src/app/(admin)/admin/report/[ticker]/page.tsx (modified, null guards + Section 8 dual)
+- tudal/src/lib/data/admin-reports.ts (modified, transformer + ValidatedStockReport + section schemas re-export)
+- tudal/src/lib/data/__tests__/admin-reports.test.ts (modified — B1: baseRow + validation assertions + Section 8 modern/legacy detection)
+- tudal/src/app/(admin)/admin/report/[ticker]/page.tsx (modified, null guards + Section 8 dual-shape renderer + partC authoritative aggregate)
 
 Spec context: docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md §2 Group H + §4 PR3a scope. This is the Critical Hard gate before PR1 cron activation.
 
@@ -1471,18 +1492,44 @@ Expected ALL GREEN:
 - test:ci: 746 + new = 765+
 - tsc: clean
 
-- [ ] **Step 4: scope purity grep**
+- [ ] **Step 4: scope purity + forbidden grep gate (B7 정정 — executable, 0 매치 expected)**
 
-Run from worktree root:
+Run from worktree root. **각 명령 expected: 0 매치 (no output)**. 매치 ≥1이면 BLOCKER.
 
 ```bash
+# (1) scope purity — 5 files diff only
 git diff main --stat
-git diff main -- 'tudal/src/lib/screening/' 'tudal/src/lib/report/writer.ts' 'tudal/src/app/api/cron/' 'tudal/supabase/migrations/'
+git diff main -- 'tudal/src/lib/screening/' 'tudal/src/lib/report/writer.ts' \
+  'tudal/src/lib/report/section-8-schema.ts' \
+  'tudal/src/app/api/cron/' 'tudal/supabase/migrations/' \
+  'tudal/src/lib/data/mock-admin-report.ts'
+# Expected: empty output (PR3a scope guard — PR1/PR3b/PR4/mock SoT/section-8-schema.ts territory)
+
+# (2) forbidden type assertion 잔존 — page.tsx에 `as ReportSection` 0 매치
+rg "as ReportSection" tudal/src/app/\(admin\)/admin/report/\[ticker\]/page.tsx
+# Expected: no matches
+
+# (3) section_X early deref (validated nullable이므로 X=0~8 직접 . 액세스 금지)
+# nullable optional chaining (section0?. )은 허용. raw (section0. ) 만 매치
+rg "section_[0-8]\.[a-zA-Z_]" tudal/src/app/\(admin\)/admin/report/\[ticker\]/page.tsx
+# Expected: no matches (section0?.conviction 같은 optional chain은 'section0?.' 패턴이라 미매치)
+
+# (4) 타입 검사 우회 잔존
+rg "@ts-expect-error|eslint-disable.*any" tudal/src/lib/data tudal/src/app/\(admin\)/admin/report
+# Expected: no matches
+
+# (5) Section 8 schema 재정의 잔존 (B4 invariant — section8Schema 는 import only)
+rg "z\.object.*partA|sectorVoteRowSchema|coreVoteRowSchema|finalConsensusPanelSchema" \
+  tudal/src/lib/data/report-section-schemas.ts
+# Expected: no matches (re-export만 있어야 함, z.object로 partA 재정의 0)
 ```
 
-Expected:
-- diff scope = (1) 신설 `report-section-schemas.ts` + (2) 신설 `report-section-schemas.test.ts` + (3) modify `admin-reports.ts` + (4) modify 기존 `admin-reports.test.ts` (B1 정정) + (5) modify page.tsx = **5 files total**
-- 0 changes to screening / writer / cron / migrations / section-8-schema.ts (PR3a scope guard — PR1/PR3b/PR4 territory + B4 SoT 보존)
+**Expected diff scope (5 files)**:
+- (1) 신설 `tudal/src/lib/data/report-section-schemas.ts`
+- (2) 신설 `tudal/src/lib/data/__tests__/report-section-schemas.test.ts`
+- (3) modify `tudal/src/lib/data/admin-reports.ts`
+- (4) modify 기존 `tudal/src/lib/data/__tests__/admin-reports.test.ts` (B1 정정)
+- (5) modify `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx`
 
 - [ ] **Step 5: Push + PR create (SHARED 권한)**
 
