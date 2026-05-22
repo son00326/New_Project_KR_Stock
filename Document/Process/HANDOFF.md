@@ -7,7 +7,7 @@ Last updated: 2026-05-22 (54차 §4 — **PR1 (cron monthly-batch real path + se
 ## ⭐ 다음 세션 진입자 5줄 요약 (54차 §4 종료 시점)
 
 1. **PR1 (cron monthly-batch real path + server-callable trigger function) ✅ MERGED in main `4aa3130` via rebase FF (PR #13)** (15 commits FF + delete-branch + worktree cleanup 완료). 25 files / +2759/-158 / +60 TDD tests (baseline 802 → **862**, 회귀 0). **omxy R1~R15 15 rounds CONVERGED + 누적 30 BLOCKERS catch & fix** (PR1 R1~R12 = 23 BLOCKERS [plan 20 + impl 2 + Fix-First B23] + post-merge docs R13~R14 = 4 BLOCKERS B24~B27 + merge sequence R15 = 3 BLOCKERS B28~B30). **3-track deep review** = (a) gstack-review skill inline + (b) **general-purpose agent (depth=deep)** + (c) **superpowers code-review skill 5-angle**. 24 findings total. C1+MF1~MF5+B23 Fix-First / 7 defer (W1/W3/W4/W6/W7/#4/#9 follow-up tickets).
-2. **다음 1순위 = CLAUDE PR3b** (writer Section 0~7 본문 구현, document-specialist + analyst + writer + critic 4-step + `sector_reference_backlog` DB table 마이그) — PR1 main 박제 의존 0이므로 진입 의사 1회 확인 후 자동 시작. **USER 잔여 액션**: Migration 0020 + 0021 production apply (이 순서) + Vercel canary verify (auto-deploy 결과 확인).
+2. **다음 1순위 = CLAUDE PR3b** (writer Section 0~7 본문 구현, document-specialist + analyst + writer + critic 4-step + `sector_reference_backlog` DB table 마이그) — PR1 main 박제 의존 0이므로 진입 의사 1회 확인 후 자동 시작. **USER 잔여 액션 = 0** (omxy 교차검증 R22~R23 CONVERGED: Migration 0020 + 0021 production apply 완료 + Vercel canary 4 페이지 검증 완료. 다음 세션 진입자는 §0 verify 후 즉시 PR3b 진입 가능).
 3. **canonical 5-PR 순서 — 8 Group ↔ PR 매핑** (53차 §5 spec doc 박제, Group A~H 8개 mismatch 매핑 박제):
 
    | Group | 잘못된 박제 / 미구현 | 담당 PR | 상태 |
@@ -24,7 +24,7 @@ Last updated: 2026-05-22 (54차 §4 — **PR1 (cron monthly-batch real path + se
 4. **메인 path = Tier 0 + Tier 1 AI 합의 → 30 선정 + 30 풀 리포트 단일 산출물**. 현재 production = Tier 0 단독 30 직선정 (fallback). PR2 + PR3a + **PR1 ✅ MERGED `4aa3130`** 코드 main 박제 — PR1 머지 + Tier 0 source 실 wire(후속 PR) + 실 LLM 키 발급 후 메인 path 가동.
 5. **운영 SoT**: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 lock-in 8 항목 + Group A-H mismatch + Hard gate 8 매핑) + `docs/superpowers/plans/2026-05-22-pr1-cron-real-path.md` (PR1 plan v8, omxy R1~R10 CONVERGED + 22 BLOCKERS + 3-track deep review Fix-First v8 헤더).
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked step. **PR1 ✅ MERGED in main `4aa3130` (PR #13). 다음 1순위 = CLAUDE PR3b** (writer Section 0~7) 진입 의사 1회 확인 후 자동 시작. **USER 잔여 액션**: Migration 0020 + 0021 production apply (이 순서) + Vercel canary verify.
+**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked step. **PR1 ✅ MERGED in main `4aa3130` (PR #13) + Migration 0020/0021 production applied + Vercel canary 4 페이지 OK (omxy R22~R23 CONVERGED). 다음 1순위 = CLAUDE PR3b** (writer Section 0~7) 진입 의사 1회 확인 후 자동 시작. **USER 잔여 액션 = 0**.
 
 **운영 원칙**: 미래 지향. 49차~54차 historical 진행 상세 = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. §6 완료 이력은 직전 2 entry (54차 §3 PR3a MERGED + 54차 §4 PR1 MERGED `4aa3130`)만 inline.
 
@@ -90,8 +90,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **Group H Critical Hard gate** | ✅ **해소** (54차 §3 PR3a MERGED). `admin-reports.ts` zod safeParse validation + nullable typed `ValidatedStockReport` + `parseSectionSafe`/`parseReportSection8` onError 콜백 (console.warn) + `page.tsx` `as` 어서션 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer + `partCToCommitteeAgg` helper. **PR1 cron 가동 가능 (PR #13 머지 후)**. |
 | OPEN PRs | **#2** OPEN CONFLICTING (format-error, 보류) only (PR #13 PR1 ✅ MERGED in main `4aa3130`) |
 | 실 AI 호출 | 0 (Vercel env 3 vars Production 배포는 53차 §4++ PHASE A/B 완료). 실 호출은 PR1 머지 + Tier 0 실 source wire (후속 PR) + 실 키 발급 후. |
-| Production deploy | Vercel `https://tudal-tawny.vercel.app` (main `4aa3130` 기준 auto-deploy 진행 중 — PR #13 머지 후 canary 검증은 USER 잔여 액션). |
-| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0019 main 적용 완료 (19 migrations) · 0020 + 0021 PR1 branch에 박제 (PR #13 머지 후 production apply) |
+| Production deploy | Vercel `https://tudal-tawny.vercel.app` (main `4aa3130` deployment `dpl_SakD5kb3MkwARLSxRgDMGXxtxm72` READY · canary 4 페이지 검증 완료: `/` 200 / `/login` 200 / `/macro` 200 / `/admin` 307→`/login?next=%2Fadmin` auth redirect). |
+| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0021 production 적용 완료 (21 migrations, 54차 §4 PR1 머지 후 0020 + 0021 omxy 교차검증 apply, R23 CONVERGED). SECURITY DEFINER 4-grant 검증: public/anon=false, authenticated/service_role=true. anon WARN 0 baseline 유지. |
 | 검증 게이트 (54차 §3 PR3a 후 main historical baseline) | build 25 routes / lint 0 err 6 warn / test:ci 802/69 / tsc clean / forbidden grep 5종 0 매치 (historical, 현재 active 아님) |
 | 검증 게이트 ✅ ACTIVE (post-PR1 merge main `4aa3130`) | build 25 routes / lint 0 err 6 warn / **test:ci 862/75 (+60)** / tsc clean / **5 grep gates 0 매치** (isProductionLike monthly-batch / mockMode-monthly-batch / as ReportSection PR3a regression / service-role import boundary narrow / server-only marker present) |
 | omxy debate 누적 | **199+ rounds CONVERGED** (54차 §3 종료 184+ + 54차 §4 PR1 R1~R15 = +15) · 누적 BLOCKERS: ~17 PR2 + 21 PR3a + **30 PR1** (R1~R12 23 [plan 20 + impl 2 + Fix-First B23] + R13~R14 docs 4 [B24~B27] + R15 merge 3 [B28~B30]) catch & fix |
@@ -120,7 +120,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (54차 §4 active steps — DONE rows 축약, historical = git log + PR body 위임)
 
-**현재 위치 = PR1 ✅ MERGED in main `4aa3130` (omxy R1~R15 CONVERGED + 3-track deep review Fix-First + 누적 30 BLOCKERS). 다음 CLAUDE = PR3b (writer Section 0~7) 진입 의사 1회 확인 후 자동 시작. USER 잔여 = Migration 0020/0021 production apply + Vercel canary verify**.
+**현재 위치 = PR1 ✅ MERGED in main `4aa3130` + Migration 0020/0021 production applied + Vercel canary 4 페이지 OK (omxy R1~R24 CONVERGED + 누적 30 BLOCKERS + 3-track deep review Fix-First). 다음 CLAUDE = PR3b (writer Section 0~7) 진입 의사 1회 확인 후 자동 시작. USER 잔여 액션 = 0**.
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -267,7 +267,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 - **검증 게이트 (54차 §4 종료)**: build 25 routes / lint 0 err 6 warn / **test:ci 862/75 (+60 over 802)** / tsc clean / 5 grep gates 0 매치 (isProductionLike / monthly-batch mockMode / as ReportSection / service-role boundary / server-only marker present)
 - **rollback ranges 박제**: OLD_MAIN=`7279d9f` (54차 §4 docs commit 직후, PR1 merge 직전) / AFTER_PR1_MERGE=`4aa3130` (15 commits FF). Revert PR1 only: `git revert --no-edit OLD_MAIN..AFTER_PR1_MERGE` (15 commits). reset --hard / force-push 금지. Migration rollback: 0021 → 0020 순서 (started_by NOT NULL 복구는 production cron NULL row cleanup 후 수동).
 - **OOS findings PR body 박제 (defer 7 follow-up tickets)**: W1 service-role cache stale rotation / W3 release_batch_lock_cron SECURITY DEFINER RPC / W4 alert_event source col / W6 real-LLM feature flag / W7 triggerMonthlyBatch app-layer is_admin / #4 runTier1Screening 동시성 cap (PR2 boundary) / #9 monthly_batch_runs started_by NOT NULL CHECK 대체.
-- **다음**: CLAUDE PR3b (writer Section 0~7 본문) 진입 의사 1회 확인 후 자동 시작. PR3b scope = Group E + G 해소 + `sector_reference_backlog` 마이그. **USER 잔여 액션**: Migration 0020 + 0021 production apply (이 순서) + Vercel canary verify (auto-deploy 결과 확인).
+- **다음**: CLAUDE PR3b (writer Section 0~7 본문) 진입 의사 1회 확인 후 자동 시작. PR3b scope = Group E + G 해소 + `sector_reference_backlog` 마이그. **USER 잔여 액션 = 0** (omxy R22~R23 교차검증: Migration 0020/0021 production applied + Vercel canary 4 페이지 OK).
 
 ### 54차 §3 PR #12 (PR3a Group H schema drift fix) MERGED + post-merge docs refresh (omxy R1~R12 CONVERGED + R7 Codex GATE PASS, 2026-05-22)
 
@@ -496,5 +496,5 @@ omxy R1에서 결함 발견 시:
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제): **PR2 ✅ → PR3a ✅ → PR1 ✅ MERGED `4aa3130` (PR #13) → PR3b → PR4**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행 = page crash inevitable) ✅ **해소** (54차 §3 PR3a MERGED `0813a41`). 잔여 2-task (PR3b + PR4)는 PR1 해소 후 진입 가능.
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. 후속 PR3b writer 본문도 동일 quality target.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 54차 §4 종료 시점 = PR #13 (PR1 cron monthly-batch real path + server-callable trigger) ✅ MERGED in main `4aa3130` (rebase FF) + post-merge docs refresh 완료 + 다음 = CLAUDE PR3b (writer Section 0~7 본문 + sector_reference_backlog 마이그) 자동 진입. **USER 잔여 액션**: Migration 0020 + 0021 production apply + Vercel canary verify.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 54차 §4 종료 시점 = PR #13 (PR1 cron monthly-batch real path + server-callable trigger) ✅ MERGED in main `4aa3130` (rebase FF) + post-merge docs refresh 완료 + Migration 0020/0021 production applied + Vercel canary 4 페이지 OK (omxy R22~R23 CONVERGED) + 다음 = CLAUDE PR3b (writer Section 0~7 본문 + sector_reference_backlog 마이그) 자동 진입. **USER 잔여 액션 = 0**.
 - **main HEAD 박제 정정 (B15)**: `0813a41`는 **PR3a merge point** (AFTER_PR12). docs commit/push 후 main HEAD는 갱신됨 — 세션 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. rollback range OLD_MAIN=`f85fb69` → AFTER_PR12=`0813a41` → AFTER_DOCS=runtime.
