@@ -8,6 +8,12 @@
 -- B11 fix (omxy R3): SECURITY DEFINER 4종 grant — service_role 명시.
 alter table public.monthly_batch_runs alter column started_by drop not null;
 
+-- C1 fix (gsd-deep R1): started_by nullable semantics 박제 — operator 가시성.
+-- 0017 (started_by NOT NULL) → 0021 (drop not null). cron caller inserts NULL.
+-- rollback 시 set not null 수동 실행 필요 (production cron row NULL 존재 시 사전 cleanup 필수).
+comment on column public.monthly_batch_runs.started_by is
+  'admin caller: auth.uid() (RPC v1 acquire_batch_lock). cron caller: NULL (RPC v2 acquire_batch_lock_v2 p_caller_kind=cron). 0021부터 nullable.';
+
 create or replace function public.acquire_batch_lock_v2(
   p_month text,
   p_caller_kind text
