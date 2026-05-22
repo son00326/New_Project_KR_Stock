@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   reportSection0Schema,
   reportSection1Schema,
@@ -11,6 +11,7 @@ import {
   reportAppendixSchema,
   parseSectionSafe,
   parseReportSection8,
+  partCToCommitteeAgg,
 } from '../report-section-schemas';
 import {
   section8HappyExample,
@@ -386,5 +387,182 @@ describe('Section 8 legacy refinements (B2)', () => {
       keyQuotes: [{ side: 'bullish', quote: 'q' }],
     };
     expect(parseReportSection8(invalid)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PR3a multi-source review Fix-First — onError 콜백 + bounds + helper
+// ---------------------------------------------------------------------------
+
+describe('parseSectionSafe onError callback (gsd CR-01 + RT#2)', () => {
+  it('calls onError with path + message when validation fails', () => {
+    const onError = vi.fn();
+    parseSectionSafe(
+      reportSection0Schema,
+      { headline: 'h', thesis: ['t'], conviction: 999 }, // conviction > 100
+      onError,
+    );
+    expect(onError).toHaveBeenCalledTimes(1);
+    const ctx = onError.mock.calls[0][0];
+    expect(ctx.path).toContain('conviction');
+    expect(typeof ctx.message).toBe('string');
+  });
+
+  it('does NOT call onError when input is null (writer 미작성 정상 케이스)', () => {
+    const onError = vi.fn();
+    parseSectionSafe(reportSection0Schema, null, onError);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call onError when validation succeeds', () => {
+    const onError = vi.fn();
+    parseSectionSafe(
+      reportSection4Schema,
+      { summary: 's', drivers: ['d'], tam: '1조' },
+      onError,
+    );
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseReportSection8 onError callback', () => {
+  it('calls onError with both modern + legacy error context when neither matches', () => {
+    const onError = vi.fn();
+    parseReportSection8({ foo: 'bar' }, onError);
+    expect(onError).toHaveBeenCalledTimes(1);
+    const ctx = onError.mock.calls[0][0];
+    expect(ctx.modernError).toBeDefined();
+    expect(ctx.legacyError).toBeDefined();
+    expect(typeof ctx.modernError.message).toBe('string');
+    expect(typeof ctx.legacyError.message).toBe('string');
+  });
+
+  it('does NOT call onError when input is null', () => {
+    const onError = vi.fn();
+    parseReportSection8(null, onError);
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('Section 0 conviction + committeeMini bounds (gsd WR-04 + testing T#6)', () => {
+  const validBase = {
+    headline: 'h',
+    thesis: ['t'],
+    conviction: 50,
+    committeeMini: {
+      core: { approve: 1, reject: 1, abstain: 1 },
+      sector: { approve: 1, reject: 1, abstain: 1 },
+    },
+    priceBands: { bear: 'b', base: 'ba', bull: 'bu' },
+  };
+
+  it('rejects conviction > 100', () => {
+    expect(
+      reportSection0Schema.safeParse({ ...validBase, conviction: 101 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects conviction < 0', () => {
+    expect(
+      reportSection0Schema.safeParse({ ...validBase, conviction: -1 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects conviction NaN', () => {
+    expect(
+      reportSection0Schema.safeParse({ ...validBase, conviction: NaN }).success,
+    ).toBe(false);
+  });
+
+  it('rejects negative committeeMini.core.approve', () => {
+    expect(
+      reportSection0Schema.safeParse({
+        ...validBase,
+        committeeMini: {
+          ...validBase.committeeMini,
+          core: { ...validBase.committeeMini.core, approve: -1 },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer committeeMini.core.approve', () => {
+    expect(
+      reportSection0Schema.safeParse({
+        ...validBase,
+        committeeMini: {
+          ...validBase.committeeMini,
+          core: { ...validBase.committeeMini.core, approve: 1.5 },
+        },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('Section 6 axis bounds (testing T#8)', () => {
+  const validBase = {
+    summary: 's',
+    signals: [{ name: 'm5', state: 'on' as const, note: '' }],
+    axis: { trend: 50, momentum: 50, volatility: 50 },
+    divergencePct: 0,
+  };
+
+  it('rejects axis.trend > 100', () => {
+    expect(
+      reportSection6Schema.safeParse({
+        ...validBase,
+        axis: { ...validBase.axis, trend: 101 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects axis.momentum < 0', () => {
+    expect(
+      reportSection6Schema.safeParse({
+        ...validBase,
+        axis: { ...validBase.axis, momentum: -1 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts negative divergencePct (m60 괴리율 음수 허용)', () => {
+    expect(
+      reportSection6Schema.safeParse({ ...validBase, divergencePct: -5 })
+        .success,
+    ).toBe(true);
+  });
+
+  it('rejects divergencePct NaN', () => {
+    expect(
+      reportSection6Schema.safeParse({ ...validBase, divergencePct: NaN })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('partCToCommitteeAgg helper (testing T#5 — RPC enum mapping 박제)', () => {
+  it('maps buy→approve, hold→abstain, sell→reject', () => {
+    expect(partCToCommitteeAgg({ buy: 7, hold: 3, sell: 1 })).toEqual({
+      approve: 7,
+      abstain: 3,
+      reject: 1,
+    });
+  });
+
+  it('handles zero counts (Tier 2 미활성 sector_aggregate)', () => {
+    expect(partCToCommitteeAgg({ buy: 0, hold: 0, sell: 0 })).toEqual({
+      approve: 0,
+      abstain: 0,
+      reject: 0,
+    });
+  });
+
+  it('is a pure function (no side effect, same input → same output)', () => {
+    const input = { buy: 5, hold: 4, sell: 2 };
+    const r1 = partCToCommitteeAgg(input);
+    const r2 = partCToCommitteeAgg(input);
+    expect(r1).toEqual(r2);
+    // input 객체는 변경되지 않음
+    expect(input).toEqual({ buy: 5, hold: 4, sell: 2 });
   });
 });
