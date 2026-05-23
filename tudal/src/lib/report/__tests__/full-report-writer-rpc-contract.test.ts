@@ -56,6 +56,16 @@ describe('마이그 0022 update_report_sections_0_7 — contract pins (omxy R1~R
     expect(sql).toMatch(/is_latest\s*=\s*true/i);
   });
 
+  // 3-track CR-1 fix: generated_at bump
+  it('CR-1 — UPDATE에 generated_at = now() 박제 (3-track Track 2 I3 + Track 3 Angle 3)', () => {
+    expect(sql).toMatch(/generated_at\s*=\s*now\(\)/);
+  });
+
+  // 3-track W7 fix: coalesce auth.role()
+  it('W7 — auth.role() coalesce defensive (null edge case 안전)', () => {
+    expect(sql).toMatch(/coalesce\(\s*\(\s*select\s+auth\.role\(\)\s*\)\s*,\s*''\s*\)/);
+  });
+
   it('row 부재 시 report_not_found_for_section_0_7_update raise (errcode P0002)', () => {
     expect(sql).toContain('report_not_found_for_section_0_7_update');
     expect(sql).toMatch(/errcode\s*=\s*'P0002'/);

@@ -51,5 +51,16 @@ export const MAX_COST_PER_CALL_KRW = calculateCostKrw({
   output_tokens: 2000,
 });
 
+// PR3b — full report writer는 max_tokens 8192 (Section 0~7 + Appendix 통합 JSON).
+// 3-track deep-review C1 fix (Track 2): MAX_COST_PER_CALL_KRW (output 2000 calibration)는
+// full report 호출에 부족. input 3000 (sectorReference + macro + financials + technicals 합산)
+// + output 6000 (8192 max_tokens realistic 사용량 75%) 기준으로 별도 calibration.
+export const FULL_REPORT_MAX_COST_PER_CALL_KRW = calculateCostKrw({
+  input_tokens: 3000,
+  cache_creation_input_tokens: 0,
+  cache_read_input_tokens: 0,
+  output_tokens: 6000,
+});
+
 // M17 hardcap (Q2 합의 — 40만원)
 export const HARDCAP_KRW = 400_000;

@@ -23,6 +23,8 @@ import {
   reportSection7Schema,
   reportAppendixSchema,
 } from '@/lib/data/report-section-schemas';
+import { preflightHardcap } from '@/lib/cost/cost-logger';
+import { FULL_REPORT_MAX_COST_PER_CALL_KRW } from '@/lib/cost/pricing';
 import type { z } from 'zod';
 
 // P1 #7 fix: prompt module wire — input은 prompt builder의 input + adminUserId 추가.
@@ -86,7 +88,10 @@ export function extractJsonObject(raw: string): string | null {
   return null;
 }
 
-function parseAndValidate(raw: string): Record<SectionKey, unknown> {
+function parseAndValidate(
+  raw: string,
+  ctx: { ticker: string; month: string },
+): Record<SectionKey, unknown> {
   const jsonStr = extractJsonObject(raw);
   if (jsonStr === null) {
     throw new Error('full_report_parse_failed:no_json_object');
@@ -104,6 +109,10 @@ function parseAndValidate(raw: string): Record<SectionKey, unknown> {
   const out = {} as Record<SectionKey, unknown>;
   for (const key of Object.keys(SECTION_SCHEMAS) as SectionKey[]) {
     if (!(key in record)) {
+      // 3-track Track 3 Angle 2 fix (CR-2): structured warn before throw — PR3a CR-01 패턴 정합.
+      console.warn(
+        `[full-report-writer] validation_failed ticker=${ctx.ticker} month=${ctx.month} section=${key} reason=missing`,
+      );
       throw new Error(`full_report_validation_failed:${key}:missing`);
     }
     const schema = SECTION_SCHEMAS[key] as z.ZodTypeAny;
@@ -111,6 +120,9 @@ function parseAndValidate(raw: string): Record<SectionKey, unknown> {
     if (!result.success) {
       const first = result.error.issues[0];
       const path = first?.path?.join('.') ?? 'root';
+      console.warn(
+        `[full-report-writer] validation_failed ticker=${ctx.ticker} month=${ctx.month} section=${key} path=${path} message=${first?.message ?? 'unknown'}`,
+      );
       throw new Error(`full_report_validation_failed:${key}:${path}`);
     }
     out[key] = result.data;
@@ -121,6 +133,15 @@ function parseAndValidate(raw: string): Record<SectionKey, unknown> {
 export async function commitFullReport(
   input: CommitFullReportInput,
 ): Promise<CommitFullReportResult> {
+  // 3-track Track 2 C1 fix: cost-hardcap preflight (40만원). FULL_REPORT_MAX_COST_PER_CALL_KRW은
+  // max_tokens 8192 calibration (input 3000 + output 6000). preflightHardcap 호출 시 caller가
+  // 명시적으로 override 주입해야 — 기본 MAX_COST_PER_CALL_KRW (2000 output)은 부족.
+  await preflightHardcap({
+    month: input.month,
+    callCount: 1,
+    maxCostPerCallKrw: FULL_REPORT_MAX_COST_PER_CALL_KRW,
+  });
+
   // P1 #7 fix: prompt module wire — buildFullReportUserPrompt + FULL_REPORT_SYSTEM_PROMPT 직접 호출.
   const userPrompt = buildFullReportUserPrompt({
     ticker: input.ticker,
@@ -143,7 +164,10 @@ export async function commitFullReport(
     adminUserId: input.adminUserId,
   });
 
-  const sections = parseAndValidate(llm.content);
+  const sections = parseAndValidate(llm.content, {
+    ticker: input.ticker,
+    month: input.month,
+  });
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('update_report_sections_0_7', {

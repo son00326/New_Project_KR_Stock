@@ -29,6 +29,7 @@ export const FULL_REPORT_SYSTEM_PROMPT = `당신은 한국 주식 풀 리포트 
 - 밸류에이션에는 비교 가능한 회사(peer) 1~3개를 반드시 포함합니다.
 - 전문용어 첫 등장 시 일상 비유 또는 한글 풀이를 동반합니다.
 - 모든 결과는 JSON object 단일 응답으로 반환합니다. 마크다운 fence(코드블록) 또는 본문 설명 추가 금지. 응답은 { 문자로 시작하고 } 문자로 끝나는 JSON object만.
+- 모든 문자열 값은 ASCII straight quote ("...") 만 사용. typographic / smart quote (“…” / ‘…’) 금지 (JSON.parse 실패 차단 — 3-track W3 fix).
 
 응답 schema (반드시 모든 키 포함, 아래 예시는 valid JSON — 실제 값으로 대체. severity는 "high"|"medium"|"low" 중 하나, state는 "on"|"watch"|"off" 중 하나, conviction과 axis 각 필드는 0과 100 사이 number, divergencePct는 음수 허용 number):
 
