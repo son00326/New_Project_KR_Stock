@@ -40,7 +40,13 @@ export async function callFullReport(input: CallFullReportInput): Promise<CallFu
       system: input.systemPrompt,
       messages: [{ role: 'user', content: input.userPrompt }],
     });
-  } catch {
+  } catch (err) {
+    // 3-track Track 3 Angle 4 fix (CR-3): underlying Anthropic SDK error를 structured warn으로 capture
+    // (rate-limit 429 vs auth 401 vs 5xx vs network ECONNRESET 구분 가능). 운영 디버깅성 보강.
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[callFullReport] anthropic_failed ticker=${input.ticker} month=${input.month} message=${message}`,
+    );
     // P0 #4 fix: callPersona의 일반 LLM 실패 코드와 분리 — 본 함수는 별도 키 throw로 format-error 매핑 정합.
     throw new Error('full_report_llm_failed');
   }

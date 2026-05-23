@@ -8,6 +8,13 @@ vi.mock('@/lib/ai/full-report-client', () => ({
   callFullReport: vi.fn(),
 }));
 
+// 3-track C1 fix: cost-hardcap preflight wire. 기본은 통과시키되 hardcap test에서 throw mock.
+vi.mock('@/lib/cost/cost-logger', () => ({
+  preflightHardcap: vi
+    .fn()
+    .mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 400_000 }),
+}));
+
 const validResponse = {
   section_0: {
     headline: '알테오젠 — 글로벌 빅파마 마일스톤 가시화',
@@ -199,6 +206,42 @@ describe('commitFullReport', () => {
     (createClient as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rpc });
     const { commitFullReport } = await import('@/lib/report/full-report-writer');
     await expect(commitFullReport(baseInput)).rejects.toThrow(/update_report_sections_0_7_failed:42501/);
+  });
+
+  // 3-track C1 fix: preflightHardcap이 cost_hardcap_40man throw 시 LLM 호출 차단 검증.
+  it('C1 — cost hardcap 초과 시 preflightHardcap throw → callFullReport 미호출', async () => {
+    const { callFullReport } = await import('@/lib/ai/full-report-client');
+    const { preflightHardcap } = await import('@/lib/cost/cost-logger');
+    (preflightHardcap as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('cost_hardcap_40man'),
+    );
+    const { commitFullReport } = await import('@/lib/report/full-report-writer');
+    await expect(commitFullReport(baseInput)).rejects.toThrow('cost_hardcap_40man');
+    expect(callFullReport).not.toHaveBeenCalled();
+  });
+
+  // 3-track C1 fix: preflightHardcap 호출 시 FULL_REPORT_MAX_COST_PER_CALL_KRW override 주입 검증.
+  it('C1 — preflightHardcap 호출 시 FULL_REPORT_MAX_COST_PER_CALL_KRW override 주입', async () => {
+    const { callFullReport } = await import('@/lib/ai/full-report-client');
+    const { createClient } = await import('@/lib/supabase/server');
+    const { preflightHardcap } = await import('@/lib/cost/cost-logger');
+    const { FULL_REPORT_MAX_COST_PER_CALL_KRW } = await import('@/lib/cost/pricing');
+    (callFullReport as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      content: JSON.stringify(validResponse),
+      usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 },
+      costKrw: 100,
+    });
+    const rpc = vi.fn().mockResolvedValueOnce({ data: { success: true, report_id: 'r5' }, error: null });
+    (createClient as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rpc });
+    const { commitFullReport } = await import('@/lib/report/full-report-writer');
+    await commitFullReport(baseInput);
+    expect(preflightHardcap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        month: '2026-06',
+        callCount: 1,
+        maxCostPerCallKrw: FULL_REPORT_MAX_COST_PER_CALL_KRW,
+      }),
+    );
   });
 
   it('section_8 키는 응답에 있어도 RPC payload에서 제외', async () => {

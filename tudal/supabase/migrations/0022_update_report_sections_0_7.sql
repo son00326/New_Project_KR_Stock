@@ -41,7 +41,8 @@ begin
 
   -- B12 caller guard: service_role direct call (PR4 cron) OR authenticated admin
   -- (0017 패턴: auth.uid null guard + is_admin check; 0021 패턴: service_role bypass)
-  v_role := (select auth.role());
+  -- 3-track W7 fix: coalesce defensive — auth.role() null edge case (JWT decode failure) 안전.
+  v_role := coalesce((select auth.role()), '');
   if v_role = 'service_role' then
     -- cron path: service_role direct. PR4 route layer가 CRON_SECRET 검증 후 진입 (B18 contract).
     null;
@@ -56,6 +57,9 @@ begin
   end if;
 
   -- R1 P0 #1 fix: month = to_date(...)
+  -- 3-track CR-1 fix (Track 2 I3 + Track 3 Angle 3 CONFIRMED): generated_at = now() bump.
+  -- Regen 시 UI 일자 표시 + 캐시/staleness check + Track Record analytics가 신선한 본문을 stale로
+  -- 잘못 인식하는 위험 차단. 본 PR3b는 UPDATE-only (versioning history 보존은 PR4 wire에서 결정).
   update public.stock_reports
   set
     section_0 = p_section_0,
@@ -66,7 +70,8 @@ begin
     section_5 = p_section_5,
     section_6 = p_section_6,
     section_7 = p_section_7,
-    appendix = p_appendix
+    appendix = p_appendix,
+    generated_at = now()
   where ticker = p_ticker
     and month = to_date(p_month || '-01', 'YYYY-MM-DD')
     and is_latest = true

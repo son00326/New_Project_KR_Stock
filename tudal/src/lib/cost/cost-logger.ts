@@ -47,9 +47,17 @@ export async function getMonthlyTotal(month: string): Promise<number> {
 export async function preflightHardcap(opts: {
   month: string;
   callCount: number;
+  /**
+   * Per-call reservation override (KRW). Defaults to MAX_COST_PER_CALL_KRW
+   * (persona call calibration: 1500 input + 2000 output). PR3b full-report
+   * writer는 FULL_REPORT_MAX_COST_PER_CALL_KRW (3000 input + 6000 output)을
+   * 명시적으로 주입 — 3-track C1 fix.
+   */
+  maxCostPerCallKrw?: number;
 }): Promise<{ currentTotal: number; reservation: number; remaining: number }> {
   const currentTotal = await getMonthlyTotal(opts.month);
-  const reservation = opts.callCount * MAX_COST_PER_CALL_KRW;
+  const perCallKrw = opts.maxCostPerCallKrw ?? MAX_COST_PER_CALL_KRW;
+  const reservation = opts.callCount * perCallKrw;
   if (currentTotal + reservation > HARDCAP_KRW) {
     throw new Error('cost_hardcap_40man');
   }
