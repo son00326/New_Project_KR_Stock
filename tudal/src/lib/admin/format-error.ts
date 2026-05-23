@@ -83,6 +83,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   full_report_parse_failed: "풀 리포트 AI 응답 파싱 실패",
   update_report_sections_0_7_failed: "풀 리포트 본문 저장 실패",
   report_not_found_for_section_0_7_update: "리포트 row 부재 — Section 0~7 UPDATE 실패 (commit_persona_eval 선행 필요)",
+  // PR3b R6 non-blocking catch — cost_log throw 경로 매핑 누락 (preflightHardcap 호출 중 발생 가능)
+  // cost_hardcap_40man은 이미 line 26에 매핑 박제됨 — 본 PR에서 추가 매핑 0.
+  cost_log_select_failed: "비용 로그 조회 실패",
+  cost_log_insert_failed: "비용 로그 저장 실패",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -143,6 +147,13 @@ export function formatErrorMessage(code: string): string {
       code.slice("update_report_sections_0_7_failed:".length) +
       ")"
     );
+  }
+  // PR3b R6 non-blocking catch: cost_log throw 코드는 suffix:<pg-code> 패턴 동반.
+  if (code.startsWith("cost_log_select_failed:")) {
+    return KOREAN_MAPPINGS["cost_log_select_failed"];
+  }
+  if (code.startsWith("cost_log_insert_failed:")) {
+    return KOREAN_MAPPINGS["cost_log_insert_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
