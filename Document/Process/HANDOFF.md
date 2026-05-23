@@ -1,30 +1,30 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-23 (55차 §2 — **PR3b OPEN as PR #14** at runtime HEAD (rolling; `git rev-parse --short origin/feat/pr3b-writer-section-0-7`로 확인) · omxy R1~R6 6 rounds CONVERGED-track + **누적 27 BLOCKERS catch & fix** (R1 8 + R2 7 + R3 5 + R4 4 + R6 3 [B-R6-1 plan v5 missing fix + B-R6-2 docs stale fix + B-R6-3 PR4 acceptance criterion 명시]) · 3-track deep review (gstack-review inline + general-purpose depth=deep + 5-angle scan) CONFIRMED 3 + Fix-First 6 adopted + 추가 R6 catch (plan v5 박제 + cost_log error format-error 매핑 추가) + Defer 7 follow-up tickets · current main HEAD = `ecdb1a7` (PR1 + post-apply docs 후 변경 0) · OPEN PRs: **#14** (PR3b, current) + **#2** (format-error, 보류). PR3b branch commit count + head SHA + diff stat = rolling (PR #14 body 또는 `git log main..HEAD`로 runtime 확인).
+Last updated: 2026-05-24 (55차 §3 — **PR #14 (PR3b writer Section 0~7) ✅ MERGED in main `cf68731` via rebase FF + Migration 0022 production applied (`20260523145429_update_report_sections_0_7`) + Vercel canary 4/4 PASS (deployment `4793820717`, target `tudal-5kf7rer9n-son00326s-projects.vercel.app`)** · omxy R1~R16 16 rounds CONVERGED + **누적 33 BLOCKERS catch & fix** (R1~R10 PR3b plan/code/docs 29 BLOCKERS + R11~R16 머지/apply/canary 4 BLOCKERS) · 3-track deep review (gstack-review inline + general-purpose depth=deep + 5-angle scan) Fix-First 6 + R6~R9 docs fix 5 + Defer 7 follow-up tickets · current main HEAD = `cf68731` (PR #14 머지 + 13 commits FF, runtime 확인 권장) · OPEN PRs: **#2** (format-error, 보류) only · USER 잔여 액션 = 0 · 다음 = CLAUDE PR3c 또는 PR4 (다음 세션부터).
 
 ---
 
-## ⭐ 다음 세션 진입자 5줄 요약 (55차 §1 종료 시점)
+## ⭐ 다음 세션 진입자 5줄 요약 (55차 §3 종료 시점)
 
-1. **PR3b (writer Section 0~7 + Appendix 풀 리포트 생성 + 신규 RPC `update_report_sections_0_7`) OPEN as PR #14** (https://github.com/son00326/New_Project_KR_Stock/pull/14). N commits ahead of main `ecdb1a7` (rolling — `git rev-list --count main..origin/feat/pr3b-writer-section-0-7`로 runtime 확인). **단일 LLM 호출** (claude-opus-4-7, max_tokens 8192) + PR3a zod 스키마 재사용 (재정의 0) + per-section safeParse strict + 신규 RPC `update_report_sections_0_7` (0017 패턴 정합: auth.uid + is_admin + service_role bypass + 4-grant + search_path public,pg_temp + input regex [0-9] + month to_date cast + generated_at bump). 신규 TDD tests + baseline 862 → 914+ (회귀 0). 정확 stat = PR #14 body 참조.
-2. **omxy R1~R6 6 rounds CONVERGED-track + 누적 27 BLOCKERS catch & fix** (R1 8 + R2 7 + R3 5 + R4 4 + R6 3). **3-track deep review** Fix-First 6 + R6 추가 fix (plan v5 missing 박제 + docs stale rolling 표기 + PR4 acceptance criterion 명시 + cost_log error format-error 매핑) + Defer 7 follow-up tickets.
-3. **다음 1순위 = USER**: (a) PR #14 머지 (rebase FF 권장) (b) Migration 0022 production apply (Supabase MCP `apply_migration` 또는 dashboard) (c) Vercel production canary 4 페이지 OK. **(d) PR3b 코드 박제 의존이 PR3c와 PR4에서 필요** — PR3b 머지 후 CLAUDE는 PR4 (UI trigger + Track Record 탭 + Regen 실 호출 + caller wire) 또는 PR3c (document-specialist + analyst + critic 4-step + sector_reference_backlog 마이그)로 진입.
-4. **canonical 5-PR 순서 — 8 Group ↔ PR 매핑 정정** (omxy R1 Q3 + 3-track B20 fix: PR3b는 **Group E만 해소**, Group G는 PR3c로 defer):
+1. **PR #14 (PR3b writer Section 0~7) ✅ MERGED in main `cf68731` via rebase FF (13 commits)** + **Migration 0022 production applied (`20260523145429_update_report_sections_0_7`)** + **Vercel production canary 4/4 PASS** (deployment `4793820717` for sha `cf68731`). 신규 SoT 코드: `tudal/src/lib/report/full-report-writer.ts` (`commitFullReport` + `extractJsonObject` depth-aware) + `tudal/src/lib/ai/full-report-client.ts` (Anthropic Opus single-call + cost_log) + `tudal/src/lib/ai/prompts/full-report-prompt.ts` (page.tsx 라벨 + plain delimiter + ASCII quote) + 마이그 0022 (`update_report_sections_0_7` RPC: 0017 패턴 + 4-grant + search_path public,pg_temp + input regex `[0-9]` + month to_date cast + generated_at bump + coalesce auth.role). test:ci 862 → 917 (+55, 회귀 0).
+2. **omxy R1~R16 16 rounds CONVERGED + 누적 33 BLOCKERS catch & fix** (R1~R10 PR3b plan/code/docs 29 + R11~R16 머지/apply/canary 4). **3-track deep review Fix-First 6** (C1 cost-hardcap preflight + CR-1 generated_at + CR-2 validation_failed warn + CR-3 catch err capture + CR-4 ASCII quote + CR-5 coalesce auth.role) + **R6~R9 docs fix 5** (plan v5 박제 + docs stale rolling + PR4 acceptance criterion + spec amendment + cost_log error 매핑) + **Defer 7 follow-up tickets** (PR4/PR3c/shared).
+3. **다음 1순위 = CLAUDE (다음 세션부터)**: PR3c (document-specialist + analyst + critic 4-step orchestration + sector_reference_backlog 마이그 + Group G Sector reference 3-level 분류) **또는** PR4 (UI trigger 버튼 + Track Record 탭 + Regen 실 호출 + caller wire + B18 CRON_SECRET 401 test). **USER 잔여 액션 = 0**.
+4. **canonical 5-PR 순서 — 8 Group ↔ PR 매핑 정정 + PR3c 신설** (omxy R1 Q3 + 3-track B20 + R7~R9 docs fix):
 
    | Group | 잘못된 박제 / 미구현 | 담당 PR | 상태 |
    |---|---|---|---|
    | **B** | 30종목 선정 AI 부재 (메인 path Tier 1 누락) | PR2 | ✅ MERGED `f85fb69` |
    | **H** | Critical — stock_reports schema drift + page crash | PR3a | ✅ MERGED `0813a41` |
-   | **C** | cron monthly-batch mock dry-run only | **PR1** | ✅ MERGED in main `4aa3130` |
-   | **D** (절반) | Step 3c dangling server action — server-side cron path | **PR1** | ✅ MERGED in main `4aa3130` |
-   | **E** | writer Section 0~7 본문 미구현 | **PR3b** | 🟡 OPEN PR #14 |
-   | **G** | Sector reference 3-level (A 2/12 · B 4/10 · C 14/0) | PR3c | 대기 (PR3b에서 분리) |
+   | **C** | cron monthly-batch mock dry-run only | PR1 | ✅ MERGED in main `4aa3130` |
+   | **D** (절반) | Step 3c dangling server action — server-side cron path | PR1 | ✅ MERGED in main `4aa3130` |
+   | **E** | writer Section 0~7 본문 미구현 | **PR3b** | ✅ **MERGED in main `cf68731` (PR #14)** |
+   | **G** | Sector reference 3-level (A 2/12 · B 4/10 · C 14/0) + 4-step orchestration | **PR3c** | 대기 (신설) |
    | **A** | track-record trigger 위치 박제 오류 | PR4 | 대기 |
    | **F** | Track Record 누적 성과 vs 아카이브 탭 분리 | PR4 | 대기 |
    | **D** (잔여) | UI caller wire (Regen 실 호출 / Track Record / admin trigger 버튼) | PR4 | 대기 |
-5. **운영 SoT**: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 lock-in) + `docs/superpowers/plans/2026-05-23-pr3b-writer-section-0-7.md` (PR3b plan v5, omxy R1~R5 CONVERGED + 24 BLOCKERS + 3-track Fix-First 6 헤더).
+5. **운영 SoT**: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 lock-in + 55차 §2 amendment) + `docs/superpowers/plans/2026-05-23-pr3b-writer-section-0-7.md` (PR3b plan v5, omxy R1~R5 CONVERGED + 24 BLOCKERS + 3-track Fix-First 6).
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked step. **PR3b OPEN PR #14. USER 1순위 액션 = 머지 + 마이그 0022 apply + canary OK 후 CLAUDE PR4 또는 PR3c 진입**.
+**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify → §2.1 Step matrix 다음 unblocked CLAUDE step. **PR3b ✅ MERGED + 마이그 0022 applied + canary OK. USER 잔여 액션 = 0. 다음 CLAUDE 1순위 = PR3c (신설) 또는 PR4 진입 의사 1회 확인 후 자동 시작**.
 
 **⚠️ PR4 acceptance criterion 박제 (omxy R6 B-R6-2 P1 명시 강화)**: PR3b의 `commitFullReport` TS entrypoint는 SSR session-based `createClient()`를 사용 (preflightHardcap + insertCostLog + RPC 3곳). PR4 cron이 `createServiceRoleClient`로 직접 호출하면 cost_log RLS check_admin_insert로 실패할 위험. **PR4 plan에 반드시 박제**:
 1. **service-role client DI** — `commitFullReport`에 client 또는 callerKind 파라미터 추가 (insertCostLog + preflightHardcap도 동일 client 사용)
@@ -136,7 +136,8 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | **PR2** ✅ MERGED | — | PR #11 MERGED in main `f85fb69` (54차 §2) | — | main fast-forward 7 commits + 검증 게이트 통과 + remote branch 삭제 | (해소) PR3a 진입 |
 | **PR3a** ✅ MERGED | — | PR #12 MERGED in main `0813a41` (54차 §3) | — | main fast-forward 11 commits + 검증 게이트 통과 (test:ci 746→802) + omxy R7 GATE PASS + 5 grep gates 0 매치 | (해소) PR1 진입 |
 | **PR1** ✅ MERGED | — | PR #13 MERGED in main `4aa3130` via rebase FF (54차 §4). 15 commits FF + delete-branch + worktree cleanup 완료. | — | omxy R1~R15 + 3-track deep review CONVERGED + 누적 30 BLOCKERS catch & fix + 검증 게이트 (test:ci 802 → 862) + 5 grep gates 0 매치 + R12 Codex `/review` GATE PASS 등가 | (해소) PR3b 진입 |
-| **PR3b** | **CLAUDE** | OPEN PR #14 | writer Section 0~7 본문 구현 (writer + zod validation only baseline; document-specialist + analyst + critic 4-step + `sector_reference_backlog` DB table은 PR3c로 defer — omxy R1 Q3 + R6 B-R7-1 정정). **Group E만 해소** (Group G는 PR3c). | omxy R1~R7 7 rounds CONVERGED-track + **3-track deep review** (gstack-review skill + general-purpose agent (depth=deep adversarial) + 5-angle scan) + R6 codex-spawned 3 subagents 추가 검토 | PR4 UI 진입 |
+| **PR3b** ✅ MERGED | — | PR #14 MERGED in main `cf68731` (55차 §3) | — | main fast-forward 13 commits + 검증 게이트 통과 (test:ci 862 → 917, +55) + omxy R1~R16 CONVERGED + 누적 33 BLOCKERS + 3-track deep review Fix-First 6 + R6~R9 docs fix 5 + Migration 0022 applied + canary 4/4 PASS | (해소) PR3c/PR4 진입 |
+| **PR3c** (신설) | **CLAUDE** | PR3b 머지 후 | document-specialist + analyst + critic 4-step orchestration (Karpathy 패턴) + `sector_reference_backlog` DB table 마이그 (53차 §5 spec §3.5) + Group G Sector reference 3-level 분류 (Level A 12 sector lazy 추가 + Level B 10 sector 첫 보고서 시 추가 + Level C 14 sectors philosophies 완료). **Group G 해소.** | omxy R1~Rn + **3-track deep review** | PR4 UI 진입 |
 | **PR4** | **CLAUDE** | PR3b 머지 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). **Group A + F + D 잔여 + PR3a OOS 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) | §2.2 출시 게이트 진입 |
 | **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + **3-track deep review** | — |
 | **Step 7~14** (S7b → S7c → S7d → S8) | USER 트리거 + CLAUDE 구현 | canonical 5-PR 완료 후 | S7b 뉴스+브리핑 → D11 AI 가상 포트 1차 가동 (어드민 3인 운용 검증) → S7c 장중·KIS WS → S7d Silent Health → S8 자동매매 (Binance Smoke #3) | 각 슬라이스 DoD | §2.2 출시 게이트 |
@@ -225,6 +226,55 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 ## 6. 완료 이력 (직전 2 entry inline · older = git log + PR body)
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
+
+### 55차 §3 PR #14 (PR3b writer Section 0~7 + Appendix 풀 리포트 생성 + RPC `update_report_sections_0_7`) ✅ MERGED in main `cf68731` via rebase FF + Migration 0022 production applied + Vercel canary 4/4 PASS (omxy R1~R16 16 rounds CONVERGED + 누적 33 BLOCKERS catch & fix + 3-track deep review Fix-First 6 + R6~R9 docs fix 5, 2026-05-23 ~ 2026-05-24)
+
+- **scope**: 53차 §5 정정 spec §4 PR3b (Group E only) + 55차 §2 amendment (Group G + 4-step + sector_reference_backlog → PR3c 신설로 defer).
+- **branch (post-merge cleanup)**: `feat/pr3b-writer-section-0-7` 머지 후 remote + local + worktree 모두 cleanup 완료.
+- **merge**: PR #14 → main `ecdb1a7` → `cf68731` via rebase FF (13 commits replay SHA, omxy R11 (c) 예측 정확). origin remote branch deleted.
+- **Migration 0022 production apply (R13~R14 CONVERGED)**:
+  - `apply_migration` via Supabase MCP → `{success:true}` + history `20260523145429_update_report_sections_0_7`
+  - 8/8 verification PASS: SECURITY DEFINER + search_path public,pg_temp + 4-grant (anon=false, authenticated=true, service_role=true) + 6 body patterns (ticker regex / month regex / month cast / generated_at bump / coalesce auth.role / P0002 errcode)
+- **Vercel production canary (R15~R16 CONVERGED)**:
+  - Deployment `4793820717` for sha `cf68731` (state=success, 14:46:23Z)
+  - Production alias: `https://tudal-tawny.vercel.app` (target `tudal-5kf7rer9n-son00326s-projects.vercel.app`)
+  - 4/4 PASS: `/` 200 / `/login` 200 / `/macro` 200 / `/admin` 307 → `/login?next=%2Fadmin`
+- **신규 SoT 코드 (15 files / +2571 / -18, merge stat)**:
+  - `tudal/src/lib/ai/prompts/full-report-prompt.ts` (FULL_REPORT_SYSTEM_PROMPT + buildFullReportUserPrompt + plain delimiter + ASCII quote 강제)
+  - `tudal/src/lib/ai/full-report-client.ts` (callFullReport — Anthropic Opus single-call + cost_log + structured warn on catch)
+  - `tudal/src/lib/report/full-report-writer.ts` (commitFullReport + extractJsonObject depth-aware + parseAndValidate strict + preflightHardcap wire + RPC UPDATE + report_not_found direct throw)
+  - `tudal/supabase/migrations/0022_update_report_sections_0_7.sql` + rollback
+  - `tudal/src/lib/admin/format-error.ts` (+5 PR3b 키 + 3 prefix handler + 2 cost_log 키 + 2 cost_log prefix)
+  - `tudal/src/lib/cost/pricing.ts` (FULL_REPORT_MAX_COST_PER_CALL_KRW 신설 — input 3000 + output 6000)
+  - `tudal/src/lib/cost/cost-logger.ts` (preflightHardcap에 maxCostPerCallKrw optional override)
+  - Tests: full-report-prompt (17) + full-report-client (3) + full-report-writer (16, includes 2 cost-hardcap + 4 extractJsonObject + happy/fence/prefix/suffix/parse-fail/validation-fail/not-found/section_8-exclude) + full-report-writer-rpc-contract (11) + format-error (+8)
+- **omxy R1~R16 16 rounds CONVERGED + 누적 33 BLOCKERS**:
+  - R1~R5 PR3b plan v1~v5: 24 BLOCKERS (R1 8 + R2 7 + R3 5 + R4 4)
+  - R6 실 코드 + docs commit 검토 (agents/skills + 3 subagents + codex review): 3 BLOCKERS (B-R6-1 plan v5 missing + B-R6-2 docs stale + B-R6-3 PR4 acceptance) + 1 non-blocking (cost_log format-error 매핑)
+  - R7 (B-R7-1): HANDOFF §2.1/§6 잔존 stale 5종
+  - R8 (B-R8-1): HANDOFF §8 line 544/546 잔존 stale
+  - R9 (B-R9-1): spec doc + ProgressDashboard PR3c defer 정합
+  - R10: PR3b plan CONVERGED
+  - R11~R12: 머지 plan + post-merge verify CONVERGED
+  - R13~R14: Migration 0022 apply plan + post-apply verify CONVERGED
+  - R15~R16: Canary plan (P1 fix `--max-redirs 0`) + 4/4 PASS CONVERGED
+- **3-track deep review Fix-First 6 (R1~R5 단계)**:
+  - C1 cost-hardcap preflight + FULL_REPORT_MAX_COST_PER_CALL_KRW
+  - CR-1 generated_at = now() bump in 0022 UPDATE
+  - CR-2 validation_failed structured console.warn (PR3a CR-01 패턴 정합)
+  - CR-3 callFullReport catch underlying err capture
+  - CR-4 prompt ASCII straight quote 강제 (typographic quote 차단)
+  - CR-5 coalesce(auth.role(), '') defensive
+- **R6~R9 Docs Fix-First 5**: plan v5 박제 + HANDOFF rolling stat + PR4 acceptance criterion (service-role DI / cron-system / cost_log RLS / CRON_SECRET 401) + spec doc amendment + ProgressDashboard banner
+- **Defer 7 follow-up tickets (PR body 박제)**: W2 Anthropic timeout/maxRetries (PR4) / W4 AI_COST_LOG_REAL_INSERT_ENABLED strict (infra) / W5 __dirname ESM (low risk) / W6 row lock concurrency (PR3c) / Track 3 Angle 5 insertCostLog DI (PR4) / Track 3 Angle 1 P0002 errcode + specific error rethrow (UX polish) / Track 3 Angle 4 extractJsonObject prefix-brace + null guard (low risk edge)
+- **검증 게이트 (post-merge main `cf68731`)**: build 25 routes / lint 0 err 6 warn / **test:ci 917/79 (+55 over 862)** / tsc clean / 8 grep gates 0 매치
+- **rollback ranges**:
+  - OLD_MAIN=`ecdb1a7` (pre-merge)
+  - AFTER_PR14=`cf68731` (post-merge)
+  - Revert: `git revert --no-edit ecdb1a7..cf68731` (13 commits)
+  - Migration rollback: `tudal/supabase/migrations/0022_update_report_sections_0_7.rollback.sql` → DROP FUNCTION (downstream 의존 0 — PR4 wire 전이라 안전)
+  - reset --hard / force-push 금지
+- **다음**: CLAUDE PR3c (document-specialist + analyst + critic 4-step + sector_reference_backlog + Group G) 또는 PR4 (UI trigger + Track Record 탭 + Regen 실 호출 + caller wire + B18 CRON_SECRET 401 test) — 다음 세션 진입 의사 1회 확인 후 자동.
 
 ### 55차 §1 PR #14 (PR3b writer Section 0~7 + Appendix 풀 리포트 생성 + RPC `update_report_sections_0_7`) OPEN (omxy R1~R5 CONVERGED + 누적 24 BLOCKERS + 3-track deep review Fix-First 6, 2026-05-23)
 
