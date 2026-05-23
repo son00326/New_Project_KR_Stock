@@ -362,5 +362,19 @@ describe("formatErrorMessage", () => {
       expect(msg).toContain("리포트");
       expect(msg).toContain("부재");
     });
+    // R6 non-blocking catch: cost_log throw 매핑 추가 검증
+    it("cost_hardcap_40man → 한국어 '월 AI 비용 한도'", () => {
+      expect(formatErrorMessage("cost_hardcap_40man")).toContain("비용");
+    });
+    it("cost_log_select_failed:<pg-code> → 한국어 '비용 로그 조회 실패'", () => {
+      expect(formatErrorMessage("cost_log_select_failed:42P01")).toContain(
+        "조회",
+      );
+    });
+    it("cost_log_insert_failed:<pg-code> → 한국어 '비용 로그 저장 실패'", () => {
+      expect(formatErrorMessage("cost_log_insert_failed:23505")).toContain(
+        "저장",
+      );
+    });
   });
 });
