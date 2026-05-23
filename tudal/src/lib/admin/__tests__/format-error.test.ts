@@ -326,4 +326,41 @@ describe("formatErrorMessage", () => {
       ).toBe("실패 알림 저장에 실패했습니다");
     });
   });
+
+  // PR3b — writer Section 0~7 (omxy R1 P0 #4 fix)
+  describe("PR3b — 풀 리포트 writer 신규 키 한국어 매핑", () => {
+    it("full_report_llm_failed → 한국어 '풀 리포트 AI 호출 실패'", () => {
+      expect(formatErrorMessage("full_report_llm_failed")).toContain(
+        "풀 리포트",
+      );
+    });
+    it("full_report_validation_failed:section_0:conviction → 본문 + 검증 + suffix", () => {
+      const msg = formatErrorMessage(
+        "full_report_validation_failed:section_0:conviction",
+      );
+      expect(msg).toContain("본문");
+      expect(msg).toContain("검증");
+      expect(msg).toContain("section_0:conviction");
+    });
+    it("full_report_parse_failed:invalid_json → AI + 파싱 + suffix", () => {
+      const msg = formatErrorMessage("full_report_parse_failed:invalid_json");
+      expect(msg).toContain("AI");
+      expect(msg).toContain("파싱");
+      expect(msg).toContain("invalid_json");
+    });
+    it("update_report_sections_0_7_failed:42501 → 저장 + suffix", () => {
+      const msg = formatErrorMessage(
+        "update_report_sections_0_7_failed:42501",
+      );
+      expect(msg).toContain("저장");
+      expect(msg).toContain("42501");
+    });
+    it("report_not_found_for_section_0_7_update → 리포트 + 부재", () => {
+      const msg = formatErrorMessage(
+        "report_not_found_for_section_0_7_update",
+      );
+      expect(msg).toContain("리포트");
+      expect(msg).toContain("부재");
+    });
+  });
 });

@@ -77,6 +77,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   invalid_caller_kind: "잘못된 호출자 종류입니다",
   service_role_key_missing: "서비스 키 환경 변수가 설정되지 않았습니다",
   supabase_url_missing: "Supabase URL 환경 변수가 설정되지 않았습니다",
+  // PR3b — writer Section 0~7 풀 리포트 (omxy R1 P0 #4 fix)
+  full_report_llm_failed: "풀 리포트 AI 호출 실패 — 잠시 후 다시 시도하세요",
+  full_report_validation_failed: "풀 리포트 본문 검증 실패",
+  full_report_parse_failed: "풀 리포트 AI 응답 파싱 실패",
+  update_report_sections_0_7_failed: "풀 리포트 본문 저장 실패",
+  report_not_found_for_section_0_7_update: "리포트 row 부재 — Section 0~7 UPDATE 실패 (commit_persona_eval 선행 필요)",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -109,6 +115,34 @@ export function formatErrorMessage(code: string): string {
   }
   if (code.startsWith("scheduler_fail_alert_insert_failed:")) {
     return KOREAN_MAPPINGS["scheduler_fail_alert_insert_failed"];
+  }
+  // PR3b prefix handler 3종 (omxy R1 P0 #4 fix) — suffix throw 호환:
+  //   full_report_validation_failed:<section>:<path>
+  //   full_report_parse_failed:<reason>
+  //   update_report_sections_0_7_failed:<code>
+  if (code.startsWith("full_report_validation_failed:")) {
+    return (
+      KOREAN_MAPPINGS["full_report_validation_failed"] +
+      " (" +
+      code.slice("full_report_validation_failed:".length) +
+      ")"
+    );
+  }
+  if (code.startsWith("full_report_parse_failed:")) {
+    return (
+      KOREAN_MAPPINGS["full_report_parse_failed"] +
+      " (" +
+      code.slice("full_report_parse_failed:".length) +
+      ")"
+    );
+  }
+  if (code.startsWith("update_report_sections_0_7_failed:")) {
+    return (
+      KOREAN_MAPPINGS["update_report_sections_0_7_failed"] +
+      " (" +
+      code.slice("update_report_sections_0_7_failed:".length) +
+      ")"
+    );
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
