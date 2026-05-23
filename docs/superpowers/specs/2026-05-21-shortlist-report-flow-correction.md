@@ -1,8 +1,16 @@
 ---
 title: shortlist 30종목 + 풀 리포트 흐름 정정 design spec
 date: 2026-05-21
-session: 53차 §5 (HANDOFF 박제 정정)
-status: draft (OMXY 적대적 검토 대기)
+session: 53차 §5 (HANDOFF 박제 정정) — **55차 §2 amendment 적용 (2026-05-23, omxy R9 B-R9-1)**
+status: SUPERSEDED-IN-PART by 55차 §2 (PR3b scope 분리: writer-only + PR3c 신설)
+
+> **⚠️ 55차 §2 amendment (2026-05-23, omxy R6~R9 catch B-R9-1 — 운영 SoT defer)**:
+> 본 spec doc의 canonical PR 순서 (PR2 → PR3a → PR1 → PR3b → PR4) + §4 PR3b row (writer + 4-step + sector_reference_backlog 통합) + §3.5 Group G 매핑은 53차 §5 시점 박제.
+> 55차 §2 PR3b 진행 중 scope 정정: **PR3b = writer/RPC/zod commit only (Group E만 해소)**, document-specialist + analyst + critic 4-step + sector_reference_backlog 마이그 + Group G Sector reference 3-level 분류는 **PR3c (신설)** 로 defer (omxy R1 Q3 + R6~R9 4 rounds CONVERGED-track + 28 BLOCKERS catch & fix).
+> **수정된 canonical 순서**: PR2 ✅ → PR3a ✅ → PR1 ✅ MERGED `4aa3130` → PR3b (OPEN PR #14, writer Section 0~7 only) → **PR3c (신설, document-specialist + analyst + critic + sector_reference_backlog)** → PR4 (UI caller wire).
+> 본 spec doc은 historical reference. 현 운영 SoT = `Document/Process/HANDOFF.md` 55차 §2.
+
+
 authors: yong + Claude
 related:
   - Document/Process/HANDOFF.md
