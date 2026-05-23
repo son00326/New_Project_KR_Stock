@@ -41,7 +41,7 @@ export async function callFullReport(input: CallFullReportInput): Promise<CallFu
       messages: [{ role: 'user', content: input.userPrompt }],
     });
   } catch {
-    // P0 #4 fix: callPersona는 ai_call_failed throw — 본 함수는 별도 키 throw로 format-error 매핑 정합.
+    // P0 #4 fix: callPersona의 일반 LLM 실패 코드와 분리 — 본 함수는 별도 키 throw로 format-error 매핑 정합.
     throw new Error('full_report_llm_failed');
   }
 

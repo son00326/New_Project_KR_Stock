@@ -8,7 +8,7 @@ export const FULL_REPORT_JSON_EXAMPLE_START = '<<<JSON_EXAMPLE_START>>>';
 export const FULL_REPORT_JSON_EXAMPLE_END = '<<<JSON_EXAMPLE_END>>>';
 
 // B9 fix: '0~100' 토큰 제거 — "0과 100 사이" 표현 + valid JSON example에 실제 number value로 명시.
-// B16 fix: prompt body에 literal triple-backtick + json 토큰 0 (테스트 not.toMatch(/```json/) self-fail 차단).
+// B16 fix: prompt body에 literal markdown fence 토큰 0 (테스트 self-fail 차단).
 // P1 #5: page.tsx SECTION_LIST 라벨 baseline (ReportFramework.md 라벨은 future-state).
 // Kevin v3.1: M2 재무 데이터 직접 인용 / M3 근거 부족 / M4 비교 가능한 회사 / M7 일상 비유.
 export const FULL_REPORT_SYSTEM_PROMPT = `당신은 한국 주식 풀 리포트 작성자입니다. 비전문가도 이해할 수 있는 일상 비유와 정확한 재무 인용으로 8개 섹션 + Appendix를 작성합니다.
