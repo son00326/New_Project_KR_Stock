@@ -136,7 +136,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | **PR2** ✅ MERGED | — | PR #11 MERGED in main `f85fb69` (54차 §2) | — | main fast-forward 7 commits + 검증 게이트 통과 + remote branch 삭제 | (해소) PR3a 진입 |
 | **PR3a** ✅ MERGED | — | PR #12 MERGED in main `0813a41` (54차 §3) | — | main fast-forward 11 commits + 검증 게이트 통과 (test:ci 746→802) + omxy R7 GATE PASS + 5 grep gates 0 매치 | (해소) PR1 진입 |
 | **PR1** ✅ MERGED | — | PR #13 MERGED in main `4aa3130` via rebase FF (54차 §4). 15 commits FF + delete-branch + worktree cleanup 완료. | — | omxy R1~R15 + 3-track deep review CONVERGED + 누적 30 BLOCKERS catch & fix + 검증 게이트 (test:ci 802 → 862) + 5 grep gates 0 매치 + R12 Codex `/review` GATE PASS 등가 | (해소) PR3b 진입 |
-| **PR3b** | **CLAUDE** | PR1 머지 후 (또는 병렬) | writer Section 0~7 본문 구현 (document-specialist + analyst + writer + critic 4-step). PR3b 마이그: `sector_reference_backlog` DB table (53차 §5 spec §3.5). **Group E + G 해소.** | omxy R1~Rn + **3-track deep review** (gstack-review skill + general-purpose agent (depth=deep adversarial) + superpowers code-review skill 5-angle) — gsd-code-reviewer 부재 대체 패턴 박제 (PR1에서 첫 적용 검증) | PR4 UI 진입 |
+| **PR3b** | **CLAUDE** | OPEN PR #14 | writer Section 0~7 본문 구현 (writer + zod validation only baseline; document-specialist + analyst + critic 4-step + `sector_reference_backlog` DB table은 PR3c로 defer — omxy R1 Q3 + R6 B-R7-1 정정). **Group E만 해소** (Group G는 PR3c). | omxy R1~R7 7 rounds CONVERGED-track + **3-track deep review** (gstack-review skill + general-purpose agent (depth=deep adversarial) + 5-angle scan) + R6 codex-spawned 3 subagents 추가 검토 | PR4 UI 진입 |
 | **PR4** | **CLAUDE** | PR3b 머지 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). **Group A + F + D 잔여 + PR3a OOS 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) | §2.2 출시 게이트 진입 |
 | **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + **3-track deep review** | — |
 | **Step 7~14** (S7b → S7c → S7d → S8) | USER 트리거 + CLAUDE 구현 | canonical 5-PR 완료 후 | S7b 뉴스+브리핑 → D11 AI 가상 포트 1차 가동 (어드민 3인 운용 검증) → S7c 장중·KIS WS → S7d Silent Health → S8 자동매매 (Binance Smoke #3) | 각 슬라이스 DoD | §2.2 출시 게이트 |
@@ -229,8 +229,8 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 ### 55차 §1 PR #14 (PR3b writer Section 0~7 + Appendix 풀 리포트 생성 + RPC `update_report_sections_0_7`) OPEN (omxy R1~R5 CONVERGED + 누적 24 BLOCKERS + 3-track deep review Fix-First 6, 2026-05-23)
 
 - **scope**: 53차 §5 정정 spec §4 PR3b. Group **E** (writer Section 0~7 본문 미구현) 해소. **Group G는 PR3c로 defer** (omxy R1 Q3 + 3-track B20 fix — HANDOFF/spec 문구 정정 동반).
-- **branch**: `feat/pr3b-writer-section-0-7` (worktree `/Users/yong/New_Project_KR_Stock-pr3b`, main `ecdb1a7` 기준 7 commits, head `bc89f32`). PR **#14** OPEN.
-- **7 commits** (1 plan + 5 impl + 1 grep fix + 1 Fix-First):
+- **branch**: `feat/pr3b-writer-section-0-7` (worktree `/Users/yong/New_Project_KR_Stock-pr3b`, main `ecdb1a7` 기준 N commits rolling — `git rev-list --count main..origin/feat/pr3b-writer-section-0-7`로 runtime 확인, current head 갱신 prone). PR **#14** OPEN.
+- **commit timeline (R6/R7 갱신 후 rolling — 정확 count는 `gh pr view 14`)**:
   - `09e57b4` feat(PR3b Task1): full-report-prompt — page.tsx 라벨 + plain delimiter + valid JSON
   - `1776b38` feat(PR3b Task2): 마이그 0022 update_report_sections_0_7 — 0017 패턴 + 4-grant + search_path + input regex guard
   - `934fae4` feat(PR3b Task3): full-report-client — Anthropic Opus single-call + cost_log + full_report_llm_failed throw
@@ -238,7 +238,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
   - `09d1035` feat(PR3b Task5): format-error — 5 신규 키 + 3 prefix handler 한국어 매핑
   - `7971eef` fix(PR3b Task6 grep gate): comment false positive 제거
   - `bc89f32` fix(PR3b 3-track deep review): C1 cost hardcap + 5 cross-confirmed fixes Fix-First
-- **신규 SoT 코드 (11 files / +1011 lines)**:
+- **신규 SoT 코드 (PR3b code + R6/R7 docs 합산 rolling — 정확 stat은 `gh pr view 14 --json additions,deletions,changedFiles`로 확인)**:
   - `tudal/src/lib/ai/prompts/full-report-prompt.ts` (FULL_REPORT_SYSTEM_PROMPT + buildFullReportUserPrompt + plain delimiter + ASCII quote 강제) + test (17 cases)
   - `tudal/src/lib/ai/full-report-client.ts` (callFullReport — Anthropic Opus single call + cost_log + structured warn on err) + test (3 cases)
   - `tudal/src/lib/report/full-report-writer.ts` (extractJsonObject depth-aware + parseAndValidate with structured warn + commitFullReport with preflightHardcap + report_not_found direct throw) + test (16 cases)
@@ -263,7 +263,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 - **B18 보안 contract 박제** (PR4 acceptance criterion): PR4 cron route는 `CRON_SECRET` env 검증 + 검증 실패 401 반환 테스트 필수. PR3b RPC는 DB-layer caller intent 강제 안 함 — service_role grant 의존.
 - **검증 게이트 (PR3b OPEN baseline)**: build 25 routes / lint 0 err 6 warn / **test:ci 914 / 79 files (+52 over 862)** / tsc clean / 8 grep gates 0 매치
 - **rollback ranges**: OLD_MAIN=`ecdb1a7` / AFTER_PR14=(merge 후 runtime).
-  - Revert PR3b only: `git revert --no-edit OLD_MAIN..AFTER_PR14` (7 commits)
+  - Revert PR3b only: `git revert --no-edit OLD_MAIN..AFTER_PR14` (rolling commit count — `git rev-list --count OLD_MAIN..AFTER_PR14`)
   - Migration rollback: 0022 → drop function (rollback.sql)
 - **다음**: USER PR #14 머지 + 마이그 0022 production apply + Vercel canary 4 페이지 OK → CLAUDE PR4 또는 PR3c 진입.
 
@@ -314,7 +314,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 - **검증 게이트 (54차 §4 종료)**: build 25 routes / lint 0 err 6 warn / **test:ci 862/75 (+60 over 802)** / tsc clean / 5 grep gates 0 매치 (isProductionLike / monthly-batch mockMode / as ReportSection / service-role boundary / server-only marker present)
 - **rollback ranges 박제**: OLD_MAIN=`7279d9f` (54차 §4 docs commit 직후, PR1 merge 직전) / AFTER_PR1_MERGE=`4aa3130` (15 commits FF). Revert PR1 only: `git revert --no-edit OLD_MAIN..AFTER_PR1_MERGE` (15 commits). reset --hard / force-push 금지. Migration rollback: 0021 → 0020 순서 (started_by NOT NULL 복구는 production cron NULL row cleanup 후 수동).
 - **OOS findings PR body 박제 (defer 7 follow-up tickets)**: W1 service-role cache stale rotation / W3 release_batch_lock_cron SECURITY DEFINER RPC / W4 alert_event source col / W6 real-LLM feature flag / W7 triggerMonthlyBatch app-layer is_admin / #4 runTier1Screening 동시성 cap (PR2 boundary) / #9 monthly_batch_runs started_by NOT NULL CHECK 대체.
-- **다음**: CLAUDE PR3b (writer Section 0~7 본문) 진입 의사 1회 확인 후 자동 시작. PR3b scope = Group E + G 해소 + `sector_reference_backlog` 마이그. **USER 잔여 액션 = 0** (omxy R22~R23 교차검증: Migration 0020/0021 production applied + Vercel canary 4 페이지 OK).
+- **다음**: USER PR #14 머지 + Migration 0022 production apply + Vercel canary 4 페이지 OK → CLAUDE PR4 (UI trigger + Track Record 탭 + Regen 실 호출 + caller wire) 또는 PR3c (document-specialist + analyst + critic + sector_reference_backlog 마이그) 진입. PR3b scope = **Group E만 해소** (Group G + 4-step orchestration은 PR3c로 분리 — omxy R1 Q3 + R7 B-R7-1 정정).
 
 ### 54차 §3 PR #12 (PR3a Group H schema drift fix) MERGED + post-merge docs refresh (omxy R1~R12 CONVERGED + R7 Codex GATE PASS, 2026-05-22)
 
