@@ -8,7 +8,11 @@
 // (j) fix (omxy R4): SDK error catch + structured warn capture (PR3b CR-3 패턴).
 
 import Anthropic from '@anthropic-ai/sdk';
-import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
+import {
+  calculateCostKrw,
+  REVISE_PRICING_KEY,
+  type TokenUsage,
+} from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { REVISE_PROMPT_VERSION } from './prompts/revise-prompt';
 
@@ -67,8 +71,9 @@ export async function callRevise(input: CallReviseInput): Promise<CallReviseResu
     cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
     output_tokens: response.usage.output_tokens ?? 0,
   };
-  // REVISE_API_MODEL은 anthropic-pricing.ts에 'claude-opus-4-7' key로 존재 — 기본 path.
-  const costKrw = calculateCostKrw(usage);
+  // Track 3 C-1 fix (5-angle scan): REVISE_PRICING_KEY 명시 — B14 patten 정합 (CRITIC_PRICING_KEY 대칭).
+  // S7A_MODEL 변경 시 silent fallback Sonnet 단가 차단.
+  const costKrw = calculateCostKrw(usage, REVISE_PRICING_KEY);
 
   await insertCostLog({
     month: input.month,
