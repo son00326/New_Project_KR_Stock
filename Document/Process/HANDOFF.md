@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-25 (55차 §4 — **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G) ✅ MERGED in main `b2a902a` via rebase FF (12 commits) + Migration 0023 + 0024 production applied (Supabase MCP, 12/12 + 14/14 verify PASS) + Vercel canary 4/4 PASS + PR #16 (HANDOFF + ProgressDashboard docs) ✅ MERGED in main `c98f2c4` via rebase FF (5 commits) + branch/worktree cleanup 완료** · omxy R1~R18 18 rounds CONVERGED + **누적 34 BLOCKERS catch & fix** (PR3c 24 + R10~R14 docs 8 + R15~R18 머지/apply/canary 2) + 3-track deep review Fix-First 5 + Defer 20 P2/Info → PR4 acceptance · current main HEAD `c98f2c4` · **OPEN PRs: #2 (format-error, 보류) only** · **USER 잔여 액션 = 0** · 다음 CLAUDE = **PR4 (UI caller wire + Track Record 탭 + Regen 실 호출 + B18 CRON_SECRET 401 test)** 진입 의사 1회 확인 후 자동 시작.
+Last updated: 2026-05-25 (55차 §4 — **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G) ✅ MERGED in main `b2a902a` via rebase FF (12 commits) + Migration 0023 + 0024 production applied (Supabase MCP, 12/12 + 14/14 verify PASS) + Vercel canary 4/4 PASS + PR #16 (HANDOFF + ProgressDashboard docs) ✅ MERGED in main `c98f2c4` via rebase FF (5 commits) + 2 post-merge docs commit (`8acb368` B33+B34 + `5d58726` B35) + branch/worktree cleanup 완료** · omxy R1~R20 20 rounds CONVERGED + **누적 38 BLOCKERS catch & fix** (PR3c 24 + R10~R14 docs 8 + R15~R20 머지/apply/canary/docs sync 6) + 3-track deep review Fix-First 5 + Defer 20 P2/Info → PR4 acceptance · current main HEAD `5d58726` · **OPEN PRs: #2 (format-error, 보류) only** · **USER 잔여 액션 = 0** · 다음 CLAUDE = **PR4 (UI caller wire + Track Record 탭 + Regen 실 호출 + B18 CRON_SECRET 401 test)** 진입 의사 1회 확인 후 자동 시작.
 
 ---
 
@@ -57,10 +57,10 @@ git status --short                                # working tree state
 # 2. OPEN PRs (55차 §4 PR3c ✅ MERGED 후 baseline: #2 (format-error, 보류) only)
 gh pr list --state open --json number,title,headRefName,mergeable
 
-# 3. main fast-forward 박제 확인 (55차 §4 PR3c MERGED + PR #16 MERGED + post-merge docs commit, main = 8acb368)
+# 3. main fast-forward 박제 확인 (55차 §4 PR3c MERGED + PR #16 MERGED + 2 post-merge docs commits, main = 5d58726)
 git fetch origin main && git rev-parse --short origin/main  # 현재 main HEAD = 1a92fa3 (55차 §3 PR3b MERGED 후 docs)
 
-# 4. 검증 게이트 (55차 §4 PR3c MERGED + post-merge main `8acb368` baseline: build 25 routes / lint 0 err 6 warn / test:ci 1010/88 / tsc clean / 22 grep gates 통과)
+# 4. 검증 게이트 (55차 §4 PR3c MERGED + post-merge main `5d58726` baseline: build 25 routes / lint 0 err 6 warn / test:ci 1010/88 / tsc clean / 22 grep gates 통과)
 #    - 55차 §4 PR3c OPEN baseline (PR #15 worktree): build 25 routes / lint 0 err 6 warn / test:ci 1010/88 (+93 over 917) / tsc clean / 22 grep gates 통과
 #    - main baseline (1a92fa3, 55차 §3 PR3b MERGED 후): build 25 routes / lint 0 err 6 warn / test:ci 917/79 / tsc clean
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
