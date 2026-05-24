@@ -107,7 +107,7 @@ Group G Sector reference 3-level 박제:
 | **Q2** critic 6축 호출 | **(i) single LLM** — 통합 JSON | axis별 병렬은 비용/일관성 손해. |
 | **Q3** revise trigger threshold | **(ii) any FAIL or WARN≥4** + revise **1회 hard cap** (recursive revise 금지) | quality + cost 균형. |
 | **Q4** report_critic_findings 마이그 | **본 PR3c 안 (0024)** — 단 `run_id` 컬럼 + INSERT 매번 new run_id 발급 | findings 중복 누적 차단. |
-| **Q5** cost hardcap 조정 | **(i) 별도 상수** — CRITIC + REVISE + ORCHESTRATE 합산. 단, **`calculateCostKrw` 통과 필수** (magic number 5000/18000 금지). | 현재 단가 기준 critic ≈ 5원 / revise ≈ 271원 (v3 B11 input 6000→8000 보수화) / full ≈ 236원 / total ≈ 512원/worst case. |
+| **Q5** cost hardcap 조정 | **(i) 별도 상수** — CRITIC + REVISE + ORCHESTRATE 합산. 단, **`calculateCostKrw` 통과 필수** (magic number 5000/18000 금지). | 현재 단가 기준 critic ≈ 27.5원 (B22 input 9000+output 2048 보수화 omxy R7) / revise ≈ 272원 (B11 input 8000 보수화 + REVISE_PRICING_KEY C-1 명시) / full ≈ 236원 / total ≈ 535원/worst case (B23 갱신 omxy R8). |
 | **Q6** orchestrateFullReport vs commitFullReport | **(iii) 신규 export 추가, commitFullReport 보존** | PR4 caller 선택. |
 | **Q7** document-specialist | **완전 defer** — stub/test도 fake quality·scope creep. 필요하면 type-only comment로 박제. | scope guard. |
 
@@ -815,13 +815,13 @@ export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
 | 비용 항목 | 모델 | input | output | krw/call |
 |---|---|---|---|---|
 | FULL_REPORT (PR3b 기존) | Opus 4.7 | 3000 | 6000 | ≈ 236원 |
-| CRITIC (PR3c 신규) | Haiku 4.5 | 1000 | 500 | ≈ 5원 |
-| REVISE (PR3c 신규, conditional, B11 보수화) | Opus 4.7 | 8000 | 6000 | ≈ 271원 |
-| **ORCHESTRATE TOTAL (worst case, 매번 revise)** | — | — | — | **≈ 512원** |
-| **ORCHESTRATE 평균 (revise trigger 30% 가정)** | — | — | — | ≈ 322원 |
+| CRITIC (PR3c 신규, B22 보수화 omxy R7) | Haiku 4.5 | 9000 | 2048 | ≈ 27.5원 |
+| REVISE (PR3c 신규, conditional, B11 보수화 + REVISE_PRICING_KEY C-1) | Opus 4.7 | 8000 | 6000 | ≈ 272원 |
+| **ORCHESTRATE TOTAL (worst case, 매번 revise)** | — | — | — | **≈ 535원** |
+| **ORCHESTRATE 평균 (revise trigger 30% 가정)** | — | — | — | ≈ 345원 |
 
-**월간 worst case** (30 stocks × 512) = **15,360원/월** ≈ M17 hardcap 400,000원의 **3.8%**.
-**월간 평균** (30 stocks × 322) = **9,660원/월** ≈ **2.4%**.
+**월간 worst case** (30 stocks × 535) = **16,050원/월** ≈ M17 hardcap 400,000원의 **4.0%** (B23 fix omxy R8 갱신).
+**월간 평균** (30 stocks × 345) = **10,350원/월** ≈ **2.6%**.
 
 → M17 hardcap 매우 여유.
 
