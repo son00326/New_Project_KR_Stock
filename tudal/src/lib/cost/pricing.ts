@@ -88,13 +88,22 @@ export const CRITIC_MAX_COST_PER_CALL_KRW = calculateCostKrw(
 );
 
 // PR3c — revise call (Opus 4.7, max_tokens 8192 — B3 fix · input 8000 — B11 보수화)
+// Track 3 C-1 fix (5-angle scan cross-confirmed angles 3+5): defense-in-depth — B14 pattern 정합.
+// REVISE_PRICING_KEY 명시 + throw guard로 model bump 시 silent fallback Sonnet 단가 차단.
+export const REVISE_PRICING_KEY = "claude-opus-4-7" as const;
+if (!(REVISE_PRICING_KEY in ANTHROPIC_PRICING)) {
+  throw new Error(`${REVISE_PRICING_KEY} not in ANTHROPIC_PRICING — anthropic-pricing.ts SoT 갱신 필요`);
+}
 // 현재 단가: Opus $5 input / $25 output × 1430 ≈ 271원 (input 8000 + output 6000).
-export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw({
-  input_tokens: 8000,
-  cache_creation_input_tokens: 0,
-  cache_read_input_tokens: 0,
-  output_tokens: 6000,
-});
+export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw(
+  {
+    input_tokens: 8000,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    output_tokens: 6000,
+  },
+  REVISE_PRICING_KEY,
+);
 
 // PR3c — orchestrate total budget (writer + critic + revise worst case)
 // 약 236 + 5 + 271 = 512원/per ticker worst case (revise 항상 발생 가정).
