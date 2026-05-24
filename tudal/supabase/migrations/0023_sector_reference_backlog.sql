@@ -37,9 +37,11 @@ revoke all on public.sector_reference_backlog from anon;
 grant select on public.sector_reference_backlog to authenticated;
 grant select on public.sector_reference_backlog to service_role;
 
--- read-only via RLS (insert/update는 RPC만 — privilege 격리)
+-- read-only via RLS (insert/update는 RPC만 — privilege 격리).
+-- Track 2 C1 fix (gsd-deep): defense-in-depth — service_role SELECT path 명시 (0017 pattern 정합).
+-- service_role JWT는 PostgREST에서 RLS bypass되지만 직접 PL/pgSQL 호출 path는 차단 가능.
 create policy "admin select" on public.sector_reference_backlog
-  for select using (public.is_admin());
+  for select using (public.is_admin() or (select auth.role()) = 'service_role');
 
 comment on table public.sector_reference_backlog is
   'Level A sector body reference 부족 lazy 추적 (Group G PR3c). 첫 풀 리포트 작성 시 atomic RPC insert_or_bump_sector_backlog 호출.';

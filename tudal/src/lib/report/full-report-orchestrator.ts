@@ -164,12 +164,16 @@ export async function orchestrateFullReport(
   });
 
   // Step 3 critic (Haiku LLM)
+  // Track 2 W2 fix (gsd-deep): kevinV31Markers thread through orchestrator → critic.
+  // PR3c quality 보장 핵심 — M1~M8 markers 명시. 미전달 시 critic prompt가 placeholder fallback.
   const critic = await evaluateReport(finalSections, {
     ticker: input.ticker,
     month: input.month,
     adminUserId: input.adminUserId,
     sectorContext: input.sectorReference,
     consensusBadge: input.consensusBadge,
+    kevinV31Markers:
+      'M1 4 axes (안정성·수익성·성장성·밸류) / M2 financial cite / M3 no-fabrication / M4 peer 3+ / M5 valuation trial / M6 BUY|HOLD|SELL / M7 일상 비유 / M8 200자 cap',
   });
 
   // Step 4 conditional revise (Opus max 8192, 1회 hard cap — recursive revise 차단)

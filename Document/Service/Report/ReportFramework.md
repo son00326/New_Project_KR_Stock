@@ -823,7 +823,11 @@ Step 4: 수정 반영 → 최종본 확정
 
 ### 9.2 섹터별 추가 체크리스트 (추후 조정 가능)
 
-#### 9.2.0 Sector reference 자료 3-level 분류 (v2.6, 53차 §5 — Group G 정정)
+#### 9.2.0 Sector reference 자료 3-level 분류 (v2.6 53차 §5 + v2.7 55차 §4 PR3c — Group G ✅ 해소)
+
+> **v2.7 amend (PR3c, omxy R6 CONVERGED · 누적 21 BLOCKERS catch & fix)**: Level A 12 sector 부족은 `sector_reference_backlog` table (마이그 0023) + atomic RPC `insert_or_bump_sector_backlog`로 lazy 추적. helper-level `LEVEL_A_SECTORS_WITH_BODY = {바이오, 반도체}` early return (오염 차단, B20). 갱신 절차: 운영 중 sector body reference 작성 시 (1) `Document/Outputs/` 본문 추가 (2) `LEVEL_A_SECTORS_WITH_BODY` const 갱신 (3) missing 12 invariant test 확인. **상세 v2.7 changelog = §10 행.**
+
+
 
 > **OMXY R1 BLOCKER 3 + R3 BLOCKER 3 정정**: "12 sectors 부족"이라는 어휘가 어떤 level의 부족을 가리키는지 박제 불명확이었음. 본 §9.2.0은 sector reference 자료를 **Level A·B·C 3-level**로 명확 분리하여 박제. spec doc §1.7 참조.
 
