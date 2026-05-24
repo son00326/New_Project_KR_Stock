@@ -87,6 +87,17 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // cost_hardcap_40man은 이미 line 26에 매핑 박제됨 — 본 PR에서 추가 매핑 0.
   cost_log_select_failed: "비용 로그 조회 실패",
   cost_log_insert_failed: "비용 로그 저장 실패",
+  // PR3c — 3-step orchestration critic + revise + sector_reference_backlog + report_critic_findings (omxy R6 CONVERGED)
+  critic_llm_failed: "AI 검증 단계가 실패했습니다",
+  critic_parse_failed: "AI 검증 응답을 파싱할 수 없습니다",
+  critic_validation_failed: "AI 검증 응답이 형식을 어겼습니다",
+  revise_llm_failed: "AI 재작성 단계가 실패했습니다",
+  revise_parse_failed: "AI 재작성 응답을 파싱할 수 없습니다",
+  orchestrate_failed: "보고서 생성 흐름이 실패했습니다",
+  sector_reference_backlog_rpc_failed: "섹터 reference 추적 저장이 실패했습니다",
+  sector_reference_backlog_invalid_sector: "섹터 값이 올바르지 않습니다",
+  report_critic_findings_rpc_failed: "AI 검증 결과 저장이 실패했습니다",
+  report_critic_findings_list_failed: "AI 검증 결과 조회가 실패했습니다",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -154,6 +165,31 @@ export function formatErrorMessage(code: string): string {
   }
   if (code.startsWith("cost_log_insert_failed:")) {
     return KOREAN_MAPPINGS["cost_log_insert_failed"];
+  }
+  // PR3c — orchestrate / critic / revise / backlog / critic_findings suffix throw 호환 4 prefix:
+  if (code.startsWith("critic_validation_failed:") || code.startsWith("critic_parse_failed:") || code.startsWith("critic_llm_failed:")) {
+    if (code.startsWith("critic_validation_failed:")) return KOREAN_MAPPINGS["critic_validation_failed"];
+    if (code.startsWith("critic_parse_failed:")) return KOREAN_MAPPINGS["critic_parse_failed"];
+    return KOREAN_MAPPINGS["critic_llm_failed"];
+  }
+  if (code.startsWith("revise_parse_failed:") || code.startsWith("revise_llm_failed:")) {
+    if (code.startsWith("revise_parse_failed:")) return KOREAN_MAPPINGS["revise_parse_failed"];
+    return KOREAN_MAPPINGS["revise_llm_failed"];
+  }
+  if (code.startsWith("orchestrate_failed:")) {
+    return KOREAN_MAPPINGS["orchestrate_failed"];
+  }
+  if (code.startsWith("sector_reference_backlog_rpc_failed:")) {
+    return KOREAN_MAPPINGS["sector_reference_backlog_rpc_failed"];
+  }
+  if (code.startsWith("sector_reference_backlog_invalid_sector:")) {
+    return KOREAN_MAPPINGS["sector_reference_backlog_invalid_sector"];
+  }
+  if (code.startsWith("report_critic_findings_rpc_failed:")) {
+    return KOREAN_MAPPINGS["report_critic_findings_rpc_failed"];
+  }
+  if (code.startsWith("report_critic_findings_list_failed:")) {
+    return KOREAN_MAPPINGS["report_critic_findings_list_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
