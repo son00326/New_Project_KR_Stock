@@ -33,8 +33,9 @@ revoke all on public.report_critic_findings from anon;
 grant select on public.report_critic_findings to authenticated;
 grant select on public.report_critic_findings to service_role;
 
+-- Track 2 C1 fix (gsd-deep): defense-in-depth — service_role SELECT path 명시.
 create policy "admin select" on public.report_critic_findings
-  for select using (public.is_admin());
+  for select using (public.is_admin() or (select auth.role()) = 'service_role');
 
 comment on table public.report_critic_findings is
   'PR3c critic 6축 verdict persistence. orchestrateFullReport이 매 호출 시 RPC insert_critic_findings_run으로 new run_id + 6 row atomic INSERT. target_stage = ''writer_draft'' (PR3c 1회 hard cap).';

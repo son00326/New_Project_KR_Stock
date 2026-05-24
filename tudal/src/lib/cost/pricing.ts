@@ -79,9 +79,11 @@ if (!(CRITIC_PRICING_KEY in ANTHROPIC_PRICING)) {
 }
 
 // PR3c — critic call (Haiku 4.5)
-// 현재 단가: Haiku $1 input / $5 output × 1430 KRW/USD ≈ 5원 (input 1000 + output 500).
+// B22 fix (omxy R7): evaluateReport이 sectionsSummary = JSON.stringify(sections) 전체 inject.
+// hardcap 보수적 calibration = input 9000 (Section 0~7 + Appendix JSON stringify upper-bound) +
+// output 2048 (CRITIC_MAX_TOKENS). 현재 단가 ≈ 27.5원 (Haiku $1 input / $5 output × 1430 KRW/USD).
 export const CRITIC_MAX_COST_PER_CALL_KRW = calculateCostKrw(
-  { input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 500 },
+  { input_tokens: 9000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 2048 },
   CRITIC_PRICING_KEY,
 );
 
