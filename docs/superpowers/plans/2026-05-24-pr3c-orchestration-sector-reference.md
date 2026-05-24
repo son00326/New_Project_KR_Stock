@@ -1,8 +1,19 @@
-# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v4)
+# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v5)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Changelog**
+> - **v5 (omxy R4 3 BLOCKERS catch · 누적 19 BLOCKERS · CONVERGED-track)** 2026-05-24:
+>   - **B17 P1 fix** — `orchestrateFullReport` runId wire 누락. `const { runId } = await insertCriticFindingsRun(...)` + `OrchestrateFullReportResult`에 `criticRunId: string` 추가. test 7개에 runId 반환 단언 + `getCriticFindingsByRunId(reportId, criticRunId)` 후속 호출 검증.
+>   - **B18 P1 fix** — sector canonical guard DB invariant (옵션 c 양쪽 + table CHECK):
+>     1. **helper level** (v4 이미 적용): `isCanonicalSector(trimmed)` check
+>     2. **RPC SQL level (신규)**: `insert_or_bump_sector_backlog`이 `p_sector := trim(p_sector)` + `canonical 14 check` (배열 IN literal). non-canonical → `raise 'invalid_sector_not_canonical'`
+>     3. **table CHECK (신규)**: `sector_reference_backlog.sector` 컬럼에 `CHECK (sector IN ('바이오','반도체',...))` constraint
+>     4. **contract test (신규)**: TS `CANONICAL_SECTORS` 배열과 SQL `IN (...)` literal 14개 element exact match drift catch
+>   - **B19 P1 fix** — pre-revise critic findings 명명 명확화. `report_critic_findings.target_stage text not null check (target_stage in ('writer_draft','revised'))` 컬럼 추가. PR3c orchestrator는 항상 `target_stage='writer_draft'` INSERT (1회 hard cap이라 'revised' stage critic은 PR3c scope 외 — 미래 별도 PR). 마이그 0024 + RPC + helper signature + contract test 모두 갱신.
+>   - **(i) fix**: analyst.test snapshot pattern → **explicit shape assertions** (omxy R4 권장).
+>   - **(j) fix**: critic-client.ts에 PR3b CR-3 패턴 follow (Anthropic SDK error catch + structured `console.warn` capture + 'critic_llm_failed' throw). 429 vs 5xx 세분화는 P2 OK.
+>   - **(k) fix 박제**: critic는 PASS/no-revise에도 항상 INSERT (현 plan 정합) + target_stage 명명 (B19) 으로 명확화.
 > - **v4 (omxy R3 3 BLOCKERS catch · 누적 16 BLOCKERS · CONVERGED-track)** 2026-05-24:
 >   - **B14 P1 fix** — model/pricing key drift 차단. `CRITIC_API_MODEL` (actual Anthropic API ID, `claude-haiku-4-5-20251001`) + `CRITIC_PRICING_KEY` (ANTHROPIC_PRICING 키, `claude-haiku-4-5`) 두 상수 명시적 분리. critic-client.ts가 API call 시 `CRITIC_API_MODEL` 사용 / pricing.ts에서 `calculateCostKrw` 호출 시 `CRITIC_PRICING_KEY` 사용. **invariant test**: pricing.ts test에 `CRITIC_PRICING_KEY in ANTHROPIC_PRICING` 단언 + critic-client test에 API call MODEL 단언. **Verification gate 16 (positive — B14 invariant)**: `if (!('claude-haiku-4-5' in ANTHROPIC_PRICING)) throw` 매치 + pricing.ts 신규 상수 `CRITIC_PRICING_KEY` declare 매치.
 >   - **B15 P1 fix** — Q5 결정표 rationale stale (revise≈257 / total≈498 → revise≈271 / total≈512). omxy R1 CONVERGED 결정 테이블에서 v3 v_caller 보수화 반영 (revise 8000 input × 5 + 6000 output × 25 / 1M × 1430 = 271원, total = 236+5+271 = 512원).
@@ -370,9 +381,10 @@ export async function orchestrateFullReport(
     throw new Error(`update_report_sections_0_7_failed:${error.code ?? 'unknown'}`);
   }
 
-  // critic findings INSERT (atomic RPC)
-  await insertCriticFindingsRun(data.report_id, critic.verdict);
-  // sector backlog INSERT-or-BUMP (atomic RPC)
+  // critic findings INSERT (atomic RPC) — B17 fix: runId wire
+  // B19 fix: target_stage='writer_draft' (PR3c는 1회 hard cap이라 revise 후 re-critic 0)
+  const { runId: criticRunId } = await insertCriticFindingsRun(data.report_id, critic.verdict, 'writer_draft');
+  // sector backlog INSERT-or-BUMP (atomic RPC) — B18 fix: trim+canonical helper에서 검증
   await insertOrBumpBacklog(input.sector);
 
   return {
@@ -380,6 +392,7 @@ export async function orchestrateFullReport(
     costKrw: writerLlm.costKrw + critic.costKrw + reviseCostKrw,
     revised,
     criticVerdict: critic.verdict,
+    criticRunId,   // B17 fix: 호출자가 getCriticFindingsByRunId(reportId, criticRunId) strict 조회 가능
   };
 }
 ```
@@ -407,7 +420,13 @@ export async function orchestrateFullReport(
 
 create table public.sector_reference_backlog (
   id uuid primary key default gen_random_uuid(),
-  sector text not null,
+  -- B18 fix (omxy R4): table CHECK으로 canonical 14 sector DB invariant.
+  -- TS canonical-sectors.ts CANONICAL_SECTORS와 drift catch contract test에서.
+  sector text not null check (sector in (
+    '바이오', '반도체', '건설', '금융', '2차전지', '자동차',
+    'IT/SW', '유통/소비재', '에너지', '엔터/미디어', '통신',
+    '철강/소재', '운송/물류', '보험/증권'
+  )),
   status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed', 'archived')),
   first_requested_at timestamptz not null default now(),
   last_requested_at timestamptz not null default now(),
@@ -454,16 +473,31 @@ begin
   if not (public.is_admin() or v_caller = 'service_role') then
     raise exception 'admin_required';
   end if;
-  if p_sector is null or p_sector = '' then
+  -- B18 fix (omxy R4): trim + canonical 14 check (DB invariant + helper-level 양쪽)
+  if p_sector is null then
     raise exception 'invalid_sector';
   end if;
+  declare
+    v_sector text := trim(p_sector);
+  begin
+    if v_sector = '' then
+      raise exception 'invalid_sector';
+    end if;
+    if v_sector not in (
+      '바이오', '반도체', '건설', '금융', '2차전지', '자동차',
+      'IT/SW', '유통/소비재', '에너지', '엔터/미디어', '통신',
+      '철강/소재', '운송/물류', '보험/증권'
+    ) then
+      raise exception 'invalid_sector_not_canonical';
+    end if;
 
-  insert into public.sector_reference_backlog (sector, status, request_count)
-  values (p_sector, 'pending', 1)
-  on conflict (sector) do update
-    set request_count = sector_reference_backlog.request_count + 1,
-        last_requested_at = now(),
-        updated_at = now();
+    insert into public.sector_reference_backlog (sector, status, request_count)
+    values (v_sector, 'pending', 1)
+    on conflict (sector) do update
+      set request_count = sector_reference_backlog.request_count + 1,
+          last_requested_at = now(),
+          updated_at = now();
+  end;
 end;
 $$;
 
@@ -506,12 +540,15 @@ export async function insertOrBumpBacklog(sector: string): Promise<void> {
 
 ```sql
 -- 0024_report_critic_findings.sql
--- SoT: docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md (v2, omxy R1 B6+B7 fix)
+-- SoT: docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md (v5, omxy R1 B6+B7 + R4 B19 fix)
 
 create table public.report_critic_findings (
   id uuid primary key default gen_random_uuid(),
   report_id uuid not null references public.stock_reports(id) on delete cascade,
   run_id uuid not null,
+  -- B19 fix (omxy R4): pre-revise vs post-revise critic 명명. PR3c는 항상 'writer_draft' (1회 hard cap).
+  -- 미래 'revised' stage critic 도입 시 별도 PR + 마이그 확장.
+  target_stage text not null check (target_stage in ('writer_draft', 'revised')),
   axis text not null check (axis in ('factuality', 'logic', 'completeness', 'structure', 'bias', 'reader_level')),
   verdict text not null check (verdict in ('PASS', 'WARN', 'FAIL')),
   reason text not null check (length(reason) <= 500),
@@ -535,9 +572,11 @@ create policy "admin select" on public.report_critic_findings
 comment on table public.report_critic_findings is
   'PR3c critic 6축 verdict persistence. orchestrateFullReport이 매 호출 시 RPC insert_critic_findings_run로 new run_id + 6 row atomic INSERT.';
 
+-- B19 fix (omxy R4): p_target_stage 추가. PR3c orchestrator는 'writer_draft' 고정.
 create or replace function public.insert_critic_findings_run(
   p_report_id uuid,
-  p_verdict jsonb
+  p_verdict jsonb,
+  p_target_stage text default 'writer_draft'
 )
 returns uuid
 language plpgsql
@@ -566,6 +605,10 @@ begin
   if p_verdict is null or jsonb_typeof(p_verdict) <> 'object' then
     raise exception 'invalid_verdict';
   end if;
+  -- B19 fix: target_stage validation
+  if coalesce(p_target_stage, '') not in ('writer_draft', 'revised') then
+    raise exception 'invalid_target_stage';
+  end if;
 
   -- 6축 전부 존재 + verdict enum + reason 길이 validation
   foreach v_axis in array v_axes loop
@@ -589,8 +632,9 @@ begin
 
   foreach v_axis in array v_axes loop
     v_node := p_verdict -> v_axis;
-    insert into public.report_critic_findings (report_id, run_id, axis, verdict, reason)
-    values (p_report_id, v_run_id, v_axis, v_node ->> 'verdict', v_node ->> 'reason');
+    -- B19 fix: target_stage 컬럼 추가
+    insert into public.report_critic_findings (report_id, run_id, target_stage, axis, verdict, reason)
+    values (p_report_id, v_run_id, p_target_stage, v_axis, v_node ->> 'verdict', v_node ->> 'reason');
   end loop;
 
   return v_run_id;
@@ -603,16 +647,20 @@ grant execute on function public.insert_critic_findings_run(uuid, jsonb) to auth
 grant execute on function public.insert_critic_findings_run(uuid, jsonb) to service_role;
 ```
 
-helper:
+helper (**B19 fix — targetStage 파라미터 추가**):
 ```typescript
+export type CriticTargetStage = 'writer_draft' | 'revised';
+
 export async function insertCriticFindingsRun(
   reportId: string,
   verdict: CriticResultJson,
+  targetStage: CriticTargetStage = 'writer_draft',
 ): Promise<{ runId: string }> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('insert_critic_findings_run', {
     p_report_id: reportId,
     p_verdict: verdict,
+    p_target_stage: targetStage,
   });
   if (error) throw new Error(`report_critic_findings_rpc_failed:${error.code ?? 'unknown'}`);
   return { runId: data as string };
@@ -778,7 +826,7 @@ gh pr create ...
 
 ---
 
-## Verification Gates (17종 — omxy R2 B13 positive grant + omxy R3 B14/B16 추가)
+## Verification Gates (20종 — omxy R2 B13 + R3 B14/B16 + R4 B17/B18/B19 추가)
 
 1. `npm run build` — 25 routes intact
 2. `npm run lint` — 0 err
@@ -797,6 +845,9 @@ gh pr create ...
 15. **grep gate (B10 fix)**: 0023/0024 RPC 둘 다 `v_caller_role text := auth.role()` declare + `coalesce(v_caller_role` 매치 (service_role guard 정합)
 16. **grep gate (B14 fix — model/pricing key drift 차단)**: pricing.ts에 `CRITIC_PRICING_KEY` declare 매치 + `if (!(CRITIC_PRICING_KEY in ANTHROPIC_PRICING)) throw` 매치
 17. **grep gate (B16 fix — canonical guard)**: sector-reference-backlog.ts에 `isCanonicalSector(trimmed)` import + invariant check 매치
+18. **grep gate (B17 fix — runId wire)**: full-report-orchestrator.ts에 `criticRunId` 단어 매치 (return value 포함) + `OrchestrateFullReportResult` interface에 `criticRunId` 필드 매치
+19. **grep gate (B18 fix — DB invariant)**: 0023 마이그에 `check (sector in (` 매치 + RPC body에 `trim(p_sector)` 매치 + RPC body에 `invalid_sector_not_canonical` 매치 + contract test에 TS↔SQL drift 검증 (`CANONICAL_SECTORS` import in 0023 contract test) 매치
+20. **grep gate (B19 fix — target_stage)**: 0024 마이그에 `target_stage text not null check (target_stage in ('writer_draft', 'revised'))` 매치 + helper에 `targetStage: CriticTargetStage = 'writer_draft'` default 매치 + orchestrator에 `'writer_draft'` literal 매치
 
 ---
 
@@ -818,4 +869,4 @@ SCOPE GUARD (재해석 금지):
 
 ---
 
-**End of Plan v4 — omxy R4 적대적 검토 대기 (CONVERGED 후보)**
+**End of Plan v5 — omxy R5 적대적 검토 대기 (CONVERGED 후보, 누적 19 BLOCKERS catch & fix)**
