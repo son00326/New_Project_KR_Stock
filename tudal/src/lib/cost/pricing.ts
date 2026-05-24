@@ -64,3 +64,38 @@ export const FULL_REPORT_MAX_COST_PER_CALL_KRW = calculateCostKrw({
 
 // M17 hardcap (Q2 합의 — 40만원)
 export const HARDCAP_KRW = 400_000;
+
+// ---------------------------------------------------------------------------
+// PR3c (omxy R6 CONVERGED, 누적 21 BLOCKERS) — 3-step orchestration cost calibration.
+// SoT = docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md (v6)
+// ---------------------------------------------------------------------------
+
+// B14 fix (omxy R3): anthropic-pricing.ts ANTHROPIC_PRICING 키 (calculateCostKrw 2nd arg).
+// CRITIC_API_MODEL ('claude-haiku-4-5-20251001')는 critic-client.ts에 별도 declare —
+// API call vs pricing key 분리로 fallback Sonnet 단가 차단.
+export const CRITIC_PRICING_KEY = "claude-haiku-4-5" as const;
+if (!(CRITIC_PRICING_KEY in ANTHROPIC_PRICING)) {
+  throw new Error(`${CRITIC_PRICING_KEY} not in ANTHROPIC_PRICING — anthropic-pricing.ts SoT 갱신 필요`);
+}
+
+// PR3c — critic call (Haiku 4.5)
+// 현재 단가: Haiku $1 input / $5 output × 1430 KRW/USD ≈ 5원 (input 1000 + output 500).
+export const CRITIC_MAX_COST_PER_CALL_KRW = calculateCostKrw(
+  { input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 500 },
+  CRITIC_PRICING_KEY,
+);
+
+// PR3c — revise call (Opus 4.7, max_tokens 8192 — B3 fix · input 8000 — B11 보수화)
+// 현재 단가: Opus $5 input / $25 output × 1430 ≈ 271원 (input 8000 + output 6000).
+export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw({
+  input_tokens: 8000,
+  cache_creation_input_tokens: 0,
+  cache_read_input_tokens: 0,
+  output_tokens: 6000,
+});
+
+// PR3c — orchestrate total budget (writer + critic + revise worst case)
+// 약 236 + 5 + 271 = 512원/per ticker worst case (revise 항상 발생 가정).
+// 30 stocks × 512 = 15,360원/월 ≈ M17 hardcap 400k의 3.8%.
+export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
+  FULL_REPORT_MAX_COST_PER_CALL_KRW + CRITIC_MAX_COST_PER_CALL_KRW + REVISE_MAX_COST_PER_CALL_KRW;
