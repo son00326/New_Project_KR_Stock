@@ -377,4 +377,41 @@ describe("formatErrorMessage", () => {
       );
     });
   });
+
+  describe("PR3c — 3-step orchestration (omxy R6 CONVERGED)", () => {
+    it("critic_llm_failed", () => {
+      expect(formatErrorMessage("critic_llm_failed")).toBe("AI 검증 단계가 실패했습니다");
+    });
+    it("critic_parse_failed:no_json_object → AI 검증 응답 파싱 prefix", () => {
+      expect(formatErrorMessage("critic_parse_failed:no_json_object")).toContain("파싱");
+    });
+    it("critic_validation_failed:<axis> → AI 검증 응답 형식 prefix", () => {
+      expect(formatErrorMessage("critic_validation_failed:logic")).toContain("형식");
+    });
+    it("revise_llm_failed", () => {
+      expect(formatErrorMessage("revise_llm_failed")).toBe("AI 재작성 단계가 실패했습니다");
+    });
+    it("revise_parse_failed:no_json_object → AI 재작성 파싱 prefix", () => {
+      expect(formatErrorMessage("revise_parse_failed:no_json_object")).toContain("파싱");
+    });
+    it("orchestrate_failed:<phase>:<rest> → 보고서 생성 흐름 prefix", () => {
+      expect(formatErrorMessage("orchestrate_failed:writer_validation:section_0:headline")).toContain(
+        "보고서 생성",
+      );
+    });
+    it("sector_reference_backlog_rpc_failed:<code> → 섹터 reference 추적 저장 prefix", () => {
+      expect(formatErrorMessage("sector_reference_backlog_rpc_failed:XX001")).toContain("섹터");
+    });
+    it("sector_reference_backlog_invalid_sector:not_canonical → 섹터 값 prefix", () => {
+      expect(formatErrorMessage("sector_reference_backlog_invalid_sector:not_canonical")).toContain(
+        "섹터 값",
+      );
+    });
+    it("report_critic_findings_rpc_failed:<code> → AI 검증 결과 저장 prefix", () => {
+      expect(formatErrorMessage("report_critic_findings_rpc_failed:P0001")).toContain("저장");
+    });
+    it("report_critic_findings_list_failed:<code> → AI 검증 결과 조회 prefix", () => {
+      expect(formatErrorMessage("report_critic_findings_list_failed:XX001")).toContain("조회");
+    });
+  });
 });
