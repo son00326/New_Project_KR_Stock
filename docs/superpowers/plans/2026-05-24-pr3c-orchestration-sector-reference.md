@@ -1,8 +1,12 @@
-# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v3)
+# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v4)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Changelog**
+> - **v4 (omxy R3 3 BLOCKERS catch · 누적 16 BLOCKERS · CONVERGED-track)** 2026-05-24:
+>   - **B14 P1 fix** — model/pricing key drift 차단. `CRITIC_API_MODEL` (actual Anthropic API ID, `claude-haiku-4-5-20251001`) + `CRITIC_PRICING_KEY` (ANTHROPIC_PRICING 키, `claude-haiku-4-5`) 두 상수 명시적 분리. critic-client.ts가 API call 시 `CRITIC_API_MODEL` 사용 / pricing.ts에서 `calculateCostKrw` 호출 시 `CRITIC_PRICING_KEY` 사용. **invariant test**: pricing.ts test에 `CRITIC_PRICING_KEY in ANTHROPIC_PRICING` 단언 + critic-client test에 API call MODEL 단언. **Verification gate 16 (positive — B14 invariant)**: `if (!('claude-haiku-4-5' in ANTHROPIC_PRICING)) throw` 매치 + pricing.ts 신규 상수 `CRITIC_PRICING_KEY` declare 매치.
+>   - **B15 P1 fix** — Q5 결정표 rationale stale (revise≈257 / total≈498 → revise≈271 / total≈512). omxy R1 CONVERGED 결정 테이블에서 v3 v_caller 보수화 반영 (revise 8000 input × 5 + 6000 output × 25 / 1M × 1430 = 271원, total = 236+5+271 = 512원).
+>   - **B16 P2 fix** — sector canonical guard 추가. `insertOrBumpBacklog(sector)` helper에서 canonical 14 검증 (`isCanonicalSector` import) + trim. invalid sector 시 throw `sector_reference_backlog_invalid_sector`. RPC contract test에 invalid sector ("비-canonical", trailing whitespace) 시 throw 검증.
 > - **v3 (omxy R2 4 BLOCKERS catch · 누적 13 BLOCKERS · CONVERGED-track)** 2026-05-24:
 >   - **B10 P1 fix** — RPC service_role guard 모순. `if auth.uid() is null then raise 'auth_unavailable'` 첫 줄이 service_role 호출 차단 (service_role은 auth.uid() null). 수정 패턴 (0021 acquire_batch_lock_v2 follow): `v_caller_role := auth.role()` declare → `if auth.uid() is null and coalesce(v_caller_role,'') <> 'service_role' then raise 'auth_unavailable'`. 2 RPC 모두 (`insert_or_bump_sector_backlog` + `insert_critic_findings_run`) 동일 fix.
 >   - **B11 P1 fix** — REVISE_MAX input 6000 추정 → **8000으로 보수화** (P0 snapshot gate는 PR4 fixture 시점에 추가). cost 재계산: input 8000 + output 6000 = (8000 × 5 + 6000 × 25) / 1M × 1430 ≈ 271원. ORCHESTRATE_TOTAL = 236 + 5 + 271 = 512원.
@@ -88,7 +92,7 @@ Group G Sector reference 3-level 박제:
 | **Q2** critic 6축 호출 | **(i) single LLM** — 통합 JSON | axis별 병렬은 비용/일관성 손해. |
 | **Q3** revise trigger threshold | **(ii) any FAIL or WARN≥4** + revise **1회 hard cap** (recursive revise 금지) | quality + cost 균형. |
 | **Q4** report_critic_findings 마이그 | **본 PR3c 안 (0024)** — 단 `run_id` 컬럼 + INSERT 매번 new run_id 발급 | findings 중복 누적 차단. |
-| **Q5** cost hardcap 조정 | **(i) 별도 상수** — CRITIC + REVISE + ORCHESTRATE 합산. 단, **`calculateCostKrw` 통과 필수** (magic number 5000/18000 금지). | 현재 단가 기준 critic ≈ 5원 / revise ≈ 257원 / full ≈ 236원 / total ≈ 498원/worst case. |
+| **Q5** cost hardcap 조정 | **(i) 별도 상수** — CRITIC + REVISE + ORCHESTRATE 합산. 단, **`calculateCostKrw` 통과 필수** (magic number 5000/18000 금지). | 현재 단가 기준 critic ≈ 5원 / revise ≈ 271원 (v3 B11 input 6000→8000 보수화) / full ≈ 236원 / total ≈ 512원/worst case. |
 | **Q6** orchestrateFullReport vs commitFullReport | **(iii) 신규 export 추가, commitFullReport 보존** | PR4 caller 선택. |
 | **Q7** document-specialist | **완전 defer** — stub/test도 fake quality·scope creep. 필요하면 type-only comment로 박제. | scope guard. |
 
@@ -201,7 +205,7 @@ JSON 응답 형식:
 - Create: `tudal/src/lib/ai/critic-client.ts`
 - Test: `tudal/src/lib/ai/__tests__/critic-client.test.ts`
 
-- model = `claude-haiku-4-5-20251001`
+- model = `CRITIC_API_MODEL` 상수 (= `'claude-haiku-4-5-20251001'`, actual Anthropic API ID — B14 fix)
 - max_tokens = 2048
 - system = `CRITIC_SYSTEM_PROMPT`
 - user = `buildCriticUserPrompt(input)`
@@ -469,16 +473,25 @@ grant execute on function public.insert_or_bump_sector_backlog(text) to authenti
 grant execute on function public.insert_or_bump_sector_backlog(text) to service_role;
 ```
 
-helper:
+helper (**B16 fix — omxy R3: canonical 14 검증 + trim**):
 ```typescript
+import { isCanonicalSector } from '@/lib/screening/canonical-sectors';
+
 export async function insertOrBumpBacklog(sector: string): Promise<void> {
+  const trimmed = sector.trim();
+  if (trimmed === '') {
+    throw new Error('sector_reference_backlog_invalid_sector:empty');
+  }
+  if (!isCanonicalSector(trimmed)) {
+    throw new Error(`sector_reference_backlog_invalid_sector:not_canonical`);
+  }
   const supabase = await createClient();
-  const { error } = await supabase.rpc('insert_or_bump_sector_backlog', { p_sector: sector });
+  const { error } = await supabase.rpc('insert_or_bump_sector_backlog', { p_sector: trimmed });
   if (error) throw new Error(`sector_reference_backlog_rpc_failed:${error.code ?? 'unknown'}`);
 }
 ```
 
-테스트: RPC mock happy + idempotent (같은 sector 2회 호출 시 request_count++) + contract pins (SECURITY DEFINER / search_path / 4-grant / ON CONFLICT body / null guard).
+테스트: RPC mock happy + idempotent (같은 sector 2회 호출 시 request_count++) + **canonical guard (B16): trailing whitespace trim 후 valid / "비-canonical" sector throw / empty string throw** + contract pins (SECURITY DEFINER / search_path / 4-grant / ON CONFLICT body / null guard).
 
 ---
 
@@ -677,14 +690,18 @@ prefix:
 
 ```typescript
 // PR3c — critic call (Haiku 4.5)
-// anthropic-pricing.ts 키는 "claude-haiku-4-5" (모델 ID 접미사 -20251001 없이 stem만).
-if (!("claude-haiku-4-5" in ANTHROPIC_PRICING)) {
-  throw new Error(`Haiku model not in ANTHROPIC_PRICING — anthropic-pricing.ts SoT 갱신 필요`);
+// B14 fix (omxy R3): model ID drift 차단. Anthropic API ID vs pricing key 분리.
+//   CRITIC_API_MODEL = actual Anthropic API model ID (Anthropic.messages.create({model: ...}))
+//   CRITIC_PRICING_KEY = anthropic-pricing.ts ANTHROPIC_PRICING 키 (calculateCostKrw 2nd arg)
+// 두 상수 분리하지 않으면 calculateCostKrw(usage, CRITIC_API_MODEL) → getPricing fallback Sonnet 단가 적용 risk.
+export const CRITIC_PRICING_KEY = "claude-haiku-4-5" as const;
+if (!(CRITIC_PRICING_KEY in ANTHROPIC_PRICING)) {
+  throw new Error(`${CRITIC_PRICING_KEY} not in ANTHROPIC_PRICING — anthropic-pricing.ts SoT 갱신 필요`);
 }
 
 export const CRITIC_MAX_COST_PER_CALL_KRW = calculateCostKrw(
   { input_tokens: 1000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 500 },
-  "claude-haiku-4-5",
+  CRITIC_PRICING_KEY,
 );
 // 현재 단가: Haiku $1 input / $5 output × 1430 KRW/USD ≈ 5원
 
@@ -761,7 +778,7 @@ gh pr create ...
 
 ---
 
-## Verification Gates (15종 — omxy R2 B13 positive grant gate 추가)
+## Verification Gates (17종 — omxy R2 B13 positive grant + omxy R3 B14/B16 추가)
 
 1. `npm run build` — 25 routes intact
 2. `npm run lint` — 0 err
@@ -778,6 +795,8 @@ gh pr create ...
 13. **grep gate**: critic.ts에 `callRevise` 0 매치 — Q3 invariant
 14. **grep gate**: document-specialist file 0 (`find src/lib -name '*document-specialist*'` empty) — Q7 invariant
 15. **grep gate (B10 fix)**: 0023/0024 RPC 둘 다 `v_caller_role text := auth.role()` declare + `coalesce(v_caller_role` 매치 (service_role guard 정합)
+16. **grep gate (B14 fix — model/pricing key drift 차단)**: pricing.ts에 `CRITIC_PRICING_KEY` declare 매치 + `if (!(CRITIC_PRICING_KEY in ANTHROPIC_PRICING)) throw` 매치
+17. **grep gate (B16 fix — canonical guard)**: sector-reference-backlog.ts에 `isCanonicalSector(trimmed)` import + invariant check 매치
 
 ---
 
@@ -799,4 +818,4 @@ SCOPE GUARD (재해석 금지):
 
 ---
 
-**End of Plan v3 — omxy R3 적대적 검토 대기**
+**End of Plan v4 — omxy R4 적대적 검토 대기 (CONVERGED 후보)**
