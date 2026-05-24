@@ -1,8 +1,12 @@
-# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v5)
+# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v6)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Changelog**
+> - **v6 (omxy R5 2 BLOCKERS catch · 누적 21 BLOCKERS · CONVERGED-track)** 2026-05-24:
+>   - **B20 P1 fix** — backlog auto-insert "Level A 부재" guard. 사용자 lock-in §1.7: Level A 보유 = 바이오·반도체 (2/12), 부족 = 12 sectors (lazy). 현 plan은 무조건 호출하여 보유 2도 backlog 오염. 수정: `sector-reference-backlog.ts`에 `LEVEL_A_SECTORS_WITH_BODY = new Set(['바이오', '반도체'])` + `hasLevelABodyReference(sector): boolean` helper. `insertOrBumpBacklog(sector)`이 `if (hasLevelABodyReference(trimmed)) return;` early return. contract test: 바이오/반도체 호출 시 RPC mock 미호출 단언 + "missing 12 = canonical 14 - level A 2" drift test.
+>   - **B21 P1 fix** — persistence side-effect failure semantics 명시. orchestrateFullReport 순서: (1) report UPDATE → (2) critic findings INSERT (**blocking throw** — PR3c quality audit 핵심) → (3) backlog INSERT-or-BUMP (**non-blocking warn** — 운영 추적 부가 효과). backlog 실패 시 console.warn + orchestrator는 성공 반환 (보고서 commit + critic findings + criticRunId 모두 정상). test: backlog INSERT throw → orchestrator 성공 + console.warn 호출 verify.
+>   - **(l) fix 박제**: nested DECLARE는 PostgreSQL PL/pgSQL 정합하나 outer declare 권장 (P2). `insert_or_bump_sector_backlog` RPC body의 `declare v_sector text` 블록 → outer declare로 평탄화.
 > - **v5 (omxy R4 3 BLOCKERS catch · 누적 19 BLOCKERS · CONVERGED-track)** 2026-05-24:
 >   - **B17 P1 fix** — `orchestrateFullReport` runId wire 누락. `const { runId } = await insertCriticFindingsRun(...)` + `OrchestrateFullReportResult`에 `criticRunId: string` 추가. test 7개에 runId 반환 단언 + `getCriticFindingsByRunId(reportId, criticRunId)` 후속 호출 검증.
 >   - **B18 P1 fix** — sector canonical guard DB invariant (옵션 c 양쪽 + table CHECK):
@@ -381,11 +385,23 @@ export async function orchestrateFullReport(
     throw new Error(`update_report_sections_0_7_failed:${error.code ?? 'unknown'}`);
   }
 
-  // critic findings INSERT (atomic RPC) — B17 fix: runId wire
-  // B19 fix: target_stage='writer_draft' (PR3c는 1회 hard cap이라 revise 후 re-critic 0)
+  // B21 fix (omxy R5): persistence side-effect failure semantics 명시
+  //
+  // critic findings INSERT (atomic RPC) — blocking throw (PR3c quality audit 핵심)
+  // B17 fix: runId wire / B19 fix: target_stage='writer_draft' (PR3c는 1회 hard cap)
   const { runId: criticRunId } = await insertCriticFindingsRun(data.report_id, critic.verdict, 'writer_draft');
-  // sector backlog INSERT-or-BUMP (atomic RPC) — B18 fix: trim+canonical helper에서 검증
-  await insertOrBumpBacklog(input.sector);
+
+  // sector backlog INSERT-or-BUMP (atomic RPC) — non-blocking warn (운영 추적 부가 효과)
+  // B18 fix: trim+canonical helper에서 검증. B20 fix: Level A 보유 sector (바이오/반도체)는 helper에서 early return.
+  try {
+    await insertOrBumpBacklog(input.sector);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[orchestrateFullReport] sector_backlog_insert_failed ticker=${input.ticker} sector=${input.sector} message=${message}`,
+    );
+    // 보고서 commit + critic findings는 이미 성공. backlog 부가효과만 실패이므로 계속.
+  }
 
   return {
     reportId: data.report_id,
@@ -464,6 +480,7 @@ as $$
 declare
   v_caller_role text := auth.role();
   v_caller text;
+  v_sector text;  -- (l) fix omxy R5: outer declare 평탄화
 begin
   -- B10 fix: service_role 호출은 auth.uid() null OK → role check 우선
   if auth.uid() is null and coalesce(v_caller_role, '') <> 'service_role' then
@@ -474,30 +491,28 @@ begin
     raise exception 'admin_required';
   end if;
   -- B18 fix (omxy R4): trim + canonical 14 check (DB invariant + helper-level 양쪽)
+  -- (l) fix (omxy R5): nested DECLARE 평탄화 → outer declare로 통합 (가독성)
   if p_sector is null then
     raise exception 'invalid_sector';
   end if;
-  declare
-    v_sector text := trim(p_sector);
-  begin
-    if v_sector = '' then
-      raise exception 'invalid_sector';
-    end if;
-    if v_sector not in (
-      '바이오', '반도체', '건설', '금융', '2차전지', '자동차',
-      'IT/SW', '유통/소비재', '에너지', '엔터/미디어', '통신',
-      '철강/소재', '운송/물류', '보험/증권'
-    ) then
-      raise exception 'invalid_sector_not_canonical';
-    end if;
+  v_sector := trim(p_sector);
+  if v_sector = '' then
+    raise exception 'invalid_sector';
+  end if;
+  if v_sector not in (
+    '바이오', '반도체', '건설', '금융', '2차전지', '자동차',
+    'IT/SW', '유통/소비재', '에너지', '엔터/미디어', '통신',
+    '철강/소재', '운송/물류', '보험/증권'
+  ) then
+    raise exception 'invalid_sector_not_canonical';
+  end if;
 
-    insert into public.sector_reference_backlog (sector, status, request_count)
-    values (v_sector, 'pending', 1)
-    on conflict (sector) do update
-      set request_count = sector_reference_backlog.request_count + 1,
-          last_requested_at = now(),
-          updated_at = now();
-  end;
+  insert into public.sector_reference_backlog (sector, status, request_count)
+  values (v_sector, 'pending', 1)
+  on conflict (sector) do update
+    set request_count = sector_reference_backlog.request_count + 1,
+        last_requested_at = now(),
+        updated_at = now();
 end;
 $$;
 
@@ -507,9 +522,20 @@ grant execute on function public.insert_or_bump_sector_backlog(text) to authenti
 grant execute on function public.insert_or_bump_sector_backlog(text) to service_role;
 ```
 
-helper (**B16 fix — omxy R3: canonical 14 검증 + trim**):
+helper (**B16 fix — omxy R3: canonical 14 검증 + trim** · **B20 fix — omxy R5: Level A 보유 sector early return**):
 ```typescript
-import { isCanonicalSector } from '@/lib/screening/canonical-sectors';
+import { isCanonicalSector, type CanonicalSector } from '@/lib/screening/canonical-sectors';
+
+// B20 fix (omxy R5): Level A body reference 보유 sector (사용자 lock-in §1.7).
+// PR3c에서는 바이오·반도체 = 2/12. Level A 보유 sector는 backlog INSERT 차단 (이미 보유).
+export const LEVEL_A_SECTORS_WITH_BODY: ReadonlySet<CanonicalSector> = new Set<CanonicalSector>([
+  '바이오',
+  '반도체',
+]);
+
+export function hasLevelABodyReference(sector: string): boolean {
+  return LEVEL_A_SECTORS_WITH_BODY.has(sector as CanonicalSector);
+}
 
 export async function insertOrBumpBacklog(sector: string): Promise<void> {
   const trimmed = sector.trim();
@@ -517,7 +543,11 @@ export async function insertOrBumpBacklog(sector: string): Promise<void> {
     throw new Error('sector_reference_backlog_invalid_sector:empty');
   }
   if (!isCanonicalSector(trimmed)) {
-    throw new Error(`sector_reference_backlog_invalid_sector:not_canonical`);
+    throw new Error('sector_reference_backlog_invalid_sector:not_canonical');
+  }
+  // B20 fix: Level A 보유 sector는 backlog INSERT skip (오염 차단).
+  if (hasLevelABodyReference(trimmed)) {
+    return;
   }
   const supabase = await createClient();
   const { error } = await supabase.rpc('insert_or_bump_sector_backlog', { p_sector: trimmed });
@@ -525,7 +555,7 @@ export async function insertOrBumpBacklog(sector: string): Promise<void> {
 }
 ```
 
-테스트: RPC mock happy + idempotent (같은 sector 2회 호출 시 request_count++) + **canonical guard (B16): trailing whitespace trim 후 valid / "비-canonical" sector throw / empty string throw** + contract pins (SECURITY DEFINER / search_path / 4-grant / ON CONFLICT body / null guard).
+테스트: RPC mock happy + idempotent (같은 sector 2회 호출 시 request_count++) + **canonical guard (B16)**: trailing whitespace trim 후 valid / "비-canonical" sector throw / empty string throw + **Level A guard (B20)**: 바이오/반도체 호출 시 RPC mock 미호출 단언 (early return) + missing 12 invariant (canonical 14 - LEVEL_A_SECTORS_WITH_BODY 2 = 12 정합) + contract pins (SECURITY DEFINER / search_path / 4-grant / ON CONFLICT body / null guard).
 
 ---
 
@@ -826,7 +856,7 @@ gh pr create ...
 
 ---
 
-## Verification Gates (20종 — omxy R2 B13 + R3 B14/B16 + R4 B17/B18/B19 추가)
+## Verification Gates (22종 — omxy R2 B13 + R3 B14/B16 + R4 B17/B18/B19 + R5 B20/B21 추가)
 
 1. `npm run build` — 25 routes intact
 2. `npm run lint` — 0 err
@@ -848,6 +878,8 @@ gh pr create ...
 18. **grep gate (B17 fix — runId wire)**: full-report-orchestrator.ts에 `criticRunId` 단어 매치 (return value 포함) + `OrchestrateFullReportResult` interface에 `criticRunId` 필드 매치
 19. **grep gate (B18 fix — DB invariant)**: 0023 마이그에 `check (sector in (` 매치 + RPC body에 `trim(p_sector)` 매치 + RPC body에 `invalid_sector_not_canonical` 매치 + contract test에 TS↔SQL drift 검증 (`CANONICAL_SECTORS` import in 0023 contract test) 매치
 20. **grep gate (B19 fix — target_stage)**: 0024 마이그에 `target_stage text not null check (target_stage in ('writer_draft', 'revised'))` 매치 + helper에 `targetStage: CriticTargetStage = 'writer_draft'` default 매치 + orchestrator에 `'writer_draft'` literal 매치
+21. **grep gate (B20 fix — Level A guard)**: sector-reference-backlog.ts에 `LEVEL_A_SECTORS_WITH_BODY` Set declare 매치 + `hasLevelABodyReference` export 매치 + `if (hasLevelABodyReference(trimmed)) return;` 매치 + "missing 12" invariant test (canonical 14 - LEVEL_A_SECTORS_WITH_BODY 2 = 12 정합)
+22. **grep gate (B21 fix — non-blocking backlog)**: full-report-orchestrator.ts에 `try { await insertOrBumpBacklog` + `catch` + `console.warn` 매치 + test에 "backlog INSERT throw → orchestrator success + warn" 단언 매치
 
 ---
 
@@ -869,4 +901,4 @@ SCOPE GUARD (재해석 금지):
 
 ---
 
-**End of Plan v5 — omxy R5 적대적 검토 대기 (CONVERGED 후보, 누적 19 BLOCKERS catch & fix)**
+**End of Plan v6 — omxy R6 적대적 검토 대기 (CONVERGED 후보, 누적 21 BLOCKERS catch & fix)**
