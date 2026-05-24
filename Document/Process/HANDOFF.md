@@ -54,14 +54,15 @@ git rev-parse --short HEAD                        # HEAD commit
 git rev-list --count main..HEAD                   # branch ahead count
 git status --short                                # working tree state
 
-# 2. OPEN PRs (54차 §4 종료 baseline: #2 only — PR #13 PR1 ✅ MERGED in main `4aa3130`)
+# 2. OPEN PRs (55차 §4 PR3c OPEN baseline: #15 (PR3c code) + #16 (docs) + #2 (format-error, 보류))
 gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3. main fast-forward 박제 확인 (54차 §4 PR1 merge 후, 15 commits FF)
-git fetch origin main && git rev-parse --short origin/main  # 현재 main HEAD = 4aa3130
+git fetch origin main && git rev-parse --short origin/main  # 현재 main HEAD = 1a92fa3 (55차 §3 PR3b MERGED 후 docs)
 
 # 4. 검증 게이트 (post-PR1 merge main `4aa3130` baseline)
-#    - build 25 routes / lint 0 err 6 warn / test:ci 862/75 / tsc clean / 5 grep gates 0 매치
+#    - 55차 §4 PR3c OPEN baseline (PR #15 worktree): build 25 routes / lint 0 err 6 warn / test:ci 1010/88 (+93 over 917) / tsc clean / 22 grep gates 통과
+#    - main baseline (1a92fa3, 55차 §3 PR3b MERGED 후): build 25 routes / lint 0 err 6 warn / test:ci 917/79 / tsc clean
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
