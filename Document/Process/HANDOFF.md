@@ -78,29 +78,31 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ---
 
-## 1. 현재 상태 (54차 §4 종료 시점, 2026-05-22)
+## 1. 현재 상태 (55차 §4 PR3c OPEN 시점, 2026-05-24)
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | `4aa3130` (54차 §4 PR1 merge 후, 15 commits FF). 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. 이전 = `7279d9f` (54차 §4 docs commit 직전, PR1 merge 직전) → `f8138a7` (54차 §3 PR3a 후 docs). |
-| 현재 branch | `main` (PR1 worktree + branch는 PR #13 머지 후 cleanup 완료) |
+| main HEAD | `1a92fa3` (55차 §3 PR3b MERGED 후 docs 갱신). 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. 이전 = `cf68731` (55차 §3 PR3b merge point). |
+| 현재 OPEN branch | `feat/pr3c-orchestration-sector-reference` @ HEAD `66781c2` (12 commits ahead, PR #15) + `docs/55-section4-pr3c-open` @ (PR #16) |
 | Mock Skeleton + DQ-7 + S7e | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) |
 | S7a Anthropic wrapper | ✅ 완료 (51차 PR #1 MERGED, main 박제) |
 | Tier 2 D21 (Sector 14 overlay) | ✅ scaffold + production schema + builder + 207 persona Kevin v3.1 quality 본문 모두 main 박제 (52차 + 53차 §2·§3 PR #7/#8 MERGED) |
-| Step 3c caller wiring | ⚠️ **PR1 ✅ MERGED `4aa3130` (server-side 절반 해소) + PR4 잔여 (UI caller wire)**. server action export OK + **PR1 MERGED in main `4aa3130` (PR #13)에서 cron wire 추가** + UI caller는 PR4. |
-| **PR #11 (PR2 Tier 1 screening)** | ✅ **MERGED in main `f85fb69`** (54차 §2). 7 commits FF / 6 files / +1873 lines / 47 TDD tests. omxy R1~R8 CONVERGED. |
-| **PR #12 (PR3a Group H schema drift fix)** | ✅ **MERGED in main `0813a41`** (54차 §3). 11 commits FF / 7 files / +3300 lines / 56 TDD tests. omxy R1~R12 + gsd-code-reviewer + gstack testing + red-team CONVERGED. omxy R7 Codex structured `/review` = **GATE PASS**. |
-| **PR #13 (PR1 cron monthly-batch real path)** | ✅ **MERGED in main `4aa3130` via rebase FF** (54차 §4). 15 commits FF + delete-branch + worktree cleanup 완료. **25 files / +2759 / -158 / 60 TDD tests (802 → 862, 회귀 0)**. omxy R1~R15 + **3-track deep review (gstack-review + general-purpose depth=deep + superpowers code-review 5-angle)** CONVERGED. **누적 30 BLOCKERS catch & fix** (PR1 23 + docs 4 + merge 3). R12 = R7 Codex `/review` GATE PASS 등가. **다음 CLAUDE = PR3b** 진입 의사 1회 확인 후 자동. |
-| 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR2 + PR3a + PR1 ✅ MERGED 코드 박제** — PR1 머지 + Tier 0 source 실 wire (후속 PR) + 실 키 발급 후 메인 path 가동. |
-| 풀 리포트 흐름 | 🟢 writer Section 0~7 통합 + Section 8 partA/partD = 단일 산출물. 현재 = section_8 jsonb commit만 가능 + page null guard + Section 8 dual-shape renderer (modern partA~D + legacy 호환). Section 0~7 본문 구현 = PR3b scope. |
-| **Group H Critical Hard gate** | ✅ **해소** (54차 §3 PR3a MERGED). `admin-reports.ts` zod safeParse validation + nullable typed `ValidatedStockReport` + `parseSectionSafe`/`parseReportSection8` onError 콜백 (console.warn) + `page.tsx` `as` 어서션 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer + `partCToCommitteeAgg` helper. **PR1 cron 가동 가능 (PR #13 머지 후)**. |
-| OPEN PRs | **#2** OPEN CONFLICTING (format-error, 보류) only (PR #13 PR1 ✅ MERGED in main `4aa3130`) |
-| 실 AI 호출 | 0 (Vercel env 3 vars Production 배포는 53차 §4++ PHASE A/B 완료). 실 호출은 PR1 머지 + Tier 0 실 source wire (후속 PR) + 실 키 발급 후. |
-| Production deploy | Vercel `https://tudal-tawny.vercel.app` (main `4aa3130` deployment `dpl_SakD5kb3MkwARLSxRgDMGXxtxm72` READY · canary 4 페이지 검증 완료: `/` 200 / `/login` 200 / `/macro` 200 / `/admin` 307→`/login?next=%2Fadmin` auth redirect). |
-| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0021 production 적용 완료 (21 migrations, 54차 §4 PR1 머지 후 0020 + 0021 omxy 교차검증 apply, R23 CONVERGED). SECURITY DEFINER 4-grant 검증: public/anon=false, authenticated/service_role=true. anon WARN 0 baseline 유지. |
-| 검증 게이트 (54차 §3 PR3a 후 main historical baseline) | build 25 routes / lint 0 err 6 warn / test:ci 802/69 / tsc clean / forbidden grep 5종 0 매치 (historical, 현재 active 아님) |
-| 검증 게이트 ✅ ACTIVE (post-PR1 merge main `4aa3130`) | build 25 routes / lint 0 err 6 warn / **test:ci 862/75 (+60)** / tsc clean / **5 grep gates 0 매치** (isProductionLike monthly-batch / mockMode-monthly-batch / as ReportSection PR3a regression / service-role import boundary narrow / server-only marker present) |
-| omxy debate 누적 | **199+ rounds CONVERGED** (54차 §3 종료 184+ + 54차 §4 PR1 R1~R15 = +15) · 누적 BLOCKERS: ~17 PR2 + 21 PR3a + **30 PR1** (R1~R12 23 [plan 20 + impl 2 + Fix-First B23] + R13~R14 docs 4 [B24~B27] + R15 merge 3 [B28~B30]) catch & fix |
+| Step 3c caller wiring | ⚠️ **PR1 ✅ MERGED `4aa3130` (server-side 절반 해소) + PR4 잔여 (UI caller wire)**. PR3b/PR3c 후 PR4가 PR3c orchestrate vs commit path 선택 wire. |
+| **PR #11 (PR2 Tier 1 screening)** | ✅ MERGED `f85fb69` (54차 §2) |
+| **PR #12 (PR3a Group H schema drift fix)** | ✅ MERGED `0813a41` (54차 §3) |
+| **PR #13 (PR1 cron monthly-batch real path)** | ✅ MERGED `4aa3130` (54차 §4) |
+| **PR #14 (PR3b writer Section 0~7)** | ✅ MERGED `cf68731` (55차 §3, 13 commits FF + 마이그 0022 production applied + canary 4/4 PASS) |
+| **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G ✅ 해소)** | 🟢 **OPEN** (55차 §4). branch `feat/pr3c-orchestration-sector-reference` @ `66781c2` (12 commits). 24 신설 src+test+migration + 3 modify. test:ci 917 → **1010 PASS (+93, 회귀 0)**. omxy R1~R9 CONVERGED + 누적 24 BLOCKERS + 3-track Fix-First 5 + Defer 20. **USER 1순위 액션 = 머지 + 마이그 0023 + 0024 production apply + Vercel canary 4 페이지 verify**. |
+| **PR #16 (HANDOFF + ProgressDashboard docs)** | 🟢 OPEN (55차 §4 docs). PR #15 머지 후 별도 머지. |
+| 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). PR2 + PR3a + PR1 ✅ MERGED 코드 박제. 실 키 발급 후 메인 path 가동. |
+| 풀 리포트 흐름 | 🟢 PR3b MERGED — writer Section 0~7 + Appendix 통합 + Section 8 partA/partD 단일 산출물. **PR3c (OPEN)에서 3-step orchestration 추가** — `orchestrateFullReport` 신규 export (`commitFullReport` coexist, PR4에서 caller 선택). |
+| **Group G ✅ 해소** | PR3c OPEN baseline. Sector reference 3-level (Level A 2/12 lazy backlog table 0023 + helper Level A guard + Level B 4/10 docs + Level C 14/14 완료). |
+| OPEN PRs | **#15** (PR3c code) + **#16** (PR3c docs) + **#2** (format-error, 보류). |
+| 실 AI 호출 | 0 (Vercel env 3 vars Production 배포 완료). 실 호출은 Tier 0 source 실 wire (후속 PR) + 실 키 발급 + PR4 caller wire 후. |
+| Production deploy | Vercel main `cf68731` deployment `4793820717` READY · 55차 §3 canary 4/4 PASS. PR #15 머지 후 마이그 0023+0024 apply + 신규 canary. |
+| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0022 production 적용 완료 (22 migrations, 0022 = 55차 §3 PR3b). PR3c 머지 후 0023 + 0024 production apply 필요. SECURITY DEFINER 4-grant 패턴 (public/anon=false, authenticated/service_role=true) 유지. anon WARN 0 baseline 유지. |
+| 검증 게이트 (PR3c OPEN baseline) | build 25 routes / lint 0 err 6 warn / **test:ci 1010 PASS / 88 files (+93 over 917, 회귀 0)** / tsc clean / **22 grep gates 통과** (negative 7 + positive 15) |
+| omxy debate 누적 | **224+ rounds CONVERGED** (55차 §3 종료 215+ + 55차 §4 PR3c R1~R9 = +9 + R10 docs 검토) · 누적 BLOCKERS: ~17 PR2 + 21 PR3a + 30 PR1 + 33 PR3b + **24 PR3c** (R1 9 + R2 4 + R3 3 + R4 3 + R5 2 + R6 0 + R7 1 + Track 2 2 + Track 3 1 + R8 1 + R9 0) |
 
 ---
 
@@ -124,9 +126,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용.
 7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-### §2.1 Step matrix (54차 §4 active steps — DONE rows 축약, historical = git log + PR body 위임)
+### §2.1 Step matrix (55차 §4 active steps — DONE rows 축약, historical = git log + PR body 위임)
 
-**현재 위치 = PR1 ✅ MERGED in main `4aa3130` + Migration 0020/0021 production applied + Vercel canary 4 페이지 OK (omxy R1~R24 CONVERGED + 누적 30 BLOCKERS + 3-track deep review Fix-First). 다음 CLAUDE = PR3b (writer Section 0~7) 진입 의사 1회 확인 후 자동 시작. USER 잔여 액션 = 0**.
+**현재 위치 = PR3b ✅ MERGED in main `cf68731` + Migration 0022 production applied + Vercel canary 4/4 PASS. PR #15 (PR3c) OPEN (`feat/pr3c-orchestration-sector-reference` @ `66781c2`, 12 commits) + PR #16 (HANDOFF + ProgressDashboard docs) OPEN. omxy R1~R9 CONVERGED + 누적 24 BLOCKERS + 3-track Fix-First 5 + Defer 20. **USER 1순위 액션 = PR #15 머지 + 마이그 0023 + 0024 production apply (순서 보존) + Vercel canary 4 페이지 verify + PR #16 머지**. CLAUDE 다음 = PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작.**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -137,8 +139,8 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | **PR3a** ✅ MERGED | — | PR #12 MERGED in main `0813a41` (54차 §3) | — | main fast-forward 11 commits + 검증 게이트 통과 (test:ci 746→802) + omxy R7 GATE PASS + 5 grep gates 0 매치 | (해소) PR1 진입 |
 | **PR1** ✅ MERGED | — | PR #13 MERGED in main `4aa3130` via rebase FF (54차 §4). 15 commits FF + delete-branch + worktree cleanup 완료. | — | omxy R1~R15 + 3-track deep review CONVERGED + 누적 30 BLOCKERS catch & fix + 검증 게이트 (test:ci 802 → 862) + 5 grep gates 0 매치 + R12 Codex `/review` GATE PASS 등가 | (해소) PR3b 진입 |
 | **PR3b** ✅ MERGED | — | PR #14 MERGED in main `cf68731` (55차 §3) | — | main fast-forward 13 commits + 검증 게이트 통과 (test:ci 862 → 917, +55) + omxy R1~R16 CONVERGED + 누적 33 BLOCKERS + 3-track deep review Fix-First 6 + R6~R9 docs fix 5 + Migration 0022 applied + canary 4/4 PASS | (해소) PR3c/PR4 진입 |
-| **PR3c** (신설) | **CLAUDE** | PR3b 머지 후 | document-specialist + analyst + critic 4-step orchestration (Karpathy 패턴) + `sector_reference_backlog` DB table 마이그 (53차 §5 spec §3.5) + Group G Sector reference 3-level 분류 (Level A 12 sector lazy 추가 + Level B 10 sector 첫 보고서 시 추가 + Level C 14 sectors philosophies 완료). **Group G 해소.** | omxy R1~Rn + **3-track deep review** | PR4 UI 진입 |
-| **PR4** | **CLAUDE** | PR3b 머지 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). **Group A + F + D 잔여 + PR3a OOS 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) | §2.2 출시 게이트 진입 |
+| **PR3c** 🟢 OPEN | **USER** (머지) → **USER** (마이그 0023+0024 apply + canary) | PR #15 머지 + 마이그 0023 + 0024 production apply (순서 보존) + Vercel canary 4 페이지 verify | **3-step orchestration (analyst pure-code → writer Opus → critic Haiku 6축 → conditional revise Opus 1회 hard cap) + sector_reference_backlog 마이그 + Group G 해소**. Q7 invariant — document-specialist 0. `orchestrateFullReport` 신규 export (`commitFullReport` coexist). | omxy R1~R9 ✅ CONVERGED + 누적 24 BLOCKERS + 3-track Fix-First 5 (B22+C1+W2+C-1+B23) + Defer 20 + test:ci 1010 PASS + 22 grep gates | (해소) PR4 진입 |
+| **PR4** | **CLAUDE** | PR3c 머지 + 마이그 apply + canary 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). caller path 선택 박제 (PR3b acceptance B8 + omxy R2 강화): cron = `commitFullReport` (fast) / admin manual trigger = `orchestrateFullReport` (quality). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). + Track 2 + Track 3 defer 20 follow-up. **Group A + F + D 잔여 + PR3a OOS + PR3c defer 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) + B18 CRON_SECRET 401 test | §2.2 출시 게이트 진입 |
 | **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + **3-track deep review** | — |
 | **Step 7~14** (S7b → S7c → S7d → S8) | USER 트리거 + CLAUDE 구현 | canonical 5-PR 완료 후 | S7b 뉴스+브리핑 → D11 AI 가상 포트 1차 가동 (어드민 3인 운용 검증) → S7c 장중·KIS WS → S7d Silent Health → S8 자동매매 (Binance Smoke #3) | 각 슬라이스 DoD | §2.2 출시 게이트 |
 | **Step 15** S9 운용 | USER 1개월+ 운용 + CLAUDE 모니터링 hotfix | S8 머지 후 | 어드민 3인 실 사용 + hotfix branch로 BL-KRIT patch | §2.2 7 criteria 만족 | ✅ 어드민 내부 도구 출시 |
