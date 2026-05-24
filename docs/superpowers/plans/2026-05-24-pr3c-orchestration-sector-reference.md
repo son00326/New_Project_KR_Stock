@@ -1,8 +1,15 @@
-# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v2)
+# PR3c — 3-step Orchestration + sector_reference_backlog + Group G Implementation Plan (v3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Changelog**
+> - **v3 (omxy R2 4 BLOCKERS catch · 누적 13 BLOCKERS · CONVERGED-track)** 2026-05-24:
+>   - **B10 P1 fix** — RPC service_role guard 모순. `if auth.uid() is null then raise 'auth_unavailable'` 첫 줄이 service_role 호출 차단 (service_role은 auth.uid() null). 수정 패턴 (0021 acquire_batch_lock_v2 follow): `v_caller_role := auth.role()` declare → `if auth.uid() is null and coalesce(v_caller_role,'') <> 'service_role' then raise 'auth_unavailable'`. 2 RPC 모두 (`insert_or_bump_sector_backlog` + `insert_critic_findings_run`) 동일 fix.
+>   - **B11 P1 fix** — REVISE_MAX input 6000 추정 → **8000으로 보수화** (P0 snapshot gate는 PR4 fixture 시점에 추가). cost 재계산: input 8000 + output 6000 = (8000 × 5 + 6000 × 25) / 1M × 1430 ≈ 271원. ORCHESTRATE_TOTAL = 236 + 5 + 271 = 512원.
+>   - **B12 P2 fix** — `getCriticFindingsByRunId(reportId, runId)` helper 추가 — orchestrateFullReport이 반환한 latest run_id로 strict 6 row 조회. listLatestRunCriticFindings는 "다른 admin이 본 latest"용으로 보존 (mixed-run 안전).
+>   - **B13 P2 fix** — Verification Gate에 **positive grant 검증** 추가 (negative gate `grant.*to anon 0`에 더해서 `grant execute on function .* to authenticated;` + `grant execute on function .* to service_role;` 각 1+ 매치 검증).
+>   - **(d) P2 fix** — cost_log persona_id + **prompt_version 분리 박제** (cost_log filter UI 가능). critic = `prompt_version='critic-v1'` + persona_id='critic'. revise = `prompt_version='revise-v1'` + persona_id='revise'. writer 기존 `prompt_version='v1'` + persona_id='full_report_writer' 유지.
+>   - **PR4 acceptance 박제 강화** — PR4 plan에 (a) grep gate "cron route에서 commitFullReport import 매치 + orchestrateFullReport import 0" (b) "admin trigger UI에서 orchestrateFullReport import 매치 + commitFullReport import 0" (c) cost_log 분리 필터 동작 e2e test — 3 gate 박제 필수.
 > - **v2 (omxy R1 9 BLOCKERS catch · CONVERGED-track)** 2026-05-24:
 >   - **B1 P0 fix** — cost-hardcap calibration 자릿수 ERROR (5000/18000 KRW magic constant) → pricing.ts `calculateCostKrw` 통과 (현재 단가 기준 critic ≈ 5원 · revise ≈ 257원 · full report ≈ 236원). plan §Cost Analysis 재작성.
 >   - **B2 P0 fix** — sector_reference_backlog upsert race-safety → 0023에 RPC `insert_or_bump_sector_backlog` atomic 추가 (`SECURITY DEFINER` + 4-grant + `INSERT ... ON CONFLICT (sector) DO UPDATE SET request_count = sector_reference_backlog.request_count + 1, last_requested_at = now()`). supabase JS client direct upsert 폐기.
@@ -91,7 +98,10 @@ Group G Sector reference 3-level 박제:
 
 - **document-specialist module** — 본 PR3c에서 file·stub interface·test 모두 0. 미래 외부 source (DART/뉴스/공시 web research) 통합은 별도 PR (S7b 뉴스+브리핑 슬라이스 연계 검토 권장). 필요하면 future PR에서 도입 시 plan에 신규 spec 박제.
 - **Caller wire** (cron / UI / Regen → orchestrateFullReport 호출). **PR4 scope**.
-  - **PR4 acceptance criterion 박제 (B8 fix)**: PR4 caller는 (a) **cron 자동 path** = `commitFullReport` 단일 call (fast path, 비용 최소화) (b) **admin manual trigger path** = `orchestrateFullReport` (3-step + critic + conditional revise, quality 보장) 선택 명시. cron이 critic/revise 비용을 매번 burning하지 않도록 cron path는 commit 사용. admin이 quality 필요 시 orchestrate 사용. 본 contract는 PR4 plan에 반드시 박제.
+  - **PR4 acceptance criterion 박제 (B8 fix · omxy R2 강화)**: PR4 caller는 (a) **cron 자동 path** = `commitFullReport` 단일 call (fast path, 비용 최소화) (b) **admin manual trigger path** = `orchestrateFullReport` (3-step + critic + conditional revise, quality 보장) 선택 명시. cron이 critic/revise 비용을 매번 burning하지 않도록 cron path는 commit 사용. admin이 quality 필요 시 orchestrate 사용. **PR4 plan 박제 필수 3 gate (omxy R2 강화)**:
+    - (i) grep gate: cron route 파일에 `commitFullReport` import 매치 + `orchestrateFullReport` import 0
+    - (ii) grep gate: admin trigger UI 파일에 `orchestrateFullReport` import 매치 + `commitFullReport` import 0
+    - (iii) e2e test: cost_log 분리 필터 동작 verify (cron run = persona_id='full_report_writer' 1 row / orchestrate run = persona_id in ('full_report_writer','critic','revise') 2~3 row)
   - **B18 contract (PR3b acceptance criterion 박제 유지)**: PR4 cron route는 `CRON_SECRET` env 검증 + 검증 실패 시 401 반환 테스트 필수.
 - **Level A 12 sector body reference 실 작성**. 운용 중 lazy 작성 — sector_reference_backlog INSERT가 trigger. PR3c는 backlog table + atomic RPC + helper만.
 - **Level B 10 sector §9.2 체크리스트 작성**. 첫 보고서 작성 시 docs 추가 — PR3c는 박제만 (ReportFramework §9.2.0 v2.7 patch).
@@ -196,7 +206,7 @@ JSON 응답 형식:
 - system = `CRITIC_SYSTEM_PROMPT`
 - user = `buildCriticUserPrompt(input)`
 - 응답 → `extractJsonObject` (PR3b `full-report-writer.ts` 재사용 import) → JSON.parse → zod validation
-- cost_log INSERT (persona_id = `critic`)
+- cost_log INSERT (**persona_id = `critic`, prompt_version = `critic-v1`** — omxy R2 (d) fix prompt_version 분리)
 - throw `critic_llm_failed:<code>` / `critic_parse_failed:no_json_object` / `critic_validation_failed:<axis>`
 
 zod schema (**B7 fix — max 500자**):
@@ -235,7 +245,7 @@ prompt:
 client (**B3 fix**):
 - model = `claude-opus-4-7`
 - max_tokens = **8192**
-- cost_log persona_id = `revise`
+- cost_log **persona_id = `revise`, prompt_version = `revise-v1`** — omxy R2 (d) fix prompt_version 분리
 - throw `revise_llm_failed:<code>` / `revise_parse_failed:no_json_object`
 
 테스트:
@@ -421,7 +431,7 @@ create policy "admin select" on public.sector_reference_backlog
 comment on table public.sector_reference_backlog is
   'Level A sector body reference 부족 lazy 추적 (Group G PR3c). 첫 풀 리포트 작성 시 atomic RPC insert_or_bump_sector_backlog 호출.';
 
--- B2 fix: atomic RPC
+-- B2 fix: atomic RPC + B10 fix (omxy R2): service_role guard 모순 해소 (0021 patten follow)
 create or replace function public.insert_or_bump_sector_backlog(p_sector text)
 returns void
 language plpgsql
@@ -429,12 +439,14 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  v_caller_role text := auth.role();
   v_caller text;
 begin
-  if auth.uid() is null then
+  -- B10 fix: service_role 호출은 auth.uid() null OK → role check 우선
+  if auth.uid() is null and coalesce(v_caller_role, '') <> 'service_role' then
     raise exception 'auth_unavailable';
   end if;
-  v_caller := coalesce((select auth.role()), '');
+  v_caller := coalesce(v_caller_role, '');
   if not (public.is_admin() or v_caller = 'service_role') then
     raise exception 'admin_required';
   end if;
@@ -520,16 +532,18 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  v_caller_role text := auth.role();
   v_caller text;
   v_run_id uuid := gen_random_uuid();
   v_axes text[] := array['factuality', 'logic', 'completeness', 'structure', 'bias', 'reader_level'];
   v_axis text;
   v_node jsonb;
 begin
-  if auth.uid() is null then
+  -- B10 fix (omxy R2): service_role 호출은 auth.uid() null OK → role check 우선
+  if auth.uid() is null and coalesce(v_caller_role, '') <> 'service_role' then
     raise exception 'auth_unavailable';
   end if;
-  v_caller := coalesce((select auth.role()), '');
+  v_caller := coalesce(v_caller_role, '');
   if not (public.is_admin() or v_caller = 'service_role') then
     raise exception 'admin_required';
   end if;
@@ -591,7 +605,7 @@ export async function insertCriticFindingsRun(
   return { runId: data as string };
 }
 
-// B6 fix: latest run filter (run_id subquery)
+// B6 fix: latest run filter (run_id subquery) — "다른 admin이 본 latest"용. mixed-run 안전.
 export async function listLatestRunCriticFindings(reportId: string) {
   const supabase = await createClient();
   // 1) latest run_id 조회
@@ -610,6 +624,19 @@ export async function listLatestRunCriticFindings(reportId: string) {
     .select('*')
     .eq('report_id', reportId)
     .eq('run_id', latestRow.run_id);
+  if (error) throw new Error(`report_critic_findings_list_failed:${error.code ?? 'unknown'}`);
+  return data;
+}
+
+// B12 fix (omxy R2 P2): "방금 insert 결과"용 strict latest. orchestrateFullReport이 반환한 run_id 사용.
+// listLatestRunCriticFindings는 concurrent INSERT race에 stale 가능성 — getCriticFindingsByRunId는 strict.
+export async function getCriticFindingsByRunId(reportId: string, runId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('report_critic_findings')
+    .select('*')
+    .eq('report_id', reportId)
+    .eq('run_id', runId);
   if (error) throw new Error(`report_critic_findings_list_failed:${error.code ?? 'unknown'}`);
   return data;
 }
@@ -661,19 +688,19 @@ export const CRITIC_MAX_COST_PER_CALL_KRW = calculateCostKrw(
 );
 // 현재 단가: Haiku $1 input / $5 output × 1430 KRW/USD ≈ 5원
 
-// PR3c — revise call (Opus 4.7, max_tokens 8192 — B3 fix)
+// PR3c — revise call (Opus 4.7, max_tokens 8192 — B3 fix · input 8000 — B11 fix omxy R2 보수화)
 export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw({
-  input_tokens: 6000,
+  input_tokens: 8000,  // B11 fix: 6000 → 8000 보수화 (originalSections JSON + findings + instructions). P0 token snapshot gate는 PR4 fixture 시점 별도.
   cache_creation_input_tokens: 0,
   cache_read_input_tokens: 0,
   output_tokens: 6000,
 });
-// 현재 단가: Opus $5 input / $25 output × 1430 ≈ 257원
+// 현재 단가: Opus $5 input / $25 output × 1430 ≈ 271원 (8000 input × 5 + 6000 output × 25 = 190000 / 1M × 1430)
 
 // PR3c — orchestrate total budget
 export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
   FULL_REPORT_MAX_COST_PER_CALL_KRW + CRITIC_MAX_COST_PER_CALL_KRW + REVISE_MAX_COST_PER_CALL_KRW;
-// 약 236 + 5 + 257 = 498원/per ticker worst case
+// 약 236 + 5 + 271 = 512원/per ticker worst case (B11 fix 반영)
 ```
 
 **ReportFramework §9.2.0 + §10 changelog v2.7**:
@@ -694,12 +721,12 @@ export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
 |---|---|---|---|---|
 | FULL_REPORT (PR3b 기존) | Opus 4.7 | 3000 | 6000 | ≈ 236원 |
 | CRITIC (PR3c 신규) | Haiku 4.5 | 1000 | 500 | ≈ 5원 |
-| REVISE (PR3c 신규, conditional) | Opus 4.7 | 6000 | 6000 | ≈ 257원 |
-| **ORCHESTRATE TOTAL (worst case, 매번 revise)** | — | — | — | **≈ 498원** |
-| **ORCHESTRATE 평균 (revise trigger 30% 가정)** | — | — | — | ≈ 318원 |
+| REVISE (PR3c 신규, conditional, B11 보수화) | Opus 4.7 | 8000 | 6000 | ≈ 271원 |
+| **ORCHESTRATE TOTAL (worst case, 매번 revise)** | — | — | — | **≈ 512원** |
+| **ORCHESTRATE 평균 (revise trigger 30% 가정)** | — | — | — | ≈ 322원 |
 
-**월간 worst case** (30 stocks × 498) = **14,940원/월** ≈ M17 hardcap 400,000원의 **3.7%**.
-**월간 평균** (30 stocks × 318) = **9,540원/월** ≈ **2.4%**.
+**월간 worst case** (30 stocks × 512) = **15,360원/월** ≈ M17 hardcap 400,000원의 **3.8%**.
+**월간 평균** (30 stocks × 322) = **9,660원/월** ≈ **2.4%**.
 
 → M17 hardcap 매우 여유.
 
@@ -734,19 +761,23 @@ gh pr create ...
 
 ---
 
-## Verification Gates (11종)
+## Verification Gates (15종 — omxy R2 B13 positive grant gate 추가)
 
 1. `npm run build` — 25 routes intact
 2. `npm run lint` — 0 err
 3. `npm run test:ci` — 917 → ~980+ (+60~70 신규)
 4. `npx tsc --noEmit` — clean
-5. **grep gate**: critic-prompt에 ```json fence 0 매치 + placeholder token 0 매치
-6. **grep gate**: revise-prompt에 ```json fence 0 매치
-7. **grep gate**: orchestrator.ts에 `commitFullReport` direct import 0
-8. **grep gate**: 0023/0024 마이그에 `grant select to anon` 0 매치 + `grant execute to anon` 0 매치
-9. **grep gate**: pricing.ts 신규 상수에 magic number 0 (모두 `calculateCostKrw` 통과) — B1 invariant
-10. **grep gate**: critic.ts에 `callRevise` 0 매치 — Q3 invariant
-11. **grep gate**: document-specialist file 0 (`find src/lib -name '*document-specialist*'` empty) — Q7 invariant
+5. **grep gate (negative)**: critic-prompt에 ```json fence 0 매치 + placeholder token 0 매치
+6. **grep gate (negative)**: revise-prompt에 ```json fence 0 매치
+7. **grep gate (negative)**: orchestrator.ts에 `commitFullReport` direct import 0
+8. **grep gate (negative)**: 0023/0024 마이그에 `grant select to anon` 0 매치 + `grant execute to anon` 0 매치
+9. **grep gate (positive — B13 fix)**: 0023/0024 마이그에 `revoke (all|execute|select) on .* from anon` 각 1+ 매치 (RPC + table 모두)
+10. **grep gate (positive — B13 fix)**: 0023/0024 마이그에 `grant execute on function .* to authenticated` 각 1+ 매치
+11. **grep gate (positive — B13 fix)**: 0023/0024 마이그에 `grant execute on function .* to service_role` 각 1+ 매치
+12. **grep gate**: pricing.ts 신규 상수에 magic number 0 (모두 `calculateCostKrw` 통과) — B1 invariant
+13. **grep gate**: critic.ts에 `callRevise` 0 매치 — Q3 invariant
+14. **grep gate**: document-specialist file 0 (`find src/lib -name '*document-specialist*'` empty) — Q7 invariant
+15. **grep gate (B10 fix)**: 0023/0024 RPC 둘 다 `v_caller_role text := auth.role()` declare + `coalesce(v_caller_role` 매치 (service_role guard 정합)
 
 ---
 
@@ -768,4 +799,4 @@ SCOPE GUARD (재해석 금지):
 
 ---
 
-**End of Plan v2 — omxy R2 적대적 검토 대기**
+**End of Plan v3 — omxy R3 적대적 검토 대기**
