@@ -60,9 +60,8 @@ gh pr list --state open --json number,title,headRefName,mergeable
 # 3. main fast-forward 박제 확인 (55차 §4 PR3c MERGED + PR #16 MERGED + post-merge docs commits chain — main HEAD runtime confirm)
 git fetch origin main && git rev-parse --short origin/main  # 55차 §4 PR3c MERGED 후 post-R21 sync — runtime confirm
 
-# 4. 검증 게이트 (55차 §4 PR3c MERGED + 마이그 0023+0024 applied + canary 4/4 PASS post-merge baseline: build 25 routes / lint 0 err 6 warn / test:ci 1010/88 / tsc clean / 22 grep gates 통과)
-#    - 55차 §4 PR3c OPEN baseline (PR #15 worktree): build 25 routes / lint 0 err 6 warn / test:ci 1010/88 (+93 over 917) / tsc clean / 22 grep gates 통과
-#    - main baseline (1a92fa3, 55차 §3 PR3b MERGED 후): build 25 routes / lint 0 err 6 warn / test:ci 917/79 / tsc clean
+# 4. 검증 게이트 (55차 §4 PR3c MERGED + 마이그 0023+0024 applied + canary 4/4 PASS post-merge baseline)
+#    - 현재 main (post-R21 sync, runtime confirm): build 25 routes / lint 0 err 6 warn / test:ci 1010/88 (+93 over 917 from PR3b) / tsc clean / 22 grep gates 통과
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
 
@@ -83,7 +82,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | `8acb368` (55차 §4 PR3c MERGED + 마이그 0023/0024 applied + canary + PR #16 docs MERGED + post-merge docs commit). 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. 이전 = `c98f2c4` (PR #16 merge) → `b2a902a` (PR #15 merge) → `1a92fa3` (PR3b merge 후 docs). |
+| main HEAD | post-R21 sync (runtime confirm via §0 step 3). 55차 §4 PR3c MERGED `b2a902a` + PR #16 docs MERGED `c98f2c4` + post-merge docs commits chain (R18~R21). historical: `1a92fa3` (PR3b merge 후 docs) → `b2a902a` (PR #15) → `c98f2c4` (PR #16) → post-merge sync chain. |
 | 현재 OPEN branch | 없음 (PR3c feat + docs branch 모두 cleanup 완료) |
 | Mock Skeleton + DQ-7 + S7e | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) |
 | S7a Anthropic wrapper | ✅ 완료 (51차 PR #1 MERGED, main 박제) |
@@ -100,9 +99,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **Group G ✅ 해소** | PR3c ✅ MERGED + 마이그 0023 + 0024 applied. Sector reference 3-level (Level A 2/12 lazy backlog table 0023 production live + helper Level A guard + Level B 4/10 docs + Level C 14/14 완료). |
 | OPEN PRs | **#2** (format-error, 보류) only |
 | 실 AI 호출 | 0 (Vercel env 3 vars Production 배포 완료). 실 호출은 Tier 0 source 실 wire (후속 PR) + 실 키 발급 + PR4 caller wire 후. |
-| Production deploy | Vercel main `8acb368` (post-merge docs commit) · 55차 §4 PR3c MERGED 후 canary 4/4 PASS (`/` 200 / `/login` 200 / `/macro` 200 / `/admin` 307→/login). |
+| Production deploy | Vercel main post-R21 sync (runtime confirm) · 55차 §4 PR3c MERGED 후 canary 4/4 PASS (`/` 200 / `/login` 200 / `/macro` 200 / `/admin` 307→/login). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0024 production 적용 완료** (24 migrations, 0023 = sector_reference_backlog + 0024 = report_critic_findings, 55차 §4 PR3c MCP apply_migration 12/12 + 14/14 verify PASS). SECURITY DEFINER 4-grant 패턴 (public/anon=false, authenticated/service_role=true) 유지. anon WARN 0 baseline 유지. |
-| 검증 게이트 (PR3c MERGED post-merge main `8acb368` baseline) | build 25 routes / lint 0 err 6 warn / **test:ci 1010 PASS / 88 files (+93 over 917, 회귀 0)** / tsc clean / **22 grep gates 통과** (negative 7 + positive 15) |
+| 검증 게이트 (PR3c MERGED post-merge main post-R21 sync baseline) | build 25 routes / lint 0 err 6 warn / **test:ci 1010 PASS / 88 files (+93 over 917, 회귀 0)** / tsc clean / **22 grep gates 통과** (negative 7 + positive 15) |
 | omxy debate 누적 | **236+ rounds CONVERGED** (55차 §3 종료 215+ + 55차 §4 PR3c R1~R21 = +21) · 누적 BLOCKERS: ~17 PR2 + 21 PR3a + 30 PR1 + 33 PR3b + **42 PR3c** (R1~R9 24 + R10~R14 docs 8 + R15~R21 머지/apply/canary/docs sync 10) |
 
 ---
@@ -129,7 +128,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (55차 §4 active steps — DONE rows 축약, historical = git log + PR body 위임)
 
-**현재 위치 = PR3c ✅ MERGED in main `b2a902a` + Migration 0023+0024 production applied (Supabase MCP, 12/12 + 14/14 verify PASS) + Vercel canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4` + post-merge docs commit `8acb368` + branch/worktree cleanup 완료. omxy R1~R21 21 rounds CONVERGED + 누적 42 BLOCKERS + 3-track Fix-First 5 + Defer 20. **USER 잔여 액션 = 0**. CLAUDE 다음 = PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작.**
+**현재 위치 = PR3c ✅ MERGED in main `b2a902a` + Migration 0023+0024 production applied (Supabase MCP, 12/12 + 14/14 verify PASS) + Vercel canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4` + post-merge docs commits chain (R18~R21) + branch/worktree cleanup 완료. omxy R1~R21 21 rounds CONVERGED + 누적 42 BLOCKERS + 3-track Fix-First 5 + Defer 20. **USER 잔여 액션 = 0**. CLAUDE 다음 = PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작.**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -140,7 +139,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | **PR3a** ✅ MERGED | — | PR #12 MERGED in main `0813a41` (54차 §3) | — | main fast-forward 11 commits + 검증 게이트 통과 (test:ci 746→802) + omxy R7 GATE PASS + 5 grep gates 0 매치 | (해소) PR1 진입 |
 | **PR1** ✅ MERGED | — | PR #13 MERGED in main `4aa3130` via rebase FF (54차 §4). 15 commits FF + delete-branch + worktree cleanup 완료. | — | omxy R1~R15 + 3-track deep review CONVERGED + 누적 30 BLOCKERS catch & fix + 검증 게이트 (test:ci 802 → 862) + 5 grep gates 0 매치 + R12 Codex `/review` GATE PASS 등가 | (해소) PR3b 진입 |
 | **PR3b** ✅ MERGED | — | PR #14 MERGED in main `cf68731` (55차 §3) | — | main fast-forward 13 commits + 검증 게이트 통과 (test:ci 862 → 917, +55) + omxy R1~R16 CONVERGED + 누적 33 BLOCKERS + 3-track deep review Fix-First 6 + R6~R9 docs fix 5 + Migration 0022 applied + canary 4/4 PASS | (해소) PR3c/PR4 진입 |
-| **PR3c** ✅ MERGED | — | PR #15 MERGED `b2a902a` via rebase FF (12 commits) + 마이그 0023 + 0024 production applied (Supabase MCP) + Vercel canary 4/4 PASS + PR #16 docs MERGED `c98f2c4` (55차 §4) | — | omxy R1~R21 21 rounds CONVERGED + 누적 42 BLOCKERS + 3-track Fix-First 5 (B22+C1+W2+C-1+B23) + R10~R14 docs 8 + R15~R19 머지/apply/canary 5 + Defer 20 → PR4 acceptance + test:ci 1010 PASS + 22 grep gates 통과 + 0023 verify 12/12 + 0024 verify 14/14 + canary 4/4 | (해소) PR4 진입 |
+| **PR3c** ✅ MERGED | — | PR #15 MERGED `b2a902a` via rebase FF (12 commits) + 마이그 0023 + 0024 production applied (Supabase MCP) + Vercel canary 4/4 PASS + PR #16 docs MERGED `c98f2c4` (55차 §4) | — | omxy R1~R21 21 rounds CONVERGED + 누적 42 BLOCKERS + 3-track Fix-First 5 (B22+C1+W2+C-1+B23) + R10~R14 docs 8 + R15~R21 머지/apply/canary/docs sync 10 + Defer 20 → PR4 acceptance + test:ci 1010 PASS + 22 grep gates 통과 + 0023 verify 12/12 + 0024 verify 14/14 + canary 4/4 | (해소) PR4 진입 |
 | **PR4** | **CLAUDE** | PR3c 머지 + 마이그 apply + canary 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). caller path 선택 박제 (PR3b acceptance B8 + omxy R2 강화): cron = `commitFullReport` (fast) / admin manual trigger = `orchestrateFullReport` (quality). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). + Track 2 + Track 3 defer 20 follow-up. **Group A + F + D 잔여 + PR3a OOS + PR3c defer 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) + B18 CRON_SECRET 401 test | §2.2 출시 게이트 진입 |
 | **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + **3-track deep review** | — |
 | **Step 7~14** (S7b → S7c → S7d → S8) | USER 트리거 + CLAUDE 구현 | canonical 5-PR 완료 후 | S7b 뉴스+브리핑 → D11 AI 가상 포트 1차 가동 (어드민 3인 운용 검증) → S7c 장중·KIS WS → S7d Silent Health → S8 자동매매 (Binance Smoke #3) | 각 슬라이스 DoD | §2.2 출시 게이트 |
@@ -655,5 +654,5 @@ omxy R1에서 결함 발견 시:
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제 + 55차 §2/§4 정정): **PR2 ✅ → PR3a ✅ → PR1 ✅ MERGED `4aa3130` (PR #13) → PR3b ✅ MERGED `cf68731` (PR #14) → PR3c ✅ MERGED `b2a902a` (PR #15, 3-step + conditional revise + sector_reference_backlog) → PR4 (UI)**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행) ✅ **해소** (54차 §3). 잔여 1-task (PR4) — PR4는 UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test.
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. 후속 PR3b writer 본문도 동일 quality target.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 55차 §4 종료 시점 = **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G ✅ 해소) ✅ MERGED `b2a902a` + 마이그 0023+0024 applied + canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4` + post-merge docs commit `8acb368`** + omxy R1~R21 21 rounds CONVERGED + 누적 42 BLOCKERS catch & fix + 3-track deep review Fix-First 5 + Defer 20 P2/Info. **USER 잔여 액션 = 0** → 다음 = CLAUDE PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작. (55차 §3 historical: PR #14 ✅ MERGED `cf68731` + 마이그 0022 applied + canary 4/4 PASS.)
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 55차 §4 종료 시점 = **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G ✅ 해소) ✅ MERGED `b2a902a` + 마이그 0023+0024 applied + canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4` + post-merge docs commits chain (R18~R21)** + omxy R1~R21 21 rounds CONVERGED + 누적 42 BLOCKERS catch & fix + 3-track deep review Fix-First 5 + Defer 20 P2/Info. **USER 잔여 액션 = 0** → 다음 = CLAUDE PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작. (55차 §3 historical: PR #14 ✅ MERGED `cf68731` + 마이그 0022 applied + canary 4/4 PASS.)
 - **main HEAD 박제 정정 (B15)**: `0813a41`는 **PR3a merge point** (AFTER_PR12). docs commit/push 후 main HEAD는 갱신됨 — 세션 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. rollback range OLD_MAIN=`f85fb69` → AFTER_PR12=`0813a41` → AFTER_DOCS=runtime.
