@@ -106,7 +106,8 @@ export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw(
 );
 
 // PR3c — orchestrate total budget (writer + critic + revise worst case)
-// 약 236 + 5 + 271 = 512원/per ticker worst case (revise 항상 발생 가정).
-// 30 stocks × 512 = 15,360원/월 ≈ M17 hardcap 400k의 3.8%.
+// 약 236 + 27.5 + 272 ≈ 535원/per ticker worst case (revise 항상 발생 가정 + B22 critic input 9000 보수화).
+// 30 stocks × 535 ≈ 16,050원/월 ≈ M17 hardcap 400k의 4.0% (B23 fix omxy R8 갱신).
+// 평균 30% revise trigger 가정 시 ≈ 345원/ticker × 30 ≈ 10,350원/월 (2.6%).
 export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
   FULL_REPORT_MAX_COST_PER_CALL_KRW + CRITIC_MAX_COST_PER_CALL_KRW + REVISE_MAX_COST_PER_CALL_KRW;
