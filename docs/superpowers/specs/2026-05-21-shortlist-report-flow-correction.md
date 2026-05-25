@@ -339,9 +339,19 @@ Tier 1 합의 + AI가 단/중/장 분류 결정에 직접 영향
 | **PR3a** (Critical 선행) | **Group H schema drift fix only** — admin-reports.ts transformStockReportRow validation + Section type guard / report/[ticker]/page.tsx early null guard + Section 0~7 fallback UI / section_8 jsonb shape 호환 (old conclusion·recommendation·keyQuotes 잔존 path → 신규 partA/partB/partC/partD path). writer Section 0~7 본문 구현 X (PR3b). | PR2 후. **PR1 cron 가동 전 Hard gate 선행 필수**. |
 | **PR1** | cron `monthly-batch` real path enable + server-callable trigger function — Task 12 박제 "mock dry-run only" 폐기. cron이 PR2 함수 (`runTier1Screening` 또는 동일) 호출. **UI 버튼은 PR4 scope** (OMXY R3 BLOCKER 2 정정: admin trigger UI는 PR4로 분리). 또는 first-iteration을 "real cron disabled behind flag"로 낮춰 PR3b 후 enable 옵션. | **PR3a 선행 필수**. PR2 후. |
 | **PR3b** | writer Section 0~7 본문 구현 (document-specialist + analyst + writer + critic 4 step). | PR1 후 (또는 PR1과 병렬 — writer는 cron 트리거 외에도 호출 가능) |
-| **PR4** | UI 신설 — (a) admin trigger 버튼 (월간 일괄 + reject 후 신규 30 선정 + 사용자 trigger) (b) 종목별 Regen 실 호출 wire (현재 quota counter만 동작) (c) Track Record 탭 분리: 누적 성과 + 월별 아카이브. **PR1 cron real path와 PR4 UI 버튼은 별도 진입점** (cron = scheduled, UI = manual trigger; 둘 다 PR1 함수 호출). | PR1~PR3b 완료 후 |
+| **PR4** | UI 신설 — (a) admin manual trigger 버튼 (1개 즉석 quality 생성/재생성/실패 복구) (b) 종목별 Regen 실 호출 wire (orchestrate quality, 현재 quota counter만 동작) (c) Track Record 탭 분리: 누적 성과 + 월별 아카이브 (d) PR3a OOS 3종 (partA 14 rows / aggregateVotes layer 2 guard + getVotesByReportId wrapper / LLM string·array max bound top 5) (e) B18 CRON_SECRET 401 test 4종 (f) Task 8 W7 only (defer 나머지는 source review docs 링크 박제). caller path = admin manual + Regen 모두 `orchestrateFullReport` (quality, Kevin v3.1 target 정합). | PR1~PR3c 완료 후 |
+| **PR5** (분리, 56차 §3 T11 결정) | **cron 30 자동 리포트 + 큐 인프라** — cron `monthly-batch` route에 30 종목 풀 리포트 자동 호출 추가. caller path = `orchestrateFullReport` (quality, 30 × 535원 ≈ 16,050원/월 hardcap 4%). timeout 처리 = (β1) Vercel Queues 신설 OR (β2′) 자체 DB job queue resumable worker (PR5 plan 시점 R-debate 결정). fail = γ1 allSettled + γ3 retry N + summary alert. cost = δ1 기존 40만원 hardcap + batch preflight (`ORCHESTRATE_TOTAL × pendingCount`). admin_id = 'cron-system'. service-role client DI + cost_log e2e test. **사용자 직접 catch — omxy R1~R7 7 rounds CONVERGED + plan v7 lock-in 후에도 plan에 누락이었음** (omxy scope guard "spec 재해석 금지"로 catch 안 됨). | PR4 머지 후 |
 
-**Hard gate 박제 (OMXY R1 BLOCKER 5 + R2 BLOCKER 2)**: **PR1 (real cron 가동) ⊥ PR3a 미선행** = page crash inevitable. 따라서 PR1 머지 전 PR3a 머지 + verification 통과 필수. 대안 = PR1 first-iteration을 `cron disabled behind flag`로 낮춤 (Tier 1 함수만 동작, INSERT 미발생).
+**Hard gate 박제 (OMXY R1 BLOCKER 5 + R2 BLOCKER 2)**: **PR1 (real cron 가동) ⊥ PR3a 미선행** = page crash inevitable. 따라서 PR1 머지 전 PR3a 머지 + verification 통과 필수. 대안 = PR1 first-iteration을 `cron disabled behind flag`로 낮춤 (Tier 1 함수만 동작, INSERT 미발생). **(54차 §4 PR1 ✅ MERGED `4aa3130` + 55차 §3 PR3b ✅ MERGED `cf68731` + 55차 §4 PR3c ✅ MERGED `b2a902a` 후 해소.)**
+
+**PR5 후속 트랙 박제 (56차 §3 T11 결정, 사용자 catch + omxy R1~R2 CONVERGED)**:
+- (α) caller path = α2 quality (orchestrateFullReport, ~16,000원/월). 사용자 lock-in §1.6 Kevin v3.1 quality target 정합. fast path α1 폐기 — Kevin v3.1 미달.
+- (β) timeout 처리 = β1 Vercel Queues OR β2′ 자체 DB job queue resumable worker. Vercel function duration 300s/800s 내 30 × ~50s = 25분 처리 불가. waitUntil/after 우회 불가. **PR5 plan 시점에 (β1) vs (β2′) R-debate 후 결정**.
+- (γ) fail handling = γ1 allSettled + γ3 retry N회 + summary alert. abort-first 부적합 (30 batch).
+- (δ) cost preflight = δ1 기존 40만원 hardcap 유지 + batch preflight 추가 (`ORCHESTRATE_TOTAL × pendingCount`). δ2 100만원 hardcap 신설 = scope creep (사용자 lock-in §1.8 "API 금액 무관" 과해석 — 폐기).
+- (ζ) admin trigger 의미 = ζ1 "특정 1개 즉석 quality 생성/재생성/실패 복구" (PR4 plan v7 정합). batch 수동 재실행 버튼은 PR5 scope 밖 또는 별도 토론.
+- 비용 산술 정정 (omxy R1 catch): 30 × 535원 = **16,050원/월** (이전 박제 "48만원" 곱셈 오류).
+- 첫 달 운영 = PR4 머지 ~ PR5 머지 사이, 어드민 3인이 30 종목 manual click 분담 (1인당 10번). 사용자 lock-in §1.3 "3 trigger path" 정합 유지.
 
 ---
 

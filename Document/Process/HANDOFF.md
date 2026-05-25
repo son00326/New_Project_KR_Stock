@@ -1,15 +1,16 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-25 (55차 §4 — **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G) ✅ MERGED in main `b2a902a` via rebase FF (12 commits) + Migration 0023 + 0024 production applied (Supabase MCP, 12/12 + 14/14 verify PASS) + Vercel canary 4/4 PASS + PR #16 (HANDOFF + ProgressDashboard docs) ✅ MERGED in main `c98f2c4` via rebase FF (5 commits) + post-merge docs sync chain (R18~R23, docs sync cycle 종료) + branch/worktree cleanup 완료** · omxy R1~R23 docs sync cycle 종료 + **누적 49 BLOCKERS catch & fix** (PR3c 24 + R10~R14 docs 8 + R15~R23 머지/apply/canary/docs sync 17) + 3-track deep review Fix-First 5 + Defer 20 P2/Info → PR4 acceptance · current main HEAD = runtime confirm via §0 step 3 (post-final sync (docs sync cycle 종료)) · **OPEN PRs: #2 (format-error, 보류) only** · **USER 잔여 액션 = 0** · 다음 CLAUDE = **PR4 (UI caller wire + Track Record 탭 + Regen 실 호출 + B18 CRON_SECRET 401 test)** 진입 의사 1회 확인 후 자동 시작.
+Last updated: 2026-05-26 (56차 §3 — **PR4 진행 중 (canonical 5-PR 마지막 단계)** · plan v1~v7 작성 + **omxy plan R1~R7 7 rounds CONVERGED + 누적 21 BLOCKERS catch & fix** (B1~B21) · T11 **cron 30 자동 리포트 분할 결정 = C (PR4 = plan v7 그대로 / PR5 후속 트랙)** · **Task 1 Step 1.0 ✅ commit `cf23e59`** (test infra: jsdom + @testing-library/react@^16 + @testing-library/jest-dom@^6 + vitest.config test.projects 분리 + fixture + 9 sanity tests, test:ci 1019 PASS 회귀 0) + **omxy Step 1.0 plan-vs-commit verify R1~R2 CONVERGED** (B22-impl Step 1.0.4 jsdom sanity fix 후 CONVERGED) · 현재 branch = `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, main `e94b365` 기준 8 commits ahead) · OPEN PRs: #2 (format-error, 보류) only · USER 잔여 액션 = 0 · 다음 CLAUDE = **PR4 Task 1 Step 1.1 (caller DI seam 9 modules + ~18 invariant tests)** 진입 의사 1회 확인 후 자동 시작.
 
 ---
 
-## ⭐ 다음 세션 진입자 5줄 요약 (55차 §4 종료 시점)
+## ⭐ 다음 세션 진입자 5줄 요약 (56차 §3 종료 시점)
 
-1. **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G ✅ 해소) ✅ MERGED in main `b2a902a` via rebase FF (12 commits)** + **Migration 0023 + 0024 production applied (Supabase MCP, 0023 verify 12/12 PASS + 0024 verify 14/14 PASS)** + **Vercel production canary 4/4 PASS** (`/` 200 / `/login` 200 / `/macro` 200 / `/admin` 307→/login). PR #16 (HANDOFF + ProgressDashboard docs) ✅ MERGED in main `c98f2c4` via rebase FF (5 commits). branch + worktree cleanup 완료. 신규 SoT 코드 (24 신설 + 3 modify): `tudal/src/lib/ai/prompts/critic-prompt.ts` (Haiku 6축 verdict + plain delimiter + Kevin v3.1) + `critic-client.ts` (CRITIC_API_MODEL `claude-haiku-4-5-20251001` vs CRITIC_PRICING_KEY `claude-haiku-4-5` 분리 B14) + `revise-prompt.ts` + `revise-client.ts` (Opus max 8192 + REVISE_PRICING_KEY 명시 C-1) + `analyst.ts` (pure-code, quality claim 0) + `critic.ts` (Q3 threshold + 1회 hard cap invariant) + `full-report-orchestrator.ts` (3-step + conditional revise + 3 RPC persistence + criticRunId 반환 + non-blocking backlog) + `sector-reference-backlog.ts` (LEVEL_A_SECTORS_WITH_BODY 바이오·반도체 + isCanonicalSector + trim) + `report-critic-findings.ts` (insertCriticFindingsRun targetStage default writer_draft + getCriticFindingsByRunId strict B12) + 마이그 0023 (sector_reference_backlog table CHECK + atomic RPC) + 0024 (report_critic_findings + atomic RPC + run_id + target_stage CHECK + reason 500자) + format-error +10 키 4 prefix + ReportFramework §10 v2.7 changelog + §9.2.0 헤더 amend. test:ci 917 → **1010 PASS (+93, 회귀 0)**.
-2. **omxy R1~R9 9 rounds CONVERGED + 누적 24 BLOCKERS catch & fix** (R1 9 + R2 4 + R3 3 + R4 3 + R5 2 + R6 0 CONVERGED + R7 1 B22 + Track 2 2 C1+W2 + Track 3 1 C-1 + R8 1 B23 + R9 0 FINAL GATE PASS). **3-track deep review**: Track 1 `gstack-review` skill inline CLEAN ship / Track 2 `general-purpose` depth=deep 14 findings → Fix-First 2 (C1 RLS service_role SELECT + W2 kevinV31Markers thread) Defer 12 / Track 3 `general-purpose` 5-angle scan 9 findings → Fix-First 1 (C-1 REVISE_PRICING_KEY defense-in-depth cross-confirmed angles 3+5) Defer 8. **Defer 20 P2/Info → PR4 acceptance**.
-3. **USER 잔여 액션 = 0** (PR #15 머지 ✅ + 마이그 0023 production apply ✅ + 마이그 0024 production apply ✅ + Vercel canary 4 페이지 verify ✅ + PR #16 docs 머지 ✅ + branch/worktree cleanup ✅). 다음 CLAUDE 1순위 = PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작.
-4. **canonical 5-PR 순서 — Group G ✅ 해소**:
+1. **PR4 진행 중 — canonical 5-PR 마지막 단계** (Group A + F + D 잔여 + PR3a OOS 3종 + B18 + Task 8 W7 해소). branch `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, main `e94b365` 기준 8 commits ahead, head = `cf23e59`). 운영 SoT plan = `docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md` (**v7, lock-in 완료**). PR not yet created.
+2. **plan v1~v7 + omxy R1~R7 7 rounds CONVERGED + 누적 21 BLOCKERS catch & fix** (R1 6 B1~B6 / R2 5 B7~B11 / R3 3 B12~B14 / R4 3 B15~B17 / R5 3 B18-o~B20 / R6 1 B21 / R7 0 FINAL CONVERGED). plan 진화 = v1 (`f783ce6` 877 lines) → v2 (`bcb3512`) → v3 (`9d9201c`) → v4 (`fde9426`) → v5 (`bf0de5f`) → v6 (`d8cdad5`) → v7 (`6650345` net 단순화).
+3. **T11 cron 30 자동 리포트 분할 결정 (사용자 catch — omxy도 못 잡은 product-level 누락)**: omxy R1~R2 CONVERGED → **C 분할** (PR4 = plan v7 그대로 admin manual trigger / Regen / Track Record / PR3a OOS / B18 / W7만 / **PR5 후속 트랙 = cron 30 자동 리포트 + 큐 인프라**). caller path 박제 = cron(PR5) = quality (orchestrateFullReport, ~16,000원/월 hardcap 4%) / admin manual + Regen (PR4) = quality. 비용 산술 정정: 30 × 535원 = 16,050원/월 (이전 박제 48만원 오류).
+4. **Task 1 Step 1.0 ✅ 완료 (commit `cf23e59`, 6 files / +819 / -2)**: test infra 도입 — jsdom@^26 + @testing-library/react@^16 + @testing-library/jest-dom@^6 + vitest.config `test.projects` 분리 (node + jsdom) + `tudal/src/test/jsdom-setup.ts` + `tudal/src/test/fixtures/full-report-valid.ts` (validFullReportSections 9 section schema-valid) + 9 sanity tests. **test:ci 1010 → 1019 PASS** (회귀 0). **omxy Step 1.0 plan-vs-commit verify R1~R2 CONVERGED** (B22-impl Step 1.0.4 jsdom-sanity.test.tsx 임시 실행 1 PASS + 삭제 fix 후 CONVERGED). 다음 CLAUDE 1순위 = **Step 1.1 caller DI seam 9 modules + ~18 invariant tests**.
+5. **canonical 5-PR 순서 — PR4 진행 중**:
 
    | Group | 담당 PR | 상태 |
    |---|---|---|
@@ -18,19 +19,20 @@ Last updated: 2026-05-25 (55차 §4 — **PR #15 (PR3c 3-step orchestration + se
    | **C** cron mock dry-run | PR1 | ✅ MERGED `4aa3130` |
    | **D** (절반) Step 3c dangling server action | PR1 | ✅ MERGED `4aa3130` |
    | **E** writer Section 0~7 본문 | PR3b | ✅ MERGED `cf68731` |
-   | **G** Sector reference 3-level + 3-step orchestration | **PR3c** | ✅ **MERGED `b2a902a`** (PR #15, R1~R23 docs sync cycle 종료 + 누적 49 BLOCKERS + 3-track Fix-First + 마이그 0023/0024 applied + canary 4/4 PASS) |
-   | **A** track-record trigger 위치 | PR4 | 대기 |
-   | **F** Track Record 누적 vs 아카이브 탭 분리 | PR4 | 대기 |
-   | **D** (잔여) UI caller wire | PR4 | 대기 |
-5. **운영 SoT**: `docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md` (PR3c plan v6, omxy R1~R6 CONVERGED + 21 BLOCKERS + R7~R9 + Track 2/3 Fix-First → 누적 24) + `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md` (53차 §5 lock-in + 55차 §2 amendment).
+   | **G** Sector reference 3-level + 3-step orchestration | PR3c | ✅ MERGED `b2a902a` |
+   | **A** track-record trigger 위치 | **PR4** | 🟢 진행 중 (Step 1.0 완료) |
+   | **F** Track Record 누적 vs 아카이브 탭 분리 | **PR4** | 🟢 진행 중 (Task 3 대기) |
+   | **D** (잔여) UI caller wire | **PR4** | 🟢 진행 중 (Step 1.1~1.3 대기) |
+   | **cron 30 자동 리포트 + 큐 인프라** | **PR5 (분리)** | ⏸ PR4 머지 후 진입 |
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify (runtime confirm main HEAD + OPEN PRs) → **PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작**. (USER 잔여 액션 = 0 — PR #15 머지/마이그 0023+0024 apply/canary/PR #16 머지 모두 완료.)
+**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify (worktree `feat/pr4-ui-caller-wire` HEAD `cf23e59` + main `e94b365` + OPEN PRs `#2` only) → **PR4 Task 1 Step 1.1 (caller DI seam 9 modules + ~18 invariant tests) 진입 의사 1회 확인 후 자동 시작**. plan SoT = `docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md` (v7 lock-in).
 
-**⚠️ PR4 acceptance criterion 박제 (omxy R6 B-R6-2 P1 명시 강화)**: PR3b의 `commitFullReport` TS entrypoint는 SSR session-based `createClient()`를 사용 (preflightHardcap + insertCostLog + RPC 3곳). PR4 cron이 `createServiceRoleClient`로 직접 호출하면 cost_log RLS check_admin_insert로 실패할 위험. **PR4 plan에 반드시 박제**:
-1. **service-role client DI** — `commitFullReport`에 client 또는 callerKind 파라미터 추가 (insertCostLog + preflightHardcap도 동일 client 사용)
-2. **representative/system caller** — cron path는 admin_id 'cron-system' 사용 (PR1 패턴)
-3. **cost_log policy/insert test** — service-role insert가 RLS 통과 검증 e2e test
-4. **CRON_SECRET 401 test** — cron route가 CRON_SECRET 미일치 시 401 반환 검증
+**⚠️ PR4 acceptance criterion 박제 (56차 §3 T11 분할 결정 반영)**: PR4 scope = admin manual trigger 버튼 + Regen + Track Record + PR3a OOS + **B18 CRON_SECRET 401 test만** + Task 8 W7만 (defer는 source review docs 링크). 본 PR에서 적용:
+1. **caller DI seam** — `commitFullReport` / `orchestrateFullReport` + 모든 helper (cost-logger / full-report-client / critic-client / revise-client / report-critic-findings / sector-reference-backlog) options:{client?} 패턴 (PR4 plan v7 Step 1.1 박제)
+2. **admin caller = quality** — admin manual + Regen = `orchestrateFullReport(callerKind='admin')` (Kevin v3.1 quality target)
+3. **CRON_SECRET 401 test** — cron route가 CRON_SECRET 미일치 시 401 반환 검증 (Task 7)
+
+> **cron 30 자동 리포트 + service-role caller DI + admin_id 'cron-system' + cost_log e2e test = PR5 후속 트랙** (T11 분할 결정, PR4 머지 후 진입). PR5 caller path = orchestrateFullReport (quality), timeout 처리 = 자체 DB job queue β2′ 또는 Vercel Queues β1 (PR5 plan 시점 R-debate).
 
 **운영 원칙**: 미래 지향. 49차~54차 historical 진행 상세 = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. §6 완료 이력은 직전 2 entry (54차 §3 PR3a MERGED + 54차 §4 PR1 MERGED `4aa3130`)만 inline.
 
@@ -78,12 +80,15 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ---
 
-## 1. 현재 상태 (55차 §4 PR3c ✅ MERGED 시점, 2026-05-25)
+## 1. 현재 상태 (56차 §3 PR4 Step 1.0 완료 + omxy verify CONVERGED 시점, 2026-05-26)
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | post-final sync (docs sync cycle 종료) (runtime confirm via §0 step 3). 55차 §4 PR3c MERGED `b2a902a` + PR #16 docs MERGED `c98f2c4` + post-merge docs sync chain (R18~R23, cycle 종료). historical: `1a92fa3` (PR3b merge 후 docs) → `b2a902a` (PR #15) → `c98f2c4` (PR #16) → post-merge sync chain. |
-| 현재 OPEN branch | 없음 (PR3c feat + docs branch 모두 cleanup 완료) |
+| main HEAD | `e94b365` (PR3c post-final sync, 55차 §4 종료 시점 baseline) |
+| **현재 OPEN branch** | **`feat/pr4-ui-caller-wire`** (worktree `/Users/yong/New_Project_KR_Stock-pr4`, main `e94b365` 기준 8 commits ahead, head = `cf23e59`) — 7 plan commits (v1~v7) + 1 Step 1.0 impl commit |
+| **PR4 plan SoT** | `docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md` (**v7 lock-in**, 누적 21 BLOCKERS catch & fix R1~R7 CONVERGED) |
+| **PR4 Task 1 진행** | Step 1.0 ✅ commit `cf23e59` + omxy verify R1~R2 CONVERGED / Step 1.1~1.3 (caller DI seam + server action + UI button) **pending** |
+| **PR5 후속 트랙** | cron 30 자동 리포트 + 큐 인프라 (T11 분할 결정, PR4 머지 후 진입) |
 | Mock Skeleton + DQ-7 + S7e | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) |
 | S7a Anthropic wrapper | ✅ 완료 (51차 PR #1 MERGED, main 박제) |
 | Tier 2 D21 (Sector 14 overlay) | ✅ scaffold + production schema + builder + 207 persona Kevin v3.1 quality 본문 모두 main 박제 (52차 + 53차 §2·§3 PR #7/#8 MERGED) |
@@ -126,9 +131,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용.
 7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-### §2.1 Step matrix (55차 §4 active steps — DONE rows 축약, historical = git log + PR body 위임)
+### §2.1 Step matrix (56차 §3 active steps — DONE rows 축약, historical = git log + PR body 위임)
 
-**현재 위치 = PR3c ✅ MERGED in main `b2a902a` + Migration 0023+0024 production applied (Supabase MCP, 12/12 + 14/14 verify PASS) + Vercel canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4` + post-merge docs sync chain (R18~R23, cycle 종료) + branch/worktree cleanup 완료. omxy R1~R23 docs sync cycle 종료 + 누적 49 BLOCKERS + 3-track Fix-First 5 + Defer 20. **USER 잔여 액션 = 0**. CLAUDE 다음 = PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작.**
+**현재 위치 = PR4 진행 중 (canonical 5-PR 마지막 단계). plan v1~v7 작성 + omxy R1~R7 7 rounds CONVERGED + 누적 21 BLOCKERS catch & fix (B1~B21) + T11 cron 30 분할 결정 (C 채택 — PR4 = plan v7 그대로 / PR5 = cron 30 자동 + 큐 인프라 후속 트랙). Task 1 Step 1.0 ✅ commit `cf23e59` (test infra: jsdom + testing-library + test.projects 분리 + fixture + 9 sanity tests, test:ci 1010→1019 PASS 회귀 0) + omxy Step 1.0 plan-vs-commit verify R1~R2 CONVERGED. branch `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, main `e94b365` 기준 8 commits ahead, head `cf23e59`). **USER 잔여 액션 = 0**. CLAUDE 다음 = **PR4 Task 1 Step 1.1 (caller DI seam 9 modules options:{client?} 패턴 + ~18 invariant tests)** 진입 의사 1회 확인 후 자동 시작.**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -140,7 +145,8 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | **PR1** ✅ MERGED | — | PR #13 MERGED in main `4aa3130` via rebase FF (54차 §4). 15 commits FF + delete-branch + worktree cleanup 완료. | — | omxy R1~R15 + 3-track deep review CONVERGED + 누적 30 BLOCKERS catch & fix + 검증 게이트 (test:ci 802 → 862) + 5 grep gates 0 매치 + R12 Codex `/review` GATE PASS 등가 | (해소) PR3b 진입 |
 | **PR3b** ✅ MERGED | — | PR #14 MERGED in main `cf68731` (55차 §3) | — | main fast-forward 13 commits + 검증 게이트 통과 (test:ci 862 → 917, +55) + omxy R1~R16 CONVERGED + 누적 33 BLOCKERS + 3-track deep review Fix-First 6 + R6~R9 docs fix 5 + Migration 0022 applied + canary 4/4 PASS | (해소) PR3c/PR4 진입 |
 | **PR3c** ✅ MERGED | — | PR #15 MERGED `b2a902a` via rebase FF (12 commits) + 마이그 0023 + 0024 production applied (Supabase MCP) + Vercel canary 4/4 PASS + PR #16 docs MERGED `c98f2c4` (55차 §4) | — | omxy R1~R23 docs sync cycle 종료 + 누적 49 BLOCKERS + 3-track Fix-First 5 (B22+C1+W2+C-1+B23) + R10~R14 docs 8 + R15~R23 머지/apply/canary/docs sync 17 + Defer 20 → PR4 acceptance + test:ci 1010 PASS + 22 grep gates 통과 + 0023 verify 12/12 + 0024 verify 14/14 + canary 4/4 | (해소) PR4 진입 |
-| **PR4** | **CLAUDE** | PR3c 머지 + 마이그 apply + canary 후 | UI 신설: (a) admin trigger 버튼 `/admin/portfolio` 또는 `/admin` 홈 (b) 종목별 Regen 실 호출 wire (현 quota counter만 동작) (c) Track Record 탭 분리 (누적 성과 + 월별 아카이브). caller path 선택 박제 (PR3b acceptance B8 + omxy R2 강화): cron = `commitFullReport` (fast) / admin manual trigger = `orchestrateFullReport` (quality). + PR3a OOS: Tier 2 active 시 `Section8ModernView.partA` 14 rows 렌더 (red-team RT#1), `aggregateVotes` enum 보호 (red-team RT#3), LLM string/array max bound (red-team RT#4/RT#5). + Track 2 + Track 3 defer 20 follow-up. **Group A + F + D 잔여 + PR3a OOS + PR3c defer 해소.** | omxy + **3-track deep review** + UI smoke (gstack-browse) + B18 CRON_SECRET 401 test | §2.2 출시 게이트 진입 |
+| **PR4** 🟢 진행 중 (56차 §3) | **CLAUDE** | plan v7 lock-in + Step 1.0 ✅ commit `cf23e59` + omxy verify CONVERGED | (1) admin manual trigger 버튼 `/admin/portfolio` ShortlistRow action slot + BucketSection renderRowAction (Step 1.1~1.3) (2) Regen `orchestrateFullReport` (quality) wire (Task 2) (3) Track Record 탭 분리 (Task 3) (4) PR3a OOS: partA 14 rows (Task 4) / aggregateVotes layer 2 guard + getVotesByReportId wrapper (Task 5) / LLM string/array max bound top 5 (Task 6) (5) **B18 CRON_SECRET 401 test 4종** (Task 7) (6) Task 8 = **W7 only** (defer 나머지는 source review docs 링크 박제). **caller DI seam 9 modules options:{client?} 패턴** (Step 1.1, 가장 큰 변경). admin caller = quality (orchestrate). cron caller = **PR5 scope (분할 결정)**. branch `feat/pr4-ui-caller-wire` (head `cf23e59`). | omxy R1~R7 plan verify CONVERGED (21 BLOCKERS) + omxy Step 1.0 verify R1~R2 + Step 1.1+ omxy plan-vs-commit 후 3-track deep review (gstack-review + 5-angle scan + omxy final) | §2.2 출시 게이트 진입 (PR5 머지 후) |
+| **PR5** ⏸ (분리) | **CLAUDE** | PR4 머지 후 | cron monthly-batch route에 30 종목 풀 리포트 자동 호출 추가 (T11 분할 결정). caller path = `orchestrateFullReport` (quality, Kevin v3.1 target 정합). timeout 처리 = (β1) Vercel Queues OR (β2′) 자체 DB job queue resumable worker — PR5 plan 시점 R-debate. fail = γ1 allSettled + γ3 retry N + summary alert. cost = δ1 + batch preflight (`ORCHESTRATE_TOTAL × pendingCount`). admin_id = 'cron-system'. service-role client DI + cost_log e2e test. **30 × 535원 ≈ 16,050원/월 (hardcap 4%)**. | omxy + 3-track deep review | §2.2 출시 게이트 진입 |
 | **Step 4 Reflection** | CLAUDE | PR2 + PR3a 후 더 의미있음 (실 Tier 1 결과 누적 후 reflection_log 자가학습) | reflection_log 마이그 + Tier 1 context 주입 + tests. PR1~PR4와 병렬 가능. | omxy + **3-track deep review** | — |
 | **Step 7~14** (S7b → S7c → S7d → S8) | USER 트리거 + CLAUDE 구현 | canonical 5-PR 완료 후 | S7b 뉴스+브리핑 → D11 AI 가상 포트 1차 가동 (어드민 3인 운용 검증) → S7c 장중·KIS WS → S7d Silent Health → S8 자동매매 (Binance Smoke #3) | 각 슬라이스 DoD | §2.2 출시 게이트 |
 | **Step 15** S9 운용 | USER 1개월+ 운용 + CLAUDE 모니터링 hotfix | S8 머지 후 | 어드민 3인 실 사용 + hotfix branch로 BL-KRIT patch | §2.2 7 criteria 만족 | ✅ 어드민 내부 도구 출시 |
@@ -228,6 +234,39 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 ## 6. 완료 이력 (직전 2 entry inline · older = git log + PR body)
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
+
+### 56차 §3 PR4 Task 1 Step 1.0 ✅ commit `cf23e59` + omxy plan-vs-commit verify R1~R2 CONVERGED (PR4 plan v1~v7 omxy R1~R7 7 rounds CONVERGED 누적 21 BLOCKERS + T11 cron 30 분할 결정 C 채택, 2026-05-25 ~ 2026-05-26)
+
+- **scope**: PR4 (canonical 5-PR 마지막 단계) 진입 — plan 작성 + omxy 적대적 검토 + Task 1 Step 1.0 (test infra setup) impl + omxy verify. PR not yet created. branch `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, main `e94b365` 기준 8 commits ahead).
+- **PR4 plan 진화**: v1 (`f783ce6` 877 lines) → v2 (`bcb3512` +332/-135) → v3 (`9d9201c` +285/-65) → v4 (`fde9426` +136/-32) → v5 (`bf0de5f` +60/-7) → v6 (`d8cdad5` +50/-32) → v7 (`6650345` +29/-33 net 단순화, **lock-in**)
+- **omxy R1~R7 7 rounds CONVERGED + 누적 21 BLOCKERS catch & fix**:
+  · R1: 6 BLOCKERS (B1 A.0.2 박제 오류 / B2 caller DI 전파 / B3 T5 stub invalid / B4 test infra T5 전 결정 / B5 Task 8 scope creep / B6 sector backlog RLS)
+  · R2: 5 (B7 deps 버전 wrong + Vitest 4 environmentMatchGlobs removed / B8 fixture inconsistency / B9 tests args mismatch / B10 UI wire 위치 오류 / B11 getVotesByReportId wrapper 회귀)
+  · R3: 3 (B12 fixture schema invalid / B13 lib/data 경로 오기 / B14 stale 문구)
+  · R4: 3 (B15 sanity test commit/acceptance 누락 / B16 grep 조건 정의 / B17 defer count drift)
+  · R5: 3 (B18-o duplicate block / B19 Defer D-ID 산술 시도 / B20 Goal scope 정합)
+  · R6: 1 (B21 Defer ID 산술 모순 — omxy 강한 권고 채택 = defer 상세 ID 제거 + 원칙만 박제)
+  · R7: 0 **FINAL CONVERGED** (Goal 단순화 + Acceptance §Defer 4원칙 + Self-Review §3 stale instruction 0 정의)
+- **사용자 lock-in 8 항목 + canonical 5-PR 순서 유지** (53차 §5 spec + 55차 §2/§4 amendment). caller path 박제: cron = quality (PR5 scope) / admin manual + Regen = quality (PR4 scope, Task 2 swap).
+- **T11 cron 30 자동 리포트 분할 결정 (사용자 catch — omxy R1~R7 7 rounds catch 못 한 product-level 누락)**:
+  · 사용자 catch = "매월 30 종목 자동 선정 시 30 리포트도 자동 생성이 자연스러운 흐름. plan v7에 누락"
+  · omxy R1~R2 토론 → **C 분할 채택**: PR4 = plan v7 그대로 (admin button 1개 즉석 / Regen / Track Record / PR3a OOS / B18 / W7만) / **PR5 후속 트랙 = cron 30 자동 리포트 + 큐 인프라** (자체 DB job queue β2′ 또는 Vercel Queues β1 — PR5 plan 시점 R-debate)
+  · omxy 비용 산술 정정 catch: 30 × 535원 = **16,050원/월** (이전 박제 48만원 오류). hardcap 4%, "API 금액 무관" 정합
+  · caller path = α2 quality (Kevin v3.1 target 충족), γ1+γ3 (allSettled + retry N + summary alert), δ1 + batch preflight (`ORCHESTRATE_TOTAL × pendingCount`), ζ1 (admin button = "1개 즉석 quality 재생성")
+- **Task 1 Step 1.0 impl (commit `cf23e59`, 6 files / +819 / -2)**:
+  · 신규: `tudal/src/test/jsdom-setup.ts` (`@testing-library/jest-dom/vitest` matchers)
+  · 신규: `tudal/src/test/fixtures/full-report-valid.ts` (`validFullReportSections` Section 0~7 + Appendix schema-valid + `validFullReportJson` JSON.stringify wrapper)
+  · 신규: `tudal/src/test/fixtures/__tests__/full-report-valid.test.ts` (9 sanity tests, reportSection0~7Schema + reportAppendixSchema.parse not throw)
+  · 수정: `tudal/package.json` + lock (jsdom@^26 / @testing-library/react@^16 / @testing-library/jest-dom@^6 devDeps 추가, 758 packages added)
+  · 수정: `tudal/vitest.config.ts` (test.projects 분리 — node project: `*.test.ts` env=node / jsdom project: `*.test.tsx` env=jsdom + setupFiles)
+  · 검증: **test:ci 1010 → 1019 PASS (89 files, +9 신규 sanity, 회귀 0)**
+  · 박제 fix: B4 (Step 1.0 신설) + B7 (deps 버전 + test.projects) + B8 (fixture import) + B12 (schema 정합) + B15 (sanity test commit 박제)
+- **omxy Step 1.0 plan-vs-commit verify R1~R2 CONVERGED**:
+  · R1 → 1 catch (B22-impl Step 1.0.4 jsdom sanity 누락): plan 의도 = 임시 sanity test 실행 → 1 PASS 확인 → 삭제. impl에서 누락됨.
+  · Fix: `tudal/src/test/__tests__/jsdom-sanity.test.tsx` 임시 작성 → `render(<button>확인</button>) + toHaveTextContent + toBeInTheDocument` → 1/1 PASS (environment 169ms = jsdom 실제 동작 증명) → 삭제 → 회귀 1019 PASS
+  · R2 → omxy fresh 재검증 (sanity 1 PASS + git status clean + jsdom 26.1.0 plan-pinned ^26 정합 + 1019 PASS) → **SIGNAL: CONVERGED**
+- **plan SoT 위치**: `docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md` (v7 lock-in, ~1550 lines, amend log R1~R6 6 tables + Section A.0 read-only subagent OOS 검증 결과 + File Structure 신설 8 + 수정 16 + Task 1~9 + Self-Review + Acceptance §Defer 원칙 4종)
+- **다음 1순위 (다음 세션 진입자)**: Step 1.1 caller DI seam 9 modules + ~18 invariant tests (`cost-logger.ts` / `full-report-client.ts` / `critic-client.ts` / `revise-client.ts` / `report-critic-findings.ts` / `sector-reference-backlog.ts` / `full-report-writer.ts` / `full-report-orchestrator.ts` 모두 `options: { client?: SupabaseClient }` 패턴). 진입 의사 1회 확인 후 자동.
 
 ### 55차 §4 PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G ✅ 해소) OPEN (omxy R1~R9 9 rounds CONVERGED + 누적 24 BLOCKERS catch & fix + 3-track deep review Fix-First 5 + Defer 20, 2026-05-24)
 
@@ -654,5 +693,5 @@ omxy R1에서 결함 발견 시:
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제 + 55차 §2/§4 정정): **PR2 ✅ → PR3a ✅ → PR1 ✅ MERGED `4aa3130` (PR #13) → PR3b ✅ MERGED `cf68731` (PR #14) → PR3c ✅ MERGED `b2a902a` (PR #15, 3-step + conditional revise + sector_reference_backlog) → PR4 (UI)**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행) ✅ **해소** (54차 §3). 잔여 1-task (PR4) — PR4는 UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test.
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. 후속 PR3b writer 본문도 동일 quality target.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 55차 §4 종료 시점 = **PR #15 (PR3c 3-step orchestration + sector_reference_backlog + Group G ✅ 해소) ✅ MERGED `b2a902a` + 마이그 0023+0024 applied + canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4` + post-merge docs sync chain (R18~R23, cycle 종료)** + omxy R1~R23 docs sync cycle 종료 + 누적 49 BLOCKERS catch & fix + 3-track deep review Fix-First 5 + Defer 20 P2/Info. **USER 잔여 액션 = 0** → 다음 = CLAUDE PR4 (UI caller wire + Track Record + Regen + B18 CRON_SECRET 401 test) 진입 의사 1회 확인 후 자동 시작. (55차 §3 historical: PR #14 ✅ MERGED `cf68731` + 마이그 0022 applied + canary 4/4 PASS.)
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 56차 §3 종료 시점 = **PR4 진행 중 (canonical 5-PR 마지막 단계) + plan v1~v7 + omxy R1~R7 7 rounds CONVERGED + 누적 21 BLOCKERS catch & fix + T11 cron 30 분할 결정 (C — PR5 후속 트랙) + Task 1 Step 1.0 ✅ commit `cf23e59` + omxy Step 1.0 verify R1~R2 CONVERGED**. branch `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, main `e94b365` 기준 8 commits ahead, head `cf23e59`). test:ci 1010 → 1019 PASS (회귀 0). **USER 잔여 액션 = 0** → 다음 = CLAUDE PR4 Task 1 **Step 1.1 (caller DI seam 9 modules + ~18 invariant tests)** 진입 의사 1회 확인 후 자동 시작. (55차 §4 historical: PR #15 PR3c ✅ MERGED `b2a902a` + 마이그 0023+0024 applied + canary 4/4 PASS + PR #16 docs ✅ MERGED `c98f2c4`.)
 - **main HEAD 박제 정정 (B15)**: `0813a41`는 **PR3a merge point** (AFTER_PR12). docs commit/push 후 main HEAD는 갱신됨 — 세션 진입 시 §0 `git rev-parse --short HEAD`로 runtime 확인. rollback range OLD_MAIN=`f85fb69` → AFTER_PR12=`0813a41` → AFTER_DOCS=runtime.
