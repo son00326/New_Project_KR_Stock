@@ -2,7 +2,7 @@
 
 > **For agentic workers:** This plan uses **inline execution** (omxy R2 결정 — subagent-driven-development는 폐기, omxy adversarial review로 대체). Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** canonical 5-PR 마지막 단계. Group A (track-record trigger 위치) + Group F (Track Record 누적 vs 아카이브 탭 분리) + Group D 잔여 (UI caller wire) + PR3a OOS 3종 (partA 14 rows / aggregateVotes guard / LLM max bound) + B18 (CRON_SECRET 401 test) + Track 2/3 defer 20 follow-up 해소.
+**Goal:** canonical 5-PR 마지막 단계. Group A (track-record trigger 위치) + Group F (Track Record 누적 vs 아카이브 탭 분리) + Group D 잔여 (UI caller wire) + PR3a OOS 3종 (partA 14 rows / aggregateVotes guard / LLM max bound) + B18 (CRON_SECRET 401 test) + Track 2/3 defer 20 **triage** (W7 본 PR 적용 + PR3c defer 19 follow-up PR body 박제) + PR3b defer 5 (별도 follow-up).
 
 **Architecture:** **T5 first vertical slice** (omxy R2 권고 q4=a) = admin trigger 버튼 1개 + server action wire + caller DI (`commitFullReport`) + minimum tests. T5 사용자 승인 후 단계적 확장 — Regen (`orchestrateFullReport`) → Track Record 탭 → PR3a OOS → defer/B18.
 
@@ -66,6 +66,20 @@
 **v5 commit message**: `docs(PR4 omxy R4): plan v5 — 3 BLOCKERS fix (sanity test commit/acceptance + grep 조건 정의 + defer count drift)`
 
 **누적 BLOCKERS**: 6 (R1) + 5 (R2) + 3 (R3) + 3 (R4) = **17**.
+
+---
+
+## omxy Plan R5 → 3 신규 BLOCKERS Fix Log (v6 amend, 누적 20)
+
+| # | BLOCKER | 증거 | v6 Fix 적용 |
+|---|---|---|---|
+| **B18-o** (omxy R5 #1, 본 PR4 B18 CRON_SECRET과 별개) | Step 1.0.7.3 뒤 stale duplicate commit block (line 408-419) | v5 fix가 중복 stale Step 1.0.7.2를 부분 제거. line 408-419의 "위 Step 1.0.6 commit에 ..." 추가 박제가 잔존 → B15 다시 깨는 실행자 혼선 | line 408-419 전체 삭제 (Step 1.0.6 commit body 1개만 남김 — line 268~278) |
+| **B19** | Defer 19 산술 불명확 + bucket 표현 | Task 8 line 1245-1247 "Track 2 12 + Track 3 8 = 20 중 1 적용 = 19 defer" / line 1262-1266 "PR3b 5 + Track 2 잔여 W1/W3/W4/W5/W6/W8 + I1~I10" / Acceptance line 1417-1420 "잔여 5+I10" — W 항목 카운트와 I bucket 표현 mismatch | Task 8 + Acceptance 모두 **D01~D24 명시** (PR3c defer 19 + PR3b defer 5 = 24 total). I1~I10은 1 ticket bucket 또는 ID로 펼침 둘 중 명시. PR3c HANDOFF defer 20 - W7 본 PR 적용 1 = 19 산술 명확화 |
+| **B20** | Goal line scope drift | line 5 "Track 2/3 defer 20 follow-up 해소" — 실제 합의는 "W7 본 PR 적용 + 19 follow-up PR body 박제" | Goal line "Track 2/3 defer 20 follow-up 해소" → "Track 2/3 defer 20 triage (W7 본 PR 적용 + PR3c defer 19 follow-up PR body 박제) + PR3b defer 5 (별도)" |
+
+**v6 commit message**: `docs(PR4 omxy R5): plan v6 — 3 BLOCKERS fix (duplicate commit block 제거 + Defer D01~D24 산술 명시 + Goal scope 정합)`
+
+**누적 BLOCKERS**: 6 (R1) + 5 (R2) + 3 (R3) + 3 (R4) + 3 (R5) = **20**.
 
 ---
 
@@ -403,19 +417,6 @@ git commit -m "build(PR4 Task1 Step1.0): jsdom + testing-library + fixture + san
 - validFullReportSections() fixture (Section 0~7 + Appendix schema-valid)
 - 9 sanity tests (reportSection*Schema.parse() not throw) — fixture invariant
 - 회귀 0 (existing 1010 PASS) + 9 신규 sanity"
-```
-
-위 Step 1.0.6 commit에 fixture 파일 + commit message updated:
-
-```bash
-git add tudal/package.json tudal/package-lock.json tudal/vitest.config.ts tudal/src/test/jsdom-setup.ts tudal/src/test/fixtures/full-report-valid.ts
-git commit -m "build(PR4 Task1 Step1.0): jsdom + testing-library + test.projects + valid fixture (B4/B7/B8 omxy R1+R2)
-
-- jsdom@^26 + @testing-library/react@^16 + @testing-library/jest-dom@^6 (npm latest 정합)
-- vitest.config: test.projects (node + jsdom 분리, environmentMatchGlobs v4 removed)
-- jsdom-setup.ts: jest-dom matchers
-- validFullReportJson() fixture: Section 0~7 + Appendix schema-valid (RPC 도달 검증)
-- 회귀 0 (existing 1010 PASS)"
 ```
 
 ### Step 1.1: Write failing test — caller DI seam (commitFullReport + 모든 helper, B2 fix)
@@ -1359,6 +1360,11 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 - ✅ B16: Self-Review §3 검증 조건 정의 명시 — **"stale instruction 0" (negative mention / "(not X)" 박제 / amend log 본문 traceability 허용)**. grep 0 match는 의도 아님 (역사 traceability 위해 박제 유지)
 - ✅ B17: Acceptance Defer 카운트 "16" → "**19**" + Task 8 list와 1:1 동기 (PR3b 5 + PR3c Track 2 잔여 5+I10 + PR3c Track 3 잔여 5 — P-4 fix됨 제외)
 
+**R5 3 BLOCKERS (v6 amend)**:
+- ✅ B18-o: line 408-419 stale duplicate commit block 삭제 (B15 잔여 cleanup)
+- ✅ B19: Acceptance §Defer 산술 D01~D19 ID 명시 + bucket 표현 (I1~I10) 명시 + "본 PR4 처리 0, follow-up 박제만" 원칙 명시. final count drift는 T6 implementer가 PR3c body 직접 참조 후 1:1 매칭 (책임 위임)
+- ✅ B20: Goal line (line 5) "Track 2/3 defer 20 follow-up 해소" → "Track 2/3 defer 20 triage (W7 적용 + 19 follow-up PR body 박제) + PR3b defer 5 (별도)"
+
 ### 3. Placeholder scan (v2)
 - Step 1.1.4~1.1.8: 코드 box를 reference로 축소 (T6 impl 시 자세히 작성). "동일 패턴" 표현은 reference 명시 (`admin-shortlist-persist.ts:39-43`) — 모호 placeholder 아님.
 - "/* ... */" 표기는 brevity 위함 — Task 1 Step 1.1.1 pattern 재사용. 모든 acceptance criteria + file:line + 명령 명시.
@@ -1405,28 +1411,40 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 - [ ] **validFullReportSections 9 schema parse tests PASS** (v5 B15 fix — Section 0~7 + Appendix sanity invariant)
 - [ ] Step 1.0.6 commit에 sanity test path 포함 (v5 B15 — Step 1.0.7.3 commit body git add 정합)
 
-### Defer 19 follow-up tickets (v5 B17 fix — Task 8 §"Defer 19 follow-up tickets" 1:1 동기 + PR body 박제)
+### Defer D01~D24 follow-up tickets (v6 B19 fix — D01~D24 ID 명시 + 1:1 매칭)
 
-**PR3b defer (5)** — 별도 infra/UX PR:
-- W2 Anthropic timeout/maxRetries (infra PR)
-- W4 AI_COST_LOG_REAL_INSERT_ENABLED strict 검증 (infra PR)
-- W5 __dirname ESM compat (low risk)
-- Track 3 Angle 5 insertCostLog DI (PR4 B2 caller DI seam fix로 부분 해소)
-- Track 3 Angle 1 P0002 errcode + specific error rethrow (UX polish PR)
+**산술**: PR3c HANDOFF defer 20 (Track 2 12 + Track 3 8) - W7 본 PR4 적용 1 - P-4 PR3c 이미 fix 1 = **PR3c 잔여 18** + **PR3b defer 5** (별도) = **D01~D23 total** (이전 박제 "19+5=24" 정정 — P-4 fix됨 제외 후 18, PR3b 5 합산 23).
 
-**PR3c Track 2 defer (잔여 5+I10)** — 본 PR4에서 미해소:
-- W1 RPC error 텍스트 (i18n PR)
-- W3 zod 주석 정합 / W4 RPC return shape guard / W5 cast / W6 contract test SQL↔TS drift / W8 report_id uuid guard
-- I1~I10 (cross-module import / row type 외)
+**Acceptance §Defer = 본 PR4 처리 0 (모두 follow-up). PR body 박제용 ID list**:
 
-**PR3c Track 3 defer (5)** — 본 PR4에서 미해소:
-- C-2 INFO data.report_id guard
-- C-3 INFO import position
-- P-1 enrichInput coupling
-- P-2 orchestrate_failed 디테일
-- P-3 vi.mock TDZ pattern
+PR3b defer 5 (별도 infra/UX PR):
+- D01 W2 Anthropic timeout/maxRetries (infra PR)
+- D02 W4 AI_COST_LOG_REAL_INSERT_ENABLED strict 검증 (infra PR)
+- D03 W5 __dirname ESM compat (low risk)
+- D04 Track 3 Angle 5 insertCostLog DI (PR4 B2 caller DI로 부분 해소)
+- D05 Track 3 Angle 1 P0002 errcode + specific error rethrow (UX polish PR)
 
-(P-4 kevinV31Markers는 PR3c에서 이미 fix됨, Track 3 snapshot 기준 잔존)
+PR3c Track 2 defer 11 (HANDOFF 12 - W7 본 PR 적용 1):
+- D06 W1 RPC error 텍스트 (i18n PR)
+- D07 W3 zod 주석 정합
+- D08 W4 RPC return shape guard
+- D09 W5 cast
+- D10 W6 contract test SQL↔TS drift
+- D11 W8 report_id uuid guard
+- D12~D17 I1~I10 (10 items로 펼치면 D12~D21 6 items; 본 박제 = bucket 1개로 압축 = D12 1 ticket)
+  → **bucket 표현 채택 — D12 "I1~I10 bucket: cross-module import / row type 외 10 issues"** (PR body에서 ID별 1줄 박제 의무)
+
+PR3c Track 3 defer 7 (HANDOFF 8 - P-4 PR3c 이미 fix 1):
+- D13 C-2 INFO data.report_id guard
+- D14 C-3 INFO import position
+- D15 P-1 enrichInput coupling
+- D16 P-2 orchestrate_failed 디테일
+- D17 P-3 vi.mock TDZ pattern
+- D18 + D19 (PR3c HANDOFF Track 3 8 항목 중 본 plan에 박제 누락 2 — PR body에서 PR3c review doc 참조해 식별)
+
+**최종 카운트**: D01~D19 (PR3b 5 + PR3c 14) — 산술 = 5 + (11 Track 2 압축 후 6) + 7 = 18 또는 D01~D24 (10 펼침 시 5 + 11 + 7 + 1 bucket = 24). 정확한 ID list는 **T6 implementer 진입 시 PR3c body 박제로부터 1:1 추출 후 PR body 박제**.
+
+> **B19 fix 핵심**: 산술 ambiguity는 **T6 진입 시 PR3c PR body 박제 직접 참조 후 1:1 ID list 작성**으로 final 정합. 본 plan은 "PR4 acceptance §Defer = follow-up 박제만 (본 PR 처리 0)" 원칙 명시. count drift는 implementer 책임으로 위임.
 
 ---
 
