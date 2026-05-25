@@ -25,6 +25,22 @@
 
 ---
 
+## omxy Plan R2 → 5 신규 BLOCKERS Fix Log (v3 amend, 누적 11)
+
+| # | BLOCKER | 실 코드 증거 | v3 Fix 적용 |
+|---|---|---|---|
+| **B7** | Step 1.0 infra 버전 wrong + Vitest 4 deprecation | `package.json:42 vitest@^4.1.4` (latest 4.1.7) — Vitest 4.0에서 `environmentMatchGlobs` removed (대안 = `test.projects`). `@testing-library/react` latest **16.3.2** (not 17). `jest-dom` latest **6.9.1** (not 7). | (i) Step 1.0.1 deps: `jsdom@^26 @testing-library/react@^16 @testing-library/jest-dom@^6`. (ii) Step 1.0.3 vitest config: `test.projects` 분리 (node project + jsdom project) — `environmentMatchGlobs` 폐기 |
+| **B8** | Step 1.1.1 / 1.2.1 fixture inconsistency | plan v2 line 522 "schema-valid fixture" 박제했지만 code block은 여전히 `content: '{}'` → RPC 도달 검증 거짓 양성/음성 | `tudal/src/test/fixtures/full-report-valid.ts` 신설 — `validFullReportJson()` helper (Section 0~7 + Appendix valid JSON). Step 1.1.1 / 1.2.1 code block에서 직접 import |
+| **B9** | triggerFullReport test args mismatch | plan signature `{ticker, name, sector, month}` 4-field인데 tests는 `{ticker, month}` 2-field 호출 → TS type error | Step 1.2.1 tests에서 4-field 호출 (`name`/`sector` 포함) + invalid_input test는 명시적으로 `name=''` 또는 누락 |
+| **B10** | UI wire 위치 박제 오류 | plan v2가 page.tsx에서 `shortList.map` 직접 패턴. 실제는 `/admin/portfolio/page.tsx:9 import { BucketSection }` + line 263 사용. `BucketSection` → `ShortlistRow` (`tudal/src/components/admin/shortlist/`). `ShortlistRow` props = `{ item: ShortListItem }` only — action slot 부재 | Step 1.3.4 정정: (i) `ShortlistRow` props에 `action?: ReactNode` 추가 (optional). (ii) `BucketSection` props에 `renderRowAction?: (item: ShortListItem) => ReactNode` 추가. (iii) page.tsx에서 `renderRowAction={item => <TriggerFullReportButton .../>}` 전달. portfolio-panel.tsx 변경 0 (stale commit 문구 삭제) |
+| **B11** | Task 5 getVotesByReportId wrapper 회귀 위험 | `admin-committee.ts:55 return rows.map(transformCommitteeVoteRow)` 직접 호출 — layer 1이 `CommitteeVote \| null` 반환하면 즉시 회귀 (null이 array에 들어감 → caller 폭증) | Step 5.1.5 추가: `getVotesByReportId`를 `return transformCommitteeVoteRows(rows)` (wrapper, null filter) 사용으로 변경 + 기존 direct tests는 transformer 단독 호출 시 null 가능성 명시 + non-null assert |
+
+**v3 commit message**: `docs(PR4 omxy R2): plan v3 — 5 BLOCKERS fix (deps versions + test.projects + fixture import + tests 4-field + BucketSection wire + getVotesByReportId wrapper)`
+
+**누적 BLOCKERS**: 6 (R1) + 5 (R2) = **11**.
+
+---
+
 ## omxy R1~R2 CONVERGED 결정 (변경 금지)
 
 | 항목 | 결정 | 적용 |
@@ -139,10 +155,12 @@
 
 > **B4 fix (omxy R1)**: vitest config는 node only + `*.test.ts` only. component test 위해 jsdom + testing-library 필요. T5 전 결정.
 
-- [ ] **Step 1.0.1: Install devDependencies**
+- [ ] **Step 1.0.1: Install devDependencies (v3 정정 — B7 omxy R2)**
+
+> **B7 fix**: npm latest 검증 — `@testing-library/react@16.3.2` / `@testing-library/jest-dom@6.9.1` / `jsdom@26.x` / `vitest@4.1.7`. v2 박제 `^17` / `^7`은 install 실패.
 
 ```bash
-cd tudal && npm i -D jsdom@^26 @testing-library/react@^17 @testing-library/jest-dom@^7
+cd tudal && npm i -D jsdom@^26 @testing-library/react@^16 @testing-library/jest-dom@^6
 ```
 
 - [ ] **Step 1.0.2: Create `tudal/src/test/jsdom-setup.ts`**
@@ -152,7 +170,9 @@ cd tudal && npm i -D jsdom@^26 @testing-library/react@^17 @testing-library/jest-
 import '@testing-library/jest-dom/vitest';
 ```
 
-- [ ] **Step 1.0.3: Modify `tudal/vitest.config.ts` — environment matcher**
+- [ ] **Step 1.0.3: Modify `tudal/vitest.config.ts` — `test.projects` 분리 (v3 정정 — B7 omxy R2)**
+
+> **B7 fix**: Vitest 4.0에서 `environmentMatchGlobs` removed (migration guide). 공식 대안 = `test.projects` (node + jsdom 두 project).
 
 ```ts
 import { defineConfig } from 'vitest/config';
@@ -166,16 +186,31 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/__tests__/**/*.test.{ts,tsx}'],
-    environment: 'node',
-    environmentMatchGlobs: [
-      ['src/**/__tests__/**/*.test.tsx', 'jsdom'], // PR4 Step 1.0: component test only
-    ],
-    setupFiles: ['./src/test/jsdom-setup.ts'], // jest-dom matchers
     passWithNoTests: true,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          include: ['src/**/__tests__/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'jsdom',
+          include: ['src/**/__tests__/**/*.test.tsx'],
+          environment: 'jsdom',
+          setupFiles: ['./src/test/jsdom-setup.ts'],
+        },
+      },
+    ],
   },
 });
 ```
+
+> **참고**: vitest@4.1.4 → 4.1.7 (latest) 업그레이드는 본 Step에서 강제 안 함. `projects` API는 4.x 전반 지원.
 
 - [ ] **Step 1.0.4: Run sanity test — verify infra works**
 
@@ -213,20 +248,86 @@ git commit -m "build(PR4 Task1 Step1.0): jsdom + @testing-library/react infra (B
 - 회귀 0 (existing 1010 PASS)"
 ```
 
+### Step 1.0.7: schema-valid JSON fixture helper 신설 (v3 — B8 omxy R2)
+
+> **B8 fix**: Step 1.1.1 / 1.2.1 / 후속 caller DI test가 `content: '{}'` 대신 schema-valid JSON 사용해야 RPC 도달 검증이 정확. fixture helper 신설.
+
+- [ ] **Step 1.0.7.1: Create `tudal/src/test/fixtures/full-report-valid.ts`**
+
+```ts
+// tudal/src/test/fixtures/full-report-valid.ts
+// PR4 Step 1.0 B8 fix: Section 0~7 + Appendix schema-valid JSON fixture
+// (Section 8 partA/partD legacy minimal — partA empty array OR 14 rows depending on test)
+
+export function validFullReportSections() {
+  return {
+    section_0: {
+      headline: '근거 부족',
+      thesis: ['근거 부족'],
+      conviction: 'HOLD',
+    },
+    section_1: { description: '근거 부족', segments: [], keyFacts: [] },
+    section_2: { summary: '근거 부족' },
+    section_3: { summary: '근거 부족' },
+    section_4: { summary: '근거 부족', drivers: [], tam: '근거 부족' },
+    section_5: { summary: '근거 부족', risks: [] },
+    section_6: { summary: '근거 부족', signals: [] },
+    section_7: { summary: '근거 부족', triggers: [], alternatives: [] },
+    appendix: { technicals: [], dataSources: [] },
+  };
+}
+
+export function validFullReportJson(): string {
+  return JSON.stringify(validFullReportSections());
+}
+```
+
+> `report-section-schemas.ts` 실제 필드 (Section 0~7 + Appendix)에 맞춰 minimum valid value. Section 6 `signal.state` enum 등 필수 필드는 fixture에 포함 (T6 impl 시 schema와 자세히 정합).
+
+- [ ] **Step 1.0.7.2: Commit fixture (Step 1.0 infra commit에 통합)**
+
+위 Step 1.0.6 commit에 fixture 파일 + commit message updated:
+
+```bash
+git add tudal/package.json tudal/package-lock.json tudal/vitest.config.ts tudal/src/test/jsdom-setup.ts tudal/src/test/fixtures/full-report-valid.ts
+git commit -m "build(PR4 Task1 Step1.0): jsdom + testing-library + test.projects + valid fixture (B4/B7/B8 omxy R1+R2)
+
+- jsdom@^26 + @testing-library/react@^16 + @testing-library/jest-dom@^6 (npm latest 정합)
+- vitest.config: test.projects (node + jsdom 분리, environmentMatchGlobs v4 removed)
+- jsdom-setup.ts: jest-dom matchers
+- validFullReportJson() fixture: Section 0~7 + Appendix schema-valid (RPC 도달 검증)
+- 회귀 0 (existing 1010 PASS)"
+```
+
 ### Step 1.1: Write failing test — caller DI seam (commitFullReport + 모든 helper, B2 fix)
 
-- [ ] **Step 1.1.1: Write the failing test**
+- [ ] **Step 1.1.1: Write the failing test (v3 정정 — B8 fixture import + options 2nd arg)**
 
 ```ts
 // tudal/src/lib/report/__tests__/full-report-writer-caller-di.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { validFullReportJson } from '@/test/fixtures/full-report-valid';
 
 describe('commitFullReport — caller DI seam', () => {
   beforeEach(() => vi.resetModules());
 
-  it('uses injected client when provided (admin caller)', async () => {
+  const validInput = {
+    ticker: '005930',
+    name: '삼성전자',
+    sector: '반도체',
+    month: '2026-06',
+    tier1Verdict: 'HOLD' as const,
+    consensusBadge: '🟡',
+    financialsSummary: '근거 부족',
+    technicalsSummary: '근거 부족',
+    macroSummary: '근거 부족',
+    sectorReference: '근거 부족',
+    adminUserId: 'admin-uid',
+  };
+
+  it('uses injected client when provided (admin caller, RPC 도달)', async () => {
     const fakeClient = {
-      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+      rpc: vi.fn().mockResolvedValue({ data: { report_id: 'rpt-1' }, error: null }),
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
     };
     vi.doMock('@/lib/cost/cost-logger', () => ({
@@ -234,32 +335,19 @@ describe('commitFullReport — caller DI seam', () => {
       insertCostLog: vi.fn().mockResolvedValue(undefined),
     }));
     vi.doMock('@/lib/ai/full-report-client', () => ({
-      callFullReport: vi.fn().mockResolvedValue({ content: '{}', inputTokens: 1, outputTokens: 1, costKrw: 1 }),
+      callFullReport: vi.fn().mockResolvedValue({
+        content: validFullReportJson(),  // B8 fix: schema-valid JSON으로 parseAndValidate 통과 → RPC 도달
+        inputTokens: 1, outputTokens: 1, costKrw: 1,
+      }),
     }));
     const { commitFullReport } = await import('@/lib/report/full-report-writer');
-    await expect(
-      commitFullReport({
-        ticker: '005930',
-        name: '삼성전자',
-        sector: '반도체',
-        month: '2026-06',
-        tier1Verdict: 'BUY',
-        consensusBadge: '🟢',
-        financialsSummary: '',
-        technicalsSummary: '',
-        macroSummary: '',
-        sectorReference: '',
-        adminUserId: 'admin-uid',
-        client: fakeClient as never,
-        callerKind: 'admin',
-      } as never),
-    ).rejects.toThrow(); // RPC mock no data → throw OK
-    expect(fakeClient.rpc).toHaveBeenCalled();
+    await commitFullReport(validInput, { client: fakeClient as never, callerKind: 'admin' });
+    expect(fakeClient.rpc).toHaveBeenCalledWith('update_report_sections_0_7', expect.any(Object));
   });
 
-  it('falls back to createClient when client param omitted (default behavior preserved)', async () => {
+  it('falls back to createClient when options omitted (default behavior preserved)', async () => {
     const createClientSpy = vi.fn().mockResolvedValue({
-      rpc: vi.fn().mockResolvedValue({ data: 'ok', error: null }),
+      rpc: vi.fn().mockResolvedValue({ data: { report_id: 'rpt-2' }, error: null }),
     });
     vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
     vi.doMock('@/lib/cost/cost-logger', () => ({
@@ -267,14 +355,19 @@ describe('commitFullReport — caller DI seam', () => {
       insertCostLog: vi.fn().mockResolvedValue(undefined),
     }));
     vi.doMock('@/lib/ai/full-report-client', () => ({
-      callFullReport: vi.fn().mockResolvedValue({ content: '{}', inputTokens: 1, outputTokens: 1, costKrw: 1 }),
+      callFullReport: vi.fn().mockResolvedValue({
+        content: validFullReportJson(),
+        inputTokens: 1, outputTokens: 1, costKrw: 1,
+      }),
     }));
     const { commitFullReport } = await import('@/lib/report/full-report-writer');
-    await commitFullReport({ /* minimum valid input */ } as never).catch(() => {});
+    await commitFullReport(validInput); // options omitted
     expect(createClientSpy).toHaveBeenCalled();
   });
 });
 ```
+
+**v3 변경 핵심 (B8)**: `content: '{}'` → `validFullReportJson()` import. parseAndValidate 통과 후 RPC 도달 확인 → `fakeClient.rpc` called assertion 의미 있음.
 
 - [ ] **Step 1.1.2: Run test — verify FAIL**
 
@@ -399,22 +492,42 @@ git commit -m "feat(PR4 Task1 Step1.1): caller DI seam 전파 (B2 fix omxy R1)
 
 ### Step 1.2: Write failing test — triggerFullReport server action
 
-- [ ] **Step 1.2.1: Write the failing test**
+- [ ] **Step 1.2.1: Write the failing test (v3 정정 — B9 omxy R2, 4-field args)**
 
 ```ts
 // tudal/src/app/(admin)/admin/portfolio/__tests__/trigger-full-report-action.test.ts
 import { describe, it, expect, vi } from 'vitest';
 
+const validArgs = {
+  ticker: '005930',
+  name: '삼성전자',
+  sector: '반도체',
+  month: '2026-06',
+};
+
 describe('triggerFullReport admin server action', () => {
-  it('rejects when input.ticker missing', async () => {
+  it('rejects when input.ticker empty', async () => {
     const { triggerFullReport } = await import('../actions');
-    const res = await triggerFullReport({ ticker: '', month: '2026-06' } as never);
+    const res = await triggerFullReport({ ...validArgs, ticker: '' });
     expect(res).toEqual({ success: false, error: 'invalid_input' });
   });
 
-  it('rejects when month format invalid', async () => {
+  it('rejects when name missing (invalid_input)', async () => {
     const { triggerFullReport } = await import('../actions');
-    const res = await triggerFullReport({ ticker: '005930', month: '2026-6' });
+    // @ts-expect-error — runtime invalid_input 검증
+    const res = await triggerFullReport({ ticker: '005930', sector: '반도체', month: '2026-06' });
+    expect(res).toEqual({ success: false, error: 'invalid_input' });
+  });
+
+  it('rejects when ticker format invalid (not 6 digits)', async () => {
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport({ ...validArgs, ticker: 'AAPL' });
+    expect(res).toEqual({ success: false, error: 'invalid_ticker' });
+  });
+
+  it('rejects when month format invalid (YYYY-MM-01 → not allowed, YYYY-MM only)', async () => {
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport({ ...validArgs, month: '2026-06-01' });
     expect(res).toEqual({ success: false, error: 'invalid_month' });
   });
 
@@ -428,15 +541,17 @@ describe('triggerFullReport admin server action', () => {
       }),
     }));
     const { triggerFullReport } = await import('../actions');
-    const res = await triggerFullReport({ ticker: '005930', month: '2026-06' });
+    const res = await triggerFullReport(validArgs);
     expect(res).toEqual({ success: true, data: { reportId: 'rpt-1' } });
   });
 
-  it('returns error when auth unavailable', async () => { /* ... */ });
-  it('returns error when commitFullReport throws full_report_validation_failed', async () => { /* ... */ });
-  it('returns error when commitFullReport throws full_report_cost_hardcap_exceeded', async () => { /* ... */ });
+  it('returns error when auth unavailable', async () => { /* validArgs + supabase user null mock */ });
+  it('returns error when commitFullReport throws full_report_validation_failed', async () => { /* validArgs + commitFullReport reject */ });
+  it('returns error when commitFullReport throws full_report_cost_hardcap_exceeded', async () => { /* validArgs + commitFullReport reject */ });
 });
 ```
+
+**v3 변경 핵심 (B9)**: 모든 test가 4-field `{ticker, name, sector, month}` 호출. invalid_input test는 명시적으로 name 누락 시나리오. month format은 YYYY-MM-01 → invalid_month (page에서 .slice(0,7) 변환 책임).
 
 - [ ] **Step 1.2.2: Run test — verify FAIL**
 
@@ -611,34 +726,104 @@ describe('TriggerFullReportButton', () => {
 Run: `cd tudal && npx vitest run src/app/\(admin\)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx`
 Expected: PASS 4 tests (jsdom + testing-library 이미 Step 1.0에서 설치 — B4 fix).
 
-- [ ] **Step 1.3.4: Wire button — page.tsx에서 ShortListItem 직접 렌더 (v2 정정 — B3)**
+- [ ] **Step 1.3.4: Wire button — BucketSection action slot + ShortlistRow prop 패턴 (v3 정정 — B10 omxy R2)**
 
-> **v2 amend (B3 fix omxy R1)**: `PortfolioPanelProps`는 ticker/name 미포함 — 패널 자체를 확장하는 대신 **`page.tsx`에서 ShortListItem 1개 (또는 batch row) prop을 page-level에서 받아 TriggerFullReportButton 직접 렌더**. month 변환은 page에서.
+> **v3 amend (B10 fix omxy R2)**: 실제 `/admin/portfolio/page.tsx`는 `BucketSection` (line 9 import + 263 사용)을 통해 row 렌더 — `shortList.map` 직접 아님. `BucketSection` (`tudal/src/components/admin/shortlist/bucket-section.tsx:13-52`) → `ShortlistRow` (`tudal/src/components/admin/shortlist/shortlist-row.tsx:6-13`) 구조. `ShortlistRow` props = `{ item: ShortListItem }` only. **action slot 추가 + BucketSection이 row 옆에 주입 + page가 renderRowAction 전달**.
 
-Edit `tudal/src/app/(admin)/admin/portfolio/page.tsx`:
+- [ ] **Step 1.3.4.1: Modify `tudal/src/components/admin/shortlist/shortlist-row.tsx`**
+
+```tsx
+import type { ReactNode } from "react";
+// ... existing imports ...
+
+interface ShortlistRowProps {
+  item: ShortListItem;
+  action?: ReactNode; // PR4 B10 fix
+}
+
+export function ShortlistRow({ item, action }: ShortlistRowProps) {
+  // ... existing JSX ...
+  return (
+    <details className="group">
+      <summary className="...">
+        {/* ... existing row content ... */}
+        {action && <div className="ml-auto flex items-center">{action}</div>}
+      </summary>
+      {/* ... rest unchanged ... */}
+    </details>
+  );
+}
+```
+
+- [ ] **Step 1.3.4.2: Modify `tudal/src/components/admin/shortlist/bucket-section.tsx`**
+
+```tsx
+import type { ReactNode } from "react";
+
+interface BucketSectionProps {
+  bucket: BucketKind;
+  label: string;
+  cadence: string;
+  weight: string;
+  items: ShortListItem[];
+  renderRowAction?: (item: ShortListItem) => ReactNode; // PR4 B10 fix
+}
+
+export function BucketSection({
+  bucket, label, cadence, weight, items,
+  renderRowAction,
+}: BucketSectionProps) {
+  return (
+    <section aria-labelledby={`bucket-${bucket}-heading`}>
+      {/* ... existing header ... */}
+      {items.length === 0 ? (
+        <p>...</p>
+      ) : (
+        <div className="divide-y rounded-lg border bg-card">
+          {items.map((item) => (
+            <ShortlistRow
+              key={item.id}
+              item={item}
+              action={renderRowAction?.(item)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+```
+
+- [ ] **Step 1.3.4.3: Modify `/admin/portfolio/page.tsx` — pass renderRowAction prop to BucketSection**
 
 ```tsx
 import { TriggerFullReportButton } from './trigger-full-report-button';
-// ... existing imports ...
 
-// 기존: const shortList = await fetchShortList30(monthYM);
-// (shortList: ShortListItem[] — { ticker, name, sector, month: 'YYYY-MM-01', ... }[])
-
-// page JSX 어딘가에 (e.g., 종목 카드 옆):
-{shortList.map((item) => (
-  <div key={item.ticker} className="flex items-center gap-2">
-    {/* 기존 종목 카드 컴포넌트 */}
+// 기존 line 263 위치의 <BucketSection ... /> 호출 3곳 (short/mid/long bucket):
+<BucketSection
+  bucket="short"
+  label="단기 (Short)"
+  cadence="..."
+  weight="..."
+  items={shortItems}
+  renderRowAction={(item) => (
     <TriggerFullReportButton
       ticker={item.ticker}
       name={item.name ?? item.ticker}
       sector={item.sector ?? ''}
-      month={item.month.slice(0, 7) /* YYYY-MM-01 → YYYY-MM */}
+      month={item.month.slice(0, 7) /* YYYY-MM-01 → YYYY-MM, B3 정합 */}
     />
-  </div>
-))}
+  )}
+/>
+// mid / long 동일 패턴 (renderRowAction 함수 같음 → 변수 추출 권장)
 ```
 
-`portfolio-panel.tsx` props는 **변경 안 함** (mounting scope drift 차단). 패널은 기존 list view 유지.
+**stale 제거 (B10)**: plan v2의 `portfolio-panel.tsx`에 `<TriggerFullReportButton/>` 통합 + commit 문구는 **삭제**. `portfolio-panel.tsx`는 변경 0 (또는 import path 하나만). commit message에서 panel 박제 제거.
+
+**v3 변경 핵심 (B10)**:
+- ShortlistRow: optional action prop (보수적 — 기존 caller는 영향 0)
+- BucketSection: optional renderRowAction prop (callback)
+- page.tsx: 3개 BucketSection 호출에 동일 renderRowAction 전달 (DRY를 위해 page 상단에서 변수로 추출)
 
 - [ ] **Step 1.3.5: Run build + lint**
 
@@ -846,16 +1031,42 @@ export function aggregateVotes(votes: CommitteeVote[]): { core: ...; sector: ...
 ```
 
 - [ ] **Step 5.2.4: Run — verify PASS**
-- [ ] **Step 5.2.5: Commit (Task 5 통합)**
+
+### Step 5.3: getVotesByReportId wrapper 적용 (v3 — B11 omxy R2)
+
+> **v3 amend (B11 fix omxy R2)**: `admin-committee.ts:54-55 return rows.map(transformCommitteeVoteRow)` 직접 호출 — layer 1이 `CommitteeVote | null` 반환하면 즉시 회귀 (null이 array에 들어가 caller 폭증). `transformCommitteeVoteRows` wrapper 사용으로 변경 필수.
+
+- [ ] **Step 5.3.1: Modify `tudal/src/lib/data/admin-committee.ts` line 54-55**
+
+```ts
+// OLD: return rows.map(transformCommitteeVoteRow);
+// NEW (B11 fix):
+return transformCommitteeVoteRows(rows);
+```
+
+- [ ] **Step 5.3.2: Existing direct tests 보강**
+
+`tudal/src/lib/data/__tests__/admin-committee.test.ts` 기존 tests 중 `transformCommitteeVoteRow` 단일 row 호출하는 곳은 null 반환 가능성 명시 (`expect(result).not.toBeNull()` 또는 valid row만 사용). `getVotesByReportId` test는 wrapper 통과 (invalid row가 자동 skip되는지 negative test 1개 추가).
+
+- [ ] **Step 5.3.3: Run regression — verify PASS**
 
 ```bash
-git commit -m "feat(PR4 Task5): runtime layer 2 guard for committee votes (B1 fix omxy R1 — PR3a RT#3)
+cd tudal && npx vitest run src/lib/data/__tests__/admin-committee.test.ts src/lib/data/__tests__/report-section-schemas.test.ts
+```
+
+Expected: 회귀 0 + 신규 layer 1+2 guard tests + getVotesByReportId wrapper invariant.
+
+- [ ] **Step 5.3.4: Commit (Task 5 전체 통합)**
+
+```bash
+git commit -m "feat(PR4 Task5): runtime layer 2 guard + getVotesByReportId wrapper (B1+B11 fix omxy R1+R2 — PR3a RT#3)
 
 - transformCommitteeVoteRow: invalid vote → null + warn (DB-TS 경계)
-- transformCommitteeVoteRows: null filter
+- transformCommitteeVoteRows: null filter wrapper
 - aggregateVotes: invalid vote skip + warn (직접 row read caller 보호)
+- getVotesByReportId: rows.map(transformCommitteeVoteRow) → transformCommitteeVoteRows(rows) wrapper 사용 (B11 회귀 차단)
 - 마이그 0건 유지 (0003:75 CHECK constraint 이미 존재)
-- 2 layer guard tests (transformer 2 + aggregator 2)"
+- ~5 guard tests + getVotesByReportId wrapper invariant test"
 ```
 
 ---
@@ -995,13 +1206,22 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 - ✅ Track 2/3 defer scope 축소: Task 8 (v2 — W7만 본 PR, W2/W4/W5/19개 PR body defer — B5)
 - ✅ format-error 신규 키: Task 9
 
-### 2. v2 6 BLOCKERS 적용 검증 (omxy R1)
+### 2. v2 + v3 BLOCKERS 적용 검증 (omxy R1+R2, 누적 11)
+
+**R1 6 BLOCKERS (v2 amend)**:
 - ✅ B1: A.0.2 정정 (`0003:75` CHECK constraint 박제) + Task 5 runtime layer 2 guard + 마이그 0건 유지
-- ✅ B2: cost-logger / full-report-client / critic-client / revise-client / report-critic-findings / sector-reference-backlog 모두 `options: { client? }` 패턴 (Step 1.1.4~1.1.8 + File Structure 16 modified 명시)
+- ✅ B2: cost-logger / full-report-client / critic-client / revise-client / report-critic-findings / sector-reference-backlog 모두 `options: { client? }` 패턴 (Step 1.1.4~1.1.10 + File Structure 16 modified 명시)
 - ✅ B3: T5 stub 정정 — ShortListItem 1개를 page에서 prop 전달 + `monthYM = month.slice(0,7)` + valid `'HOLD'`/`'🟡'`/'근거 부족' + schema-valid fixture
-- ✅ B4: Step 1.0 신설 (jsdom + testing-library 설치 + vitest config environment matcher + sanity test)
+- ✅ B4: Step 1.0 신설 (jsdom + testing-library 설치 + vitest config + sanity test)
 - ✅ B5: Task 8 scope 축소 (W7 only Task 2 substep, W2/W4/W5/19 defer PR body)
 - ✅ B6: B2 fix로 자동 해결 (sector_reference_backlog helper에 options.client 적용)
+
+**R2 5 BLOCKERS (v3 amend)**:
+- ✅ B7: Step 1.0.1 deps 버전 정정 (`jsdom@^26` + `react@^16` + `jest-dom@^6` — npm latest 정합) + Step 1.0.3 `test.projects` 분리 (Vitest 4 `environmentMatchGlobs` removed 대응)
+- ✅ B8: Step 1.0.7 fixture helper 신설 (`tudal/src/test/fixtures/full-report-valid.ts` + `validFullReportJson()`) + Step 1.1.1 code block에서 import 명시
+- ✅ B9: Step 1.2.1 tests 모두 4-field 호출 + invalid_input/invalid_ticker/invalid_month case 명시
+- ✅ B10: Step 1.3.4 BucketSection/ShortlistRow action slot 패턴 (ShortlistRow optional action prop + BucketSection renderRowAction callback + page.tsx 3 bucket에 동일 callback 전달) + portfolio-panel.tsx stale 박제 제거
+- ✅ B11: Step 5.3 getVotesByReportId wrapper 적용 (`return transformCommitteeVoteRows(rows)`) + 기존 direct tests non-null assert 보강
 
 ### 3. Placeholder scan (v2)
 - Step 1.1.4~1.1.8: 코드 box를 reference로 축소 (T6 impl 시 자세히 작성). "동일 패턴" 표현은 reference 명시 (`admin-shortlist-persist.ts:39-43`) — 모호 placeholder 아님.
