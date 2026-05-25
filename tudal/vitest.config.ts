@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
+// PR4 Step 1.0.3 (B4 + B7 fix omxy R1+R2): test.projects 분리 (Vitest 4 환경 — environmentMatchGlobs removed).
+// node project = .test.ts (기존 backend/server-only 로직)
+// jsdom project = .test.tsx (PR4 신설 component tests, testing-library)
+
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
@@ -11,8 +15,25 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/__tests__/**/*.test.ts'],
-    environment: 'node',
     passWithNoTests: true,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          include: ['src/**/__tests__/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'jsdom',
+          include: ['src/**/__tests__/**/*.test.tsx'],
+          environment: 'jsdom',
+          setupFiles: ['./src/test/jsdom-setup.ts'],
+        },
+      },
+    ],
   },
 });
