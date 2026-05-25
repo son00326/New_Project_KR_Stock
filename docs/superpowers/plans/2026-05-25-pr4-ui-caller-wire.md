@@ -55,6 +55,20 @@
 
 ---
 
+## omxy Plan R4 → 3 신규 BLOCKERS Fix Log (v5 amend, 누적 17)
+
+| # | BLOCKER | 증거 | v5 Fix 적용 |
+|---|---|---|---|
+| **B15** | B12 sanity test 9건이 commit `git add` + Acceptance criteria에 박제 누락 | Step 1.0.7.2 test 파일 박제됐지만 Step 1.0.7.3 commit `git add`에 `tudal/src/test/fixtures/__tests__/full-report-valid.test.ts` 누락 + Acceptance §검증 영역에 "validFullReportSections 9 schema parse tests PASS" 누락 | Step 1.0.7.3 commit `git add`에 sanity test path 추가 + Acceptance §검증에 9 sanity tests 명시 |
+| **B16** | grep 0 조건 정의 mismatch (negative mention 잔존) | R4 (n)(o) 검증 조건 "grep 0 match"인데 amend log/File Structure에 의도적 박제 negative mention ("(not insertSectorBacklog)" 등) 잔존 → grep match 됨. 의미적 stale은 아니나 검증 조건 false | Self-Review §3 검증 조건 정의 명시 — "**stale instruction 0**" (negative mention/박제는 허용). amend log 본문은 유지 (역사 traceability) |
+| **B17** | Defer count drift | Task 8 (line 1218-1220) "Defer 19 follow-up tickets" / Acceptance (line 1374) "Defer (16 P2/Info)" 불일치 | Acceptance "16" → "**19**" + Task 8 list와 1:1 동기 (PR3b 5 + PR3c Track 2 잔여 + PR3c Track 3 잔여) |
+
+**v5 commit message**: `docs(PR4 omxy R4): plan v5 — 3 BLOCKERS fix (sanity test commit/acceptance + grep 조건 정의 + defer count drift)`
+
+**누적 BLOCKERS**: 6 (R1) + 5 (R2) + 3 (R3) + 3 (R4) = **17**.
+
+---
+
 ## omxy R1~R2 CONVERGED 결정 (변경 금지)
 
 | 항목 | 결정 | 적용 |
@@ -372,11 +386,24 @@ describe('validFullReportSections fixture — schema 정합 (B12 sanity)', () =>
 
 > Sanity test 통과 = fixture가 schema에 정확히 맞음 보장. T6 impl 진입 시 fixture 변경 위험 0.
 
-- [ ] **Step 1.0.7.3: Commit fixture (Step 1.0 infra commit에 통합)**
+- [ ] **Step 1.0.7.3: Commit fixture + sanity tests (v5 — B15 fix: sanity test path 추가)**
 
-Step 1.0.6 commit에 fixture 파일 + sanity test 추가.
+Step 1.0.6 commit에 fixture 파일 + sanity test 추가:
 
-- [ ] **Step 1.0.7.2: Commit fixture (Step 1.0 infra commit에 통합)**
+```bash
+git add tudal/package.json tudal/package-lock.json tudal/vitest.config.ts \
+  tudal/src/test/jsdom-setup.ts \
+  tudal/src/test/fixtures/full-report-valid.ts \
+  tudal/src/test/fixtures/__tests__/full-report-valid.test.ts
+git commit -m "build(PR4 Task1 Step1.0): jsdom + testing-library + fixture + sanity tests (B4+B7+B8+B12 fix omxy R1+R2+R3)
+
+- jsdom@^26 + @testing-library/react@^16 + @testing-library/jest-dom@^6
+- vitest.config: test.projects (node + jsdom 분리, Vitest 4 환경)
+- jsdom-setup.ts: jest-dom matchers
+- validFullReportSections() fixture (Section 0~7 + Appendix schema-valid)
+- 9 sanity tests (reportSection*Schema.parse() not throw) — fixture invariant
+- 회귀 0 (existing 1010 PASS) + 9 신규 sanity"
+```
 
 위 Step 1.0.6 commit에 fixture 파일 + commit message updated:
 
@@ -1327,6 +1354,11 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 - ✅ B13: amend log R1 B2 / File Structure 16 modified / Step 1.1.6 / Step 1.1.10 commit git add path 모두 `lib/data/`로 정정. 함수명 `insertOrBumpBacklog` (not insertSectorBacklog) 정정
 - ✅ B14: Step 1.0.3 "environment matcher" → "test.projects 분리" 표현 정정 + Step 1.0.6 commit message `environmentMatchGlobs` → `test.projects` + File Structure `portfolio-panel.tsx` row strikethrough + 변경 안 함 명시 + Step 1.3 헤더에서 "portfolio-panel 통합" → "ShortlistRow/BucketSection wire (portfolio-panel 변경 안 함)" 정정
 
+**R4 3 BLOCKERS (v5 amend)**:
+- ✅ B15: Step 1.0.7.3 commit `git add`에 `tudal/src/test/fixtures/__tests__/full-report-valid.test.ts` path 추가 + Acceptance §검증에 "validFullReportSections 9 schema parse tests PASS" 명시 + 중복 stale Step 1.0.7.2 삭제
+- ✅ B16: Self-Review §3 검증 조건 정의 명시 — **"stale instruction 0" (negative mention / "(not X)" 박제 / amend log 본문 traceability 허용)**. grep 0 match는 의도 아님 (역사 traceability 위해 박제 유지)
+- ✅ B17: Acceptance Defer 카운트 "16" → "**19**" + Task 8 list와 1:1 동기 (PR3b 5 + PR3c Track 2 잔여 5+I10 + PR3c Track 3 잔여 5 — P-4 fix됨 제외)
+
 ### 3. Placeholder scan (v2)
 - Step 1.1.4~1.1.8: 코드 box를 reference로 축소 (T6 impl 시 자세히 작성). "동일 패턴" 표현은 reference 명시 (`admin-shortlist-persist.ts:39-43`) — 모호 placeholder 아님.
 - "/* ... */" 표기는 brevity 위함 — Task 1 Step 1.1.1 pattern 재사용. 모든 acceptance criteria + file:line + 명령 명시.
@@ -1370,10 +1402,31 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 ### 검증
 - [ ] build 25 routes / lint 0 err / test:ci +70~80 (회귀 0) / tsc clean
 - [ ] grep gates 23종 통과
+- [ ] **validFullReportSections 9 schema parse tests PASS** (v5 B15 fix — Section 0~7 + Appendix sanity invariant)
+- [ ] Step 1.0.6 commit에 sanity test path 포함 (v5 B15 — Step 1.0.7.3 commit body git add 정합)
 
-### Defer (16 P2/Info → follow-up ticket)
-- PR3c Track 2: W1 RPC error 텍스트 (i18n PR) / W3 zod 주석 / W4 RPC return shape / W5 cast / W6 contract test SQL↔TS drift / W8 report_id uuid guard / I1~I10 cross-module import 외
-- PR3c Track 3: C-2/C-3 INFO / P-1 enrichInput coupling / P-2 orchestrate_failed 디테일 / P-3 vi.mock TDZ pattern
+### Defer 19 follow-up tickets (v5 B17 fix — Task 8 §"Defer 19 follow-up tickets" 1:1 동기 + PR body 박제)
+
+**PR3b defer (5)** — 별도 infra/UX PR:
+- W2 Anthropic timeout/maxRetries (infra PR)
+- W4 AI_COST_LOG_REAL_INSERT_ENABLED strict 검증 (infra PR)
+- W5 __dirname ESM compat (low risk)
+- Track 3 Angle 5 insertCostLog DI (PR4 B2 caller DI seam fix로 부분 해소)
+- Track 3 Angle 1 P0002 errcode + specific error rethrow (UX polish PR)
+
+**PR3c Track 2 defer (잔여 5+I10)** — 본 PR4에서 미해소:
+- W1 RPC error 텍스트 (i18n PR)
+- W3 zod 주석 정합 / W4 RPC return shape guard / W5 cast / W6 contract test SQL↔TS drift / W8 report_id uuid guard
+- I1~I10 (cross-module import / row type 외)
+
+**PR3c Track 3 defer (5)** — 본 PR4에서 미해소:
+- C-2 INFO data.report_id guard
+- C-3 INFO import position
+- P-1 enrichInput coupling
+- P-2 orchestrate_failed 디테일
+- P-3 vi.mock TDZ pattern
+
+(P-4 kevinV31Markers는 PR3c에서 이미 fix됨, Track 3 snapshot 기준 잔존)
 
 ---
 
