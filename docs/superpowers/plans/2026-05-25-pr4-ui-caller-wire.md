@@ -10,6 +10,21 @@
 
 ---
 
+## omxy Plan R1 → 6 BLOCKERS Fix Log (v2 amend)
+
+| # | BLOCKER | 실 코드 증거 | v2 Fix 적용 |
+|---|---|---|---|
+| **B1** | A.0.2 "DB constraint 없음" 박제 오류 | `tudal/supabase/migrations/0003_s2_reports.sql:75 vote text not null check (vote in ('approve','reject','abstain'))` 이미 존재 | A.0.2 문구 정정 + **PR4 마이그 0건 유지** + Task 5 변경: runtime layer 2 guard (`transformCommitteeVoteRow` zod-shape + `aggregateVotes` defensive) |
+| **B2** | caller DI seam 불완전 (commitFullReport/orchestrateFullReport만 client 받으면 PR3c RPC chain drift) | `cost-logger.ts` / `full-report-client.ts:71-81` / `report-critic-findings.ts:29-35` / `sector-reference-backlog.ts:36-49` / `critic-client.ts` / `revise-client.ts` 모두 자체 createClient | 기존 패턴 `admin-shortlist-persist.ts:39-43 options: { client?: SupabaseClient } = {}` 적용. 모든 helper에 client 전파 |
+| **B3** | T5 slice stub invalid | (1) `PortfolioPanelProps` ticker/name 미포함 (line 23-37) (2) `ShortListItem.month = YYYY-MM-01` (`types/admin.ts:35`) vs plan regex `YYYY-MM` (3) tier1Verdict/consensusBadge 빈 문자열 invalid (prompt enum 요구) | T5는 ShortListItem 1개를 page에서 prop 전달 + `monthYM = month.slice(0,7)` 변환 + valid `'HOLD'`/`'🟡'`/"근거 부족" stub + DI test는 schema-valid JSON fixture |
+| **B4** | test infra T5 **전** 결정 필요 | `vitest.config.ts:13-16` = `include: 'src/**/__tests__/**/*.test.ts'` + `environment: 'node'` + testing-library/jsdom **미설치** | Task 1 **Step 1.0** 신설 — jsdom + @testing-library/react + @testing-library/jest-dom 설치 + vitest.config 분리 (test/component 환경 분리) |
+| **B5** | Task 8 scope creep | W2 timeout/W4 strict bool/W5 ESM은 UI caller와 무관 | W2/W4/W5 → PR body defer로 격하. **W7만 Task 2 substep** |
+| **B6** | sector backlog RLS | OK (0023 grants 정합 — service_role + authenticated grant) | B2 fix로 자동 해결 (helper client DI 누락이 본질) |
+
+**v2 commit message**: `docs(PR4 omxy R1): plan v2 — 6 BLOCKERS fix (A.0 박제 정정 + caller DI 전파 + T5 stub 정정 + test infra Step 1.0 + Task 8 scope 축소)`
+
+---
+
 ## omxy R1~R2 CONVERGED 결정 (변경 금지)
 
 | 항목 | 결정 | 적용 |
@@ -43,11 +58,14 @@
 - 상태: **결함 — partA 렌더 JSX 부재** (grep 0 hit). zod schema (`tudal/src/lib/report/section-8-schema.ts` line 48–50)는 partA length `0 || 14` 강제하지만 UI 미표시
 - 조치: Task 4에서 line 696–750 사이 partA 14 rows 테이블/카드 렌더 신설
 
-### A.0.2 — RT#3 aggregateVotes enum 보호
+### A.0.2 — RT#3 aggregateVotes enum 보호 (v2 정정 — omxy R1 B1)
 - 위치: `tudal/src/lib/data/admin-committee.ts` line 63–75
-- 상태: TypeScript 레벨 안전 (VoteKind 'approve'|'reject'|'abstain'), **DB constraint 없음**, `transformCommitteeVoteRow` (line 23–36)에서 zod guard 없이 전달
+- 상태: TypeScript 레벨 안전 (VoteKind 'approve'|'reject'|'abstain'). **DB CHECK constraint 이미 존재** (`tudal/supabase/migrations/0003_s2_reports.sql:75 vote text not null check (vote in ('approve','reject','abstain'))`). 다만 `transformCommitteeVoteRow` (line 23–36) runtime에서 zod-shape guard 없이 전달 — DB→TS 경계에서 row corruption (운영 사고 등) 시 NaN/undefined 위험.
 - `partCToCommitteeAgg` (`report-section-schemas.ts` line 240–248)는 zod 검증으로 안전
-- 조치: Task 5에서 (i) zod guard 추가 (`committeeVoteSchema.vote: z.enum(['approve','reject','abstain'])`) OR (ii) DB CHECK constraint 마이그 OR (iii) `aggregateVotes` 함수 내부 `Object.hasOwn(target, v.vote)` defensive guard. omxy R2 권고: "RLS 또는 enum validation 고려" — Task 5에서 (iii) defensive guard + zod 보강 선택
+- 조치 (v2 amend, B1 fix): **PR4 마이그 0건 유지** (DB constraint 충분). Task 5는 **runtime layer 2 guard만**:
+  - layer 1: `transformCommitteeVoteRow` 내 `VALID_VOTES.has(row.vote)` 가드 — invalid row skip + warn
+  - layer 2: `aggregateVotes` defensive guard (caller가 직접 row read하는 path 대비)
+- v1의 (i) zod committeeVoteSchema 추가 옵션은 **defer** (변경 범위 증가 + admin-committee.ts 외 caller 영향). DB CHECK가 1차 방어선이므로 layer 2가 충분.
 
 ### A.0.3 — RT#4/RT#5 LLM string/array max bound 누락 (top 5)
 - 위치: `tudal/src/lib/data/report-section-schemas.ts` + `tudal/src/lib/report/section-8-schema.ts`
@@ -61,47 +79,141 @@
 
 ---
 
-## File Structure
+## File Structure (v2 amend — B2/B4 적용)
 
 ### 신설 (8 files)
 | File | Purpose |
 |---|---|
 | `tudal/src/app/(admin)/admin/portfolio/trigger-full-report-button.tsx` | T5 slice: admin trigger 버튼 컴포넌트 (server action 호출) |
-| `tudal/src/app/(admin)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx` | T5 slice: 버튼 행동 단위 테스트 (loading/success/error) |
+| `tudal/src/app/(admin)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx` | T5 slice: 버튼 행동 단위 테스트 (loading/success/error) — **jsdom + @testing-library/react** (Step 1.0 infra 의존) |
 | `tudal/src/lib/report/__tests__/full-report-writer-caller-di.test.ts` | T5: `commitFullReport` caller DI seam 단위 테스트 |
 | `tudal/src/lib/report/__tests__/full-report-orchestrator-caller-di.test.ts` | Task 2: `orchestrateFullReport` caller DI seam 단위 테스트 |
 | `tudal/src/app/api/cron/monthly-batch/__tests__/cron-secret-401.test.ts` | Task 7 B18: cron CRON_SECRET 401 e2e test (또는 기존 route.test.ts 확장) |
 | `tudal/src/app/(admin)/admin/track-record/track-record-tabs.tsx` | Task 3: 누적/아카이브 탭 컴포넌트 (shadcn Tabs 사용) |
-| `tudal/src/app/(admin)/admin/track-record/__tests__/track-record-tabs.test.tsx` | Task 3: 탭 행동 단위 테스트 |
+| `tudal/src/app/(admin)/admin/track-record/__tests__/track-record-tabs.test.tsx` | Task 3: 탭 행동 단위 테스트 — **jsdom 의존** |
 | `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/__tests__/orchestrate-wire.test.ts` | Task 2: Regen orchestrateFullReport wire 단위 테스트 |
 
-### 수정 (10 files)
+### 수정 (16 files — B2 caller DI 전파 + B4 vitest config)
 | File | 변경 요약 |
 |---|---|
-| `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` | Task 1: 신규 `<TriggerFullReportButton/>` 통합 |
-| `tudal/src/lib/report/full-report-writer.ts` line 133–250 | Task 1: `commitFullReport`에 `client?: SupabaseClient` + `callerKind?: 'cron'\|'admin'` 파라미터 추가 (preflightHardcap + insertCostLog + RPC 모두 동일 client 사용). 기본값 = `await createClient()`. cron path는 service-role client 주입. |
-| `tudal/src/lib/report/full-report-orchestrator.ts` line 127–250 | Task 2: 동일 패턴 — `client` + `callerKind` 파라미터 |
+| `tudal/package.json` | **B4 fix**: devDeps 추가 — `jsdom` + `@testing-library/react` + `@testing-library/jest-dom` |
+| `tudal/vitest.config.ts` | **B4 fix**: test 패턴 `**/*.{test.ts,test.tsx}` + environment matcher (`.test.tsx` → jsdom, 나머지 node) |
+| `tudal/src/test/jsdom-setup.ts` (신규) | **B4 fix**: jest-dom matchers global import |
+| `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` | Task 1: `PortfolioPanelProps` 확장 (ticker/name 누락 fix — **B3**) 또는 page에서 직접 TriggerFullReportButton 렌더 (B3 fix 옵션). v2 권고 = `/admin/portfolio` page에서 ShortListItem 1개 (또는 batch) prop 전달 |
+| `tudal/src/app/(admin)/admin/portfolio/page.tsx` | **B3 fix**: ShortListItem.month (YYYY-MM-01) → `monthYM = month.slice(0,7)` 변환 후 TriggerFullReportButton에 전달 |
+| `tudal/src/lib/report/full-report-writer.ts` line 133–250 | Task 1: `commitFullReport(input, options?: { client?: SupabaseClient; callerKind?: 'cron' \| 'admin' })` 시그니처. **B2 fix**: options 패턴 (admin-shortlist-persist.ts:39-43 정합) |
+| `tudal/src/lib/report/full-report-orchestrator.ts` line 127–250 | Task 2: 동일 패턴 — `options: { client?; callerKind? }` |
+| `tudal/src/lib/cost/cost-logger.ts` | **B2 fix**: `preflightHardcap` + `insertCostLog` 모두 `options: { client?: SupabaseClient } = {}` 추가 (기존 createClient fallback 보존) |
+| `tudal/src/lib/ai/full-report-client.ts` | **B2 fix**: `callFullReport` options.client 추가 → insertCostLog에 전파 |
+| `tudal/src/lib/ai/critic-client.ts` | **B2 fix**: 동일 options.client (cost_log RLS 정합) |
+| `tudal/src/lib/ai/revise-client.ts` | **B2 fix**: 동일 options.client |
+| `tudal/src/lib/report/report-critic-findings.ts` | **B2 fix**: `insertCriticFindingsRun` + `getCriticFindingsByRunId` + `listLatestRunCriticFindings` 모두 options.client |
+| `tudal/src/lib/report/sector-reference-backlog.ts` | **B2 fix**: helper insert API에 options.client |
 | `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/actions.ts` | Task 2: `orchestrateFullReport` 실 호출 wire (현재 quota counter only) |
 | `tudal/src/app/(admin)/admin/track-record/page.tsx` | Task 3: 신규 `<TrackRecordTabs/>` 통합 + Server Component data fetch (누적/아카이브 분리) |
 | `tudal/src/app/(admin)/admin/track-record/actions.ts` | Task 3: 누적 vs 월별 아카이브 fetch 분리 (`fetchTrackRecordCumulative` + `fetchTrackRecordArchive`) |
 | `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` line 696–750 | Task 4: Section8ModernView partA 14 rows 렌더 |
-| `tudal/src/lib/data/admin-committee.ts` line 63–75 | Task 5: `aggregateVotes` defensive enum guard (`Object.hasOwn` + skip unknown vote with warn) |
+| `tudal/src/lib/data/admin-committee.ts` line 23–75 | Task 5 (v2 정정 — B1): **runtime layer 2 guard** — `transformCommitteeVoteRow` invalid row skip + warn + `aggregateVotes` defensive guard. **마이그 0건** |
 | `tudal/src/lib/data/report-section-schemas.ts` + `tudal/src/lib/report/section-8-schema.ts` | Task 6: top 5 max bound 추가 |
 | `tudal/src/lib/admin/format-error.ts` | Task 9: PR4 신규 에러 키 + prefix 한국어 매핑 (예상 4~6 keys) |
 
 ---
 
-## Task 1: T5 First Vertical Slice — admin trigger 버튼 + caller DI (commitFullReport) + minimum tests
+## Task 1: T5 First Vertical Slice — admin trigger 버튼 + caller DI 전파 (모든 helper, B2) + minimum tests
 
 **Files:**
 - Create: `tudal/src/app/(admin)/admin/portfolio/trigger-full-report-button.tsx`
-- Create: `tudal/src/app/(admin)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx`
+- Create: `tudal/src/app/(admin)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx` (jsdom 의존)
 - Create: `tudal/src/lib/report/__tests__/full-report-writer-caller-di.test.ts`
-- Modify: `tudal/src/lib/report/full-report-writer.ts:133` (commitFullReport signature)
+- Create: `tudal/src/test/jsdom-setup.ts` (Step 1.0)
+- Modify: `tudal/package.json` (Step 1.0 — devDeps)
+- Modify: `tudal/vitest.config.ts` (Step 1.0 — environment matcher)
+- Modify: `tudal/src/lib/report/full-report-writer.ts:133` (commitFullReport options 시그니처)
+- Modify: `tudal/src/lib/cost/cost-logger.ts` (preflightHardcap + insertCostLog options.client)
+- Modify: `tudal/src/lib/ai/full-report-client.ts` (callFullReport options.client)
 - Modify: `tudal/src/app/(admin)/admin/portfolio/actions.ts` (신규 `triggerFullReport` server action)
-- Modify: `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` (버튼 통합)
+- Modify: `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` (props 확장 ticker/name — B3) 또는 page에서 직접 렌더
+- Modify: `tudal/src/app/(admin)/admin/portfolio/page.tsx` (ShortListItem prop 전달 + month.slice(0,7) — B3)
 
-### Step 1.1: Write failing test — caller DI seam (commitFullReport)
+### Step 1.0: Test infra 도입 (jsdom + @testing-library) — B4 fix
+
+> **B4 fix (omxy R1)**: vitest config는 node only + `*.test.ts` only. component test 위해 jsdom + testing-library 필요. T5 전 결정.
+
+- [ ] **Step 1.0.1: Install devDependencies**
+
+```bash
+cd tudal && npm i -D jsdom@^26 @testing-library/react@^17 @testing-library/jest-dom@^7
+```
+
+- [ ] **Step 1.0.2: Create `tudal/src/test/jsdom-setup.ts`**
+
+```ts
+// tudal/src/test/jsdom-setup.ts
+import '@testing-library/jest-dom/vitest';
+```
+
+- [ ] **Step 1.0.3: Modify `tudal/vitest.config.ts` — environment matcher**
+
+```ts
+import { defineConfig } from 'vitest/config';
+import path from 'node:path';
+
+export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+    alias: {
+      'server-only': path.resolve(__dirname, 'src/test/server-only-empty.ts'),
+    },
+  },
+  test: {
+    include: ['src/**/__tests__/**/*.test.{ts,tsx}'],
+    environment: 'node',
+    environmentMatchGlobs: [
+      ['src/**/__tests__/**/*.test.tsx', 'jsdom'], // PR4 Step 1.0: component test only
+    ],
+    setupFiles: ['./src/test/jsdom-setup.ts'], // jest-dom matchers
+    passWithNoTests: true,
+  },
+});
+```
+
+- [ ] **Step 1.0.4: Run sanity test — verify infra works**
+
+Create temp `src/test/__tests__/jsdom-sanity.test.tsx`:
+
+```tsx
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+
+describe('jsdom sanity', () => {
+  it('renders react component', () => {
+    render(<button>click</button>);
+    expect(screen.getByRole('button')).toHaveTextContent('click');
+  });
+});
+```
+
+Run: `cd tudal && npx vitest run src/test/__tests__/jsdom-sanity.test.tsx`
+Expected: 1 PASS. **삭제 후 commit** (sanity 파일 git 미포함).
+
+- [ ] **Step 1.0.5: Run regression — verify existing node tests still PASS**
+
+Run: `cd tudal && npm run test:ci`
+Expected: 1010 PASS (회귀 0).
+
+- [ ] **Step 1.0.6: Commit infra setup**
+
+```bash
+git add tudal/package.json tudal/package-lock.json tudal/vitest.config.ts tudal/src/test/jsdom-setup.ts
+git commit -m "build(PR4 Task1 Step1.0): jsdom + @testing-library/react infra (B4 fix omxy R1)
+
+- jsdom + testing-library/react + testing-library/jest-dom devDeps
+- vitest.config: environmentMatchGlobs (.test.tsx → jsdom, 나머지 node)
+- jsdom-setup.ts: jest-dom matchers
+- 회귀 0 (existing 1010 PASS)"
+```
+
+### Step 1.1: Write failing test — caller DI seam (commitFullReport + 모든 helper, B2 fix)
 
 - [ ] **Step 1.1.1: Write the failing test**
 
@@ -212,70 +324,77 @@ export async function commitFullReport(
 }
 ```
 
-**참고**: `preflightHardcap` 및 `insertCostLog` 도 `client?: SupabaseClient` 파라미터 받도록 cost-logger.ts 수정 필요 (cost_log RLS는 service-role client로 우회). callFullReport (`full-report-client.ts`)도 동일 client 받아 cost_log insert.
+**v2 amend (B2 fix omxy R1)**: caller DI seam은 `commitFullReport`만으로 부족. PR3c RPC chain (cost_log + critic_findings + sector_backlog)이 모두 자체 createClient → drift. 모든 helper에 동일 `options: { client?: SupabaseClient } = {}` 패턴 적용 (reference: `admin-shortlist-persist.ts:39-43`).
 
-- [ ] **Step 1.1.4: Modify cost-logger.ts to accept client param**
+- [ ] **Step 1.1.4: cost-logger.ts에 options 패턴 적용 (B2)**
 
-Edit `tudal/src/lib/cost/cost-logger.ts`:
+Edit `tudal/src/lib/cost/cost-logger.ts` — `preflightHardcap` + `insertCostLog` 모두 두 번째 인자로 `options: { client?: SupabaseClient } = {}` 추가. 본체에서 `const supabase = options.client ?? (await createClient());`.
 
-```ts
-export async function preflightHardcap(input: {
-  month: string;
-  callCount: number;
-  maxCostPerCallKrw?: number;
-  client?: SupabaseClient; // PR4
-}): Promise<void> {
-  const supabase = input.client ?? (await createClient());
-  // ... 기존 로직 (supabase 사용처를 input.client로 교체)
-}
+- [ ] **Step 1.1.5: AI client 3종에 options 패턴 적용 (B2)**
 
-export async function insertCostLog(input: { /* ... */ client?: SupabaseClient }): Promise<void> {
-  const supabase = input.client ?? (await createClient());
-  // ... 기존 로직
-}
-```
+Edit:
+- `tudal/src/lib/ai/full-report-client.ts` — `callFullReport(input, options?)`
+- `tudal/src/lib/ai/critic-client.ts` — `callCritic(input, options?)`
+- `tudal/src/lib/ai/revise-client.ts` — `callRevise(input, options?)`
 
-- [ ] **Step 1.1.5: Modify full-report-client.ts (callFullReport) to pass client through**
+각 함수가 내부에서 `insertCostLog(..., options)` / `preflightHardcap(..., options)` 호출 시 동일 options 전파.
 
-Edit `tudal/src/lib/ai/full-report-client.ts`:
+- [ ] **Step 1.1.6: report-critic-findings.ts + sector-reference-backlog.ts에 options 패턴 적용 (B2)**
+
+Edit:
+- `tudal/src/lib/report/report-critic-findings.ts` — `insertCriticFindingsRun`, `getCriticFindingsByRunId`, `listLatestRunCriticFindings` 모두 `options: { client? } = {}`
+- `tudal/src/lib/report/sector-reference-backlog.ts` — `insertSectorBacklog` (또는 동등 helper)에 동일
+
+- [ ] **Step 1.1.7: orchestrator wire 변경 (B2)**
+
+Edit `tudal/src/lib/report/full-report-writer.ts` (commitFullReport 본체) — 모든 helper 호출 시 `{ client: input.client }` 전파:
 
 ```ts
-export async function callFullReport(input: {
-  ticker: string;
-  month: string;
-  systemPrompt: string;
-  userPrompt: string;
-  adminUserId: string;
-  client?: SupabaseClient; // PR4
-}): Promise<{ content: string; inputTokens: number; outputTokens: number; costKrw: number }> {
-  // ... LLM 호출 ...
-  await insertCostLog({
-    /* ... 기존 ... */
-    client: input.client, // PR4: caller-supplied
-  });
-}
+await preflightHardcap({ /* ... */ }, { client: input.client });
+const llm = await callFullReport({ /* ... */ }, { client: input.client });
+const supabase = input.client ?? (await createClient());
 ```
 
-- [ ] **Step 1.1.6: Run test — verify PASS**
+(`orchestrateFullReport`는 Task 2에서 동일 패턴 적용 — Step 2.1.3.)
 
-Run: `cd tudal && npx vitest run src/lib/report/__tests__/full-report-writer-caller-di.test.ts`
-Expected: PASS (2 tests).
+- [ ] **Step 1.1.8: Helper별 regression test 추가 — caller DI seam invariant**
 
-- [ ] **Step 1.1.7: Run regression tests — verify no other test breaks**
+각 helper에 대해 (i) "options.client 주입 시 createClient 호출 안 됨" + (ii) "options 미지정 시 createClient fallback" 2 tests:
+- `cost-logger-caller-di.test.ts` (preflightHardcap + insertCostLog 4 tests)
+- `full-report-client-caller-di.test.ts` (callFullReport 2 tests)
+- `critic-client-caller-di.test.ts` (callCritic 2 tests)
+- `revise-client-caller-di.test.ts` (callRevise 2 tests)
+- `report-critic-findings-caller-di.test.ts` (3 helpers × 2 = 6 tests)
+- `sector-reference-backlog-caller-di.test.ts` (2 tests)
 
-Run: `cd tudal && npx vitest run src/lib/report`
-Expected: PASS (PR3b tests 47 + PR3c tests +93 = 회귀 0).
+Total: ~18 new caller DI seam tests (Task 1 전체).
 
-- [ ] **Step 1.1.8: Commit**
+- [ ] **Step 1.1.9: Run all regression — verify PASS**
 
 ```bash
-git add tudal/src/lib/report/full-report-writer.ts tudal/src/lib/cost/cost-logger.ts tudal/src/lib/ai/full-report-client.ts tudal/src/lib/report/__tests__/full-report-writer-caller-di.test.ts
-git commit -m "feat(PR4 Task1 step1): commitFullReport caller DI seam (client + callerKind)
+cd tudal && npx vitest run src/lib/cost src/lib/ai src/lib/report
+```
 
-- commitFullReport / preflightHardcap / insertCostLog / callFullReport 모두 caller-supplied client 받도록 signature 확장
-- 기본값 보존 (createClient fallback). 회귀 0.
-- 새 caller DI seam test 2개.
-- B8 박제 + omxy R2 권고 T5 first vertical slice 시작."
+Expected: 회귀 0 + ~18 new PASS.
+
+- [ ] **Step 1.1.10: Commit (caller DI seam 전체)**
+
+```bash
+git add tudal/src/lib/report/full-report-writer.ts \
+  tudal/src/lib/cost/cost-logger.ts \
+  tudal/src/lib/ai/full-report-client.ts \
+  tudal/src/lib/ai/critic-client.ts \
+  tudal/src/lib/ai/revise-client.ts \
+  tudal/src/lib/report/report-critic-findings.ts \
+  tudal/src/lib/report/sector-reference-backlog.ts \
+  tudal/src/lib/{cost,ai,report}/__tests__/*caller-di.test.ts
+git commit -m "feat(PR4 Task1 Step1.1): caller DI seam 전파 (B2 fix omxy R1)
+
+- commitFullReport + preflightHardcap + insertCostLog + callFullReport + callCritic + callRevise + report-critic-findings (3 helpers) + sector-reference-backlog 모두 options:{client?} 패턴
+- 기존 패턴 admin-shortlist-persist.ts:39-43 정합
+- ~18 caller DI seam invariant tests (helper별 2 tests)
+- 회귀 0. createClient fallback 보존.
+- omxy R1 B2 catch — PR3c RPC chain drift 차단."
 ```
 
 ### Step 1.2: Write failing test — triggerFullReport server action
@@ -324,25 +443,39 @@ describe('triggerFullReport admin server action', () => {
 Run: `cd tudal && npx vitest run src/app/\(admin\)/admin/portfolio/__tests__/trigger-full-report-action.test.ts`
 Expected: FAIL with "triggerFullReport not exported".
 
-- [ ] **Step 1.2.3: Implement triggerFullReport in actions.ts**
+- [ ] **Step 1.2.3: Implement triggerFullReport in actions.ts (v2 정정 — B3 stub 정정)**
 
 Edit `tudal/src/app/(admin)/admin/portfolio/actions.ts` (append below triggerMonthlyBatch):
 
 ```ts
 // PR4 — triggerFullReport admin server action (Group D 잔여 + B8 박제 caller path)
 // T5 first vertical slice = commitFullReport (fast) wire. Task 2에서 orchestrate path swap.
+// v2 amend (omxy R1 B3): minimum stub은 prompt schema 통과 가능한 valid value 사용.
+//   - tier1Verdict: 'HOLD' (prompt-allowed enum)
+//   - consensusBadge: '🟡' (관망, 사용자 lock-in 5종 중 default)
+//   - summaries: "근거 부족" (한국어 placeholder, validation 통과)
+//   - name/sector: caller 책임 (page에서 ShortListItem에서 전달)
+//   - month: 입력은 YYYY-MM (regex 강제). 호출자는 ShortListItem.month (YYYY-MM-01) → .slice(0,7) 변환
 
 const TRIGGER_FULL_REPORT_TICKER_RE = /^\d{6}$/;
 const TRIGGER_FULL_REPORT_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export async function triggerFullReport(input: {
   ticker: string;
-  month: string;
+  name: string;
+  sector: string;
+  month: string; // YYYY-MM (caller가 ShortListItem.month.slice(0,7) 변환 후 전달)
 }): Promise<
   | { success: true; data: { reportId: string } }
   | { success: false; error: string }
 > {
-  if (!input || typeof input.ticker !== 'string' || typeof input.month !== 'string') {
+  if (
+    !input ||
+    typeof input.ticker !== 'string' ||
+    typeof input.name !== 'string' ||
+    typeof input.sector !== 'string' ||
+    typeof input.month !== 'string'
+  ) {
     return { success: false, error: 'invalid_input' };
   }
   if (!TRIGGER_FULL_REPORT_TICKER_RE.test(input.ticker)) {
@@ -361,16 +494,18 @@ export async function triggerFullReport(input: {
     // T5 slice: commitFullReport (fast). Task 2에서 orchestrateFullReport swap.
     const result = await commitFullReport({
       ticker: input.ticker,
-      name: '', // Task 1 minimum stub — full wire는 Task 2에서 enriched input
-      sector: '',
+      name: input.name,
+      sector: input.sector,
       month: input.month,
-      tier1Verdict: '',
-      consensusBadge: '',
-      financialsSummary: '',
-      technicalsSummary: '',
-      macroSummary: '',
-      sectorReference: '',
+      // v2 (B3 fix): prompt-valid stub. enriched input은 Task 2에서 short_list_30 + cost_log + technicals 합산.
+      tier1Verdict: 'HOLD',
+      consensusBadge: '🟡',
+      financialsSummary: '근거 부족',
+      technicalsSummary: '근거 부족',
+      macroSummary: '근거 부족',
+      sectorReference: '근거 부족',
       adminUserId: user.id,
+    }, {
       client: supabase, // admin SSR session client
       callerKind: 'admin',
     });
@@ -383,6 +518,8 @@ export async function triggerFullReport(input: {
   }
 }
 ```
+
+**v2 amend test fixture 정정 (B3)**: Step 1.1.1 / 1.2.1 의 `callFullReport` mock content는 `'{}'` 가 아니라 **Section 0~7 + Appendix schema-valid JSON fixture** 사용 (RPC 도달 검증). 헬퍼는 `tudal/src/test/fixtures/full-report-valid.ts` 신설 (Section 0~7 minimum valid + Appendix + Section 8 partA/partD legacy 한 종).
 
 - [ ] **Step 1.2.4: Run test — verify PASS**
 
@@ -469,21 +606,39 @@ describe('TriggerFullReportButton', () => {
 });
 ```
 
-- [ ] **Step 1.3.3: Run test — verify FAIL → PASS**
+- [ ] **Step 1.3.3: Run test — verify PASS** (Step 1.0 infra 의존)
 
 Run: `cd tudal && npx vitest run src/app/\(admin\)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx`
-Expected: FAIL (no @testing-library/react setup) → install if needed → PASS 4 tests.
+Expected: PASS 4 tests (jsdom + testing-library 이미 Step 1.0에서 설치 — B4 fix).
 
-**참고**: `@testing-library/react` + `@testing-library/jest-dom` + `jsdom` env 미설치 시 옵션:
-- (i) install: `npm i -D @testing-library/react @testing-library/jest-dom jsdom`
-- (ii) jsdom vitest config 활성화 (vitest.config.ts에 `test.environment: 'jsdom'` 추가)
-- omxy R2 권고 = "general-purpose 병렬 dispatch 폐기" → component test infra 도입은 본 PR scope. test 인프라 도입은 사용자 승인 필요할 수 있음 → **T5 gate에서 결정**
+- [ ] **Step 1.3.4: Wire button — page.tsx에서 ShortListItem 직접 렌더 (v2 정정 — B3)**
 
-- [ ] **Step 1.3.4: Integrate TriggerFullReportButton into portfolio-panel.tsx**
+> **v2 amend (B3 fix omxy R1)**: `PortfolioPanelProps`는 ticker/name 미포함 — 패널 자체를 확장하는 대신 **`page.tsx`에서 ShortListItem 1개 (또는 batch row) prop을 page-level에서 받아 TriggerFullReportButton 직접 렌더**. month 변환은 page에서.
 
-Edit `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx`:
-- import `TriggerFullReportButton`
-- 각 portfolio item 옆에 버튼 렌더 (또는 `/admin/portfolio` 페이지 상단 batch action 영역에 단일 버튼)
+Edit `tudal/src/app/(admin)/admin/portfolio/page.tsx`:
+
+```tsx
+import { TriggerFullReportButton } from './trigger-full-report-button';
+// ... existing imports ...
+
+// 기존: const shortList = await fetchShortList30(monthYM);
+// (shortList: ShortListItem[] — { ticker, name, sector, month: 'YYYY-MM-01', ... }[])
+
+// page JSX 어딘가에 (e.g., 종목 카드 옆):
+{shortList.map((item) => (
+  <div key={item.ticker} className="flex items-center gap-2">
+    {/* 기존 종목 카드 컴포넌트 */}
+    <TriggerFullReportButton
+      ticker={item.ticker}
+      name={item.name ?? item.ticker}
+      sector={item.sector ?? ''}
+      month={item.month.slice(0, 7) /* YYYY-MM-01 → YYYY-MM */}
+    />
+  </div>
+))}
+```
+
+`portfolio-panel.tsx` props는 **변경 안 함** (mounting scope drift 차단). 패널은 기존 list view 유지.
 
 - [ ] **Step 1.3.5: Run build + lint**
 
@@ -633,22 +788,48 @@ export function TrackRecordTabs({ cumulative, archives }: { cumulative: ...; arc
 
 ---
 
-## Task 5: PR3a OOS RT#3 — aggregateVotes defensive enum guard
+## Task 5: PR3a OOS RT#3 — runtime layer 2 guard (v2 정정 — B1 omxy R1)
+
+> **v2 amend (B1 fix omxy R1)**: A.0.2가 "DB constraint 없음"이라 박제했지만 `0003_s2_reports.sql:75 vote text not null check (vote in ('approve','reject','abstain'))` 이미 존재. **PR4 마이그 0건 유지**. Task 5는 runtime layer 2 guard만 (DB-TS 경계 + 직접 row read caller 보호).
 
 **Files:**
-- Modify: `tudal/src/lib/data/admin-committee.ts` line 63–75 (aggregateVotes)
-- Modify: `tudal/src/lib/data/__tests__/admin-committee.test.ts` (or 신규 test file) — invalid enum case
+- Modify: `tudal/src/lib/data/admin-committee.ts` line 23–75 (transformCommitteeVoteRow + aggregateVotes)
+- Modify: `tudal/src/lib/data/__tests__/admin-committee.test.ts` — invalid vote skip + warn case
 
-### Step 5.1: Defensive guard in aggregateVotes
+### Step 5.1: Layer 1 — transformCommitteeVoteRow row-level guard
 
-- [ ] **Step 5.1.1: Write failing test** — invalid vote ('unknown') 입력 시 unknown은 skip + count에 영향 없음 + console.warn 1회
-- [ ] **Step 5.1.2: Run — verify FAIL** (현재 코드 → `target['unknown']` undefined access)
-- [ ] **Step 5.1.3: Add guard**:
+- [ ] **Step 5.1.1: Write failing test** — invalid `row.vote` ('unknown')는 transformCommitteeVoteRow에서 throw OR null 반환 (선택). v2 권고 = **null 반환 + warn** (caller가 invalid row skip 가능). transformCommitteeVoteRows wrapper에서 null filter.
+- [ ] **Step 5.1.2: Run — verify FAIL**
+- [ ] **Step 5.1.3: Implement**:
 
 ```ts
-const VALID_VOTES = new Set(['approve', 'reject', 'abstain']);
+const VALID_VOTES = new Set<CommitteeVote['vote']>(['approve', 'reject', 'abstain']);
 
-export function aggregateVotes(votes: CommitteeVote[]): { /* ... */ } {
+export function transformCommitteeVoteRow(row: CommitteeVoteDbRow): CommitteeVote | null {
+  if (!VALID_VOTES.has(row.vote as never)) {
+    console.warn(
+      `[transformCommitteeVoteRow] invalid_vote_skipped row_id=${row.id} vote=${String(row.vote)}`,
+    );
+    return null;
+  }
+  return { /* 기존 mapping */ };
+}
+
+export function transformCommitteeVoteRows(rows: CommitteeVoteDbRow[]): CommitteeVote[] {
+  return rows.map(transformCommitteeVoteRow).filter((v): v is CommitteeVote => v !== null);
+}
+```
+
+- [ ] **Step 5.1.4: Run — verify PASS**
+
+### Step 5.2: Layer 2 — aggregateVotes defensive guard
+
+- [ ] **Step 5.2.1: Write failing test** — invalid `v.vote` ('unknown') 입력 (직접 row read caller) 시 skip + warn + count 영향 없음
+- [ ] **Step 5.2.2: Run — verify FAIL** (현재 → `target['unknown']` undefined access NaN)
+- [ ] **Step 5.2.3: Implement**:
+
+```ts
+export function aggregateVotes(votes: CommitteeVote[]): { core: ...; sector: ... } {
   const core = init(); const sector = init();
   for (const v of votes) {
     if (!VALID_VOTES.has(v.vote)) {
@@ -664,8 +845,18 @@ export function aggregateVotes(votes: CommitteeVote[]): { /* ... */ } {
 }
 ```
 
-- [ ] **Step 5.1.4: Run — verify PASS**
-- [ ] **Step 5.1.5: Commit**
+- [ ] **Step 5.2.4: Run — verify PASS**
+- [ ] **Step 5.2.5: Commit (Task 5 통합)**
+
+```bash
+git commit -m "feat(PR4 Task5): runtime layer 2 guard for committee votes (B1 fix omxy R1 — PR3a RT#3)
+
+- transformCommitteeVoteRow: invalid vote → null + warn (DB-TS 경계)
+- transformCommitteeVoteRows: null filter
+- aggregateVotes: invalid vote skip + warn (직접 row read caller 보호)
+- 마이그 0건 유지 (0003:75 CHECK constraint 이미 존재)
+- 2 layer guard tests (transformer 2 + aggregator 2)"
+```
 
 ---
 
@@ -710,36 +901,32 @@ export function aggregateVotes(votes: CommitteeVote[]): { /* ... */ } {
 
 ---
 
-## Task 8: Track 2/3 defer 20 cherry-pick (cleanup only)
+## Task 8: Track 2/3 defer 20 — scope 축소 (v2 정정 — B5 omxy R1)
 
-Track 2 defer (PR3c body 박제) 12 + Track 3 defer 8 = 20 items.
+> **v2 amend (B5 fix omxy R1)**: W2 timeout/W4 strict bool/W5 ESM은 UI caller wire와 무관한 behavior/infra change. **W2/W4/W5 → PR body defer로 격하** (별도 infra PR). **W7만 Task 2 substep으로 통합** (admin orchestrate path direct 관련).
 
-**Cherry-pick scope** (low risk + 1 line fixes):
-- PR3b W2: Anthropic timeout/maxRetries 추가 (full-report-client.ts + critic-client.ts + revise-client.ts) — **본 PR4에서 해소** (high value, 1-line per file)
-- PR3b W4: `AI_COST_LOG_REAL_INSERT_ENABLED` strict 검증 — **본 PR4** (boolean parse)
-- PR3b W5: __dirname ESM compat — **본 PR4** (low risk)
-- PR3c W1: RPC error 텍스트 — **defer (별도 i18n PR)**
-- PR3c W7: enriched.* vs input.* 일관성 — **본 PR4** (orchestrator.ts grep)
-- 나머지 15 P2/Info → **defer 명시** (PR body에 follow-up ticket list)
+Track 2 defer (PR3c body 박제) 12 + Track 3 defer 8 = 20 items 중:
+- **본 PR4 (Task 8) scope = 1**: PR3c W7 (enriched.* vs input.* 일관성) — Task 2의 admin path orchestrate wire substep으로 합산
+- **PR body defer = 19**: 나머지 모두 follow-up ticket (별도 i18n / infra / behavior PR)
 
-### Step 8.1: Cherry-pick 4 high-value defer
+### Step 8.1: W7 verification (Task 2 후속 검증)
 
-- [ ] **Step 8.1.1: PR3b W2 — Anthropic timeout/maxRetries**
+- [ ] **Step 8.1.1: orchestrator.ts에서 enriched.* vs input.* 일관성 grep**
 
-```ts
-// full-report-client.ts / critic-client.ts / revise-client.ts
-const client = new Anthropic({
-  apiKey,
-  timeout: 60_000, // 60s
-  maxRetries: 2,
-});
+```bash
+cd tudal && grep -nE "input\.|enriched\." src/lib/report/full-report-orchestrator.ts | grep -v "// "
 ```
 
-- [ ] **Step 8.1.2: PR3b W4 — AI_COST_LOG_REAL_INSERT_ENABLED strict**
-- [ ] **Step 8.1.3: PR3b W5 — __dirname ESM**
-- [ ] **Step 8.1.4: PR3c W7 — enriched vs input 일관성**
-- [ ] **Step 8.1.5: Run tests — verify PASS (회귀 0)**
-- [ ] **Step 8.1.6: Commit**
+- [ ] **Step 8.1.2: enriched/input drift 발견 시 정정 commit**
+- [ ] **Step 8.1.3: PR body draft에 19 defer follow-up ticket list 박제** (rolling — Task 9 step 9.2.3에서 최종 박제)
+
+### Defer 19 follow-up tickets (PR body 박제 예정)
+
+**PR3b defer (5)**: W2 Anthropic timeout/maxRetries (infra PR) · W4 AI_COST_LOG_REAL_INSERT_ENABLED strict (infra) · W5 __dirname ESM (low risk) · Track 3 Angle 5 insertCostLog DI (PR4에서 부분 해소 — B2 caller DI seam) · Track 3 Angle 1 P0002 errcode + specific error rethrow (UX polish PR)
+
+**PR3c Track 2 defer (12)**: W1 RPC error 텍스트 (i18n PR) · W3 zod 주석 정합 · W4 RPC return shape guard · W5 cast · W6 contract test SQL↔TS drift · W8 report_id uuid guard · I1~I10 (cross-module import / row type 외)
+
+**PR3c Track 3 defer (8)**: C-2 INFO data.report_id guard · C-3 INFO import position · P-1 enrichInput coupling · P-2 orchestrate_failed 디테일 · P-3 vi.mock TDZ pattern · P-4 kevinV31Markers (이미 PR3c에서 fix됨)
 
 ---
 
@@ -795,33 +982,43 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 
 ---
 
-## Self-Review (writing-plans skill checklist)
+## Self-Review (writing-plans skill checklist + v2 omxy R1 BLOCKERS 검증)
 
 ### 1. Spec coverage
 - ✅ Group A (track-record trigger 위치): Task 3 + Task 1 (admin trigger 버튼이 /admin/portfolio에 신설)
 - ✅ Group F (Track Record 누적 vs 아카이브 탭 분리): Task 3
-- ✅ Group D 잔여 (UI caller wire): Task 1 (commitFullReport DI) + Task 2 (orchestrateFullReport DI + Regen wire + admin path swap)
+- ✅ Group D 잔여 (UI caller wire): Task 1 (commitFullReport DI seam 전체) + Task 2 (orchestrateFullReport DI + Regen wire + admin path swap)
 - ✅ PR3a OOS RT#1 partA 14 rows: Task 4
-- ✅ PR3a OOS RT#3 aggregateVotes enum: Task 5
+- ✅ PR3a OOS RT#3 aggregateVotes guard: Task 5 (v2 layer 2 runtime guard, 마이그 0건 — B1)
 - ✅ PR3a OOS RT#4/5 LLM max bound: Task 6
 - ✅ B18 CRON_SECRET 401 test: Task 7
-- ✅ Track 2/3 defer 20: Task 8 (4 cherry-pick + 16 defer → PR body)
+- ✅ Track 2/3 defer scope 축소: Task 8 (v2 — W7만 본 PR, W2/W4/W5/19개 PR body defer — B5)
 - ✅ format-error 신규 키: Task 9
 
-### 2. Placeholder scan
-- 일부 step의 "..." 또는 "TBD" 패턴 → 실제 코드 step 작성 시 inline expansion. **Task 2.2/3.1/3.2의 "/* ... */" 표기는 plan의 brevity 위함** — 실제 impl 시 Task 1.1~1.3 pattern 그대로 재사용.
-- "Add appropriate error handling" 등 모호 표현 ❌ 없음. 모든 step은 구체적 코드/명령.
+### 2. v2 6 BLOCKERS 적용 검증 (omxy R1)
+- ✅ B1: A.0.2 정정 (`0003:75` CHECK constraint 박제) + Task 5 runtime layer 2 guard + 마이그 0건 유지
+- ✅ B2: cost-logger / full-report-client / critic-client / revise-client / report-critic-findings / sector-reference-backlog 모두 `options: { client? }` 패턴 (Step 1.1.4~1.1.8 + File Structure 16 modified 명시)
+- ✅ B3: T5 stub 정정 — ShortListItem 1개를 page에서 prop 전달 + `monthYM = month.slice(0,7)` + valid `'HOLD'`/`'🟡'`/'근거 부족' + schema-valid fixture
+- ✅ B4: Step 1.0 신설 (jsdom + testing-library 설치 + vitest config environment matcher + sanity test)
+- ✅ B5: Task 8 scope 축소 (W7 only Task 2 substep, W2/W4/W5/19 defer PR body)
+- ✅ B6: B2 fix로 자동 해결 (sector_reference_backlog helper에 options.client 적용)
 
-### 3. Type consistency
-- `commitFullReport` (Task 1) + `orchestrateFullReport` (Task 2): caller DI 동일 signature (`client?: SupabaseClient; callerKind?: 'cron' | 'admin'`)
-- `preflightHardcap` / `insertCostLog` / `callFullReport`: 동일 `client?` param 추가
-- `triggerFullReport` (Task 1) + `triggerMonthlyBatch` (PR1 기존): 동일 server action 반환 규약 (`{success: true, data} | {success: false, error}`)
-- `TrackRecordTabs.props` (Task 3) + `actions.ts fetch*` 반환: 일관 타입 (각 fetch 함수가 명시적 interface 반환)
-- `aggregateVotes` (Task 5) + `partCToCommitteeAgg` (PR3a 기존): both 동일 `CommitteeVoteAggregate` 반환
+### 3. Placeholder scan (v2)
+- Step 1.1.4~1.1.8: 코드 box를 reference로 축소 (T6 impl 시 자세히 작성). "동일 패턴" 표현은 reference 명시 (`admin-shortlist-persist.ts:39-43`) — 모호 placeholder 아님.
+- "/* ... */" 표기는 brevity 위함 — Task 1 Step 1.1.1 pattern 재사용. 모든 acceptance criteria + file:line + 명령 명시.
+- "Add appropriate error handling" 등 모호 표현 ❌ 없음.
 
-### 4. omxy R2 결정 정합
+### 4. Type consistency (v2)
+- `commitFullReport` (Task 1) + `orchestrateFullReport` (Task 2): `(input, options?: { client?: SupabaseClient; callerKind?: 'cron' | 'admin' })` 두 위치 인자 패턴 (admin-shortlist-persist.ts:42 정합)
+- `preflightHardcap` + `insertCostLog` + `callFullReport` + `callCritic` + `callRevise` + critic/backlog helpers: 모두 `(input, options?: { client? } = {})` 동일 패턴
+- `triggerFullReport` (Task 1) + `triggerMonthlyBatch` (PR1 기존): `{success: true, data} | {success: false, error}` 반환 규약
+- `TrackRecordTabs.props` (Task 3) + `actions.ts fetch*` 반환: 일관 interface
+- `transformCommitteeVoteRow` (Task 5 v2): `CommitteeVote | null` 반환 (invalid skip)
+- `aggregateVotes` (Task 5 v2) + `partCToCommitteeAgg` (PR3a 기존): both `CommitteeVoteAggregate` 반환
+
+### 5. omxy R2 결정 정합 (v2 unchanged)
 - ✅ Claude 단독 implementer (모든 Task)
-- ✅ omxy = T4 plan review + T7 plan-vs-commit + T9 final
+- ✅ omxy = T4 plan review (R1 → R2 → ...) + T7 plan-vs-commit + T9 final
 - ✅ 단일 PR
 - ✅ T5 first vertical slice = Task 1 (`commitFullReport` wire, admin trigger 버튼 1개)
 - ✅ T8 3-track 축소판 = gstack-review skill inline + 5-angle scan subagent 1회 + omxy final (depth=deep general-purpose 폐기)
