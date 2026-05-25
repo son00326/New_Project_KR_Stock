@@ -2,7 +2,7 @@
 
 > **For agentic workers:** This plan uses **inline execution** (omxy R2 결정 — subagent-driven-development는 폐기, omxy adversarial review로 대체). Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** canonical 5-PR 마지막 단계. Group A (track-record trigger 위치) + Group F (Track Record 누적 vs 아카이브 탭 분리) + Group D 잔여 (UI caller wire) + PR3a OOS 3종 (partA 14 rows / aggregateVotes guard / LLM max bound) + B18 (CRON_SECRET 401 test) + Track 2/3 defer 20 **triage** (W7 본 PR 적용 + PR3c defer 19 follow-up PR body 박제) + PR3b defer 5 (별도 follow-up).
+**Goal:** canonical 5-PR 마지막 단계. Group A (track-record trigger 위치) + Group F (Track Record 누적 vs 아카이브 탭 분리) + Group D 잔여 (UI caller wire) + PR3a OOS 3종 (partA 14 rows / aggregateVotes guard / LLM max bound) + B18 (CRON_SECRET 401 test) + **Track 2/3 defer triage** (W7만 본 PR 적용 / 잔여 PR3b·PR3c defer는 PR body에 source review docs 링크로 박제, no code changes beyond W7).
 
 **Architecture:** **T5 first vertical slice** (omxy R2 권고 q4=a) = admin trigger 버튼 1개 + server action wire + caller DI (`commitFullReport`) + minimum tests. T5 사용자 승인 후 단계적 확장 — Regen (`orchestrateFullReport`) → Track Record 탭 → PR3a OOS → defer/B18.
 
@@ -80,6 +80,18 @@
 **v6 commit message**: `docs(PR4 omxy R5): plan v6 — 3 BLOCKERS fix (duplicate commit block 제거 + Defer D01~D24 산술 명시 + Goal scope 정합)`
 
 **누적 BLOCKERS**: 6 (R1) + 5 (R2) + 3 (R3) + 3 (R4) + 3 (R5) = **20**.
+
+---
+
+## omxy Plan R6 → 1 critical BLOCKER Fix Log (v7 amend, 누적 21 — final)
+
+| # | BLOCKER | 증거 | v7 Fix 적용 |
+|---|---|---|---|
+| **B21** | Defer ID 산술/박제 모순 (v5+v6 fix 시도 후에도 정합 안 됨) | Goal "19+5" / B19 fix log "D01~D24" / Acceptance header "D01~D24" / 산술 "D01~D23 total" / Track 2 "D12 I-bucket" 자체 모순 / Track 3 "D18/D19 미식별" / final count "18 또는 24" — plan에서 산술 닫히지 않음 | **omxy 강한 fix 권고 채택**: defer 상세 ID list 전부 삭제 + **원칙만 박제**. PR4 scope = W7만 본 PR 적용 / PR body = PR3b/PR3c review docs **링크 참조** / Acceptance = "defer follow-up은 PR body에 source docs 링크 + W7 applied 여부 + **no code changes beyond W7**로 박제". 숫자/D-ID/bucket 표현 plan에서 모두 제거. count drift = T6 implementer가 PR3c body에서 직접 재추출 (plan acceptance 숫자 검증 대상 제외) |
+
+**v7 commit message**: `docs(PR4 omxy R6): plan v7 — B21 fix (defer ID 산술 제거 + 원칙만 박제 — omxy 강한 권고 채택)`
+
+**누적 BLOCKERS**: 6 (R1) + 5 (R2) + 3 (R3) + 3 (R4) + 3 (R5) + 1 (R6) = **21 — final** (omxy R7 = B21 confirm only).
 
 ---
 
@@ -1362,8 +1374,11 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 
 **R5 3 BLOCKERS (v6 amend)**:
 - ✅ B18-o: line 408-419 stale duplicate commit block 삭제 (B15 잔여 cleanup)
-- ✅ B19: Acceptance §Defer 산술 D01~D19 ID 명시 + bucket 표현 (I1~I10) 명시 + "본 PR4 처리 0, follow-up 박제만" 원칙 명시. final count drift는 T6 implementer가 PR3c body 직접 참조 후 1:1 매칭 (책임 위임)
-- ✅ B20: Goal line (line 5) "Track 2/3 defer 20 follow-up 해소" → "Track 2/3 defer 20 triage (W7 적용 + 19 follow-up PR body 박제) + PR3b defer 5 (별도)"
+- ✅ B19: Acceptance §Defer 산술 D01~D19 ID 명시 시도 (v7에서 B21로 전면 제거)
+- ✅ B20: Goal line (line 5) "Track 2/3 defer 20 follow-up 해소" → "Track 2/3 defer 20 triage" 변경 시도 (v7에서 B21로 단순화)
+
+**R6 1 BLOCKER (v7 amend — final)**:
+- ✅ B21: defer 산술 모순 (D01~D19/D01~D24/D01~D23 불일치 + bucket vs items mismatch + Track 3 D18/D19 미식별) → **omxy 강한 권고 채택**: defer 상세 ID list 전부 삭제 + 원칙만 박제 (W7 only / no code changes beyond W7 / PR body에 PR3b·PR3c review docs 링크 / 숫자/D-ID 검증 plan acceptance 대상 제외). count drift = T6 implementer가 source docs 직접 참조 후 PR body 박제 (책임 명확화). Goal line 숫자 제거
 
 ### 3. Placeholder scan (v2)
 - Step 1.1.4~1.1.8: 코드 box를 reference로 축소 (T6 impl 시 자세히 작성). "동일 패턴" 표현은 reference 명시 (`admin-shortlist-persist.ts:39-43`) — 모호 placeholder 아님.
@@ -1411,40 +1426,21 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 - [ ] **validFullReportSections 9 schema parse tests PASS** (v5 B15 fix — Section 0~7 + Appendix sanity invariant)
 - [ ] Step 1.0.6 commit에 sanity test path 포함 (v5 B15 — Step 1.0.7.3 commit body git add 정합)
 
-### Defer D01~D24 follow-up tickets (v6 B19 fix — D01~D24 ID 명시 + 1:1 매칭)
+### Defer follow-up 원칙 (v7 B21 fix omxy R6 — 산술 ID 제거, 원칙만 박제)
 
-**산술**: PR3c HANDOFF defer 20 (Track 2 12 + Track 3 8) - W7 본 PR4 적용 1 - P-4 PR3c 이미 fix 1 = **PR3c 잔여 18** + **PR3b defer 5** (별도) = **D01~D23 total** (이전 박제 "19+5=24" 정정 — P-4 fix됨 제외 후 18, PR3b 5 합산 23).
+> **B21 fix 핵심**: 이전 v5/v6 amend가 D01~D19 / D01~D24 / D01~D23 등 산술을 시도했으나 PR3b defer 5 + PR3c Track 2 defer + Track 3 defer의 bucket 표현 (I1~I10 1 ticket vs 10 items) 정합 실패. omxy R6 강한 권고 채택: **plan에서 defer 상세 ID 산술 전부 제거 + 원칙만 박제**.
 
-**Acceptance §Defer = 본 PR4 처리 0 (모두 follow-up). PR body 박제용 ID list**:
+**Acceptance §Defer 원칙** (PR body 박제 시 implementer 책임):
 
-PR3b defer 5 (별도 infra/UX PR):
-- D01 W2 Anthropic timeout/maxRetries (infra PR)
-- D02 W4 AI_COST_LOG_REAL_INSERT_ENABLED strict 검증 (infra PR)
-- D03 W5 __dirname ESM compat (low risk)
-- D04 Track 3 Angle 5 insertCostLog DI (PR4 B2 caller DI로 부분 해소)
-- D05 Track 3 Angle 1 P0002 errcode + specific error rethrow (UX polish PR)
+1. **본 PR4에서 적용**: W7 (enriched.* vs input.* 일관성) only — Task 2 admin orchestrate wire substep
+2. **No code changes beyond W7**: PR4 코드 변경 0 (defer triage 외)
+3. **PR body 박제 형식**:
+   - PR3b defer = source review doc 링크: `docs/superpowers/reviews/2026-05-23-pr3b-writer-section-0-7-review.md` (또는 PR body 박제)
+   - PR3c defer = source review doc 링크: `docs/superpowers/reviews/2026-05-24-pr3c-orchestration-sector-reference-review.md` (또는 PR3c PR #15 body)
+   - PR4 PR body에서 1줄 요약 + 링크 — 상세 ID list는 source docs 참조
+4. **숫자/D-ID 검증 plan acceptance 대상 제외** (T6 implementer가 source docs에서 직접 추출 후 PR body 박제)
 
-PR3c Track 2 defer 11 (HANDOFF 12 - W7 본 PR 적용 1):
-- D06 W1 RPC error 텍스트 (i18n PR)
-- D07 W3 zod 주석 정합
-- D08 W4 RPC return shape guard
-- D09 W5 cast
-- D10 W6 contract test SQL↔TS drift
-- D11 W8 report_id uuid guard
-- D12~D17 I1~I10 (10 items로 펼치면 D12~D21 6 items; 본 박제 = bucket 1개로 압축 = D12 1 ticket)
-  → **bucket 표현 채택 — D12 "I1~I10 bucket: cross-module import / row type 외 10 issues"** (PR body에서 ID별 1줄 박제 의무)
-
-PR3c Track 3 defer 7 (HANDOFF 8 - P-4 PR3c 이미 fix 1):
-- D13 C-2 INFO data.report_id guard
-- D14 C-3 INFO import position
-- D15 P-1 enrichInput coupling
-- D16 P-2 orchestrate_failed 디테일
-- D17 P-3 vi.mock TDZ pattern
-- D18 + D19 (PR3c HANDOFF Track 3 8 항목 중 본 plan에 박제 누락 2 — PR body에서 PR3c review doc 참조해 식별)
-
-**최종 카운트**: D01~D19 (PR3b 5 + PR3c 14) — 산술 = 5 + (11 Track 2 압축 후 6) + 7 = 18 또는 D01~D24 (10 펼침 시 5 + 11 + 7 + 1 bucket = 24). 정확한 ID list는 **T6 implementer 진입 시 PR3c body 박제로부터 1:1 추출 후 PR body 박제**.
-
-> **B19 fix 핵심**: 산술 ambiguity는 **T6 진입 시 PR3c PR body 박제 직접 참조 후 1:1 ID list 작성**으로 final 정합. 본 plan은 "PR4 acceptance §Defer = follow-up 박제만 (본 PR 처리 0)" 원칙 명시. count drift는 implementer 책임으로 위임.
+**Why**: defer 산술 박제는 plan 추가 가치 0 (source docs에 이미 있음). PR3b/PR3c body 링크로 충분. plan은 "본 PR scope = W7 only, defer는 원문 참조"만 명시.
 
 ---
 
