@@ -41,6 +41,20 @@
 
 ---
 
+## omxy Plan R3 → 3 신규 BLOCKERS Fix Log (v4 amend, 누적 14)
+
+| # | BLOCKER | 실 코드 증거 | v4 Fix 적용 |
+|---|---|---|---|
+| **B12** | `validFullReportJson()` fixture **실제 schema 부적합** | `report-section-schemas.ts:12-18 conviction = score0to100` (number 0~100, **not 'HOLD' string**) + Section 0 `committeeMini`/`priceBands` 필수 (line 19-35) + Section 2 `revenue`/`margins`/`balance` 필수 (line 47-52) + Section 3 `multiples` 필수 (line 56-60) + Section 6 `axis`/`divergencePct` 필수 (line 83-99) | Step 1.0.7 fixture 전면 재작성 — Section 0~7 + Appendix 모두 schema parse 통과. fixture 신설 직후 `reportSection0Schema.parse(validFullReportSections().section_0)` sanity assert (Step 1.0.7.3) |
+| **B13** | PR3c helper 경로/함수명 박제 오류 | 실제 `tudal/src/lib/**data**/report-critic-findings.ts` + `tudal/src/lib/**data**/sector-reference-backlog.ts` (not `lib/report/`). 함수명 `insertOrBumpBacklog` (not `insertSectorBacklog`). report-critic-findings는 `insertCriticFindingsRun`/`getCriticFindingsByRunId`/`listLatestRunCriticFindings` 3종 정합 OK | amend log R1 B2 table row 경로 정정 + File Structure 16 modified table 경로/함수명 정정 + Step 1.1.6 helper module 박제 정정 + Step 1.1.10 commit message git add path 정정 |
+| **B14** | stale 문구 (실행자 혼선) | Plan line 116 "environment matcher" 표현 잔존 + Step 1.0.6 commit message에 `environmentMatchGlobs` 잔존 (v3에서 `test.projects`로 변경됨) + File Structure에 `portfolio-panel.tsx` 옵션 표현 잔존 (v3 B10에서 변경 0 확정) | Step 1.0.3 헤더 "environment matcher" → "test.projects 분리" + Step 1.0.6 commit message 정정 + File Structure에서 `portfolio-panel.tsx` row 표현 정정 (변경 안 함 명시) |
+
+**v4 commit message**: `docs(PR4 omxy R3): plan v4 — 3 BLOCKERS fix (fixture schema valid + lib/data helper 경로 정정 + stale 문구 cleanup)`
+
+**누적 BLOCKERS**: 6 (R1) + 5 (R2) + 3 (R3) = **14**.
+
+---
+
 ## omxy R1~R2 CONVERGED 결정 (변경 금지)
 
 | 항목 | 결정 | 적용 |
@@ -113,9 +127,9 @@
 | File | 변경 요약 |
 |---|---|
 | `tudal/package.json` | **B4 fix**: devDeps 추가 — `jsdom` + `@testing-library/react` + `@testing-library/jest-dom` |
-| `tudal/vitest.config.ts` | **B4 fix**: test 패턴 `**/*.{test.ts,test.tsx}` + environment matcher (`.test.tsx` → jsdom, 나머지 node) |
+| `tudal/vitest.config.ts` | **B4 + B7 fix (v4)**: `test.projects` 분리 (node project: `**/*.test.ts` env=node / jsdom project: `**/*.test.tsx` env=jsdom + setupFiles). v3 `environmentMatchGlobs`는 Vitest 4에서 removed. |
 | `tudal/src/test/jsdom-setup.ts` (신규) | **B4 fix**: jest-dom matchers global import |
-| `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` | Task 1: `PortfolioPanelProps` 확장 (ticker/name 누락 fix — **B3**) 또는 page에서 직접 TriggerFullReportButton 렌더 (B3 fix 옵션). v2 권고 = `/admin/portfolio` page에서 ShortListItem 1개 (또는 batch) prop 전달 |
+| ~~`tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx`~~ | **v3+v4 B10/B14 정정: 변경 안 함**. 실제 wire = ShortlistRow.action + BucketSection.renderRowAction (`tudal/src/components/admin/shortlist/`). page.tsx에서 callback 전달. |
 | `tudal/src/app/(admin)/admin/portfolio/page.tsx` | **B3 fix**: ShortListItem.month (YYYY-MM-01) → `monthYM = month.slice(0,7)` 변환 후 TriggerFullReportButton에 전달 |
 | `tudal/src/lib/report/full-report-writer.ts` line 133–250 | Task 1: `commitFullReport(input, options?: { client?: SupabaseClient; callerKind?: 'cron' \| 'admin' })` 시그니처. **B2 fix**: options 패턴 (admin-shortlist-persist.ts:39-43 정합) |
 | `tudal/src/lib/report/full-report-orchestrator.ts` line 127–250 | Task 2: 동일 패턴 — `options: { client?; callerKind? }` |
@@ -123,8 +137,8 @@
 | `tudal/src/lib/ai/full-report-client.ts` | **B2 fix**: `callFullReport` options.client 추가 → insertCostLog에 전파 |
 | `tudal/src/lib/ai/critic-client.ts` | **B2 fix**: 동일 options.client (cost_log RLS 정합) |
 | `tudal/src/lib/ai/revise-client.ts` | **B2 fix**: 동일 options.client |
-| `tudal/src/lib/report/report-critic-findings.ts` | **B2 fix**: `insertCriticFindingsRun` + `getCriticFindingsByRunId` + `listLatestRunCriticFindings` 모두 options.client |
-| `tudal/src/lib/report/sector-reference-backlog.ts` | **B2 fix**: helper insert API에 options.client |
+| `tudal/src/lib/data/report-critic-findings.ts` (v4 B13 정정) | **B2 fix**: `insertCriticFindingsRun` + `getCriticFindingsByRunId` + `listLatestRunCriticFindings` 모두 options.client |
+| `tudal/src/lib/data/sector-reference-backlog.ts` (v4 B13 정정) | **B2 fix**: `insertOrBumpBacklog` (실제 함수명) + `listBacklog`에 options.client |
 | `tudal/src/app/(admin)/admin/report/[ticker]/regenerate/actions.ts` | Task 2: `orchestrateFullReport` 실 호출 wire (현재 quota counter only) |
 | `tudal/src/app/(admin)/admin/track-record/page.tsx` | Task 3: 신규 `<TrackRecordTabs/>` 통합 + Server Component data fetch (누적/아카이브 분리) |
 | `tudal/src/app/(admin)/admin/track-record/actions.ts` | Task 3: 누적 vs 월별 아카이브 fetch 분리 (`fetchTrackRecordCumulative` + `fetchTrackRecordArchive`) |
@@ -143,12 +157,13 @@
 - Create: `tudal/src/lib/report/__tests__/full-report-writer-caller-di.test.ts`
 - Create: `tudal/src/test/jsdom-setup.ts` (Step 1.0)
 - Modify: `tudal/package.json` (Step 1.0 — devDeps)
-- Modify: `tudal/vitest.config.ts` (Step 1.0 — environment matcher)
+- Modify: `tudal/vitest.config.ts` (Step 1.0 — `test.projects` 분리, v4 B7+B14)
 - Modify: `tudal/src/lib/report/full-report-writer.ts:133` (commitFullReport options 시그니처)
 - Modify: `tudal/src/lib/cost/cost-logger.ts` (preflightHardcap + insertCostLog options.client)
 - Modify: `tudal/src/lib/ai/full-report-client.ts` (callFullReport options.client)
 - Modify: `tudal/src/app/(admin)/admin/portfolio/actions.ts` (신규 `triggerFullReport` server action)
-- Modify: `tudal/src/app/(admin)/admin/portfolio/portfolio-panel.tsx` (props 확장 ticker/name — B3) 또는 page에서 직접 렌더
+- Modify (신설 3 file, v4 B10): `tudal/src/components/admin/shortlist/shortlist-row.tsx` (action prop) + `tudal/src/components/admin/shortlist/bucket-section.tsx` (renderRowAction prop)
+- `portfolio-panel.tsx`는 **변경 안 함** (v4 B10/B14 정합)
 - Modify: `tudal/src/app/(admin)/admin/portfolio/page.tsx` (ShortListItem prop 전달 + month.slice(0,7) — B3)
 
 ### Step 1.0: Test infra 도입 (jsdom + @testing-library) — B4 fix
@@ -243,7 +258,7 @@ git add tudal/package.json tudal/package-lock.json tudal/vitest.config.ts tudal/
 git commit -m "build(PR4 Task1 Step1.0): jsdom + @testing-library/react infra (B4 fix omxy R1)
 
 - jsdom + testing-library/react + testing-library/jest-dom devDeps
-- vitest.config: environmentMatchGlobs (.test.tsx → jsdom, 나머지 node)
+- vitest.config: test.projects (node + jsdom 분리, Vitest 4 환경)
 - jsdom-setup.ts: jest-dom matchers
 - 회귀 0 (existing 1010 PASS)"
 ```
@@ -252,28 +267,66 @@ git commit -m "build(PR4 Task1 Step1.0): jsdom + @testing-library/react infra (B
 
 > **B8 fix**: Step 1.1.1 / 1.2.1 / 후속 caller DI test가 `content: '{}'` 대신 schema-valid JSON 사용해야 RPC 도달 검증이 정확. fixture helper 신설.
 
-- [ ] **Step 1.0.7.1: Create `tudal/src/test/fixtures/full-report-valid.ts`**
+- [ ] **Step 1.0.7.1: Create `tudal/src/test/fixtures/full-report-valid.ts` (v4 정정 — B12 schema 정합)**
+
+> **B12 fix**: `report-section-schemas.ts` 실제 schema 전부 정합. Section 0 `conviction = number` + `committeeMini` + `priceBands` 등 필수 필드 포함.
 
 ```ts
 // tudal/src/test/fixtures/full-report-valid.ts
-// PR4 Step 1.0 B8 fix: Section 0~7 + Appendix schema-valid JSON fixture
-// (Section 8 partA/partD legacy minimal — partA empty array OR 14 rows depending on test)
+// PR4 Step 1.0 B8+B12 fix (omxy R2+R3): Section 0~7 + Appendix schema-valid JSON fixture
+// report-section-schemas.ts:12-114 실제 필드와 1:1 정합. Section 8은 별도 (modern is_dual_shape).
 
 export function validFullReportSections() {
   return {
     section_0: {
       headline: '근거 부족',
       thesis: ['근거 부족'],
-      conviction: 'HOLD',
+      conviction: 50, // score0to100 (number 0~100, finite)
+      committeeMini: {
+        core: { approve: 0, reject: 0, abstain: 0 },
+        sector: { approve: 0, reject: 0, abstain: 0 },
+      },
+      priceBands: { bear: '근거 부족', base: '근거 부족', bull: '근거 부족' },
     },
-    section_1: { description: '근거 부족', segments: [], keyFacts: [] },
-    section_2: { summary: '근거 부족' },
-    section_3: { summary: '근거 부족' },
-    section_4: { summary: '근거 부족', drivers: [], tam: '근거 부족' },
-    section_5: { summary: '근거 부족', risks: [] },
-    section_6: { summary: '근거 부족', signals: [] },
-    section_7: { summary: '근거 부족', triggers: [], alternatives: [] },
-    appendix: { technicals: [], dataSources: [] },
+    section_1: {
+      description: '근거 부족',
+      segments: [], // {name,share}[] — 빈 배열 OK
+      keyFacts: [], // {label,value}[] — 빈 배열 OK
+    },
+    section_2: {
+      summary: '근거 부족',
+      revenue: [], // {fy,value,yoy}[]
+      margins: { operating: '근거 부족', net: '근거 부족' },
+      balance: { debtRatio: '근거 부족', cash: '근거 부족' },
+    },
+    section_3: {
+      summary: '근거 부족',
+      multiples: [], // {metric,value,peer}[]
+    },
+    section_4: {
+      summary: '근거 부족',
+      drivers: [], // string[]
+      tam: '근거 부족',
+    },
+    section_5: {
+      summary: '근거 부족',
+      risks: [], // {title,severity,detail}[]
+    },
+    section_6: {
+      summary: '근거 부족',
+      signals: [], // {name,state:'on'|'watch'|'off',note}[]
+      axis: { trend: 50, momentum: 50, volatility: 50 }, // score0to100
+      divergencePct: 0, // number (음수 허용, finite)
+    },
+    section_7: {
+      summary: '근거 부족',
+      triggers: [], // string[]
+      alternatives: [], // {label,detail}[]
+    },
+    appendix: {
+      technicals: [], // {name,value}[]
+      dataSources: [], // string[]
+    },
   };
 }
 
@@ -282,7 +335,46 @@ export function validFullReportJson(): string {
 }
 ```
 
-> `report-section-schemas.ts` 실제 필드 (Section 0~7 + Appendix)에 맞춰 minimum valid value. Section 6 `signal.state` enum 등 필수 필드는 fixture에 포함 (T6 impl 시 schema와 자세히 정합).
+- [ ] **Step 1.0.7.2: Sanity test — fixture가 실제 zod schemas parse 통과 검증 (v4 — B12)**
+
+```ts
+// tudal/src/test/fixtures/__tests__/full-report-valid.test.ts
+import { describe, it, expect } from 'vitest';
+import { validFullReportSections } from '../full-report-valid';
+import {
+  reportSection0Schema,
+  reportSection1Schema,
+  reportSection2Schema,
+  reportSection3Schema,
+  reportSection4Schema,
+  reportSection5Schema,
+  reportSection6Schema,
+  reportSection7Schema,
+  reportAppendixSchema,
+} from '@/lib/data/report-section-schemas';
+
+describe('validFullReportSections fixture — schema 정합 (B12 sanity)', () => {
+  const sections = validFullReportSections();
+
+  it('section_0 parses successfully', () => {
+    expect(() => reportSection0Schema.parse(sections.section_0)).not.toThrow();
+  });
+  it('section_1 parses', () => { expect(() => reportSection1Schema.parse(sections.section_1)).not.toThrow(); });
+  it('section_2 parses', () => { expect(() => reportSection2Schema.parse(sections.section_2)).not.toThrow(); });
+  it('section_3 parses', () => { expect(() => reportSection3Schema.parse(sections.section_3)).not.toThrow(); });
+  it('section_4 parses', () => { expect(() => reportSection4Schema.parse(sections.section_4)).not.toThrow(); });
+  it('section_5 parses', () => { expect(() => reportSection5Schema.parse(sections.section_5)).not.toThrow(); });
+  it('section_6 parses', () => { expect(() => reportSection6Schema.parse(sections.section_6)).not.toThrow(); });
+  it('section_7 parses', () => { expect(() => reportSection7Schema.parse(sections.section_7)).not.toThrow(); });
+  it('appendix parses', () => { expect(() => reportAppendixSchema.parse(sections.appendix)).not.toThrow(); });
+});
+```
+
+> Sanity test 통과 = fixture가 schema에 정확히 맞음 보장. T6 impl 진입 시 fixture 변경 위험 0.
+
+- [ ] **Step 1.0.7.3: Commit fixture (Step 1.0 infra commit에 통합)**
+
+Step 1.0.6 commit에 fixture 파일 + sanity test 추가.
 
 - [ ] **Step 1.0.7.2: Commit fixture (Step 1.0 infra commit에 통합)**
 
@@ -435,8 +527,8 @@ Edit:
 - [ ] **Step 1.1.6: report-critic-findings.ts + sector-reference-backlog.ts에 options 패턴 적용 (B2)**
 
 Edit:
-- `tudal/src/lib/report/report-critic-findings.ts` — `insertCriticFindingsRun`, `getCriticFindingsByRunId`, `listLatestRunCriticFindings` 모두 `options: { client? } = {}`
-- `tudal/src/lib/report/sector-reference-backlog.ts` — `insertSectorBacklog` (또는 동등 helper)에 동일
+- `tudal/src/lib/data/report-critic-findings.ts` (v4 B13) — `insertCriticFindingsRun`, `getCriticFindingsByRunId`, `listLatestRunCriticFindings` 모두 `options: { client? } = {}`
+- `tudal/src/lib/data/sector-reference-backlog.ts` (v4 B13) — `insertOrBumpBacklog` (실제 함수명, **not** insertSectorBacklog) + `listBacklog` 동일
 
 - [ ] **Step 1.1.7: orchestrator wire 변경 (B2)**
 
@@ -478,8 +570,8 @@ git add tudal/src/lib/report/full-report-writer.ts \
   tudal/src/lib/ai/full-report-client.ts \
   tudal/src/lib/ai/critic-client.ts \
   tudal/src/lib/ai/revise-client.ts \
-  tudal/src/lib/report/report-critic-findings.ts \
-  tudal/src/lib/report/sector-reference-backlog.ts \
+  tudal/src/lib/data/report-critic-findings.ts \
+  tudal/src/lib/data/sector-reference-backlog.ts \
   tudal/src/lib/{cost,ai,report}/__tests__/*caller-di.test.ts
 git commit -m "feat(PR4 Task1 Step1.1): caller DI seam 전파 (B2 fix omxy R1)
 
@@ -652,7 +744,7 @@ git commit -m "feat(PR4 Task1 step2): triggerFullReport admin server action (com
 - 6 unit tests. T5 slice scope."
 ```
 
-### Step 1.3: Trigger 버튼 컴포넌트 + portfolio-panel 통합
+### Step 1.3: Trigger 버튼 컴포넌트 + ShortlistRow/BucketSection wire (v4 B10/B14 정정 — portfolio-panel 변경 안 함)
 
 - [ ] **Step 1.3.1: Create trigger-full-report-button.tsx**
 
@@ -833,13 +925,20 @@ Expected: build 25 routes / lint 0 err.
 - [ ] **Step 1.3.6: Commit**
 
 ```bash
-git add tudal/src/app/\(admin\)/admin/portfolio/trigger-full-report-button.tsx tudal/src/app/\(admin\)/admin/portfolio/portfolio-panel.tsx tudal/src/app/\(admin\)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx
-git commit -m "feat(PR4 Task1 step3): TriggerFullReportButton component + portfolio-panel integration
+git add tudal/src/app/\(admin\)/admin/portfolio/trigger-full-report-button.tsx \
+  tudal/src/app/\(admin\)/admin/portfolio/__tests__/trigger-full-report-button.test.tsx \
+  tudal/src/components/admin/shortlist/shortlist-row.tsx \
+  tudal/src/components/admin/shortlist/bucket-section.tsx \
+  tudal/src/app/\(admin\)/admin/portfolio/page.tsx
+git commit -m "feat(PR4 Task1 step3): TriggerFullReportButton + ShortlistRow/BucketSection action slot (v4 B10)
 
-- /admin/portfolio에 admin trigger 버튼 1개 신규 (commitFullReport wire)
-- shadcn Button + aria-busy + role=status feedback
-- 한국어 UI 문구 ('생성 중…' / '리포트 생성 완료' / formatErrorMessage)
-- Component test 4건 (@testing-library/react 의존 — T5 gate에서 infra 결정)
+- /admin/portfolio에 admin trigger 버튼 (commitFullReport wire) — 각 ShortlistRow 옆
+- ShortlistRow.action optional ReactNode prop (기존 caller 영향 0)
+- BucketSection.renderRowAction optional callback prop
+- page.tsx: 3 BucketSection 호출에 동일 renderAction (month.slice(0,7) 변환 포함)
+- portfolio-panel.tsx 변경 0 (v4 B10/B14)
+- shadcn Button + aria-busy + role=status + 한국어 UI 문구
+- Component test 4건 (jsdom env, Step 1.0 infra 의존)
 - omxy R2 권고 T5 first vertical slice 완료."
 ```
 
@@ -1222,6 +1321,11 @@ grep -rn "throw new Error.*tier0_source_not_wired_pr1_followup\|throw new Error.
 - ✅ B9: Step 1.2.1 tests 모두 4-field 호출 + invalid_input/invalid_ticker/invalid_month case 명시
 - ✅ B10: Step 1.3.4 BucketSection/ShortlistRow action slot 패턴 (ShortlistRow optional action prop + BucketSection renderRowAction callback + page.tsx 3 bucket에 동일 callback 전달) + portfolio-panel.tsx stale 박제 제거
 - ✅ B11: Step 5.3 getVotesByReportId wrapper 적용 (`return transformCommitteeVoteRows(rows)`) + 기존 direct tests non-null assert 보강
+
+**R3 3 BLOCKERS (v4 amend)**:
+- ✅ B12: Step 1.0.7.1 fixture 전면 재작성 — Section 0 `conviction: 50` (number) + `committeeMini` + `priceBands` + Section 2 `revenue/margins/balance` + Section 3 `multiples` + Section 6 `axis/divergencePct` 모두 schema 정합. Step 1.0.7.2 sanity test 9건 (`reportSection*Schema.parse(...).not.toThrow()`) 추가
+- ✅ B13: amend log R1 B2 / File Structure 16 modified / Step 1.1.6 / Step 1.1.10 commit git add path 모두 `lib/data/`로 정정. 함수명 `insertOrBumpBacklog` (not insertSectorBacklog) 정정
+- ✅ B14: Step 1.0.3 "environment matcher" → "test.projects 분리" 표현 정정 + Step 1.0.6 commit message `environmentMatchGlobs` → `test.projects` + File Structure `portfolio-panel.tsx` row strikethrough + 변경 안 함 명시 + Step 1.3 헤더에서 "portfolio-panel 통합" → "ShortlistRow/BucketSection wire (portfolio-panel 변경 안 함)" 정정
 
 ### 3. Placeholder scan (v2)
 - Step 1.1.4~1.1.8: 코드 box를 reference로 축소 (T6 impl 시 자세히 작성). "동일 패턴" 표현은 reference 명시 (`admin-shortlist-persist.ts:39-43`) — 모호 placeholder 아님.
