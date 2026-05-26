@@ -36,6 +36,11 @@ const KNOWN_ACTION_CODES = [
   // PR4 Task 9 watch — writer.ts dangling caller (PR3c era)
   "writer_persona_count_mismatch",
   "sector_writer_persona_count_mismatch",
+  // PR4 Task 9 Track 2 C-3 fix — track-record + archive query throw
+  "financials_fetch_failed",
+  "stock_reports_archive_query_failed",
+  "short_list_30_archive_query_failed",
+  "portfolio_approval_archive_query_failed",
   // portfolio
   "already_finalized",
   "approval_write_failed",

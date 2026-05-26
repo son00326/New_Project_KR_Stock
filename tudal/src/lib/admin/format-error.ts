@@ -43,6 +43,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // PR4 Task 9 watch — writer.ts dangling caller (triggerMonthlyPersonaEvalAction PR3c era) 박제.
   writer_persona_count_mismatch: "AI 평가 결과 개수가 일치하지 않습니다",
   sector_writer_persona_count_mismatch: "섹터 AI 평가 결과 개수가 일치하지 않습니다",
+  // PR4 Task 9 Track 2 C-3 fix: track-record/actions.ts + archive query throw 매핑.
+  // financials_fetch_failed:* prefix throw + archive 3종 query failures (Server Component error boundary 보호).
+  financials_fetch_failed: "재무 데이터 조회 실패 — 잠시 후 다시 시도하세요",
+  stock_reports_archive_query_failed: "월별 아카이브 조회 실패 (stock_reports)",
+  short_list_30_archive_query_failed: "월별 아카이브 조회 실패 (short_list_30)",
+  portfolio_approval_archive_query_failed: "월별 아카이브 조회 실패 (portfolio_approval)",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",
@@ -171,6 +177,19 @@ export function formatErrorMessage(code: string): string {
       code.slice("update_report_sections_0_7_failed:".length) +
       ")"
     );
+  }
+  // PR4 Task 9 Track 2 C-3 fix: financials_fetch_failed:* + archive query failed:* prefix handlers.
+  if (code.startsWith("financials_fetch_failed:")) {
+    return KOREAN_MAPPINGS["financials_fetch_failed"];
+  }
+  if (code.startsWith("stock_reports_archive_query_failed:")) {
+    return KOREAN_MAPPINGS["stock_reports_archive_query_failed"];
+  }
+  if (code.startsWith("short_list_30_archive_query_failed:")) {
+    return KOREAN_MAPPINGS["short_list_30_archive_query_failed"];
+  }
+  if (code.startsWith("portfolio_approval_archive_query_failed:")) {
+    return KOREAN_MAPPINGS["portfolio_approval_archive_query_failed"];
   }
   // PR3b R6 non-blocking catch: cost_log throw 코드는 suffix:<pg-code> 패턴 동반.
   if (code.startsWith("cost_log_select_failed:")) {

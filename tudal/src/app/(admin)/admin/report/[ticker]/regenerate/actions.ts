@@ -101,7 +101,8 @@ export async function regenerateReport(input: {
   }
 
   // PR4 Step 2.3: name/sector SoT = short_list_30 (마이그 0012, 마이그 0건 유지).
-  // counter increment BEFORE — shortlist fail-fast (cheap) → counter 보존.
+  // PR4 Task 9 Track 3 W3 fix: 주석 정정 — 실제 코드 순서는 shortlist → counter (이 순서 의도된 invariant).
+  // shortlist lookup BEFORE counter — cheap fail-fast (RLS deny / month mismatch) → counter 보존.
   let shortlistItem: { name: string; sector: string } | undefined;
   try {
     const items = await getActiveShortList({ month });
@@ -113,6 +114,12 @@ export async function regenerateReport(input: {
     return { success: false, error: "shortlist_lookup_failed" };
   }
   if (!shortlistItem) {
+    return { success: false, error: "shortlist_item_not_found" };
+  }
+  // PR4 Task 9 Track 2 C-2 fix: shortlist row의 name/sector empty/whitespace 차단.
+  // short_list_30 row가 partial seed (마이그 0012 신규 컬럼, T7e.8 시드 부재)인 경우
+  // name=ticker / sector="미분류" placeholder가 들어오지만 빈 string 또는 whitespace는 막아야 함.
+  if (shortlistItem.name.trim() === "" || shortlistItem.sector.trim() === "") {
     return { success: false, error: "shortlist_item_not_found" };
   }
 
