@@ -1104,7 +1104,7 @@ export function TrackRecordTabs({ cumulative, archives }: { cumulative: ...; arc
 ### Step 4.1: Render partA 14 rows in Section8ModernView
 
 - [ ] **Step 4.1.1: Read existing Section8ModernView (line 640–750)**
-- [ ] **Step 4.1.2: Add partA rendering JSX** — 14 personas × vote/conviction/one_line 카드 그리드 or 테이블
+- [ ] **Step 4.1.2: Add partA rendering JSX** — 14 personas × vote/background/one_line 카드 그리드 or 테이블 (omxy R1 B35 정정: plan typo "conviction" → schema authoritative `background`. sectorVoteRowSchema.background SoT, conviction 필드 부재)
 - [ ] **Step 4.1.3: Handle Tier 2 inactive fallback** (`partA.length === 0` 시 `SectionFallback` 또는 empty state 안내)
 - [ ] **Step 4.1.4: Add 한국어 UI labels** (예: '섹터 14인 패널 의견')
 - [ ] **Step 4.1.5: Run build/lint — verify**

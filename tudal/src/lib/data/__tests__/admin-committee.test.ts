@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   transformCommitteeVoteRow,
+  transformCommitteeVoteRows,
   aggregateVotes,
   getVotesByReportId,
   type CommitteeVoteDbRow,
@@ -31,9 +32,16 @@ const baseRow: CommitteeVoteDbRow = {
   created_at: "2026-04-01T00:10:00.000Z",
 };
 
+// PR4 Task 5 Step 5.1 — transformCommitteeVoteRow는 null 반환 가능. test helper로 narrow.
+function expectValid(row: CommitteeVoteDbRow): CommitteeVote {
+  const result = transformCommitteeVoteRow(row);
+  expect(result).not.toBeNull();
+  return result as CommitteeVote;
+}
+
 describe("transformCommitteeVoteRow", () => {
   it("maps snake_case DB columns to camelCase CommitteeVote fields", () => {
-    const vote = transformCommitteeVoteRow(baseRow);
+    const vote = expectValid(baseRow);
     expect(vote.id).toBe("vote-1");
     expect(vote.reportId).toBe("rpt-1");
     expect(vote.personaId).toBe("core-5");
@@ -44,7 +52,7 @@ describe("transformCommitteeVoteRow", () => {
   });
 
   it("treats null sector as undefined for the core layer", () => {
-    const vote = transformCommitteeVoteRow(baseRow);
+    const vote = expectValid(baseRow);
     expect(vote.sector).toBeUndefined();
   });
 
@@ -56,7 +64,7 @@ describe("transformCommitteeVoteRow", () => {
       persona_layer: "sector",
       sector: "반도체",
     };
-    const vote = transformCommitteeVoteRow(sectorRow);
+    const vote = expectValid(sectorRow);
     expect(vote.personaLayer).toBe("sector");
     expect(vote.sector).toBe("반도체");
   });
@@ -66,8 +74,45 @@ describe("transformCommitteeVoteRow", () => {
       ...baseRow,
       argument_excerpt: null,
     };
-    const vote = transformCommitteeVoteRow(sparseRow);
+    const vote = expectValid(sparseRow);
     expect(vote.argumentExcerpt).toBe("");
+  });
+
+  // PR4 Task 5 Step 5.1 (PR3a OOS RT#3) — invalid vote → null + warn.
+  it("returns null + console.warn on invalid vote value (PR3a OOS RT#3 layer 1)", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const invalidRow: CommitteeVoteDbRow = {
+      ...baseRow,
+      id: "invalid-vote-row",
+      vote: "unknown" as never,
+    };
+    const result = transformCommitteeVoteRow(invalidRow);
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/invalid_vote_skipped.*row_id=invalid-vote-row.*vote=unknown/),
+    );
+    warnSpy.mockRestore();
+  });
+});
+
+// PR4 Task 5 Step 5.1+5.3 — transformCommitteeVoteRows wrapper (null filter).
+describe("transformCommitteeVoteRows wrapper (PR4 Task 5 Step 5.1+5.3)", () => {
+  it("filters null from array — invalid rows skipped silently after warn", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const rows: CommitteeVoteDbRow[] = [
+      baseRow,
+      { ...baseRow, id: "bad-1", vote: "garbage" as never },
+      { ...baseRow, id: "vote-3", vote: "reject" },
+    ];
+    const result = transformCommitteeVoteRows(rows);
+    expect(result).toHaveLength(2);
+    expect(result.map((v) => v.id)).toEqual(["vote-1", "vote-3"]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
+  it("returns [] for [] input", () => {
+    expect(transformCommitteeVoteRows([])).toEqual([]);
   });
 });
 
@@ -108,6 +153,26 @@ describe("aggregateVotes", () => {
     expect(agg.core).toEqual({ approve: 0, reject: 0, abstain: 0 });
     expect(agg.sector).toEqual({ approve: 0, reject: 0, abstain: 0 });
   });
+
+  // PR4 Task 5 Step 5.2 (PR3a OOS RT#3 layer 2 — 직접 row read caller 보호).
+  it("skips invalid vote + warns + counts unchanged (PR3a OOS RT#3 layer 2)", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const votes: CommitteeVote[] = [
+      makeVote("core", "approve"),
+      makeVote("core", "approve"),
+      // 직접 row read caller가 transformer 우회 → invalid vote 주입
+      { ...makeVote("core", "approve"), vote: "unknown" as never },
+      makeVote("sector", "abstain"),
+    ];
+    const agg = aggregateVotes(votes);
+    // core.approve = 2 (invalid skipped, count 영향 없음), sector.abstain = 1
+    expect(agg.core).toEqual({ approve: 2, reject: 0, abstain: 0 });
+    expect(agg.sector).toEqual({ approve: 0, reject: 0, abstain: 1 });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/invalid_vote_skipped.*vote=unknown.*personaLayer=core/),
+    );
+    warnSpy.mockRestore();
+  });
 });
 
 describe("getVotesByReportId — error path (G-wrapper-error)", () => {
@@ -122,6 +187,10 @@ describe("getVotesByReportId — error path (G-wrapper-error)", () => {
     mocks.select.mockReturnValue(chain);
     mocks.eq.mockReturnValue(chain);
     mocks.order.mockResolvedValue({ data: [], error: null });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns transformed rows on happy path", async () => {
@@ -142,5 +211,23 @@ describe("getVotesByReportId — error path (G-wrapper-error)", () => {
     await expect(getVotesByReportId("rpt-1")).rejects.toThrow(
       /committee_votes/,
     );
+  });
+
+  // PR4 Task 5 Step 5.3 (B11 fix omxy R2) — wrapper invariant: invalid rows in DB → 자동 skip.
+  it("filters invalid vote rows via transformCommitteeVoteRows wrapper (B11 fix)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.order.mockResolvedValueOnce({
+      data: [
+        baseRow,
+        { ...baseRow, id: "bad-row", vote: "garbage" as never },
+      ],
+      error: null,
+    });
+    const votes = await getVotesByReportId("rpt-1");
+    // wrapper가 null filter → 1개만 반환 (silent skip + warn).
+    expect(votes).toHaveLength(1);
+    expect(votes[0].id).toBe("vote-1");
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
