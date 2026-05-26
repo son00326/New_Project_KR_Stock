@@ -112,8 +112,14 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     expect(callReviseMock).not.toHaveBeenCalled();  // critic PASS → no revise
     expect(rpcMock).toHaveBeenCalledTimes(1);  // update_report_sections_0_7
     expect(insertCriticFindingsRunMock).toHaveBeenCalledTimes(1);
-    expect(insertCriticFindingsRunMock).toHaveBeenCalledWith('r-uuid-1', happyCritic.verdict, 'writer_draft');
-    expect(insertOrBumpBacklogMock).toHaveBeenCalledWith('건설');
+    // PR4 Task 2 Step 2.1: caller DI seam — 4th/2nd arg = { client: undefined } when omitted.
+    expect(insertCriticFindingsRunMock).toHaveBeenCalledWith(
+      'r-uuid-1',
+      happyCritic.verdict,
+      'writer_draft',
+      { client: undefined },
+    );
+    expect(insertOrBumpBacklogMock).toHaveBeenCalledWith('건설', { client: undefined });
 
     expect(result.reportId).toBe('r-uuid-1');
     expect(result.revised).toBe(false);
@@ -148,7 +154,12 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     expect(evaluateReportMock).toHaveBeenCalledTimes(1);  // 1회 hard cap — critic 재호출 0
     expect(result.revised).toBe(true);
     expect(result.costKrw).toBe(236 + 5 + 271);
-    expect(insertCriticFindingsRunMock).toHaveBeenCalledWith('r-uuid-1', failCritic.verdict, 'writer_draft');
+    expect(insertCriticFindingsRunMock).toHaveBeenCalledWith(
+      'r-uuid-1',
+      failCritic.verdict,
+      'writer_draft',
+      { client: undefined },
+    );
   });
 
   it('writer FAIL → throw (orchestrator 진입 막힘)', async () => {
@@ -218,7 +229,7 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     const inputBio = { ...baseInput, sector: '바이오' };
     const { orchestrateFullReport } = await import('@/lib/report/full-report-orchestrator');
     const result = await orchestrateFullReport(inputBio);
-    expect(insertOrBumpBacklogMock).toHaveBeenCalledWith('바이오');
+    expect(insertOrBumpBacklogMock).toHaveBeenCalledWith('바이오', { client: undefined });
     expect(result.reportId).toBe('r-uuid-1');
   });
 });

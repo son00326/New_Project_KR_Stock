@@ -6,12 +6,13 @@
 //   (2) name missing → invalid_input
 //   (3) ticker format invalid (not 6 digits) → invalid_ticker
 //   (4) month format invalid (YYYY-MM-DD) → invalid_month
-//   (5) success — commitFullReport resolves
+//   (5) success — orchestrateFullReport resolves (Task 2 Step 2.2 quality swap)
 //   (6) auth unavailable — supabase user null → auth_unavailable
-//   (7) commitFullReport throws full_report_validation_failed → propagate
-//   (8) commitFullReport throws full_report_cost_hardcap_exceeded → propagate
+//   (7) orchestrateFullReport throws full_report_validation_failed → propagate
+//   (8) orchestrateFullReport throws cost_hardcap_40man → propagate
 //
-// scope: trigger 서버 액션의 입력 검증 + auth + commitFullReport wire만. Tier 2/PR5 무관.
+// scope: trigger 서버 액션의 입력 검증 + auth + orchestrateFullReport (quality) wire만.
+// Task 2 Step 2.2 박제: commit → orchestrate swap. Tier 2/PR5 무관.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const validArgs = {
@@ -51,18 +52,17 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     expect(res).toEqual({ success: false, error: 'invalid_month' });
   });
 
-  it('returns success when commitFullReport succeeds + caller DI seam invariant (B24 fix omxy R1)', async () => {
-    // OMXY R1 B24 fix: success test가 단순 reportId만 검증하면 commit args (input fields +
-    // options.client + callerKind) 회귀 silent pass. Step 1.2 검증 조건 (c) "caller DI seam 활용
-    // 정합"을 명시 assertion으로 고정.
-    const commitFullReportMock = vi
+  it('returns success when orchestrateFullReport succeeds + caller DI seam invariant (Task 2 Step 2.2 swap)', async () => {
+    // Task 2 Step 2.2 박제: admin path = orchestrateFullReport (quality, Kevin v3.1 target).
+    // B24 invariant 유지 — input fields + options {client, callerKind} 정확 전파.
+    const orchestrateFullReportMock = vi
       .fn()
-      .mockResolvedValue({ reportId: 'rpt-1', costKrw: 100 });
+      .mockResolvedValue({ reportId: 'rpt-1', costKrw: 535, revised: false });
     const supabaseClient = {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
     };
-    vi.doMock('@/lib/report/full-report-writer', () => ({
-      commitFullReport: commitFullReportMock,
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: orchestrateFullReportMock,
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => supabaseClient,
@@ -70,13 +70,14 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     const { triggerFullReport } = await import('../actions');
     const res = await triggerFullReport(validArgs);
     expect(res).toEqual({ success: true, data: { reportId: 'rpt-1' } });
-    // B24 invariant: input fields (prompt-valid stub 정합) + options { client, callerKind }
-    // 정확 전파 확인. silent regression 차단:
+    // B24 invariant (Task 2 quality path): 4-field args + options {client, callerKind: 'admin'}.
+    // silent regression 차단:
     //   - 2nd arg 누락 / { client: undefined, callerKind: 'admin' } → FAIL
-    //   - callerKind: 'cron' → FAIL
+    //   - callerKind: 'cron' → FAIL (admin path는 'admin')
     //   - adminUserId 누락/하드코딩 → FAIL
     //   - prompt-valid stub drift (HOLD / 🟡 / 근거 부족) → FAIL
-    expect(commitFullReportMock).toHaveBeenCalledWith(
+    //   - orchestrate → commit 역회귀 (fast path 회귀) → mock 미호출 → FAIL
+    expect(orchestrateFullReportMock).toHaveBeenCalledWith(
       expect.objectContaining({
         ticker: '005930',
         name: '삼성전자',
@@ -105,9 +106,9 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     expect(res).toEqual({ success: false, error: 'auth_unavailable' });
   });
 
-  it('returns error when commitFullReport throws full_report_validation_failed', async () => {
-    vi.doMock('@/lib/report/full-report-writer', () => ({
-      commitFullReport: vi
+  it('returns error when orchestrateFullReport throws full_report_validation_failed', async () => {
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: vi
         .fn()
         .mockRejectedValue(new Error('full_report_validation_failed:section_0:headline')),
     }));
@@ -124,9 +125,9 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     });
   });
 
-  it('returns error when commitFullReport throws cost_hardcap_40man', async () => {
-    vi.doMock('@/lib/report/full-report-writer', () => ({
-      commitFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_40man')),
+  it('returns error when orchestrateFullReport throws cost_hardcap_40man', async () => {
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_40man')),
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({

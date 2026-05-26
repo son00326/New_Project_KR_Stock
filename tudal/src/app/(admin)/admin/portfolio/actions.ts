@@ -610,19 +610,21 @@ export async function triggerFullReport(input: {
   if (!user?.id) return { success: false, error: "auth_unavailable" };
 
   try {
-    // Dynamic import — writer module 1.6KB+ lazy.
-    const { commitFullReport } = await import(
-      "@/lib/report/full-report-writer"
+    // PR4 Task 2 Step 2.2: commit → orchestrate swap (admin quality path).
+    // T5 (Task 1)는 commitFullReport (fast). Task 2부터 orchestrateFullReport (3-step
+    // analyst → writer → critic + conditional revise, Kevin v3.1 quality target).
+    // Dynamic import — orchestrator module heavy (PR3c 본체) lazy load.
+    const { orchestrateFullReport } = await import(
+      "@/lib/report/full-report-orchestrator"
     );
-    // T5 slice: commitFullReport (fast). Task 2에서 quality path (3-step) swap.
-    const result = await commitFullReport(
+    const result = await orchestrateFullReport(
       {
         ticker: input.ticker,
         name: input.name,
         sector: input.sector,
         month: input.month,
-        // v2 (B3 fix): prompt-valid stub. enriched input은 Task 2에서 short_list_30 +
-        // cost_log + technicals 합산.
+        // v2 (B3 fix): prompt-valid stub. enriched input은 후속 Tier 1·Tier 2 결과 활용
+        // (short_list_30 + cost_log + technicals 합산).
         tier1Verdict: "HOLD",
         consensusBadge: "🟡",
         financialsSummary: "근거 부족",
@@ -632,7 +634,7 @@ export async function triggerFullReport(input: {
         adminUserId: user.id,
       },
       {
-        client: supabase, // admin SSR session client (PR4 Task 1 Step 1.1 caller DI seam)
+        client: supabase, // admin SSR session client (Step 1.1 caller DI seam)
         callerKind: "admin",
       },
     );
@@ -640,7 +642,9 @@ export async function triggerFullReport(input: {
   } catch (err) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "commit_full_report_failed",
+      error: err instanceof Error
+        ? err.message
+        : "orchestrate_full_report_failed",
     };
   }
 }
