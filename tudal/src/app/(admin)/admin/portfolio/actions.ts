@@ -10,6 +10,7 @@ import {
   raisePortfolioDispute,
   resolvePortfolioDispute,
 } from "@/lib/data/admin-approvals";
+import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
@@ -615,6 +616,24 @@ export async function triggerFullReport(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.id) return { success: false, error: "auth_unavailable" };
+
+  // B65-P1 Phase 1: row-missing preflight (cost burn 차단).
+  // update_report_sections_0_7 RPC가 UPDATE-only (마이그 0022) — row 부재 시
+  // 1~3 LLM call 비용 burn 후 fail. Preflight cheap SELECT로 fail-fast.
+  // B86: input.month YYYY-MM → stock_reports.month (date) YYYY-MM-01 변환 (preflight 전용).
+  //   orchestrate payload month는 YYYY-MM 유지 (RPC contract: ^[0-9]{4}-[0-9]{2}$).
+  // omxy R1 CONVERGED scope: (i) caller-side 변환 / (ii) helper signature 미변경 /
+  //   (iii) Phase 2 도입 시 본 guard를 feature flag로 toggle (B98 default).
+  const monthDate = `${input.month}-01`;
+  let exists: boolean;
+  try {
+    exists = await reportExistsForMonth(input.ticker, monthDate);
+  } catch {
+    return { success: false, error: "report_lookup_failed" };
+  }
+  if (!exists) {
+    return { success: false, error: "report_not_found" };
+  }
 
   try {
     // PR4 Task 2 Step 2.2: commit → orchestrate swap (admin quality path).
