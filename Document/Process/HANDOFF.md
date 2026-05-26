@@ -133,25 +133,27 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
-#### PR4 active submatrix (Task별 진행)
+#### PR4 historical submatrix (pre-merge snapshot, PR #19 MERGED `7de9696`)
+
+> **HISTORICAL 박제 — 본 matrix는 PR4 MERGED 후 pre-merge snapshot. 다음 세션 진입자는 §6 56차 §5 entry + PR #19 body 참조. Step 2.3 / Task 3-9 모두 MERGED.**
 
 | Task / Step | Owner | 상태 | Commits | OMXY |
 |---|---|---|---|---|
-| **Task 1 Step 1.0** test infra (jsdom + testing-library + fixture) | CLAUDE | ✅ | `cf23e59` | R1+R2 CONVERGED |
-| **Task 1 Step 1.1** caller DI seam (7 modules options:{client?}) | CLAUDE | ✅ | `f6205bf` + `d94a1b9` | R1+R2 CONVERGED (B23) |
-| **Task 1 Step 1.2** triggerFullReport admin server action | CLAUDE | ✅ | `3ef9e0b` + `39d4b5b` | R1+R2 CONVERGED (B24) |
-| **Task 1 Step 1.3** TriggerFullReportButton + ShortlistRow/BucketSection action slot | CLAUDE | ✅ | `8f4eb88` + `99bab77` | R1+R2 CONVERGED (B25+B26) |
-| **Task 2 Step 2.1+2.2** orchestrateFullReport DI + admin quality swap | CLAUDE | ✅ | `5cc98cb` + `c7eced2` | R1+R2 CONVERGED (B27+B28) |
-| **Task 2 Step 2.3** Regen orchestrate wire ⭐ **다음 1순위** | CLAUDE | 🟡 deferred | — | — |
-| **Task 3** Track Record 탭 분리 (Group A+F 해소) | CLAUDE | ⏸ | — | — |
-| **Task 4** PR3a OOS RT#1 partA 14 rows | CLAUDE | ⏸ | — | — |
-| **Task 5** PR3a OOS RT#3 aggregateVotes layer 2 guard | CLAUDE | ⏸ | — | — |
-| **Task 6** PR3a OOS RT#4/RT#5 LLM string/array max bound | CLAUDE | ⏸ | — | — |
-| **Task 7** B18 CRON_SECRET 401 test (4종) | CLAUDE | ⏸ | — | — |
-| **Task 8** W7 verification (Task 2 후속, defer 19) | CLAUDE | ⏸ | — | — |
-| **Task 9** format-error 신규 키 + 최종 3-gate 검증 + push/PR-create | SHARED | ⏸ | — | — |
+| **Task 1 Step 1.0** test infra (jsdom + testing-library + fixture) | CLAUDE | ✅ MERGED | `cf23e59` | R1+R2 CONVERGED |
+| **Task 1 Step 1.1** caller DI seam (7 modules options:{client?}) | CLAUDE | ✅ MERGED | `f6205bf` + `d94a1b9` | R1+R2 CONVERGED (B23) |
+| **Task 1 Step 1.2** triggerFullReport admin server action | CLAUDE | ✅ MERGED | `3ef9e0b` + `39d4b5b` | R1+R2 CONVERGED (B24) |
+| **Task 1 Step 1.3** TriggerFullReportButton + ShortlistRow/BucketSection action slot | CLAUDE | ✅ MERGED | `8f4eb88` + `99bab77` | R1+R2 CONVERGED (B25+B26) |
+| **Task 2 Step 2.1+2.2** orchestrateFullReport DI + admin quality swap | CLAUDE | ✅ MERGED | `5cc98cb` + `c7eced2` | R1+R2 CONVERGED (B27+B28) |
+| **Task 2 Step 2.3** Regen orchestrate wire | CLAUDE | ✅ MERGED | `8b63e1f` | R1+R2 CONVERGED (B29~B31) |
+| **Task 3** Track Record 탭 분리 (Group A+F 해소) | CLAUDE | ✅ MERGED | `983c942` | R1+R2 CONVERGED (B32~B34) |
+| **Task 4** PR3a OOS RT#1 partA 14 rows | CLAUDE | ✅ MERGED | `7d80c47` | R1~R5 CONVERGED (B35~B38) |
+| **Task 5** PR3a OOS RT#3 aggregateVotes layer 2 guard | CLAUDE | ✅ MERGED | `7d80c47` | R1~R5 CONVERGED |
+| **Task 6** PR3a OOS RT#4/RT#5 LLM string/array max bound | CLAUDE | ✅ MERGED | `7d80c47` | R1~R5 CONVERGED |
+| **Task 7** B18 CRON_SECRET 401 test (4종 + 1 sanity) | CLAUDE | ✅ MERGED | `8483050` | R1~R3 CONVERGED (B39~B40) |
+| **Task 8** W7 enriched/input drift + static invariant | CLAUDE | ✅ MERGED | `a028422` | R1 CONVERGED |
+| **Task 9** format-error 인벤토리 + 3-track Fix-First + push/PR-create | SHARED | ✅ MERGED | `36cb6f4` + `2eef985` + `24cdfec` + `73dec10` + `942be16` | R1~R8 CONVERGED (B41~B46) + 3-track 5 |
 
-**Step 2.3 entry note (다음 1순위)**: 변경 범위 = `regenerate/actions.ts` orchestrate 호출 + `stock_reports`에서 name/sector fetch (현재 input은 `{ticker, month}`만) + return shape `{manualCount, manualRemaining}` → `+reportId` 추가 (breaking) + `regenerate-panel.tsx` UI 영향. Step 1.2 패턴 (caller DI {client, callerKind:'admin'}) 정합.
+**Pre-merge note (historical)**: Step 2.3 ~ Task 9 모두 56차 §5 PR4 MERGED 시점에 완료. canonical 5-PR 완료, 다음 1순위 = PR5 cron 30 자동 + 큐 인프라.
 
 #### 후속 PR + 운영 (PR5 + S7b~S9)
 
@@ -495,7 +497,7 @@ PR4 impl 단계에서 OMXY가 4 cycle × R1+R2에 걸쳐 catch한 6 BLOCKERS (B2
   - **CLAUDE** = 자동: 코드 / 문서 / 로컬 commit / 로컬 검증.
   - **SHARED** = push / PR create: "이어서 진행" 권한으로 prepare/commit/push/PR-create 가능. merge/deploy/migration은 USER.
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
-- **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제 + 55차 §2/§4 정정): PR2 ✅ → PR3a ✅ → PR1 ✅ → PR3b ✅ → PR3c ✅ → **PR4 (진행 중, Task 1+2 부분 완료)**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행) ✅ **해소** (54차 §3). PR4 잔여 = Step 2.3 + Task 3-9 (§2.1 PR4 active submatrix 참조).
+- **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제 + 55차 §2/§4 + 56차 §5 정정): PR2 ✅ → PR3a ✅ → PR1 ✅ → PR3b ✅ → PR3c ✅ → **PR4 ✅ MERGED `7de9696` (56차 §5, PR #19) — canonical 5-PR 완료**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행) ✅ **해소** (54차 §3). 다음 = PR5 (cron 30 자동 + 큐 인프라, T11 분할 결정 보존).
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. PR3b writer 본문 + PR3c orchestrate + PR4 admin path (`orchestrateFullReport`) 모두 동일 quality target.
 - **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 **56차 §5 종료 시점** = PR4 MERGED ✅ in main `7de9696` (PR #19) / canonical 5-PR 완료 / test:ci 1126 PASS / build 25 routes / lint 0 err / tsc clean / 0 migrations (PR4 invariant) / OMXY PR4 lifecycle 50 BLOCKERS (Plan 21 + Impl 24 B23~B46 + 3-track Fix-First 5) catch & fix. **USER 잔여 액션 = 0** (Vercel canary verify 사용자 결정) → 다음 = CLAUDE **PR5 cron 30 자동 + 큐 인프라** (T11 분할 결정 보존, 16,050원/월 hardcap 4% 박제) 진입 의사 1회 확인 후 자동.
 - **DI seam invariant 정밀화 default (§7.9 PR4 lesson)**: 모든 caller DI test는 결과값 assert만이 아닌 (1) createClient short-circuit (2) helper-chain 2nd arg propagation (3) payload field invariant (4) 한국어 매핑 (5) shouldRevise=true revise branch — 5중 명시 assertion 필수.
