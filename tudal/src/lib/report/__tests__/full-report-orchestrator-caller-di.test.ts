@@ -125,6 +125,71 @@ describe('orchestrateFullReport — caller DI seam (PR4 Task 2 Step 2.1)', () =>
     expect(result.revised).toBe(false);
   });
 
+  it('propagates client to callRevise when shouldRevise=true (B27 fix omxy R1)', async () => {
+    // OMXY R1 B27 fix: caller-di test가 shouldRevise=false라 revise branch 스킵 →
+    // callRevise(..., {client: undefined}) 회귀 silent pass. shouldRevise=true path 별도 검증.
+    const fakeClient = {
+      rpc: vi.fn().mockResolvedValue({
+        data: { success: true, report_id: 'rpt-orch-revise-1' },
+        error: null,
+      }),
+    };
+    // failCount: 1 → shouldRevise=true (Q3 threshold)
+    const failVerdict = {
+      ...passVerdict,
+      factuality: { verdict: 'FAIL' as const, reason: '근거 부족' },
+    };
+    const callReviseMock = vi.fn().mockResolvedValue({
+      content: validFullReportJson(),
+      usage: { input_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1 },
+      costKrw: 272,
+    });
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
+    vi.doMock('@/lib/cost/cost-logger', () => ({
+      preflightHardcap: vi.fn().mockResolvedValue(undefined),
+      insertCostLog: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.doMock('@/lib/ai/full-report-client', () => ({
+      callFullReport: vi.fn().mockResolvedValue({
+        content: validFullReportJson(),
+        usage: { input_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1 },
+        costKrw: 236,
+      }),
+    }));
+    vi.doMock('@/lib/ai/revise-client', () => ({
+      callRevise: callReviseMock,
+    }));
+    vi.doMock('@/lib/report/critic', () => ({
+      evaluateReport: vi.fn().mockResolvedValue({
+        verdict: failVerdict,
+        shouldRevise: true,
+        failCount: 1,
+        warnCount: 0,
+        costKrw: 27,
+      }),
+      REVISE_TRIGGER_WARN_THRESHOLD: 4,
+    }));
+    vi.doMock('@/lib/data/report-critic-findings', () => ({
+      insertCriticFindingsRun: vi.fn().mockResolvedValue({ runId: 'crit-run-revise-1' }),
+    }));
+    vi.doMock('@/lib/data/sector-reference-backlog', () => ({
+      insertOrBumpBacklog: vi.fn().mockResolvedValue(undefined),
+    }));
+    const { orchestrateFullReport } = await import('@/lib/report/full-report-orchestrator');
+    const result = await orchestrateFullReport(validInput, {
+      client: fakeClient as never,
+      callerKind: 'admin',
+    });
+
+    // B27 invariant: callRevise 2nd arg client propagation.
+    expect(callReviseMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: fakeClient },
+    );
+    expect(result.revised).toBe(true);
+    expect(result.reportId).toBe('rpt-orch-revise-1');
+  });
+
   it('falls back to createClient when options omitted (default behavior preserved)', async () => {
     const createClientSpy = vi.fn().mockResolvedValue({
       rpc: vi.fn().mockResolvedValue({

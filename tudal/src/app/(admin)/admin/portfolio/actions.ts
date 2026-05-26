@@ -562,7 +562,7 @@ export async function triggerMonthlyBatch(input: {
 
 // ---------------------------------------------------------------------------
 // PR4 Task 1 — triggerFullReport admin server action (Group D 잔여 + B8 박제 caller path).
-// T5 first vertical slice: commitFullReport (fast) wire. Task 2에서 orchestrate path swap.
+// T5 first vertical slice: fast path wire. Task 2에서 quality path (3-step orchestrate) swap.
 // 사용자 lock-in §1.3 (3 trigger path) + §1.4 (UI 흐름). admin 1개 즉석 quality 재생성은 Task 2.
 //
 // v2 amend (omxy R1 B3 plan): minimum stub은 prompt schema 통과 valid value.
@@ -611,7 +611,7 @@ export async function triggerFullReport(input: {
 
   try {
     // PR4 Task 2 Step 2.2: commit → orchestrate swap (admin quality path).
-    // T5 (Task 1)는 commitFullReport (fast). Task 2부터 orchestrateFullReport (3-step
+    // T5 (Task 1)는 fast path. Task 2부터 quality path (3-step
     // analyst → writer → critic + conditional revise, Kevin v3.1 quality target).
     // Dynamic import — orchestrator module heavy (PR3c 본체) lazy load.
     const { orchestrateFullReport } = await import(
