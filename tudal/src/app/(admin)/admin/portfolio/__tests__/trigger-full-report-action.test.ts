@@ -51,18 +51,47 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     expect(res).toEqual({ success: false, error: 'invalid_month' });
   });
 
-  it('returns success when commitFullReport succeeds', async () => {
+  it('returns success when commitFullReport succeeds + caller DI seam invariant (B24 fix omxy R1)', async () => {
+    // OMXY R1 B24 fix: success test가 단순 reportId만 검증하면 commit args (input fields +
+    // options.client + callerKind) 회귀 silent pass. Step 1.2 검증 조건 (c) "caller DI seam 활용
+    // 정합"을 명시 assertion으로 고정.
+    const commitFullReportMock = vi
+      .fn()
+      .mockResolvedValue({ reportId: 'rpt-1', costKrw: 100 });
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+    };
     vi.doMock('@/lib/report/full-report-writer', () => ({
-      commitFullReport: vi.fn().mockResolvedValue({ reportId: 'rpt-1', costKrw: 100 }),
+      commitFullReport: commitFullReportMock,
     }));
     vi.doMock('@/lib/supabase/server', () => ({
-      createClient: async () => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
-      }),
+      createClient: async () => supabaseClient,
     }));
     const { triggerFullReport } = await import('../actions');
     const res = await triggerFullReport(validArgs);
     expect(res).toEqual({ success: true, data: { reportId: 'rpt-1' } });
+    // B24 invariant: input fields (prompt-valid stub 정합) + options { client, callerKind }
+    // 정확 전파 확인. silent regression 차단:
+    //   - 2nd arg 누락 / { client: undefined, callerKind: 'admin' } → FAIL
+    //   - callerKind: 'cron' → FAIL
+    //   - adminUserId 누락/하드코딩 → FAIL
+    //   - prompt-valid stub drift (HOLD / 🟡 / 근거 부족) → FAIL
+    expect(commitFullReportMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticker: '005930',
+        name: '삼성전자',
+        sector: '반도체',
+        month: '2026-06',
+        tier1Verdict: 'HOLD',
+        consensusBadge: '🟡',
+        financialsSummary: '근거 부족',
+        technicalsSummary: '근거 부족',
+        macroSummary: '근거 부족',
+        sectorReference: '근거 부족',
+        adminUserId: 'admin-uid',
+      }),
+      { client: supabaseClient, callerKind: 'admin' },
+    );
   });
 
   it('returns error when auth unavailable (user null)', async () => {

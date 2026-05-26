@@ -614,7 +614,7 @@ export async function triggerFullReport(input: {
     const { commitFullReport } = await import(
       "@/lib/report/full-report-writer"
     );
-    // T5 slice: commitFullReport (fast). Task 2에서 orchestrateFullReport swap.
+    // T5 slice: commitFullReport (fast). Task 2에서 quality path (3-step) swap.
     const result = await commitFullReport(
       {
         ticker: input.ticker,
