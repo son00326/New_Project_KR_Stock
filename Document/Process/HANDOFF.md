@@ -86,7 +86,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **`7de9696`** (PR4 MERGED rebase FF, 26 commits + PR3c `4e61832` baseline) |
+| main HEAD | **PR4 baseline `7de9696`** (PR #19 MERGED rebase FF, 26 commits + PR3c `4e61832` baseline). 본 §5 docs commit 머지 후 main HEAD는 docs head로 advance — 즉시 post-merge state. |
 | **현재 OPEN branch** | docs/56-step4-handoff-cleanup (PR #18) — 본 §5 commit으로 §4+§5 합산. 본 commit 머지 후 #18 close. |
 | **PR4 PR** | ✅ **MERGED `7de9696`** (PR #19, https://github.com/son00326/New_Project_KR_Stock/pull/19, 26 commits rebase FF, --delete-branch) |
 | **PR4 Task 1-9 모두 완료** | T5 first vertical slice + orchestrator DI + Regen wire + Track Record 탭 + PR3a OOS 3종 + B18 cron 401 + W7 enriched/input drift + format-error inventory + 3-track Fix-First |
