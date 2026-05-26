@@ -439,17 +439,18 @@ select count(*) from public.stock_reports where ticker = '999999' and month = '2
 -- 기대: 0
 
 -- A2. authenticated admin 컨텍스트로 RPC 호출 (INSERT branch 진입)
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub":"<ADMIN_USER_UUID>","email":"<admin@example.com>"}';
+-- ⚠️ SET LOCAL은 transaction block 내에서만 유효 (omxy R4 Aristotle B1 fix) — 명시적 BEGIN/COMMIT wrapper.
+begin;
+  set local role authenticated;
+  set local "request.jwt.claims" = '{"sub":"<ADMIN_USER_UUID>","email":"<admin@example.com>"}';
 
-select public.upsert_report_sections_0_7_admin(
-  '999999', '2026-12',
-  '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb,
-  '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb,
-  '{"v":"insert"}'::jsonb
-);
-
-reset role; reset "request.jwt.claims";
+  select public.upsert_report_sections_0_7_admin(
+    '999999', '2026-12',
+    '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb,
+    '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb, '{"v":"insert"}'::jsonb,
+    '{"v":"insert"}'::jsonb
+  );
+commit;
 
 -- A3. SELECT — 신규 row INSERT 검증
 select
@@ -484,19 +485,20 @@ select generated_at as old_generated_at from public.stock_reports
 -- (이 값을 \gset 또는 psql variable로 저장 후 B4에서 비교)
 
 -- B3. authenticated admin 컨텍스트로 두번째 RPC 호출 (UPDATE branch 진입)
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub":"<ADMIN_USER_UUID>","email":"<admin@example.com>"}';
+-- ⚠️ SET LOCAL은 transaction block 내에서만 유효 (omxy R4 Aristotle B1 fix) — 명시적 BEGIN/COMMIT wrapper.
+select pg_sleep(1);  -- generated_at bump verification ms-level 보장 (transaction 외부에서 실행 가능)
 
-select pg_sleep(1);  -- generated_at bump verification ms-level 보장
+begin;
+  set local role authenticated;
+  set local "request.jwt.claims" = '{"sub":"<ADMIN_USER_UUID>","email":"<admin@example.com>"}';
 
-select public.upsert_report_sections_0_7_admin(
-  '999999', '2026-12',
-  '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb,
-  '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb,
-  '{"v":"update"}'::jsonb
-);
-
-reset role; reset "request.jwt.claims";
+  select public.upsert_report_sections_0_7_admin(
+    '999999', '2026-12',
+    '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb,
+    '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb, '{"v":"update"}'::jsonb,
+    '{"v":"update"}'::jsonb
+  );
+commit;
 
 -- B4. SELECT — UPDATE branch invariants 검증 (omxy R3 Sartre B2 fix — generated_at bump + preserve 모두)
 select
@@ -883,7 +885,7 @@ Closes: HANDOFF §2.1 Task 4
 | Schop | B1 | BLOCKER | ON CONFLICT partial unique index predicate verbatim 검증 누락 | §6.3 grep "where is_latest = true" verify 추가 |
 | Schop | B2 | BLOCKER | env propagation 즉시 효과 미보장 | §4.1 + §9.2 wording 정정 + redeploy 권장 |
 | Schop | B3 | BLOCKER | error literal cross-path leak | §4.1 rpcName guard 추가 |
-| Schop | B4 | BLOCKER | "신규 4종" 카운트 mismatch | §0 + §4.3 "3 keys + 1 prefix handler = 4 entries" 명시 |
+| Schop | B4 | BLOCKER | "신규 4종" 카운트 mismatch | §0 + §4.3 "2 keys + 1 prefix handler = 3 entries" 명시 (R3 Sartre W3 + R4 Aristotle W1 정정 — 본문/PR body line 691과 sync) |
 | Schop | B5 | BLOCKER (critical) | `.env.example` default `true` → 로컬 dev crash | §4.4 + 부록 B default `false`로 정정 |
 | Schop | B6 | BLOCKER | callerKind type narrow 미명시 | §4.1에 type snippet + cron 호출 패턴 박제 |
 | Schop | B7 | BLOCKER | section_8 preserve test payload key only | §5 Test 4를 4a (payload) + 4b (DB integration smoke)로 분리 |
