@@ -108,7 +108,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | canonical 5-PR MERGED (전체 완료) | PR2 `f85fb69` (54차 §2) / PR3a `0813a41` (54차 §3) / PR1 `4aa3130` (54차 §4) / PR3b `cf68731` (55차 §3) / PR3c `b2a902a` (55차 §4) / **PR4 `7de9696` (56차 §5)** — 상세 = git log + PR body |
 | Mock Skeleton + DQ-7 + S7e + S7a + Tier 2 | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) / ✅ S7a MERGED (51차) / ✅ Tier 2 D21 (52차+53차) |
 | 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR5 cron 가동 시 메인 path 활성 (B65-P3 + B66 backfill + Smoke Stage 1+2 PASS 후만 진입)**. |
-| 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired. **but production cost_log=0 / stock_reports=0 — B65 RPC fail로 인해 0건. PR5 = cron caller path도 동일 RPC 의존** (B65-P2 옵션 A/B/C 선택이 PR5 호환성 결정). |
+| 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired. **but production cost_log=0 / stock_reports=0 — 성공/기록된 AI 호출 및 리포트 0건. admin trigger 클릭 시 LLM/cost_log 일부 기록 후 B65 RPC persist fail 가능; 정확한 cost_log 적재 지점은 Smoke Stage 2에서 확정 (B108 정정). PR5 = cron caller path도 동일 RPC 의존** (B65-P2 옵션 A/B/C 선택이 PR5 호환성 결정). |
 | OPEN PRs | **#2** (format-error, 보류) only (본 §5 docs commit 머지 후 #18 close 박제) |
 | 실 AI 호출 | **현재 0건 (production cost_log ground truth)**. Vercel env 3 vars (ANTHROPIC_API_KEY + 2 모델 ID) Production 배포 + 충전 완료. **현 상태 = 성공/기록된 호출 0건이며, admin trigger button 클릭 시 LLM/cost_log 일부 기록 후 stock_reports persist (B65 RPC) 지점에서 fail 가능 — cost_log 적재 정확한 지점은 smoke Stage 2 시 확정 (B100 정정)**. B65-P3 후 첫 실 AI smoke 가능 (B97 2-stage 분리). |
 | Production deploy | **Vercel main `7de9696` deploying** (본 HANDOFF commit 시점 pending). canary verify: PR4 핵심 4 페이지 (/admin/portfolio, /admin/track-record, /admin/report/[ticker], /admin/report/[ticker]/regenerate) + 기존 4 페이지 + Functional smoke 3 (C-1 click / C-2 validation / B18 401). |
@@ -546,7 +546,7 @@ PR4 MERGED `7de9696` 직후 사용자 catch: "AI 키 도입 후에도 short_list
 - `tudal/src/app/api/cron/monthly-batch/route.ts` = `mockTier0Source` / `mockCallPersonaPanel` throw → **cron path AI 호출 자동 진입 X**
 - `tudal/supabase/migrations/0022_update_report_sections_0_7.sql` = UPDATE-only RPC throw `report_not_found_for_section_0_7_update` if row missing → **admin trigger button path AI 호출 후 RPC fail (1~3 LLM call 비용 burn)**
 
-PR4 12 omxy rounds + 3-track deep review가 본 결함 miss한 이유: 모든 테스트가 RPC를 mock하여 UPDATE-only constraint가 production-only로 잠복.
+PR4 lifecycle omxy debate + 3-track deep review가 본 결함 miss한 이유: 모든 테스트가 RPC를 mock하여 UPDATE-only constraint가 production-only로 잠복.
 
 ### 9.2 B65 CRITICAL — PR4 trigger button = cost burn fail (3-phase 분리)
 
