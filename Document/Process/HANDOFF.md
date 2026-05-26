@@ -570,11 +570,37 @@ PR #21 R2 단계 omxy debate pattern:
 - **omxy R1+R2 = 매 commit/task 단위 detail review** (silent regression invariant 차단).
 - 두 패턴은 **complementary** (3-track은 broad, omxy R1+R2는 narrow). PR3b/PR4/PR #21 모두 적용.
 
+### 7.11 사용자 Q&A omxy light debate 패턴 박제 (57차 §1 종료, USER 요구 명시)
+
+**핵심 lesson** (사용자 명시 요구 = "내 질문사항들에 대해서 전부 에이전트와 스킬을 이용해서 검토하고 토론해서 올바른 답변"):
+
+PR 머지 / 코드 변경은 **heavy R1~R4 verify cycle** (§7.9 + §7.10). 그러나 사용자 Q&A는 다른 카테고리:
+
+**Light Q&A debate pattern** (read-only fact verification):
+- 적용 대상: HANDOFF 해석 / mock→real 상태 / SoT routing / 출시 시퀀스 / 기능 박제 확인처럼 **다음 세션 행동에 영향을 주는 Q&A**
+- 검증 도구: `debate-with-omx Responder` + `native critic` 1명 + 로컬 `rg`/`grep`/문서 read
+- 출력: BLOCKERS 분류 + Q&A 답변 정정 권장
+- Scope guard 강제: (1) **파일 변경 0** (Q&A 답변 합의만) (2) Task 3-8 spec 결정 0 (3) §2.1 active matrix mutation 0 (4) §3 USER 액션 큐 mutation 0 unless concrete stale blocker
+
+**Heavy 승격 조건** (light → R1/R2 cycle 강제):
+- migration / billing / real-money / PR merge / 로드맵 변경을 유발하는 Q&A
+- product spec 결정 / D-decision 변경 / 가드레일 변경
+- 위 조건 도달 시 §7.9/§7.10 R1~R4 cycle 적용
+
+**적용 시점** (57차 §1 박제):
+- 57차 §1까지 사용자 Q&A는 Claude 단독 답변 (omxy 검증 X)
+- 57차 §1 종료 시점부터 모든 HANDOFF-affecting Q&A는 본 §7.11 패턴 적용
+
+**박제 자료**:
+- omxy 4 BLOCKERS catch (B1 "28개 mock" 단정 금지 + B2 USER 액션 누락 + B3 S7-RealData stale header + B4 caveat 누락) — light debate로도 효과 입증
+- omxy R2 본 §7.11 + §8 추가 결정 (Zeno critic, BLOCKERS 0, CONVERGED)
+
 ---
 
 ## 8. 사용자 운영 원칙
 
 - **omxy 토론 = 무조건 subagent/skill 활용해 정말 완벽하게 검토** (사용자 명시).
+- **사용자 Q&A도 omxy 검증 강제** (57차 §1 박제, 사용자 명시 요구): HANDOFF-affecting Q&A는 §7.11 light debate (read-only grep + critic 1명) 검증을 거친 후 사용자에게 답변. 실행 상태 변경 없으면 §2.1 / §3 / Smoke Stage 2 approval gate 건드리지 X. Heavy 승격 조건 도달 시 §7.9/§7.10 R1~R4 cycle 강제.
 - **사용자 승인 게이트 제거** (omxy CONVERGED = 사용자 승인 등가). HANDOFF 범위 초과 또는 product spec 결정만 사용자 직접 묻기.
 - **omxy 토론 진입 시 scope guard 4종 박제 필수**: 목적 / 컨텍스트 / 선택지 / Out-of-Scope (memory: [[feedback_omxy_debate_scope_guard]]).
 - **commit pattern**: 자동 commit (amend 금지 — 사용자 명시 시만). branch 분리 = main 직접 commit 금지.
