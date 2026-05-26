@@ -106,4 +106,38 @@ describe('evaluateReport — threshold + 1회 hard cap (Q3 + B6 + B19)', () => {
     const { evaluateReport } = await import('@/lib/report/critic');
     await expect(evaluateReport(sectionsStub, ctx)).rejects.toThrow('critic_llm_failed');
   });
+
+  // PR4 Task 2 Step 2.1 (B28 fix omxy R1): evaluateReport→callCritic client 전파 invariant.
+  // orchestrator caller-di test는 evaluateReportMock 3rd arg만 검증 — critic.ts 내부에서
+  // callCritic(input)로 회귀해도 silent pass. critic 직접 test에서 callCritic 2nd arg 고정.
+  it('B28 — evaluateReport({client}) → callCritic 2nd arg propagation', async () => {
+    const { callCritic } = await import('@/lib/ai/critic-client');
+    (callCritic as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      verdict: allPass,
+      usage: { input_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1 },
+      costKrw: 1,
+    });
+    const fakeClient = { tag: 'fake-critic-evaluate' } as never;
+    const { evaluateReport } = await import('@/lib/report/critic');
+    await evaluateReport(sectionsStub, ctx, { client: fakeClient });
+    expect(callCritic).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: fakeClient },
+    );
+  });
+
+  it('B28 — default options omitted → callCritic 2nd arg = { client: undefined }', async () => {
+    const { callCritic } = await import('@/lib/ai/critic-client');
+    (callCritic as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      verdict: allPass,
+      usage: { input_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1 },
+      costKrw: 1,
+    });
+    const { evaluateReport } = await import('@/lib/report/critic');
+    await evaluateReport(sectionsStub, ctx);
+    expect(callCritic).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: undefined },
+    );
+  });
 });
