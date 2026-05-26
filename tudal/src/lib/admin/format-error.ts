@@ -30,6 +30,9 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   regen_counter_lookup_failed: "재생성 카운터 조회에 실패했습니다. 잠시 후 다시 시도하세요",
   regen_counter_write_failed: "재생성 카운터 저장에 실패했습니다. 잠시 후 다시 시도하세요",
   regen_counter_write_conflict: "다른 어드민이 동시에 재생성 중입니다. 잠시 후 다시 시도하세요",
+  // PR4 Step 2.3 — regenerate orchestrate wire 신규 코드 (omxy R1 B29 fix).
+  shortlist_item_not_found: "이번 달 Short List에서 해당 종목을 찾을 수 없습니다",
+  orchestrate_full_report_failed: "풀 리포트 생성에 실패했습니다 — 잠시 후 다시 시도하세요",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",
