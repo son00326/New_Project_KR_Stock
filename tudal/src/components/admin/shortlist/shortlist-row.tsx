@@ -24,8 +24,13 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
   const divergenceText =
     (divergenceUp ? "+" : "") + item.divergencePct.toFixed(1) + "%";
 
+  // PR4 Task 9 omxy R4 B43 fix: action을 <summary> OUT으로 이동.
+  // HTML5는 interactive content (button)를 <summary> descendant로 disallow.
+  // 구조: flex wrapper → <details> (toggle 영역) + action (sibling, 우측 별도 영역).
+  // 시각: action이 row 우측 끝에 위치 (변경 전: chevron 직전 inline).
   return (
-    <details className="group">
+    <div className="flex items-stretch">
+    <details className="group flex-1 min-w-0">
       <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
         {/* rank */}
         <span className="w-6 text-center text-xs font-mono text-muted-foreground">
@@ -92,9 +97,8 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
         {/* delta badge */}
         <DeltaBadge status={item.deltaStatus} />
 
-        {/* PR4 B10 fix: optional action slot (TriggerFullReportButton 등). summary 클릭 시 details
-            가 토글되지만 버튼 자체 onClick은 client component에서 별도 처리 (UX 허용). */}
-        {action ? <div className="flex items-center">{action}</div> : null}
+        {/* PR4 Task 9 omxy R4 B43 fix: action slot은 <details> sibling으로 이동 (HTML5 nesting violation 해소).
+            기존 위치 (summary 내부)는 본 commit으로 삭제. */}
 
         {/* expand chevron (rotates via group-open) */}
         <ChevronRight
@@ -139,6 +143,13 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
         </div>
       </div>
     </details>
+    {/* B43 fix: action as <details> sibling, NOT descendant of <summary>. */}
+    {action ? (
+      <div className="flex shrink-0 items-center border-l px-3" onClick={(e) => e.stopPropagation()}>
+        {action}
+      </div>
+    ) : null}
+    </div>
   );
 }
 
