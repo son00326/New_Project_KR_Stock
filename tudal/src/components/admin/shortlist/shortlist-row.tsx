@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronRight, FileText } from "lucide-react";
 import type { ShortListItem } from "@/types/admin";
@@ -5,12 +6,15 @@ import { CRISIS_VOL_THRESHOLD } from "@/types/admin";
 
 interface ShortlistRowProps {
   item: ShortListItem;
+  // PR4 Task 1 Step 1.3.4.1 (B10 fix omxy R2): optional action slot — BucketSection이 row 옆에
+  // TriggerFullReportButton 등을 주입 가능. 기존 caller는 prop 미지정 → 영향 0.
+  action?: ReactNode;
 }
 
 // T1.3 종목 카드 + T1.5 3줄 근거 팝오버 (M4·M6). Server Component.
 // `<details>`로 접근성·No-JS 동작 보장. 펼침 시 summary_3line + 풀 리포트 링크.
 // 괴리율 색상: 한국 증시 관례 (빨강=상승=+ / 파랑=하락=-).
-export function ShortlistRow({ item }: ShortlistRowProps) {
+export function ShortlistRow({ item, action }: ShortlistRowProps) {
   const isCrisis = item.volatilityScore < CRISIS_VOL_THRESHOLD;
   const divergenceUp = item.divergencePct >= 0;
   const divergenceColor = divergenceUp
@@ -87,6 +91,10 @@ export function ShortlistRow({ item }: ShortlistRowProps) {
 
         {/* delta badge */}
         <DeltaBadge status={item.deltaStatus} />
+
+        {/* PR4 B10 fix: optional action slot (TriggerFullReportButton 등). summary 클릭 시 details
+            가 토글되지만 버튼 자체 onClick은 client component에서 별도 처리 (UX 허용). */}
+        {action ? <div className="flex items-center">{action}</div> : null}
 
         {/* expand chevron (rotates via group-open) */}
         <ChevronRight

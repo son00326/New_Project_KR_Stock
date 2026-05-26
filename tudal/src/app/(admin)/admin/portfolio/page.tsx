@@ -7,6 +7,7 @@ import { addBusinessDays, formatDateKey } from "@/lib/portfolio/business-days";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
+import { TriggerFullReportButton } from "./trigger-full-report-button";
 import { PortfolioPanel } from "./portfolio-panel";
 import type { BucketKind } from "@/types/admin";
 
@@ -267,6 +268,17 @@ export default async function AdminPortfolioPage() {
             cadence={BUCKET_META[bucket].cadence}
             weight={BUCKET_META[bucket].weight}
             items={items}
+            // PR4 Task 1 Step 1.3.4.3 (B10 fix omxy R2): admin trigger 버튼 주입.
+            // commitFullReport (fast path) wire — Task 2에서 quality path swap.
+            // month는 YYYY-MM-01 → YYYY-MM 변환 (triggerFullReport regex 정합, B3 fix).
+            renderRowAction={(item) => (
+              <TriggerFullReportButton
+                ticker={item.ticker}
+                name={item.name ?? item.ticker}
+                sector={item.sector ?? ""}
+                month={item.month.slice(0, 7)}
+              />
+            )}
           />
         ))}
       </div>
