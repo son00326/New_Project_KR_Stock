@@ -129,6 +129,61 @@ describe('regenerateReport orchestrate wire (PR4 Task 2 Step 2.3)', () => {
     expect(shortlistOrder).toBeLessThan(incrementOrder);
   });
 
+  // PR4 Task 9 Track 2 C-2 + omxy R4 B44 fix — silent-regression: shortlist row whitespace name/sector.
+  it('returns shortlist_item_not_found for whitespace-only sector (C-2 fix — empty silent LLM degradation 차단)', async () => {
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+    };
+    const orchestrateMock = vi.fn();
+    const incrementMock = vi.fn();
+
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
+    vi.doMock('@/lib/data/admin-reports', () => ({
+      reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([
+        { ...shortlistItemFixture, sector: '   ' }, // whitespace sector
+      ]),
+    }));
+    vi.doMock('@/lib/data/admin-regen-counters', () => ({ incrementManualRegenCount: incrementMock }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+
+    const { regenerateReport } = await import('../actions');
+    const res = await regenerateReport(validInput);
+
+    expect(res).toEqual({ success: false, error: 'shortlist_item_not_found' });
+    expect(incrementMock).not.toHaveBeenCalled();
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it('returns shortlist_item_not_found for whitespace-only name (C-2 fix)', async () => {
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+    };
+    const orchestrateMock = vi.fn();
+    const incrementMock = vi.fn();
+
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
+    vi.doMock('@/lib/data/admin-reports', () => ({
+      reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([
+        { ...shortlistItemFixture, name: '' }, // empty name
+      ]),
+    }));
+    vi.doMock('@/lib/data/admin-regen-counters', () => ({ incrementManualRegenCount: incrementMock }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+
+    const { regenerateReport } = await import('../actions');
+    const res = await regenerateReport(validInput);
+
+    expect(res).toEqual({ success: false, error: 'shortlist_item_not_found' });
+    expect(incrementMock).not.toHaveBeenCalled();
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
   it('returns shortlist_item_not_found when ticker missing in current month shortlist (counter NOT incremented)', async () => {
     const supabaseClient = {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },

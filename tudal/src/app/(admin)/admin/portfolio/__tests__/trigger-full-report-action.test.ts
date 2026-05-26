@@ -52,6 +52,41 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     expect(res).toEqual({ success: false, error: 'invalid_month' });
   });
 
+  // PR4 Task 9 Track 2 C-2 + omxy R4 B44 fix — silent-regression test.
+  // page.tsx의 `sector ?? ""` 회피 path가 빈 문자열을 propagate해서 writer prompt가 degrade되는 것을 차단.
+  it('rejects whitespace-only name (C-2 fix — empty name → invalid_input, orchestrate NOT called)', async () => {
+    const orchestrateMock = vi.fn();
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: orchestrateMock,
+    }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport({ ...validArgs, name: '   ' });
+    expect(res).toEqual({ success: false, error: 'invalid_input' });
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty sector (C-2 fix — sector ?? "" propagation 차단, orchestrate NOT called)', async () => {
+    const orchestrateMock = vi.fn();
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: orchestrateMock,
+    }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport({ ...validArgs, sector: '' });
+    expect(res).toEqual({ success: false, error: 'invalid_input' });
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-only sector (C-2 fix — trim() guard, orchestrate NOT called)', async () => {
+    const orchestrateMock = vi.fn();
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: orchestrateMock,
+    }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport({ ...validArgs, sector: '\t \n' });
+    expect(res).toEqual({ success: false, error: 'invalid_input' });
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
   it('returns success when orchestrateFullReport succeeds + caller DI seam invariant (Task 2 Step 2.2 swap)', async () => {
     // Task 2 Step 2.2 박제: admin path = orchestrateFullReport (quality, Kevin v3.1 target).
     // B24 invariant 유지 — input fields + options {client, callerKind} 정확 전파.

@@ -34,6 +34,31 @@ describe('TriggerFullReportButton (PR4 Task 1 Step 1.3)', () => {
     expect(screen.getByRole('button')).toHaveTextContent('삼성전자 리포트 생성');
   });
 
+  // PR4 Task 9 Track 2 C-1 + omxy R4 B44 fix — silent-regression: button click이 parent click 발화 차단.
+  // ShortlistRow에서 button을 <summary> 밖 sibling으로 옮겼지만 (B43 fix) wrapper stopPropagation도 보강.
+  // 본 test = button onClick이 parent click handler를 발화시키지 않음 검증 (regression catch).
+  it('button click does NOT propagate to parent click handler (C-1 fix — stopPropagation)', async () => {
+    const parentClick = vi.fn();
+    const { triggerFullReport } = await import('../actions');
+    (triggerFullReport as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { reportId: 'rpt-test' },
+    });
+    const { TriggerFullReportButton } = await import('../trigger-full-report-button');
+    render(
+      <div onClick={parentClick}>
+        <TriggerFullReportButton {...baseProps} />
+      </div>,
+    );
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+    // button click은 처리되지만 parent click handler는 발화 안 함.
+    await waitFor(() => {
+      expect(triggerFullReport).toHaveBeenCalledTimes(1);
+    });
+    expect(parentClick).not.toHaveBeenCalled();
+  });
+
   it('disables button + shows "생성 중…" on click (loading)', async () => {
     const { triggerFullReport } = await import('../actions');
     // Hold the promise to keep pending state observable.
