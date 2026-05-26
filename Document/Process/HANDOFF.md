@@ -125,9 +125,11 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용.
 7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-### §2.1 Step matrix (56차 §4 active — PR4 active submatrix + PR5+S7b~S9 후속)
+### §2.1 Step matrix (56차 §5 active — canonical 5-PR 완료, PR5 진입 대기)
 
-**현재 위치 = PR4 진행 중. Task 1 (T5 first vertical slice) ✅ + Task 2 Step 2.1+2.2 ✅ (admin quality path swap). Step 2.3 + Task 3-9 잔여. branch `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, head `c7eced2`, main `4e61832` 기준 16 commits ahead). USER 잔여 액션 = 0. CLAUDE 다음 1순위 = Step 2.3 Regen orchestrate wire.**
+**현재 위치 = PR4 MERGED ✅ (main `7de9696`). canonical 5-PR 완료. 다음 = PR5 cron 30 자동 + 큐 인프라 (T11 분할 결정 보존). USER 잔여 액션 = 0. CLAUDE 다음 1순위 = PR5 plan SoT 작성 + omxy debate.**
+
+> **[HISTORICAL — PR4 active submatrix 강등, 56차 §5 PR4 MERGED로 갱신]**: 아래 PR4 Task 1-9 matrix는 PR #19 MERGED 이력. §6 56차 §5 entry + PR #19 body 참조. PR5 active submatrix는 PR5 plan 작성 시 신설 예정.
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -495,5 +497,5 @@ PR4 impl 단계에서 OMXY가 4 cycle × R1+R2에 걸쳐 catch한 6 BLOCKERS (B2
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제 + 55차 §2/§4 정정): PR2 ✅ → PR3a ✅ → PR1 ✅ → PR3b ✅ → PR3c ✅ → **PR4 (진행 중, Task 1+2 부분 완료)**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행) ✅ **해소** (54차 §3). PR4 잔여 = Step 2.3 + Task 3-9 (§2.1 PR4 active submatrix 참조).
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. PR3b writer 본문 + PR3c orchestrate + PR4 admin path (`orchestrateFullReport`) 모두 동일 quality target.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 **56차 §4 종료 시점** = PR4 Task 1+2 부분 완료 / branch `feat/pr4-ui-caller-wire` @ `c7eced2` (main `4e61832` 기준 16 commits ahead) / test:ci 1058 PASS / build 25 routes / lint 0 err / tsc clean / OMXY 6 BLOCKERS (B23~B28) catch & fix. **USER 잔여 액션 = 0** → 다음 = CLAUDE **Step 2.3 Regen orchestrate wire** 진입 의사 1회 확인 후 자동.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 모두 stale 0. 본 **56차 §5 종료 시점** = PR4 MERGED ✅ in main `7de9696` (PR #19) / canonical 5-PR 완료 / test:ci 1126 PASS / build 25 routes / lint 0 err / tsc clean / 0 migrations (PR4 invariant) / OMXY PR4 lifecycle 50 BLOCKERS (Plan 21 + Impl 24 B23~B46 + 3-track Fix-First 5) catch & fix. **USER 잔여 액션 = 0** (Vercel canary verify 사용자 결정) → 다음 = CLAUDE **PR5 cron 30 자동 + 큐 인프라** (T11 분할 결정 보존, 16,050원/월 hardcap 4% 박제) 진입 의사 1회 확인 후 자동.
 - **DI seam invariant 정밀화 default (§7.9 PR4 lesson)**: 모든 caller DI test는 결과값 assert만이 아닌 (1) createClient short-circuit (2) helper-chain 2nd arg propagation (3) payload field invariant (4) 한국어 매핑 (5) shouldRevise=true revise branch — 5중 명시 assertion 필수.
