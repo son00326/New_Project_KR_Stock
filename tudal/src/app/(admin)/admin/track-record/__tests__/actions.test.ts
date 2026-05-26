@@ -209,10 +209,13 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('Step 3c — shouldRunTier2 (omxy R1 BLOCKER 4 — exported helper unit)', () => {
+// PR4 Task 3: shouldRunTier2 별도 module 분리 박제 (`@/lib/screening/tier2-gate`).
+// 기존 `await import('../actions')` import는 새 module 경로로 갱신.
+describe('Step 3c — shouldRunTier2 (omxy R1 BLOCKER 4 — exported helper unit, PR4 Task 3 분리)', () => {
   it('5 sub-asserts: env undef/false/true × badge 🟢/🔵/⚪', async () => {
     // dynamic import to ensure env stubs are picked up per-test
-    const { shouldRunTier2 } = await import('../actions');
+    // PR4 Task 3 분리: shouldRunTier2 신규 위치 = @/lib/screening/tier2-gate.
+    const { shouldRunTier2 } = await import('@/lib/screening/tier2-gate');
 
     // env undefined → false
     vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', '');
