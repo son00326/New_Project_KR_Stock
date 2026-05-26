@@ -28,6 +28,9 @@ const KNOWN_ACTION_CODES = [
   // PR4 Step 2.3 — regenerate orchestrate wire (omxy R1 B29 fix)
   "shortlist_item_not_found",
   "orchestrate_full_report_failed",
+  // PR4 Task 9 — 인벤토리 완전성 (track-record/actions.ts dangling caller 박제)
+  "admin_required",
+  "shortlist_empty",
   // portfolio
   "already_finalized",
   "approval_write_failed",

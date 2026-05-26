@@ -33,6 +33,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // PR4 Step 2.3 — regenerate orchestrate wire 신규 코드 (omxy R1 B29 fix).
   shortlist_item_not_found: "이번 달 Short List에서 해당 종목을 찾을 수 없습니다",
   orchestrate_full_report_failed: "풀 리포트 생성에 실패했습니다 — 잠시 후 다시 시도하세요",
+  // PR4 Task 9 — 인벤토리 완전성 (track-record/actions.ts triggerMonthlyPersonaEvalAction 박제).
+  // dangling caller지만 server action error code 미매핑 = 운영 위험. 방어적 박제.
+  admin_required: "어드민 권한이 필요합니다",
+  shortlist_empty: "이번 달 Short List가 비어 있습니다",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",
