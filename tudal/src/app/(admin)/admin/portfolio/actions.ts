@@ -559,3 +559,88 @@ export async function triggerMonthlyBatch(input: {
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// PR4 Task 1 — triggerFullReport admin server action (Group D 잔여 + B8 박제 caller path).
+// T5 first vertical slice: commitFullReport (fast) wire. Task 2에서 orchestrate path swap.
+// 사용자 lock-in §1.3 (3 trigger path) + §1.4 (UI 흐름). admin 1개 즉석 quality 재생성은 Task 2.
+//
+// v2 amend (omxy R1 B3 plan): minimum stub은 prompt schema 통과 valid value.
+//   - tier1Verdict: 'HOLD' (prompt-allowed enum)
+//   - consensusBadge: '🟡' (관망, 사용자 lock-in 5종 중 default)
+//   - summaries: "근거 부족" (한국어 placeholder, validation 통과)
+//   - month: 입력은 YYYY-MM (regex 강제, caller가 ShortListItem.month.slice(0,7) 변환)
+// ---------------------------------------------------------------------------
+
+const TRIGGER_FULL_REPORT_TICKER_RE = /^\d{6}$/;
+const TRIGGER_FULL_REPORT_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export async function triggerFullReport(input: {
+  ticker: string;
+  name: string;
+  sector: string;
+  month: string; // YYYY-MM
+}): Promise<
+  | { success: true; data: { reportId: string } }
+  | { success: false; error: string }
+> {
+  if (
+    !input ||
+    typeof input.ticker !== "string" ||
+    typeof input.name !== "string" ||
+    typeof input.sector !== "string" ||
+    typeof input.month !== "string"
+  ) {
+    return { success: false, error: "invalid_input" };
+  }
+  if (input.ticker === "" || !TRIGGER_FULL_REPORT_TICKER_RE.test(input.ticker)) {
+    return {
+      success: false,
+      error: input.ticker === "" ? "invalid_input" : "invalid_ticker",
+    };
+  }
+  if (!TRIGGER_FULL_REPORT_MONTH_RE.test(input.month)) {
+    return { success: false, error: "invalid_month" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) return { success: false, error: "auth_unavailable" };
+
+  try {
+    // Dynamic import — writer module 1.6KB+ lazy.
+    const { commitFullReport } = await import(
+      "@/lib/report/full-report-writer"
+    );
+    // T5 slice: commitFullReport (fast). Task 2에서 orchestrateFullReport swap.
+    const result = await commitFullReport(
+      {
+        ticker: input.ticker,
+        name: input.name,
+        sector: input.sector,
+        month: input.month,
+        // v2 (B3 fix): prompt-valid stub. enriched input은 Task 2에서 short_list_30 +
+        // cost_log + technicals 합산.
+        tier1Verdict: "HOLD",
+        consensusBadge: "🟡",
+        financialsSummary: "근거 부족",
+        technicalsSummary: "근거 부족",
+        macroSummary: "근거 부족",
+        sectorReference: "근거 부족",
+        adminUserId: user.id,
+      },
+      {
+        client: supabase, // admin SSR session client (PR4 Task 1 Step 1.1 caller DI seam)
+        callerKind: "admin",
+      },
+    );
+    return { success: true, data: { reportId: result.reportId } };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "commit_full_report_failed",
+    };
+  }
+}
