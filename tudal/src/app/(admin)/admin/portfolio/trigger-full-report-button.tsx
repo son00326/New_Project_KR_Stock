@@ -32,7 +32,12 @@ export function TriggerFullReportButton({
     { kind: 'success' | 'error'; msg: string } | null
   >(null);
 
-  function onClick() {
+  // PR4 Task 9 Track 2 C-1 fix: ShortlistRow의 <summary> 내부에 nested된 본 버튼 click이
+  // <details> toggle을 발화하지 않도록 stopPropagation. HTML5는 interactive descendants of
+  // <summary>를 disallow하지만 본 PR scope에서는 <details> 구조 유지 + click handler에서 차단.
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
+    e.preventDefault();
     setFeedback(null);
     startTransition(async () => {
       const res = await triggerFullReport({ ticker, name, sector, month });
@@ -48,10 +53,11 @@ export function TriggerFullReportButton({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    // C-1 fix: wrapper도 click bubble 차단 (feedback span 클릭으로 toggle 발화 방지).
+    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
       <Button
         type="button"
-        onClick={onClick}
+        onClick={handleClick}
         disabled={pending}
         aria-busy={pending}
         variant="default"

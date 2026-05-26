@@ -602,6 +602,13 @@ export async function triggerFullReport(input: {
   if (!TRIGGER_FULL_REPORT_MONTH_RE.test(input.month)) {
     return { success: false, error: "invalid_month" };
   }
+  // PR4 Task 9 Track 2 C-2 fix: empty name/sector 차단 (silent LLM prompt degradation 방어).
+  // page.tsx의 `sector ?? ""` 회피 path가 빈 문자열을 propagate해서 writer prompt가
+  // "[종목] 이름 (티커) —  섹터" 더블 공백 + 빈 sector 문맥으로 LLM 호출되면 ₩535 낭비
+  // + backlog non-blocking warn(sector_reference_backlog_invalid_sector:empty) 발생.
+  if (input.name.trim() === "" || input.sector.trim() === "") {
+    return { success: false, error: "invalid_input" };
+  }
 
   const supabase = await createClient();
   const {

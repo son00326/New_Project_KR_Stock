@@ -692,6 +692,41 @@ describe('PR4 Task 6 — LLM max bound (PR3a OOS RT#4/RT#5)', () => {
     expect(at500.success).toBe(true);
   });
 
+  // PR4 Task 9 Track 3 W1 fix: partA(sector) one_line도 max(300) boundary.
+  it('reportSection8ModernSchema.partA[].one_line rejects > 300 chars (sectorVoteRowSchema, Track 3 W1)', () => {
+    const tooLong = 'a'.repeat(301);
+    const partA = Array.from({ length: 14 }, (_, i) => ({
+      persona_id: `sector-${i + 1}`,
+      label: `Sector ${i + 1}`,
+      background: 'b',
+      vote: 'BUY' as const,
+      one_line: i === 0 ? tooLong : 'short',
+    }));
+    const result = reportSection8ModernSchema.safeParse({
+      partA,
+      partB: [
+        { issue: 'i1', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i2', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i3', pro_quote: 'p', con_quote: 'c' },
+      ],
+      partC: {
+        sector_aggregate: { buy: 14, hold: 0, sell: 0 },
+        core_revote: { buy: 11, hold: 0, sell: 0 },
+        co_chair_unanimous: false,
+        verdict: 'BUY',
+        rationale: ['r'],
+      },
+      partD: Array.from({ length: 11 }, (_, i) => ({
+        persona_id: `core-${i + 1}`,
+        label: `Core ${i + 1}`,
+        philosophy: 'p',
+        vote: 'BUY',
+        one_line: 'short',
+      })),
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('reportSection8ModernSchema.partD[].one_line rejects > 300 chars (coreVoteRowSchema)', () => {
     const tooLong = 'a'.repeat(301);
     const result = reportSection8ModernSchema.safeParse({

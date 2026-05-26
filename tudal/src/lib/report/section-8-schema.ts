@@ -8,7 +8,10 @@ export const sectorVoteRowSchema = z.object({
   label: z.string(),
   background: z.string(),
   vote: z.enum(['BUY', 'HOLD', 'SELL']),
-  one_line: z.string(),
+  // PR4 Task 9 Track 3 W1 fix: partA(sector) one_line도 max(300) cap (coreVoteRowSchema 정합).
+  // Task 6 RT#5는 coreVoteRowSchema만 cover했지만 Task 4 신규 partA UI render = sector schema이므로
+  // unbounded 상태로 14 rows × 무제한 = LLM blow-up risk.
+  one_line: z.string().max(300),
 });
 
 export const coreVoteRowSchema = z.object({
