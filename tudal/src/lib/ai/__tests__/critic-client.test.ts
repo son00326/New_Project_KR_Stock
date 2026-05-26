@@ -77,6 +77,7 @@ describe('callCritic — Haiku 4.5 + cost_log + zod 6축', () => {
         model: CRITIC_API_MODEL,
         called_by: 'u1',
       }),
+      { client: undefined },
     );
     expect(result.costKrw).toBeGreaterThan(0);
   });

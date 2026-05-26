@@ -4,9 +4,15 @@
 //   본 함수는 max_tokens 8192 (Section 0~7 + Appendix 통합 JSON).
 
 import Anthropic from '@anthropic-ai/sdk';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { FULL_REPORT_PROMPT_VERSION } from './prompts/full-report-prompt';
+
+// PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — AI client options 2nd arg.
+export interface CallFullReportOptions {
+  client?: SupabaseClient;
+}
 
 const MODEL = 'claude-opus-4-7';
 const MAX_TOKENS = 8192;
@@ -26,7 +32,10 @@ export interface CallFullReportResult {
   costKrw: number;
 }
 
-export async function callFullReport(input: CallFullReportInput): Promise<CallFullReportResult> {
+export async function callFullReport(
+  input: CallFullReportInput,
+  options: CallFullReportOptions = {},
+): Promise<CallFullReportResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ai_key_unavailable');
   }
@@ -68,17 +77,20 @@ export async function callFullReport(input: CallFullReportInput): Promise<CallFu
   };
   const costKrw = calculateCostKrw(usage);
 
-  await insertCostLog({
-    month: input.month,
-    ticker: input.ticker,
-    persona_id: PERSONA_ID,
-    prompt_version: FULL_REPORT_PROMPT_VERSION,
-    model: MODEL,
-    ...usage,
-    cost_krw: costKrw,
-    prompt_cache_enabled: false,
-    called_by: input.adminUserId,
-  });
+  await insertCostLog(
+    {
+      month: input.month,
+      ticker: input.ticker,
+      persona_id: PERSONA_ID,
+      prompt_version: FULL_REPORT_PROMPT_VERSION,
+      model: MODEL,
+      ...usage,
+      cost_krw: costKrw,
+      prompt_cache_enabled: false,
+      called_by: input.adminUserId,
+    },
+    { client: options.client },
+  );
 
   return { content: text, usage, costKrw };
 }

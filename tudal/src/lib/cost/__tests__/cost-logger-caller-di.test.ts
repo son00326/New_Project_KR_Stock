@@ -1,0 +1,85 @@
+// PR4 Task 1 Step 1.1.8 — caller DI seam invariant tests for cost-logger (B2 fix omxy R1).
+// 4 tests: preflightHardcap × 2 (with/without options) + insertCostLog × 2 (with/without options).
+//
+// Invariant:
+//   (a) options.client 주입 시 → options.client 사용 (createClient NOT called)
+//   (b) options 미지정 시 → createClient fallback
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  const validRow = {
+    month: '2026-06',
+    ticker: '005930',
+    persona_id: 'p1',
+    prompt_version: 'v1',
+    model: 'm1',
+    input_tokens: 1,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    output_tokens: 1,
+    cost_krw: 1,
+    prompt_cache_enabled: false,
+    called_by: 'u1',
+  };
+
+  describe('preflightHardcap', () => {
+    it('uses options.client when provided (createClient NOT called)', async () => {
+      const eqMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
+      const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+      const createClientSpy = vi.fn();
+      vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
+      const { preflightHardcap } = await import('@/lib/cost/cost-logger');
+      await preflightHardcap(
+        { month: '2026-06', callCount: 1 },
+        { client: { from: fromMock } as never },
+      );
+      expect(fromMock).toHaveBeenCalledWith('cost_log');
+      expect(createClientSpy).not.toHaveBeenCalled();
+    });
+
+    it('falls back to createClient when options omitted (default behavior)', async () => {
+      const eqMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
+      const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+      const createClientSpy = vi.fn().mockResolvedValue({ from: fromMock });
+      vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
+      const { preflightHardcap } = await import('@/lib/cost/cost-logger');
+      await preflightHardcap({ month: '2026-06', callCount: 1 });
+      expect(createClientSpy).toHaveBeenCalled();
+      expect(fromMock).toHaveBeenCalledWith('cost_log');
+    });
+  });
+
+  describe('insertCostLog', () => {
+    it('uses options.client when provided (createClient NOT called)', async () => {
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
+      const insertMock = vi.fn().mockResolvedValue({ error: null });
+      const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
+      const createClientSpy = vi.fn();
+      vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
+      const { insertCostLog } = await import('@/lib/cost/cost-logger');
+      await insertCostLog(validRow, { client: { from: fromMock } as never });
+      expect(fromMock).toHaveBeenCalledWith('cost_log');
+      expect(insertMock).toHaveBeenCalledWith(validRow);
+      expect(createClientSpy).not.toHaveBeenCalled();
+    });
+
+    it('falls back to createClient when options omitted (default behavior)', async () => {
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
+      const insertMock = vi.fn().mockResolvedValue({ error: null });
+      const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
+      const createClientSpy = vi.fn().mockResolvedValue({ from: fromMock });
+      vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
+      const { insertCostLog } = await import('@/lib/cost/cost-logger');
+      await insertCostLog(validRow);
+      expect(createClientSpy).toHaveBeenCalled();
+      expect(insertMock).toHaveBeenCalledWith(validRow);
+    });
+  });
+});

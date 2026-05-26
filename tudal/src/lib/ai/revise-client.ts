@@ -8,6 +8,7 @@
 // (j) fix (omxy R4): SDK error catch + structured warn capture (PR3b CR-3 패턴).
 
 import Anthropic from '@anthropic-ai/sdk';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   calculateCostKrw,
   REVISE_PRICING_KEY,
@@ -15,6 +16,11 @@ import {
 } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { REVISE_PROMPT_VERSION } from './prompts/revise-prompt';
+
+// PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — AI client options 2nd arg.
+export interface CallReviseOptions {
+  client?: SupabaseClient;
+}
 
 export const REVISE_API_MODEL = 'claude-opus-4-7';
 export const REVISE_MAX_TOKENS = 8192;
@@ -34,7 +40,10 @@ export interface CallReviseResult {
   costKrw: number;
 }
 
-export async function callRevise(input: CallReviseInput): Promise<CallReviseResult> {
+export async function callRevise(
+  input: CallReviseInput,
+  options: CallReviseOptions = {},
+): Promise<CallReviseResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ai_key_unavailable');
   }
@@ -75,17 +84,20 @@ export async function callRevise(input: CallReviseInput): Promise<CallReviseResu
   // S7A_MODEL 변경 시 silent fallback Sonnet 단가 차단.
   const costKrw = calculateCostKrw(usage, REVISE_PRICING_KEY);
 
-  await insertCostLog({
-    month: input.month,
-    ticker: input.ticker,
-    persona_id: PERSONA_ID,
-    prompt_version: REVISE_PROMPT_VERSION,
-    model: REVISE_API_MODEL,
-    ...usage,
-    cost_krw: costKrw,
-    prompt_cache_enabled: false,
-    called_by: input.adminUserId,
-  });
+  await insertCostLog(
+    {
+      month: input.month,
+      ticker: input.ticker,
+      persona_id: PERSONA_ID,
+      prompt_version: REVISE_PROMPT_VERSION,
+      model: REVISE_API_MODEL,
+      ...usage,
+      cost_krw: costKrw,
+      prompt_cache_enabled: false,
+      called_by: input.adminUserId,
+    },
+    { client: options.client },
+  );
 
   return { content: text, usage, costKrw };
 }

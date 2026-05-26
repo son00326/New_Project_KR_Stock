@@ -10,6 +10,7 @@
 // (j) fix (omxy R4): SDK error catch + structured console.warn capture (PR3b CR-3 패턴).
 
 import Anthropic from '@anthropic-ai/sdk';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import {
   calculateCostKrw,
@@ -19,6 +20,11 @@ import {
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { CRITIC_PROMPT_VERSION } from './prompts/critic-prompt';
 import { extractJsonObject } from '@/lib/report/full-report-writer';
+
+// PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — AI client options 2nd arg.
+export interface CallCriticOptions {
+  client?: SupabaseClient;
+}
 
 export const CRITIC_API_MODEL = 'claude-haiku-4-5-20251001';
 export const CRITIC_MAX_TOKENS = 2048;
@@ -55,7 +61,10 @@ export interface CallCriticResult {
   costKrw: number;
 }
 
-export async function callCritic(input: CallCriticInput): Promise<CallCriticResult> {
+export async function callCritic(
+  input: CallCriticInput,
+  options: CallCriticOptions = {},
+): Promise<CallCriticResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ai_key_unavailable');
   }
@@ -118,17 +127,20 @@ export async function callCritic(input: CallCriticInput): Promise<CallCriticResu
   // B14 fix: calculateCostKrw에 CRITIC_PRICING_KEY 명시 — fallback Sonnet 단가 차단.
   const costKrw = calculateCostKrw(usage, CRITIC_PRICING_KEY);
 
-  await insertCostLog({
-    month: input.month,
-    ticker: input.ticker,
-    persona_id: PERSONA_ID,
-    prompt_version: CRITIC_PROMPT_VERSION,
-    model: CRITIC_API_MODEL,
-    ...usage,
-    cost_krw: costKrw,
-    prompt_cache_enabled: false,
-    called_by: input.adminUserId,
-  });
+  await insertCostLog(
+    {
+      month: input.month,
+      ticker: input.ticker,
+      persona_id: PERSONA_ID,
+      prompt_version: CRITIC_PROMPT_VERSION,
+      model: CRITIC_API_MODEL,
+      ...usage,
+      cost_krw: costKrw,
+      prompt_cache_enabled: false,
+      called_by: input.adminUserId,
+    },
+    { client: options.client },
+  );
 
   return { verdict: result.data, usage, costKrw };
 }

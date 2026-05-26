@@ -64,6 +64,7 @@ describe('callRevise — Opus 4.7 max_tokens 8192 + cost_log', () => {
         prompt_version: 'revise-v1',
         called_by: 'u1',
       }),
+      { client: undefined },
     );
     expect(result.content).toBe('{"section_0":{},"section_1":{}}');
     expect(result.costKrw).toBeGreaterThan(0);
