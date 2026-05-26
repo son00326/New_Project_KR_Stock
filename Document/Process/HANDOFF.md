@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-26 (57차 §1 종료 — **Task 1 ✅ + Task 2 ✅ B65-P1 PR #21 MERGED in main `5b99e03`** (rebase FF, GitHub 5b99e03 = local 7325f00 resigned) · main HEAD `75fb46a` → `5b99e03` · Vercel production deploy SUCCESS (dpl_82mtwUy82n365yF9WTuYjuhv59wL) · test:ci 1126 → **1130 PASS / 105 files** (+4 신규 B65-P1 invariant test) · 0 migrations · omxy 4 rounds CONVERGED (R1 plan + R2 commit verify + R3 HANDOFF cleanup + R4 pre-merge sanity, subagent 5명 — Hegel/Leibniz/McClintock/Hubble/Locke + OMX code-review + gstack ship sanity skills) · PR #20 (56차 §5 + 57차 §1 docs cleanup) ✅ MERGED in main (post-PR-#21 sequence) · OPEN PRs: **#2** (format-error, 보류) only · ⚠️ **PR4 MERGED ≠ production functional 잔존** — cost_log=0 / stock_reports=0 / committee_votes=0 (PR #21 머지로 P1 guard production active, P2/P3 미구현 잔존) · **다음 1순위 = CLAUDE Task 3 B65-P2 RPC R-debate (omxy 옵션 A/B/C + axis i/ii/iii) → Task 4-8 진행** (§2.1 active matrix Task 1+2 ✅, §9 박제 유지).
+Last updated: 2026-05-26 (57차 §1 종료 — **Task 1 ✅ + Task 2 ✅ B65-P1 PR #21 MERGED `5b99e03` + PR #20 MERGED `c0a26f8` (docs)** · main HEAD `75fb46a` → `5b99e03` (PR #21) → `c0a26f8` (PR #20 docs cleanup) · Vercel current production deploy SUCCESS (dpl_D1LBrgVwFN1vBjySoBba5i2CEMW4 — post-PR-#20 deploy; PR #21 historical deploy = dpl_82mtwUy82n365yF9WTuYjuhv59wL) · test:ci 1126 → **1130 PASS / 105 files** (+4 신규 B65-P1 invariant test) · 0 migrations · omxy 누적 7 rounds CONVERGED (PR #21 R1~R4 + post-merge R5~R6 + PR #20 R1~R2, subagent 7명 — Hegel/Leibniz/McClintock/Hubble/Locke/Banach/Archimedes + OMX code-review + gstack ship sanity skills) · OPEN PRs: **#2** (format-error, 보류) only · ⚠️ **PR4 MERGED ≠ production functional 잔존** — cost_log=0 / stock_reports=0 / committee_votes=0 (PR #21 머지로 P1 guard production active, P2/P3 미구현 잔존) · **다음 1순위 = CLAUDE Task 3 B65-P2 RPC R-debate (omxy 옵션 A/B/C + axis i/ii/iii) → Task 4-8 진행** (§2.1 active matrix Task 1+2 ✅, §9 박제 유지).
 
 ---
 
@@ -123,7 +123,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | main HEAD | PR #21 (`5b99e03`) + PR #20 머지 자손 (docs cleanup HANDOFF.md). **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지). |
 | **PR #21 (B65-P1)** | ✅ **MERGED `5b99e03`** (rebase FF, GitHub resigned commit from local 7325f00, 2026-05-26T07:11:50Z, --delete-branch) — Task 2 production active |
 | **PR #20 (56차 §5 + 57차 §1 docs)** | ✅ MERGED in main (post-PR-#21 sequence, branch `docs/56-section5-handoff-restructure` deleted, 56차 §5 R9~R11 + 57차 §1 docs cleanup + PR #21 post-merge update 포함) |
-| **Vercel production deploy** | ✅ SUCCESS (dpl_82mtwUy82n365yF9WTuYjuhv59wL, post-PR-#21 머지 자동 deploy 완료) |
+| **Vercel production deploy (current)** | ✅ SUCCESS (dpl_D1LBrgVwFN1vBjySoBba5i2CEMW4 — post-PR-#20 deploy; PR #21 historical deploy = dpl_82mtwUy82n365yF9WTuYjuhv59wL, both SUCCESS) |
 | **PR4 (canonical 5-PR 마지막)** | ✅ MERGED `7de9696` (PR #19, 56차 §5) — 상세 = §6 56차 §5 entry + PR #19 body |
 | canonical 5-PR MERGED (전체 완료) | PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696` |
 | **57차 §1 Task 1 (production audit)** | ✅ COMPLETED — cost_log=0 / stock_reports=0 / committee_votes=0 / report_critic_findings=0 / short_list_30=30 (코스닥 22 + 코스피 8 placeholder) · 56차 §1 ground truth 100% 일치, drift 0 |
@@ -138,9 +138,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired. **but production cost_log=0 / stock_reports=0 — 성공/기록된 AI 호출 및 리포트 0건. PR #21 머지 후 admin trigger button 클릭 → `report_not_found` (P1 cost burn 차단) 반환**. P2 도입 후 실 정상 동작 가능. cost_log 적재 정확한 지점은 Smoke Stage 2에서 확정 (B100). |
 | OPEN PRs | **#2** (format-error, 보류) only — PR #21+#20 모두 MERGED |
 | 실 AI 호출 | **현재 0건 (production cost_log ground truth)**. Vercel env 3 vars (ANTHROPIC_API_KEY + 2 모델 ID) Production 배포 + 충전 완료. PR #21 MERGED — trigger button = cost burn 차단 production active (P1 fail-fast). B65-P2/P3 도입 후 첫 실 AI smoke 가능 (B97 2-stage 분리). |
-| Production deploy | Vercel main `5b99e03` SUCCESS (dpl_82mtwUy82n365yF9WTuYjuhv59wL). canary verify 권장: PR4 핵심 4 페이지 + Functional smoke 3 (C-1 click → P1 fail-fast `리포트를 찾을 수 없습니다` 확인 / C-2 validation / B18 401). |
+| Production deploy | Vercel main `c0a26f8` SUCCESS (dpl_D1LBrgVwFN1vBjySoBba5i2CEMW4 — current, post-PR-#20). PR #21 historical deploy `5b99e03` (dpl_82mtwUy82n365yF9WTuYjuhv59wL) SUCCESS. canary verify 권장: PR4 핵심 4 페이지 + Functional smoke 3 (C-1 click → P1 fail-fast `리포트를 찾을 수 없습니다` 확인 / C-2 validation / B18 401). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0024 production 적용 완료. **PR #21 = 0 migrations 유지** (PR4 invariant). SECURITY DEFINER 4-grant 패턴 유지. **B65-P2 = 신규 RPC 마이그 (Task 3 R-debate)**. |
-| 검증 게이트 (5b99e03 main baseline) | build 25 routes / lint 0 err 6 warn (pre-existing) / **test:ci 1126 → 1130 PASS / 105 files (+4 신규 B65-P1 invariant)** / tsc clean / 0 migrations |
+| 검증 게이트 (c0a26f8 main baseline — PR #21 5b99e03 code + PR #20 c0a26f8 docs FF) | build 25 routes / lint 0 err 6 warn (pre-existing) / **test:ci 1126 → 1130 PASS / 105 files (+4 신규 B65-P1 invariant)** / tsc clean / 0 migrations |
 | omxy debate 누적 | **PR3c까지 238+ rounds** (55차 §4 종료) · PR4 lifecycle 50 BLOCKERS (56차 §5) · 56차 §5 post-merge docs R1~R11 11 rounds CONVERGED + B65~B108 catalog catch · **57차 §1 PR #21 R1+R2+R3+R4 CONVERGED (BLOCKERS 0, 누적 subagent 5명)** |
 
 ---
