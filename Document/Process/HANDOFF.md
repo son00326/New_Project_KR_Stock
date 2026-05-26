@@ -48,23 +48,23 @@ Last updated: 2026-05-26 (56차 §5 — **PR4 MERGED ✅ in main `7de9696`** via
 ## 0. 세션 시작 루틴 (verify + auto-progress)
 
 ```bash
-# PR4 진행 중 (Task 1+2 부분 완료) — branch worktree 사용
-cd /Users/yong/New_Project_KR_Stock-pr4
+# 56차 §5 post-PR4-MERGED state — main 기준 (worktree pr4 cleanup user 결정)
+cd /Users/yong/New_Project_KR_Stock
 
-# 1. branch state runtime 확인
-git rev-parse --abbrev-ref HEAD                   # feat/pr4-ui-caller-wire
-git rev-parse --short HEAD                        # c7eced2 (또는 후속 commit)
-git rev-list --count main..HEAD                   # 16 (또는 후속 count)
+# 1. main branch state runtime 확인
+git checkout main && git pull origin main
+git rev-parse --abbrev-ref HEAD                   # main
+git rev-parse --short HEAD                        # 7de9696 (PR4 MERGED) + 후속 docs commit
 git status --short                                # clean
 
-# 2. OPEN PRs (56차 §4 baseline: #2 (format-error, 보류) only · PR4는 아직 PR 생성 전)
+# 2. OPEN PRs (56차 §5 post-merge baseline: #2 (format-error, 보류) only)
 gh pr list --state open --json number,title,headRefName,mergeable
 
-# 3. main HEAD 박제 확인
-git fetch origin main && git rev-parse --short origin/main  # 4e61832 (56차 §3 docs commit 후)
+# 3. canonical 5-PR MERGED 박제 확인
+git log --oneline | head -5  # PR4 MERGED 7de9696 + PR3c b2a902a + PR3b cf68731 + PR1 4aa3130 + PR3a 0813a41 + PR2 f85fb69
 
-# 4. 검증 게이트 (56차 §4 PR4 Task 1+2 부분 완료 baseline)
-#    - test:ci 1058 PASS / 99 files (+48 over 1010, 회귀 0)
+# 4. 검증 게이트 (56차 §5 PR4 MERGED baseline)
+#    - test:ci 1126 PASS / 105 files (+116 over 1010, 회귀 0)
 #    - build 25 routes / lint 0 err 6 warn (pre-existing) / tsc clean
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ```
