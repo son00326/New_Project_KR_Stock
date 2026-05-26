@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-26 (56차 §5 — **PR4 MERGED ✅ in main `7de9696`** via rebase FF (PR #19, 26 commits) · Tasks 1-9 모두 완료 + 3-track Fix-First adoption · **canonical 5-PR 완료** · plan v1~v7 + impl 26 commits + OMXY plan R1~R7 21 BLOCKERS + impl 13 cycles R1~R8 24 BLOCKERS (B23~B46) + 3-track Fix-First 5 (C-1+C-2+C-3+W1+W3) = **Total 50 BLOCKERS catch & fix** · test:ci 1010 → 1126 PASS (+116 net, 105 files, 회귀 0) / build 25 routes / lint 0 err / tsc clean · 0 migrations (PR4 invariant) · OPEN PRs: #2 (format-error, 보류) + #18 (docs/56-step4 historical, 본 §5 commit으로 §4+§5 합산) · **USER 잔여 액션 = 0** · 다음 CLAUDE 1순위 = **PR5 cron 30 자동 + 큐 인프라** (T11 분할 결정 보존, 16,050원/월 hardcap 4% 박제) 진입 의사 1회 확인 후 자동 시작.
+Last updated: 2026-05-26 (56차 §5 — **PR4 MERGED ✅ in main `7de9696`** via rebase FF (PR #19, 26 commits) · Tasks 1-9 모두 완료 + 3-track Fix-First adoption · **canonical 5-PR 완료** · plan v1~v7 + impl 26 commits + OMXY plan R1~R7 21 BLOCKERS + impl 13 cycles R1~R8 24 BLOCKERS (B23~B46) + 3-track Fix-First 5 (C-1+C-2+C-3+W1+W3) = **Total 50 BLOCKERS catch & fix** · test:ci 1010 → 1126 PASS (+116 net, 105 files, 회귀 0) / build 25 routes / lint 0 err / tsc clean · 0 migrations (PR4 invariant) · OPEN PRs: #2 (format-error, 보류) only (post-merge state, 본 §5 docs commit 머지 후 #18 close) · **USER 잔여 액션 = 0** · 다음 CLAUDE 1순위 = **PR5 cron 30 자동 + 큐 인프라** (T11 분할 결정 보존, 16,050원/월 hardcap 4% 박제) 진입 의사 1회 확인 후 자동 시작.
 
 ---
 
@@ -25,7 +25,7 @@ Last updated: 2026-05-26 (56차 §5 — **PR4 MERGED ✅ in main `7de9696`** via
    | **D** (잔여) UI caller wire | **PR4** | ✅ **MERGED `7de9696`** |
    | **cron 30 자동 리포트 + 큐 인프라** | **PR5 (분리)** | ⭐ **다음 1순위** (PR4 머지 후 진입 트리거 충족) |
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify (main `7de9696` + OPEN PRs `#2` + `#18` only + test:ci 1126 PASS) → **PR5 cron 30 자동 + 큐 인프라 진입 의사 1회 확인 후 자동 시작** (plan SoT 작성부터). PR4 acceptance 검증 = §6 56차 §5 entry + PR #19 body 참조.
+**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify (main HEAD post-§5-merge + OPEN PRs `#2` only + test:ci 1126 PASS) → **PR5 cron 30 자동 + 큐 인프라 진입 의사 1회 확인 후 자동 시작** (plan SoT 작성부터). PR4 acceptance 검증 = §6 56차 §5 entry + PR #19 body 참조.
 
 **14 defer follow-up tickets (PR4 출신, PR4 본 PR scope 외)**: PR #19 body 박제. architectural drift (W-1 callerKind dead code / W-2 fetchTrackRecord* in actions.ts) + observability gap (W-4 sub_tags / W-5 user.email) + cosmetic (W-6 as never cast / Track 3 I1-I6). PR4 product release 차단 아님, 별도 PR/follow-up.
 
@@ -87,7 +87,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 영역 | 상태 |
 |---|---|
 | main HEAD | **`7de9696`** (PR4 MERGED rebase FF, 26 commits + PR3c `4e61832` baseline) |
-| **현재 OPEN branch** | docs/56-step4-handoff-cleanup (PR #18) — 본 §5 commit으로 §4+§5 합산 진행 중 |
+| **현재 OPEN branch** | docs/56-step4-handoff-cleanup (PR #18) — 본 §5 commit으로 §4+§5 합산. 본 commit 머지 후 #18 close. |
 | **PR4 PR** | ✅ **MERGED `7de9696`** (PR #19, https://github.com/son00326/New_Project_KR_Stock/pull/19, 26 commits rebase FF, --delete-branch) |
 | **PR4 Task 1-9 모두 완료** | T5 first vertical slice + orchestrator DI + Regen wire + Track Record 탭 + PR3a OOS 3종 + B18 cron 401 + W7 enriched/input drift + format-error inventory + 3-track Fix-First |
 | **PR4 OMXY 누적** | Plan stage R1~R7: 21 BLOCKERS (B1~B21) · Impl 13 cycles × R1~R8: 24 BLOCKERS (B23~B46) · 3-track Fix-First: 5 (C-1+C-2+C-3+W1+W3) · **Total 50 BLOCKERS catch & fix** |
@@ -96,7 +96,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Mock Skeleton + DQ-7 + S7e + S7a + Tier 2 | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) / ✅ S7a MERGED (51차) / ✅ Tier 2 D21 (52차+53차) |
 | 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). PR5 cron 가동 시 메인 path 활성. |
 | 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + **PR4 admin caller (orchestrateFullReport quality) wired**. PR5 = cron caller (cron-system admin_id + service-role client DI). |
-| OPEN PRs | **#2** (format-error, 보류) + **#18** (docs/56-step4 historical — 본 §5 commit으로 §4+§5 합산) only |
+| OPEN PRs | **#2** (format-error, 보류) only (본 §5 docs commit 머지 후 #18 close 박제) |
 | 실 AI 호출 | 0 (Vercel env 3 vars Production 배포 완료). PR4 MERGED 후 admin UI trigger 가능 + 실 키 발급 후 활성. |
 | Production deploy | **Vercel main `7de9696` deploying** (본 HANDOFF commit 시점 pending). 완료 후 canary verify: PR4 핵심 4 페이지 (/admin/portfolio, /admin/track-record, /admin/report/[ticker], /admin/report/[ticker]/regenerate) + 기존 4 페이지 (/, /login, /macro, /admin) + Functional smoke 3 (C-1 click + C-2 validation + B18 401). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0024 production 적용 완료 (PR3c 0023+0024 포함). **PR4 = 0 migrations 유지 (invariant)**. SECURITY DEFINER 4-grant 패턴 유지. |
