@@ -31,6 +31,11 @@ const KNOWN_ACTION_CODES = [
   // PR4 Task 9 — 인벤토리 완전성 (track-record/actions.ts dangling caller 박제)
   "admin_required",
   "shortlist_empty",
+  // PR4 Task 9 omxy R1 B41 fix — AI client throw PR4 admin path reachable
+  "ai_key_unavailable",
+  // PR4 Task 9 watch — writer.ts dangling caller (PR3c era)
+  "writer_persona_count_mismatch",
+  "sector_writer_persona_count_mismatch",
   // portfolio
   "already_finalized",
   "approval_write_failed",
