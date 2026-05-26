@@ -595,43 +595,54 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 - production env에서 admin UI click OR server action 직접 호출
 - **B85 model id verify 선행** (1 token test로 production env vars 정합 확인)
 - **B87 PASS criteria 5종**:
-  - **Core (필수, 모든 옵션)**: 1 `cost_log` row exists / 2 `stock_reports` row + section_0~7 + appendix all non-null + zod schema valid / 3 `report_critic_findings` row (critic 6-axis verdict) / 5 `/admin/report/[ticker]` UI 기술적 에러 문구 없이 본문 렌더 (`format-error.ts` 매핑된 한국어 메시지 OR 정상 본문 — B101 정정)
+  - **Core (필수, 모든 옵션)**: 1 `cost_log` row exists / 2 `stock_reports` row + section_0~7 + appendix all non-null + zod schema valid / 3 `report_critic_findings` row (critic 6-axis verdict) / 5 `/admin/report/[ticker]` UI **정상 본문 또는 의도된 SectionFallback 렌더** — raw/technical/`format-error.ts` 매핑된 에러 메시지 노출 시 모두 FAIL (B107 정정 — 매핑된 에러 메시지도 upstream issue 신호이므로 PASS 아님)
   - **Full-path (옵션 B만)**: 4 `committee_votes` row(s) — 11 core + 0~14 sector
 - real cost = `cost_log` 기준 확정 (token usage 기반, production 환경별 변동 — 수치 박제 금지 B91)
 
-### 9.5 audit catalog (B103 정정 — 카테고리 + 항목별 보존)
+### 9.5 audit catalog (B103+B106 정정 — B67~B85 항목별 1줄 + B79+B81~B85 알려진 항목 + 카테고리 buckets)
 
-> **박제 원칙 (B103)**: omxy R1~R8 catch한 항목 중 본 §9.2~9.4에 다뤄지지 않은 follow-up은 본 9.5에 항목별 보존. B67~B80 범위는 omxy 라운드 진행 중 명시적으로 catalog되지 않았으므로 본 catalog는 카테고리 + 알려진 항목 분리 박제. 다음 세션 audit phase 진입 시 미정 항목 재할당.
+> **박제 원칙 (B106 정정)**: omxy R2 형성된 B67~B80 잠재 follow-up catalog + R3 형성된 B81~B85 알려진 항목을 항목별 1줄 박제. 본 catalog는 R10 시점 정렬 — 다음 세션 audit phase 진입 시 항목별 priority 재할당 및 신규 catch 추가.
 
-**알려진 항목**:
-- **B79** — Section 8 partA / partC / partD + `committee_votes` RPC 책임 boundary (B65-P2 옵션 A 선택 시 deferred). 옵션 B 선택 시 동시 해결.
+**R2 audit catalog (B67~B80, 항목별 1줄)**:
+- **B67** — cron path 자동 호출 결함 (`tudal/src/app/api/cron/monthly-batch/route.ts`의 `mockTier0Source` / `mockCallPersonaPanel` throw 패턴). PR5 진입 전 필수 해소.
+- **B68** — AI key 발급/충전 완료에도 `cost_log` = 0건 (성공/기록된 호출 없음). B65 RPC 의존 + cron path mockTier0Source throw 양쪽 영향.
+- **B69** — `committee_votes` = 0건. B79 RPC 책임 boundary 결정 + B65-P2 옵션 A/B 선택 결과로 결정.
+- **B70** — Regen UX (`/admin/report/[ticker]/regenerate`) admin path swap 후 첫 실 호출 검증 필요. PR4 Task 2.3 Regen orchestrate wire commit `8b63e1f` MERGED.
+- **B71** — `short_list_30` stale data (2026-05-12 mechanical Python seed 1회, B66 placeholder + ~14일 stale). PR5 cron 가동 시 신규 row INSERT 동작 확인.
+- **B72** — row-missing preflight 통합 (B65-P1 `reportExistsForMonth` + 향후 cron path 호환). B86 month format 박제 적용 후 helper 통일.
+- **B73** — model id verify timing (B85 1-token test 시점 = Stage 2 진입 직전). production env vars 3종 정합 검증.
+- **B74** — `cost_log` accounting (writer + critic + 조건부 revise 토큰 사용량 정확 적재). persist fail 시 적재 보장 + alert.
+- **B75** — RPC responsibility boundary (Section 8 partA/partC/partD + committee_votes의 admin/cron path 동일 RPC 사용 여부 결정 — B79와 연계).
+- **B76** — hardcap mock vs real 일관성 (16,050원/월 박제가 production cost_log 적재 시 enforce 트리거 및 alert 발송).
+- **B77** — main HEAD fixed SHA 박제 금지 (R2 시점 박제 — §0 verify에 `git rev-parse --short origin/main` 동적 확인 의무화, commit `dff1cbe` §0 적용 완료).
+- **B78** — silent null drop metric/log 격상 (PR3a P2 / red-team RT#2 / gsd CR-01 박제 — §4 잔여 reference). 현재 console.warn → metric/structured log.
+- **B79** — Section 8 partA/partC/partD + `committee_votes` RPC 책임 boundary 결정 (B65-P2 옵션 A 선택 시 deferred / 옵션 B 선택 시 동시 해결).
+- **B80** — PR4 14 defer follow-up tickets (W-1 callerKind dead code / W-2 fetchTrackRecord* in actions.ts / W-4 sub_tags / W-5 user.email / W-6 as never cast / Track 3 I1-I6). 본 audit 시점에 일괄 분류.
+
+**R3 알려진 항목 (B81~B85)**:
 - **B81** — 단일 실 AI smoke 비용 분석 (per-call low / batch large). Stage 2 cost 추정 reference.
 - **B82** — B65 docs-only 박제 strict (본 세션 내 코드 변경 금지). 다음 세션에서 해제.
 - **B83 / B84** — `short_list_30` backfill verify command (Python seed re-run + `select sector, count(*) from short_list_30 group by sector` cross-check). B66 Task 5 PASS criteria 1~3.
 - **B85** — 다음 세션 Stage 2 진입 직전 1-token model id verify (`ANTHROPIC_API_KEY` + `ANTHROPIC_OPUS_MODEL_ID` + `ANTHROPIC_HAIKU_MODEL_ID` Vercel env 정합).
 
-**카테고리 buckets (B67~B80 + 잠재 신규)** — 다음 세션 audit phase에서 catalog 확정:
-- (1) **cron path 자동 호출 결함**: `tudal/src/app/api/cron/monthly-batch/route.ts`의 `mockTier0Source` / `mockCallPersonaPanel` throw 패턴. PR5 진입 전 필수 해소.
-- (2) **cost_log retry / failure observability**: persist fail 시 cost_log 적재 보장 + alert/structured log.
-- (3) **RPC 책임 boundary**: B79 외 추가 RPC들 (commit_persona_eval / commit_sector_personas / acquire_batch_lock_v2 등)이 admin trigger path와 cron path에서 동일하게 동작하는지 invariant test.
-- (4) **hardcap mock vs production 일관성**: 16,050원/월 hardcap 박제가 production cost_log 적재 시 enforce되는지.
-- (5) **silent null drop metric/log 격상** (PR3a P2 / red-team RT#2 / gsd CR-01 박제 — §4 잔여 reference). 현재 console.warn → metric/structured log.
-- (6) **PR4 14 defer follow-up** (W-1 callerKind dead code / W-2 fetchTrackRecord* in actions.ts / W-4 sub_tags / W-5 user.email / W-6 as never cast / Track 3 I1-I6). 본 audit 시점에 일괄 분류.
-- (7) **production deploy verify**: post-§5 docs merge 후 Vercel canary 4 페이지 + functional smoke 3 항목 결과 박제.
+**post-merge production deploy verify (추가)**: post-§5 docs merge 후 Vercel canary 4 페이지 (`/admin/portfolio`, `/admin/track-record`, `/admin/report/[ticker]`, `/admin/report/[ticker]/regenerate`) + functional smoke 3 (C-1 click / C-2 validation / B18 401) 결과 박제. **단 trigger button 클릭은 B65 fix 전까지 비용 burn risk**.
 
-### 9.6 omxy R1~R8 CONVERGED 박제 (B99 정정 — round 매핑 정확화)
+### 9.6 omxy R1~R8 CONVERGED 박제 (B105 정정 — user-visible Round 번호 기준 단조 정렬)
 
-56차 §5 post-merge docs cleanup omxy debate 8 rounds 진행. 각 라운드 = "이전 라운드 catch fix 반영 + 신규 catch". CONVERGED at R8.
+56차 §5 post-merge docs cleanup omxy debate 8 rounds 진행. 각 라운드 = "이전 catch fix 반영 + 신규 catch". B 번호는 라운드 내 신규 catch 항목 기준 monotonic 증가. CONVERGED at R8.
 
-**라운드별 신규 catch + 누적 fix 박제**:
-- **R1~R3** — initial: B65 (PR4 trigger button = cost burn fail) 발견 + B66 (sector placeholder) 발견. 3-phase 분리 (P1 immediate guard / P2 RPC R-debate / P3 호환) priority debate.
-- **R4** — Audit detail: B86 (month format mismatch) / B87 (5-criteria → 후속 R6에서 Core/Full-path 분리) / B88 (B65-P2 RPC R-debate axis 3종 = A/B/C) / B89 (B66 unknown ticker 처리 R-debate 3종 = block/manual/exclude).
-- **R5** — Cost/scope discipline: B81 (단일 실 AI smoke 비용 분석) / B82 (B65 docs-only 박제 strict) / B83+B84 (`short_list_30` backfill verify command) / B85 (model id verify 1-token test).
-- **R6** — Smoke acceptance 강화: B90 (Core vs Full-path 분리) / B91 (cost 수치 박제 금지 — relative only, exact = smoke 후 cost_log 기준) / B92 (P1 적용 후 P2 전 smoke 금지) / B93 (B66 backfill PASS criteria 3종).
-- **R7** — P1/P2 호환 critical: B94 (P1 guard P2 path 호환 3-option = feature flag / RPC presence / atomic transaction) / B95 (smoke acceptance pre-assert).
-- **R8** — Smoke 분리 + default policy: B96 (smoke target 정정 — short_list_30 존재 + stock_reports 부재 ticker) / B97 (smoke 2-stage 분리 = non-AI dry-run + single real AI) / B98 (P3 default = (i) feature flag recommended / (iii) atomic transaction secondary / (ii) RPC presence check 비추천). **CONVERGED**.
+**라운드별 신규 catch (B105 정정 — 단조 증가 lock-in)**:
+- **R1** — initial discovery: B65 (PR4 trigger button = cost burn fail) 발견 + B66 (`short_list_30` sector="코스닥"/"코스피" placeholder) 발견. 3-phase 분리 priority debate.
+- **R2** — audit catalog 형성 (B67~B80, 본 §9.5 참조): cron path 자동 호출 결함 / AI key·cost_log 0건 / committee_votes 0건 / regen UX / shortlist stale / row-missing preflight / model id verify / cost_log accounting / RPC responsibility boundary / hardcap mock-real 일관성 등 잠재 follow-up + main HEAD fixed SHA 박제 금지.
+- **R3** — cost/scope discipline: B81 (단일 실 AI smoke 비용 분석) / B82 (B65 docs-only 박제 strict) / B83+B84 (`short_list_30` backfill verify command) / B85 (model id 1-token verify).
+- **R4** — audit detail: B86 (month format mismatch) / B87 (5-criteria → R5에서 Core/Full-path 분리) / B88 (B65-P2 RPC R-debate axis 3종 = A/B/C) / B89 (B66 unknown 처리 block/manual/exclude).
+- **R5** — Smoke acceptance 강화: B90 (Core vs Full-path 분리) / B91 (cost 수치 박제 금지 — relative only, exact = smoke 후 cost_log 기준) / B92 (P1 적용 후 P2 전 smoke 금지) / B93 (B66 backfill PASS criteria 3종).
+- **R6** — P1/P2 호환 critical: B94 (P1 guard P2 path 호환 3-option = feature flag / RPC presence / atomic transaction) / B95 (smoke acceptance pre-assert).
+- **R7** — Smoke 분리 + default policy: B96 (smoke target 정정 — short_list_30 존재 + stock_reports 부재 ticker) / B97 (smoke 2-stage 분리 = non-AI dry-run + single real AI) / B98 (P3 default = (i) feature flag recommended / (iii) atomic transaction secondary / (ii) RPC presence check 비추천).
+- **R8** — **CONVERGED** (B96~B98 fix 반영 확인).
 
-**post-CONVERGED audit R9 BLOCKERS** (본 §9 + §0 + §1 + §2.1 fix commit으로 해소):
-- B99 §9.6 round map 정확화 (본 단락) / B100 §1 cost_log 원인 서술 / B101 raw error 표현 / B102 PR4 historical heading 중복 / B103 §9.5 catalog 항목별 보존 / B104 §0 production audit SQL.
+**post-CONVERGED R9 audit BLOCKERS** (commit `dff1cbe` 해소): B99 §9.6 round map / B100 §1 cost_log 원인 서술 / B101 raw error 표현 / B102 PR4 historical heading 중복 / B103 §9.5 catalog 항목별 보존 / B104 §0 production audit SQL.
+
+**post-R9 R10 audit BLOCKERS** (본 commit 해소): **B105** §9.6 round map 단조 증가 정렬 (본 단락) / **B106** B67~B80 항목별 1줄 catalog (§9.5) / **B107** Smoke criteria 5 PASS 문구 정정 (mapped error message = FAIL 명시).
 
 **SCOPE GUARD 박제**: B65-P1/P2/P3 + B66/B84/B89 + Smoke Stage 1+2 + §9.5 audit catalog + PR5 모두 **다음 세션 작업** (이번 56차 §5는 docs-only).
