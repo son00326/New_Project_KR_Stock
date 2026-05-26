@@ -3,10 +3,26 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { runMonthlyPersonaEval, runSectorEval } from '@/lib/screening/persona-eval';
-import { assignBadge, isTopTier, type ConsensusBadge } from '@/lib/screening/consensus';
+import { assignBadge, isTopTier } from '@/lib/screening/consensus';
 import { commitTickerReport, commitBadgeOnly, commitSectorReport } from '@/lib/report/writer';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 import { isCanonicalSector } from '@/lib/screening/canonical-sectors';
+// PR4 Task 3 분리 (Next.js 16 'use server' sync export 차단 — shouldRunTier2 sync helper).
+import { shouldRunTier2 } from '@/lib/screening/tier2-gate';
+// PR4 Task 3 (Group F): Track Record 누적 vs 월별 아카이브 탭 분리.
+import {
+  getPerformanceSummary,
+  getMonthlyPerformance,
+  getBucketPerformance,
+  getCounterfactual,
+  type PerformanceSummary,
+  type MonthlyPerformanceRow,
+  type BucketPerformanceRow,
+  type CounterfactualComparison,
+} from '@/lib/data/admin-performance';
+import { getDecisionTreeSnapshot } from '@/lib/data/admin-decision-tree';
+import { computeCapMonths } from '@/lib/performance/cap-months';
+import type { BucketKind } from '@/types/admin';
 
 interface ParsedVote { vote: 'BUY' | 'HOLD' | 'SELL' }
 function parseVote(content: string): ParsedVote {
@@ -42,22 +58,8 @@ export type TriggerMonthlyPersonaEvalActionResult =
   | { ok: true; totalCalls: number; tier2: Tier2Counters }
   | { ok: false; error: string };
 
-/**
- * Tier 2 cost gate (omxy 53차 §3 R3 D6 cost gate (1) — env flag single safety gate).
- *
- * **billing 신호일 뿐 billing 가능 자체 보장 아님** (omxy D4 R1 non-blocker note 박제) —
- * Anthropic SDK 호출 실패는 runSectorEval 자체에서 degradedCount++로 처리.
- *
- * ⚪ 케이스는 Core 11 자체 미진입 → Tier 2도 무의미.
- *
- * exported for unit test (omxy D4 R1 BLOCKER 4 정정).
- */
-export function shouldRunTier2(badge: ConsensusBadge): boolean {
-  if (badge === '⚪') return false;
-  // strict 'true' literal match — 'TRUE' / '1' / 'yes' / ' true ' (case+whitespace) do NOT enable.
-  // Vercel env vars are exposed verbatim; operator는 정확히 'true' string으로 세팅 필요.
-  return process.env.AI_COST_LOG_REAL_INSERT_ENABLED === 'true';
-}
+// shouldRunTier2 — PR4 Task 3 분리 박제: 'use server' sync export 차단 회피.
+// 신규 위치: @/lib/screening/tier2-gate (test에서도 본 경로로 import).
 
 export async function triggerMonthlyPersonaEvalAction(
   month: string,
@@ -221,4 +223,204 @@ export async function triggerMonthlyPersonaEvalAction(
     const code = err instanceof Error ? err.message : 'unknown';
     return { ok: false, error: code };
   }
+}
+
+// ---------------------------------------------------------------------------
+// PR4 Task 3 (Group A + F 해소) — Track Record 누적 vs 월별 아카이브 탭 분리.
+// SoT plan: docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md §Step 3.1 (lines 1052-1066).
+// ---------------------------------------------------------------------------
+
+/**
+ * Track Record 누적 성과 번들 — 기존 5 fetch를 Promise.all로 묶어 1회 호출.
+ *
+ * Server Component (page.tsx)가 TrackRecordTabs(client island)에 props 전달용으로 사용.
+ */
+export interface TrackRecordCumulative {
+  summary: PerformanceSummary | null;
+  monthly: MonthlyPerformanceRow[];
+  buckets: BucketPerformanceRow[];
+  counterfactual: CounterfactualComparison | null;
+  /** decisionTree.monthlyVerdicts 기반 현재 ○ 연속 스트릭 (decisionTree null → 0) */
+  capMonths: number;
+}
+
+export async function fetchTrackRecordCumulative(): Promise<TrackRecordCumulative> {
+  const [summary, monthly, buckets, counterfactual, decisionTree] = await Promise.all([
+    getPerformanceSummary(),
+    getMonthlyPerformance(),
+    getBucketPerformance(),
+    getCounterfactual(),
+    getDecisionTreeSnapshot(),
+  ]);
+  // decisionTree null → capMonths=0 (computeCapMonths 미호출 invariant — early branch).
+  const capMonths = decisionTree
+    ? computeCapMonths(decisionTree.monthlyVerdicts).currentStreak
+    : 0;
+  return { summary, monthly, buckets, counterfactual, capMonths };
+}
+
+// ---------------------------------------------------------------------------
+// fetchTrackRecordArchive — 월별 stock_reports + approval 결과 (Group F 아카이브 탭).
+// ---------------------------------------------------------------------------
+
+export interface ArchiveReport {
+  ticker: string;
+  bucket: BucketKind | null;
+  name: string | null;
+  sector: string | null;
+}
+
+export interface ArchiveApproval {
+  approvalType: 'accept' | 'reject';
+  isFinal: boolean;
+  approvedAt: string;
+}
+
+export interface TrackRecordArchiveEntry {
+  /** 'YYYY-MM-01' (DB month 형식 그대로) */
+  month: string;
+  reports: ArchiveReport[];
+  approval: ArchiveApproval | null;
+}
+
+/**
+ * 월별 stock_reports + approval 그룹화.
+ *
+ * @param options.month - 단일 month drill-in (없으면 전체 month).
+ * @returns sorted desc by month. 각 entry는 reports[] + approval (is_final 우선, 없으면 null).
+ *
+ * Approval 우선순위 (omxy R0 invariant — 동월 final + non-final 공존 시):
+ *   1. is_final=true 우선
+ *   2. 동급이면 approved_at desc (먼저 들어온 것)
+ */
+export async function fetchTrackRecordArchive(
+  options?: { month?: string },
+): Promise<TrackRecordArchiveEntry[]> {
+  const supabase = await createClient();
+
+  // B32 fix (omxy R1): 3 query 실제 병렬화 — PostgREST query builder는 thenable이라
+  // Promise.all에 넣으면 concurrent 실행. 기존 sequential await였음 (self-review claim drift).
+  type StockReportsRow = { month: string; ticker: string };
+  type ShortlistRow = {
+    month: string;
+    ticker: string;
+    name: string | null;
+    sector: string | null;
+    bucket: BucketKind | null;
+  };
+  type ApprovalRow = {
+    month: string;
+    approval_type: 'accept' | 'reject';
+    is_final: boolean;
+    approved_at: string;
+  };
+
+  // 1) stock_reports — month + ticker (is_latest=true)
+  let reportsQ = supabase.from('stock_reports').select('month, ticker').eq('is_latest', true);
+  if (options?.month) {
+    reportsQ = reportsQ.eq('month', options.month);
+  }
+
+  // 2) short_list_30 — month + ticker + name + sector + bucket (메타 join 용)
+  let shortlistQ = supabase
+    .from('short_list_30')
+    .select('month, ticker, name, sector, bucket');
+  if (options?.month) {
+    shortlistQ = shortlistQ.eq('month', options.month);
+  }
+
+  // 3) portfolio_approval — month + type + is_final + approved_at
+  let approvalsQ = supabase
+    .from('portfolio_approval')
+    .select('month, approval_type, is_final, approved_at');
+  if (options?.month) {
+    approvalsQ = approvalsQ.eq('month', options.month);
+  }
+
+  // Promise.all로 3 query concurrent 실행 (B32 fix omxy R1).
+  const [reportsResult, shortlistResult, approvalsResult] = await Promise.all([
+    reportsQ.order('month', { ascending: false }),
+    shortlistQ,
+    approvalsQ.order('approved_at', { ascending: false }),
+  ]);
+
+  const { data: reportsRows, error: reportsErr } = reportsResult;
+  if (reportsErr) {
+    throw new Error(
+      `stock_reports_archive_query_failed:${reportsErr.code ?? reportsErr.message ?? 'unknown'}`,
+    );
+  }
+  const { data: shortlistRows, error: shortlistErr } = shortlistResult;
+  if (shortlistErr) {
+    throw new Error(
+      `short_list_30_archive_query_failed:${shortlistErr.code ?? shortlistErr.message ?? 'unknown'}`,
+    );
+  }
+  const { data: approvalRows, error: approvalErr } = approvalsResult;
+  if (approvalErr) {
+    throw new Error(
+      `portfolio_approval_archive_query_failed:${approvalErr.code ?? approvalErr.message ?? 'unknown'}`,
+    );
+  }
+
+  // Build lookup map: (month, ticker) → {name, sector, bucket}
+  const shortlistByKey = new Map<
+    string,
+    { name: string | null; sector: string | null; bucket: BucketKind | null }
+  >();
+  for (const row of (shortlistRows ?? []) as ShortlistRow[]) {
+    shortlistByKey.set(`${row.month}|${row.ticker}`, {
+      name: row.name,
+      sector: row.sector,
+      bucket: row.bucket,
+    });
+  }
+
+  // Pick authoritative approval per month: is_final=true 우선, 동급이면 approved_at desc (정렬 first row).
+  const approvalByMonth = new Map<string, ArchiveApproval>();
+  for (const row of (approvalRows ?? []) as ApprovalRow[]) {
+    const existing = approvalByMonth.get(row.month);
+    // approved_at desc로 정렬된 입력 → 같은 month 첫 행 = latest. is_final=true는 우선권.
+    if (!existing) {
+      approvalByMonth.set(row.month, {
+        approvalType: row.approval_type,
+        isFinal: row.is_final,
+        approvedAt: row.approved_at,
+      });
+      continue;
+    }
+    if (row.is_final && !existing.isFinal) {
+      approvalByMonth.set(row.month, {
+        approvalType: row.approval_type,
+        isFinal: row.is_final,
+        approvedAt: row.approved_at,
+      });
+    }
+  }
+
+  // Group reports by month
+  const reportsByMonth = new Map<string, ArchiveReport[]>();
+  for (const row of (reportsRows ?? []) as StockReportsRow[]) {
+    const meta = shortlistByKey.get(`${row.month}|${row.ticker}`) ?? {
+      name: null,
+      sector: null,
+      bucket: null,
+    };
+    const list = reportsByMonth.get(row.month) ?? [];
+    list.push({
+      ticker: row.ticker,
+      bucket: meta.bucket,
+      name: meta.name,
+      sector: meta.sector,
+    });
+    reportsByMonth.set(row.month, list);
+  }
+
+  // Sorted desc by month (string compare — 'YYYY-MM-01' format works lexicographically).
+  const months = Array.from(reportsByMonth.keys()).sort((a, b) => b.localeCompare(a));
+  return months.map((month) => ({
+    month,
+    reports: reportsByMonth.get(month)!,
+    approval: approvalByMonth.get(month) ?? null,
+  }));
 }
