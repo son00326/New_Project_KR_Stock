@@ -37,6 +37,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // dangling caller지만 server action error code 미매핑 = 운영 위험. 방어적 박제.
   admin_required: "어드민 권한이 필요합니다",
   shortlist_empty: "이번 달 Short List가 비어 있습니다",
+  // PR4 Task 9 omxy R1 B41 fix — AI client throw (PR4 reachable via triggerFullReport/regenerateReport
+  // → orchestrate → callFullReport/callCritic/callRevise). format-error 미매핑 시 UI에 raw 영문 노출.
+  ai_key_unavailable: "AI 키가 설정되지 않았습니다 — 운영 환경 변수를 확인하세요",
+  // PR4 Task 9 watch — writer.ts dangling caller (triggerMonthlyPersonaEvalAction PR3c era) 박제.
+  writer_persona_count_mismatch: "AI 평가 결과 개수가 일치하지 않습니다",
+  sector_writer_persona_count_mismatch: "섹터 AI 평가 결과 개수가 일치하지 않습니다",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",
