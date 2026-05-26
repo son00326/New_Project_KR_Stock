@@ -12,9 +12,11 @@ import { z } from 'zod';
 const score0to100 = z.number().min(0).max(100).finite();
 const voteCount = z.number().int().nonnegative().finite();
 
+// PR4 Task 6 (PR3a OOS RT#4/RT#5): LLM string/array max bound top 5. LLM이 prompt 무시하고
+// 거대 문자열·array를 생성해도 schema validate에서 reject. UI 폭증·DB row 비대 차단.
 export const reportSection0Schema = z.object({
-  headline: z.string(),
-  thesis: z.array(z.string()),
+  headline: z.string().max(200),
+  thesis: z.array(z.string()).max(10),
   conviction: score0to100,
   committeeMini: z.object({
     core: z.object({
@@ -44,7 +46,7 @@ export const reportSection1Schema = z.object({
 export type ReportSection1 = z.infer<typeof reportSection1Schema>;
 
 export const reportSection2Schema = z.object({
-  summary: z.string(),
+  summary: z.string().max(1000),
   revenue: z.array(
     z.object({ fy: z.string(), value: z.string(), yoy: z.string() }),
   ),
@@ -54,7 +56,7 @@ export const reportSection2Schema = z.object({
 export type ReportSection2 = z.infer<typeof reportSection2Schema>;
 
 export const reportSection3Schema = z.object({
-  summary: z.string(),
+  summary: z.string().max(1000),
   multiples: z.array(
     z.object({ metric: z.string(), value: z.string(), peer: z.string() }),
   ),
@@ -62,14 +64,14 @@ export const reportSection3Schema = z.object({
 export type ReportSection3 = z.infer<typeof reportSection3Schema>;
 
 export const reportSection4Schema = z.object({
-  summary: z.string(),
+  summary: z.string().max(1000),
   drivers: z.array(z.string()),
   tam: z.string(),
 });
 export type ReportSection4 = z.infer<typeof reportSection4Schema>;
 
 export const reportSection5Schema = z.object({
-  summary: z.string(),
+  summary: z.string().max(1000),
   risks: z.array(
     z.object({
       title: z.string(),
@@ -81,7 +83,7 @@ export const reportSection5Schema = z.object({
 export type ReportSection5 = z.infer<typeof reportSection5Schema>;
 
 export const reportSection6Schema = z.object({
-  summary: z.string(),
+  summary: z.string().max(1000),
   signals: z.array(
     z.object({
       name: z.string(),
@@ -100,7 +102,7 @@ export const reportSection6Schema = z.object({
 export type ReportSection6 = z.infer<typeof reportSection6Schema>;
 
 export const reportSection7Schema = z.object({
-  summary: z.string(),
+  summary: z.string().max(1000),
   triggers: z.array(z.string()),
   alternatives: z.array(z.object({ label: z.string(), detail: z.string() })),
 });
@@ -176,7 +178,8 @@ export const reportSection8LegacySchema = z.object({
   keyQuotes: z.array(
     z.object({
       side: z.enum(['pro', 'con', 'neutral']),
-      quote: z.string(),
+      // PR4 Task 6 (PR3a OOS RT#4): LLM quote 비대 차단.
+      quote: z.string().max(500),
     }),
   ),
 });

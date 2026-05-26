@@ -20,9 +20,26 @@ export interface CommitteeVoteDbRow {
 const VOTE_COLUMNS =
   "id, report_id, persona_id, persona_layer, sector, vote, argument_excerpt, created_at";
 
+// PR4 Task 5 (PR3a OOS RT#3): runtime layer 2 guard — DB CHECK constraint
+// (0003_s2_reports.sql:75 `vote in ('approve','reject','abstain')`) 이미 존재.
+// 본 PR4 마이그 0건 유지. 런타임 layer만 보강 — DB-TS 경계 + 직접 row read caller 보호.
+const VALID_VOTES = new Set<VoteKind>(["approve", "reject", "abstain"]);
+
+/**
+ * Layer 1: row-level guard.
+ * invalid vote → null 반환 + warn. transformCommitteeVoteRows wrapper에서 filter.
+ *
+ * Plan v7 §Step 5.1.3 — `as never` 캐스트로 enum miss 노출.
+ */
 export function transformCommitteeVoteRow(
   row: CommitteeVoteDbRow,
-): CommitteeVote {
+): CommitteeVote | null {
+  if (!VALID_VOTES.has(row.vote as never)) {
+    console.warn(
+      `[transformCommitteeVoteRow] invalid_vote_skipped row_id=${row.id} vote=${String(row.vote)}`,
+    );
+    return null;
+  }
   return {
     id: row.id,
     reportId: row.report_id,
@@ -33,6 +50,19 @@ export function transformCommitteeVoteRow(
     argumentExcerpt: row.argument_excerpt ?? "",
     createdAt: row.created_at,
   };
+}
+
+/**
+ * Layer 1 wrapper: array → filter null.
+ * caller가 invalid row를 자동 skip (B11 fix omxy R2 — `rows.map(transformCommitteeVoteRow)` 직접 호출 시
+ * null이 array에 들어가 caller 폭증. 본 wrapper 강제 사용).
+ */
+export function transformCommitteeVoteRows(
+  rows: CommitteeVoteDbRow[],
+): CommitteeVote[] {
+  return rows
+    .map(transformCommitteeVoteRow)
+    .filter((v): v is CommitteeVote => v !== null);
 }
 
 export async function getVotesByReportId(
@@ -52,7 +82,8 @@ export async function getVotesByReportId(
   }
 
   const rows = (data ?? []) as CommitteeVoteDbRow[];
-  return rows.map(transformCommitteeVoteRow);
+  // PR4 Task 5 Step 5.3 (B11 fix omxy R2): wrapper 사용으로 null array 회귀 차단.
+  return transformCommitteeVoteRows(rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +99,14 @@ export function aggregateVotes(votes: CommitteeVote[]): {
   const core = init();
   const sector = init();
   for (const v of votes) {
+    // PR4 Task 5 Step 5.2 (layer 2 defensive guard): 직접 row read caller (transformer 우회) 보호.
+    // invalid vote → skip + warn. target['unknown'] undefined access NaN 차단.
+    if (!VALID_VOTES.has(v.vote)) {
+      console.warn(
+        `[aggregateVotes] invalid_vote_skipped vote=${String(v.vote)} personaLayer=${v.personaLayer}`,
+      );
+      continue;
+    }
     const target = v.personaLayer === "core" ? core : sector;
     target[v.vote] += 1;
   }

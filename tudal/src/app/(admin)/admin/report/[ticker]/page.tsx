@@ -693,6 +693,39 @@ function Section8ModernView({
         />
       </div>
 
+      {/* PR4 Task 4 (PR3a OOS RT#1): partA 14 rows 렌더 (Tier 2 active 시).
+          schema (section-8-schema.ts:48) refine: partA.length must be 0 (B scope) or 14.
+          14 = Tier 2 active (섹터 14인 패널) / 0 = B scope (Core 11 only). 1~13은 invalid. */}
+      {data.partA.length === 14 && (
+        <div>
+          <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
+            섹터 14인 패널 의견 (Part A)
+          </div>
+          <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {data.partA.map((p) => (
+              <li
+                key={p.persona_id}
+                className="rounded border bg-muted/10 px-3 py-2 text-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{p.label}</span>
+                  <PersonaVoteChip vote={p.vote} />
+                </div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {p.background}
+                </div>
+                <div className="mt-1 text-xs">{p.one_line}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {data.partA.length === 0 && (
+        <div className="rounded border border-dashed bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
+          섹터 14인 패널 미활성 — Tier 2 cost gate OFF 또는 ⚪ 케이스. Core 11 평가만 표시.
+        </div>
+      )}
+
       {data.partB.length > 0 && (
         <div>
           <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
@@ -925,6 +958,30 @@ function MiniBar({
         <span className="text-right text-muted-foreground">{agg.abstain}</span>
       </div>
     </div>
+  );
+}
+
+// PR4 Task 4 (PR3a OOS RT#1): partA 14 rows 카드용 BUY/HOLD/SELL chip.
+// section-8-schema.ts coreVoteRowSchema/sectorVoteRowSchema vote = z.enum(['BUY','HOLD','SELL']).
+function PersonaVoteChip({ vote }: { vote: 'BUY' | 'HOLD' | 'SELL' }) {
+  if (vote === 'BUY') {
+    return (
+      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+        매수
+      </span>
+    );
+  }
+  if (vote === 'SELL') {
+    return (
+      <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+        매도
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+      관망
+    </span>
   );
 }
 

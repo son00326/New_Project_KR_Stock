@@ -16,7 +16,8 @@ export const coreVoteRowSchema = z.object({
   label: z.string(),
   philosophy: z.string(),
   vote: z.enum(['BUY', 'HOLD', 'SELL']),
-  one_line: z.string(),
+  // PR4 Task 6 (PR3a OOS RT#5): LLM one_line 비대 차단 (300자 cap, Kevin v3.1 M8 정합).
+  one_line: z.string().max(300),
 });
 
 export const issueDebateExcerptSchema = z.object({

@@ -8,12 +8,14 @@ import {
   reportSection5Schema,
   reportSection6Schema,
   reportSection7Schema,
+  reportSection8LegacySchema,
   reportAppendixSchema,
   parseSectionSafe,
   parseReportSection8,
   partCToCommitteeAgg,
 } from '../report-section-schemas';
 import {
+  section8Schema as reportSection8ModernSchema,
   section8HappyExample,
   section8BScopeExample,
 } from '@/lib/report/section-8-schema';
@@ -564,5 +566,180 @@ describe('partCToCommitteeAgg helper (testing T#5 — RPC enum mapping 박제)',
     expect(r1).toEqual(r2);
     // input 객체는 변경되지 않음
     expect(input).toEqual({ buy: 5, hold: 4, sell: 2 });
+  });
+});
+
+// PR4 Task 4 (PR3a OOS RT#1) — partA render-ready invariant (omxy R1 watch: plan §1102 mention test).
+// Section8ModernView가 렌더링하는 partA 14 rows의 필수 fields (persona_id, label, background, vote, one_line)가
+// schema-level에서 보장되는지 박제. UI render는 schema 통과 후이므로 schema-level lock이 곧 render contract.
+describe('PR4 Task 4 — partA 14 rows render-ready invariant (omxy R1)', () => {
+  it('sectorVoteRowSchema accepts 14-row partA with all UI-rendered fields (persona_id/label/background/vote/one_line)', () => {
+    const partA = Array.from({ length: 14 }, (_, i) => ({
+      persona_id: `sector-${i + 1}`,
+      label: `섹터-${i + 1}`,
+      background: '반도체 30년 경력',
+      vote: 'BUY' as const,
+      one_line: '실적 모멘텀 강세',
+    }));
+    const valid = {
+      partA,
+      partB: [
+        { issue: 'i1', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i2', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i3', pro_quote: 'p', con_quote: 'c' },
+      ],
+      partC: {
+        sector_aggregate: { buy: 14, hold: 0, sell: 0 },
+        core_revote: { buy: 11, hold: 0, sell: 0 },
+        co_chair_unanimous: true,
+        verdict: 'BUY' as const,
+        rationale: ['r1'],
+      },
+      partD: Array.from({ length: 11 }, (_, i) => ({
+        persona_id: `core-${i + 1}`,
+        label: `코어-${i + 1}`,
+        philosophy: '가치투자',
+        vote: 'BUY' as const,
+        one_line: '내재가치 우위',
+      })),
+    };
+    const parsed = reportSection8ModernSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.partA).toHaveLength(14);
+      // UI 렌더에 사용되는 field 5종 모두 존재 — render-ready 보장.
+      const first = parsed.data.partA[0];
+      expect(first.persona_id).toBe('sector-1');
+      expect(first.label).toBe('섹터-1');
+      expect(first.background).toBe('반도체 30년 경력');
+      expect(first.vote).toBe('BUY');
+      expect(first.one_line).toBe('실적 모멘텀 강세');
+    }
+  });
+});
+
+// PR4 Task 6 (PR3a OOS RT#4/RT#5) — LLM string/array max bound top 5 boundary tests.
+// Spec: docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md §Step 6.1.
+// 각 field가 max+1 길이/원소 입력에 reject되는지 5 boundary tests.
+describe('PR4 Task 6 — LLM max bound (PR3a OOS RT#4/RT#5)', () => {
+  const validSection0Base = {
+    headline: 'ok',
+    thesis: ['t1'],
+    conviction: 50,
+    committeeMini: {
+      core: { approve: 0, reject: 0, abstain: 0 },
+      sector: { approve: 0, reject: 0, abstain: 0 },
+    },
+    priceBands: { bear: '1', base: '2', bull: '3' },
+  };
+
+  it('reportSection0Schema.headline rejects > 200 chars', () => {
+    const result = reportSection0Schema.safeParse({
+      ...validSection0Base,
+      headline: 'a'.repeat(201),
+    });
+    expect(result.success).toBe(false);
+    // 200자는 통과 (boundary)
+    const at200 = reportSection0Schema.safeParse({
+      ...validSection0Base,
+      headline: 'a'.repeat(200),
+    });
+    expect(at200.success).toBe(true);
+  });
+
+  it('reportSection0Schema.thesis rejects > 10 items', () => {
+    const result = reportSection0Schema.safeParse({
+      ...validSection0Base,
+      thesis: Array.from({ length: 11 }, (_, i) => `t${i}`),
+    });
+    expect(result.success).toBe(false);
+    // 10개는 통과
+    const at10 = reportSection0Schema.safeParse({
+      ...validSection0Base,
+      thesis: Array.from({ length: 10 }, (_, i) => `t${i}`),
+    });
+    expect(at10.success).toBe(true);
+  });
+
+  it('reportSection2~7 summary rejects > 1000 chars (representative sect 5)', () => {
+    const tooLong = 'a'.repeat(1001);
+    const result = reportSection5Schema.safeParse({
+      summary: tooLong,
+      risks: [{ title: 'r', severity: 'low', detail: 'd' }],
+    });
+    expect(result.success).toBe(false);
+    // 1000자 통과
+    const at1000 = reportSection5Schema.safeParse({
+      summary: 'a'.repeat(1000),
+      risks: [{ title: 'r', severity: 'low', detail: 'd' }],
+    });
+    expect(at1000.success).toBe(true);
+  });
+
+  it('reportSection8LegacySchema.keyQuotes[].quote rejects > 500 chars', () => {
+    const tooLong = 'a'.repeat(501);
+    const result = reportSection8LegacySchema.safeParse({
+      conclusion: 'c',
+      recommendation: 'r',
+      keyQuotes: [{ side: 'pro', quote: tooLong }],
+    });
+    expect(result.success).toBe(false);
+    const at500 = reportSection8LegacySchema.safeParse({
+      conclusion: 'c',
+      recommendation: 'r',
+      keyQuotes: [{ side: 'pro', quote: 'a'.repeat(500) }],
+    });
+    expect(at500.success).toBe(true);
+  });
+
+  it('reportSection8ModernSchema.partD[].one_line rejects > 300 chars (coreVoteRowSchema)', () => {
+    const tooLong = 'a'.repeat(301);
+    const result = reportSection8ModernSchema.safeParse({
+      partA: [],
+      partB: [
+        { issue: 'i1', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i2', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i3', pro_quote: 'p', con_quote: 'c' },
+      ],
+      partC: {
+        sector_aggregate: { buy: 0, hold: 0, sell: 0 },
+        core_revote: { buy: 0, hold: 0, sell: 0 },
+        co_chair_unanimous: false,
+        verdict: 'HOLD',
+        rationale: ['r'],
+      },
+      partD: Array.from({ length: 11 }, (_, i) => ({
+        persona_id: `core-${i + 1}`,
+        label: `Core ${i + 1}`,
+        philosophy: 'p',
+        vote: 'HOLD',
+        one_line: i === 0 ? tooLong : 'short',
+      })),
+    });
+    expect(result.success).toBe(false);
+    // 300자 통과
+    const at300 = reportSection8ModernSchema.safeParse({
+      partA: [],
+      partB: [
+        { issue: 'i1', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i2', pro_quote: 'p', con_quote: 'c' },
+        { issue: 'i3', pro_quote: 'p', con_quote: 'c' },
+      ],
+      partC: {
+        sector_aggregate: { buy: 0, hold: 0, sell: 0 },
+        core_revote: { buy: 0, hold: 0, sell: 0 },
+        co_chair_unanimous: false,
+        verdict: 'HOLD',
+        rationale: ['r'],
+      },
+      partD: Array.from({ length: 11 }, (_, i) => ({
+        persona_id: `core-${i + 1}`,
+        label: `Core ${i + 1}`,
+        philosophy: 'p',
+        vote: 'HOLD',
+        one_line: i === 0 ? 'a'.repeat(300) : 'short',
+      })),
+    });
+    expect(at300.success).toBe(true);
   });
 });
