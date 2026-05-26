@@ -32,9 +32,9 @@ export function TriggerFullReportButton({
     { kind: 'success' | 'error'; msg: string } | null
   >(null);
 
-  // PR4 Task 9 Track 2 C-1 fix: ShortlistRow의 <summary> 내부에 nested된 본 버튼 click이
-  // <details> toggle을 발화하지 않도록 stopPropagation. HTML5는 interactive descendants of
-  // <summary>를 disallow하지만 본 PR scope에서는 <details> 구조 유지 + click handler에서 차단.
+  // PR4 Task 9 omxy R5 watch: B43 (shortlist-row.tsx 구조 재정렬)으로 action은 <summary> OUT의
+  // sibling으로 이동됨. 본 stopPropagation은 defense-in-depth — wrapper row 클릭 이벤트 위임이나
+  // 다른 parent click handler 발화 차단 보조. HTML5 nesting violation은 B43 구조 fix에서 해소.
   function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
     e.preventDefault();
