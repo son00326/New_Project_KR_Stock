@@ -1,16 +1,19 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-26 (56차 §5 종료 — **PR4 MERGED ✅** PR #19 in main `7de9696` via rebase FF (26 commits) · **canonical 5-PR 완료** · 50 BLOCKERS (Plan 21 + Impl 24 B23~B46 + 3-track Fix-First 5) · test:ci 1126 PASS / 0 migrations · main HEAD = post-§5 docs merge (다음 세션 진입 시 `git rev-parse --short origin/main` verify, B75 박제) · OPEN PRs: #2 (format-error, 보류) only (post-merge state) · ⚠️ **PR4 MERGED ≠ production functional** — cost_log=0 / stock_reports=0 / committee_votes=0 · **B65 CRITICAL** (PR4 trigger button 클릭 시 1~3 LLM call 후 update_report_sections_0_7 UPDATE-only RPC fail, exact cost = smoke 후 cost_log 기준) + **B66 quality/trust** (sector="코스닥"/"코스피" placeholder) + B67~B98 잠재 audit 박제 · 다음 1순위 = **production audit → B65-P1/P2/P3 + B66/B84 backfill → Smoke Stage 1 (non-AI dry-run) + Stage 2 (single real AI) → PR5 진입** (omxy R1~R8 CONVERGED, §9 신규 박제).
+Last updated: 2026-05-26 (57차 §1 종료 — **Task 1 ✅ + Task 2 ✅ B65-P1 immediate guard PR #21 OPEN** · 7325f00 ahead of main · test:ci 1126 → **1130 PASS / 105 files** (+4 신규 B65-P1 invariant test) · 0 migrations · omxy R1 plan CONVERGED + R2 commit verify CONVERGED (subagent 2-parallel — code-reviewer Leibniz + architect McClintock + OMX code-review skill + native critic Hegel) · OPEN PRs: **#21 (B65-P1 OPEN, USER 머지 대기)** + #20 (56차 §5 docs cleanup) + #2 (format-error, 보류) · main HEAD `75fb46a` · ⚠️ **PR4 MERGED ≠ production functional 잔존** — cost_log=0 / stock_reports=0 / committee_votes=0 · **다음 1순위 = USER가 PR #21 머지 → CLAUDE Task 3 B65-P2 RPC R-debate (omxy 옵션 A/B/C + axis i/ii/iii) → Task 4-8 진행** (§2.1 active matrix 갱신, §9 박제 유지).
 
 ---
 
-## ⭐ 다음 세션 진입자 5줄 요약 (56차 §5 종료 시점, omxy R1~R8 CONVERGED 박제)
+## ⭐ 다음 세션 진입자 5줄 요약 (57차 §1 종료 시점, B65-P1 PR #21 OPEN)
 
-1. **PR4 MERGED ✅ in main `7de9696`** (PR #19) + **canonical 5-PR 완료** + docs §4+§5 MERGED (PR #18, B75 fixed SHA 박제 금지 → verify by `git rev-parse --short origin/main`). 50 BLOCKERS catch & fix. test:ci 1126 PASS / 0 migrations.
-2. ⚠️ **PR4 MERGED ≠ production functional** — production ground truth (Supabase 직접 query): **cost_log=0** (성공/기록된 AI 호출 0건) + **stock_reports=0** + **committee_votes=0** + short_list_30 30 rows (2026-05-12 mechanical Python seed 1회, sector="코스닥"/"코스피" placeholder). §9 신규 박제 (B65+B66+Smoke Stage 1+2 PASS 시 즉시 삭제).
-3. **B65 CRITICAL production blocker (3-phase 분리)**: PR4 trigger button 클릭 시 1~3 LLM calls (writer Opus + critic Haiku + 조건부 revise, exact cost = smoke 후 cost_log 기준) 후 `update_report_sections_0_7` UPDATE-only RPC fail. **P1** immediate guard (B86 month format YYYY-MM-DD 변환) + **P2** real enablement (신규 upsert RPC, B88 R-debate 옵션 A/B/C) + **P3** P1/P2 호환 (B98 default = (i) feature flag, secondary = (iii) atomic transaction, 비추천 = (ii) RPC presence check). Smoke는 P3 후만 가능 (B94 박제).
-4. **다음 세션 sequence (omxy R1~R8 lock-in)**: (1) production audit 재확인 → (2) B65-P1 immediate guard → (3) B65-P2 RPC R-debate (옵션 A/B/C + axis i/ii/iii) → (4) B65-P3 P1/P2 호환 + B66 backfill + B89 unknown policy + B93 PASS criteria + B84 backfill verify → (5) **Smoke Stage 1 (non-AI dry-run, cost=0, mock orchestrate, P1+P2+P3 호환 invariant test)** → (6) **Smoke Stage 2 (single real AI, 사용자 승인 + B85 model id verify + B87 Core criteria 1+2+3+5 + Full-path criteria 4 옵션 B만)** → (7) B67~B98 audit → (8) **PR5 진입** (cron 30 자동 + 큐 인프라, T11 분할 결정 보존, 16,050원/월 hardcap 4%; B65-P2 RPC가 PR5 cron path와 호환 시만).
-5. **canonical 5-PR 순서 (모두 완료, PR5 진입 차단 = B65/B66/Smoke 모두 PASS)**:
+1. **57차 §1 진행률 박제**: Task 1 ✅ production audit (cost_log=0 / stock_reports=0 / committee_votes=0 / report_critic_findings=0 / short_list_30=30 rows · sector 코스닥 22 + 코스피 8 placeholder · 56차 §1 ground truth와 100% 일치) + Task 2 ✅ B65-P1 immediate guard **PR #21 OPEN** (https://github.com/son00326/New_Project_KR_Stock/pull/21 · 7325f00 / 2 files / +156 -3 / test:ci 1126 → **1130 PASS / 105 files** / build 25 routes / lint 0 err / tsc clean / 0 migrations).
+2. **PR #21 omxy 적대적 검토 (R1 plan CONVERGED + R2 commit verify CONVERGED, BLOCKERS 0)**: R1 = debate-with-omx Responder + native critic Hegel · R2 = debate-with-omx Responder + OMX code-review skill + **2 subagent parallel** (code-reviewer Leibniz gpt-5.5 high + architect McClintock gpt-5.5 high). WATCH (비차단): P3 도입 시 본 guard를 feature flag (`PR4_TRIGGER_UPSERT_ENABLED`) toggle 필요 — 코드 주석에 박제됨.
+3. ⚠️ **PR4 MERGED ≠ production functional 잔존**: cost_log=0 / stock_reports=0 / committee_votes=0. **B65 CRITICAL (3-phase 분리)** — P1 (Task 2 ✅ PR #21) + P2 (Task 3 R-debate 대기) + P3 (Task 4 feature flag) + **B66 quality** (short_list_30 sector placeholder) + B67~B98 audit catalog 11+. §9 박제 유지.
+4. **다음 세션 sequence**:
+   - **(USER)** PR #21 (B65-P1) 머지 진입 의사 확인 → 머지 시 main HEAD advance (B65-P1 production active)
+   - **(CLAUDE)** Task 3 = **B65-P2 RPC R-debate** (omxy 적대적 토론 — 옵션 A admin-only RPC / 옵션 B commit_persona_eval full path / 옵션 C synthetic; axis i admin trigger 책임 범위 / axis ii B79 동시 해결 / axis iii PR5 cron path 일관성). 결정 spec doc 작성 → omxy CONVERGED → Task 4 진입.
+   - **(CLAUDE)** Task 4 = B65-P3 P1/P2 호환 (B98 feature flag default `PR4_TRIGGER_UPSERT_ENABLED=true`) + Task 5 B66 backfill + Task 6 Smoke Stage 1 + (USER 승인) Task 7 Smoke Stage 2 + Task 8 audit + PR5.
+5. **canonical 5-PR 순서 (모두 MERGED, PR5 진입 차단 = B65-P1/P2/P3 + B66 + Smoke 모두 PASS)**:
 
    | Group | 담당 PR | 상태 |
    |---|---|---|
@@ -25,7 +28,12 @@ Last updated: 2026-05-26 (56차 §5 종료 — **PR4 MERGED ✅** PR #19 in main
    | **D** (잔여) UI caller wire | **PR4** | ✅ **MERGED `7de9696`** (단, **production functional gap = §9 박제**) |
    | **cron 30 자동 리포트 + 큐 인프라** | **PR5 (분리)** | 🟡 **B65-P3 + B66 backfill + Smoke Stage 1+2 모두 PASS 후만 진입** (omxy R7 B94 lock-in) |
 
-**진입 트리거**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" → §0 verify (main HEAD post-§5-merge `git rev-parse` verify + OPEN PRs `#2` only + test:ci 1126 PASS) → **§9 박제 확인** → **production audit (cost_log/stock_reports/committee_votes/short_list_30 sector quality) 1회 실행** → **B65-P1 immediate guard 진입 의사 1회 확인 후 자동 시작**. §2.1 active matrix 8-row + §9 PR4 functional gap 박제 참조.
+**진입 트리거 (57차 §1 종료 → 57차 §2 또는 다음 차수 진입)**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" →
+1. §0 verify (`git rev-parse --short origin/main` + OPEN PRs `#21, #20, #2` + test:ci 1130 PASS)
+2. **PR #21 (B65-P1) 머지 여부 확인** — 머지된 경우: main HEAD advance 박제 / 미머지: USER에게 머지 진입 1회 확인
+3. **production audit 재확인** (Supabase 직접 query, §2.1 Task 1 entry routine) — drift 0 확인
+4. **§9 박제 + §2.1 active matrix 갱신 (Task 1+2 ✅) 확인**
+5. **Task 3 B65-P2 R-debate 진입** — omxy 적대적 토론 (옵션 A/B/C + axis i/ii/iii). 의사 1회 확인 후 자동 시작.
 
 **14 defer follow-up tickets (PR4 출신, B65/B66과 무관, 별도 작업)**: PR #19 body 박제. architectural drift (W-1 callerKind dead code / W-2 fetchTrackRecord* in actions.ts) + observability gap (W-4 sub_tags / W-5 user.email) + cosmetic (W-6 as never cast / Track 3 I1-I6).
 
@@ -36,7 +44,7 @@ Last updated: 2026-05-26 (56차 §5 종료 — **PR4 MERGED ✅** PR #19 in main
 
 > **cron 30 자동 리포트 + service-role caller DI + admin_id 'cron-system' + cost_log e2e test = PR5 후속 트랙** (T11 분할 결정 보존, PR4 머지 후 진입). PR5 caller path = orchestrateFullReport (quality), timeout 처리 = 자체 DB job queue β2′ 또는 Vercel Queues β1 (PR5 plan 시점 R-debate).
 
-**운영 원칙**: 미래 지향. §6 완료 이력 = 직전 2 entry inline (56차 §4 PR4 Task 1+2 + 55차 §4 PR3c MERGED baseline)만. older historical = git log + spec/plan/REVIEW docs + ProgressDashboard 위임.
+**운영 원칙**: 미래 지향. §6 완료 이력 = 직전 2 entry inline (57차 §1 Task 1+2 + 56차 §5 PR4 MERGED baseline)만. older historical = git log + spec/plan/REVIEW docs + ProgressDashboard 위임.
 
 **⚠️ gsd-code-reviewer 환경 부재 대체 정책 (54차 §4 박제)**: 현 Claude Code 환경에서 `gsd-code-reviewer` agent type은 더 이상 사용 불가. PR3b/PR4/후속 모든 PR의 deep code review는 **3-track 대체 패턴** (PR4 finalize Task 9에서 적용):
 - **Track 1**: `gstack-review` skill (pre-landing PR review, structural/SQL/LLM trust/concurrency)
@@ -48,73 +56,84 @@ Last updated: 2026-05-26 (56차 §5 종료 — **PR4 MERGED ✅** PR #19 in main
 ## 0. 세션 시작 루틴 (verify + auto-progress)
 
 ```bash
-# 56차 §5 종료 state — main 기준 (post-PR4-MERGED + post-§5 docs merge)
+# 57차 §1 종료 state — PR #21 (B65-P1) OPEN, USER 머지 대기
 cd /Users/yong/New_Project_KR_Stock
 
 # 1. main branch state runtime 확인 (B75 fixed SHA 박제 금지)
 git checkout main && git pull origin main
 git rev-parse --abbrev-ref HEAD                   # main
-git rev-parse --short HEAD                        # post-§5 docs merge head — 본 명령으로 verify
+git rev-parse --short HEAD                        # 기대: 75fb46a OR (PR #21 머지 후) 7325f00 자손
 git status --short                                # clean
 
-# 2. OPEN PRs (56차 §5 종료 baseline: #2 (format-error, 보류) only)
+# 2. OPEN PRs (57차 §1 종료 baseline: #21 + #20 + #2)
 gh pr list --state open --json number,title,headRefName,mergeable
+#   #21 feat/b65-p1-immediate-guard (Task 2 ✅ omxy R1+R2 CONVERGED, USER 머지 대기)
+#   #20 docs/56-section5-handoff-restructure (56차 §5 docs cleanup, 본 HANDOFF state도 포함됨)
+#   #2  fix/s7a-format-error-inventory (format-error, 보류)
 
-# 3. canonical 5-PR MERGED 박제 확인
-git log --oneline | head -10  # PR4 MERGED 7de9696 + PR3c b2a902a + PR3b cf68731 + PR1 4aa3130 + PR3a 0813a41 + PR2 f85fb69
+# 3. canonical 5-PR MERGED + Task 2 B65-P1 branch 확인
+git log --oneline | head -10
+git log origin/feat/b65-p1-immediate-guard --oneline | head -3
+#   7325f00 feat(57차 §1 Task 2 B65-P1 immediate guard): ...
 
-# 4. 검증 게이트 (56차 §5 baseline)
-#    - test:ci 1126 PASS / 105 files / build 25 routes / lint 0 err 6 warn (pre-existing) / tsc clean
+# 4. 검증 게이트 (57차 §1 baseline)
+#    - test:ci 1126 → 1130 PASS / 105 files (+4 신규 B65-P1 invariant)
+#    - build 25 routes / lint 0 err 6 warn (pre-existing) / tsc clean / 0 migrations
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
 
-# 5. production audit 재확인 (§2.1 active 8-row matrix Task 1 = entry routine, B104 fix)
+# 5. production audit 재확인 (§2.1 active 8-row matrix Task 1 = entry routine, 매 세션 1순위)
 #    Supabase MCP `mcp__supabase__execute_sql` 또는 dashboard로 실행:
 #      select count(*) from cost_log;                                         -- 기대 0
-#      select count(*) from stock_reports;                                    -- 기대 0
+#      select count(*) from stock_reports;                                    -- 기대 0 (PR #21 머지 + Stage 2 후 1+)
 #      select count(*) from committee_votes;                                  -- 기대 0
 #      select count(*) from short_list_30;                                    -- 기대 30
 #      select sector, count(*) from short_list_30 group by sector order by 2 desc;
-#                                                                              -- 기대: ('코스닥', '코스피') placeholder 잔존
-#    drift (cost_log > 0 등) 시 B65 후속 상황 재평가 + §1 ground truth 갱신.
+#                                                                              -- 기대: ('코스닥', '코스피') placeholder 잔존 (B66, Task 5 backfill 후 canonical 14)
+#    drift (cost_log > 0 등) 시 PR #21 머지 효과 또는 Smoke Stage 2 결과 반영 가능 — §1 ground truth 갱신.
 ```
 
-### 진입자 자동 행동 (§2.0 default-progress policy)
+### 진입자 자동 행동 (§2.0 default-progress policy, 57차 §1 갱신)
 
-1. **§0 verify 실행** → branch state + PR state + 검증 게이트 + **production audit 재확인** (Task 1).
-2. **§9 박제 확인** — PR4 MERGED ≠ production functional 명시.
-3. **§2.1 active 8-row matrix 다음 unblocked step 식별** (Task 2 B65-P1 immediate guard부터).
-3. **Owner 별 행동**:
+1. **§0 verify 실행** → branch state + PR state (`#21, #20, #2`) + 검증 게이트 + **production audit 재확인** (Task 1).
+2. **§9 박제 확인** — PR4 MERGED ≠ production functional 명시 (Task 2 PR #21이 P1 차단, P2/P3 잔여).
+3. **§2.1 active 8-row matrix 다음 unblocked step 식별**:
+   - Task 1 ✅ COMPLETED (57차 §1, production audit 1회) — **다음 세션 entry routine 1순위 재실행**
+   - Task 2 ✅ COMPLETED (57차 §1, B65-P1 PR #21 OPEN) — **USER 머지 진입 의사 1회 확인**
+   - Task 3 🔴 다음 1순위 = **B65-P2 RPC R-debate** (omxy 적대적 토론, 옵션 A/B/C + axis i/ii/iii)
+4. **Owner 별 행동**:
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
    - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/push/PR-create 자동.
-   - **[USER]** → background blocker 보고 + 동시 가능한 [CLAUDE] step 자동 시작.
-4. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기 (scope expansion / product spec / risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium).
-5. **§7 omxy 적대적 검토 패턴**은 모든 신규 작업 branch에서 강제 적용.
+   - **[USER]** → PR #21 머지 + background blocker 보고 + 동시 가능한 [CLAUDE] step 자동 시작.
+5. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기 (scope expansion / product spec / risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium).
+6. **§7 omxy 적대적 검토 패턴**은 모든 신규 작업 branch에서 강제 적용 (57차 §1 박제: R1 plan + R2 commit verify with 2 subagent parallel = subagent/skill 활용 강제).
 
 ---
 
-## 1. 현재 상태 (56차 §5 종료 시점 — PR4 MERGED ≠ production functional 박제, 2026-05-26)
+## 1. 현재 상태 (57차 §1 종료 시점 — Task 1+2 ✅ + PR #21 OPEN, 2026-05-26)
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | PR4 baseline `7de9696` (PR #19 MERGED rebase FF, 26 commits) + 본 §5 docs commit 머지 후 main HEAD advance. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지). |
-| **PR4 PR** | ✅ **MERGED `7de9696`** (PR #19, https://github.com/son00326/New_Project_KR_Stock/pull/19, 26 commits rebase FF, --delete-branch) |
-| **PR4 Task 1-9 모두 완료** | T5 first vertical slice + orchestrator DI + Regen wire + Track Record 탭 + PR3a OOS 3종 + B18 cron 401 + W7 enriched/input drift + format-error inventory + 3-track Fix-First |
-| **PR4 OMXY 누적** | Plan stage R1~R7: 21 BLOCKERS (B1~B21) · Impl 13 cycles × R1~R8: 24 BLOCKERS (B23~B46) · 3-track Fix-First: 5 (C-1+C-2+C-3+W1+W3) · **Total 50 BLOCKERS catch & fix** |
-| ⚠️ **PR4 MERGED ≠ production functional** | **B65 CRITICAL** (PR4 trigger button 클릭 시 1~3 LLM call 후 `update_report_sections_0_7` UPDATE-only RPC fail, exact cost = smoke 후 `cost_log` 기준) — §9 신규 박제 참조. |
-| **B66 quality/trust blocker** | `short_list_30` 30 rows sector="코스닥"/"코스피" placeholder (D21 canonical 14 미반영, Python seed mechanical 1회). PR5 entry blocker. |
-| **production ground truth (Supabase 직접 query)** | `cost_log` = **0 rows** (성공/기록된 AI 호출 0건) · `stock_reports` = **0 rows** · `committee_votes` = **0 rows** · `short_list_30` = **30 rows** (2026-05-12 mechanical Python seed 1회, sector placeholder 잔존) |
-| **B67-B98 audit (잠재 follow-up)** | omxy R1~R8 catch 결과 — cron / cost_log retry / RPC 책임 / hardcap mock 등 11+ 항목. smoke PASS 후 audit (§9 + §2.1 8순위 박제). |
-| **다음 세션 1순위** | ⭐ **production audit 재확인 → B65-P1 immediate guard (B86 month format) → B65-P2 real enablement (B88 RPC R-debate) → B65-P3 P1/P2 호환 (B98 default policy) → B66 backfill (B84+B89+B93) → Smoke Stage 1 (non-AI dry-run, cost=0) → Smoke Stage 2 (single real AI, USER 승인 + B85+B87) → audit → PR5** |
-| canonical 5-PR MERGED (전체 완료) | PR2 `f85fb69` (54차 §2) / PR3a `0813a41` (54차 §3) / PR1 `4aa3130` (54차 §4) / PR3b `cf68731` (55차 §3) / PR3c `b2a902a` (55차 §4) / **PR4 `7de9696` (56차 §5)** — 상세 = git log + PR body |
+| main HEAD | `75fb46a` (origin/main, PR #20 미머지). **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify**. PR #21 머지 시 7325f00 자손으로 advance. |
+| **PR #21 (B65-P1)** | 🟢 **OPEN** (https://github.com/son00326/New_Project_KR_Stock/pull/21, branch `feat/b65-p1-immediate-guard`, 1 commit 7325f00, USER 머지 대기) — Task 2 ✅ COMPLETED |
+| **PR #20 (56차 §5 docs)** | 🟢 OPEN (branch `docs/56-section5-handoff-restructure`, R9~R11 + 57차 §1 docs cleanup) |
+| **PR4 (canonical 5-PR 마지막)** | ✅ MERGED `7de9696` (PR #19, 56차 §5) — 상세 = §6 56차 §5 entry + PR #19 body |
+| canonical 5-PR MERGED (전체 완료) | PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696` |
+| **57차 §1 Task 1 (production audit)** | ✅ COMPLETED — cost_log=0 / stock_reports=0 / committee_votes=0 / report_critic_findings=0 / short_list_30=30 (코스닥 22 + 코스피 8 placeholder) · 56차 §1 ground truth 100% 일치, drift 0 |
+| **57차 §1 Task 2 (B65-P1 immediate guard)** | ✅ COMPLETED — PR #21 commit 7325f00. `triggerFullReport`에 `reportExistsForMonth(input.ticker, \`${input.month}-01\`)` preflight 추가. exists=false → `report_not_found` / throws → `report_lookup_failed`. **B86 month format** caller-side YYYY-MM→YYYY-MM-01 변환 (preflight 전용, orchestrate payload month는 YYYY-MM 유지) |
+| **PR #21 OMXY 누적 (57차 §1)** | R1 plan CONVERGED (debate-with-omx Responder + native critic Hegel gpt-5.5 high subagent) + R2 commit verify CONVERGED (debate-with-omx Responder + OMX code-review skill + native code-reviewer Leibniz + native architect McClintock — **2 subagent parallel**) — **BLOCKERS 0** · WATCH (비차단): P3 도입 시 본 guard를 feature flag toggle 필요 (`PR4_TRIGGER_UPSERT_ENABLED`, B98 default, 코드 주석 박제) |
+| ⚠️ **PR4 MERGED ≠ production functional 잔존** | PR #21이 P1 차단 (cost burn 방지), but P2/P3 미구현 = trigger button 영구 fail-fast (`report_not_found`) 상태. 정상 동작은 P2 RPC 도입 + P3 feature flag 후. §9 박제 유지. |
+| **B66 quality/trust blocker** | `short_list_30` 30 rows sector="코스닥"/"코스피" placeholder (D21 canonical 14 미반영, Python seed mechanical 1회). PR5 entry blocker — Task 5 backfill 후 PR5 진입 가능. |
+| **B67~B98 audit (잠재 follow-up)** | 56차 §5 omxy R1~R8 catch 결과 — cron / cost_log retry / RPC 책임 / hardcap mock 등 11+ 항목. Smoke Stage 2 PASS 후 audit (§9 + Task 8). |
+| **다음 세션 1순위** | ⭐ **(USER) PR #21 머지 → (CLAUDE) Task 3 B65-P2 RPC R-debate** (omxy 적대적 토론 — 옵션 A admin-only `upsert_report_sections_0_7_admin` RPC / 옵션 B `commit_persona_eval` 연계 full path / 옵션 C synthetic 비추천; axis i/ii/iii 결정 후 spec doc 작성) → Task 4 B65-P3 feature flag → Task 5 B66 backfill → Task 6 Smoke Stage 1 → Task 7 Smoke Stage 2 (USER 승인) → Task 8 audit + PR5 |
 | Mock Skeleton + DQ-7 + S7e + S7a + Tier 2 | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) / ✅ S7a MERGED (51차) / ✅ Tier 2 D21 (52차+53차) |
 | 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR5 cron 가동 시 메인 path 활성 (B65-P3 + B66 backfill + Smoke Stage 1+2 PASS 후만 진입)**. |
-| 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired. **but production cost_log=0 / stock_reports=0 — 성공/기록된 AI 호출 및 리포트 0건. admin trigger 클릭 시 LLM/cost_log 일부 기록 후 B65 RPC persist fail 가능; 정확한 cost_log 적재 지점은 Smoke Stage 2에서 확정 (B108 정정). PR5 = cron caller path도 동일 RPC 의존** (B65-P2 옵션 A/B/C 선택이 PR5 호환성 결정). |
-| OPEN PRs | **#2** (format-error, 보류) only (본 §5 docs commit 머지 후 #18 close 박제) |
-| 실 AI 호출 | **현재 0건 (production cost_log ground truth)**. Vercel env 3 vars (ANTHROPIC_API_KEY + 2 모델 ID) Production 배포 + 충전 완료. **현 상태 = 성공/기록된 호출 0건이며, admin trigger button 클릭 시 LLM/cost_log 일부 기록 후 stock_reports persist (B65 RPC) 지점에서 fail 가능 — cost_log 적재 정확한 지점은 smoke Stage 2 시 확정 (B100 정정)**. B65-P3 후 첫 실 AI smoke 가능 (B97 2-stage 분리). |
-| Production deploy | **Vercel main `7de9696` deploying** (본 HANDOFF commit 시점 pending). canary verify: PR4 핵심 4 페이지 (/admin/portfolio, /admin/track-record, /admin/report/[ticker], /admin/report/[ticker]/regenerate) + 기존 4 페이지 + Functional smoke 3 (C-1 click / C-2 validation / B18 401). |
-| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0024 production 적용 완료 (PR3c 0023+0024 포함). **PR4 = 0 migrations 유지 (invariant)**. SECURITY DEFINER 4-grant 패턴 유지. **B65-P2 = 신규 RPC 마이그 (옵션 A/B/C R-debate)**. |
-| 검증 게이트 (7de9696 main baseline) | build 25 routes / lint 0 err 6 warn (pre-existing) / **test:ci 1010 → 1126 PASS / 105 files (+116 net, 회귀 0)** / tsc clean |
-| omxy debate 누적 | **PR3c까지 238+ rounds** (55차 §4 종료) · PR4 lifecycle = plan R1~R7 (21 BLOCKERS) + impl 13 cycles R1~R8 (24 BLOCKERS B23~B46) + 3-track Fix-First (5) = **PR4 50 BLOCKERS** · 56차 §5 post-merge docs R1~R8 8 rounds CONVERGED + B65~B98 catalog (34) catch |
+| 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired. **but production cost_log=0 / stock_reports=0 — 성공/기록된 AI 호출 및 리포트 0건. PR #21 머지 후 admin trigger button 클릭 → `report_not_found` (P1 cost burn 차단) 반환**. P2 도입 후 실 정상 동작 가능. cost_log 적재 정확한 지점은 Smoke Stage 2에서 확정 (B100). |
+| OPEN PRs | **#21** (B65-P1, USER 머지 대기) · **#20** (56차 §5 docs + 본 57차 §1 docs cleanup) · **#2** (format-error, 보류) |
+| 실 AI 호출 | **현재 0건 (production cost_log ground truth)**. Vercel env 3 vars (ANTHROPIC_API_KEY + 2 모델 ID) Production 배포 + 충전 완료. PR #21 머지 시 trigger button = cost burn 차단 (P1 fail-fast). B65-P2/P3 도입 후 첫 실 AI smoke 가능 (B97 2-stage 분리). |
+| Production deploy | Vercel main `75fb46a` (PR #20 docs 미머지). PR #21 머지 시 Vercel auto-deploy 트리거. canary verify: PR4 핵심 4 페이지 + Functional smoke 3 (C-1 click → P1 차단 확인 / C-2 validation / B18 401). |
+| Supabase | project `rbrpcynhphrpljbjirfo` · 0001~0024 production 적용 완료. **PR #21 = 0 migrations 유지** (PR4 invariant). SECURITY DEFINER 4-grant 패턴 유지. **B65-P2 = 신규 RPC 마이그 (Task 3 R-debate)**. |
+| 검증 게이트 (7325f00 PR #21 baseline) | build 25 routes / lint 0 err 6 warn (pre-existing) / **test:ci 1126 → 1130 PASS / 105 files (+4 신규 B65-P1 invariant)** / tsc clean / 0 migrations |
+| omxy debate 누적 | **PR3c까지 238+ rounds** (55차 §4 종료) · PR4 lifecycle 50 BLOCKERS (56차 §5) · 56차 §5 post-merge docs R1~R11 11 rounds CONVERGED + B65~B108 catalog catch · **57차 §1 PR #21 R1+R2 CONVERGED (BLOCKERS 0, subagent 2-parallel)** |
 
 ---
 
@@ -138,24 +157,24 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용.
 7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
 
-### §2.1 Step matrix (56차 §5 종료 — canonical 5-PR 완료, **PR5 진입 = B65/B66/Smoke Stage 1+2 모두 PASS 후만**)
+### §2.1 Step matrix (57차 §1 종료 — Task 1+2 ✅, **PR5 진입 = Task 3~7 모두 PASS 후만**)
 
-**현재 위치 = PR4 MERGED ✅ (main `7de9696`). canonical 5-PR 완료. but PR4 MERGED ≠ production functional (§9 신규 박제). 다음 세션 = production audit + B65-P1/P2/P3 + B66 backfill + Smoke Stage 1+2 + audit → PR5 진입.**
+**현재 위치 = 57차 §1 Task 2 ✅ B65-P1 PR #21 OPEN (USER 머지 대기). 다음 세션 = USER PR #21 머지 → CLAUDE Task 3 B65-P2 RPC R-debate → Task 4-8 진행.**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
-#### 다음 세션 active matrix — 8-row sequence (omxy R1~R8 CONVERGED lock-in)
+#### 다음 세션 active matrix — 8-row sequence (Task 1+2 ✅, Task 3~8 잔여)
 
-| # | Task | Owner | Priority | 박제 |
+| # | Task | Owner | 상태 | 박제 |
 |---|---|---|---|---|
-| 1 | **현행 audit 재확인** (Supabase 직접 query: `cost_log` / `stock_reports` / `committee_votes` / `short_list_30` sector quality) | CLAUDE | 🔴 entry routine 1순위 | 본 §1 ground truth와 동일한 결과 확인. 만약 drift (cost_log > 0 등) 시 B65 후속 상황 재평가. |
-| 2 | **B65-P1 immediate guard (Phase 1) + B86 month format** | CLAUDE | 🔴 PR5 entry blocker 1순위 | `triggerFullReport`에 `reportExistsForMonth(ticker, ${month}-01)` 변환 (또는 helper 양쪽 수용) → false → fail-fast 차단. 비용 burn 즉시 중단. **P2 미구현 상태에서만 활성**, smoke 금지 (B92). |
-| 3 | **B65-P2 real enablement (Phase 2) + B88 RPC R-debate** | CLAUDE | 🔴 PR5 entry blocker 2순위 | 옵션 (A) admin-only `upsert_report_sections_0_7_admin` RPC, relative cost low, criteria 4 deferred B79 / (B) `commit_persona_eval` 연계 full path, relative cost high, criteria 4 포함 / (C) synthetic — 위험. R-debate axis: (i) admin trigger 책임 범위 / (ii) B79 동시 해결 / (iii) PR5 cron path 일관성. **PR5 진입 전 옵션 A로 충분한지 별도 결정** (cron 30 자동 = full path 요구 시 A만으론 PR5 blocker 잔존). exact cost는 smoke 후 cost_log 기준 확정 (B91 박제). |
-| 4 | **B65-P3 P1/P2 호환 (Phase 3) + B98 default policy** | CLAUDE | 🔴 PR5 entry blocker 3순위 | (i) **feature flag (env `PR4_TRIGGER_UPSERT_ENABLED=true`) — default recommended** (simple, deterministic) / (ii) RPC presence check — **비추천** (runtime overhead + 권한 risk) / (iii) atomic transaction prepare — **secondary** (transaction boundary 복잡). 다음 세션 R-debate. **smoke는 P3 후만 가능** (B94). |
-| 5 | **B66 fix + B84 backfill + B89 default policy + B93 PASS criteria** | CLAUDE | 🟡 PR5 entry blocker | Python seed script ticker→canonical14 매핑 추가 + 30 rows backfill + unknown 처리 R-debate (block / manual review / backfill exclude). **PASS criteria 3종**: (1) 30 rows all sector ∈ `CANONICAL_SECTORS` (2) sector ∉ ('코스피','코스닥') (3) sub_tags 정합 (jsonb null OR string[]). |
-| 6 | **Smoke Stage 1 — non-AI dry-run (B97 fix)** | CLAUDE | 🔴 PR5 entry blocker 4순위 | `triggerFullReport`에 mock `orchestrateFullReport` 주입 (vi.doMock). **P1+P2+P3 호환 invariant test**: P3 호환 완료 시 P2 path 진입 (mock called) / 비호환 시 P1 fail-fast (mock not called). cost=0. **B96 target**: short_list_30 존재 + stock_reports 부재 ticker. TDD 단위 테스트. |
-| 7 | **Smoke Stage 2 — single real AI (B97 fix + B85 + B87)** | CLAUDE+USER | 🔴 PR5 entry blocker 5순위 | **Stage 1 PASS 후만 진입**. USER 승인 + B85 model id 1 token verify 선행. **Core smoke (필수)**: criteria 1 `cost_log` row + 2 `stock_reports` row sections + 3 `report_critic_findings` + 5 UI render. **Full-path (옵션 B만)**: criteria 4 `committee_votes`. real cost = `cost_log` 기준 확정 (token usage 기반). |
-| 8 | **B67~B98 audit + PR5 진입** | CLAUDE | 🟢→⭐ | Smoke Stage 2 PASS 후: B67~B98 catalog 11+ 항목 audit (cron / cost_log retry / RPC 책임 / hardcap mock 등). 모든 priority audit clear 후 **PR5 cron 30 자동 + 큐 인프라** plan SoT 작성 진입 (T11 분할 결정 보존, 16,050원/월 hardcap 4%; B65-P2 RPC 선택이 PR5 cron path와 호환 시만). |
+| 1 | **현행 audit 재확인** (Supabase 직접 query: `cost_log` / `stock_reports` / `committee_votes` / `short_list_30` sector quality) | CLAUDE | ✅ COMPLETED (57차 §1) — drift 0 확인 | 매 세션 entry routine 1순위로 재실행 (drift detect). 본 §1 ground truth와 동일한 결과 확인. drift (cost_log > 0 등) 시 PR #21 머지 효과 또는 Smoke Stage 2 결과 반영 가능. |
+| 2 | **B65-P1 immediate guard (Phase 1) + B86 month format** | CLAUDE → USER | ✅ COMPLETED (57차 §1, PR #21 OPEN) — USER 머지 대기 | `triggerFullReport`에 `reportExistsForMonth(input.ticker, ${month}-01)` preflight 추가 (commit 7325f00). false → `report_not_found` / throws → `report_lookup_failed`. **P2 미구현 상태에서만 활성**, smoke 금지 (B92). 코드 주석에 P3 feature flag 박제. |
+| 3 | **B65-P2 real enablement (Phase 2) + B88 RPC R-debate** | CLAUDE | 🔴 **다음 세션 1순위** | omxy 적대적 토론 진입. 옵션 (A) admin-only `upsert_report_sections_0_7_admin` RPC, relative cost low, criteria 4 deferred B79 / (B) `commit_persona_eval` 연계 full path, relative cost high, criteria 4 포함 / (C) synthetic — 위험. R-debate axis: (i) admin trigger 책임 범위 / (ii) B79 동시 해결 / (iii) PR5 cron path 일관성. **PR5 진입 전 옵션 A로 충분한지 별도 결정** (cron 30 자동 = full path 요구 시 A만으론 PR5 blocker 잔존). spec doc 작성 SoT = `docs/superpowers/specs/2026-05-26-b65-p2-rpc-rdebate.md` (신규). |
+| 4 | **B65-P3 P1/P2 호환 (Phase 3) + B98 default policy (feature flag)** | CLAUDE | 🔴 PR5 entry blocker 2순위 (Task 3 후 진입) | (i) **feature flag (env `PR4_TRIGGER_UPSERT_ENABLED=true`) — default recommended** (simple, deterministic) / (ii) RPC presence check — **비추천** (runtime overhead + 권한 risk) / (iii) atomic transaction prepare — **secondary** (transaction boundary 복잡). `triggerFullReport`에 env guard 추가 + P1 guard를 toggle 가능하게 수정. omxy R1+R2 verify. **smoke는 P3 후만 가능** (B94). |
+| 5 | **B66 fix + B84 backfill + B89 default policy + B93 PASS criteria** | CLAUDE | 🟡 PR5 entry blocker 3순위 (Task 4 병렬 가능) | Python seed script (`scripts/seed_short_list_30.py` 또는 신규) ticker→canonical14 매핑 추가 + 30 rows backfill + unknown 처리 R-debate (block / manual review / backfill exclude). **PASS criteria 3종**: (1) 30 rows all sector ∈ `CANONICAL_SECTORS` (2) sector ∉ ('코스피','코스닥') (3) sub_tags 정합 (jsonb null OR string[]). |
+| 6 | **Smoke Stage 1 — non-AI dry-run (B97 fix)** | CLAUDE | 🔴 PR5 entry blocker 4순위 (Task 4 후 진입) | `triggerFullReport`에 mock `orchestrateFullReport` 주입 (vi.doMock). **P1+P2+P3 호환 invariant test**: P3 호환 완료 시 P2 path 진입 (mock called) / 비호환 시 P1 fail-fast (mock not called). cost=0. **B96 target**: short_list_30 존재 + stock_reports 부재 ticker. TDD 단위 테스트. |
+| 7 | **Smoke Stage 2 — single real AI (B97 fix + B85 + B87)** | CLAUDE+USER | 🔴 PR5 entry blocker 5순위 (Task 6 후 진입) | **Stage 1 PASS 후만 진입**. USER 승인 + B85 model id 1 token verify 선행. **Core smoke (필수)**: criteria 1 `cost_log` row + 2 `stock_reports` row sections + 3 `report_critic_findings` + 5 UI render. **Full-path (옵션 B만)**: criteria 4 `committee_votes`. real cost = `cost_log` 기준 확정 (token usage 기반). |
+| 8 | **B67~B98 audit + PR5 진입** | CLAUDE | 🟢→⭐ (Task 7 후 진입) | Smoke Stage 2 PASS 후: B67~B98 catalog 11+ 항목 audit (cron / cost_log retry / RPC 책임 / hardcap mock 등). 모든 priority audit clear 후 **PR5 cron 30 자동 + 큐 인프라** plan SoT 작성 진입 (T11 분할 결정 보존, 16,050원/월 hardcap 4%; B65-P2 RPC 선택이 PR5 cron path와 호환 시만). |
 
 > **§9 신규 박제 참조 (PR4 MERGED ≠ production functional)**: B65/B66/Smoke Stage 1+2 모두 PASS 시 §9 + 본 8-row matrix를 HISTORICAL로 강등하고 PR5 active submatrix로 교체.
 
@@ -274,6 +293,28 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
 
+### 57차 §1 Task 1+2 완료 ✅ (B65-P1 immediate guard PR #21 OPEN, 2026-05-26)
+
+- **scope**: PR4 MERGED 후 첫 자율 trip — production functional 차단 해소 작업 (B65 3-phase 중 Phase 1만). 사용자 요구: 각 단계 omxy 합의 → 진행 → omxy 검증 → 수정 합의. claude/omxy 모두 에이전트/스킬 활용 강제.
+- **Task 1 (production audit 재확인)** ✅ COMPLETED:
+  · Supabase MCP `mcp__supabase__execute_sql` 사용
+  · 결과: cost_log=0 / stock_reports=0 / committee_votes=0 / report_critic_findings=0 / short_list_30=30 (코스닥 22 + 코스피 8 placeholder)
+  · 56차 §1 ground truth 100% 일치, drift 0 — §9 박제 (B65 + B66) 유효 재확인
+- **Task 2 (B65-P1 immediate guard + B86 month format)** ✅ COMPLETED:
+  · 변경 파일 2개: `actions.ts` (+19) + `trigger-full-report-action.test.ts` (+140)
+  · `triggerFullReport`에 `reportExistsForMonth(input.ticker, \`${input.month}-01\`)` preflight 추가 (auth 직후, dynamic import 전)
+  · false → `report_not_found` / throws → `report_lookup_failed` (format-error.ts 매핑 line 28~29 이미 존재, 변경 0)
+  · B86: caller-side YYYY-MM → YYYY-MM-01 변환 (preflight 전용, orchestrate payload month는 YYYY-MM 유지)
+  · 신규 4 invariant test (9~12) + 기존 success/orchestrate-throw 3 test에 reportExistsForMonth: true mock 추가 (omxy R1 권고 c — silent regression 차단)
+  · 0 migrations (PR4 invariant 유지)
+- **omxy 적대적 검토 lifecycle**:
+  · **R1 plan CONVERGED — BLOCKERS 0**: skill = debate-with-omx Responder + native critic subagent (Hegel, gpt-5.5 high, read-only adversarial review). 검토: (a) plan 1:1 일치 / (b) PostgREST `.eq('month', 'YYYY-MM-01')` ISO date literal 정합 / (c) silent regression 차단 (기존 test mock 보강) / (d) SoT 충돌 0 / (e) drift 0
+  · **R2 commit verify CONVERGED — BLOCKERS 0**: skill = debate-with-omx Responder + OMX code-review skill + native code-reviewer (Leibniz, gpt-5.5 high) + native architect (McClintock, gpt-5.5 high) — **2 subagent parallel** (사용자 명시 요구 충족). Plan-vs-commit 정합 일치 / test invariant 모두 cost burn 차단 + B86 invariant + call order 일치 / format-error 매핑 확인 / grep scope 0 매치 / import/createClient drift 0
+  · **WATCH (비차단)**: `reportExistsForMonth`가 자체 Supabase client 생성 (auth client DI 재사용 아님) — P1 scope 허용. P3 도입 시 본 guard를 feature flag (`PR4_TRIGGER_UPSERT_ENABLED`) toggle 필요 — 코드 주석 박제.
+- **branch + PR 생성**: `feat/b65-p1-immediate-guard` (cherry-pick from docs branch off origin/main `75fb46a`, commit 7325f00). PR #21 OPEN (https://github.com/son00326/New_Project_KR_Stock/pull/21). 본 HANDOFF 57차 §1 cleanup은 PR #20 `docs/56-section5-handoff-restructure`에 포함.
+- **검증 게이트**: test:ci 1126 → **1130 PASS / 105 files** (+4 신규, 회귀 0) · build 25 routes · lint 0 err 6 warn (pre-existing) · tsc clean · 0 migrations
+- **다음 1순위**: USER PR #21 머지 → CLAUDE Task 3 B65-P2 RPC R-debate (omxy 옵션 A/B/C + axis i/ii/iii) → Task 4-8 진행.
+
 ### 56차 §5 PR4 MERGED ✅ (canonical 5-PR 완료, 2026-05-26)
 
 - **scope**: PR #19 MERGED in main `7de9696` via rebase FF (26 commits) + Vercel auto-deploy 트리거. canonical 5-PR 마지막 단계 완료. 0 migrations 유지 (PR4 invariant). https://github.com/son00326/New_Project_KR_Stock/pull/19
@@ -306,38 +347,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 - **post-merge production audit 발견 (56차 §5 docs cleanup phase)**: PR4 MERGED 직후 사용자 catch — Supabase 직접 query 결과 `cost_log=0` / `stock_reports=0` / `committee_votes=0` / `short_list_30` 30 rows (sector="코스닥"/"코스피" placeholder). **B65 CRITICAL** (`update_report_sections_0_7` UPDATE-only RPC가 row 부재 시 fail → AI 호출 1~3건 비용 burn 후 fail) + **B66 quality** (canonical 14 미반영). 56차 §5 omxy R1~R8 8 rounds CONVERGED (B65~B98 catalog 34 catch). **다음 세션 sequence = §2.1 active matrix 8-row** (production audit → B65-P1/P2/P3 → B66 → Smoke Stage 1+2 → audit → PR5). §9 신규 박제 참조.
 - **다음 1순위 (다음 세션 진입자)**: §2.1 active 8-row matrix 1순위 = production audit 재확인. Task 7 (Smoke Stage 2) PASS 후만 PR5 진입 자격. 이전 박제 "PR5 cron 30 자동 + 큐 인프라"는 entry blocker 해소 후로 재배치.
 
-### 56차 §3+§4 PR4 Task 1+2 부분 완료 (T5 first vertical slice + admin quality swap, 2026-05-25~05-26)
-
-- **scope**: PR4 (canonical 5-PR 마지막 단계) — plan v1~v7 lock-in + Task 1 (Step 1.0~1.3 T5 first vertical slice) ✅ + Task 2 Step 2.1+2.2 (admin quality path swap) ✅. **Step 2.3 (Regen wire) + Task 3-9 잔여**. PR not yet created. branch `feat/pr4-ui-caller-wire` (worktree `/Users/yong/New_Project_KR_Stock-pr4`, head `c7eced2`, main `4e61832` 기준 **16 commits ahead**).
-- **plan SoT**: `docs/superpowers/plans/2026-05-25-pr4-ui-caller-wire.md` (v7 lock-in, plan 단계 OMXY R1~R7 7 rounds CONVERGED + 21 BLOCKERS catch & fix B1~B21).
-- **T11 cron 30 자동 분할 결정 (사용자 catch)**: PR4 = admin manual trigger + Regen + Track Record + PR3a OOS + B18 + W7만. **PR5 후속 트랙 = cron 30 자동 + 큐 인프라** (16,050원/월 hardcap 4% 박제).
-- **commits 16** (7 plan + 9 impl):
-  - plan: `f783ce6` v1 / `bcb3512` v2 / `9d9201c` v3 / `fde9426` v4 / `bf0de5f` v5 / `d8cdad5` v6 / `6650345` v7
-  - impl Task 1: `cf23e59` Step 1.0 test infra / `f6205bf` Step 1.1 caller DI seam / `d94a1b9` B23 fix / `3ef9e0b` Step 1.2 triggerFullReport / `39d4b5b` B24 fix / `8f4eb88` Step 1.3 UI button + wire / `99bab77` B25+B26 fix
-  - impl Task 2: `5cc98cb` Step 2.1+2.2 orchestrator DI + admin quality swap / `c7eced2` B27+B28 fix
-- **OMXY impl 4 cycle × R1+R2 CONVERGED + 6 BLOCKERS catch & fix** (모두 caller DI seam silent-regression invariant 정밀화):
-  · B23 (Step 1.1): writer caller-di test가 createClient/preflight/callFullReport 전파를 명시 assert 안 함 → 4 assertion 보강
-  · B24 (Step 1.2): triggerFullReport success test가 reportId만 검증, commit args 회귀 silent pass → expect.objectContaining({...11 fields}) + options assertion
-  · B25+B26 (Step 1.3): button payload (4-field invariant) + formatErrorMessage 매핑 ('로그인이 필요합니다') 명시 assert
-  · B27+B28 (Step 2.1+2.2): callRevise (shouldRevise=true path) + evaluateReport→callCritic 전파 silent regression 차단
-- **신규 SoT 코드** (Task 1):
-  - test infra: `tudal/src/test/jsdom-setup.ts` (afterEach cleanup) + `tudal/src/test/fixtures/full-report-valid.ts` + vitest.config test.projects 분리 (node + jsdom)
-  - source: `commitFullReport` + `orchestrateFullReport` + 7 helper modules (cost-logger / 3 AI clients / 2 data helpers / critic.ts evaluateReport) 모두 `options: { client?: SupabaseClient } = {}` 패턴 + `options.client ?? (await createClient())` fallback
-  - actions.ts `triggerFullReport({ticker, name, sector, month})` admin server action — Task 2에서 commitFullReport → orchestrateFullReport (quality path) swap + callerKind='admin'
-  - UI: `trigger-full-report-button.tsx` (client) + ShortlistRow `action?` prop + BucketSection `renderRowAction?` prop + page.tsx `byBucket.map → renderRowAction` (month.slice(0,7) YYYY-MM 변환)
-- **검증 게이트 (c7eced2 baseline)**: test:ci 1010 → **1058 PASS** / 99 files (+48 net, 회귀 0) · build 25 routes · lint 0 err / 6 warnings (pre-existing) · tsc clean
-- **다음 1순위 (다음 세션 진입자)**: Step 2.3 Regen orchestrate wire — `regenerate/actions.ts` orchestrate 호출 + `stock_reports`에서 name/sector fetch + return shape `{manualCount, manualRemaining, +reportId}` + `regenerate-panel.tsx` UI 영향. 진입 의사 1회 확인 후 자동.
-
-### 55차 §4 PR3c MERGED baseline (3-step orchestration + sector_reference_backlog + Group G ✅ 해소, 2026-05-24)
-
-- **scope**: PR #15 MERGED in main `b2a902a` via rebase FF (12 commits) + 마이그 0023+0024 production applied (Supabase MCP) + Vercel canary 4/4 PASS + 후속 PR #16 docs MERGED `c98f2c4`.
-- **풀 리포트 생성 흐름**: PR3b 단일 LLM call → **3-step orchestration** (analyst pure-code → writer Opus 4.7 → critic Haiku 4.5 6축 verdict) + conditional revise (Opus max 8192, 1회 hard cap). `commitFullReport` (PR3b) + `orchestrateFullReport` (PR3c) coexist — PR4에서 caller가 path 선택.
-- **Group G ✅ 해소**: Sector reference 3-level (Level A 본문 2/12 lazy backlog table 0023 + helper Level A guard + Level B 4/10 docs + Level C 14/14 완료).
-- **마이그**: 0023 `sector_reference_backlog` (canonical 14 CHECK + atomic RPC) + 0024 `report_critic_findings` (run_id + target_stage CHECK + reason 500자 + atomic RPC) + 2 rollback. SECURITY DEFINER 4-grant 패턴 (public/anon=false, authenticated/service_role=true) 유지.
-- **omxy R1~R23 + 누적 49 BLOCKERS + 3-track Fix-First 5 + Defer 20**. test:ci 917 → 1010 PASS (+93). 상세 = git log + `docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md` + PR #15 body.
-- **Defer 20 → PR4 acceptance** (Step 2.3 + Task 3-9에서 처리).
-
-**Older historical (49차~55차 §3, S7a Anthropic wrapper, Tier 2 SoT+impl, PR2/PR3a/PR1/PR3b MERGED, 53차 §5 spec doc 박제)** = git log + spec/plan/REVIEW docs + ProgressDashboard 위임.
+**Older historical (49차~56차 §4, S7a Anthropic wrapper, Tier 2 SoT+impl, PR2/PR3a/PR1/PR3b/PR3c MERGED, 53차 §5 spec doc 박제, PR4 Task 1+2 부분 완료)** = git log + spec/plan/REVIEW docs + PR #19 body + ProgressDashboard 위임.
 
 ---
 
@@ -511,6 +521,29 @@ PR4 impl 단계에서 OMXY가 4 cycle × R1+R2에 걸쳐 catch한 6 BLOCKERS (B2
 - `commitFullReport` (admin path swap 후 source comments + impl 모두 0 매치 — orchestrate path만 잔여)
 - `callCritic\(\{`, `callRevise\(\{`, `callFullReport\(\{` (모든 1-arg 호출 0 매치 — always 2-arg)
 
+### 7.10 PR #21 (B65-P1) 신규 lesson 박제 (57차 §1) — omxy R1+R2 2 subagent parallel + WATCH suffix
+
+**핵심 lesson**: omxy R2 commit verify에 **2 subagent parallel** (code-reviewer + architect/devil's advocate) 사용 시 CONVERGED 신뢰도 + 잠재 follow-up 박제 모두 동시 달성.
+
+PR #21 R2 단계 omxy debate pattern:
+- **Track**: debate-with-omx Responder + OMX code-review skill (inline)
+- **Subagent 1 (code-reviewer)**: gpt-5.5 high read-only. plan-vs-commit 정합 + grep + format 매핑 검증. 출력: "BLOCKERS 0 / Evidence ..." 형식.
+- **Subagent 2 (architect/devil's advocate)**: gpt-5.5 high read-only. 아키텍처 coupling + 후속 phase risk 탐지. 출력: "Status: WATCH/BLOCK / Analysis ..." 형식.
+
+**WATCH suffix 패턴**: BLOCKERS 0 + 비차단 WATCH 항목 = "본 PR 진입 OK + 후속 phase에서 처리할 follow-up 박제" 효과. PR #21 R2 WATCH = "P3 도입 시 feature flag toggle 필요" (코드 주석에 박제).
+
+**처방** (PR #21부터 default — 후속 PR (Task 3, Task 4 등) 동일 강제):
+
+1. **R1 plan** = debate-with-omx + 1 native critic subagent (plan 정합 검증).
+2. **R2 commit verify** = debate-with-omx + OMX code-review skill + **2 subagent parallel** (code-reviewer + architect).
+3. **CONVERGED 조건** = BLOCKERS 0 + WATCH 항목은 코드 주석/PR body/HANDOFF에 박제.
+4. **사용 skill/agent 명시** = omxy 응답 첫 줄에 사용 도구 listed (사용자 명시 요구 = "claude/omxy 둘 다 에이전트와 스킬 활용").
+
+**3-track deep review와의 관계** (§7.8):
+- 3-track = PR 전체 (impl 완료 후 push 전) 1회 deep review (gsd-code-reviewer 대체).
+- **omxy R1+R2 = 매 commit/task 단위 detail review** (silent regression invariant 차단).
+- 두 패턴은 **complementary** (3-track은 broad, omxy R1+R2는 narrow). PR3b/PR4/PR #21 모두 적용.
+
 ---
 
 ## 8. 사용자 운영 원칙
@@ -526,7 +559,7 @@ PR4 impl 단계에서 OMXY가 4 cycle × R1+R2에 걸쳐 catch한 6 BLOCKERS (B2
 - **Default-progress policy** (§2.0): "이어서 진행해줘" 받으면 옵션 재질문 루프 금지. §2.1 Step matrix 다음 unblocked CLAUDE step 자동. USER-gated는 background blocker 표시. §2.0 7 exception buckets 도달 시만 USER 직접 묻기.
 - **canonical 5-PR 순서 절대 보존** (53차 §5 spec doc 박제 + 55차 §2/§4 + 56차 §5 정정): PR2 ✅ → PR3a ✅ → PR1 ✅ → PR3b ✅ → PR3c ✅ → **PR4 ✅ MERGED `7de9696` (56차 §5, PR #19) — canonical 5-PR 완료**. Hard gate (PR1 cron 가동 ⊥ PR3a schema drift fix 미선행) ✅ **해소** (54차 §3). 다음 = PR5 (cron 30 자동 + 큐 인프라, T11 분할 결정 보존).
 - **Kevin v3.1 quality target** (53차 §3 박제): 207 persona × 8 markers = 1656 marker assertions 전수 통과. Reference 자료 main 보존. PR3b writer 본문 + PR3c orchestrate + PR4 admin path (`orchestrateFullReport`) 모두 동일 quality target.
-- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 + §9 모두 stale 0. 본 **56차 §5 종료 시점** = PR4 MERGED ✅ in main `7de9696` (PR #19) / canonical 5-PR 완료 / test:ci 1126 PASS / build 25 routes / lint 0 err / tsc clean / 0 migrations (PR4 invariant) / OMXY PR4 lifecycle 50 BLOCKERS catch & fix / **post-merge audit B65 CRITICAL + B66 quality + B67~B98 catalog 34 catch (omxy R1~R8 CONVERGED)**. **USER 잔여 액션 = next session에서 Smoke Stage 2 시점 단 1회 승인** → 다음 = CLAUDE **§2.1 active 8-row matrix Task 1 production audit 재확인 → Task 2 B65-P1 immediate guard** 진입 의사 1회 확인 후 자동.
+- **HANDOFF.md 다음 세션 자동 진행 가능 조건**: §0 + §1 + §2 + §9 모두 stale 0. 본 **57차 §1 종료 시점** = PR4 MERGED ✅ + Task 1+2 ✅ + PR #21 OPEN (B65-P1) / canonical 5-PR 완료 / test:ci 1126 → 1130 PASS (+4 신규 B65-P1 invariant) / build 25 routes / lint 0 err / tsc clean / 0 migrations / **PR #21 omxy R1+R2 CONVERGED (BLOCKERS 0, 2 subagent parallel)**. **USER 잔여 액션 = PR #21 머지 + Smoke Stage 2 시점 1회 승인 (Task 7)** → 다음 = CLAUDE **§2.1 active 8-row matrix Task 3 B65-P2 RPC R-debate** 진입 의사 1회 확인 후 자동.
 - **DI seam invariant 정밀화 default (§7.9 PR4 lesson)**: 모든 caller DI test는 결과값 assert만이 아닌 (1) createClient short-circuit (2) helper-chain 2nd arg propagation (3) payload field invariant (4) 한국어 매핑 (5) shouldRevise=true revise branch — 5중 명시 assertion 필수.
 
 ---
@@ -645,4 +678,24 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 
 **post-R9 R10 audit BLOCKERS** (본 commit 해소): **B105** §9.6 round map 단조 증가 정렬 (본 단락) / **B106** B67~B80 항목별 1줄 catalog (§9.5) / **B107** Smoke criteria 5 PASS 문구 정정 (mapped error message = FAIL 명시).
 
-**SCOPE GUARD 박제**: B65-P1/P2/P3 + B66/B84/B89 + Smoke Stage 1+2 + §9.5 audit catalog + PR5 모두 **다음 세션 작업** (이번 56차 §5는 docs-only).
+**SCOPE GUARD 박제 (56차 §5 종료 시점)**: B65-P1/P2/P3 + B66/B84/B89 + Smoke Stage 1+2 + §9.5 audit catalog + PR5 모두 **다음 세션 작업** (56차 §5는 docs-only).
+
+### 9.7 57차 §1 진행 — Task 1+2 ✅ (PR #21 B65-P1 OPEN)
+
+57차 §1 진행 결과:
+
+- **Task 1 (production audit)** ✅ COMPLETED — drift 0 확인 (56차 §1 ground truth와 100% 일치)
+- **Task 2 (B65-P1 immediate guard + B86 month format)** ✅ COMPLETED — PR #21 OPEN (commit 7325f00, USER 머지 대기)
+- **omxy R1 plan CONVERGED**: debate-with-omx + native critic Hegel (BLOCKERS 0)
+- **omxy R2 commit verify CONVERGED**: debate-with-omx + OMX code-review skill + **2 subagent parallel** (code-reviewer Leibniz + architect McClintock) — **BLOCKERS 0** + WATCH (P3 도입 시 feature flag toggle 필요, 코드 주석 박제)
+
+**B65 3-phase 진행률**:
+- **P1** ✅ COMPLETED (57차 §1 PR #21, trigger button cost burn 차단 = report_not_found fail-fast)
+- **P2** 🔴 다음 세션 1순위 (Task 3 R-debate — 옵션 A/B/C + axis i/ii/iii)
+- **P3** 🔴 Task 4 (B98 default = feature flag `PR4_TRIGGER_UPSERT_ENABLED=true`)
+
+**B66 진행률**: 미진행 (Task 5 — Python seed canonical 14 backfill + B93 PASS criteria 3종)
+
+**Smoke 진행률**: 미진행 (Task 6 Stage 1 dry-run TDD + Task 7 Stage 2 single real AI USER 승인)
+
+**SCOPE GUARD 박제 (57차 §1 종료 시점)**: Task 3-8 모두 **다음 세션 작업**. 57차 §1는 Task 1+2 + 본 HANDOFF cleanup으로 종료.
