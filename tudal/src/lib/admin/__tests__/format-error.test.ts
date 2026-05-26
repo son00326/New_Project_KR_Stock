@@ -25,6 +25,9 @@ const KNOWN_ACTION_CODES = [
   "regen_counter_lookup_failed",
   "regen_counter_write_failed",
   "regen_counter_write_conflict",
+  // PR4 Step 2.3 — regenerate orchestrate wire (omxy R1 B29 fix)
+  "shortlist_item_not_found",
+  "orchestrate_full_report_failed",
   // portfolio
   "already_finalized",
   "approval_write_failed",

@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   reportExistsForMonth: vi.fn(),
   incrementManualRegenCount: vi.fn(),
+  // PR4 Step 2.3 — orchestrate wire 추가 모듈 (default mock으로 기존 success path 보존).
+  getActiveShortList: vi.fn(),
+  orchestrateFullReport: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -20,6 +23,14 @@ vi.mock("@/lib/data/admin-regen-counters", () => ({
   incrementManualRegenCount: mocks.incrementManualRegenCount,
 }));
 
+vi.mock("@/lib/data/admin-shortlist", () => ({
+  getActiveShortList: mocks.getActiveShortList,
+}));
+
+vi.mock("@/lib/report/full-report-orchestrator", () => ({
+  orchestrateFullReport: mocks.orchestrateFullReport,
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getUser.mockResolvedValue({
@@ -29,6 +40,55 @@ beforeEach(() => {
   mocks.incrementManualRegenCount.mockResolvedValue({
     ok: true,
     manualCount: 1,
+  });
+  mocks.getActiveShortList.mockResolvedValue([
+    {
+      id: "sl-1",
+      month: "2026-04-01",
+      ticker: "005930",
+      name: "삼성전자",
+      sector: "반도체",
+      bucket: "short",
+      rank: 1,
+      compositeScore: 80,
+      trendScore: 75,
+      momentumScore: 70,
+      volatilityScore: 30,
+      divergencePct: 1.2,
+      sparkline7d: [],
+      signalLabel: "breakout",
+      deltaStatus: "hold",
+      deltaReason: "",
+      summary3Line: "",
+      suggestedWeight: 0.034,
+      createdAt: "2026-04-01T00:00:00Z",
+    },
+    {
+      id: "sl-2",
+      month: "2026-04-01",
+      ticker: "035420",
+      name: "NAVER",
+      sector: "IT/SW",
+      bucket: "mid",
+      rank: 1,
+      compositeScore: 78,
+      trendScore: 70,
+      momentumScore: 72,
+      volatilityScore: 28,
+      divergencePct: 0.8,
+      sparkline7d: [],
+      signalLabel: "trend",
+      deltaStatus: "hold",
+      deltaReason: "",
+      summary3Line: "",
+      suggestedWeight: 0.034,
+      createdAt: "2026-04-01T00:00:00Z",
+    },
+  ]);
+  mocks.orchestrateFullReport.mockResolvedValue({
+    reportId: "rpt-default",
+    costKrw: 535,
+    revised: false,
   });
 });
 
@@ -149,10 +209,15 @@ describe("regenerateReport", () => {
     if (!result.success) expect(result.error).toBe("auth_unavailable");
   });
 
-  it("returns success with manualRemaining when increment succeeds", async () => {
+  it("returns success with manualRemaining + reportId when increment+orchestrate succeed (PR4 Step 2.3)", async () => {
     mocks.incrementManualRegenCount.mockResolvedValueOnce({
       ok: true,
       manualCount: 1,
+    });
+    mocks.orchestrateFullReport.mockResolvedValueOnce({
+      reportId: "rpt-005930-2026-04",
+      costKrw: 535,
+      revised: false,
     });
     const { regenerateReport } = await import("../actions");
 
@@ -165,6 +230,7 @@ describe("regenerateReport", () => {
     if (result.success) {
       expect(result.data.manualCount).toBe(1);
       expect(result.data.manualRemaining).toBe(1);
+      expect(result.data.reportId).toBe("rpt-005930-2026-04");
     }
     expect(mocks.incrementManualRegenCount).toHaveBeenCalledWith(
       "005930",
