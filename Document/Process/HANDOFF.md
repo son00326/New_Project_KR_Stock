@@ -106,18 +106,18 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 2. **§9 박제 확인** — PR4 MERGED ≠ production functional 명시 (Task 2 PR #21이 P1 차단, P2/P3 잔여).
 3. **§2.1 active 8-row matrix 다음 unblocked step 식별**:
    - Task 1 ✅ COMPLETED (57차 §1, production audit 1회) — **다음 세션 entry routine 1순위 재실행**
-   - Task 2 ✅ COMPLETED (57차 §1, B65-P1 PR #21 OPEN) — **USER 머지 진입 의사 1회 확인**
+   - Task 2 ✅ **MERGED in main `5b99e03`** (57차 §1, B65-P1 PR #21 rebase FF, Vercel deploy SUCCESS)
    - Task 3 🔴 다음 1순위 = **B65-P2 RPC R-debate** (omxy 적대적 토론, 옵션 A/B/C + axis i/ii/iii)
 4. **Owner 별 행동**:
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
    - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/push/PR-create 자동.
-   - **[USER]** → PR #21 머지 + background blocker 보고 + 동시 가능한 [CLAUDE] step 자동 시작.
+   - **[USER]** → background blocker 보고 (B-1~B-13 큐) + Smoke Stage 2 시점 1회 승인 (Task 7) + 동시 가능한 [CLAUDE] step 자동 시작.
 5. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기 (scope expansion / product spec / risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium).
 6. **§7 omxy 적대적 검토 패턴**은 모든 신규 작업 branch에서 강제 적용 (57차 §1 박제: R1 plan + R2 commit verify with 2 subagent parallel = subagent/skill 활용 강제).
 
 ---
 
-## 1. 현재 상태 (57차 §1 종료 시점 — Task 1+2 ✅ + PR #21 OPEN, 2026-05-26)
+## 1. 현재 상태 (57차 §1 종료 시점 — Task 1+2 ✅ + PR #21 ✅ MERGED in main `5b99e03`, 2026-05-26)
 
 | 영역 | 상태 |
 |---|---|
