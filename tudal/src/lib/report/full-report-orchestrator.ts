@@ -136,19 +136,22 @@ export async function orchestrateFullReport(
   input: OrchestrateFullReportInput,
   options: OrchestrateFullReportOptions = {},
 ): Promise<OrchestrateFullReportResult> {
+  // Step 1 analyst (pure-code, LLM 0) — input → enriched 변환 (현재 identity, 미래 enrichment hook).
+  // PR4 Task 8 W7 fix: enrichInput을 cost-hardcap preflight + writer + critic + revise + persist + backlog
+  // 모든 단계에서 일관 사용 (input.* drift 차단). adminUserId만 input 유지 (EnrichedFullReportInput에 없음).
+  const enriched = enrichInput(input);
+
   // B1 fix: cost-hardcap preflight (ORCHESTRATE_TOTAL_COST_BUDGET_KRW = writer + critic + revise worst case)
   // PR4 Task 2 Step 2.1: caller-supplied client 전파 (cost_log RLS 정합).
+  // PR4 Task 8 W7 fix: enriched.month 사용.
   await preflightHardcap(
     {
-      month: input.month,
+      month: enriched.month,
       callCount: 1,
       maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
     },
     { client: options.client },
   );
-
-  // Step 1 analyst (pure-code, LLM 0)
-  const enriched = enrichInput(input);
 
   // Step 2 writer (Opus max 8192 — PR3b callFullReport 재사용)
   const userPrompt = buildFullReportUserPrompt({
@@ -163,10 +166,11 @@ export async function orchestrateFullReport(
     macroSummary: enriched.macroSummary,
     sectorReference: enriched.sectorReference,
   });
+  // PR4 Task 8 W7 fix: writer call도 enriched.* (adminUserId만 input).
   const writerLlm = await callFullReport(
     {
-      ticker: input.ticker,
-      month: input.month,
+      ticker: enriched.ticker,
+      month: enriched.month,
       systemPrompt: FULL_REPORT_SYSTEM_PROMPT,
       userPrompt,
       adminUserId: input.adminUserId,
@@ -174,8 +178,8 @@ export async function orchestrateFullReport(
     { client: options.client },
   );
   let finalSections = parseAndValidate(writerLlm.content, {
-    ticker: input.ticker,
-    month: input.month,
+    ticker: enriched.ticker,
+    month: enriched.month,
     phase: 'writer',
   });
 
@@ -183,14 +187,15 @@ export async function orchestrateFullReport(
   // Track 2 W2 fix (gsd-deep): kevinV31Markers thread through orchestrator → critic.
   // PR3c quality 보장 핵심 — M1~M8 markers 명시. 미전달 시 critic prompt가 placeholder fallback.
   // PR4 Task 2 Step 2.1: caller DI 3rd arg — evaluateReport → callCritic chain 전파.
+  // PR4 Task 8 W7 fix: critic context도 enriched.* (sectorReference/consensusBadge/ticker/month).
   const critic = await evaluateReport(
     finalSections,
     {
-      ticker: input.ticker,
-      month: input.month,
+      ticker: enriched.ticker,
+      month: enriched.month,
       adminUserId: input.adminUserId,
-      sectorContext: input.sectorReference,
-      consensusBadge: input.consensusBadge,
+      sectorContext: enriched.sectorReference,
+      consensusBadge: enriched.consensusBadge,
       kevinV31Markers:
         'M1 4 axes (안정성·수익성·성장성·밸류) / M2 financial cite / M3 no-fabrication / M4 peer 3+ / M5 valuation trial / M6 BUY|HOLD|SELL / M7 일상 비유 / M8 200자 cap',
     },
@@ -201,16 +206,17 @@ export async function orchestrateFullReport(
   let reviseCostKrw = 0;
   let revised = false;
   if (critic.shouldRevise) {
+    // PR4 Task 8 W7 fix: revise prompt + call도 enriched.* (ticker/month).
     const revisePrompt = buildReviseUserPrompt({
-      ticker: input.ticker,
-      month: input.month,
+      ticker: enriched.ticker,
+      month: enriched.month,
       originalSections: finalSections,
       criticFindings: critic.verdict,
     });
     const reviseLlm = await callRevise(
       {
-        ticker: input.ticker,
-        month: input.month,
+        ticker: enriched.ticker,
+        month: enriched.month,
         systemPrompt: REVISE_SYSTEM_PROMPT,
         userPrompt: revisePrompt,
         adminUserId: input.adminUserId,
@@ -218,8 +224,8 @@ export async function orchestrateFullReport(
       { client: options.client },
     );
     finalSections = parseAndValidate(reviseLlm.content, {
-      ticker: input.ticker,
-      month: input.month,
+      ticker: enriched.ticker,
+      month: enriched.month,
       phase: 'revise',
     });
     reviseCostKrw = reviseLlm.costKrw;
@@ -230,10 +236,11 @@ export async function orchestrateFullReport(
   // Persistence: 3 RPC 순서
   // (a) stock_reports UPDATE (PR3b RPC 재사용 — blocking throw)
   // PR4 Task 2 Step 2.1: caller DI — options.client 주입 시 createClient bypass.
+  // PR4 Task 8 W7 fix: persisted ticker/month도 enriched.* (writer가 받은 값과 정합).
   const supabase = options.client ?? (await createClient());
   const { data, error } = await supabase.rpc('update_report_sections_0_7', {
-    p_ticker: input.ticker,
-    p_month: input.month,
+    p_ticker: enriched.ticker,
+    p_month: enriched.month,
     p_section_0: finalSections.section_0,
     p_section_1: finalSections.section_1,
     p_section_2: finalSections.section_2,
@@ -267,12 +274,13 @@ export async function orchestrateFullReport(
   // (c) sector backlog INSERT-or-BUMP (atomic RPC) — B21 fix: non-blocking warn (운영 추적 부가 효과)
   // B18 fix: trim+canonical helper에서 검증. B20 fix: Level A 보유 sector는 helper에서 early return.
   // PR4 Task 2 Step 2.1: caller DI — 2nd arg options.
+  // PR4 Task 8 W7 fix: backlog는 enriched.sector 사용 (writer가 받은 값과 정합).
   try {
-    await insertOrBumpBacklog(input.sector, { client: options.client });
+    await insertOrBumpBacklog(enriched.sector, { client: options.client });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `[orchestrateFullReport] sector_backlog_insert_failed ticker=${input.ticker} sector=${input.sector} message=${message}`,
+      `[orchestrateFullReport] sector_backlog_insert_failed ticker=${enriched.ticker} sector=${enriched.sector} message=${message}`,
     );
     // 보고서 commit + critic findings는 이미 성공. backlog 부가효과만 실패이므로 계속.
   }
