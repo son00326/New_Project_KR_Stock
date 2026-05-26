@@ -29,31 +29,52 @@ describe('commitFullReport — caller DI seam (PR4 Task 1 Step 1.1)', () => {
     adminUserId: 'admin-uid',
   };
 
-  it('uses injected client when options.client provided (admin caller, RPC 도달)', async () => {
+  it('uses injected client when options.client provided (admin caller, RPC 도달 + 전파 전체 검증)', async () => {
+    // OMXY R1 B23 fix: §1.1.7 invariant 완전 고정 — injected client가 commitFullReport 본체에서
+    // (1) preflightHardcap 2nd arg (2) callFullReport 2nd arg (3) final RPC 까지 모두 전파되는지
+    // 명시 assert. 회귀 시 silent pass 차단.
     const fakeClient = {
       rpc: vi.fn().mockResolvedValue({
         data: { success: true, report_id: 'rpt-1' },
         error: null,
       }),
     };
+    const preflightHardcapMock = vi.fn().mockResolvedValue(undefined);
+    const callFullReportMock = vi.fn().mockResolvedValue({
+      content: validFullReportJson(),
+      usage: {
+        input_tokens: 1,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        output_tokens: 1,
+      },
+      costKrw: 1,
+    });
+    const createClientSpy = vi.fn();
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
     vi.doMock('@/lib/cost/cost-logger', () => ({
-      preflightHardcap: vi.fn().mockResolvedValue(undefined),
+      preflightHardcap: preflightHardcapMock,
       insertCostLog: vi.fn().mockResolvedValue(undefined),
     }));
     vi.doMock('@/lib/ai/full-report-client', () => ({
-      callFullReport: vi.fn().mockResolvedValue({
-        content: validFullReportJson(),
-        usage: {
-          input_tokens: 1,
-          cache_creation_input_tokens: 0,
-          cache_read_input_tokens: 0,
-          output_tokens: 1,
-        },
-        costKrw: 1,
-      }),
+      callFullReport: callFullReportMock,
     }));
     const { commitFullReport } = await import('@/lib/report/full-report-writer');
     await commitFullReport(validInput, { client: fakeClient as never, callerKind: 'admin' });
+
+    // (1) createClient NOT called — injected client가 fallback 차단.
+    expect(createClientSpy).not.toHaveBeenCalled();
+    // (2) preflightHardcap 2nd arg propagation.
+    expect(preflightHardcapMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: fakeClient },
+    );
+    // (3) callFullReport 2nd arg propagation.
+    expect(callFullReportMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: fakeClient },
+    );
+    // (4) final RPC on injected client.
     expect(fakeClient.rpc).toHaveBeenCalledWith(
       'update_report_sections_0_7',
       expect.any(Object),
