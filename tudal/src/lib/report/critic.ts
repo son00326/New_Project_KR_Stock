@@ -5,10 +5,17 @@
 // 1회 hard cap invariant: 본 helper는 callCritic 한 번만 호출. revise는 orchestrator가 별도 처리.
 //   ✱ critic.ts에 callRevise 호출 0 (recursive revise 차단 — Verification gate 13).
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { callCritic, type CallCriticResult, type CriticResultJson } from '@/lib/ai/critic-client';
 import { CRITIC_SYSTEM_PROMPT, buildCriticUserPrompt } from '@/lib/ai/prompts/critic-prompt';
 
 export const REVISE_TRIGGER_WARN_THRESHOLD = 4;
+
+// PR4 Task 2 Step 2.1 (caller DI seam): evaluateReport에 options 3rd arg —
+// callCritic으로 client 전파 (cost_log RLS 정합).
+export interface EvaluateReportOptions {
+  client?: SupabaseClient;
+}
 
 export interface EvaluateReportContext {
   ticker: string;
@@ -30,6 +37,7 @@ export interface CriticResult {
 export async function evaluateReport(
   sections: Record<string, unknown>,
   ctx: EvaluateReportContext,
+  options: EvaluateReportOptions = {},
 ): Promise<CriticResult> {
   const sectionsSummary = JSON.stringify(sections);
   const userPrompt = buildCriticUserPrompt({
@@ -41,13 +49,16 @@ export async function evaluateReport(
     consensusBadge: ctx.consensusBadge ?? '🟢',
   });
 
-  const criticCall: CallCriticResult = await callCritic({
-    ticker: ctx.ticker,
-    month: ctx.month,
-    systemPrompt: CRITIC_SYSTEM_PROMPT,
-    userPrompt,
-    adminUserId: ctx.adminUserId,
-  });
+  const criticCall: CallCriticResult = await callCritic(
+    {
+      ticker: ctx.ticker,
+      month: ctx.month,
+      systemPrompt: CRITIC_SYSTEM_PROMPT,
+      userPrompt,
+      adminUserId: ctx.adminUserId,
+    },
+    { client: options.client },
+  );
 
   const verdicts = Object.values(criticCall.verdict);
   const failCount = verdicts.filter((v) => v.verdict === 'FAIL').length;

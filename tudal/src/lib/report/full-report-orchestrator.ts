@@ -19,6 +19,7 @@
 //   - B21 backlog non-blocking warn (critic findings는 blocking)
 //   - 1회 hard cap invariant: critic call 1회 + revise 1회 (recursive revise 차단)
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { callFullReport } from '@/lib/ai/full-report-client';
 import {
@@ -46,6 +47,13 @@ export interface OrchestrateFullReportResult {
   revised: boolean;
   criticVerdict: CriticResultJson;
   criticRunId: string;  // B17 fix (omxy R4): strict run_id 반환
+}
+
+// PR4 Task 2 Step 2.1 (caller DI seam): orchestrateFullReport options 2nd arg —
+// Step 1.1 commitFullReport 패턴 동일 (admin caller가 모든 chain helper에 client 전파).
+export interface OrchestrateFullReportOptions {
+  client?: SupabaseClient;
+  callerKind?: 'cron' | 'admin';
 }
 
 // extractJsonObject helper는 PR3b full-report-writer.ts에서 재사용 가능.
@@ -126,13 +134,18 @@ function parseAndValidate(
 
 export async function orchestrateFullReport(
   input: OrchestrateFullReportInput,
+  options: OrchestrateFullReportOptions = {},
 ): Promise<OrchestrateFullReportResult> {
   // B1 fix: cost-hardcap preflight (ORCHESTRATE_TOTAL_COST_BUDGET_KRW = writer + critic + revise worst case)
-  await preflightHardcap({
-    month: input.month,
-    callCount: 1,
-    maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
-  });
+  // PR4 Task 2 Step 2.1: caller-supplied client 전파 (cost_log RLS 정합).
+  await preflightHardcap(
+    {
+      month: input.month,
+      callCount: 1,
+      maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
+    },
+    { client: options.client },
+  );
 
   // Step 1 analyst (pure-code, LLM 0)
   const enriched = enrichInput(input);
@@ -150,13 +163,16 @@ export async function orchestrateFullReport(
     macroSummary: enriched.macroSummary,
     sectorReference: enriched.sectorReference,
   });
-  const writerLlm = await callFullReport({
-    ticker: input.ticker,
-    month: input.month,
-    systemPrompt: FULL_REPORT_SYSTEM_PROMPT,
-    userPrompt,
-    adminUserId: input.adminUserId,
-  });
+  const writerLlm = await callFullReport(
+    {
+      ticker: input.ticker,
+      month: input.month,
+      systemPrompt: FULL_REPORT_SYSTEM_PROMPT,
+      userPrompt,
+      adminUserId: input.adminUserId,
+    },
+    { client: options.client },
+  );
   let finalSections = parseAndValidate(writerLlm.content, {
     ticker: input.ticker,
     month: input.month,
@@ -166,15 +182,20 @@ export async function orchestrateFullReport(
   // Step 3 critic (Haiku LLM)
   // Track 2 W2 fix (gsd-deep): kevinV31Markers thread through orchestrator → critic.
   // PR3c quality 보장 핵심 — M1~M8 markers 명시. 미전달 시 critic prompt가 placeholder fallback.
-  const critic = await evaluateReport(finalSections, {
-    ticker: input.ticker,
-    month: input.month,
-    adminUserId: input.adminUserId,
-    sectorContext: input.sectorReference,
-    consensusBadge: input.consensusBadge,
-    kevinV31Markers:
-      'M1 4 axes (안정성·수익성·성장성·밸류) / M2 financial cite / M3 no-fabrication / M4 peer 3+ / M5 valuation trial / M6 BUY|HOLD|SELL / M7 일상 비유 / M8 200자 cap',
-  });
+  // PR4 Task 2 Step 2.1: caller DI 3rd arg — evaluateReport → callCritic chain 전파.
+  const critic = await evaluateReport(
+    finalSections,
+    {
+      ticker: input.ticker,
+      month: input.month,
+      adminUserId: input.adminUserId,
+      sectorContext: input.sectorReference,
+      consensusBadge: input.consensusBadge,
+      kevinV31Markers:
+        'M1 4 axes (안정성·수익성·성장성·밸류) / M2 financial cite / M3 no-fabrication / M4 peer 3+ / M5 valuation trial / M6 BUY|HOLD|SELL / M7 일상 비유 / M8 200자 cap',
+    },
+    { client: options.client },
+  );
 
   // Step 4 conditional revise (Opus max 8192, 1회 hard cap — recursive revise 차단)
   let reviseCostKrw = 0;
@@ -186,13 +207,16 @@ export async function orchestrateFullReport(
       originalSections: finalSections,
       criticFindings: critic.verdict,
     });
-    const reviseLlm = await callRevise({
-      ticker: input.ticker,
-      month: input.month,
-      systemPrompt: REVISE_SYSTEM_PROMPT,
-      userPrompt: revisePrompt,
-      adminUserId: input.adminUserId,
-    });
+    const reviseLlm = await callRevise(
+      {
+        ticker: input.ticker,
+        month: input.month,
+        systemPrompt: REVISE_SYSTEM_PROMPT,
+        userPrompt: revisePrompt,
+        adminUserId: input.adminUserId,
+      },
+      { client: options.client },
+    );
     finalSections = parseAndValidate(reviseLlm.content, {
       ticker: input.ticker,
       month: input.month,
@@ -205,7 +229,8 @@ export async function orchestrateFullReport(
 
   // Persistence: 3 RPC 순서
   // (a) stock_reports UPDATE (PR3b RPC 재사용 — blocking throw)
-  const supabase = await createClient();
+  // PR4 Task 2 Step 2.1: caller DI — options.client 주입 시 createClient bypass.
+  const supabase = options.client ?? (await createClient());
   const { data, error } = await supabase.rpc('update_report_sections_0_7', {
     p_ticker: input.ticker,
     p_month: input.month,
@@ -231,16 +256,19 @@ export async function orchestrateFullReport(
 
   // (b) critic findings INSERT (atomic RPC) — blocking throw (PR3c quality audit 핵심)
   // B17 fix: runId wire. B19 fix: target_stage='writer_draft' (PR3c 1회 hard cap).
+  // PR4 Task 2 Step 2.1: caller DI — 4th arg options.
   const { runId: criticRunId } = await insertCriticFindingsRun(
     data.report_id,
     critic.verdict,
     'writer_draft',
+    { client: options.client },
   );
 
   // (c) sector backlog INSERT-or-BUMP (atomic RPC) — B21 fix: non-blocking warn (운영 추적 부가 효과)
   // B18 fix: trim+canonical helper에서 검증. B20 fix: Level A 보유 sector는 helper에서 early return.
+  // PR4 Task 2 Step 2.1: caller DI — 2nd arg options.
   try {
-    await insertOrBumpBacklog(input.sector);
+    await insertOrBumpBacklog(input.sector, { client: options.client });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
