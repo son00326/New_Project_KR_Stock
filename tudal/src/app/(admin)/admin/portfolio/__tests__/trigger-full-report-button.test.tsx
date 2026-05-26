@@ -57,7 +57,9 @@ describe('TriggerFullReportButton (PR4 Task 1 Step 1.3)', () => {
     resolveAction!({ success: true, data: { reportId: 'rpt-cleanup' } });
   });
 
-  it('shows korean success feedback on commit success', async () => {
+  it('shows korean success feedback + payload 4-field invariant (B25 fix omxy R1)', async () => {
+    // OMXY R1 B25 fix: success feedback 외에 triggerFullReport call payload 4-field invariant 고정.
+    // sector/month/name 누락 또는 plan drift {ticker,month,name} 3-field 회귀 silent pass 차단.
     const { triggerFullReport } = await import('../actions');
     (triggerFullReport as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       success: true,
@@ -71,9 +73,13 @@ describe('TriggerFullReportButton (PR4 Task 1 Step 1.3)', () => {
       expect(status).toHaveTextContent('리포트 생성 완료');
       expect(status).toHaveTextContent('rpt-abc1'); // first 8 chars
     });
+    // B25 invariant: triggerFullReport는 4-field {ticker, name, sector, month} 정확 전파.
+    expect(triggerFullReport).toHaveBeenCalledWith(baseProps);
   });
 
-  it('shows korean error feedback on commit failure (formatErrorMessage 매핑)', async () => {
+  it('shows korean error feedback (formatErrorMessage 매핑 + B26 fix omxy R1)', async () => {
+    // OMXY R1 B26 fix: formatErrorMessage 매핑 invariant 고정 — raw 'auth_unavailable' 표시
+    // 회귀 silent pass 차단. format-error.ts:13 정합 ('auth_unavailable' → '로그인이 필요합니다').
     const { triggerFullReport } = await import('../actions');
     (triggerFullReport as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       success: false,
@@ -84,8 +90,9 @@ describe('TriggerFullReportButton (PR4 Task 1 Step 1.3)', () => {
     fireEvent.click(screen.getByRole('button'));
     await waitFor(() => {
       const status = screen.getByRole('status');
-      // formatErrorMessage이 한국어 매핑 — text-rose 색상 + 에러 메시지 있음.
-      expect(status).toBeInTheDocument();
+      // B26 invariant: 한국어 매핑 확인 (raw 'auth_unavailable' 회귀 시 fail).
+      expect(status).toHaveTextContent('로그인이 필요합니다');
+      // 색상 visual cue 보조 검증.
       expect(status.className).toContain('text-rose');
     });
   });
