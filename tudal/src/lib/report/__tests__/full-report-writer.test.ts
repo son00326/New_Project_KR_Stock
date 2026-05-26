@@ -89,6 +89,7 @@ describe('commitFullReport', () => {
     const result = await commitFullReport(baseInput);
     expect(result.reportId).toBe('r1');
     expect(result.costKrw).toBe(1200);
+    // PR4 Task 1 Step 1.1: caller DI seam — 2nd arg = { client: undefined } when options omitted.
     expect(callFullReport).toHaveBeenCalledWith(
       expect.objectContaining({
         ticker: '196170',
@@ -97,6 +98,7 @@ describe('commitFullReport', () => {
         systemPrompt: expect.stringContaining('투자 요약'),
         userPrompt: expect.stringContaining('알테오젠'),
       }),
+      { client: undefined },
     );
     expect(rpc).toHaveBeenCalledWith(
       'update_report_sections_0_7',
@@ -235,12 +237,14 @@ describe('commitFullReport', () => {
     (createClient as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ rpc });
     const { commitFullReport } = await import('@/lib/report/full-report-writer');
     await commitFullReport(baseInput);
+    // PR4 Task 1 Step 1.1: caller DI seam — 2nd arg = { client: undefined } when options omitted.
     expect(preflightHardcap).toHaveBeenCalledWith(
       expect.objectContaining({
         month: '2026-06',
         callCount: 1,
         maxCostPerCallKrw: FULL_REPORT_MAX_COST_PER_CALL_KRW,
       }),
+      { client: undefined },
     );
   });
 

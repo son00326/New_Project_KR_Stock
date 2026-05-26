@@ -7,6 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { callFullReport } from '@/lib/ai/full-report-client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   FULL_REPORT_SYSTEM_PROMPT,
   buildFullReportUserPrompt,
@@ -30,6 +31,14 @@ import type { z } from 'zod';
 // P1 #7 fix: prompt module wire — input은 prompt builder의 input + adminUserId 추가.
 export interface CommitFullReportInput extends FullReportUserPromptInput {
   adminUserId: string;
+}
+
+// PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam options.
+// 모든 helper (preflightHardcap / insertCostLog / callFullReport) + RPC client에 전파.
+// admin caller (Task 2)는 quality path → orchestrateFullReport에서 동일 옵션 패턴 사용.
+export interface CommitFullReportOptions {
+  client?: SupabaseClient;
+  callerKind?: 'cron' | 'admin';
 }
 
 export interface CommitFullReportResult {
@@ -132,15 +141,20 @@ function parseAndValidate(
 
 export async function commitFullReport(
   input: CommitFullReportInput,
+  options: CommitFullReportOptions = {},
 ): Promise<CommitFullReportResult> {
   // 3-track Track 2 C1 fix: cost-hardcap preflight (40만원). FULL_REPORT_MAX_COST_PER_CALL_KRW은
   // max_tokens 8192 calibration (input 3000 + output 6000). preflightHardcap 호출 시 caller가
   // 명시적으로 override 주입해야 — 기본 MAX_COST_PER_CALL_KRW (2000 output)은 부족.
-  await preflightHardcap({
-    month: input.month,
-    callCount: 1,
-    maxCostPerCallKrw: FULL_REPORT_MAX_COST_PER_CALL_KRW,
-  });
+  // PR4 Task 1 Step 1.1 (B2): caller-supplied client 전파 (cost_log RLS 정합).
+  await preflightHardcap(
+    {
+      month: input.month,
+      callCount: 1,
+      maxCostPerCallKrw: FULL_REPORT_MAX_COST_PER_CALL_KRW,
+    },
+    { client: options.client },
+  );
 
   // P1 #7 fix: prompt module wire — buildFullReportUserPrompt + FULL_REPORT_SYSTEM_PROMPT 직접 호출.
   const userPrompt = buildFullReportUserPrompt({
@@ -156,20 +170,24 @@ export async function commitFullReport(
     sectorReference: input.sectorReference,
   });
 
-  const llm = await callFullReport({
-    ticker: input.ticker,
-    month: input.month,
-    systemPrompt: FULL_REPORT_SYSTEM_PROMPT,
-    userPrompt,
-    adminUserId: input.adminUserId,
-  });
+  const llm = await callFullReport(
+    {
+      ticker: input.ticker,
+      month: input.month,
+      systemPrompt: FULL_REPORT_SYSTEM_PROMPT,
+      userPrompt,
+      adminUserId: input.adminUserId,
+    },
+    { client: options.client },
+  );
 
   const sections = parseAndValidate(llm.content, {
     ticker: input.ticker,
     month: input.month,
   });
 
-  const supabase = await createClient();
+  // PR4 Task 1 Step 1.1 (B2): options.client 주입 시 createClient bypass — admin caller path.
+  const supabase = options.client ?? (await createClient());
   const { data, error } = await supabase.rpc('update_report_sections_0_7', {
     p_ticker: input.ticker,
     p_month: input.month,

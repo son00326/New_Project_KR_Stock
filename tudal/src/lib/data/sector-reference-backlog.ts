@@ -5,11 +5,17 @@
 // B20 fix (omxy R5): Level A 보유 sector (바이오·반도체) 호출 시 early return (backlog 오염 차단).
 // 사용자 lock-in §1.7: Level A 보유 = 바이오·반도체 (2/12), 부족 = 12 sectors (lazy).
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import {
   isCanonicalSector,
   type CanonicalSector,
 } from '@/lib/screening/canonical-sectors';
+
+// PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — sector backlog helper options.
+export interface SectorReferenceBacklogOptions {
+  client?: SupabaseClient;
+}
 
 // B20 fix (omxy R5): Level A body reference 보유 sector.
 // SoT = ServicePlan-Admin §1A.5 D22 + ReportFramework §9.2.0 Level A 표 (2/12).
@@ -33,7 +39,10 @@ export function hasLevelABodyReference(sector: string): boolean {
  *  3. Level A 보유 sector early return (B20 — backlog 오염 차단)
  *  4. RPC `insert_or_bump_sector_backlog` 호출 (DB-level race-safe ON CONFLICT)
  */
-export async function insertOrBumpBacklog(sector: string): Promise<void> {
+export async function insertOrBumpBacklog(
+  sector: string,
+  options: SectorReferenceBacklogOptions = {},
+): Promise<void> {
   const trimmed = sector.trim();
   if (trimmed === '') {
     throw new Error('sector_reference_backlog_invalid_sector:empty');
@@ -45,7 +54,7 @@ export async function insertOrBumpBacklog(sector: string): Promise<void> {
   if (hasLevelABodyReference(trimmed)) {
     return;
   }
-  const supabase = await createClient();
+  const supabase = options.client ?? (await createClient());
   const { error } = await supabase.rpc('insert_or_bump_sector_backlog', { p_sector: trimmed });
   if (error) {
     throw new Error(`sector_reference_backlog_rpc_failed:${error.code ?? 'unknown'}`);
@@ -55,8 +64,8 @@ export async function insertOrBumpBacklog(sector: string): Promise<void> {
 /**
  * Backlog list — admin 대시보드 등에서 사용. RLS는 is_admin().
  */
-export async function listBacklog() {
-  const supabase = await createClient();
+export async function listBacklog(options: SectorReferenceBacklogOptions = {}) {
+  const supabase = options.client ?? (await createClient());
   const { data, error } = await supabase
     .from('sector_reference_backlog')
     .select('*')

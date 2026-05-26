@@ -64,6 +64,7 @@ describe('callFullReport', () => {
         prompt_version: 'v1',
         called_by: 'u1',
       }),
+      { client: undefined },
     );
   });
 

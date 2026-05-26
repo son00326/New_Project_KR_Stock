@@ -6,10 +6,16 @@
 //   listLatestRunCriticFindings는 "다른 admin이 본 latest"용 (mixed-run 안전).
 // B19 fix (omxy R4): target_stage 파라미터 default 'writer_draft' (PR3c 1회 hard cap).
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import type { CriticResultJson } from '@/lib/ai/critic-client';
 
 export type CriticTargetStage = 'writer_draft' | 'revised';
+
+// PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — data helper options.
+export interface ReportCriticFindingsOptions {
+  client?: SupabaseClient;
+}
 
 export interface CriticFindingRow {
   id: string;
@@ -30,8 +36,9 @@ export async function insertCriticFindingsRun(
   reportId: string,
   verdict: CriticResultJson,
   targetStage: CriticTargetStage = 'writer_draft',
+  options: ReportCriticFindingsOptions = {},
 ): Promise<{ runId: string }> {
-  const supabase = await createClient();
+  const supabase = options.client ?? (await createClient());
   const { data, error } = await supabase.rpc('insert_critic_findings_run', {
     p_report_id: reportId,
     p_verdict: verdict,
@@ -50,8 +57,9 @@ export async function insertCriticFindingsRun(
 export async function getCriticFindingsByRunId(
   reportId: string,
   runId: string,
+  options: ReportCriticFindingsOptions = {},
 ): Promise<CriticFindingRow[]> {
-  const supabase = await createClient();
+  const supabase = options.client ?? (await createClient());
   const { data, error } = await supabase
     .from('report_critic_findings')
     .select('*')
@@ -67,8 +75,11 @@ export async function getCriticFindingsByRunId(
  * "다른 admin이 본 latest"용 — concurrent INSERT 시 stale latest 가능 (mixed-run 안전).
  * "방금 insert한 결과"는 getCriticFindingsByRunId(reportId, criticRunId) 사용 권장.
  */
-export async function listLatestRunCriticFindings(reportId: string): Promise<CriticFindingRow[]> {
-  const supabase = await createClient();
+export async function listLatestRunCriticFindings(
+  reportId: string,
+  options: ReportCriticFindingsOptions = {},
+): Promise<CriticFindingRow[]> {
+  const supabase = options.client ?? (await createClient());
   // 1) latest run_id 조회
   const { data: latestRow, error: latestErr } = await supabase
     .from('report_critic_findings')
