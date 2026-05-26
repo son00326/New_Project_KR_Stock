@@ -311,7 +311,7 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 ### 57차 §3 Task 4 plan SoT ✅ MERGED in main `2859c68` (PR #28 rebase FF + delete-branch, B65-P3 impl plan 옵션 A R8 final 정합, 2026-05-27)
 
 - **scope**: Task 4 plan SoT 작성 (`docs/superpowers/plans/2026-05-26-b65-p3-feature-flag-impl.md` 929 lines) + omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix + HANDOFF sweep R1~R2 CONVERGED. plan SoT only (impl 코드 변경 0, 마이그 0건, 신규 test 0건). impl PR은 별도 branch 즉시 진입 가능.
-- **PR #28** (`feat/b65-p3-feature-flag-upsert`): plan SoT initial commit + R1~R4 omxy fix commits 5 + HANDOFF sweep + sweep R1 fix = 6 commits MERGED via rebase FF + delete-branch. PR body에 R-debate 5 rounds + 17 unique BLOCKERS + native critic 6명 상세.
+- **PR #28** (`feat/b65-p3-feature-flag-upsert`): plan SoT initial + R1~R4 omxy fix + HANDOFF sweep + sweep R1 fix = **7 commits** MERGED via rebase FF + delete-branch (`67f7190` + `98b9a18` + `8a6ffb1` + `0a082c7` + `940d658` + `140c51b` + `a0143b6` → `2859c68`). PR body에 R-debate 5 rounds + 17 unique BLOCKERS + native critic 6명 상세.
 - **omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix**:
   - R1: Schopenhauer 8 BL (depth=deep parallel) + Kepler 3 BL (omxy 측 native critic) + omxy 본체 3 BL = 11 BLOCKERS unique + 9 WATCH + 7 MINOR
   - R2: Plato 6 catch + parent 1 WATCH = 3 BLOCKERS + 4 WATCH (service_role explicit REVOKE 반영 verified, rpcName-guarded error 분리 verified)
@@ -327,8 +327,8 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
   - **Aristotle B1**: SET LOCAL begin/commit transaction wrapper
   - **Plato B2**: forbidden grep scope을 implementation 파일 only
   - **Plato B1 + W4 SQLSTATE matrix**: Test 7 3-branch (42501 + P0001×2)
-- **plan 진화**: 628 → 793 → 873 → 927 → 929 lines (R1 +165 / R2 +80 / R3 +54 / R4 +2). Fix commits: `67f7190` plan SoT + `98b9a18` R1 + `8a6ffb1` R2 + `0a082c7` R3 + `940d658` R4.
-- **다음 1순위 (다음 세션 진입자)**: (USER) PR #28 머지 → (CLAUDE) Task 4 impl PR (`feat/b65-p3-feature-flag-upsert-impl` 신규 branch, plan §8.2 옵션 B 5 commits 권장) → (CLAUDE) Task 5 B66 backfill plan (병렬 가능) → Task 6-8.
+- **plan 진화**: 628 → 793 → 873 → 927 → 929 lines (R1 +165 / R2 +80 / R3 +54 / R4 +2). Fix commits: `67f7190` plan SoT + `98b9a18` R1 + `8a6ffb1` R2 + `0a082c7` R3 + `940d658` R4 + `140c51b` HANDOFF sweep + `a0143b6` sweep R1 fix → `2859c68` (rebase FF in main).
+- **다음 1순위 (다음 세션 진입자)**: (CLAUDE) **Task 4 impl PR 즉시 진입** (`feat/b65-p3-feature-flag-upsert-impl` 신규 branch, plan §8.2 옵션 B 5 commits 권장) → (CLAUDE) Task 5 B66 backfill plan (병렬 가능) → Task 6-8. PR #28 이미 MERGED `2859c68` (USER merge 게이트 해소).
 
 ### 57차 §2 Task 3 ✅ B65-P2 spec doc CONVERGED R8 final (옵션 A lock-in, 2026-05-26)
 
@@ -356,7 +356,7 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
   - **W-sectionfallback-text** (SectionFallback "후속 PR3b" 문구 stale 정정, PR3b 이미 MERGED)
   - **W-cost-log-env-gate** (Smoke Stage 2 진입 전 `AI_COST_LOG_REAL_INSERT_ENABLED='true'` env 선행)
 - **PR #26** (`feat/b65-p2-rpc-rdebate-spec`, docs-only): spec doc + HANDOFF global stale sweep + audit catalog 갱신 단일 commit. test:ci 1130 PASS / 105 files (no change) / build 25 routes / lint 0 err / tsc clean / 0 migrations.
-- **다음 1순위 (다음 세션 진입자)**: §2.1 active matrix Task 4 B65-P3 plan SoT 작성 (마이그 0025 + feature flag `PR4_TRIGGER_UPSERT_ENABLED=true` default impl plan) + omxy R1+R2 verify → impl PR 진입 → Task 5~8.
+- **historical: 57차 §2 종료 시점의 다음 1순위 = Task 4 plan SoT 작성**이었음. 본 plan SoT는 57차 §3에서 작성 + omxy R-debate R1~R5 + HANDOFF sweep R1~R2 CONVERGED 후 PR #28로 MERGED `2859c68`. 현 시점 active 다음 1순위는 §0 진입자 5줄 요약 + §1 표 + §2.1 본문 참조 (Task 4 impl PR 즉시 진입).
 
 **Older historical (49차~56차 §5 PR4 MERGED + 57차 §1 PR #21 B65-P1 MERGED `5b99e03` + 57차 §2 PR #26 spec doc + S7a/Tier 2/PR2/PR3a/PR1/PR3b/PR3c MERGED + 53차 §5 spec doc + PR4 14 defer + 56차 §5 B65~B108 catalog 34 catch + 57차 §1 omxy 4 rounds CONVERGED Hegel/Leibniz/McClintock/Hubble/Locke)** = git log + spec/plan/REVIEW docs + PR body + ProgressDashboard 위임.
 
@@ -590,7 +590,7 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 
 56차 §5 post-merge omxy R1~R8 CONVERGED (B65~B107 catalog 형성) + 57차 §1 PR #21 R1~R4 CONVERGED + 57차 §2 Task 3 R1~R8 ESCALATE max-8 mechanical-final + **57차 §3 Task 4 plan R1~R5 CONVERGED Ramanujan R5 CATCH 0** → 누적 catch와 라운드별 lessons는 **56차 §5 docs cleanup commit + 57차 §1 commit chain + 57차 §2 spec doc §6 + 57차 §3 plan §부록 D + PR #28 body + git log + PR body**로 위임. active 박제는 §9.2~§9.5 본문에 일원화.
 
-### 9.7 57차 §1+§2+§3 진행 — Task 1+2+3 ✅ + Task 4 plan ✅ CONVERGED (B65-P1 MERGED + B65-P2 spec doc CONVERGED + B65-P3 impl plan SoT CONVERGED)
+### 9.7 57차 §1+§2+§3 진행 — Task 1+2+3 ✅ + Task 4 plan ✅ MERGED (B65-P1 MERGED + B65-P2 spec doc CONVERGED + B65-P3 impl plan SoT MERGED in main `2859c68`)
 
 57차 §1 진행 결과 (historical):
 - **Task 1 (production audit)** ✅ COMPLETED — drift 0
