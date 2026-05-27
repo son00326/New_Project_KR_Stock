@@ -266,10 +266,12 @@ stop/escalate conditions
 
 ### 단계별 subagent / skill 매핑
 
-- **Planning**: brainstorming / writing-plans / debate-with-omx / plan-ceo-review / plan-eng-review / plan-design-review + 도메인 (frd-system / scenario-system / quant-research) + omxy native critic archetype 1명 이상 (보통 Adversarial + Product)
-- **Impl**: test-driven-development / executing-plans / subagent-driven-development / debugging / general-purpose / specific (vercel:ai-architect / supabase / frontend-design / context7 MCP) + omxy patch-suggest (옵션 C')
-- **Verify**: code-review / gstack-review / verification-before-completion / superpowers:requesting-code-review / superpowers:code-review (5-angle scan) + 검증 게이트 (build + lint + test:ci + tsc + grep gate) + canary (curl + browser/gstack/playwright) + omxy R-debate (옵션 C') + docs sweep `rg stale scan` + `git diff --check`
-- **Merge**: gstack-ship / commit-commands / superpowers:finishing-a-development-branch + 자동 진행 (PR merge / docs-sync / canary / deploy polling) + USER-only (Vercel env / migration / billing / live-money / external account)
+> **skill 이름 환경 의존 완충** (omxy PR #37 verify R1 catch 박제): 아래 skill 이름은 historical label (runtime 환경 / 설치 상태에 따라 다를 수 있음). **"when available + domain-specific"** 원칙 — 실제 사용 시 `~/.claude/skill-routing.md` + 현재 세션 available skills 목록 + Skill Sources 표로 verify 후 적용. archetype/role은 안정, 특정 skill 이름은 fallback 허용.
+
+- **Planning**: brainstorming / writing-plans / debate-with-omx / plan-ceo-review / plan-eng-review / plan-design-review + 도메인 (frd-system / scenario-system / quant-research) + omxy native critic archetype 1명 이상 (보통 Adversarial + Product) — *when available*
+- **Impl**: test-driven-development / executing-plans / subagent-driven-development / debugging / general-purpose + domain-specific (vercel:ai-architect / supabase / frontend-design / context7 MCP) + omxy patch-suggest (옵션 C') — *when available*
+- **Verify**: code-review / gstack-review / verification-before-completion / superpowers:requesting-code-review / superpowers:code-review (5-angle scan) + 검증 게이트 (build + lint + test:ci + tsc + grep gate) + canary (curl + browser/gstack/playwright) + omxy R-debate (옵션 C') + docs sweep `rg stale scan` + `git diff --check` — *when available*
+- **Merge**: gstack-ship / commit-commands / superpowers:finishing-a-development-branch + 자동 진행 (PR merge / docs-sync / canary / deploy polling) + USER-only (Vercel env / migration / billing / live-money / external account) — *when available*
 
 ### 자동 진행 허용 vs USER-only (58차 종료 omxy R4 boundary 정정 박제)
 
@@ -299,7 +301,7 @@ stop/escalate conditions
 
 1. **§0 verify 통과** — main HEAD (`git rev-parse --short origin/main`) + OPEN PRs + 검증 게이트 (build / lint / test:ci / tsc) ALL GREEN + production audit drift 0
 2. **§1 표 + §2.1 active matrix 다음 unblocked CLAUDE step 식별**
-3. **§7 output mode 자동 선택** — Trivial → patch-suggest / Complex → catch-only / Complex-docs → patch-suggest + policy 재판단
+3. **§7 output mode 자동 선택** — Trivial → patch-suggest / Complex → catch-only (기본) / **Complex-docs → catch-only 기본, patch-suggest 허용 시 Claude policy-level 재판단 필수** (단순 apply 금지)
 4. **§8 owner/role 정합** — Claude=owner/fixer/verifier, omxy=critic/patch-suggester, USER=external-state owner
 5. **USER 잔여 액션 자동 진행** — 명시 권한 ON 시 자동 가능 범위만 (PR merge / docs-sync / canary / deploy polling). USER-only는 blocker 보고 + 다음 unblocked CLAUDE step.
 
