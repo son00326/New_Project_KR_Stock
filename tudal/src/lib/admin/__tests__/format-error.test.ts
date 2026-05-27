@@ -57,6 +57,7 @@ const KNOWN_ACTION_CODES = [
   "alert_not_found",
   "already_decided",
   "not_exit_signal",
+  "alert_lookup_failed",
   // mock-only fallback
   "real_persistence_not_configured",
   "unknown_error",
