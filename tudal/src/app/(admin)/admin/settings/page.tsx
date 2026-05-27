@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { SettingsPanel } from "@/app/(admin)/admin/settings/settings-panel";
-import {
-  MOCK_ADMIN_SETTINGS,
-  MOCK_ADMIN_TICKER_PREFS,
-} from "@/lib/data/mock-admin-settings";
+import { getCurrentAdminSettings } from "@/lib/data/admin-settings";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
+import { getCurrentTickerAlertPrefs } from "@/lib/data/admin-ticker-prefs";
 
-// M14 종목 토글 + 상시 모니터링 모드 (S5b T5b.2).
+// M14 종목 토글 + 상시 모니터링 모드 (58차 Mock cleanup Step 2.2 — READ 실 SELECT)
 // ref: ServicePlan-Admin §3.5 R3.5-2·§3.10 R3.10-8~9.
+// SELECT 경로: admin_settings + ticker_alert_pref RLS "self" 자동 의존.
+// 0 rows = intradayMode default false + initialTickerMap empty (caller default).
+// WRITE 경로는 actions.ts에서 모든 환경 boundary `real_persistence_not_configured` 반환.
 
 export default async function AdminSettingsPage() {
-  const shortlist = await getActiveShortList();
+  const [shortlist, settings, tickerPrefs] = await Promise.all([
+    getActiveShortList(),
+    getCurrentAdminSettings(),
+    getCurrentTickerAlertPrefs(),
+  ]);
+
   const active = shortlist
     .filter((s) => s.deltaStatus !== "removed")
     .sort((a, b) => {
@@ -22,7 +28,7 @@ export default async function AdminSettingsPage() {
     });
 
   const initialTickerMap: Record<string, boolean> = {};
-  for (const p of MOCK_ADMIN_TICKER_PREFS) {
+  for (const p of tickerPrefs) {
     initialTickerMap[p.ticker] = p.enabled;
   }
 
@@ -41,12 +47,12 @@ export default async function AdminSettingsPage() {
           )
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ short_list_30 SELECT · admin_settings·ticker_alert_pref UPSERT는 S7b/S7c 후속에서 전환
+          ※ 모드/토글 변경은 실 저장(S5b RPC) 연결 전까지 boundary 메시지 반환
         </p>
       </header>
 
       <SettingsPanel
-        initialIntradayMode={MOCK_ADMIN_SETTINGS.intradayMode}
+        initialIntradayMode={settings?.intradayMode ?? false}
         shortlist={active}
         initialTickerMap={initialTickerMap}
       />
