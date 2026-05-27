@@ -3,20 +3,15 @@ import { IntradayBadge } from "@/components/admin/intraday/intraday-badge";
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
 import { DeltaBanner } from "@/components/admin/shortlist/delta-banner";
 import { MissingCountBanner } from "@/components/admin/shortlist/missing-count-banner";
-import { LATEST_BRIEFING } from "@/lib/data/mock-admin-briefings";
-import { MOCK_ADMIN_INTRADAY_EVENTS } from "@/lib/data/mock-admin-intraday";
-import {
-  buildTickerPrefMap,
-  MOCK_ADMIN_SETTINGS,
-  MOCK_ADMIN_TICKER_PREFS,
-} from "@/lib/data/mock-admin-settings";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
-import { isTickerEnabledForIntraday } from "@/lib/intraday/anomaly-detect";
-import type { BucketKind, ShortageReason } from "@/types/admin";
+import type { BucketKind, IntradayAnomalyEvent, ShortageReason } from "@/types/admin";
 import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
 
-// 2026-04-19T14:30 KST 장중 데모 기준. 실배포 시 Date.now() 사용.
-const INTRADAY_BADGE_REFERENCE_NOW = "2026-04-19T14:30:00+09:00";
+// Mock cleanup Step 1.2 (58차): user-visible mock 4종 제거 — LATEST_BRIEFING / MOCK_ADMIN_INTRADAY_EVENTS /
+// MOCK_ADMIN_SETTINGS / MOCK_ADMIN_TICKER_PREFS / INTRADAY_BADGE_REFERENCE_NOW 하드코딩 4/19.
+// boundary stub 패턴 (T7e.6 access-logs 동일): briefing = undefined (S7b 실 briefing_log SELECT 전까지
+// "오늘 브리핑 아직 없음" 표시), intraday events = [] (S7c 실 alert_event 연결 전까지 빈 배지),
+// intradayMode = false (default — settings real DB SELECT는 별도 PR), referenceNow = 실시간 Date.
 
 // M1 Short List 30 홈. 3섹션 세로 스택(단·중·장) + Delta 배너 + 종목 카드.
 // T1.3 ShortlistRow (M4·M6) · T1.4 DeltaBanner (M5) · T1.6 MissingCountBanner 완료.
@@ -74,11 +69,11 @@ export default async function AdminHomePage() {
   const activeCount = byBucket.reduce((sum, b) => sum + b.items.length, 0);
   const shortageReason = resolveShortageReason(activeCount);
 
-  // M13 장중 이상 감지 — 토글 OFF 종목은 배지에서 제외 (R3.10-9)
-  const prefMap = buildTickerPrefMap(MOCK_ADMIN_TICKER_PREFS);
-  const visibleIntradayEvents = MOCK_ADMIN_INTRADAY_EVENTS.filter((ev) =>
-    isTickerEnabledForIntraday(ev.ticker, prefMap),
-  );
+  // M13 장중 이상 감지 — boundary stub (S7c WS alert_event 실 연결 전까지 빈 배지).
+  // settings ticker prefs 필터는 events 0건이라 moot — S7c에서 prefMap + alert_event SELECT 동시 wire.
+  const visibleIntradayEvents: IntradayAnomalyEvent[] = [];
+  const intradayMode = false; // settings real SELECT는 별도 PR (S7c에서 admin_settings 테이블 연결)
+  const referenceNow = new Date().toISOString();
 
   return (
     <div className="space-y-6">
@@ -94,15 +89,15 @@ export default async function AdminHomePage() {
         </div>
       </header>
 
-      {/* M13 장중 이상 감지 배지 — 최상단 (T5b.1) */}
+      {/* M13 장중 이상 감지 배지 — 최상단 (T5b.1). boundary stub: events=[], intradayMode=false, referenceNow=실시간. */}
       <IntradayBadge
         events={visibleIntradayEvents}
-        intradayMode={MOCK_ADMIN_SETTINGS.intradayMode}
-        referenceNow={INTRADAY_BADGE_REFERENCE_NOW}
+        intradayMode={intradayMode}
+        referenceNow={referenceNow}
       />
 
-      {/* M11 모닝 브리핑 카드 (T5a.2) */}
-      <BriefingCard briefing={LATEST_BRIEFING} />
+      {/* M11 모닝 브리핑 카드 (T5a.2). briefing=undefined boundary stub — S7b 실 briefing_log SELECT 전까지. */}
+      <BriefingCard briefing={undefined} />
 
       {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
       <DeltaBanner items={shortlist} />
