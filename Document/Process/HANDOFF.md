@@ -331,7 +331,7 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 ### 58차 Mock cleanup Step 2.1 ✅ OPEN PR #33 (admin alerts mock → real DB SELECT, omxy 2 rounds CONVERGED, 2026-05-27)
 
 - **scope**: admin user-visible 3 라우트의 `MOCK_ADMIN_ALERTS` + `MOCK_ADMIN_NEWS` → `alert_event` / `news_event` 실 DB SELECT. cron 3 routes (silent-health / news-sweep / morning-briefing) mock 보존 — 별도 Step 2 sub-step.
-- **2 commits** (branch `feat/mock-cleanup-step-2-1-alerts`):
+- **code commits** (branch `feat/mock-cleanup-step-2-1-alerts`, docs sweep 누적은 git log + PR body 위임):
   - `29222ab` atomic Step 2.1: 신규 helper 2종 (admin-alerts.ts + admin-news.ts) + 신규 test 2종 (16+10 tests) + 3 라우트 wire (page + [id] + actions) + actions test +8 신규
   - `e210b02` R1 fix: format-error.ts `alert_lookup_failed` 한국어 매핑 + inventory test (MEDIUM) + page limit 100/50 (LOW)
 - **신규 helper SoT**: `tudal/src/lib/data/admin-alerts.ts` (transformAlertEventRow + getRecentAlertEvents + getAlertEventById, alert_type 12종 enum + severity check + decision_recorded enum 검증 + t7_price_change numeric string|number 처리) + `tudal/src/lib/data/admin-news.ts` (transformNewsEventRow + getRecentNewsEvents, severity validation DB 전 — getRecentNewsEvents pre-validation pattern)
