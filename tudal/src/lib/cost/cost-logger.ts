@@ -46,15 +46,22 @@ export async function getMonthlyTotal(
   options: CostHelperOptions = {},
 ): Promise<number> {
   const supabase = options.client ?? (await createClient());
+  // 58차 Mock cleanup Step 2.3 omxy R1 HIGH-1 fix — PostgREST server-side aggregate
+  // (column.sum()). 기존 client-side `.reduce` summation은 Supabase row limit (default 1000)에
+  // 의해 truncate되어 hardcap fail-open risk. 본 aggregate는 row limit 무관.
+  // - 0 rows (RLS deny 포함) → [{ sum: null }] → 0 coerce.
+  // - PostgREST aggregate는 source 0 rows에서도 1 row 반환 (PostgreSQL aggregate semantics).
+  // refs: regenerate cost_log 실 SELECT 통로 (admin-only RLS) + preflightHardcap caller-chain.
   const { data, error } = await supabase
     .from('cost_log')
-    .select('cost_krw')
+    .select('cost_krw.sum()')
     .eq('month', month);
 
   if (error) {
     throw new Error(`cost_log_select_failed:${error.code ?? 'unknown'}`);
   }
-  return (data ?? []).reduce((sum, row) => sum + Number(row.cost_krw), 0);
+  const sum = (data?.[0] as { sum?: number | null } | undefined)?.sum;
+  return Number(sum ?? 0);
 }
 
 export async function preflightHardcap(

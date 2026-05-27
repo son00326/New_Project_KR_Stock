@@ -60,6 +60,10 @@ const shortlistItemFixture = {
 describe('regenerateReport orchestrate wire (PR4 Task 2 Step 2.3)', () => {
   beforeEach(() => {
     vi.resetModules();
+    // 58차 Step 2.3 omxy R1 MEDIUM-4 fix — vi.resetModules()는 hoisted mock call
+    // history/implementation을 clear하지 않음. costMocks를 매 test마다 default 0원으로 reset
+    // (call count contamination 차단 — 향후 "called once / not called" cost_log invariant 보호).
+    costMocks.getMonthlyTotal.mockReset().mockResolvedValue(0);
   });
 
   afterEach(() => {
