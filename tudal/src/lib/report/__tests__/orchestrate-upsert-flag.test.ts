@@ -80,10 +80,12 @@ const okRpc = () =>
   vi.fn().mockResolvedValue({ data: { success: true, report_id: 'rpt-1' }, error: null });
 
 describe('orchestrateFullReport — B65-P3 UPSERT feature flag (orchestrator seam)', () => {
+  // Test 8 — env cleanup (omxy R1 Kepler W2 + Mencius flake-guard): before+after 모두 delete
+  // (shell env에 PR4_TRIGGER_UPSERT_ENABLED=true 잔존 시 'unset' 테스트 flake 차단).
   beforeEach(() => {
     vi.resetModules();
+    delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
   });
-  // Test 8 — env cleanup (omxy R1 Kepler W2 fix).
   afterEach(() => {
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
   });
@@ -165,6 +167,9 @@ describe('orchestrateFullReport — B65-P3 UPSERT feature flag (orchestrator sea
     expect(payload).not.toHaveProperty('p_version');
     expect(payload).not.toHaveProperty('p_schema_version');
     expect(payload).not.toHaveProperty('p_is_latest');
+    // regen counter 누설 0 (Schopenhauer critic WATCH — spec가 regen 컬럼 명시).
+    expect(payload).not.toHaveProperty('p_regen_auto_count');
+    expect(payload).not.toHaveProperty('p_regen_manual_count');
   });
 
   // ── Test 6: error literal substring preserve + cross-path leak 차단 ──────────

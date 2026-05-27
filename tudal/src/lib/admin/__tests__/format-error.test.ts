@@ -61,6 +61,9 @@ const KNOWN_ACTION_CODES = [
   // credentials 방어 매핑
   "Invalid id format",
   "pending-s8",
+  // B65-P3 옵션 A — admin-only UPSERT RPC error codes (마이그 0025, omxy R1 inventory gap fix)
+  "upsert_report_sections_0_7_admin_failed",
+  "upsert_report_sections_0_7_admin_failed_no_returning",
 ];
 
 describe("formatErrorMessage", () => {
