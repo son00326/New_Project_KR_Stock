@@ -28,13 +28,19 @@ describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
   };
 
   describe('preflightHardcap', () => {
-    // 58차 Step 2.3 omxy R3 HIGH-1 fix — pagination chain: select → eq → order → range.
-    it('uses options.client when provided (createClient NOT called)', async () => {
+    // 58차 Step 2.3 omxy R3+R4 fix — pagination chain: select → eq → order(called_at) → order(id) → range.
+    function buildChain(): { fromMock: ReturnType<typeof vi.fn> } {
       const rangeMock = vi.fn().mockResolvedValue({ data: [], error: null });
-      const orderMock = vi.fn().mockReturnValue({ range: rangeMock });
-      const eqMock = vi.fn().mockReturnValue({ order: orderMock });
+      const orderChain = { order: vi.fn(), range: rangeMock };
+      orderChain.order = vi.fn().mockReturnValue(orderChain);
+      const eqMock = vi.fn().mockReturnValue({ order: orderChain.order });
       const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
       const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+      return { fromMock };
+    }
+
+    it('uses options.client when provided (createClient NOT called)', async () => {
+      const { fromMock } = buildChain();
       const createClientSpy = vi.fn();
       vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
       const { preflightHardcap } = await import('@/lib/cost/cost-logger');
@@ -47,11 +53,7 @@ describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
     });
 
     it('falls back to createClient when options omitted (default behavior)', async () => {
-      const rangeMock = vi.fn().mockResolvedValue({ data: [], error: null });
-      const orderMock = vi.fn().mockReturnValue({ range: rangeMock });
-      const eqMock = vi.fn().mockReturnValue({ order: orderMock });
-      const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
-      const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+      const { fromMock } = buildChain();
       const createClientSpy = vi.fn().mockResolvedValue({ from: fromMock });
       vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
       const { preflightHardcap } = await import('@/lib/cost/cost-logger');
