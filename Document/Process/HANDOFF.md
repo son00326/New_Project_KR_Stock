@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-27 (58차 Task 4 ✅ + B-trackrecord-rls ✅ + 마이그 0025 production apply ✅ MERGED `838386e` — PR #30 + #31 + Supabase MCP OAuth → apply + verify, omxy 6 rounds CONVERGED 누적)
+Last updated: 2026-05-27 (58차 Task 4 ✅ + B-trackrecord-rls ✅ + 마이그 0025 production apply ✅ + Mock cleanup Step 1 ✅ MERGED `1d2db08` — PR #30 + #31 + #32, omxy 10 rounds CONVERGED 누적)
 
 - **Task 1+2+3 ✅ + Task 4 impl ✅ MERGED** (PR #30 MERGED `3c09d6e` rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED — R1 HIGH admin assertion + R2 CRITICAL RLS fix + R3 CONVERGED)
 - **main HEAD** = `3c09d6e` (post-PR-#30 — 58차) — `git rev-parse --short origin/main` 으로 verify
@@ -137,7 +137,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **`838386e`** (post-PR-#31 — 58차 B-trackrecord-rls follow-up MERGED). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지 — 자손 SHA 동적). |
+| main HEAD | **`1d2db08`** (post-PR-#32 — 58차 Mock cleanup Step 1 MERGED). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지 — 자손 SHA 동적). |
 | **PR #21 (B65-P1)** | ✅ MERGED `5b99e03` (57차 §1) — Task 2 production active |
 | **PR #20+#22+#24+#25 (docs chain, 57차 §1 lifecycle)** | ✅ MERGED in main (branches deleted, PR #23 CLOSED 운영 원칙 반려) |
 | **PR #26 (57차 §2 — B65-P2 spec doc + HANDOFF sweep + cleanup, docs-only, 3 commits)** | ✅ **MERGED in main `33098e0`** (rebase FF, --delete-branch, 2026-05-26, Vercel deploy SUCCESS E41zxrqAeRGfB7E99h82hXpZkAd2) |
@@ -188,7 +188,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (57차 §3 종료 — Task 1+2+3 ✅ + Task 4 plan SoT ✅ MERGED `2859c68`, **PR5 진입 = Task 4 impl + Task 5~7 모두 PASS 후만**)
 
-**현재 위치 = 58차 Task 4 impl ✅ MERGED `838386e` (PR #30+#31) + 마이그 0025 ✅ production applied & verified (Supabase MCP OAuth, omxy R1+R2 CONVERGED). 다음 1순위 = Task 7 진입 직전 USER 게이트 = Vercel env 2개 설정만 잔여 (PR4_TRIGGER_UPSERT_ENABLED=true + AI_COST_LOG_REAL_INSERT_ENABLED=true 확인) → CLAUDE가 Task 7 Smoke Stage 2 단일 실 AI 호출 (~5,000~6,000원 cost burn) 실행.**
+**현재 위치 = 58차 Task 4 ✅ + B-trackrecord-rls ✅ + 마이그 0025 ✅ + Mock cleanup Step 1 ✅ 모두 MERGED in main `1d2db08`. omxy 10 rounds CONVERGED 누적 (PR#30 R1~R3 + PR#31 R1 + 마이그 R1~R2 + PR#32 Step 1 R1~R4). 다음 1순위 = **Mock cleanup Step 2** (alerts/settings/regenerate/cost/health/news mock 7개 종류 8 file → real DB SELECT, real table 모두 존재 + 0 rows 확인됨). Vercel env 둘 다 production="true" 설정 완료 — Task 7 Smoke Stage 2도 진입 가능 상태.**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -309,6 +309,25 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 ## 6. 완료 이력 (직전 2 entry inline · older = git log + PR body)
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
+
+### 58차 Mock cleanup Step 1 ✅ MERGED in main `1d2db08` (PR #32 rebase FF, 5 commits, omxy 4 rounds CONVERGED, 2026-05-27)
+
+- **scope**: 사용자 시점 3 production 이슈 cross-verification (omxy + Claude critic 양쪽 트랙) 진단·수정.
+  - Issue 1 (/admin/portfolio digest 2072986106 RSC throw) — `shortlist-row.tsx` Server Component가 host `<div>`에 onClick attach → fix = `ShortlistRowActionSlot` 'use client' wrapper로 분리 (B43 패턴, Server Component 보존).
+  - Issue 2 (홈 모닝 브리핑 4/19 stale) — `LATEST_BRIEFING` mock + `INTRADAY_BADGE_REFERENCE_NOW` 4/19 하드코딩 → boundary stub (briefing=undefined → BriefingCard 자체 empty state "오늘 브리핑 아직 생성 안 됨", events=[], `new Date().toISOString()`).
+  - Issue 3 (D15 가짜 2인 열람 통과) — `MOCK_ADMIN_REPORT_VIEW_LOG`의 대표 5종 가짜 시드 → 6 file atomic landing (page + actions + record-view + report detail + tests) 모두 real `report_view_log` SELECT. honest 동작: stock_reports 0 + report_view_log 0 → 영구 viewers_insufficient 차단 until 실제 view.
+- **5 commits FF**: e5ab4c2 (action-slot) + 6aa6a4f (admin home stub) + c5636fe (atomic split-brain fix) + ff5f95a (R2 Gödel HIGH/MEDIUM) + 1d2db08 (R3 Goodall minor).
+- **omxy R-debate 4 rounds CONVERGED 누적**:
+  - R1 (3-lane: code-review skill + Arendt + Singer + Claude Spinoza): Step 1.1+1.2 APPROVE / Step 1.3 NEEDS FIX (split-brain gate + record-view mock-only + report detail mock + tests).
+  - R2 (Gödel): HIGH validateAcceptGate throw leak (Server Action contract) + MEDIUM UTC vs KST dedupe.
+  - R3 (Goodall): minor — regression test 누락 + 주석 오타.
+  - R4: SIGNAL: CONVERGED.
+- **검증**: build 25 routes / lint 0 err / test:ci 1149→1151 PASS (+2: inventory + regression, 회귀 0) / tsc clean.
+- **신규 helper**: `admin-report-view-log.ts` (getDistinctViewerCountsByTicker / getDistinctViewerCountForReport / getViewersForReport).
+- **신규 client wrapper**: `shortlist-row-action-slot.tsx`.
+- **삭제**: `mock-admin-report-view-log.ts` (잔여 importer 0 검증).
+- **신규 error code**: `accept_gate_lookup_failed` (한국어 매핑 + KNOWN_ACTION_CODES inventory + regression test).
+- **scope-out (Step 2 후속)**: alerts/settings/regenerate/cost/health/news mock 7 종 → 별도 PR. stock-macro mocks → S7 fundamentals slice. minor (D2/D3/D4) → 누적.
 
 ### 58차 Task 4 B65-P3 impl ✅ + B-trackrecord-rls ✅ + 마이그 0025 production apply ✅ (main `838386e` + Supabase production, omxy 6 rounds CONVERGED 누적, 2026-05-27)
 
