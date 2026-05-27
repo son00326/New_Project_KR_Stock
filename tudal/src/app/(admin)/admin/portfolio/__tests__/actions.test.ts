@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   raisePortfolioDispute: vi.fn(),
   resolvePortfolioDispute: vi.fn(),
   insertPortfolioSnapshots: vi.fn(),
+  // Mock cleanup Step 1.3 (58차): MOCK_ADMIN_REPORT_VIEW_LOG splice 패턴 폐기 →
+  // getDistinctViewerCountsByTicker mock DI. 기본은 빈 Map (모든 ticker count=0 → viewers_insufficient).
+  getDistinctViewerCountsByTicker: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -27,6 +30,10 @@ vi.mock("@/lib/data/admin-approvals", () => ({
 
 vi.mock("@/lib/data/admin-snapshots", () => ({
   insertPortfolioSnapshots: mocks.insertPortfolioSnapshots,
+}));
+
+vi.mock("@/lib/data/admin-report-view-log", () => ({
+  getDistinctViewerCountsByTicker: mocks.getDistinctViewerCountsByTicker,
 }));
 
 // T7e.2: admin-shortlist는 Supabase 실 SELECT라 테스트에서는 mock fixture로 우회.
@@ -76,6 +83,17 @@ beforeEach(() => {
   mocks.raisePortfolioDispute.mockResolvedValue("2026-04-04T00:00:00.000Z");
   mocks.resolvePortfolioDispute.mockResolvedValue("2026-04-05T00:00:00.000Z");
   mocks.insertPortfolioSnapshots.mockResolvedValue(undefined);
+  // Mock cleanup Step 1.3: 기본 = 게이트 통과 (대표 5종 모두 2인 열람 충족) — 기존 mock seed 동등.
+  // 게이트 차단 케이스는 per-test override.
+  mocks.getDistinctViewerCountsByTicker.mockResolvedValue(
+    new Map([
+      ["005930", 2],
+      ["000660", 2],
+      ["012450", 2],
+      ["196170", 2],
+      ["373220", 2],
+    ]),
+  );
 });
 
 afterEach(() => {
@@ -125,16 +143,17 @@ describe("acceptShortList", () => {
   it("blocks accept when any required representative report has fewer than 2 viewers", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
-    const { MOCK_ADMIN_REPORT_VIEW_LOG } = await import(
-      "@/lib/data/mock-admin-report-view-log"
-    );
-    const original = [...MOCK_ADMIN_REPORT_VIEW_LOG];
-    MOCK_ADMIN_REPORT_VIEW_LOG.splice(
-      0,
-      MOCK_ADMIN_REPORT_VIEW_LOG.length,
-      ...MOCK_ADMIN_REPORT_VIEW_LOG.filter(
-        (row) => row.reportId !== "rpt-2026-04-01-000660",
-      ),
+    // Mock cleanup Step 1.3 (58차): MOCK_ADMIN_REPORT_VIEW_LOG splice 패턴 폐기 →
+    // getDistinctViewerCountsByTicker mock DI로 viewers_insufficient 시나리오 구성.
+    // 005930·012450·196170·373220은 2인 통과, 000660은 1인 미달 → Math.min=1 → 게이트 차단.
+    mocks.getDistinctViewerCountsByTicker.mockResolvedValueOnce(
+      new Map([
+        ["005930", 2],
+        ["000660", 1],
+        ["012450", 2],
+        ["196170", 2],
+        ["373220", 2],
+      ]),
     );
     const { acceptShortList } = await import("../actions");
 
@@ -143,11 +162,6 @@ describe("acceptShortList", () => {
       shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
     });
 
-    MOCK_ADMIN_REPORT_VIEW_LOG.splice(
-      0,
-      MOCK_ADMIN_REPORT_VIEW_LOG.length,
-      ...original,
-    );
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:viewers_insufficient");
   });

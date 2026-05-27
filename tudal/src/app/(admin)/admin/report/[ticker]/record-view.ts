@@ -1,44 +1,39 @@
 import "server-only";
 
+import { createClient } from "@/lib/supabase/server";
+
 // T2.4 report_view_log INSERT 파이프 (server-only 모듈).
-// mock 단계: console.log로 관측만. T2.4 후속(S7e 이후 별도 slice)에서 아래 TODO 블록 활성화.
+// Mock cleanup Step 1.3 (58차, omxy Arendt/Singer HIGH catch): mock console.log 제거 → real Supabase INSERT.
 //
 // G-5 B · BL-5 B:
-//   - 테이블: report_view_log (E10)
+//   - 테이블: report_view_log (E10, 마이그 0003)
 //   - UNIQUE(admin_id, report_id, view_date) — 1일 1회 dedupe
-//   - INSERT onConflict (admin_id, report_id, view_date) DO NOTHING
-
-// mock 세션 내 중복 로그 방지용 (process 생존 동안만)
-const SESSION_SEEN = new Set<string>();
+//   - upsert ignoreDuplicates=true → 중복 row 무시
+//   - 인증 안 됐거나 INSERT 실패해도 throw하지 않음 (view 기록은 best-effort, 페이지 렌더는 막지 않음).
 
 export async function recordReportView(
   reportId: string,
   ticker: string,
 ): Promise<void> {
-  // TODO (T2.4 후속 — S7e 이후 별도 slice. 본 record-view는 mock 관측 only 의도):
-  //   const supabase = await createServerClient();
-  //   const { data: { user } } = await supabase.auth.getUser();
-  //   if (!user) return;
-  //   await supabase
-  //     .from("report_view_log")
-  //     .upsert(
-  //       {
-  //         admin_id: user.id,
-  //         report_id: reportId,
-  //         view_date: new Date().toISOString().slice(0, 10),
-  //       },
-  //       { onConflict: "admin_id,report_id,view_date", ignoreDuplicates: true },
-  //     );
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) return;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `${reportId}:${today}`;
-  if (SESSION_SEEN.has(key)) return;
-  SESSION_SEEN.add(key);
+  const viewDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD KST 기준 dedupe (BL-5)
+  const { error } = await supabase.from("report_view_log").upsert(
+    {
+      admin_id: user.id,
+      report_id: reportId,
+      view_date: viewDate,
+    },
+    { onConflict: "admin_id,report_id,view_date", ignoreDuplicates: true },
+  );
 
-  // 개발 관측용 — 실 배포 전 제거 예정
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      `[report.view] report=${reportId} ticker=${ticker} date=${today} (mock — Supabase 연결 시 INSERT)`,
+  if (error && process.env.NODE_ENV !== "production") {
+    console.warn(
+      `[report.view] insert failed report=${reportId} ticker=${ticker} code=${error.code ?? "unknown"}`,
     );
   }
 }

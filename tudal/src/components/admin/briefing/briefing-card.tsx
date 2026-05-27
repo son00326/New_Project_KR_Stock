@@ -1,8 +1,9 @@
 import type { BriefingLog } from "@/types/admin";
 
 // /admin 상단 모닝 브리핑 카드 (M11, S5a T5a.2).
-// mock fixture `LATEST_BRIEFING`을 Server Component로 렌더.
+// 호출자가 briefing=undefined를 전달하면 "오늘 브리핑이 아직 생성되지 않았습니다" empty state.
 // briefing.viewed 기록은 실데이터 전환 시 Server Action으로 추가.
+// Mock cleanup Step 1.3 (58차): LATEST_BRIEFING mock 폐기 — S7b briefing_log 실 SELECT 미완료까지 undefined 전달.
 
 interface BriefingCardProps {
   briefing: BriefingLog | undefined;

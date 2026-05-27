@@ -36,9 +36,9 @@ import {
   getSectorPersonas,
 } from "@/lib/data/mock-admin-committee-personas";
 import {
-  getDistinctViewerCount,
+  getDistinctViewerCountForReport,
   getViewersForReport,
-} from "@/lib/data/mock-admin-report-view-log";
+} from "@/lib/data/admin-report-view-log";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { recordReportView } from "@/app/(admin)/admin/report/[ticker]/record-view";
 import type { CommitteeVote } from "@/types/admin";
@@ -75,13 +75,15 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
   const report = await getReportByTicker(ticker, { month: shortListRow.month });
   if (!report) notFound();
 
-  // T2.4 report_view_log — T7e.6 스코프(view-log 실 INSERT)까지 mock console.log 유지.
+  // T2.4 report_view_log INSERT — Mock cleanup Step 1.3 (58차): real Supabase upsert
+  // (1일 1회 dedupe via UNIQUE constraint, best-effort).
   await recordReportView(report.id, ticker);
 
   const votes = await getVotesByReportId(report.id);
   const voteAgg = aggregateVotes(votes);
-  const viewers = getViewersForReport(report.id);
-  const viewerCount = getDistinctViewerCount(report.id);
+  // Mock cleanup Step 1.3: mock-admin-report-view-log → real report_view_log SELECT.
+  const viewers = await getViewersForReport(report.id);
+  const viewerCount = await getDistinctViewerCountForReport(report.id);
   const neighbors = deriveBucketNeighbors(ticker, shortlist);
 
   // PR3a — getReportByTicker returns ValidatedStockReport. 각 section은
