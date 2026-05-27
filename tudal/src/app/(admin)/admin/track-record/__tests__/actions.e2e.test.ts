@@ -20,6 +20,9 @@ interface SelectChain<T> {
   select: (cols?: string) => SelectChain<T>;
   eq: (col: string, val: unknown) => SelectChain<T>;
   order: (col: string, opts?: { ascending?: boolean }) => SelectChain<T>;
+  // 58차 Step 2.3 omxy R2 HIGH-1 fix — getMonthlyTotal pagination (.range) 추가.
+  // chain shape: select → eq → range (terminal Promise<QueryResult<T>>).
+  range: (from: number, to: number) => Promise<QueryResult<T>>;
   single: () => Promise<QueryResult<T>>;
   then: <R>(onFulfilled: (v: QueryResult<T>) => R) => Promise<R>; // awaitable terminal
 }
@@ -65,6 +68,7 @@ function makeSelectChain<T>(result: QueryResult<T>): SelectChain<T> {
     select: () => chain,
     eq: () => chain,
     order: () => chain,
+    range: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
     then: (onFulfilled) => Promise.resolve(result).then(onFulfilled),
   };

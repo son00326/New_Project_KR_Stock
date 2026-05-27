@@ -41,27 +41,51 @@ export async function insertCostLog(
   }
 }
 
+// 58차 Mock cleanup Step 2.3 omxy R1 HIGH-1 + R2 HIGH-1 fix — pagination loop.
+// Supabase 프로젝트에서 PostgREST aggregate (`cost_krw.sum()`)은 disabled
+// (PGRST123 "Use of aggregate functions is not allowed" — live verified 2026-05-28).
+// 기존 single-page `.select('cost_krw')`은 Supabase row limit (default 1000)에 의해
+// truncate되어 monthly cost > 1000 rows 시 undercount → hardcap fail-open risk
+// (Step 2.3가 regenerate hardcap을 production gate로 격상하면서 신규 도입).
+// pagination loop는 row limit 무관 — page 마지막 (size < PAGE_SIZE) 도달까지 누적.
+// non-finite guard (R2 MEDIUM-2)는 PostgREST shape drift / cost_krw 비정상 값에서
+// NaN >= HARDCAP_KRW = false (silent fail-open) 차단.
+const COST_LOG_PAGE_SIZE = 1000;
+
 export async function getMonthlyTotal(
   month: string,
   options: CostHelperOptions = {},
 ): Promise<number> {
   const supabase = options.client ?? (await createClient());
-  // 58차 Mock cleanup Step 2.3 omxy R1 HIGH-1 fix — PostgREST server-side aggregate
-  // (column.sum()). 기존 client-side `.reduce` summation은 Supabase row limit (default 1000)에
-  // 의해 truncate되어 hardcap fail-open risk. 본 aggregate는 row limit 무관.
-  // - 0 rows (RLS deny 포함) → [{ sum: null }] → 0 coerce.
-  // - PostgREST aggregate는 source 0 rows에서도 1 row 반환 (PostgreSQL aggregate semantics).
-  // refs: regenerate cost_log 실 SELECT 통로 (admin-only RLS) + preflightHardcap caller-chain.
-  const { data, error } = await supabase
-    .from('cost_log')
-    .select('cost_krw.sum()')
-    .eq('month', month);
+  let total = 0;
+  let offset = 0;
+  // 무한 loop 차단: PAGE_SIZE 미만 page 도달 시 break.
+  // worst case (cost_log 10k rows/month) = 10 round trips → 운영 빈도 (수동 재생성 ≤ 2/month/ticker)
+  // 대비 비용 미미. 일반 (수백 rows) = 1 trip.
+  for (;;) {
+    const { data, error } = await supabase
+      .from('cost_log')
+      .select('cost_krw')
+      .eq('month', month)
+      .range(offset, offset + COST_LOG_PAGE_SIZE - 1);
 
-  if (error) {
-    throw new Error(`cost_log_select_failed:${error.code ?? 'unknown'}`);
+    if (error) {
+      throw new Error(`cost_log_select_failed:${error.code ?? 'unknown'}`);
+    }
+    if (!data || data.length === 0) break;
+
+    for (const row of data) {
+      const value = Number(row.cost_krw);
+      if (!Number.isFinite(value)) {
+        // R2 MEDIUM-2 fix — shape drift / locale string / NaN coerce 차단.
+        throw new Error(`cost_log_select_failed:non_finite_cost_krw`);
+      }
+      total += value;
+    }
+    if (data.length < COST_LOG_PAGE_SIZE) break;
+    offset += COST_LOG_PAGE_SIZE;
   }
-  const sum = (data?.[0] as { sum?: number | null } | undefined)?.sum;
-  return Number(sum ?? 0);
+  return total;
 }
 
 export async function preflightHardcap(

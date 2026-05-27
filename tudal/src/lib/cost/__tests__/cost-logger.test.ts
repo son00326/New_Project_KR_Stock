@@ -96,11 +96,14 @@ describe('cost-logger (Q2 + Q6)', () => {
   });
 
   it('preflightHardcap throws when currentTotal + reservation > HARDCAP', async () => {
-    // 58차 Step 2.3 omxy R1 HIGH-1 fix — PostgREST aggregate response shape `[{sum: ...}]`.
+    // 58차 Step 2.3 omxy R2 HIGH-1 fix — pagination loop (PostgREST aggregate disabled,
+    // PGRST123 verified). 단일 page (data.length < PAGE_SIZE) → loop 1회 후 break.
     mockSelect.mockReturnValue({
-      eq: vi.fn().mockResolvedValue({
-        data: [{ sum: HARDCAP_KRW - 1000 }],
-        error: null,
+      eq: vi.fn().mockReturnValue({
+        range: vi.fn().mockResolvedValue({
+          data: [{ cost_krw: HARDCAP_KRW - 1000 }],
+          error: null,
+        }),
       }),
     });
     await expect(preflightHardcap({
@@ -109,39 +112,53 @@ describe('cost-logger (Q2 + Q6)', () => {
     })).rejects.toThrow('cost_hardcap_40man');
   });
 
-  // 58차 Mock cleanup Step 2.3 omxy R1 HIGH-1 fix — getMonthlyTotal server-side aggregate
-  // (row limit fail-open 차단). regenerate cost_log 실 SELECT 통로 introduces production gate.
-  describe('getMonthlyTotal — PostgREST server-side aggregate (HIGH-1 fix)', () => {
-    it('uses `cost_krw.sum()` aggregate query (not client-side reduce)', async () => {
-      const selectSpy = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: [{ sum: 12_345 }], error: null }),
-      });
-      mockSelect.mockImplementation(selectSpy);
-      await getMonthlyTotal('2026-05');
-      expect(selectSpy).toHaveBeenCalledWith('cost_krw.sum()');
-    });
-
-    it('returns 0 when aggregate sum is null (0 source rows or RLS deny)', async () => {
-      mockSelect.mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: [{ sum: null }], error: null }),
-      });
+  // 58차 Mock cleanup Step 2.3 omxy R1 + R2 HIGH-1 fix — getMonthlyTotal pagination loop
+  // (PostgREST aggregate disabled in production, PGRST123 live verified 2026-05-28).
+  // regenerate cost_log 실 SELECT 통로 → row limit 무관 + non-finite guard 보장.
+  describe('getMonthlyTotal — pagination loop (HIGH-1 fix, R2 verified)', () => {
+    it('returns 0 when first page is empty (0 rows / RLS deny)', async () => {
+      const rangeSpy = vi.fn().mockResolvedValue({ data: [], error: null });
+      mockSelect.mockReturnValue({ eq: vi.fn().mockReturnValue({ range: rangeSpy }) });
       const total = await getMonthlyTotal('2026-05');
       expect(total).toBe(0);
+      expect(rangeSpy).toHaveBeenCalledTimes(1);
+      expect(rangeSpy).toHaveBeenCalledWith(0, 999);
     });
 
-    it('returns aggregate sum as number (numeric string coercion)', async () => {
-      mockSelect.mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: [{ sum: '12345.67' }], error: null }),
+    it('single page <1000 rows sums correctly (no further pagination)', async () => {
+      const rangeSpy = vi.fn().mockResolvedValue({
+        data: [{ cost_krw: 100 }, { cost_krw: 200.5 }, { cost_krw: 50 }],
+        error: null,
       });
+      mockSelect.mockReturnValue({ eq: vi.fn().mockReturnValue({ range: rangeSpy }) });
       const total = await getMonthlyTotal('2026-05');
-      expect(total).toBe(12_345.67);
+      expect(total).toBe(350.5);
+      expect(rangeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('paginates when first page returns PAGE_SIZE rows (row limit bypass)', async () => {
+      // page 1 = 1000 rows × cost_krw=100 (sum 100,000) + page 2 = 500 rows × cost_krw=200 (sum 100,000)
+      const page1 = Array.from({ length: 1000 }, () => ({ cost_krw: 100 }));
+      const page2 = Array.from({ length: 500 }, () => ({ cost_krw: 200 }));
+      const rangeSpy = vi
+        .fn()
+        .mockResolvedValueOnce({ data: page1, error: null })
+        .mockResolvedValueOnce({ data: page2, error: null });
+      mockSelect.mockReturnValue({ eq: vi.fn().mockReturnValue({ range: rangeSpy }) });
+      const total = await getMonthlyTotal('2026-05');
+      expect(total).toBe(200_000);
+      expect(rangeSpy).toHaveBeenCalledTimes(2);
+      expect(rangeSpy).toHaveBeenNthCalledWith(1, 0, 999);
+      expect(rangeSpy).toHaveBeenNthCalledWith(2, 1000, 1999);
     });
 
     it('throws cost_log_select_failed:<code> on DB error (RLS evaluation error etc)', async () => {
       mockSelect.mockReturnValue({
-        eq: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'permission denied', code: 'PGRST301' },
+        eq: vi.fn().mockReturnValue({
+          range: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'permission denied', code: 'PGRST301' },
+          }),
         }),
       });
       await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
@@ -149,18 +166,39 @@ describe('cost-logger (Q2 + Q6)', () => {
       );
     });
 
-    it('uses options.client when provided (DI seam — auth context 공유)', async () => {
-      const customSelectSpy = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: [{ sum: 999 }], error: null }),
+    it('throws cost_log_select_failed:non_finite_cost_krw on NaN row (R2 MEDIUM-2 fix — fail-closed)', async () => {
+      mockSelect.mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          range: vi.fn().mockResolvedValue({
+            data: [{ cost_krw: 100 }, { cost_krw: 'not-a-number' }],
+            error: null,
+          }),
+        }),
       });
+      await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
+        'cost_log_select_failed:non_finite_cost_krw',
+      );
+    });
+
+    it('uses options.client when provided (DI seam — auth context 공유)', async () => {
+      const customRangeSpy = vi
+        .fn()
+        .mockResolvedValue({ data: [{ cost_krw: 999 }], error: null });
       const customClient = {
-        from: vi.fn().mockReturnValue({ select: customSelectSpy }),
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({ range: customRangeSpy }),
+          }),
+        }),
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const total = await getMonthlyTotal('2026-05', { client: customClient as any });
+      // R2 MEDIUM-4 fix — `any` 금지. unknown 경유 cast로 타입 안전 + lint clean.
+      const total = await getMonthlyTotal('2026-05', {
+        client: customClient as unknown as Awaited<
+          ReturnType<typeof import('@/lib/supabase/server').createClient>
+        >,
+      });
       expect(total).toBe(999);
       expect(customClient.from).toHaveBeenCalledWith('cost_log');
-      expect(customSelectSpy).toHaveBeenCalledWith('cost_krw.sum()');
       // 기본 createClient는 호출되지 않음 (mockSelect 미사용)
       expect(mockSelect).not.toHaveBeenCalled();
     });
