@@ -136,7 +136,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
    - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/push/PR-create 자동.
    - **[USER]** → background blocker 보고 + Vercel env 설정 + (권장) 인증 세션 production canary verify + Smoke Stage 2 시점 1회 비용 승인 (Task 7).
-5. **§2.0 명시 USER 승인 게이트 (좁힘, 58차 종료)** 도달 시만 USER 직접 묻기 — scope expansion / product spec / risk profile / real-money / cost burn 트리거 / 마이그 production apply / external account / 외부 메시지 / destructive (force push to main, DB drop) / uncertainty ≥ medium. **자동 진행 허용** (PR merge / Vercel env flag 토글 / production canary verify / branch cleanup / PR create) — omxy R-debate CONVERGED + 검증 게이트 ALL GREEN = 사용자 승인 등가.
+5. **§2.0 명시 USER 승인 게이트 (좁힘, 58차 종료)** 도달 시만 USER 직접 묻기 — scope expansion / product spec / risk profile / real-money / cost burn 트리거 / 마이그 production apply / **Vercel env / secrets / flag 토글** / external account / 외부 메시지 / destructive (force push to main, DB drop) / uncertainty ≥ medium. **자동 진행 허용** (PR merge rebase FF + delete-branch / docs-sync PR create+merge / public canary curl + authenticated browser canary / non-destructive deploy status polling / PR create+comment+body 갱신 / branch cleanup) — omxy R-debate CONVERGED + 검증 게이트 ALL GREEN = 사용자 승인 등가 (CLAUDE.md ⚙️ 자동 진행 허용 범위 한정).
 6. **§7 omxy 적대적 검토 패턴**은 모든 신규 작업 branch에서 강제 적용 (58차 박제: Mock cleanup Step 2.1/2.2 PR-내 cmux pair-debate + docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지) — omxy 정직한 검토가 sweep stale 단계별 검출).
 
 ---
