@@ -238,7 +238,19 @@ export async function orchestrateFullReport(
   // PR4 Task 2 Step 2.1: caller DI — options.client 주입 시 createClient bypass.
   // PR4 Task 8 W7 fix: persisted ticker/month도 enriched.* (writer가 받은 값과 정합).
   const supabase = options.client ?? (await createClient());
-  const { data, error } = await supabase.rpc('update_report_sections_0_7', {
+
+  // B65-P3 feature flag (옵션 A): admin caller + flag=true 시 신규 UPSERT RPC 사용 (INSERT/UPDATE 자연 분기).
+  // env read는 함수 body 내부에서 (top-level const 금지 — Next.js 16 inline 회피, omxy R1 Schop B2).
+  // strict 'true'만 enable; undefined/empty/'false' 모두 false fallback (.env.example=false safe default).
+  // cron 또는 flag=false → 기존 update_report_sections_0_7 (UPDATE-only) 유지.
+  const upsertEnabled =
+    options.callerKind === 'admin' &&
+    process.env.PR4_TRIGGER_UPSERT_ENABLED === 'true';
+  const rpcName = upsertEnabled
+    ? 'upsert_report_sections_0_7_admin'
+    : 'update_report_sections_0_7';
+
+  const { data, error } = await supabase.rpc(rpcName, {
     p_ticker: enriched.ticker,
     p_month: enriched.month,
     p_section_0: finalSections.section_0,
@@ -252,13 +264,18 @@ export async function orchestrateFullReport(
     p_appendix: finalSections.appendix,
   });
   if (error) {
-    if (typeof error.message === 'string' && error.message.includes('report_not_found_for_section_0_7_update')) {
+    const msg = typeof error.message === 'string' ? error.message : '';
+    // omxy R1 Schop B3 fix: rpcName 가드로 cross-path literal leak 차단.
+    if (rpcName === 'update_report_sections_0_7' && msg.includes('report_not_found_for_section_0_7_update')) {
       throw new Error('report_not_found_for_section_0_7_update');
     }
-    throw new Error(`update_report_sections_0_7_failed:${error.code ?? 'unknown'}`);
+    if (rpcName === 'upsert_report_sections_0_7_admin' && msg.includes('upsert_report_sections_0_7_admin_failed_no_returning')) {
+      throw new Error('upsert_report_sections_0_7_admin_failed_no_returning');
+    }
+    throw new Error(`${rpcName}_failed:${error.code ?? 'unknown'}`);
   }
   if (!data?.success) {
-    throw new Error('update_report_sections_0_7_failed:no_success');
+    throw new Error(`${rpcName}_failed:no_success`);
   }
 
   // (b) critic findings INSERT (atomic RPC) — blocking throw (PR3c quality audit 핵심)
