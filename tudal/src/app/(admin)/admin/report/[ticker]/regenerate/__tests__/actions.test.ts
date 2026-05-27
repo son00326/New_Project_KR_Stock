@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   // PR4 Step 2.3 — orchestrate wire 추가 모듈 (default mock으로 기존 success path 보존).
   getActiveShortList: vi.fn(),
   orchestrateFullReport: vi.fn(),
+  // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
+  getMonthlyTotal: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -29,6 +31,10 @@ vi.mock("@/lib/data/admin-shortlist", () => ({
 
 vi.mock("@/lib/report/full-report-orchestrator", () => ({
   orchestrateFullReport: mocks.orchestrateFullReport,
+}));
+
+vi.mock("@/lib/cost/cost-logger", () => ({
+  getMonthlyTotal: mocks.getMonthlyTotal,
 }));
 
 beforeEach(() => {
@@ -90,6 +96,8 @@ beforeEach(() => {
     costKrw: 535,
     revised: false,
   });
+  // 58차 Step 2.3 — cost_log 합계 default = 0원 (hardcap unblocked).
+  mocks.getMonthlyTotal.mockResolvedValue(0);
 });
 
 afterEach(() => {
@@ -298,5 +306,108 @@ describe("regenerateReport", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("regen_counter_write_conflict");
+  });
+
+  // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
+  describe("cost_log 실 SELECT (58차 Mock cleanup Step 2.3)", () => {
+    it("returns cost_log_lookup_failed when getMonthlyTotal throws (RLS deny / DB error)", async () => {
+      mocks.getMonthlyTotal.mockRejectedValueOnce(
+        new Error("cost_log_select_failed:PGRST301"),
+      );
+      const { regenerateReport } = await import("../actions");
+
+      const result = await regenerateReport({
+        ticker: "005930",
+        month: "2026-04-01",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe("cost_log_lookup_failed");
+      // cost_log 실패 시 counter increment + orchestrate 모두 skip (cost burn 차단 invariant).
+      expect(mocks.incrementManualRegenCount).not.toHaveBeenCalled();
+      expect(mocks.orchestrateFullReport).not.toHaveBeenCalled();
+    });
+
+    it("returns cost_hardcap_40man when monthly total reaches HARDCAP_KRW (400000)", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(400_000);
+      const { regenerateReport } = await import("../actions");
+
+      const result = await regenerateReport({
+        ticker: "005930",
+        month: "2026-04-01",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe("cost_hardcap_40man");
+      expect(mocks.incrementManualRegenCount).not.toHaveBeenCalled();
+      expect(mocks.orchestrateFullReport).not.toHaveBeenCalled();
+    });
+
+    it("returns cost_hardcap_40man when monthly total exceeds HARDCAP_KRW", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(450_000);
+      const { regenerateReport } = await import("../actions");
+
+      const result = await regenerateReport({
+        ticker: "005930",
+        month: "2026-04-01",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe("cost_hardcap_40man");
+    });
+
+    it("proceeds when monthly total is below HARDCAP_KRW (399999)", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(399_999);
+      const { regenerateReport } = await import("../actions");
+
+      const result = await regenerateReport({
+        ticker: "005930",
+        month: "2026-04-01",
+      });
+
+      expect(result.success).toBe(true);
+      expect(mocks.orchestrateFullReport).toHaveBeenCalled();
+    });
+
+    it("converts YYYY-MM-DD regen month to YYYY-MM cost_log month (slice(0,7))", async () => {
+      mocks.getMonthlyTotal.mockImplementation(async (month: string) => {
+        // cost_log.month SoT = YYYY-MM (insertCostLog 정합) — slice 변환 검증.
+        expect(month).toBe("2026-04");
+        return 0;
+      });
+      const { regenerateReport } = await import("../actions");
+
+      await regenerateReport({ ticker: "005930", month: "2026-04-01" });
+      expect(mocks.getMonthlyTotal).toHaveBeenCalledTimes(1);
+    });
+
+    it("propagates supabase client to getMonthlyTotal (DI seam — RLS auth context 공유)", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(0);
+      const { regenerateReport } = await import("../actions");
+
+      await regenerateReport({ ticker: "005930", month: "2026-04-01" });
+
+      // 2nd arg = { client: supabase } — auth context 단일 caller-flow 정합.
+      expect(mocks.getMonthlyTotal).toHaveBeenCalledWith(
+        "2026-04",
+        expect.objectContaining({ client: expect.any(Object) }),
+      );
+    });
+
+    it("calls getMonthlyTotal AFTER auth check (auth_unavailable short-circuit)", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      mocks.getUser.mockRejectedValue(new Error("auth down"));
+      const { regenerateReport } = await import("../actions");
+
+      const result = await regenerateReport({
+        ticker: "005930",
+        month: "2026-04-01",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe("auth_unavailable");
+      // cost_log SELECT는 auth 실패 시 호출 안 됨 (caller-flow 단일).
+      expect(mocks.getMonthlyTotal).not.toHaveBeenCalled();
+    });
   });
 });

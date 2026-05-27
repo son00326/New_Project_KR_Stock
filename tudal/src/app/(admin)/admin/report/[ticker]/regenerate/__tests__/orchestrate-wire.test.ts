@@ -20,6 +20,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT (getMonthlyTotal) hoisted mock.
+// 본 파일은 orchestrate wire 시나리오만 검증 — cost_log 합계는 default 0원 (hardcap unblocked).
+// cost_log 특화 시나리오(throw/hardcap)는 actions.test.ts "cost_log 실 SELECT" describe로 분리.
+const costMocks = vi.hoisted(() => ({
+  getMonthlyTotal: vi.fn().mockResolvedValue(0),
+}));
+vi.mock('@/lib/cost/cost-logger', () => ({
+  getMonthlyTotal: costMocks.getMonthlyTotal,
+}));
+
 const validInput = {
   ticker: '005930',
   month: '2026-04-01', // YYYY-MM-DD (regen-cap 형식)

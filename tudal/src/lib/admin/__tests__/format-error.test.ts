@@ -25,6 +25,8 @@ const KNOWN_ACTION_CODES = [
   "regen_counter_lookup_failed",
   "regen_counter_write_failed",
   "regen_counter_write_conflict",
+  // 58차 Mock cleanup Step 2.3 — regenerate cost_log 실 SELECT 통로
+  "cost_log_lookup_failed",
   // PR4 Step 2.3 — regenerate orchestrate wire (omxy R1 B29 fix)
   "shortlist_item_not_found",
   "orchestrate_full_report_failed",
