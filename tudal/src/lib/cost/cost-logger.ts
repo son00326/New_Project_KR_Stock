@@ -67,9 +67,14 @@ export async function getMonthlyTotal(
       .from('cost_log')
       .select('cost_krw')
       .eq('month', month)
-      // R3 HIGH-1 fix — deterministic order. PostgREST default ordering 미보장 → offset
-      // pagination에서 row skip/duplicate risk (특히 concurrent cost_log INSERT 시).
-      // id (uuid PK) 기준 ascending → page 간 stable boundary. row-limit 무관 total invariant 보장.
+      // R3 HIGH-1 + R4 MEDIUM fix — concurrent-safe deterministic order.
+      // Primary: `called_at` ASC (NOT NULL DEFAULT now() — monotonic). 새 INSERT는 항상
+      // 기존 행 뒤에 정렬되어 offset pagination의 page boundary 이동/duplicate 차단.
+      // Secondary: `id` ASC (uuid PK, tiebreak — 동일 called_at 마이크로초 충돌 시 안정).
+      // cost_log은 INSERT-only (UPDATE/DELETE 코드 부재) → monotonic ordering 정합.
+      // R3 fix(`.order('id')` 단일)는 random UUID라 concurrent INSERT가 기존 행 앞으로
+      // 정렬되어 row duplicate risk 있었음 (R4 catch).
+      .order('called_at', { ascending: true })
       .order('id', { ascending: true })
       .range(offset, offset + COST_LOG_PAGE_SIZE - 1);
 

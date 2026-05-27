@@ -96,16 +96,15 @@ describe('cost-logger (Q2 + Q6)', () => {
   });
 
   it('preflightHardcap throws when currentTotal + reservation > HARDCAP', async () => {
-    // 58차 Step 2.3 omxy R3 HIGH-1 fix — pagination chain: select → eq → order → range.
+    // 58차 Step 2.3 omxy R3+R4 fix — pagination chain: select → eq → order(called_at) → order(id) → range.
+    const rangeMock = vi.fn().mockResolvedValue({
+      data: [{ cost_krw: HARDCAP_KRW - 1000 }],
+      error: null,
+    });
+    const orderChain = { order: vi.fn(), range: rangeMock };
+    orderChain.order = vi.fn().mockReturnValue(orderChain);
     mockSelect.mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          range: vi.fn().mockResolvedValue({
-            data: [{ cost_krw: HARDCAP_KRW - 1000 }],
-            error: null,
-          }),
-        }),
-      }),
+      eq: vi.fn().mockReturnValue({ order: orderChain.order }),
     });
     await expect(preflightHardcap({
       month: '2026-05',
@@ -117,13 +116,15 @@ describe('cost-logger (Q2 + Q6)', () => {
   // (PostgREST aggregate disabled in production, PGRST123 live verified 2026-05-28).
   // regenerate cost_log 실 SELECT 통로 → row limit 무관 + non-finite guard 보장.
   describe('getMonthlyTotal — pagination loop (HIGH-1 fix, R2 verified)', () => {
-    // R3 HIGH-1 fix — pagination chain shape: select → eq → order → range.
-    // 헬퍼: 기본 buildChain은 모든 page chain을 한 번에 wire.
+    // R3 HIGH-1 + R4 MEDIUM fix — pagination chain shape: select → eq → order(called_at) → order(id) → range.
+    // 헬퍼: 모든 page chain을 한 번에 wire. inner order() return은 자기 자신을 chain하여 2nd order
+    // 호출 후 range로 이어지도록 구성.
     function buildChainWithRange(
       rangeSpy: ReturnType<typeof vi.fn>,
     ): { eq: ReturnType<typeof vi.fn> } {
-      const orderSpy = vi.fn().mockReturnValue({ range: rangeSpy });
-      return { eq: vi.fn().mockReturnValue({ order: orderSpy }) };
+      const orderChain = { order: vi.fn(), range: rangeSpy };
+      orderChain.order = vi.fn().mockReturnValue(orderChain);
+      return { eq: vi.fn().mockReturnValue({ order: orderChain.order }) };
     }
 
     it('returns 0 when first page is empty (0 rows / RLS deny)', async () => {
@@ -162,14 +163,22 @@ describe('cost-logger (Q2 + Q6)', () => {
       expect(rangeSpy).toHaveBeenNthCalledWith(2, 1000, 1999);
     });
 
-    it('orders by id ascending for deterministic pagination (R3 HIGH-1 fix — concurrent insert safety)', async () => {
-      // PostgREST default ordering 미보장 → explicit `.order('id', {ascending:true})` 강제.
+    it('orders by called_at then id ascending (R4 MEDIUM fix — concurrent insert safety)', async () => {
+      // R3 fix(`.order('id')` 단일)는 random UUID라 concurrent INSERT 시 row duplicate
+      // risk. R4 fix는 called_at (NOT NULL DEFAULT now() — monotonic) primary + id tiebreak
+      // secondary로 INSERT-only workload에서 page boundary 이동 차단.
       const rangeSpy = vi.fn().mockResolvedValue({ data: [], error: null });
-      const orderSpy = vi.fn().mockReturnValue({ range: rangeSpy });
-      const eqSpy = vi.fn().mockReturnValue({ order: orderSpy });
+      const orderChain = { order: vi.fn(), range: rangeSpy };
+      orderChain.order = vi.fn().mockReturnValue(orderChain);
+      const eqSpy = vi.fn().mockReturnValue({ order: orderChain.order });
       mockSelect.mockReturnValue({ eq: eqSpy });
+
       await getMonthlyTotal('2026-05');
-      expect(orderSpy).toHaveBeenCalledWith('id', { ascending: true });
+
+      // primary order = called_at asc, secondary order = id asc (chain 2회 호출).
+      expect(orderChain.order).toHaveBeenCalledTimes(2);
+      expect(orderChain.order).toHaveBeenNthCalledWith(1, 'called_at', { ascending: true });
+      expect(orderChain.order).toHaveBeenNthCalledWith(2, 'id', { ascending: true });
     });
 
     it('throws cost_log_select_failed:<code> on DB error (RLS evaluation error etc)', async () => {
@@ -216,15 +225,16 @@ describe('cost-logger (Q2 + Q6)', () => {
     });
 
     it('uses options.client when provided (DI seam — auth context 공유)', async () => {
+      // R4 fix — pagination chain: select → eq → order(called_at) → order(id) → range.
       const customRangeSpy = vi
         .fn()
         .mockResolvedValue({ data: [{ cost_krw: 999 }], error: null });
+      const orderChain = { order: vi.fn(), range: customRangeSpy };
+      orderChain.order = vi.fn().mockReturnValue(orderChain);
       const customClient = {
         from: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({ range: customRangeSpy }),
-            }),
+            eq: vi.fn().mockReturnValue({ order: orderChain.order }),
           }),
         }),
       };
