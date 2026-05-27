@@ -51,7 +51,7 @@ Last updated: 2026-05-27 (58차 Mock cleanup Step 2.1 PR #33 MERGED + Step 2.2 P
    | **cron 30 자동 리포트 + 큐 인프라** | **PR5 (분리)** | 🟡 **B65-P3 + B66 backfill + Smoke Stage 1+2 모두 PASS 후만 진입** (omxy R7 B94 lock-in) |
 
 **진입 트리거 (58차 종료 → 다음 차수 진입)**: "`Document/Process/HANDOFF.md` 보고 이어서 진행" →
-1. §0 verify (`git rev-parse --short origin/main` = `2dca060` (post-PR-#34 MERGED 자손 허용) + OPEN PRs `#2` only + main test:ci 게이트 1회 재실행 (post-merge baseline 1186+1173 통합 확인))
+1. §0 verify (`git rev-parse --short origin/main` = `2dca060` (post-PR-#34 MERGED 자손 허용) + OPEN PRs `#2` only + main test:ci 게이트 1회 재실행 (post-merge baseline = 1208 PASS / 111 files))
 2. **production audit 재확인** (Supabase 직접 query, §2.1 Task 1 entry routine) — drift 0 확인 (cost_log=0 / stock_reports=0 / committee_votes=0 잔존 정상 — Vercel env=true + Task 7 Smoke Stage 2 후만 drift 가능)
 3. **§9 박제 + §2.1 active matrix 갱신** (Task 1+2+3 ✅ + Task 4 ✅ + 마이그 0025 ✅ + Mock cleanup Step 1+2.1+2.2 ✅ 모두 MERGED) + W-s5b-admin-assertion + W-ticker-re-kr-only + W-mock2-rls-drift 박제 확인
 4. **Mock cleanup Step 2.3 (regenerate 라우트) 진입** — fresh branch off main `2dca060`. Step 2.1/2.2 패턴 1:1 mechanical extension (helper + actions wire + tests + omxy R-debate). 의사 1회 확인 후 자동 시작.
@@ -65,7 +65,7 @@ Last updated: 2026-05-27 (58차 Mock cleanup Step 2.1 PR #33 MERGED + Step 2.2 P
 
 > **cron 30 자동 리포트 + service-role caller DI + admin_id 'cron-system' + cost_log e2e test = PR5 후속 트랙** (T11 분할 결정 보존, PR4 머지 후 진입). PR5 caller path = orchestrateFullReport (quality), timeout 처리 = 자체 DB job queue β2′ 또는 Vercel Queues β1 (PR5 plan 시점 R-debate).
 
-**운영 원칙**: 미래 지향. §6 inline entry = 직전 2개만 (본 시점은 58차 Mock cleanup Step 2.1 ✅ MERGED `e6be73f` (PR #33) + 58차 Mock cleanup Step 1 MERGED). Step 2.2 ✅ MERGED `2dca060` (PR #34)는 **parallel OPEN PR이라 본 PR #33 branch의 §6 inline scope 외** — PR body + git log + 다음 sweep PR(post-merge)에서 §6 entry로 승격 가능. older historical = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. **commit count + SHA chain + sweep round count 표현은 self-referential drift 발생 위험으로 추상화 — 정확한 chain은 `git log origin/main..<branch>`로 runtime verify, debate round는 cmux debate transcript 위임** (B75 fixed SHA 박제 금지 정합).
+**운영 원칙**: 미래 지향. §6 inline entry = 직전 2개만 (본 58차 종료 post-merge baseline = (1) Mock cleanup Step 2.2 ✅ MERGED `2dca060` (PR #34) + (2) Step 2.1 ✅ MERGED `e6be73f` (PR #33). Step 1 entry는 demote 1줄 link). older historical = git log + spec/plan/REVIEW docs + ProgressDashboard 위임. **commit count + SHA chain + sweep round count 표현은 self-referential drift 발생 위험으로 추상화 — 정확한 chain은 `git log origin/main..<branch>`로 runtime verify, debate round는 cmux debate transcript 위임** (B75 fixed SHA 박제 금지 정합).
 
 **⚠️ gsd-code-reviewer 환경 부재 대체 정책 (54차 §4 박제)**: 현 Claude Code 환경에서 `gsd-code-reviewer` agent type은 더 이상 사용 불가. PR3b/PR4/후속 모든 PR의 deep code review는 **3-track 대체 패턴** (PR4 finalize Task 9에서 적용):
 - **Track 1**: `gstack-review` skill (pre-landing PR review, structural/SQL/LLM trust/concurrency)
@@ -129,8 +129,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
    - **Task 4 ✅ MERGED `3c09d6e` (58차, PR #30 B65-P3 impl, omxy R1~R3 CONVERGED) + 마이그 0025 ✅ production applied**
    - **B-trackrecord-rls ✅ MERGED `838386e` (58차, PR #31)**
    - **Mock cleanup Step 1 ✅ MERGED `1d2db08` (58차, PR #32, omxy R1~R4 CONVERGED)**
-   - **Mock cleanup Step 2.1 ✅ OPEN PR #33 (58차, omxy 2 rounds CONVERGED, docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지))**
-   - **Mock cleanup Step 2.2 ✅ OPEN PR #34 (58차, omxy R1 CONVERGED)**
+   - **Mock cleanup Step 2.1 ✅ MERGED `e6be73f` (PR #33, 58차, omxy 2 rounds CONVERGED + docs sweep R-debate R14 CONVERGED + merge debate R2 A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임)**
+   - **Mock cleanup Step 2.2 ✅ MERGED `2dca060` (PR #34, 58차, omxy R1 CONVERGED)**
    - **다음 1순위**: (CLAUDE) **Mock cleanup Step 2.3 (regenerate 라우트)** 진입 — fresh branch off main `2dca060`. (USER 잔여) Vercel env 설정. → Step 2.4~2.7 + Task 5 B66 backfill + Task 7 Smoke Stage 2
 4. **Owner 별 행동**:
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
