@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { MOCK_ADMIN_ALERTS } from "@/lib/data/mock-admin-alerts";
-import { MOCK_ADMIN_NEWS } from "@/lib/data/mock-admin-news";
-import type { AlertEvent, AlertType, Severity } from "@/types/admin";
+import { getRecentAlertEvents } from "@/lib/data/admin-alerts";
+import { getRecentNewsEvents } from "@/lib/data/admin-news";
+import type { AlertEvent, AlertType, NewsEvent, Severity } from "@/types/admin";
 
 // M12 Critical 뉴스 이력 + scheduler_fail·briefing_failed 이력 (S5a T5a.3).
 // S5b에서 exit_signal·price_anomaly 추가 예정.
+//
+// Mock cleanup Step 2.1 (58차): MOCK_ADMIN_ALERTS + MOCK_ADMIN_NEWS 제거 →
+// alert_event / news_event 실 SELECT. 0 rows = empty state ("알림 없음" 등 정직 렌더).
 
 export const dynamic = "force-dynamic";
 
@@ -42,15 +45,24 @@ function sortedAlerts(items: AlertEvent[]): AlertEvent[] {
   );
 }
 
-export default function AdminAlertsPage() {
-  const alerts = sortedAlerts(MOCK_ADMIN_ALERTS);
-  const criticalNews = MOCK_ADMIN_NEWS.filter(
-    (n) => n.severity === "critical",
-  ).sort(
+function sortedNewsDesc(items: NewsEvent[]): NewsEvent[] {
+  return [...items].sort(
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
   );
-  const warningNews = MOCK_ADMIN_NEWS.filter((n) => n.severity === "warning");
+}
+
+export default async function AdminAlertsPage() {
+  // alert_event / news_event 실 SELECT — 실패 시 page error.tsx로 위임.
+  // helper는 이미 alert_event_select_failed / news_event_select_failed 구체 에러 throw.
+  const [alertRows, criticalNewsRows, warningNewsRows] = await Promise.all([
+    getRecentAlertEvents(),
+    getRecentNewsEvents({ severity: "critical" }),
+    getRecentNewsEvents({ severity: "warning" }),
+  ]);
+  const alerts = sortedAlerts(alertRows);
+  const criticalNews = sortedNewsDesc(criticalNewsRows);
+  const warningNews = sortedNewsDesc(warningNewsRows);
 
   return (
     <div className="space-y-6">
@@ -61,7 +73,8 @@ export default function AdminAlertsPage() {
           즉시 알림, Warning은 대시보드 전용.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ mock fixture · S5 실데이터 전환 시 alert_event·news_event SELECT로 교체
+          ※ alert_event · news_event 실 SELECT (58차 Mock cleanup Step 2.1).
+          0건 = 실제 미발생 (cron/exit detector가 INSERT하기 전 정상 상태).
         </p>
       </header>
 
