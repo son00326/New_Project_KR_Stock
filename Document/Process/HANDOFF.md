@@ -25,15 +25,15 @@ Last updated: 2026-05-27 (58차 Mock cleanup Step 2.1 PR #33 MERGED + Step 2.2 P
 ## ⭐ 다음 세션 진입자 5줄 요약 (58차 Mock cleanup Step 2.1 PR #33 MERGED + Step 2.2 PR #34 MERGED (post-merge baseline) 시점 — post-PR-#32 docs commit `2f97447`, omxy 13 rounds CONVERGED 누적 + docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지))
 
 1. **58차 누적 MERGED 박제**: Task 4 B65-P3 impl ✅ MERGED `3c09d6e` (PR #30 7 commits, omxy 3 rounds CONVERGED) + B-trackrecord-rls ✅ MERGED `838386e` (PR #31 1 commit, omxy R1 CONVERGED) + **마이그 0025 production applied** (Supabase MCP OAuth verified, omxy R1+R2 CONVERGED, 4-grant matrix ✓ + body match ✓ + flag invariant ✓) + Mock cleanup Step 1 ✅ MERGED `1d2db08` (PR #32 5 commits, omxy 4 rounds CONVERGED — 사용자 시점 3 production 이슈 catch/fix).
-2. **58차 OPEN (사용자 머지 대기)**:
-   - **PR #33** Mock cleanup Step 2.1 alerts (`MOCK_ADMIN_ALERTS` + `MOCK_ADMIN_NEWS` → `alert_event` + `news_event` 실 DB SELECT, code commits `29222ab` + `e210b02` + 다회 docs sweep — git log + PR body 위임, omxy R-debate 2 rounds CONVERGED + docs sweep R-debate 다회 CONTINUE catch 누적 → 진행 중)
-   - **PR #34** Mock cleanup Step 2.2 settings (`MOCK_ADMIN_SETTINGS` + `MOCK_ADMIN_TICKER_PREFS` + `MOCK_ADMIN_ID` → `admin_settings` + `ticker_alert_pref` 실 SELECT + WRITE 모든 환경 `real_persistence_not_configured` boundary, 1 commit `43c7886`, omxy R1 CONVERGED, 신규 helper 2종 + tests +24 (1149→1173 PASS), 마이그 0건)
+2. **58차 추가 MERGED (post-merge baseline)**:
+   - **PR #33 ✅ MERGED `e6be73f`** Mock cleanup Step 2.1 alerts (`MOCK_ADMIN_ALERTS` + `MOCK_ADMIN_NEWS` → `alert_event` + `news_event` 실 DB SELECT, code commits `29222ab` + `e210b02` + 다회 docs sweep — git log + PR body 위임, omxy R-debate 2 rounds CONVERGED + docs sweep R-debate R14 CONVERGED + merge debate R2 A++ 정합)
+   - **PR #34 ✅ MERGED `2dca060`** Mock cleanup Step 2.2 settings (`MOCK_ADMIN_SETTINGS` + `MOCK_ADMIN_TICKER_PREFS` + `MOCK_ADMIN_ID` → `admin_settings` + `ticker_alert_pref` 실 SELECT + WRITE 모든 환경 `real_persistence_not_configured` boundary, code commit `43c7886`, omxy R1 CONVERGED, 신규 helper 2종 + tests +24, 마이그 0건)
 3. **omxy 13 rounds CONVERGED 누적** (PR#30 R1~R3 + PR#31 R1 + 마이그 R1~R2 + PR#32 Step 1 R1~R4 + PR#33 Step 2.1 R1~R2 + PR#34 Step 2.2 R1) **+ docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합** — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지, B75 fixed SHA 박제 금지 정합).
-4. ⚠️ **PR4 + B65-P1/P3 MERGED + 마이그 0025 applied + Mock cleanup Step 1 MERGED ≠ production functional** (불변): Vercel Production env `PR4_TRIGGER_UPSERT_ENABLED` UNSET → orchestrator strict 'true' false → legacy path 유지 → admin trigger button = report_not_found fail-fast (B65-P1 cost burn 차단 active). 정상 동작은 USER가 PR #33 + #34 머지 + Vercel env=true 설정 후 (Task 7 Smoke Stage 2 게이트).
+4. ⚠️ **PR4 + B65-P1/P3 MERGED + 마이그 0025 applied + Mock cleanup Step 1/2.1/2.2 MERGED ≠ production functional** (불변): Vercel Production env `PR4_TRIGGER_UPSERT_ENABLED` UNSET → orchestrator strict 'true' false → legacy path 유지 → admin trigger button = report_not_found fail-fast (B65-P1 cost burn 차단 active). 정상 동작은 USER가 Vercel env=true 설정 후 (Task 7 Smoke Stage 2 게이트).
 5. **다음 세션 sequence (CLAUDE 자동 진입)**:
    - **(CLAUDE entry routine)** §0 verify (main HEAD = `2dca060` post-PR-#34 MERGED (58차 종료 post-merge baseline) + OPEN PRs `#2` only (PR #33/#34 MERGED + branch deleted) + production audit drift 0).
-   - **(USER 잔여 액션)** PR #33 머지 + PR #34 머지 + Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` 추가 (+ `AI_COST_LOG_REAL_INSERT_ENABLED=true` verify).
-   - **(CLAUDE) Mock cleanup Step 2.3 (regenerate 라우트) 진입** — PR #33 + #34 머지 후 fresh branch (conflict 회피). Step 2.1/2.2 패턴 1:1 mechanical extension. omxy R-debate 강제.
+   - **(USER 잔여 액션)** Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` 추가 (+ `AI_COST_LOG_REAL_INSERT_ENABLED=true` verify) + (권장) 인증 세션으로 production canary verify (`/admin/alerts` + `/admin/settings` empty state). Public curl canary는 완료 (`/` 200 / `/login` 200 / `/macro` 200).
+   - **(CLAUDE) Mock cleanup Step 2.3 (regenerate 라우트) 진입** — fresh branch off main `2dca060`. Step 2.1/2.2 패턴 1:1 mechanical extension. omxy R-debate 강제.
    - **(CLAUDE 병렬 가능)** Step 2.4~2.7 (cost/health/news/cron mock) 순차 + Task 5 B66 backfill (Supabase MCP access 확보됨) + Task 7 Smoke Stage 2 (USER 1회 비용 승인 ~5,000~6,000원).
 5. **canonical 5-PR 순서 (모두 MERGED, PR5 진입 차단 = B65-P2 impl + B65-P3 + B66 + Smoke 모두 PASS)**:
 
@@ -95,12 +95,12 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3. 58차 누적 MERGED + canonical 5-PR + B65 3-phase 확인
 git log --oneline | head -10
-#   기대: 58차 종료 = `2f97447` docs(58차 Mock cleanup Step 1 ✅ MERGED) at HEAD-1 + `1d2db08` PR #32 머지 그 이전 commit chain
+#   기대: 58차 종료 post-merge = `2dca060` PR #34 + `e6be73f` PR #33 + 그 이전 commit chain
 #   상세 commit 체인 = git log + PR body 위임
 
-# 4. 검증 게이트 (main baseline — 매 세션 진입 시 1회)
-#    - test:ci 1149 PASS / 107 files on main `2f97447` (PR #33 머지 후 1186 / 109 files / +37, PR #34 머지 후 1173+ / 109+ files)
-#    - build 25 routes / lint 0 err 6 warn (pre-existing) / tsc clean / 0 migrations (PR #33/#34 모두 docs+code only, 마이그 0건)
+# 4. 검증 게이트 (main `2dca060` post-merge baseline — 매 세션 진입 시 1회)
+#    - test:ci 실측 = 1208 PASS / 111 files (58차 종료 post-merge baseline)
+#    - build 25 routes / lint 0 err 6 warn (pre-existing) / tsc clean / 0 migrations (post-merge sync docs only)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
 
 # 5. production audit 재확인 (§2.1 active 8-row matrix Task 1 = entry routine, 매 세션 1순위)
@@ -120,8 +120,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### 진입자 자동 행동 (§2.0 default-progress policy, 58차 종료 갱신)
 
-1. **§0 verify 실행** → branch state + PR state (**#2 CONFLICTING 보류 + #33 Step 2.1 + #34 Step 2.2 사용자 머지 대기**) + 검증 게이트 + **production audit 재확인** (Task 1).
-2. **§9 박제 확인** — PR4 + B65-P1/P3 MERGED + 마이그 0025 applied + Mock cleanup Step 1 MERGED ≠ production functional 불변. Vercel env `PR4_TRIGGER_UPSERT_ENABLED` UNSET 잔존 → admin trigger button = report_not_found fail-fast (B65 P1 active). 정상 동작은 USER가 PR #33 + #34 머지 + Vercel env=true 후.
+1. **§0 verify 실행** → branch state + PR state (**#2 CONFLICTING 보류 only** — PR #33/#34 MERGED + branch deleted) + 검증 게이트 + **production audit 재확인** (Task 1).
+2. **§9 박제 확인** — PR4 + B65-P1/P3 MERGED + 마이그 0025 applied + Mock cleanup Step 1/2.1/2.2 MERGED ≠ production functional 불변. Vercel env `PR4_TRIGGER_UPSERT_ENABLED` UNSET 잔존 → admin trigger button = report_not_found fail-fast (B65 P1 active). 정상 동작은 USER가 Vercel env=true 설정 후.
 3. **§2.1 active matrix 다음 unblocked step 식별**:
    - Task 1 ✅ COMPLETED (57차 §1, production audit 1회) — **다음 세션 entry routine 1순위 재실행**
    - Task 2 ✅ MERGED `5b99e03` (B65-P1 PR #21)
@@ -131,11 +131,11 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
    - **Mock cleanup Step 1 ✅ MERGED `1d2db08` (58차, PR #32, omxy R1~R4 CONVERGED)**
    - **Mock cleanup Step 2.1 ✅ OPEN PR #33 (58차, omxy 2 rounds CONVERGED, docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지))**
    - **Mock cleanup Step 2.2 ✅ OPEN PR #34 (58차, omxy R1 CONVERGED)**
-   - **다음 1순위**: (USER) PR #33 + #34 머지 + Vercel env 설정 → (CLAUDE) **Mock cleanup Step 2.3 (regenerate 라우트)** 진입 (PR 머지 후 fresh branch — conflict 회피) → Step 2.4~2.7 + Task 5 B66 backfill + Task 7 Smoke Stage 2
+   - **다음 1순위**: (CLAUDE) **Mock cleanup Step 2.3 (regenerate 라우트)** 진입 — fresh branch off main `2dca060`. (USER 잔여) Vercel env 설정. → Step 2.4~2.7 + Task 5 B66 backfill + Task 7 Smoke Stage 2
 4. **Owner 별 행동**:
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
    - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/push/PR-create 자동.
-   - **[USER]** → background blocker 보고 + PR #33 + #34 머지 + Vercel env 설정 + Smoke Stage 2 시점 1회 비용 승인 (Task 7).
+   - **[USER]** → background blocker 보고 + Vercel env 설정 + (권장) 인증 세션 production canary verify + Smoke Stage 2 시점 1회 비용 승인 (Task 7).
 5. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기 (scope expansion / product spec / risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium).
 6. **§7 omxy 적대적 검토 패턴**은 모든 신규 작업 branch에서 강제 적용 (58차 박제: Mock cleanup Step 2.1/2.2 PR-내 cmux pair-debate + docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지) — omxy 정직한 검토가 sweep stale 단계별 검출).
 
@@ -157,7 +157,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **57차 §2 Task 3 (B65-P2 RPC R-debate spec doc) ✅ CONVERGED R8 final** | spec doc = `docs/superpowers/specs/2026-05-26-b65-p2-rpc-rdebate.md` (DRAFT R1 → R8 final). 결정 lock-in: **옵션 A** `upsert_report_sections_0_7_admin` admin-only UPSERT RPC + section_0~7 + appendix only + axis (i)A admin trigger 책임 = section_0~7 only + axis (ii) B79 deferred → PR5 plan + axis (iii) PR5 cron path 충돌 없음. spec doc only (no impl code, 0 migrations). |
 | **PR #21 OMXY (57차 §1, 4 rounds CONVERGED)** | R1+R2+R3+R4 — 모두 **BLOCKERS 0** · WATCH (비차단): P3 도입 시 feature flag toggle (`PR4_TRIGGER_UPSERT_ENABLED`, B98 default) |
 | **57차 §2 Task 3 OMXY (8 rounds, SIGNAL=ESCALATE max-8-rounds 정합 §7.5)** | R1 6 BLOCKERS + R2 5 + R3 5 + R4 3 + R5 2 + R6 1+2 minor + R7 2 + R8 ESCALATE max-8 + 3 mechanical fix. native critic subagent 6명 (Godel R1 5 BLOCKERS + 4 WATCH / Feynman R2 / Planck R3 / Schrodinger R4 / Franklin R5 / Hypatia R6). **누적 catch 30+ 모두 fix 반영**. |
-| ⚠️ **PR4 + B65-P1/P3 MERGED + 마이그 0025 applied ≠ production functional 잔존** | Vercel Production env `PR4_TRIGGER_UPSERT_ENABLED` UNSET → orchestrator legacy path 유지 → admin trigger button = report_not_found fail-fast (B65 P1 cost burn 차단 active). 정상 동작은 USER가 PR #33 + #34 머지 + Vercel env=true 설정 후 (Task 7 Smoke Stage 2 게이트). §9 박제 유지. |
+| ⚠️ **PR4 + B65-P1/P3 + Mock cleanup Step 1/2.1/2.2 MERGED + 마이그 0025 applied ≠ production functional 잔존** | Vercel Production env `PR4_TRIGGER_UPSERT_ENABLED` UNSET → orchestrator legacy path 유지 → admin trigger button = report_not_found fail-fast (B65 P1 cost burn 차단 active). 정상 동작은 USER가 Vercel env=true 설정 후 (Task 7 Smoke Stage 2 게이트). §9 박제 유지. |
 | **B66 quality/trust blocker** | `short_list_30` 30 rows sector="코스닥"/"코스피" placeholder. PR5 entry blocker — Task 5 backfill 후 PR5 진입 가능. |
 | **B67~B98 + 9 신규 audit (57차 §2 + 58차 Step 2.x)** | 56차 §5 omxy 11+ 항목 + 57차 §2 R-debate 6 신규 (B79 / B-versioning / W-tier1pill / W-grant-smoke ✅ RESOLVED / W-sectionfallback-text / W-cost-log-env-gate) + 58차 Step 2.x 3 신규 (W-mock2-rls-drift / W-s5b-admin-assertion / W-ticker-re-kr-only). Smoke Stage 2 PASS 후 audit (§9 + Task 8). |
 | **58차 Task 4 B65-P3 impl ✅ MERGED `3c09d6e` + 마이그 0025 production applied** | PR #30 7 commits FF, omxy R1~R3 CONVERGED. 마이그 0025 = `upsert_report_sections_0_7_admin` admin-only UPSERT RPC + 4-grant matrix + SECURITY DEFINER + search_path. 옵션 A lock-in 정합. |
@@ -196,13 +196,13 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (58차 Mock cleanup Step 2.1 ✅ MERGED `e6be73f` (PR #33) + Step 2.2 ✅ MERGED `2dca060` (PR #34) 시점 — Task 4 impl + 마이그 0025 + Mock cleanup Step 1 MERGED 누적, **PR5 진입 = Task 5~7 PASS + Mock cleanup Step 2 완료 후**)
 
-**현재 위치 = 58차 Mock cleanup Step 2.1 + Step 2.2 OPEN (사용자 머지 대기)**:
+**현재 위치 = 58차 종료 post-merge baseline (Mock cleanup Step 2.1 + Step 2.2 ✅ MERGED)**:
 - **PR #33** Step 2.1 alerts (admin user-visible 3 routes `MOCK_ADMIN_ALERTS` + `MOCK_ADMIN_NEWS` → `alert_event` / `news_event` 실 DB SELECT, omxy R1~R2 CONVERGED, code commits `29222ab`+`e210b02` + 다회 docs sweep — git log + PR body 위임)
 - **PR #34** Step 2.2 settings (admin user-visible 1 라우트 `MOCK_ADMIN_SETTINGS` + `MOCK_ADMIN_TICKER_PREFS` + `MOCK_ADMIN_ID` → `admin_settings` + `ticker_alert_pref` 실 SELECT + WRITE 모든 환경 `real_persistence_not_configured` boundary, omxy R1 CONVERGED, 1 commit `43c7886`, 신규 helper 2종 + tests +24)
 
 **누적 박제**: Task 4 ✅ + B-trackrecord-rls ✅ + 마이그 0025 production applied ✅ + Mock cleanup Step 1 ✅ 모두 MERGED, main `2dca060` (post-PR-#34 MERGED). **omxy 13 rounds CONVERGED 누적** (PR#30 R1~R3 + PR#31 R1 + 마이그 R1~R2 + PR#32 Step 1 R1~R4 + PR#33 Step 2.1 R1~R2 + PR#34 Step 2.2 R1) **+ docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합** — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임.
 
-**다음 1순위** = (USER) PR #33 머지 + PR #34 머지 + Vercel env 설정 (`PR4_TRIGGER_UPSERT_ENABLED=true` 미설정 잔존, B65 P1 fail-fast active) + (CLAUDE) **Mock cleanup Step 2.3 (regenerate 라우트)** 진입 (PR #33 + #34 머지 후 fresh branch — conflict 회피). Step 2.1/2.2 패턴 1:1 mechanical extension + omxy R-debate 강제 + Step 2.4~2.7 (cost/health/news/cron mock) 순차.
+**다음 1순위** = **(CLAUDE) Mock cleanup Step 2.3 (regenerate 라우트) 진입** — fresh branch off main `2dca060`. Step 2.1/2.2 패턴 1:1 mechanical extension + omxy R-debate 강제 + Step 2.4~2.7 (cost/health/news/cron mock) 순차. (USER 잔여) Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` 추가 (현재 unset, B65 P1 fail-fast active) + (권장) 인증 세션 production canary verify.
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
