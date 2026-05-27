@@ -1,20 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  getUser: vi.fn(),
-  reportExistsForMonth: vi.fn(),
-  incrementManualRegenCount: vi.fn(),
-  // PR4 Step 2.3 — orchestrate wire 추가 모듈 (default mock으로 기존 success path 보존).
-  getActiveShortList: vi.fn(),
-  orchestrateFullReport: vi.fn(),
-  // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
-  getMonthlyTotal: vi.fn(),
-}));
+// 58차 Step 2.3 omxy R1 MEDIUM-3 fix — supabase client 인스턴스를 hoisted 고정 reference로
+// 노출해 caller-flow "same client 단일" invariant (PR4 §7.9 5중 assert)을 정확히 검증.
+const mocks = vi.hoisted(() => {
+  const supabaseStub = {
+    auth: { getUser: vi.fn() },
+  };
+  return {
+    supabaseClient: supabaseStub,
+    getUser: supabaseStub.auth.getUser,
+    reportExistsForMonth: vi.fn(),
+    incrementManualRegenCount: vi.fn(),
+    // PR4 Step 2.3 — orchestrate wire 추가 모듈 (default mock으로 기존 success path 보존).
+    getActiveShortList: vi.fn(),
+    orchestrateFullReport: vi.fn(),
+    // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
+    getMonthlyTotal: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    auth: { getUser: mocks.getUser },
-  }),
+  createClient: async () => mocks.supabaseClient,
 }));
 
 vi.mock("@/lib/data/admin-reports", () => ({
@@ -381,17 +387,20 @@ describe("regenerateReport", () => {
       expect(mocks.getMonthlyTotal).toHaveBeenCalledTimes(1);
     });
 
-    it("propagates supabase client to getMonthlyTotal (DI seam — RLS auth context 공유)", async () => {
+    it("propagates the exact supabase client to getMonthlyTotal (DI seam — same caller client invariant, PR4 §7.9)", async () => {
       mocks.getMonthlyTotal.mockResolvedValueOnce(0);
       const { regenerateReport } = await import("../actions");
 
       await regenerateReport({ ticker: "005930", month: "2026-04-01" });
 
-      // 2nd arg = { client: supabase } — auth context 단일 caller-flow 정합.
-      expect(mocks.getMonthlyTotal).toHaveBeenCalledWith(
-        "2026-04",
-        expect.objectContaining({ client: expect.any(Object) }),
-      );
+      // 58차 R1 MEDIUM-3 fix — expect.any(Object)는 drift 통과시킴 (다른 client 인스턴스
+      // 통과 risk). 동일 hoisted reference로 강제 → orchestrate / cost_log이 createClient
+      // single-call로 받은 같은 client를 공유한다는 PR4 §7.9 invariant lock-in.
+      expect(mocks.getMonthlyTotal).toHaveBeenCalledTimes(1);
+      const [calledMonth, calledOptions] = mocks.getMonthlyTotal.mock.calls[0];
+      expect(calledMonth).toBe("2026-04");
+      expect(calledOptions).toEqual({ client: mocks.supabaseClient });
+      expect(calledOptions.client).toBe(mocks.supabaseClient);
     });
 
     it("calls getMonthlyTotal AFTER auth check (auth_unavailable short-circuit)", async () => {

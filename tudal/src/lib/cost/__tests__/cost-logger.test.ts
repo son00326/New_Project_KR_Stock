@@ -96,9 +96,10 @@ describe('cost-logger (Q2 + Q6)', () => {
   });
 
   it('preflightHardcap throws when currentTotal + reservation > HARDCAP', async () => {
+    // 58차 Step 2.3 omxy R1 HIGH-1 fix — PostgREST aggregate response shape `[{sum: ...}]`.
     mockSelect.mockReturnValue({
       eq: vi.fn().mockResolvedValue({
-        data: [{ cost_krw: HARDCAP_KRW - 1000 }],
+        data: [{ sum: HARDCAP_KRW - 1000 }],
         error: null,
       }),
     });
@@ -106,6 +107,63 @@ describe('cost-logger (Q2 + Q6)', () => {
       month: '2026-05',
       callCount: 30,
     })).rejects.toThrow('cost_hardcap_40man');
+  });
+
+  // 58차 Mock cleanup Step 2.3 omxy R1 HIGH-1 fix — getMonthlyTotal server-side aggregate
+  // (row limit fail-open 차단). regenerate cost_log 실 SELECT 통로 introduces production gate.
+  describe('getMonthlyTotal — PostgREST server-side aggregate (HIGH-1 fix)', () => {
+    it('uses `cost_krw.sum()` aggregate query (not client-side reduce)', async () => {
+      const selectSpy = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [{ sum: 12_345 }], error: null }),
+      });
+      mockSelect.mockImplementation(selectSpy);
+      await getMonthlyTotal('2026-05');
+      expect(selectSpy).toHaveBeenCalledWith('cost_krw.sum()');
+    });
+
+    it('returns 0 when aggregate sum is null (0 source rows or RLS deny)', async () => {
+      mockSelect.mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [{ sum: null }], error: null }),
+      });
+      const total = await getMonthlyTotal('2026-05');
+      expect(total).toBe(0);
+    });
+
+    it('returns aggregate sum as number (numeric string coercion)', async () => {
+      mockSelect.mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [{ sum: '12345.67' }], error: null }),
+      });
+      const total = await getMonthlyTotal('2026-05');
+      expect(total).toBe(12_345.67);
+    });
+
+    it('throws cost_log_select_failed:<code> on DB error (RLS evaluation error etc)', async () => {
+      mockSelect.mockReturnValue({
+        eq: vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'permission denied', code: 'PGRST301' },
+        }),
+      });
+      await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
+        'cost_log_select_failed:PGRST301',
+      );
+    });
+
+    it('uses options.client when provided (DI seam — auth context 공유)', async () => {
+      const customSelectSpy = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [{ sum: 999 }], error: null }),
+      });
+      const customClient = {
+        from: vi.fn().mockReturnValue({ select: customSelectSpy }),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const total = await getMonthlyTotal('2026-05', { client: customClient as any });
+      expect(total).toBe(999);
+      expect(customClient.from).toHaveBeenCalledWith('cost_log');
+      expect(customSelectSpy).toHaveBeenCalledWith('cost_krw.sum()');
+      // 기본 createClient는 호출되지 않음 (mockSelect 미사용)
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
   });
 
   it('orphan row preservation: writer failure does not delete cost_log row (audit)', async () => {
