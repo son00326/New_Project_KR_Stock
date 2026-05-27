@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, ChevronRight, FileText } from "lucide-react";
 import type { ShortListItem } from "@/types/admin";
 import { CRISIS_VOL_THRESHOLD } from "@/types/admin";
+import { ShortlistRowActionSlot } from "./shortlist-row-action-slot";
 
 interface ShortlistRowProps {
   item: ShortListItem;
@@ -144,11 +145,9 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
       </div>
     </details>
     {/* B43 fix: action as <details> sibling, NOT descendant of <summary>. */}
-    {action ? (
-      <div className="flex shrink-0 items-center border-l px-3" onClick={(e) => e.stopPropagation()}>
-        {action}
-      </div>
-    ) : null}
+    {/* Issue 1 fix (58차): onClick stopPropagation은 별도 client wrapper로 분리
+        (Server Component가 host element에 event handler 직접 attach 시 Next.js 16 RSC throw 회피). */}
+    {action ? <ShortlistRowActionSlot>{action}</ShortlistRowActionSlot> : null}
     </div>
   );
 }
