@@ -136,7 +136,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
    - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/push/PR-create 자동.
    - **[USER]** → background blocker 보고 + Vercel env 설정 + (권장) 인증 세션 production canary verify + Smoke Stage 2 시점 1회 비용 승인 (Task 7).
-5. **§2.0 7 exception buckets 도달 시만** USER 직접 묻기 (scope expansion / product spec / risk profile / real-money / secrets·billing / destructive shared-state / uncertainty ≥ medium).
+5. **§2.0 명시 USER 승인 게이트 (좁힘, 58차 종료)** 도달 시만 USER 직접 묻기 — scope expansion / product spec / risk profile / real-money / cost burn 트리거 / 마이그 production apply / external account / 외부 메시지 / destructive (force push to main, DB drop) / uncertainty ≥ medium. **자동 진행 허용** (PR merge / Vercel env flag 토글 / production canary verify / branch cleanup / PR create) — omxy R-debate CONVERGED + 검증 게이트 ALL GREEN = 사용자 승인 등가.
 6. **§7 omxy 적대적 검토 패턴**은 모든 신규 작업 branch에서 강제 적용 (58차 박제: Mock cleanup Step 2.1/2.2 PR-내 cmux pair-debate + docs sweep R-debate R14 CONVERGED + merge debate R2 → A++ 정합 — 최신 라운드/catch 누적/fix commit은 git log + cmux debate transcript 위임 (self-referential drift 방지) — omxy 정직한 검토가 sweep stale 단계별 검출).
 
 ---
@@ -184,15 +184,25 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - Do not repeatedly ask which option to choose when the runbook already defines the next CLAUDE step.
 - Stop only at explicit USER-gated operations or the exception list below.
 
-**Ask user before (7 exception buckets)**:
+**Ask user before (좁힘, 58차 종료 사용자 명시 — "User 잔여 액션도 나한테 묻지 말고 진행하고 검증 하라고")**:
 
 1. **scope expansion** (HANDOFF 범위 초과 새 작업)
 2. **product spec changes** (D-decision 변경)
 3. **new risk profile** (가드레일 / 보안 정책 변경)
 4. **real-money / live-account / order-path changes** (실 체결 토글 / 자동매매 토글 변경)
-5. **secrets / billing / external account actions** (env / 키 / 외부 계정 트리거)
-6. **destructive shared-state actions** (PR merge / production migration apply / production deploy / billing / 외부 메시지 발송 / external account 변경). Feature-branch push 및 PR create는 §2.1/§9 SHARED 정의에 따라 "이어서 진행" 권한으로 허용.
-7. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
+5. **cost burn 트리거** (실 AI 호출 / Smoke Stage 2 / `AI_COST_LOG_REAL_INSERT_ENABLED=true` 활성 후 admin trigger 클릭) — 1회 비용 승인 필수
+6. **마이그 production apply** (Supabase apply_migration) + **external account 변경** (Vercel project ownership / Supabase project / billing) + **외부 메시지 발송** (Slack / 이메일 / 외부 알림)
+7. **destructive shared-state** (force push to main / DB drop / 운영 데이터 삭제)
+8. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
+
+**자동 진행 허용 (사용자 명시 ↔ 묻지 않고 즉시 + 검증까지)** — omxy R-debate CONVERGED + 검증 게이트 ALL GREEN = 사용자 승인 등가:
+- **PR merge** (rebase FF + delete-branch) — omxy verify CONVERGED 후
+- **Vercel env var flag 토글** (e.g., `PR4_TRIGGER_UPSERT_ENABLED=true` — env flag 한정, secret 변경은 게이트 5)
+- **production canary verify** (curl public + browser/gstack 인증 세션)
+- **branch cleanup** / feature-branch push / PR create / PR comment / PR body 갱신
+- **Vercel production deploy verify** (gh + vercel CLI + curl)
+
+본 운영 원칙은 [[feedback_user_action_auto_progress]] + [[feedback_no_user_approval_gate]] 정합.
 
 ### §2.1 Step matrix (58차 Mock cleanup Step 2.1 ✅ MERGED `e6be73f` (PR #33) + Step 2.2 ✅ MERGED `2dca060` (PR #34) 시점 — Task 4 impl + 마이그 0025 + Mock cleanup Step 1 MERGED 누적, **PR5 진입 = Task 5~7 PASS + Mock cleanup Step 2 완료 후**)
 
