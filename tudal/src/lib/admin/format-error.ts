@@ -59,6 +59,8 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   entry_price_unavailable: "실 가격 소스 미연동 — 현재는 승인할 수 없습니다",
   reanalysis_limit_reached: "재분석 2회를 초과했습니다 — 전월 포트 유지",
   already_disputed: "이미 이의 제기된 승인입니다",
+  // Mock cleanup Step 1.3 R2 (omxy Gödel HIGH fix): accept gate가 real DB SELECT 의존 후 throw 가능 시
+  accept_gate_lookup_failed: "승인 게이트 조회 실패 — 잠시 후 다시 시도해주세요",
   // alerts
   alert_not_found: "알림을 찾을 수 없습니다",
   already_decided: "이미 결정된 알림입니다",

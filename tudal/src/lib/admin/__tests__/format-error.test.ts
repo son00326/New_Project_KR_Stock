@@ -41,6 +41,8 @@ const KNOWN_ACTION_CODES = [
   "stock_reports_archive_query_failed",
   "short_list_30_archive_query_failed",
   "portfolio_approval_archive_query_failed",
+  // Mock cleanup Step 1.3 R2 — accept gate real DB lookup failure
+  "accept_gate_lookup_failed",
   // portfolio
   "already_finalized",
   "approval_write_failed",

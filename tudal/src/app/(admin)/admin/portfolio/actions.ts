@@ -255,7 +255,14 @@ export async function acceptShortList(params: {
     return { success: false, error: "already_finalized" };
   }
 
-  const gate = await validateAcceptGate(month, shortlist);
+  // Mock cleanup Step 1.3 R2 (omxy Gödel HIGH fix): validateAcceptGate가 real DB select 의존하므로
+  // Supabase 실패 시 throw 가능 → Server Action contract `{ success, error }` 보존 위해 catch.
+  let gate: Awaited<ReturnType<typeof validateAcceptGate>>;
+  try {
+    gate = await validateAcceptGate(month, shortlist);
+  } catch {
+    return { success: false, error: "accept_gate_lookup_failed" };
+  }
   if (!gate.success) return gate;
 
   // Build snapshots BEFORE the RPC so missing price data cannot start an
