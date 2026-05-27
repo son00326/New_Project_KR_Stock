@@ -233,7 +233,7 @@ BusinessPlan.md §7 법적 원칙 (어드민 트랙 적용):
 
 - **Trivial → patch-suggest**: docs-only / typo / stale label / line-local replacement / no product·DB·runtime semantic change / rollback easy / commit count + SHA chain 추상화 같은 mechanical sweep / 1~2파일 stale sync.
 - **Complex → catch-only**: auth / RLS / persistence / API contract / DB migration / env flag / deployment / user-money / concurrency / race condition / server action behavior / test expectation 변경 / 다파일 의미 변경.
-- **Complex-docs (edge case)**: docs-only라도 다음 세션 행동 / USER·CLAUDE owner / production baseline / env·canary·merge 상태 변경 시 → patch-suggest 가능하나 **Claude policy-level 재판단 의무, 단순 apply 금지**.
+- **Complex-docs (edge case)**: docs-only라도 다음 세션 행동 / USER·CLAUDE owner / production baseline / env·canary·merge 상태 변경 시 → **catch-only 기본**. 단, line-local mechanical patch-suggest는 허용 가능하나 **Claude policy-level 재판단 필수, 단순 apply 금지**.
 
 ### Context Packet 표준 (Claude → omxy 송신 시 필수 9 필드)
 
