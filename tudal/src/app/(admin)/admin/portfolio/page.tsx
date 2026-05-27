@@ -1,7 +1,7 @@
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { getApprovalsByMonth } from "@/lib/data/admin-approvals";
 import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
-import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
+import { getDistinctViewerCountsByTicker } from "@/lib/data/admin-report-view-log";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
 import { addBusinessDays, formatDateKey } from "@/lib/portfolio/business-days";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
@@ -53,7 +53,13 @@ function formatMonthLabel(month: string): string {
   return `${y}년 ${Number(m)}월`;
 }
 
-function getMinimumRequiredViewerCount(month: string, tickers: string[]): number {
+// Mock cleanup Step 1.3 (58차): MOCK_ADMIN_REPORT_VIEW_LOG의 가짜 2인 열람 시드 제거.
+// 실 운영에서는 report_view_log 테이블 SELECT (admin이 /admin/report/[ticker] 방문 시 INSERT,
+// BL-5 1일 1회 dedupe). 0건이면 viewers_insufficient honest 차단.
+function getMinimumRequiredViewerCount(
+  tickers: string[],
+  viewerCountsByTicker: Map<string, number>,
+): number {
   const representativeTickers = tickers.filter((ticker) =>
     REQUIRED_GATE_TICKERS.has(ticker),
   );
@@ -62,14 +68,7 @@ function getMinimumRequiredViewerCount(month: string, tickers: string[]): number
   if (requiredTickers.length === 0) return 0;
 
   return Math.min(
-    ...requiredTickers.map(
-      (ticker) =>
-        new Set(
-          MOCK_ADMIN_REPORT_VIEW_LOG
-            .filter((r) => r.reportId === `rpt-${month}-${ticker}`)
-            .map((r) => r.adminId),
-        ).size,
-    ),
+    ...requiredTickers.map((ticker) => viewerCountsByTicker.get(ticker) ?? 0),
   );
 }
 
@@ -152,10 +151,16 @@ export default async function AdminPortfolioPage() {
   const autoReliefResult = detectSingleAdminStreak(accessLogs, now, 7);
   const autoReliefActive = autoReliefResult.active;
 
-  // (b) 2인 열람 게이팅 — 대표 상세 리포트 전체가 2인 열람을 만족해야 통과
+  // (b) 2인 열람 게이팅 — 대표 상세 리포트 전체가 2인 열람을 만족해야 통과.
+  // Mock cleanup Step 1.3 (58차): mock-admin-report-view-log 제거 → real report_view_log SELECT.
+  const tickersForGate = thisMonthItems.map((item) => item.ticker);
+  const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
+    month: month.slice(0, 7),
+    tickers: tickersForGate,
+  });
   const distinctViewerCount = getMinimumRequiredViewerCount(
-    month,
-    thisMonthItems.map((item) => item.ticker),
+    tickersForGate,
+    viewerCountsByTicker,
   );
 
   // computeAcceptGate 호출

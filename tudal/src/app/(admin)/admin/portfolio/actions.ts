@@ -1,7 +1,7 @@
 "use server";
 
 import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
-import { MOCK_ADMIN_REPORT_VIEW_LOG } from "@/lib/data/mock-admin-report-view-log";
+import { getDistinctViewerCountsByTicker } from "@/lib/data/admin-report-view-log";
 import {
   acceptShortlistRpc,
   createPortfolioApproval,
@@ -85,37 +85,25 @@ function resolveShortlistGeneratedAt(
   return Number.isNaN(createdAt.getTime()) ? null : createdAt;
 }
 
-function getRequiredGateReportIds(
-  month: string,
-  shortlist: ShortListItem[],
-): string[] {
+// Mock cleanup Step 1.3 (58차, omxy/Spinoza D1 HIGH split-brain fix):
+// MOCK_ADMIN_REPORT_VIEW_LOG의 가짜 2인 열람 시드를 actions.ts에서도 제거.
+// page.tsx (display gate)와 동일 source — real report_view_log SELECT via getDistinctViewerCountsByTicker.
+function getRequiredGateTickers(shortlist: ShortListItem[]): string[] {
   const active = filterActiveShortlist(shortlist);
   const representativeTickers = active
     .map((item) => item.ticker)
     .filter((ticker) => REQUIRED_GATE_TICKERS.has(ticker));
-  const tickers = representativeTickers.length > 0
+  return representativeTickers.length > 0
     ? representativeTickers
     : active.map((item) => item.ticker);
-  return tickers.map((ticker) => `rpt-${month}-${ticker}`);
 }
 
-function getMinimumRequiredViewerCount(
-  month: string,
-  shortlist: ShortListItem[],
+function computeMinimumViewerCount(
+  tickers: string[],
+  viewerCountsByTicker: Map<string, number>,
 ): number {
-  const reportIds = getRequiredGateReportIds(month, shortlist);
-  if (reportIds.length === 0) return 0;
-
-  return Math.min(
-    ...reportIds.map(
-      (reportId) =>
-        new Set(
-          MOCK_ADMIN_REPORT_VIEW_LOG
-            .filter((row) => row.reportId === reportId)
-            .map((row) => row.adminId),
-        ).size,
-    ),
-  );
+  if (tickers.length === 0) return 0;
+  return Math.min(...tickers.map((t) => viewerCountsByTicker.get(t) ?? 0));
 }
 
 async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
@@ -132,10 +120,17 @@ async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
     7,
   ).active;
 
+  // Mock cleanup Step 1.3: real report_view_log SELECT (page.tsx와 동일 source — split-brain 해소).
+  const gateTickers = getRequiredGateTickers(shortlist);
+  const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
+    month: month.slice(0, 7),
+    tickers: gateTickers,
+  });
+
   const gate = computeAcceptGate({
     shortlistGeneratedAt: generatedAt,
     now,
-    distinctViewerCount: getMinimumRequiredViewerCount(month, shortlist),
+    distinctViewerCount: computeMinimumViewerCount(gateTickers, viewerCountsByTicker),
     calendar: MOCK_KR_BUSINESS_DAYS_2026,
     autoReliefActive,
   });
