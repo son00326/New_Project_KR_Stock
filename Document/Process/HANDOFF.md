@@ -1,18 +1,19 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-27 (58차 Task 4 ✅ + B-trackrecord-rls follow-up ✅ MERGED `838386e` — PR #30 + #31, omxy 4 rounds CONVERGED 누적)
+Last updated: 2026-05-27 (58차 Task 4 ✅ + B-trackrecord-rls ✅ + 마이그 0025 production apply ✅ MERGED `838386e` — PR #30 + #31 + Supabase MCP OAuth → apply + verify, omxy 6 rounds CONVERGED 누적)
 
 - **Task 1+2+3 ✅ + Task 4 impl ✅ MERGED** (PR #30 MERGED `3c09d6e` rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED — R1 HIGH admin assertion + R2 CRITICAL RLS fix + R3 CONVERGED)
 - **main HEAD** = `3c09d6e` (post-PR-#30 — 58차) — `git rev-parse --short origin/main` 으로 verify
 - **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only — PR #30 MERGED + branch deleted
 - **Vercel deploy**: main `3c09d6e` Production ● Ready (`tudal-u9oozy9fs`, flag=false default → 동작 불변, admin assertion 추가만)
-- **검증 게이트**: test:ci 1149 PASS / 107 files · build 25 routes · lint 0 err · tsc clean · **1 migration 신규 (0025, production apply 대기)**
-- ⚠️ **Task 4 MERGED ≠ production functional** — flag=false default(.env.example + Vercel env 미설정)라 orchestrator는 legacy RPC 사용. 정상 동작은 (a) 마이그 0025 production apply + (b) Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` 설정 후 (둘 다 Task 7 Smoke Stage 2 게이트).
-- ⚠️ **마이그 0025 apply BLOCKED (58차)**: Supabase MCP disconnected + DB password 부재 → 자동 apply 불가. flag=false라 당장 불필요 (Task 7 진입 시 USER가 apply + service_role deny verify). PR #30 body에 apply sequence 박제.
+- **검증 게이트**: test:ci 1149 PASS / 107 files · build 25 routes · lint 0 err · tsc clean · **마이그 0025 ✅ production applied + verified (Supabase MCP OAuth)**
+- ⚠️ **Task 4 MERGED + 마이그 0025 applied ≠ production functional** — Vercel env `PR4_TRIGGER_UPSERT_ENABLED` UNSET 확인 (Production env 10 keys 중 PR4 entry 0개) → orchestrator strict 'true' false → legacy path 유지 → admin trigger button = report_not_found fail-fast (B65-P1 active). 정상 동작은 USER가 Vercel env=true 설정 후 (Task 7 Smoke Stage 2 게이트).
+- ✅ **마이그 0025 production verify 완료 (58차, omxy R1+R2 CONVERGED)**: (A) service_role EXECUTE=false ✓ Kepler R1 B2 critical PASS (B) authenticated=true ✓ (C/D) public/anon=false ✓ (E) SECURITY DEFINER + search_path=public,pg_temp ✓ (F) 11-arg signature exact (2 text + 9 jsonb) ✓ (G) function body match — auth.uid+is_admin guard / ON CONFLICT predicate / UPDATE set은 section_0~7+appendix+generated_at만 (section_8/consensus_badge/version/regen 미터치) / service_role bypass 없음 ✓ (H) get_advisors WARN = 의도된 baseline (13 기존 SECURITY DEFINER RPC 동일 패턴). W-grant-smoke audit ticket ✅ RESOLVED.
 - **다음 1순위**:
-  1. **(CLAUDE) Task 6 Smoke Stage 1** (non-AI dry-run TDD — vi.doMock orchestrate, cost=0, P1+P2+P3 호환 invariant) — 즉시 진입 가능 (production DB 불필요)
-  2. **(CLAUDE) Task 5 B66 backfill** (Python seed canonical14 매핑 script + 단위 테스트 작성 가능, **production short_list_30 backfill 실행은 Supabase access 필요 → BLOCKED**)
-  3. 이후 Task 7 Stage 2 USER 승인 (마이그 0025 apply + `AI_COST_LOG_REAL_INSERT_ENABLED='true'` + `PR4_TRIGGER_UPSERT_ENABLED='true'` env 선행) → Task 8 audit + PR5
+  1. **(USER) Vercel Production env 설정** = `PR4_TRIGGER_UPSERT_ENABLED=true` 추가 + `AI_COST_LOG_REAL_INSERT_ENABLED=true` 값 verify (현재 set이지만 값 확인). USER가 vercel CLI 또는 Dashboard에서 설정 + redeploy. 그 후 CLAUDE가 Task 7 Smoke Stage 2 진입.
+  2. **(CLAUDE) Task 7 Smoke Stage 2** — 단일 실 admin trigger button click → 신규 RPC INSERT branch → cost_log 1+ row + stock_reports row + report_critic_findings + UI render 검증 (cost burn ~5,000~6,000원). USER 1회 비용 승인.
+  3. **(CLAUDE 병렬 가능)** Task 5 B66 production backfill (Supabase MCP access 확보됨 → script + production execute_sql로 short_list_30 sector backfill 가능).
+  4. 이후 Task 8 audit + PR5 cron 30 자동 plan SoT.
 - **omxy lifecycle** = git log + spec/plan/PR body 위임 (R-debate 라운드별 catch 박제 = 58차 detail in PR #30 body — historical 강등 후 본 §6 직전 entry 1줄)
 
 ---
@@ -187,7 +188,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (57차 §3 종료 — Task 1+2+3 ✅ + Task 4 plan SoT ✅ MERGED `2859c68`, **PR5 진입 = Task 4 impl + Task 5~7 모두 PASS 후만**)
 
-**현재 위치 = 58차 Task 4 impl ✅ MERGED in main `3c09d6e` (PR #30 rebase FF, omxy R-debate 3 rounds CONVERGED — R1 HIGH admin assertion + R2 CRITICAL RLS fix + R3 CONVERGED). 다음 = (CLAUDE) Task 6 Smoke Stage 1 (production DB 불필요, 즉시) + Task 5 B66 script (production backfill은 Supabase access blocked) → Task 7 USER 게이트 (마이그 0025 apply + env).**
+**현재 위치 = 58차 Task 4 impl ✅ MERGED `838386e` (PR #30+#31) + 마이그 0025 ✅ production applied & verified (Supabase MCP OAuth, omxy R1+R2 CONVERGED). 다음 1순위 = Task 7 진입 직전 USER 게이트 = Vercel env 2개 설정만 잔여 (PR4_TRIGGER_UPSERT_ENABLED=true + AI_COST_LOG_REAL_INSERT_ENABLED=true 확인) → CLAUDE가 Task 7 Smoke Stage 2 단일 실 AI 호출 (~5,000~6,000원 cost burn) 실행.**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -309,7 +310,20 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
 
-### 58차 Task 4 B65-P3 impl ✅ + B-trackrecord-rls follow-up ✅ MERGED in main `838386e` (PR #30 + #31 rebase FF, omxy 4 rounds CONVERGED 누적, 2026-05-27)
+### 58차 Task 4 B65-P3 impl ✅ + B-trackrecord-rls ✅ + 마이그 0025 production apply ✅ (main `838386e` + Supabase production, omxy 6 rounds CONVERGED 누적, 2026-05-27)
+
+- **마이그 0025 production apply ✅** (Supabase MCP OAuth 재연결 후): USER authorize → mcp__supabase__apply_migration("upsert_report_sections_0_7_admin", ...) success:true → 4종 post-apply verify 모두 PASS:
+  - (A) has_function_privilege('service_role', ...11-arg regprocedure, 'EXECUTE') = **false** (Kepler R1 B2 critical PASS — CREATE OR REPLACE grant 누설 0)
+  - (B) authenticated = true / (C/D) public/anon = false (4-grant matrix exact)
+  - (E) prosecdef=true + (F) proconfig="search_path=public, pg_temp" + (G) 11-arg signature (2 text + 9 jsonb) + (H) returns=json
+  - (I) pg_get_functiondef body 1:1 정합 (auth.uid+is_admin guard / ON CONFLICT (ticker, month) where is_latest=true / UPDATE set=section_0~7+appendix+generated_at만 / section_8·consensus_badge·version·schema_version·is_latest·regen_* 미터치 / service_role bypass 없음)
+  - (J) get_advisors security: 신규 WARN 1 = "Signed-In Users Can Execute SECURITY DEFINER" → 의도된 baseline (13 기존 SECURITY DEFINER RPC 동일 WARN, authenticated execute grant가 옵션 A 핵심)
+- **Production flag invariant verified**: Vercel Production env 10 keys 중 `PR4_TRIGGER_UPSERT_ENABLED` 0개 매치 (unset) → orchestrator strict 'true' check false → legacy update_report_sections_0_7 path 유지 → triggerFullReport에서 B65-P1 preflight 실행 (cost burn 차단 + report_not_found fail-fast). production 동작 무변화 invariant ✅.
+- **omxy R1+R2 CONVERGED**: R1 SIGNAL: CONTINUE (2 gap catch: function body match + production flag invariant 실측) → R2 evidence 추가 → CONVERGED. Smoke Stage 2 functional test / rollback drop simulation / 동시 호출 timing는 명시적 별도 task scope.
+- **W-grant-smoke audit ticket ✅ RESOLVED** (§9.5). Layer 2 PostgREST permission_denied만 Task 7 functional canary로 잔여.
+- **다음 USER 1순위**: Vercel Production env `PR4_TRIGGER_UPSERT_ENABLED=true` 추가 → redeploy → CLAUDE가 Task 7 Smoke Stage 2 실행 (cost burn ~5,000~6,000원, USER 1회 비용 승인).
+
+
 
 - **PR #31 (B-trackrecord-rls follow-up)** ✅ MERGED `838386e` (rebase FF + delete-branch). track-record/actions.ts:67-79 `triggerMonthlyPersonaEvalAction`의 admin assertion = 형제 action portfolio/actions.ts와 동일 broken 패턴 (admin_emails RESTRICTIVE RLS using(false)로 real admin 전원 오차단 latent bug)을 Task 4 R3 CONVERGED 패턴 mechanical extension으로 `rpc('is_admin')` 교체. omxy R1 CONVERGED (1 round). src 전체 production action에서 `from('admin_emails')` 직접 SELECT = 0건 확인. §9.5 B-trackrecord-rls 박제 ✅ RESOLVED. 검증: build 25 / lint 0 err / test:ci 1149 PASS / tsc clean. Vercel `tudal-jfezcs8kx` Production deploy 진행.
 
@@ -590,7 +604,7 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 **R7 (57차 §2 R-debate) 신규 audit ticket 6종** (옵션 A 채택 lock-in 후속, spec doc §6):
 - **B-versioning** — 옵션 A versioning policy = (1) overwrite-in-place 채택 (0017/0022 패턴 보존). version/schema_version/is_latest/regen_* counter 불변 invariant. (2) auto-flip + version bump 재설계는 PR5 plan R-debate에 deferred (cross-cutting 결정 — commit_persona_eval + update_report_sections_0_7 + admin RPC + regen 모두 영향).
 - **W-tier1pill** (PR4 post-merge follow-up ticket) — Section 8 absent 리포트 = Tier 1 평가 대기 pill UI 추가. D11 운용 검증 acceptance gate. HANDOFF §2.1 Step 8 (D11 AI 가상 포트 1차 가동 게이트) 본문도 acceptance gate 명시로 갱신. omxy R1 h + critic W3 + omxy R2 e' + R3 ε 박제.
-- **W-grant-smoke** — service_role deny 검증은 두 layer (has_function_privilege + PostgREST permission denied)로 마이그 직후 sanity smoke. **exact regprocedure signature `(text, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb)` 박제 필수** (has_function_privilege placeholder 미지원). omxy R2 a' + R3 α + R4 (II) 박제.
+- **W-grant-smoke ✅ RESOLVED in 58차 (마이그 0025 production apply + verify)** — Layer 1 has_function_privilege 4-grant matrix verified (service_role=false / authenticated=true / public/anon=false) + Layer 2 (PostgREST permission_denied) = Smoke Stage 2 진입 시 functional canary로 검증 예정. exact 11-arg regprocedure signature 적용 + pg_get_functiondef로 body 1:1 정합 확인. omxy R1+R2 CONVERGED. **Layer 2 PostgREST smoke만 Task 7 USER 게이트로 잔여**.
 - **W-sectionfallback-text** — SectionFallback 문구 "후속 PR3b (writer Section 0~7 본문 구현)에서 채워집니다"는 stale (PR3b 이미 MERGED `cf68731`). Tier 1 평가 대기 pill 도입 시 함께 정정. page.tsx line 336~346.
 - **W-cost-log-env-gate** — Smoke Stage 2 (Task 7) 진입 전 Vercel production env에 `AI_COST_LOG_REAL_INSERT_ENABLED=true` 설정 선행 — 미설정 시 `insertCostLog`는 noop. Task 7 sequence에 env gate verify step 추가.
 - **W-pr5-readiness** — PR5 cron path quality는 **B65-P2 옵션 A와 독립**. PR5 readiness = (a) commit_persona_eval에 service_role grant 추가 (B79와 동시) + (b) service-role caller DI wire + (c) cron 30 자동 (16,050원/월 hardcap) + (d) 큐 인프라 (Vercel Queues OR 자체 DB job queue) 모두 PR5 plan에서 별도 해결.
