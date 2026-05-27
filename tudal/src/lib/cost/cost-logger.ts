@@ -67,6 +67,10 @@ export async function getMonthlyTotal(
       .from('cost_log')
       .select('cost_krw')
       .eq('month', month)
+      // R3 HIGH-1 fix — deterministic order. PostgREST default ordering 미보장 → offset
+      // pagination에서 row skip/duplicate risk (특히 concurrent cost_log INSERT 시).
+      // id (uuid PK) 기준 ascending → page 간 stable boundary. row-limit 무관 total invariant 보장.
+      .order('id', { ascending: true })
       .range(offset, offset + COST_LOG_PAGE_SIZE - 1);
 
     if (error) {
@@ -79,6 +83,12 @@ export async function getMonthlyTotal(
       if (!Number.isFinite(value)) {
         // R2 MEDIUM-2 fix — shape drift / locale string / NaN coerce 차단.
         throw new Error(`cost_log_select_failed:non_finite_cost_krw`);
+      }
+      if (value < 0) {
+        // R3 MEDIUM-1 fix — 0017 schema에 `cost_krw >= 0` CHECK 부재 → bad row가 monthly
+        // total을 낮춰 hardcap 우회시킬 financial integrity risk. app-level fail-closed
+        // guard로 차단 (schema CHECK 추가는 별도 migration 트랙).
+        throw new Error(`cost_log_select_failed:negative_cost_krw`);
       }
       total += value;
     }
