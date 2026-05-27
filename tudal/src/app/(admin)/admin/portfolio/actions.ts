@@ -622,17 +622,20 @@ export async function triggerFullReport(input: {
   // 1~3 LLM call 비용 burn 후 fail. Preflight cheap SELECT로 fail-fast.
   // B86: input.month YYYY-MM → stock_reports.month (date) YYYY-MM-01 변환 (preflight 전용).
   //   orchestrate payload month는 YYYY-MM 유지 (RPC contract: ^[0-9]{4}-[0-9]{2}$).
-  // omxy R1 CONVERGED scope: (i) caller-side 변환 / (ii) helper signature 미변경 /
-  //   (iii) Phase 2 도입 시 본 guard를 feature flag로 toggle (B98 default).
-  const monthDate = `${input.month}-01`;
-  let exists: boolean;
-  try {
-    exists = await reportExistsForMonth(input.ticker, monthDate);
-  } catch {
-    return { success: false, error: "report_lookup_failed" };
-  }
-  if (!exists) {
-    return { success: false, error: "report_not_found" };
+  // B65-P3 toggle (옵션 A): flag=true 시 orchestrator가 UPSERT RPC INSERT branch 진입 가능 →
+  //   preflight skip. flag=false 시 B65-P1 guard 유지 (cost burn 차단 + production rollback 보장).
+  const upsertEnabled = process.env.PR4_TRIGGER_UPSERT_ENABLED === "true";
+  if (!upsertEnabled) {
+    const monthDate = `${input.month}-01`;
+    let exists: boolean;
+    try {
+      exists = await reportExistsForMonth(input.ticker, monthDate);
+    } catch {
+      return { success: false, error: "report_lookup_failed" };
+    }
+    if (!exists) {
+      return { success: false, error: "report_not_found" };
+    }
   }
 
   try {
