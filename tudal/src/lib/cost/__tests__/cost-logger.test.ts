@@ -96,13 +96,14 @@ describe('cost-logger (Q2 + Q6)', () => {
   });
 
   it('preflightHardcap throws when currentTotal + reservation > HARDCAP', async () => {
-    // 58차 Step 2.3 omxy R2 HIGH-1 fix — pagination loop (PostgREST aggregate disabled,
-    // PGRST123 verified). 단일 page (data.length < PAGE_SIZE) → loop 1회 후 break.
+    // 58차 Step 2.3 omxy R3 HIGH-1 fix — pagination chain: select → eq → order → range.
     mockSelect.mockReturnValue({
       eq: vi.fn().mockReturnValue({
-        range: vi.fn().mockResolvedValue({
-          data: [{ cost_krw: HARDCAP_KRW - 1000 }],
-          error: null,
+        order: vi.fn().mockReturnValue({
+          range: vi.fn().mockResolvedValue({
+            data: [{ cost_krw: HARDCAP_KRW - 1000 }],
+            error: null,
+          }),
         }),
       }),
     });
@@ -116,9 +117,18 @@ describe('cost-logger (Q2 + Q6)', () => {
   // (PostgREST aggregate disabled in production, PGRST123 live verified 2026-05-28).
   // regenerate cost_log 실 SELECT 통로 → row limit 무관 + non-finite guard 보장.
   describe('getMonthlyTotal — pagination loop (HIGH-1 fix, R2 verified)', () => {
+    // R3 HIGH-1 fix — pagination chain shape: select → eq → order → range.
+    // 헬퍼: 기본 buildChain은 모든 page chain을 한 번에 wire.
+    function buildChainWithRange(
+      rangeSpy: ReturnType<typeof vi.fn>,
+    ): { eq: ReturnType<typeof vi.fn> } {
+      const orderSpy = vi.fn().mockReturnValue({ range: rangeSpy });
+      return { eq: vi.fn().mockReturnValue({ order: orderSpy }) };
+    }
+
     it('returns 0 when first page is empty (0 rows / RLS deny)', async () => {
       const rangeSpy = vi.fn().mockResolvedValue({ data: [], error: null });
-      mockSelect.mockReturnValue({ eq: vi.fn().mockReturnValue({ range: rangeSpy }) });
+      mockSelect.mockReturnValue(buildChainWithRange(rangeSpy));
       const total = await getMonthlyTotal('2026-05');
       expect(total).toBe(0);
       expect(rangeSpy).toHaveBeenCalledTimes(1);
@@ -130,7 +140,7 @@ describe('cost-logger (Q2 + Q6)', () => {
         data: [{ cost_krw: 100 }, { cost_krw: 200.5 }, { cost_krw: 50 }],
         error: null,
       });
-      mockSelect.mockReturnValue({ eq: vi.fn().mockReturnValue({ range: rangeSpy }) });
+      mockSelect.mockReturnValue(buildChainWithRange(rangeSpy));
       const total = await getMonthlyTotal('2026-05');
       expect(total).toBe(350.5);
       expect(rangeSpy).toHaveBeenCalledTimes(1);
@@ -144,7 +154,7 @@ describe('cost-logger (Q2 + Q6)', () => {
         .fn()
         .mockResolvedValueOnce({ data: page1, error: null })
         .mockResolvedValueOnce({ data: page2, error: null });
-      mockSelect.mockReturnValue({ eq: vi.fn().mockReturnValue({ range: rangeSpy }) });
+      mockSelect.mockReturnValue(buildChainWithRange(rangeSpy));
       const total = await getMonthlyTotal('2026-05');
       expect(total).toBe(200_000);
       expect(rangeSpy).toHaveBeenCalledTimes(2);
@@ -152,31 +162,56 @@ describe('cost-logger (Q2 + Q6)', () => {
       expect(rangeSpy).toHaveBeenNthCalledWith(2, 1000, 1999);
     });
 
+    it('orders by id ascending for deterministic pagination (R3 HIGH-1 fix — concurrent insert safety)', async () => {
+      // PostgREST default ordering 미보장 → explicit `.order('id', {ascending:true})` 강제.
+      const rangeSpy = vi.fn().mockResolvedValue({ data: [], error: null });
+      const orderSpy = vi.fn().mockReturnValue({ range: rangeSpy });
+      const eqSpy = vi.fn().mockReturnValue({ order: orderSpy });
+      mockSelect.mockReturnValue({ eq: eqSpy });
+      await getMonthlyTotal('2026-05');
+      expect(orderSpy).toHaveBeenCalledWith('id', { ascending: true });
+    });
+
     it('throws cost_log_select_failed:<code> on DB error (RLS evaluation error etc)', async () => {
-      mockSelect.mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          range: vi.fn().mockResolvedValue({
+      mockSelect.mockReturnValue(
+        buildChainWithRange(
+          vi.fn().mockResolvedValue({
             data: null,
             error: { message: 'permission denied', code: 'PGRST301' },
           }),
-        }),
-      });
+        ),
+      );
       await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
         'cost_log_select_failed:PGRST301',
       );
     });
 
     it('throws cost_log_select_failed:non_finite_cost_krw on NaN row (R2 MEDIUM-2 fix — fail-closed)', async () => {
-      mockSelect.mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          range: vi.fn().mockResolvedValue({
+      mockSelect.mockReturnValue(
+        buildChainWithRange(
+          vi.fn().mockResolvedValue({
             data: [{ cost_krw: 100 }, { cost_krw: 'not-a-number' }],
             error: null,
           }),
-        }),
-      });
+        ),
+      );
       await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
         'cost_log_select_failed:non_finite_cost_krw',
+      );
+    });
+
+    it('throws cost_log_select_failed:negative_cost_krw on negative row (R3 MEDIUM-1 fix — financial integrity)', async () => {
+      // 0017 schema lacks `cost_krw >= 0` CHECK → bad row이 hardcap total을 낮춰 unblock risk.
+      mockSelect.mockReturnValue(
+        buildChainWithRange(
+          vi.fn().mockResolvedValue({
+            data: [{ cost_krw: 100 }, { cost_krw: -50 }],
+            error: null,
+          }),
+        ),
+      );
+      await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
+        'cost_log_select_failed:negative_cost_krw',
       );
     });
 
@@ -187,7 +222,9 @@ describe('cost-logger (Q2 + Q6)', () => {
       const customClient = {
         from: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({ range: customRangeSpy }),
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({ range: customRangeSpy }),
+            }),
           }),
         }),
       };
