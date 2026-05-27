@@ -184,25 +184,13 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - Do not repeatedly ask which option to choose when the runbook already defines the next CLAUDE step.
 - Stop only at explicit USER-gated operations or the exception list below.
 
-**Ask user before (좁힘, 58차 종료 사용자 명시 — "User 잔여 액션도 나한테 묻지 말고 진행하고 검증 하라고")**:
+**자동 진행 허용 vs 항상 USER-only 정책은 본 프로젝트 `CLAUDE.md ⚙️ Claude+omxy R-debate Workflow 정책` 섹션이 SoT** (58차 종료 omxy R1~R4 CONVERGED 박제). 본 §2.0에서는 high-level 요약만:
 
-1. **scope expansion** (HANDOFF 범위 초과 새 작업)
-2. **product spec changes** (D-decision 변경)
-3. **new risk profile** (가드레일 / 보안 정책 변경)
-4. **real-money / live-account / order-path changes** (실 체결 토글 / 자동매매 토글 변경)
-5. **cost burn 트리거** (실 AI 호출 / Smoke Stage 2 / `AI_COST_LOG_REAL_INSERT_ENABLED=true` 활성 후 admin trigger 클릭) — 1회 비용 승인 필수
-6. **마이그 production apply** (Supabase apply_migration) + **external account 변경** (Vercel project ownership / Supabase project / billing) + **외부 메시지 발송** (Slack / 이메일 / 외부 알림)
-7. **destructive shared-state** (force push to main / DB drop / 운영 데이터 삭제)
-8. **uncertainty ≥ medium** (어떻게 진행해야 할지 불확실한 경우)
+- **자동 진행 허용** (사용자 명시 권한 ON + omxy CONVERGED + 검증 게이트 ALL GREEN): PR merge / docs-sync PR / canary / deploy polling / branch cleanup / PR create.
+- **항상 USER-only** (CLAUDE는 가이드 + 후속 verify, 실 실행 X): Vercel env / secrets / flag 토글 / 마이그 production apply / billing / live-money / external account / cost burn 트리거 / 외부 메시지 발송 / destructive (force push to main, DB drop).
+- **uncertainty ≥ medium** + **product spec changes** + **scope expansion** + **new risk profile**: 사용자 묻기 강제.
 
-**자동 진행 허용 (사용자 명시 ↔ 묻지 않고 즉시 + 검증까지)** — omxy R-debate CONVERGED + 검증 게이트 ALL GREEN = 사용자 승인 등가:
-- **PR merge** (rebase FF + delete-branch) — omxy verify CONVERGED 후
-- **Vercel env var flag 토글** (e.g., `PR4_TRIGGER_UPSERT_ENABLED=true` — env flag 한정, secret 변경은 게이트 5)
-- **production canary verify** (curl public + browser/gstack 인증 세션)
-- **branch cleanup** / feature-branch push / PR create / PR comment / PR body 갱신
-- **Vercel production deploy verify** (gh + vercel CLI + curl)
-
-본 운영 원칙은 [[feedback_user_action_auto_progress]] + [[feedback_no_user_approval_gate]] 정합.
+상세 분류 + Output Modes + Context Packet 표준 + Native Critic Role Taxonomy + 단계별 subagent/skill 매핑 = CLAUDE.md 참조. memory: [[feedback_user_action_auto_progress]] + [[feedback_omxy_debate_workflow]] + [[feedback_no_user_approval_gate]].
 
 ### §2.1 Step matrix (58차 Mock cleanup Step 2.1 ✅ MERGED `e6be73f` (PR #33) + Step 2.2 ✅ MERGED `2dca060` (PR #34) 시점 — Task 4 impl + 마이그 0025 + Mock cleanup Step 1 MERGED 누적, **PR5 진입 = Task 5~7 PASS + Mock cleanup Step 2 완료 후**)
 

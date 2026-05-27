@@ -206,3 +206,109 @@ BusinessPlan.md §7 법적 원칙 (어드민 트랙 적용):
 - **deepinit은 S0 Foundation에서만 1회** (`oh-my-claudecode:deepinit` 스킬). 이후 슬라이스에서는 `harness`만 사용 — 상세는 Playbook §3.
 - **하네스 3종** (구현 하네스 = S0 / 디자인 하네스 = 각 슬라이스 설계 단계 신규 컴포넌트 다수 시 / 데이터 하네스 = S1 또는 S5 첫 실데이터 전환 슬라이스)은 `oh-my-claudecode:harness` 스킬로 호출. 상세 시점은 Playbook §3.
 - **ScreenSpec 등 산출 스펙**은 슬라이스 내부 설계 단계에서 필요 시 `Document/Service/Build/`에 생성. 별도 Phase·Task 아님.
+
+---
+
+## ⚙️ Claude+omxy R-debate Workflow 정책 (옵션 C' 하이브리드, 58차 종료 omxy R1~R4 CONVERGED 박제)
+
+**원칙**: PR #33 docs sweep R-debate 7 cycles (R2~R14, 21 catches) 실측 결과 — omxy catch-only 단순 패턴은 trivial sweep cycle 길어짐, omxy catch+diff 단독은 context 부족/line drift로 complex fix에서 느려짐. **옵션 C' 하이브리드** (Trivial = patch-suggest / Complex = catch-only) 가 최적.
+
+### Owner Boundary (역할 분리)
+
+- **USER = external-state owner** (항상): Vercel env / secrets / flag 토글 / production migration apply / billing / live-money / live-trading / external account or key 변경. **CLAUDE는 명령/체크리스트/가이드 제공 + 후속 verify (실 실행 X)**.
+- **CLAUDE = owner / fixer / verifier**: 코드 / 문서 / 로컬 commit / 로컬 검증 + final commit/merge 책임자. 사용자 명시 권한 ON 시 PR merge / docs-sync PR / canary / deploy polling 자동 진행.
+- **omxy = critic / patch-suggester** (NOT authoritative code): R-debate output mode (catch-only / patch-suggest / direct-push-exception) 옵션 C' 정합.
+
+### Output Modes
+
+| Mode | 사용 시점 | omxy 출력 | Claude 동작 |
+|---|---|---|---|
+| **catch-only** | Complex / Complex-docs | HIGH/MEDIUM/LOW + 위치 명시 | 자체 fix + 자체 verify |
+| **patch-suggest** | Trivial (mechanical) | catch + file:line + before/after + patch | verify 후 apply (단순 apply X — policy-level 재판단) |
+| **direct-push-exception** | USER 명시 + docs-only sweep | omxy 직접 push | Claude verify only |
+
+**default = catch-only**. patch-suggest는 trivial classification 확정 시. direct-push-exception은 USER 명시 권한 + docs-only 한정.
+
+### Trivial vs Complex 분류
+
+- **Trivial → patch-suggest**: docs-only / typo / stale label / line-local replacement / no product·DB·runtime semantic change / rollback easy / commit count + SHA chain 추상화 같은 mechanical sweep / 1~2파일 stale sync.
+- **Complex → catch-only**: auth / RLS / persistence / API contract / DB migration / env flag / deployment / user-money / concurrency / race condition / server action behavior / test expectation 변경 / 다파일 의미 변경.
+- **Complex-docs (edge case)**: docs-only라도 다음 세션 행동 / USER·CLAUDE owner / production baseline / env·canary·merge 상태 변경 시 → patch-suggest 가능하나 **Claude policy-level 재판단 의무, 단순 apply 금지**.
+
+### Context Packet 표준 (Claude → omxy 송신 시 필수 9 필드)
+
+```
+task / objective
+base SHA / head SHA / branch / PR URL
+target files + exact lines
+allowed scope / out-of-scope
+current invariants
+output mode: catch-only | patch-suggest | direct-push-exception
+trivial vs complex classification + reason
+verification gate (build / lint / test:ci / tsc / grep / canary)
+stop/escalate conditions
+```
+
+**Trust 관리 3-step**: (1) omxy patch = "suggested" (authoritative 아님) (2) Claude verify: `git diff` + `rg stale scan` + `build / lint / test:ci / tsc / canary` (3) omxy patch 적용 전 context packet 완전성 확인.
+
+### Native Critic Role Taxonomy
+
+이름 = historical label (runtime 변동 가능). **archetype 1명 이상**으로 기재:
+
+| Archetype | 역할 | 예시 critic 이름 (historical) |
+|---|---|---|
+| Adversarial invariant / deep red-team | 깊은 invariant 검증, hidden assumption catch | Schopenhauer, Gödel |
+| SQL / RLS / security / grant smoke | DB schema, grant matrix, RLS policy | Kepler, Planck |
+| Product / spec / UX / semantic docs | 사용자 시점 spec 정합, docs 의미 | Plato, Arendt, Singer, Spinoza |
+| Debug / race / concurrency / forensic | timing, race condition, debug trace | Feynman, Schrodinger |
+| Ops / merge / deploy / canary | merge sequence, deploy verify, canary | Hubble, Locke, McClintock |
+| Final convergence / catch-0 judge | 수렴 검증, 최종 CATCH 0 판정 | Ramanujan, Goodall |
+
+### 단계별 subagent / skill 매핑
+
+- **Planning**: brainstorming / writing-plans / debate-with-omx / plan-ceo-review / plan-eng-review / plan-design-review + 도메인 (frd-system / scenario-system / quant-research) + omxy native critic archetype 1명 이상 (보통 Adversarial + Product)
+- **Impl**: test-driven-development / executing-plans / subagent-driven-development / debugging / general-purpose / specific (vercel:ai-architect / supabase / frontend-design / context7 MCP) + omxy patch-suggest (옵션 C')
+- **Verify**: code-review / gstack-review / verification-before-completion / superpowers:requesting-code-review / superpowers:code-review (5-angle scan) + 검증 게이트 (build + lint + test:ci + tsc + grep gate) + canary (curl + browser/gstack/playwright) + omxy R-debate (옵션 C') + docs sweep `rg stale scan` + `git diff --check`
+- **Merge**: gstack-ship / commit-commands / superpowers:finishing-a-development-branch + 자동 진행 (PR merge / docs-sync / canary / deploy polling) + USER-only (Vercel env / migration / billing / live-money / external account)
+
+### 자동 진행 허용 vs USER-only (58차 종료 omxy R4 boundary 정정 박제)
+
+**자동 진행 허용** (사용자 명시 권한 ON 시 ↔ 묻지 않고 즉시 + 검증까지) — omxy R-debate CONVERGED + 검증 게이트 ALL GREEN = 사용자 승인 등가:
+- PR merge (rebase FF + delete-branch) — omxy verify CONVERGED 후
+- docs-sync PR create / merge (post-merge baseline 동기화)
+- public canary verify (curl) + authenticated browser canary (gstack/playwright 세션 보유 시)
+- non-destructive deploy status polling (gh + vercel CLI)
+- feature-branch push / PR create / PR comment / PR body 갱신 / branch cleanup
+
+**항상 USER-only** (명시 권한 ON 무관, **CLAUDE는 명령/체크리스트/가이드 제공 + 후속 verify, 실 실행 X**):
+- Vercel env / secrets / flag 토글 (e.g., `PR4_TRIGGER_UPSERT_ENABLED=true`) — production external state 변경
+- 마이그 production apply (Supabase apply_migration) — USER OAuth + apply 권한
+- billing / external account 변경 (Vercel project ownership / Supabase project / GitHub org)
+- live-money / live-trading 토글 (자동매매 / order-path)
+- cost burn 트리거 (실 AI 호출 / Smoke Stage 2 / `AI_COST_LOG_REAL_INSERT_ENABLED=true` 활성 후 admin trigger 클릭) — 1회 비용 승인
+- 외부 메시지 발송 (Slack / 이메일 / 외부 알림)
+- destructive (force push to main / DB drop / 운영 데이터 삭제)
+
+**사용자 명시 OFF 시**: default 복귀 = 자동 가능 범위도 USER-only. CLAUDE는 blocker 보고 + 다음 unblocked CLAUDE step 진행만.
+
+**uncertainty ≥ medium** + **product spec changes** + **scope expansion** + **new risk profile**: 사용자 묻기 그대로 유지 (정책 무관).
+
+### "이어서 진행" 자동 진입 조건 (HANDOFF.md 프롬프트)
+
+다음 세션 진입자가 "`Document/Process/HANDOFF.md` 보고 이어서 진행" 프롬프트만 사용해도 자동 진입 가능:
+
+1. **§0 verify 통과** — main HEAD (`git rev-parse --short origin/main`) + OPEN PRs + 검증 게이트 (build / lint / test:ci / tsc) ALL GREEN + production audit drift 0
+2. **§1 표 + §2.1 active matrix 다음 unblocked CLAUDE step 식별**
+3. **§7 output mode 자동 선택** — Trivial → patch-suggest / Complex → catch-only / Complex-docs → patch-suggest + policy 재판단
+4. **§8 owner/role 정합** — Claude=owner/fixer/verifier, omxy=critic/patch-suggester, USER=external-state owner
+5. **USER 잔여 액션 자동 진행** — 명시 권한 ON 시 자동 가능 범위만 (PR merge / docs-sync / canary / deploy polling). USER-only는 blocker 보고 + 다음 unblocked CLAUDE step.
+
+### 상세 박제 위치
+
+- **본 정책 풀버전 (decision matrix 포함)**: `~/.claude/projects/-Users-yong-New-Project-KR-Stock/memory/feedback_omxy_debate_workflow.md`
+- **USER 잔여 액션 자동 진행 boundary**: `~/.claude/projects/-Users-yong-New-Project-KR-Stock/memory/feedback_user_action_auto_progress.md`
+- **omxy 토론 scope guard**: `~/.claude/projects/-Users-yong-New-Project-KR-Stock/memory/feedback_omxy_debate_scope_guard.md`
+- **omxy CONVERGED = 사용자 승인 등가**: `~/.claude/projects/-Users-yong-New-Project-KR-Stock/memory/feedback_no_user_approval_gate.md`
+- **omxy 적대적 검토 패턴 detail (cmux send / scope guard 4종 / 결함 카탈로그 / PR-specific lessons)**: `Document/Process/HANDOFF.md §7.1~7.7` (legacy detail은 HANDOFF.md 유지)
+
+**글로벌 `~/.claude/CLAUDE.md` 절대 미수정** — 본 정책은 본 프로젝트 한정 (어드민 + 사용자 명시 권한 ON 상태).
