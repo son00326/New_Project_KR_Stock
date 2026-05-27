@@ -124,11 +124,7 @@ vi.mock('@/lib/supabase/server', () => ({
       })),
     },
     from: (table: string): TableMock => {
-      if (table === 'admin_emails') {
-        return {
-          select: () => makeSelectChain({ data: { email: 'admin@example.com' }, error: null }),
-        };
-      }
+      // B-trackrecord-rls fix: admin_emails direct SELECT 제거 — rpc('is_admin')로 대체.
       if (table === 'short_list_30') {
         return {
           select: () => makeSelectChain({ data: currentShortlist, error: null }),
@@ -145,7 +141,11 @@ vi.mock('@/lib/supabase/server', () => ({
       }
       throw new Error(`unexpected_from_table:${table}`);
     },
-    rpc: vi.fn(),
+    // B-trackrecord-rls fix: triggerMonthlyPersonaEvalAction은 is_admin RPC를 admin assertion에 사용.
+    rpc: vi.fn().mockImplementation(async (name: string) => {
+      if (name === 'is_admin') return { data: true, error: null };
+      return undefined;
+    }),
   })),
 }));
 

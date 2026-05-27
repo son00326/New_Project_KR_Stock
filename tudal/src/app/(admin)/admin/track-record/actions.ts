@@ -69,12 +69,12 @@ export async function triggerMonthlyPersonaEvalAction(
   if (!user) {
     return { ok: false, error: 'auth_unavailable' };
   }
-  const { data: adminRow } = await supabase
-    .from('admin_emails')
-    .select('email')
-    .eq('email', user.email)
-    .single();
-  if (!adminRow) {
+  // B-trackrecord-rls fix (58차 follow-up): admin_emails는 RESTRICTIVE RLS using(false) (0001:30-35)라
+  // authenticated session client는 admin이라도 직접 SELECT 0 rows → real admin 전원 admin_required 오차단.
+  // is_admin()은 SECURITY DEFINER + authenticated execute grant (0015a:28)로 RLS 우회 + auth.jwt() email
+  // 판별. adminErr || !isAdmin 모두 fail-closed. portfolio/actions.ts triggerFullReport와 동일 패턴.
+  const { data: isAdmin, error: adminErr } = await supabase.rpc('is_admin');
+  if (adminErr || !isAdmin) {
     return { ok: false, error: 'admin_required' };
   }
 

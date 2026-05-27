@@ -79,11 +79,7 @@ vi.mock('@/lib/supabase/server', () => ({
       })),
     },
     from: (table: string): TableMock => {
-      if (table === 'admin_emails') {
-        return {
-          select: () => makeSelectChain({ data: { email: 'admin@example.com' }, error: null }),
-        };
-      }
+      // B-trackrecord-rls fix: admin_emails direct SELECT 제거 — rpc('is_admin')로 대체.
       if (table === 'short_list_30') {
         return {
           select: () => makeSelectChain({ data: buildShortlistRows(), error: null }),
@@ -125,6 +121,8 @@ beforeEach(() => {
   mockCallPersona.mockImplementation(async () => happyResponse);
   // RPC default routing
   mockRpc.mockImplementation(async (name: string) => {
+    // B-trackrecord-rls fix: triggerMonthlyPersonaEvalAction admin assertion via is_admin().
+    if (name === 'is_admin') return { data: true, error: null };
     if (name === 'acquire_batch_lock') return { data: { acquired: true, resumed: false }, error: null };
     if (name === 'commit_persona_eval') return { data: { success: true, report_id: 'rpt-1' }, error: null };
     if (name === 'commit_badge_only') return { data: { success: true }, error: null };
