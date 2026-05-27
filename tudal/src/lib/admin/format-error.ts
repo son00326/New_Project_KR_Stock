@@ -30,6 +30,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   regen_counter_lookup_failed: "재생성 카운터 조회에 실패했습니다. 잠시 후 다시 시도하세요",
   regen_counter_write_failed: "재생성 카운터 저장에 실패했습니다. 잠시 후 다시 시도하세요",
   regen_counter_write_conflict: "다른 어드민이 동시에 재생성 중입니다. 잠시 후 다시 시도하세요",
+  // 58차 Mock cleanup Step 2.3 — regenerate cost_log 실 SELECT 통로 (getMonthlyTotal throw 매핑).
+  // regenerate convention (`_lookup_failed`) 정합 — cost_log_select_failed는 cost-logger.ts 내부
+  // throw 표면이라 별도 매핑(line ~114) 유지, 본 코드는 regenerate caller가 catch 후 반환.
+  cost_log_lookup_failed: "비용 한도 조회 실패 — 잠시 후 다시 시도하세요",
   // PR4 Step 2.3 — regenerate orchestrate wire 신규 코드 (omxy R1 B29 fix).
   shortlist_item_not_found: "이번 달 Short List에서 해당 종목을 찾을 수 없습니다",
   orchestrate_full_report_failed: "풀 리포트 생성에 실패했습니다 — 잠시 후 다시 시도하세요",

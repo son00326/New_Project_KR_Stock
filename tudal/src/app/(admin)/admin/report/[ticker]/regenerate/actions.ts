@@ -1,10 +1,10 @@
 "use server";
 
-import { isHardcapBlocked } from "@/lib/cost/aggregate";
+import { getMonthlyTotal } from "@/lib/cost/cost-logger";
+import { HARDCAP_KRW } from "@/lib/cost/pricing";
 import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { incrementManualRegenCount } from "@/lib/data/admin-regen-counters";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
-import { MOCK_ADMIN_COST_LOG } from "@/lib/data/mock-admin-cost-log";
 import { MANUAL_REGEN_CAP } from "@/lib/performance/regen-cap";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,7 +13,11 @@ import { createClient } from "@/lib/supabase/server";
 // ---------------------------------------------------------------------------
 // T7e.5: regen_counter는 Supabase 실 I/O. 동시 클릭 race는 데이터 레이어가
 // CAS + DB CHECK(manual_count <= 2)로 차단한다.
-// cost_log 합계는 아직 mock(MOCK_ADMIN_COST_LOG) — 실 SELECT는 S7a/T7a 범위.
+//
+// 58차 Mock cleanup Step 2.3: cost_log 합계 mock(MOCK_ADMIN_COST_LOG) → 실 `cost_log` SELECT
+// 통로 (`cost-logger.ts::getMonthlyTotal`). RLS "cost_log_admin_select" (is_admin())
+// 자동 의존. month 포맷 = YYYY-MM (insertCostLog SoT 정합, regenerate 입력
+// YYYY-MM-01에서 slice(0,7) 변환).
 //
 // PR4 Task 2 Step 2.3 (caller DI seam — orchestrate wire):
 //   - createClient 1회 호출 (auth + orchestrate DI 공유)
@@ -95,8 +99,17 @@ export async function regenerateReport(input: {
     return { success: false, error: "auth_unavailable" };
   }
 
-  // S6 M17 — 월 40만원 hardcap (cost_log 합계 mock 기반, 실 SELECT는 S7a/T7a).
-  if (isHardcapBlocked(MOCK_ADMIN_COST_LOG, month)) {
+  // S6 M17 — 월 40만원 hardcap (58차 Mock cleanup Step 2.3: 실 cost_log SELECT 통로).
+  // month YYYY-MM-DD (regen-cap) → YYYY-MM (cost_log.month SoT, insertCostLog 정합).
+  // RLS "cost_log_admin_select" 자동 의존 — 인증 client 공유 (caller-flow 단일).
+  const costMonth = month.slice(0, 7);
+  let monthlyCostKrw: number;
+  try {
+    monthlyCostKrw = await getMonthlyTotal(costMonth, { client: supabase });
+  } catch {
+    return { success: false, error: "cost_log_lookup_failed" };
+  }
+  if (monthlyCostKrw >= HARDCAP_KRW) {
     return { success: false, error: "cost_hardcap_40man" };
   }
 
