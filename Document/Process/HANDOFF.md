@@ -1,18 +1,19 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-27 (57차 §3 Task 4 plan SoT PR #28 ✅ MERGED `2859c68` — post-merge state)
+Last updated: 2026-05-27 (58차 Task 4 impl ✅ MERGED `3c09d6e` — PR #30 rebase FF, omxy R-debate 3 rounds CONVERGED)
 
-- **Task 1+2+3 ✅ + Task 4 plan SoT ✅ MERGED** (PR #28 MERGED `2859c68` rebase FF + delete-branch, omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix — Ramanujan R5 CATCH 0 + HANDOFF sweep R1~R2 Descartes CATCH 0)
-- **main HEAD** = `2859c68` (post-PR-#28 — 57차 §3 post-merge) — `git rev-parse --short origin/main` 으로 verify
-- **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only — PR #28 MERGED + branch deleted
-- **Vercel deploy**: main `2859c68` docs-only deploy (PR #28 = docs-only, no functional change — canary 권장)
-- **검증 게이트**: test:ci 1130 PASS / 105 files · build 25 routes · lint 0 err · tsc clean · 0 migrations (PR #28 = docs-only, no code change)
-- ⚠️ **PR4 + B65-P1 MERGED ≠ production functional 잔존** — cost_log/stock_reports/committee_votes = 0 (B65-P3 impl PR 머지 + 마이그 0025 production apply + Vercel env 설정 후 정상 동작)
+- **Task 1+2+3 ✅ + Task 4 impl ✅ MERGED** (PR #30 MERGED `3c09d6e` rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED — R1 HIGH admin assertion + R2 CRITICAL RLS fix + R3 CONVERGED)
+- **main HEAD** = `3c09d6e` (post-PR-#30 — 58차) — `git rev-parse --short origin/main` 으로 verify
+- **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only — PR #30 MERGED + branch deleted
+- **Vercel deploy**: main `3c09d6e` Production ● Ready (`tudal-u9oozy9fs`, flag=false default → 동작 불변, admin assertion 추가만)
+- **검증 게이트**: test:ci 1149 PASS / 107 files · build 25 routes · lint 0 err · tsc clean · **1 migration 신규 (0025, production apply 대기)**
+- ⚠️ **Task 4 MERGED ≠ production functional** — flag=false default(.env.example + Vercel env 미설정)라 orchestrator는 legacy RPC 사용. 정상 동작은 (a) 마이그 0025 production apply + (b) Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` 설정 후 (둘 다 Task 7 Smoke Stage 2 게이트).
+- ⚠️ **마이그 0025 apply BLOCKED (58차)**: Supabase MCP disconnected + DB password 부재 → 자동 apply 불가. flag=false라 당장 불필요 (Task 7 진입 시 USER가 apply + service_role deny verify). PR #30 body에 apply sequence 박제.
 - **다음 1순위**:
-  1. **(CLAUDE) Task 4 impl PR** (`feat/b65-p3-feature-flag-upsert-impl` 신규 branch — 마이그 0025 + orchestrator + actions + format-error + .env.example + TDD 8 tests + omxy R-debate) — plan SoT MERGED `2859c68`, 즉시 진입 가능
-  2. **(CLAUDE) Task 5 B66 backfill plan SoT** (병렬 가능 — Python seed canonical14 매핑 + R-debate unknown 처리 + PASS criteria 3종)
-  3. 이후 Task 6 Smoke Stage 1 → Task 7 Stage 2 USER 승인 (`AI_COST_LOG_REAL_INSERT_ENABLED='true'` env 선행) → Task 8 audit + PR5
-- **omxy lifecycle** = git log + spec/plan/PR body 위임 (R-debate 라운드별 catch 박제 = 57차 §3 detail in PR #28 body — historical 강등 후 본 §6 직전 entry 1줄)
+  1. **(CLAUDE) Task 6 Smoke Stage 1** (non-AI dry-run TDD — vi.doMock orchestrate, cost=0, P1+P2+P3 호환 invariant) — 즉시 진입 가능 (production DB 불필요)
+  2. **(CLAUDE) Task 5 B66 backfill** (Python seed canonical14 매핑 script + 단위 테스트 작성 가능, **production short_list_30 backfill 실행은 Supabase access 필요 → BLOCKED**)
+  3. 이후 Task 7 Stage 2 USER 승인 (마이그 0025 apply + `AI_COST_LOG_REAL_INSERT_ENABLED='true'` + `PR4_TRIGGER_UPSERT_ENABLED='true'` env 선행) → Task 8 audit + PR5
+- **omxy lifecycle** = git log + spec/plan/PR body 위임 (R-debate 라운드별 catch 박제 = 58차 detail in PR #30 body — historical 강등 후 본 §6 직전 entry 1줄)
 
 ---
 
@@ -135,7 +136,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **`2859c68`** (post-PR-#28 — 57차 §3 post-merge, rebase FF + delete-branch). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지 — 자손 SHA 동적). |
+| main HEAD | **`3c09d6e`** (post-PR-#30 — 58차 Task 4 impl, rebase FF + delete-branch). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지 — 자손 SHA 동적). |
 | **PR #21 (B65-P1)** | ✅ MERGED `5b99e03` (57차 §1) — Task 2 production active |
 | **PR #20+#22+#24+#25 (docs chain, 57차 §1 lifecycle)** | ✅ MERGED in main (branches deleted, PR #23 CLOSED 운영 원칙 반려) |
 | **PR #26 (57차 §2 — B65-P2 spec doc + HANDOFF sweep + cleanup, docs-only, 3 commits)** | ✅ **MERGED in main `33098e0`** (rebase FF, --delete-branch, 2026-05-26, Vercel deploy SUCCESS E41zxrqAeRGfB7E99h82hXpZkAd2) |
@@ -186,7 +187,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix (57차 §3 종료 — Task 1+2+3 ✅ + Task 4 plan SoT ✅ MERGED `2859c68`, **PR5 진입 = Task 4 impl + Task 5~7 모두 PASS 후만**)
 
-**현재 위치 = 57차 §3 Task 4 plan SoT ✅ MERGED in main `2859c68` (omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix + HANDOFF sweep R1~R2 CONVERGED). 다음 = (CLAUDE) Task 4 impl PR + Task 5 B66 backfill (병렬) → Task 6-8 진행.**
+**현재 위치 = 58차 Task 4 impl ✅ MERGED in main `3c09d6e` (PR #30 rebase FF, omxy R-debate 3 rounds CONVERGED — R1 HIGH admin assertion + R2 CRITICAL RLS fix + R3 CONVERGED). 다음 = (CLAUDE) Task 6 Smoke Stage 1 (production DB 불필요, 즉시) + Task 5 B66 script (production backfill은 Supabase access blocked) → Task 7 USER 게이트 (마이그 0025 apply + env).**
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동, merge/deploy/migration은 USER).
 
@@ -197,7 +198,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | 1 | **현행 audit 재확인** (Supabase 직접 query: `cost_log` / `stock_reports` / `committee_votes` / `short_list_30` sector quality) | CLAUDE | ✅ COMPLETED (57차 §1) — drift 0 확인 | 매 세션 entry routine 1순위로 재실행 (drift detect). 본 §1 ground truth와 동일한 결과 확인. drift (cost_log > 0 등) 시 PR #21 머지 효과 또는 Smoke Stage 2 결과 반영 가능. |
 | 2 | **B65-P1 immediate guard (Phase 1) + B86 month format** | CLAUDE | ✅ **MERGED in main `5b99e03`** (57차 §1, PR #21, Vercel deploy SUCCESS) | `triggerFullReport`에 `reportExistsForMonth(input.ticker, ${month}-01)` preflight 추가. false → `report_not_found` / throws → `report_lookup_failed`. **P2 미구현 상태에서만 활성** (현재 production = 영구 fail-fast — B65-P2 후만 정상 동작), smoke 금지 (B92). 코드 주석에 P3 feature flag 박제. |
 | 3 | **B65-P2 real enablement (Phase 2) + B88 RPC R-debate spec doc** | CLAUDE | ✅ **COMPLETED in 57차 §2 (spec doc CONVERGED R8 final)** | spec doc = `docs/superpowers/specs/2026-05-26-b65-p2-rpc-rdebate.md`. omxy R-debate 8 rounds (R8 ESCALATE max-8 정합 §7.5) + native critic subagent 6명 + 누적 catch 30+ 모두 fix. **결정 lock-in: 옵션 A** `upsert_report_sections_0_7_admin` admin-only UPSERT RPC + section_0~7 + appendix only + axis (i)A admin trigger 책임 = section_0~7 only + axis (ii) B79 deferred → PR5 plan + axis (iii) PR5 cron path 충돌 없음. spec doc only (no impl code, 0 migrations). **Task 4가 마이그 0025 + feature flag impl plan + impl PR 진입**. 신규 6 audit ticket 박제 (B79 / B-versioning / W-tier1pill / W-grant-smoke / W-sectionfallback-text / W-cost-log-env-gate). |
-| 4 | **B65-P3 P1/P2 호환 (Phase 3) + B98 default policy (feature flag) + 마이그 0025 impl** | CLAUDE | ✅ **plan SoT MERGED in main `2859c68`** (57차 §3, PR #28 rebase FF + delete-branch) + 🔴 **impl PR 다음 1순위** (즉시 진입 가능) | **plan SoT** = `docs/superpowers/plans/2026-05-26-b65-p3-feature-flag-impl.md` (929 lines, MERGED). omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix (Schop 8 + Kepler 3 + Plato 3 + Sartre 2 + Aristotle 1 = 17 unique + 6 dup recall) — Ramanujan R5 CATCH 0 CONVERGED + HANDOFF sweep R1~R2 Descartes CATCH 0. **impl scope**: (i) feature flag `PR4_TRIGGER_UPSERT_ENABLED` (.env.example=`false` safe default, Production Vercel env=`true` USER step §3.3.5, B98 lock-in) + (ii) 마이그 0025 `upsert_report_sections_0_7_admin.sql` + rollback (admin-only, service_role 명시 REVOKE — Kepler B2 critical) + (iii) orchestrator 분기 + rpcName-guarded error 분리 + (iv) actions B65-P1 guard flag toggle + (v) format-error 2 keys + 1 prefix handler = 3 entries + (vi) TDD invariants 8종 (Test 1 action seam + Test 4b 2-phase DB integration + Test 7 SQLSTATE matrix + Test 8 env cleanup). **smoke는 P3 후만 가능** (B94). impl PR = `feat/b65-p3-feature-flag-upsert-impl` 신규 branch + plan §8.2 옵션 B 5 commits 권장. |
+| 4 | **B65-P3 P1/P2 호환 (Phase 3) + B98 default policy (feature flag) + 마이그 0025 impl** | CLAUDE | ✅ **impl MERGED in main `3c09d6e`** (58차, PR #30 rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED). ⚠️ 마이그 0025 production apply + Vercel env=true = Task 7 게이트 (flag=false default라 현재 동작 불변) | **plan SoT** = `docs/superpowers/plans/2026-05-26-b65-p3-feature-flag-impl.md` (929 lines, MERGED). omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix (Schop 8 + Kepler 3 + Plato 3 + Sartre 2 + Aristotle 1 = 17 unique + 6 dup recall) — Ramanujan R5 CATCH 0 CONVERGED + HANDOFF sweep R1~R2 Descartes CATCH 0. **impl scope**: (i) feature flag `PR4_TRIGGER_UPSERT_ENABLED` (.env.example=`false` safe default, Production Vercel env=`true` USER step §3.3.5, B98 lock-in) + (ii) 마이그 0025 `upsert_report_sections_0_7_admin.sql` + rollback (admin-only, service_role 명시 REVOKE — Kepler B2 critical) + (iii) orchestrator 분기 + rpcName-guarded error 분리 + (iv) actions B65-P1 guard flag toggle + (v) format-error 2 keys + 1 prefix handler = 3 entries + (vi) TDD invariants 8종 (Test 1 action seam + Test 4b 2-phase DB integration + Test 7 SQLSTATE matrix + Test 8 env cleanup). **smoke는 P3 후만 가능** (B94). impl PR = `feat/b65-p3-feature-flag-upsert-impl` 신규 branch + plan §8.2 옵션 B 5 commits 권장. |
 | 5 | **B66 fix + B84 backfill + B89 default policy + B93 PASS criteria** | CLAUDE | 🟡 PR5 entry blocker 3순위 (Task 4 병렬 가능) | Python seed script (`scripts/seed_short_list_30.py` 또는 신규) ticker→canonical14 매핑 추가 + 30 rows backfill + unknown 처리 R-debate (block / manual review / backfill exclude). **PASS criteria 3종**: (1) 30 rows all sector ∈ `CANONICAL_SECTORS` (2) sector ∉ ('코스피','코스닥') (3) sub_tags 정합 (jsonb null OR string[]). |
 | 6 | **Smoke Stage 1 — non-AI dry-run (B97 fix)** | CLAUDE | 🔴 PR5 entry blocker 4순위 (Task 4 후 진입) | `triggerFullReport`에 mock `orchestrateFullReport` 주입 (vi.doMock). **P1+P2+P3 호환 invariant test**: P3 호환 완료 시 P2 path 진입 (mock called) / 비호환 시 P1 fail-fast (mock not called). cost=0. **B96 target**: short_list_30 존재 + stock_reports 부재 ticker. TDD 단위 테스트. |
 | 7 | **Smoke Stage 2 — single real AI (B97 fix + B85 + B87)** | CLAUDE+USER | 🔴 PR5 entry blocker 5순위 (Task 6 후 진입) | **Stage 1 PASS 후만 진입**. USER 승인 + B85 model id 1 token verify 선행. **Core smoke (필수)**: criteria 1 `cost_log` row + 2 `stock_reports` row sections + 3 `report_critic_findings` + 5 UI render. **Full-path (옵션 B만)**: criteria 4 `committee_votes`. real cost = `cost_log` 기준 확정 (token usage 기반). |
@@ -307,6 +308,18 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 ## 6. 완료 이력 (직전 2 entry inline · older = git log + PR body)
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
+
+### 58차 Task 4 B65-P3 impl ✅ MERGED in main `3c09d6e` (PR #30 rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED, 2026-05-27)
+
+- **scope**: Task 4 impl (마이그 0025 admin-only UPSERT RPC + orchestrator feature flag 분기 + triggerFullReport admin assertion + format-error 매핑 + .env.example + TDD). plan SoT (PR #28) 실행. 7 commits rebase FF.
+- **PR #30** (`feat/b65-p3-feature-flag-upsert-impl`): 5 step별 commit (마이그→orchestrator→actions→format-error+env→TDD) + omxy R1 fix + R2 fix + gitignore cleanup = MERGED in main `3c09d6e`. 11 files / +547 / -22 / test:ci 1130→1149 (+19).
+- **omxy R-debate 3 rounds CONVERGED** (cmux pair-debate, native critic Mencius omxy 측 + Schopenhauer Claude 측 parallel):
+  - **R1**: omxy(Mencius) HIGH — triggerFullReport server-side admin assertion 부재 → flag=true 시 비admin authenticated 호출자 LLM cost-burn hole. Claude critic(Schopenhauer)은 diff 단독 검토라 미발견 → 디베이트 가치 입증.
+  - **R2**: omxy(Mencius) CRITICAL — R1 fix(admin_emails 직접 SELECT)가 RESTRICTIVE RLS `using(false)` (0001:30-35)로 real admin 전원 오차단하는 production-breaking 버그.
+  - **R3**: `supabase.rpc('is_admin')` (SECURITY DEFINER RLS 우회 + authenticated execute grant 0015a:28)로 교체 → SIGNAL: CONVERGED (native critic도 no blockers).
+- **부수 발견 (스코프 외, §9.5 B-trackrecord-rls 박제)**: 형제 action track-record/actions.ts:72-79도 동일 admin_emails 직접 SELECT broken 패턴 (production latent bug, 별도 fix PR).
+- **production 상태**: PR #30 머지 → Vercel `tudal-u9oozy9fs` ● Ready (flag=false default → 동작 불변, admin assertion 추가만). ⚠️ **마이그 0025 apply BLOCKED** (Supabase MCP disconnected + DB password 부재) → Task 7 USER 게이트에서 apply (flag=false라 현재 불필요). Vercel env=true도 Task 7.
+- **다음 1순위**: (CLAUDE) Task 6 Smoke Stage 1 (production DB 불필요, 즉시) + Task 5 B66 script (production backfill blocked) → Task 7 USER 게이트.
 
 ### 57차 §3 Task 4 plan SoT ✅ MERGED in main `2859c68` (PR #28 rebase FF + delete-branch, B65-P3 impl plan 옵션 A R8 final 정합, 2026-05-27)
 
@@ -577,6 +590,8 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 - **W-sectionfallback-text** — SectionFallback 문구 "후속 PR3b (writer Section 0~7 본문 구현)에서 채워집니다"는 stale (PR3b 이미 MERGED `cf68731`). Tier 1 평가 대기 pill 도입 시 함께 정정. page.tsx line 336~346.
 - **W-cost-log-env-gate** — Smoke Stage 2 (Task 7) 진입 전 Vercel production env에 `AI_COST_LOG_REAL_INSERT_ENABLED=true` 설정 선행 — 미설정 시 `insertCostLog`는 noop. Task 7 sequence에 env gate verify step 추가.
 - **W-pr5-readiness** — PR5 cron path quality는 **B65-P2 옵션 A와 독립**. PR5 readiness = (a) commit_persona_eval에 service_role grant 추가 (B79와 동시) + (b) service-role caller DI wire + (c) cron 30 자동 (16,050원/월 hardcap) + (d) 큐 인프라 (Vercel Queues OR 자체 DB job queue) 모두 PR5 plan에서 별도 해결.
+
+**B-trackrecord-rls (58차 omxy R3 발견, 별도 fix PR)** — `tudal/src/app/(admin)/admin/track-record/actions.ts:72-79` `triggerMonthlyPersonaEvalAction`의 admin assertion이 `supabase.from('admin_emails').select().eq().single()` 직접 SELECT 패턴. `admin_emails`는 RESTRICTIVE RLS `using(false)` (0001:30-35)라 authenticated session client는 admin이라도 0 rows → **real admin 전원 admin_required 오차단 (production latent bug)**. production에서 한 번도 실행되지 않아 미발현. fix = 58차 Task 4 triggerFullReport와 동일하게 `supabase.rpc('is_admin')` 교체. 본 PR(#30) 스코프 외 — 별도 fix PR 필요. **동일 패턴 추가 audit**: 다른 server action도 `from('admin_emails')` 직접 SELECT 사용처 grep 일괄 점검 권장.
 
 **R3 알려진 항목 (B81~B85)**:
 - **B81** — 단일 실 AI smoke 비용 분석 (per-call low / batch large). Stage 2 cost 추정 reference.
