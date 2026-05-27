@@ -28,8 +28,11 @@ describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
   };
 
   describe('preflightHardcap', () => {
+    // 58차 Step 2.3 omxy R2 HIGH-1 fix — getMonthlyTotal pagination loop
+    // (PostgREST aggregate disabled, PGRST123 verified). chain shape: select → eq → range.
     it('uses options.client when provided (createClient NOT called)', async () => {
-      const eqMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const rangeMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const eqMock = vi.fn().mockReturnValue({ range: rangeMock });
       const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
       const fromMock = vi.fn().mockReturnValue({ select: selectMock });
       const createClientSpy = vi.fn();
@@ -44,7 +47,8 @@ describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
     });
 
     it('falls back to createClient when options omitted (default behavior)', async () => {
-      const eqMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const rangeMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const eqMock = vi.fn().mockReturnValue({ range: rangeMock });
       const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
       const fromMock = vi.fn().mockReturnValue({ select: selectMock });
       const createClientSpy = vi.fn().mockResolvedValue({ from: fromMock });
