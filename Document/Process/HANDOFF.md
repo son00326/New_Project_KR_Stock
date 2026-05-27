@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-27 (58차 Task 4 impl ✅ MERGED `3c09d6e` — PR #30 rebase FF, omxy R-debate 3 rounds CONVERGED)
+Last updated: 2026-05-27 (58차 Task 4 ✅ + B-trackrecord-rls follow-up ✅ MERGED `838386e` — PR #30 + #31, omxy 4 rounds CONVERGED 누적)
 
 - **Task 1+2+3 ✅ + Task 4 impl ✅ MERGED** (PR #30 MERGED `3c09d6e` rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED — R1 HIGH admin assertion + R2 CRITICAL RLS fix + R3 CONVERGED)
 - **main HEAD** = `3c09d6e` (post-PR-#30 — 58차) — `git rev-parse --short origin/main` 으로 verify
@@ -136,7 +136,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **`3c09d6e`** (post-PR-#30 — 58차 Task 4 impl, rebase FF + delete-branch). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지 — 자손 SHA 동적). |
+| main HEAD | **`838386e`** (post-PR-#31 — 58차 B-trackrecord-rls follow-up MERGED). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify** (B75 fixed SHA 박제 금지 — 자손 SHA 동적). |
 | **PR #21 (B65-P1)** | ✅ MERGED `5b99e03` (57차 §1) — Task 2 production active |
 | **PR #20+#22+#24+#25 (docs chain, 57차 §1 lifecycle)** | ✅ MERGED in main (branches deleted, PR #23 CLOSED 운영 원칙 반려) |
 | **PR #26 (57차 §2 — B65-P2 spec doc + HANDOFF sweep + cleanup, docs-only, 3 commits)** | ✅ **MERGED in main `33098e0`** (rebase FF, --delete-branch, 2026-05-26, Vercel deploy SUCCESS E41zxrqAeRGfB7E99h82hXpZkAd2) |
@@ -309,7 +309,11 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
 
-### 58차 Task 4 B65-P3 impl ✅ MERGED in main `3c09d6e` (PR #30 rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED, 2026-05-27)
+### 58차 Task 4 B65-P3 impl ✅ + B-trackrecord-rls follow-up ✅ MERGED in main `838386e` (PR #30 + #31 rebase FF, omxy 4 rounds CONVERGED 누적, 2026-05-27)
+
+- **PR #31 (B-trackrecord-rls follow-up)** ✅ MERGED `838386e` (rebase FF + delete-branch). track-record/actions.ts:67-79 `triggerMonthlyPersonaEvalAction`의 admin assertion = 형제 action portfolio/actions.ts와 동일 broken 패턴 (admin_emails RESTRICTIVE RLS using(false)로 real admin 전원 오차단 latent bug)을 Task 4 R3 CONVERGED 패턴 mechanical extension으로 `rpc('is_admin')` 교체. omxy R1 CONVERGED (1 round). src 전체 production action에서 `from('admin_emails')` 직접 SELECT = 0건 확인. §9.5 B-trackrecord-rls 박제 ✅ RESOLVED. 검증: build 25 / lint 0 err / test:ci 1149 PASS / tsc clean. Vercel `tudal-jfezcs8kx` Production deploy 진행.
+
+
 
 - **scope**: Task 4 impl (마이그 0025 admin-only UPSERT RPC + orchestrator feature flag 분기 + triggerFullReport admin assertion + format-error 매핑 + .env.example + TDD). plan SoT (PR #28) 실행. 7 commits rebase FF.
 - **PR #30** (`feat/b65-p3-feature-flag-upsert-impl`): 5 step별 commit (마이그→orchestrator→actions→format-error+env→TDD) + omxy R1 fix + R2 fix + gitignore cleanup = MERGED in main `3c09d6e`. 11 files / +547 / -22 / test:ci 1130→1149 (+19).
@@ -591,7 +595,7 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 - **W-cost-log-env-gate** — Smoke Stage 2 (Task 7) 진입 전 Vercel production env에 `AI_COST_LOG_REAL_INSERT_ENABLED=true` 설정 선행 — 미설정 시 `insertCostLog`는 noop. Task 7 sequence에 env gate verify step 추가.
 - **W-pr5-readiness** — PR5 cron path quality는 **B65-P2 옵션 A와 독립**. PR5 readiness = (a) commit_persona_eval에 service_role grant 추가 (B79와 동시) + (b) service-role caller DI wire + (c) cron 30 자동 (16,050원/월 hardcap) + (d) 큐 인프라 (Vercel Queues OR 자체 DB job queue) 모두 PR5 plan에서 별도 해결.
 
-**B-trackrecord-rls (58차 omxy R3 발견, 별도 fix PR)** — `tudal/src/app/(admin)/admin/track-record/actions.ts:72-79` `triggerMonthlyPersonaEvalAction`의 admin assertion이 `supabase.from('admin_emails').select().eq().single()` 직접 SELECT 패턴. `admin_emails`는 RESTRICTIVE RLS `using(false)` (0001:30-35)라 authenticated session client는 admin이라도 0 rows → **real admin 전원 admin_required 오차단 (production latent bug)**. production에서 한 번도 실행되지 않아 미발현. fix = 58차 Task 4 triggerFullReport와 동일하게 `supabase.rpc('is_admin')` 교체. 본 PR(#30) 스코프 외 — 별도 fix PR 필요. **동일 패턴 추가 audit**: 다른 server action도 `from('admin_emails')` 직접 SELECT 사용처 grep 일괄 점검 권장.
+**B-trackrecord-rls ✅ RESOLVED in PR #31 MERGED `838386e` (58차 follow-up, omxy R1 CONVERGED)** — `triggerMonthlyPersonaEvalAction`의 admin assertion이 `from('admin_emails')` 직접 SELECT (RESTRICTIVE RLS using(false)로 real admin 전원 오차단)였던 latent bug를 `rpc('is_admin')`로 교체. Task 4 R3 mechanical extension. src 전체 production action에서 `from('admin_emails')` 직접 SELECT = 0건 확인 완료.
 
 **R3 알려진 항목 (B81~B85)**:
 - **B81** — 단일 실 AI smoke 비용 분석 (per-call low / batch large). Stage 2 cost 추정 reference.
