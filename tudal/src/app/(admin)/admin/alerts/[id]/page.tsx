@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExitDecisionForm } from "@/app/(admin)/admin/alerts/[id]/exit-decision-form";
-import { MOCK_ADMIN_ALERTS } from "@/lib/data/mock-admin-alerts";
+import { getAlertEventById } from "@/lib/data/admin-alerts";
 import type { AlertType, ExitDecision } from "@/types/admin";
 
 // 알림 상세 — S5a(M12 뉴스 Critical · M10 scheduler_fail · M11 briefing_failed)
 // S5b(M13 intraday_anomaly · M15 exit_signal + 결정 기록 UI + §7 대조 패널 stub).
+//
+// Mock cleanup Step 2.1 (58차): MOCK_ADMIN_ALERTS 제거 → alert_event 실 SELECT.
+// row 부재 시 notFound() (Next.js 16 표준 404 처리).
 
 interface AlertDetailPageProps {
   params: Promise<{ id: string }>;
@@ -70,7 +73,7 @@ export default async function AdminAlertDetailPage({
   params,
 }: AlertDetailPageProps) {
   const { id } = await params;
-  const alert = MOCK_ADMIN_ALERTS.find((a) => a.id === id);
+  const alert = await getAlertEventById(id);
   if (!alert) notFound();
 
   const isExit = alert.alertType === "exit_signal";

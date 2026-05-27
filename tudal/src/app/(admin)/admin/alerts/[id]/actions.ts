@@ -1,6 +1,6 @@
 "use server";
 
-import { MOCK_ADMIN_ALERTS } from "@/lib/data/mock-admin-alerts";
+import { getAlertEventById } from "@/lib/data/admin-alerts";
 import { createClient } from "@/lib/supabase/server";
 import type { ExitDecision } from "@/types/admin";
 
@@ -11,16 +11,20 @@ const REAL_PERSISTENCE_ERROR = "real_persistence_not_configured";
 // ref: ServicePlan-Admin §3.10 R3.10-14
 //
 // 어드민이 "매도 전량 / 분할매도 / 홀딩" 중 하나 선택 + 메모 입력 → 이력에 저장.
-// mock fixture 전용. S5 실데이터 전환 시 alert_event UPDATE로 교체.
+//
+// Mock cleanup Step 2.1 (58차):
+//   - MOCK_ADMIN_ALERTS in-memory mutation 제거 (dev에서 "성공" 응답이 새 요청에서
+//     reset되며 거짓 성공을 보이던 mock 패턴).
+//   - alert_event 실 SELECT로 존재성·alertType·이미 결정됨 검증.
+//   - 실 persistence는 모든 환경에서 real_persistence_not_configured (boundary).
+//     S5b 후속 PR에서 update_alert_event_decision RPC + cost_log 정합으로 교체 예정.
 // ---------------------------------------------------------------------------
 
-function isProductionLike(): boolean {
-  return (
-    process.env.NODE_ENV === "production" ||
-    process.env.VERCEL_ENV === "production" ||
-    process.env.NEXT_PUBLIC_APP_ENV === "production"
-  );
-}
+const ALLOWED_DECISIONS: readonly ExitDecision[] = [
+  "sell_all",
+  "partial_sell",
+  "hold",
+];
 
 async function resolveAdminId(): Promise<string | null> {
   try {
@@ -28,18 +32,11 @@ async function resolveAdminId(): Promise<string | null> {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user?.id) return user.id;
-    return isProductionLike() ? null : "admin-001";
+    return user?.id ?? null;
   } catch {
-    return isProductionLike() ? null : "admin-001";
+    return null;
   }
 }
-
-const ALLOWED_DECISIONS: readonly ExitDecision[] = [
-  "sell_all",
-  "partial_sell",
-  "hold",
-];
 
 export async function recordExitDecision(input: {
   alertId: string;
@@ -56,19 +53,23 @@ export async function recordExitDecision(input: {
   if (typeof input.memo !== "string") {
     return { success: false, error: "invalid_memo" };
   }
-  const memo = input.memo.trim();
-  if (!(await resolveAdminId())) {
-    return { success: false, error: "auth_unavailable" };
-  }
-  if (isProductionLike()) {
-    return { success: false, error: REAL_PERSISTENCE_ERROR };
-  }
-
   if (!ALLOWED_DECISIONS.includes(decision)) {
     return { success: false, error: "invalid_decision" };
   }
+  if (typeof alertId !== "string" || !alertId.trim()) {
+    return { success: false, error: "invalid_input" };
+  }
 
-  const alert = MOCK_ADMIN_ALERTS.find((a) => a.id === alertId);
+  if (!(await resolveAdminId())) {
+    return { success: false, error: "auth_unavailable" };
+  }
+
+  let alert;
+  try {
+    alert = await getAlertEventById(alertId);
+  } catch {
+    return { success: false, error: "alert_lookup_failed" };
+  }
   if (!alert) {
     return { success: false, error: "alert_not_found" };
   }
@@ -79,21 +80,7 @@ export async function recordExitDecision(input: {
     return { success: false, error: "already_decided" };
   }
 
-  try {
-    // TODO(S5): await supabase.rpc("record_alert_exit_decision", {
-    //   p_alert_id: alertId,
-    //   p_decision: decision,
-    //   p_memo: memo,
-    // });
-    alert.decisionRecorded = decision;
-    alert.decisionMemo = memo || null;
-    alert.isRead = true;
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "unknown_error",
-    };
-  }
-
-  return { success: true, data: { decisionRecorded: decision } };
+  // S5b real persistence (update_alert_event_decision RPC) 미연결 — boundary.
+  // 어떤 환경에서도 가짜 성공 응답 금지 (Mock cleanup Step 1.3 lesson).
+  return { success: false, error: REAL_PERSISTENCE_ERROR };
 }
