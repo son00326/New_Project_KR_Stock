@@ -16,19 +16,33 @@ const validArgs = {
   month: '2026-06',
 };
 
-function mockAuthedClient() {
+// admin_emails 조회 포함 (B65-P3 omxy R1 HIGH fix — server-side admin assertion).
+function mockAuthedClient(opts?: { isAdmin?: boolean }) {
+  const adminRow = opts?.isAdmin === false ? null : { email: 'admin@example.com' };
   return {
     auth: {
-      getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }),
+      getUser: async () => ({
+        data: { user: { id: 'admin-uid', email: 'admin@example.com' } },
+        error: null,
+      }),
+    },
+    from: (table: string) => {
+      if (table === 'admin_emails') {
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: adminRow, error: null }) }) }),
+        };
+      }
+      throw new Error(`unexpected_from_table:${table}`);
     },
   };
 }
 
 describe('triggerFullReport — B65-P3 feature flag toggle (Test 1 action seam)', () => {
+  // Test 8 — env cleanup (omxy R1 Kepler W2 + omxy R1 Mencius flake-guard): before+after 모두 delete.
   beforeEach(() => {
     vi.resetModules();
+    delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
   });
-  // Test 8 — env cleanup (omxy R1 Kepler W2 fix): 매 테스트 후 flag 제거하여 누수 0.
   afterEach(() => {
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
   });
@@ -80,5 +94,20 @@ describe('triggerFullReport — B65-P3 feature flag toggle (Test 1 action seam)'
       expect.objectContaining({ ticker: '005930', adminUserId: 'admin-uid' }),
       { client: supabaseClient, callerKind: 'admin' },
     );
+  });
+
+  it("flag='true' + 비admin: admin_required + orchestrate NOT called (omxy R1 HIGH fix — cost-burn hole 차단)", async () => {
+    process.env.PR4_TRIGGER_UPSERT_ENABLED = 'true';
+    const reportExistsMock = vi.fn();
+    const orchestrateMock = vi.fn();
+    vi.doMock('@/lib/data/admin-reports', () => ({ reportExistsForMonth: reportExistsMock }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => mockAuthedClient({ isAdmin: false }) }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport(validArgs);
+    expect(res).toEqual({ success: false, error: 'admin_required' });
+    // cost-burn 차단: admin assertion이 preflight/orchestrate보다 선행.
+    expect(orchestrateMock).not.toHaveBeenCalled();
+    expect(reportExistsMock).not.toHaveBeenCalled();
   });
 });

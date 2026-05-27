@@ -617,6 +617,19 @@ export async function triggerFullReport(input: {
   } = await supabase.auth.getUser();
   if (!user?.id) return { success: false, error: "auth_unavailable" };
 
+  // B65-P3 omxy R1 HIGH fix: server-side admin assertion (미들웨어만 신뢰 X — AGENTS 원칙).
+  // flag=true 시 row-missing preflight도 skip되므로, 비admin이 orchestrate 진입 → writer/critic LLM
+  // 비용 burn 후에야 admin-only RPC is_admin() reject(persistence)되는 cost-burn hole 차단.
+  // is_admin() RPC와 동일 source(admin_emails) — 형제 action triggerMonthlyPersonaEvalAction 패턴 정합.
+  const { data: adminRow } = await supabase
+    .from("admin_emails")
+    .select("email")
+    .eq("email", user.email)
+    .single();
+  if (!adminRow) {
+    return { success: false, error: "admin_required" };
+  }
+
   // B65-P1 Phase 1: row-missing preflight (cost burn 차단).
   // update_report_sections_0_7 RPC가 UPDATE-only (마이그 0022) — row 부재 시
   // 1~3 LLM call 비용 burn 후 fail. Preflight cheap SELECT로 fail-fast.

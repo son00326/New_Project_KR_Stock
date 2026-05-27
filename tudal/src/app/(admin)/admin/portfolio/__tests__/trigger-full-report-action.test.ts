@@ -30,6 +30,19 @@ const validArgs = {
   month: '2026-06',
 };
 
+// B65-P3 omxy R1 HIGH fix — triggerFullReport는 getUser 직후 admin_emails 조회로 admin assertion.
+// 기존 success/orchestrate path 테스트는 admin row mock 필요 (없으면 admin_required로 조기 반환).
+const adminFrom = (table: string) => {
+  if (table === 'admin_emails') {
+    return {
+      select: () => ({
+        eq: () => ({ single: async () => ({ data: { email: 'admin@example.com' }, error: null }) }),
+      }),
+    };
+  }
+  throw new Error(`unexpected_from_table:${table}`);
+};
+
 describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -103,7 +116,8 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       .fn()
       .mockResolvedValue({ reportId: 'rpt-1', costKrw: 535, revised: false });
     const supabaseClient = {
-      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+      from: adminFrom,
     };
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: vi.fn().mockResolvedValue(true),
@@ -165,7 +179,8 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+        from: adminFrom,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -186,7 +201,8 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+        from: adminFrom,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -213,7 +229,8 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+        from: adminFrom,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -237,7 +254,8 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+        from: adminFrom,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -259,7 +277,8 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
-        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+        auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+        from: adminFrom,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -297,6 +316,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: getUserMock },
+        from: adminFrom,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
