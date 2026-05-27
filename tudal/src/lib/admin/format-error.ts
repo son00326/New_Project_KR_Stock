@@ -102,6 +102,9 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   full_report_parse_failed: "풀 리포트 AI 응답 파싱 실패",
   update_report_sections_0_7_failed: "풀 리포트 본문 저장 실패",
   report_not_found_for_section_0_7_update: "리포트 row 부재 — Section 0~7 UPDATE 실패 (commit_persona_eval 선행 필요)",
+  // B65-P3 옵션 A — admin-only UPSERT RPC (마이그 0025) error 코드.
+  upsert_report_sections_0_7_admin_failed: "리포트 본문 저장 실패 (admin UPSERT)",
+  upsert_report_sections_0_7_admin_failed_no_returning: "리포트 본문 저장 실패 — UPSERT returning 부재 (안전망 발동)",
   // PR3b R6 non-blocking catch — cost_log throw 경로 매핑 누락 (preflightHardcap 호출 중 발생 가능)
   // cost_hardcap_40man은 이미 line 26에 매핑 박제됨 — 본 PR에서 추가 매핑 0.
   cost_log_select_failed: "비용 로그 조회 실패",
@@ -175,6 +178,15 @@ export function formatErrorMessage(code: string): string {
       KOREAN_MAPPINGS["update_report_sections_0_7_failed"] +
       " (" +
       code.slice("update_report_sections_0_7_failed:".length) +
+      ")"
+    );
+  }
+  // B65-P3 옵션 A — upsert_report_sections_0_7_admin_failed:<pg-code> suffix throw 호환.
+  if (code.startsWith("upsert_report_sections_0_7_admin_failed:")) {
+    return (
+      KOREAN_MAPPINGS["upsert_report_sections_0_7_admin_failed"] +
+      " (" +
+      code.slice("upsert_report_sections_0_7_admin_failed:".length) +
       ")"
     );
   }

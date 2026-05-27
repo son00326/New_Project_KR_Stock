@@ -430,4 +430,25 @@ describe("formatErrorMessage", () => {
       expect(formatErrorMessage("report_critic_findings_list_failed:XX001")).toContain("조회");
     });
   });
+
+  // B65-P3 옵션 A — admin-only UPSERT RPC error codes (마이그 0025)
+  describe("B65-P3 — admin UPSERT RPC error 매핑", () => {
+    it("upsert_report_sections_0_7_admin_failed → 본문 저장 실패 (admin UPSERT)", () => {
+      expect(formatErrorMessage("upsert_report_sections_0_7_admin_failed")).toBe(
+        "리포트 본문 저장 실패 (admin UPSERT)",
+      );
+    });
+    it("upsert_report_sections_0_7_admin_failed_no_returning → returning 부재 안전망", () => {
+      expect(
+        formatErrorMessage("upsert_report_sections_0_7_admin_failed_no_returning"),
+      ).toBe("리포트 본문 저장 실패 — UPSERT returning 부재 (안전망 발동)");
+    });
+    it("prefix handler: upsert_report_sections_0_7_admin_failed:<pg-code> → 본문 + suffix", () => {
+      const msg = formatErrorMessage(
+        "upsert_report_sections_0_7_admin_failed:42501",
+      );
+      expect(msg).toContain("admin UPSERT");
+      expect(msg).toContain("42501");
+    });
+  });
 });
