@@ -21,7 +21,10 @@ export async function recordReportView(
   } = await supabase.auth.getUser();
   if (!user?.id) return;
 
-  const viewDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD KST 기준 dedupe (BL-5)
+  // KST 기준 YYYY-MM-DD (omxy R2 Gödel MEDIUM fix): toISOString()은 UTC라 0~8:59 KST 구간이
+  // 전날 UTC date가 되어 UNIQUE(admin_id,report_id,view_date) dedupe 약화.
+  // ko-CA locale (YYYY-MM-DD 포맷) + Asia/Seoul timezone으로 정확한 KST 날짜 산출.
+  const viewDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
   const { error } = await supabase.from("report_view_log").upsert(
     {
       admin_id: user.id,
