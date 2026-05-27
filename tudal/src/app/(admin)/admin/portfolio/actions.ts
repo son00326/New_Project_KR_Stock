@@ -617,16 +617,13 @@ export async function triggerFullReport(input: {
   } = await supabase.auth.getUser();
   if (!user?.id) return { success: false, error: "auth_unavailable" };
 
-  // B65-P3 omxy R1 HIGH fix: server-side admin assertion (미들웨어만 신뢰 X — AGENTS 원칙).
-  // flag=true 시 row-missing preflight도 skip되므로, 비admin이 orchestrate 진입 → writer/critic LLM
-  // 비용 burn 후에야 admin-only RPC is_admin() reject(persistence)되는 cost-burn hole 차단.
-  // is_admin() RPC와 동일 source(admin_emails) — 형제 action triggerMonthlyPersonaEvalAction 패턴 정합.
-  const { data: adminRow } = await supabase
-    .from("admin_emails")
-    .select("email")
-    .eq("email", user.email)
-    .single();
-  if (!adminRow) {
+  // B65-P3 omxy R1 HIGH + R2 BLOCKER fix: server-side admin assertion via is_admin() RPC.
+  // 미들웨어만 신뢰 X (AGENTS 원칙) + flag=true 시 row-missing preflight skip되므로 비admin cost-burn 차단.
+  // ⚠️ admin_emails 직접 SELECT 금지: RESTRICTIVE RLS using(false) (0001:30-35)라 session client는
+  // admin이라도 0 rows → real admin 전원 오차단. is_admin()은 SECURITY DEFINER + authenticated execute
+  // grant (0015a:28)로 RLS 우회 + auth.jwt() email 기반 판별. RPC error/false 모두 fail-closed.
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  if (adminErr || !isAdmin) {
     return { success: false, error: "admin_required" };
   }
 

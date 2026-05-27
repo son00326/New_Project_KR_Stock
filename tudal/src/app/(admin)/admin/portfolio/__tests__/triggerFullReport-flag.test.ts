@@ -16,9 +16,10 @@ const validArgs = {
   month: '2026-06',
 };
 
-// admin_emails 조회 포함 (B65-P3 omxy R1 HIGH fix — server-side admin assertion).
+// is_admin() RPC 기반 admin assertion (B65-P3 omxy R2 BLOCKER fix — admin_emails 직접 SELECT는
+// RESTRICTIVE RLS로 불가, is_admin() SECURITY DEFINER RPC가 정답).
 function mockAuthedClient(opts?: { isAdmin?: boolean }) {
-  const adminRow = opts?.isAdmin === false ? null : { email: 'admin@example.com' };
+  const isAdmin = opts?.isAdmin !== false;
   return {
     auth: {
       getUser: async () => ({
@@ -26,13 +27,9 @@ function mockAuthedClient(opts?: { isAdmin?: boolean }) {
         error: null,
       }),
     },
-    from: (table: string) => {
-      if (table === 'admin_emails') {
-        return {
-          select: () => ({ eq: () => ({ single: async () => ({ data: adminRow, error: null }) }) }),
-        };
-      }
-      throw new Error(`unexpected_from_table:${table}`);
+    rpc: async (fn: string) => {
+      if (fn === 'is_admin') return { data: isAdmin, error: null };
+      throw new Error(`unexpected_rpc:${fn}`);
     },
   };
 }

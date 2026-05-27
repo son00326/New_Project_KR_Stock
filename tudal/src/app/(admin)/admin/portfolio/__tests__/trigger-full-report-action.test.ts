@@ -21,7 +21,7 @@
 //
 // scope: trigger 서버 액션의 입력 검증 + auth + B65-P1 preflight + orchestrateFullReport wire만.
 // Task 2 Step 2.2 박제: commit → orchestrate swap. Tier 2/PR5 무관.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const validArgs = {
   ticker: '005930',
@@ -30,22 +30,23 @@ const validArgs = {
   month: '2026-06',
 };
 
-// B65-P3 omxy R1 HIGH fix — triggerFullReport는 getUser 직후 admin_emails 조회로 admin assertion.
-// 기존 success/orchestrate path 테스트는 admin row mock 필요 (없으면 admin_required로 조기 반환).
-const adminFrom = (table: string) => {
-  if (table === 'admin_emails') {
-    return {
-      select: () => ({
-        eq: () => ({ single: async () => ({ data: { email: 'admin@example.com' }, error: null }) }),
-      }),
-    };
-  }
-  throw new Error(`unexpected_from_table:${table}`);
+// B65-P3 omxy R2 BLOCKER fix — triggerFullReport는 getUser 직후 is_admin() RPC로 admin assertion
+// (admin_emails 직접 SELECT는 RESTRICTIVE RLS로 불가). 기존 success/orchestrate path 테스트는
+// is_admin → true mock 필요 (없으면 admin_required로 조기 반환).
+const adminRpc = async (fn: string) => {
+  if (fn === 'is_admin') return { data: true, error: null };
+  throw new Error(`unexpected_rpc:${fn}`);
 };
 
 describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
   beforeEach(() => {
     vi.resetModules();
+    // B65-P3 omxy R2 flake-guard: shell env에 PR4_TRIGGER_UPSERT_ENABLED=true 잔존 시
+    // B65-P1 default/preflight regression 테스트가 무력화될 수 있어 명시 delete.
+    delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+  });
+  afterEach(() => {
+    delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
   });
 
   it('rejects when input.ticker empty (invalid_input)', async () => {
@@ -117,7 +118,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       .mockResolvedValue({ reportId: 'rpt-1', costKrw: 535, revised: false });
     const supabaseClient = {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
-      from: adminFrom,
+      rpc: adminRpc,
     };
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: vi.fn().mockResolvedValue(true),
@@ -180,7 +181,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
-        from: adminFrom,
+        rpc: adminRpc,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -202,7 +203,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
-        from: adminFrom,
+        rpc: adminRpc,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -230,7 +231,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
-        from: adminFrom,
+        rpc: adminRpc,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -255,7 +256,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
-        from: adminFrom,
+        rpc: adminRpc,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -278,7 +279,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
-        from: adminFrom,
+        rpc: adminRpc,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
@@ -316,7 +317,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: { getUser: getUserMock },
-        from: adminFrom,
+        rpc: adminRpc,
       }),
     }));
     const { triggerFullReport } = await import('../actions');
