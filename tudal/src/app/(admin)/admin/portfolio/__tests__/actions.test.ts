@@ -166,6 +166,25 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:viewers_insufficient");
   });
 
+  it("returns accept_gate_lookup_failed when viewer count helper throws (R2 Gödel HIGH fix)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    // Mock cleanup Step 1.3 R3 (omxy Goodall NEEDS FIX): regression test for try/catch wrap —
+    // getDistinctViewerCountsByTicker throw → acceptShortList Server Action contract 보존.
+    mocks.getDistinctViewerCountsByTicker.mockRejectedValueOnce(
+      new Error("report_view_log_reports_lookup_failed:PGRST301"),
+    );
+    const { acceptShortList } = await import("../actions");
+
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("accept_gate_lookup_failed");
+  });
+
   it("fails closed when auth lookup fails in production-like environments", async () => {
     vi.stubEnv("NODE_ENV", "production");
     mocks.getUser.mockRejectedValue(new Error("auth down"));
