@@ -65,6 +65,8 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   alert_not_found: "알림을 찾을 수 없습니다",
   already_decided: "이미 결정된 알림입니다",
   not_exit_signal: "Exit 신호 알림이 아닙니다",
+  // Mock cleanup Step 2.1 R1 (omxy MEDIUM fix): real alert_event lookup이 throw 시 한국어 매핑.
+  alert_lookup_failed: "알림 조회 실패 — 다시 시도해주세요",
   // mock-only 액션 (settings/alerts; production에서 isProductionLike() 분기로 노출)
   real_persistence_not_configured: "이 기능은 production 실 저장이 아직 연결되지 않았습니다",
   unknown_error: "알 수 없는 오류가 발생했습니다",
