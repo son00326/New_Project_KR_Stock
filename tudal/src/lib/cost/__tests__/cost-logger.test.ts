@@ -163,10 +163,13 @@ describe('cost-logger (Q2 + Q6)', () => {
       expect(rangeSpy).toHaveBeenNthCalledWith(2, 1000, 1999);
     });
 
-    it('orders by called_at then id ascending (R4 MEDIUM fix — concurrent insert safety)', async () => {
-      // R3 fix(`.order('id')` 단일)는 random UUID라 concurrent INSERT 시 row duplicate
-      // risk. R4 fix는 called_at (NOT NULL DEFAULT now() — monotonic) primary + id tiebreak
-      // secondary로 INSERT-only workload에서 page boundary 이동 차단.
+    it('orders by called_at then id ascending (R4 MEDIUM fix — deterministic ordering snapshot)', async () => {
+      // R3 fix(`.order('id')` 단일)는 random UUID라 정적 snapshot만 deterministic.
+      // R4 fix는 called_at primary + id tiebreak secondary로 application-level monotonic
+      // 가정 (insertCostLog interface에 called_at 부재) 위에서 deterministic ordering 보장.
+      // ⚠️ R5 MEDIUM 박제: backdated INSERT / parallel commit / NTP step에서는 monotonic
+      // 가정이 깨질 수 있음 (cost-logger.ts 본체 주석 참조). 완전 차단은 SECURITY DEFINER
+      // RPC 또는 schema CHECK 마이그레이션 (W-cost-log-pagination-snapshot defer).
       const rangeSpy = vi.fn().mockResolvedValue({ data: [], error: null });
       const orderChain = { order: vi.fn(), range: rangeSpy };
       orderChain.order = vi.fn().mockReturnValue(orderChain);
