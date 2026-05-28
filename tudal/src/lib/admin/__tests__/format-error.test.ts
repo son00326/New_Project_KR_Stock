@@ -27,6 +27,8 @@ const KNOWN_ACTION_CODES = [
   "regen_counter_write_conflict",
   // 58차 Mock cleanup Step 2.3 — regenerate cost_log 실 SELECT 통로
   "cost_log_lookup_failed",
+  // Mock cleanup Step 2.5 — health page pipeline_health 실 SELECT 통로
+  "pipeline_health_select_failed",
   // PR4 Step 2.3 — regenerate orchestrate wire (omxy R1 B29 fix)
   "shortlist_item_not_found",
   "orchestrate_full_report_failed",
@@ -399,6 +401,11 @@ describe("formatErrorMessage", () => {
       expect(formatErrorMessage("cost_log_insert_failed:23505")).toContain(
         "저장",
       );
+    });
+    it("pipeline_health_select_failed:<suffix> → 한국어 '파이프라인 헬스 조회 실패'", () => {
+      expect(
+        formatErrorMessage("pipeline_health_select_failed:invalid_pipeline:foo"),
+      ).toContain("파이프라인");
     });
   });
 

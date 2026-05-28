@@ -173,6 +173,16 @@ describe("admin-pipeline-health (Mock cleanup Step 2.5)", () => {
     ).rejects.toThrow("pipeline_health_select_failed:non_finite_latency");
   });
 
+  it("negative latency_ms → throws negative_latency (fail-closed)", async () => {
+    const dbRow = makeDbRow({ latency_ms: -1 });
+    const { client } = buildChain([{ data: [dbRow], error: null }]);
+    await expect(
+      getRecentPipelineHealth({
+        client: client as unknown as SupabaseClient,
+      }),
+    ).rejects.toThrow("pipeline_health_select_failed:negative_latency");
+  });
+
   it("null latency_ms → passes through as null (not throw)", async () => {
     const dbRow = makeDbRow({ latency_ms: null, finished_at: null });
     const { client } = buildChain([{ data: [dbRow], error: null }]);
@@ -228,14 +238,14 @@ describe("admin-pipeline-health (Mock cleanup Step 2.5)", () => {
     expect(val).toBe("2026-05-21T00:00:00.000Z");
   });
 
-  it("ordering — started_at DESC + id ASC tiebreak (Step 2.3 정합)", async () => {
+  it("ordering — started_at ASC + id ASC tiebreak (Step 2.3 정합)", async () => {
     const { client, chain } = buildChain([{ data: [], error: null }]);
     await getRecentPipelineHealth({
       client: client as unknown as SupabaseClient,
     });
     expect(chain.order).toHaveBeenCalledTimes(2);
     expect(chain.order).toHaveBeenNthCalledWith(1, "started_at", {
-      ascending: false,
+      ascending: true,
     });
     expect(chain.order).toHaveBeenNthCalledWith(2, "id", { ascending: true });
   });
