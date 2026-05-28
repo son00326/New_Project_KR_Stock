@@ -19,6 +19,18 @@
     "452200": {
       "canonical": "2차전지",
       "reason": "민테크 — DART induty_code=27212 (의료/정밀/광학 측정장비)이나 배터리 진단장비 사업. mapper '27→바이오'를 override. B66 2026-05 current row (short bucket)."
+    },
+    "078150": {
+      "canonical": "반도체",
+      "reason": "HB테크놀러지 — DART induty_code=29272 (측정/시험/항법/제어장비)이나 사업 실질은 디스플레이/반도체 공정 검사장비. mapper '29→unresolved'를 override. 60차 §5 production dry-run에서 selected unresolved로 catch (2026-05-29)."
+    },
+    "036710": {
+      "canonical": "반도체",
+      "reason": "심텍홀딩스 — DART induty_code=715 (사업관리 컨설팅/지주)이나 자회사 심텍(KOSDAQ 222800) PCB/반도체 패키지 substrate. 지주회사 induty를 자회사 primary 사업으로 override. mapper '71→unresolved'를 override. 60차 §5 production dry-run catch."
+    },
+    "950210": {
+      "canonical": "바이오",
+      "reason": "프레스티지바이오파마 — DART induty_code=70113 (자연과학 R&D)이나 사업 실질은 항체 바이오시밀러/오리지널 신약 개발. mapper '70113→unresolved'를 override. 60차 §5 production dry-run catch."
     }
   }
 }
