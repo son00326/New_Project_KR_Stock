@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { MOCK_ADMIN_ALERTS } from "@/lib/data/mock-admin-alerts";
-import { MOCK_ADMIN_PIPELINE_HEALTH } from "@/lib/data/mock-admin-pipeline-health";
+import { getRecentAlertEvents } from "@/lib/data/admin-alerts";
+import { getRecentPipelineHealth } from "@/lib/data/admin-pipeline-health";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { sendEmail } from "@/lib/email/resend";
 import {
   buildHeartbeatEmailSubject,
@@ -15,6 +16,10 @@ import type { AlertEvent } from "@/types/admin";
 // M19 Silent Health 일간 하트비트 (S6 T6.5).
 // Vercel Cron 매일 15:00 UTC = 24:00 KST (전일 24h 집계 후 발송).
 // ServicePlan-Admin §3.12 R3.12-7~8.
+// Step 2.7a (2026-05-28): MOCK_ADMIN_PIPELINE_HEALTH + MOCK_ADMIN_ALERTS → 실 SELECT via
+// createServiceRoleClient() + DI seam (admin-pipeline-health.ts + admin-alerts.ts). cron은
+// admin cookie 없어 RLS using(is_admin())을 통과 못하므로 service-role 주입 필수.
+// W-news-cron-service-role-read + W-pipeline-health-admin-assertion 부분 해소.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,10 +61,19 @@ export async function GET(request: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Step 2.7a: service-role client 단일 인스턴스 생성 → 두 helper에 주입.
+  // production pipeline_health=0 / alert_event=0 → 모두 [] (정상 → status='ok' 또는 'warning'
+  // per classifyHeartbeat 기본 규칙 — 추후 production rows 적재 시 정확한 24h 통계).
+  const serviceRoleClient = createServiceRoleClient();
+  const [pipelineHealth, recentAlerts] = await Promise.all([
+    getRecentPipelineHealth({ client: serviceRoleClient, refNow: now }),
+    getRecentAlertEvents({ client: serviceRoleClient, limit: 200 }),
+  ]);
+
   const classification = classifyHeartbeat({
     date,
-    pipelineHealth: MOCK_ADMIN_PIPELINE_HEALTH,
-    recentAlerts: alertsWithin24h(MOCK_ADMIN_ALERTS, now),
+    pipelineHealth,
+    recentAlerts: alertsWithin24h(recentAlerts, now),
     referenceNow: now,
   });
 

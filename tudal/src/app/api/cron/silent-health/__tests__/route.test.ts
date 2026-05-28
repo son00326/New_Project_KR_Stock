@@ -1,6 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+// Step 2.7a (2026-05-28): silent-health route는 createServiceRoleClient() + 실 SELECT 호출.
+// 기존 telegram/email 발송 실패 path 테스트가 무리없게 stubbed helpers + service-role 사용.
+vi.mock("@/lib/supabase/service-role", () => ({
+  createServiceRoleClient: vi.fn(() => ({} as unknown as never)),
+}));
+vi.mock("@/lib/data/admin-pipeline-health", () => ({
+  getRecentPipelineHealth: vi.fn(() => Promise.resolve([])),
+}));
+vi.mock("@/lib/data/admin-alerts", () => ({
+  getRecentAlertEvents: vi.fn(() => Promise.resolve([])),
+}));
+
 describe("GET /api/cron/silent-health", () => {
   beforeEach(() => {
     vi.resetModules();
