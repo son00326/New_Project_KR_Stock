@@ -13,6 +13,10 @@ const pipelineHealthMock = vi.hoisted(() => ({
 const alertEventsMock = vi.hoisted(() => ({
   getRecentAlertEvents: vi.fn(),
 }));
+// Step 2.7b.2 (omxy R4 HIGH-1 fix): vi.hoisted로 TDZ ReferenceError 차단.
+const heartbeatLogMock = vi.hoisted(() => ({
+  insertHeartbeatLog: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
@@ -22,6 +26,9 @@ vi.mock("@/lib/data/admin-pipeline-health", () => ({
 }));
 vi.mock("@/lib/data/admin-alerts", () => ({
   getRecentAlertEvents: alertEventsMock.getRecentAlertEvents,
+}));
+vi.mock("@/lib/data/admin-heartbeat-log", () => ({
+  insertHeartbeatLog: heartbeatLogMock.insertHeartbeatLog,
 }));
 
 describe("GET /api/cron/silent-health", () => {
@@ -42,6 +49,7 @@ describe("GET /api/cron/silent-health", () => {
     );
     pipelineHealthMock.getRecentPipelineHealth.mockResolvedValue([]);
     alertEventsMock.getRecentAlertEvents.mockResolvedValue([]);
+    heartbeatLogMock.insertHeartbeatLog.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -133,6 +141,71 @@ describe("GET /api/cron/silent-health", () => {
     expect(body.ok).toBe(false);
     expect(body.sentChannels).toEqual(["dashboard"]);
     expect(body.alertEmitted).toMatch(/telegram timeout/);
+  });
+
+  // Step 2.7b.2 (plan §Task 3): heartbeat_log INSERT wiring 검증.
+  // 기존 describe 내부 placement = beforeEach 상속 (omxy R4 MED-1 정합).
+  it("INSERT called with toHeartbeatLogRecord output + service-role client (Step 2.7b.2)", async () => {
+    process.env.TELEGRAM_BOT_TOKEN = "telegram-token";
+    process.env.TELEGRAM_CHAT_ID = "telegram-chat";
+    vi.doMock("@/lib/notify/telegram", () => ({
+      sendTelegram: async () => ({ success: true, mockMode: false }),
+    }));
+    vi.doMock("@/lib/email/resend", () => ({
+      sendEmail: async () => ({
+        success: true,
+        providerId: "test-msg",
+        mockMode: false,
+      }),
+    }));
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(heartbeatLogMock.insertHeartbeatLog).toHaveBeenCalledTimes(1);
+    const [record, opts] = heartbeatLogMock.insertHeartbeatLog.mock.calls[0];
+    expect(record).toEqual(
+      expect.objectContaining({
+        date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        status: expect.stringMatching(/^(ok|red_alert)$/),
+        message: expect.any(String),
+      }),
+    );
+    expect(opts).toHaveProperty("client", serviceRoleMock.client);
+  });
+
+  it("INSERT fail → 502 + dbError audit body, response still includes log (Step 2.7b.2)", async () => {
+    process.env.TELEGRAM_BOT_TOKEN = "telegram-token";
+    process.env.TELEGRAM_CHAT_ID = "telegram-chat";
+    vi.doMock("@/lib/notify/telegram", () => ({
+      sendTelegram: async () => ({ success: true, mockMode: false }),
+    }));
+    vi.doMock("@/lib/email/resend", () => ({
+      sendEmail: async () => ({
+        success: true,
+        providerId: "test-msg",
+        mockMode: false,
+      }),
+    }));
+    heartbeatLogMock.insertHeartbeatLog.mockRejectedValue(
+      new Error("heartbeat_log_insert_failed:23505"),
+    );
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.dbError).toBe("heartbeat_log_insert_failed:23505");
+    expect(body.log).toBeDefined();
   });
 
   describe("authorization (G-cron-auth)", () => {
