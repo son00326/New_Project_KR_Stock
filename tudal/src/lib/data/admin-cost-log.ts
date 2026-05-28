@@ -21,10 +21,25 @@ export interface AdminCostLogOptions {
   client?: SupabaseClient;
 }
 
+const CORE_11_PERSONA_IDS = new Set([
+  "warren-buffett",
+  "stanley-druckenmiller",
+  "cathie-wood",
+  "peter-lynch",
+  "charlie-munger",
+  "phil-fisher",
+  "rakesh-jhunjhunwala",
+  "mohnish-pabrai",
+  "michael-burry",
+  "nassim-taleb",
+  "chair",
+]);
+
 // production insertCostLog 정합 (S7a, src/lib/ai/*-client.ts):
 //   full_report_writer / critic → 'report' (writer + critic 모두 본문 흐름 sub-step)
 //   revise → 'regenerate' (재생성 path Q2 dual-revise R1)
-//   core-* / core_* → 'committee' (CORE_11 페르소나)
+//   warren-buffett ... chair → 'committee' (CORE_11 production persona.id, kebab-case)
+//   core-* / core_* → 'committee' (legacy/synthetic Core labels)
 //   sector-* / sector_* → 'committee' (Tier 2 sector eval, D21 14×10 overlay)
 //   shortlist / shortlist-* / shortlist_* → 'shortlist'
 //   briefing / briefing-* / briefing_* → 'briefing'
@@ -35,6 +50,7 @@ function derivePurpose(personaId: string): CostPurpose {
   if (personaId === "full_report_writer") return "report";
   if (personaId === "critic") return "report";
   if (personaId === "revise") return "regenerate";
+  if (CORE_11_PERSONA_IDS.has(personaId)) return "committee";
   if (personaId.startsWith("core-") || personaId.startsWith("core_")) {
     return "committee";
   }
