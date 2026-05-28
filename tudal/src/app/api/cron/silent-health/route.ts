@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRecentAlertEvents } from "@/lib/data/admin-alerts";
 import { insertHeartbeatLog } from "@/lib/data/admin-heartbeat-log";
+import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
 import { getRecentPipelineHealth } from "@/lib/data/admin-pipeline-health";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { sendEmail } from "@/lib/email/resend";
@@ -169,6 +170,17 @@ export async function GET(request: NextRequest) {
       ? "하트비트 발송 채널 미설정: ADMIN_EMAILS 또는 TELEGRAM_BOT_TOKEN/CHAT_ID 필요"
       : retryError ?? telegramRes.error ?? "발송 사유 불명 (mock-mode 가능성)";
     missingAlert = buildHeartbeatMissingAlert(date, reason);
+  }
+
+  // Step 2.7b.3: heartbeat_missing alert_event INSERT (allFailed 시만, missingAlert non-null).
+  // independent best-effort (plan §0 D6 omxy R1 MED-2): heartbeat_log 실패와 무관하게 시도.
+  // dbError ??= (첫 실패 메시지 보존). missingAlert null이면 빈 배열 → helper short-circuit.
+  try {
+    await insertAlertEvents(missingAlert ? [missingAlert] : [], {
+      client: serviceRoleClient,
+    });
+  } catch (err) {
+    dbError ??= err instanceof Error ? err.message : "alert_event_insert_failed:unknown";
   }
 
   // status 우선순위: noConfiguredOutboundChannel(500) → sendFailed(502) → dbError(502) → 200.

@@ -17,6 +17,10 @@ const alertEventsMock = vi.hoisted(() => ({
 const heartbeatLogMock = vi.hoisted(() => ({
   insertHeartbeatLog: vi.fn(),
 }));
+// Step 2.7b.3: alert_event INSERT mock (heartbeat_missing).
+const alertsInsertMock = vi.hoisted(() => ({
+  insertAlertEvents: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
@@ -29,6 +33,9 @@ vi.mock("@/lib/data/admin-alerts", () => ({
 }));
 vi.mock("@/lib/data/admin-heartbeat-log", () => ({
   insertHeartbeatLog: heartbeatLogMock.insertHeartbeatLog,
+}));
+vi.mock("@/lib/data/admin-alerts-insert", () => ({
+  insertAlertEvents: alertsInsertMock.insertAlertEvents,
 }));
 
 describe("GET /api/cron/silent-health", () => {
@@ -50,6 +57,8 @@ describe("GET /api/cron/silent-health", () => {
     pipelineHealthMock.getRecentPipelineHealth.mockResolvedValue([]);
     alertEventsMock.getRecentAlertEvents.mockResolvedValue([]);
     heartbeatLogMock.insertHeartbeatLog.mockResolvedValue(undefined);
+    alertsInsertMock.insertAlertEvents.mockReset();
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -206,6 +215,76 @@ describe("GET /api/cron/silent-health", () => {
     expect(body.ok).toBe(false);
     expect(body.dbError).toBe("heartbeat_log_insert_failed:23505");
     expect(body.log).toBeDefined();
+  });
+
+  // Step 2.7b.3: heartbeat_missing alert_event INSERT wiring.
+  it("allFailed → missingAlert INSERT via service-role (Step 2.7b.3)", async () => {
+    // 기본 beforeEach: production + ADMIN_EMAILS set + no RESEND → email fail + telegram fail
+    // → allFailed → missingAlert 생성 → alert INSERT [heartbeat_missing].
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect([500, 502]).toContain(res.status);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    const [arr, opts] = alertsInsertMock.insertAlertEvents.mock.calls[0];
+    expect(arr).toHaveLength(1);
+    expect(arr[0].alertType).toBe("heartbeat_missing");
+    expect(opts).toHaveProperty("client", serviceRoleMock.client);
+  });
+
+  it("not allFailed → insertAlertEvents called with empty array (no alert)", async () => {
+    process.env.TELEGRAM_BOT_TOKEN = "telegram-token";
+    process.env.TELEGRAM_CHAT_ID = "telegram-chat";
+    vi.doMock("@/lib/notify/telegram", () => ({
+      sendTelegram: async () => ({ success: true, mockMode: false }),
+    }));
+    vi.doMock("@/lib/email/resend", () => ({
+      sendEmail: async () => ({ success: true, providerId: "x", mockMode: false }),
+    }));
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    expect(alertsInsertMock.insertAlertEvents.mock.calls[0][0]).toHaveLength(0);
+  });
+
+  it("alert INSERT fail → 5xx + dbError (omxy R1 MED-1)", async () => {
+    alertsInsertMock.insertAlertEvents.mockRejectedValue(
+      new Error("alert_event_insert_failed:23514"),
+    );
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect([500, 502]).toContain(res.status);
+    const body = await res.json();
+    expect(body.dbError).toBe("alert_event_insert_failed:23514");
+  });
+
+  it("heartbeat_log fail + alert success → both attempted, dbError=heartbeat (skip 0, omxy R1 MED-2)", async () => {
+    heartbeatLogMock.insertHeartbeatLog.mockRejectedValue(
+      new Error("heartbeat_log_insert_failed:23505"),
+    );
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect([500, 502]).toContain(res.status);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    const body = await res.json();
+    expect(body.dbError).toBe("heartbeat_log_insert_failed:23505");
   });
 
   describe("authorization (G-cron-auth)", () => {
