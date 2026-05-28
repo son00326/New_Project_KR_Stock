@@ -2,19 +2,33 @@ import { NextResponse, type NextRequest } from "next/server";
 import { composeBriefing, toBriefingLogRecord } from "@/lib/briefing/compose";
 import { sendEmail } from "@/lib/email/resend";
 import { getRecentNewsEvents } from "@/lib/data/admin-news";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { AlertEvent, NewsEvent } from "@/types/admin";
 
 // Vercel Cron 매일 23:00 UTC = 08:00 KST. ServicePlan-Admin §3.9 R3.9-1.
 // Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT 전환.
-// portfolio_snapshot / attentionTickers 실 SELECT는 별도 트랙 (Step 2.7 cron 이후).
+// Step 2.7b.1 (2026-05-28): admin-news.getRecentNewsEvents() 호출 시 createServiceRoleClient()
+// 주입 → cron context RLS using(is_admin()) 우회. W-news-cron-service-role-read 완전 해소.
+// portfolio_snapshot / attentionTickers 실 SELECT는 별도 트랙 (briefing 메인 콘텐츠 미정).
 // production news_event 행 부재 시 topNews=[] (정상 — "오늘의 주요 뉴스 없음" 라인).
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// PR1 monthly-batch MF4 / PR #48 silent-health 정합: service-role cron은 CRON_SECRET
+// 누락 시 production-like 환경 4-way fail-closed.
+function isProductionLikeForAuth(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production";
+  if (!secret) return !isProductionLikeForAuth();
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -57,10 +71,13 @@ export async function GET(request: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // Step 2.6 (2026-05-28): 실 news_event SELECT — published_at desc 정렬은 helper 내부.
-  // pickTopNews는 severity weight × publishedAt로 top 3 추출. production rows=0 → topNews=[].
-  // helper 자체가 throw 시 (RLS / DB error) Server route는 500을 자연스럽게 반환 (Next.js default).
-  const recentNewsEvents = await getRecentNewsEvents({ limit: 20 });
+  // Step 2.7b.1: service-role client 주입 → cron context RLS 우회 (W-news-cron-service-role-read
+  // 완전 해소). production news_event rows=0 → topNews=[] (정상). helper throw 시 (DB error)
+  // Server route는 500을 자연스럽게 반환 (Next.js default).
+  const recentNewsEvents = await getRecentNewsEvents({
+    client: createServiceRoleClient(),
+    limit: 20,
+  });
   const composed = composeBriefing({
     date: todayKstIsoDate(),
     portfolioSnapshot: null, // mock-mode: null → "어제 포트 데이터 없음" 라인 (Step 2.7 scope)

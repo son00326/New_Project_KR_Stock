@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRecentNewsEvents } from "@/lib/data/admin-news";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { NewsCandidate } from "@/lib/news/classifier";
 import {
   classifyNews,
@@ -12,15 +13,28 @@ import type { AlertEvent } from "@/types/admin";
 
 // Vercel Cron daily 00:00 UTC (vercel.json schedule `0 0 * * *`). ServicePlan-Admin §3.10 R3.10-1~3.
 // 네이버 뉴스 API 1차 + 스크래핑 2차(stub) → classifier → dedupe → Critical만 AlertEvent 발행.
-// mock-mode(NAVER 키 미설정 + non-production): 실 news_event SELECT (Step 2.6).
-// production-like + NAVER 키 없음 = 운영 오설정 (500 fail-closed, 변경 없음).
+// Step 2.7b.1 (2026-05-28): mock-mode fallback에서 admin-news.getRecentNewsEvents() 호출 시
+// createServiceRoleClient() 주입 → cron context RLS using(is_admin()) 우회 (admin cookie 없음).
+// W-news-cron-service-role-read 완전 해소. PR #48 silent-health 선례 정합.
+// INSERT path (classifier output → news_event INSERT)는 Step 2.7b.2 별도 scope.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// PR1 monthly-batch MF4 / PR #48 silent-health 정합: service-role cron은 CRON_SECRET
+// 누락 시 production-like 환경 4-way fail-closed.
+function isProductionLikeForAuth(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production";
+  if (!secret) return !isProductionLikeForAuth();
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -91,10 +105,13 @@ export async function GET(request: NextRequest) {
     candidates = dedupeByUrl([...batches.flat(), ...scraped]);
   } else {
     // dev/mock 모드 (non-production + NAVER 키 미설정):
-    // Step 2.6 (2026-05-28) — MOCK_ADMIN_NEWS → 실 news_event SELECT 전환.
-    // production news_event 행 부재 시 candidates=[] (정상 — 흐름 검증 종료).
-    // 이미 분류된 row를 재분류하지만 dev 환경 흐름 검증 목적이라 허용 (idempotent).
-    const recent = await getRecentNewsEvents({ limit: 50 });
+    // Step 2.7b.1 (2026-05-28) — service-role client 주입 (W-news-cron-service-role-read
+    // 완전 해소). cron context에는 admin cookie 없어 session client는 RLS silent-0.
+    // Step 2.6 (실 news_event SELECT 전환) 위에 wiring 완료.
+    const recent = await getRecentNewsEvents({
+      client: createServiceRoleClient(),
+      limit: 50,
+    });
     candidates = recent.map((n) => ({
       ticker: n.ticker,
       title: n.title,
