@@ -1,4 +1,4 @@
-import { MOCK_ADMIN_PIPELINE_HEALTH } from "@/lib/data/mock-admin-pipeline-health";
+import { getRecentPipelineHealth } from "@/lib/data/admin-pipeline-health";
 import {
   aggregatePipelineHealth,
   overallSeverity,
@@ -45,14 +45,16 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("ko-KR", { hour12: false });
 }
 
-export default function AdminHealthPage() {
-  // 시드의 BASE_TIME(2026-04-19 00:00 KST) 기준 24h 윈도우 렌더.
-  const refNow = new Date("2026-04-19T00:00:00+09:00");
-  const summaries = aggregatePipelineHealth(MOCK_ADMIN_PIPELINE_HEALTH, {
-    now: refNow,
-  });
+export default async function AdminHealthPage() {
+  // Mock cleanup Step 2.5: MOCK_ADMIN_PIPELINE_HEALTH → 실 pipeline_health SELECT.
+  // 기본 7일 윈도우 (page aggregate 24h + recentFailures 50 most recent 양쪽 cover).
+  // production pipeline_health=0 rows → 빈 위젯 / overall=info / failures=[] (정상 표시).
+  // RLS deny / non-finite / invalid enum 시 throw → admin 라우트 error boundary.
+  const refNow = new Date();
+  const records = await getRecentPipelineHealth({ refNow });
+  const summaries = aggregatePipelineHealth(records, { now: refNow });
   const overall = overallSeverity(summaries);
-  const failures = recentFailures(MOCK_ADMIN_PIPELINE_HEALTH, 50);
+  const failures = recentFailures(records, 50);
 
   return (
     <div className="space-y-6">
@@ -65,7 +67,8 @@ export default function AdminHealthPage() {
           R3.12-4 근거.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ mock fixture · 실데이터 전환은 S5 실 API 키 세팅 시점
+          ※ 실 pipeline_health SELECT — 5개 파이프라인 (dart/news/price/ai/alert)
+          run 결과 자동 적재. production pipeline_health 적재 본격화 전에는 빈 위젯 (정상).
         </p>
       </header>
 
