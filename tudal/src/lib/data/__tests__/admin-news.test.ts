@@ -106,6 +106,29 @@ describe("getRecentNewsEvents", () => {
     expect(out).toEqual([]);
   });
 
+  it("uses injected client without creating a session client", async () => {
+    const chain = makeListChain();
+    const injectedFrom = vi.fn(() => chain);
+    const { createClient } = await import("@/lib/supabase/server");
+
+    const out = await getRecentNewsEvents({
+      client: { from: injectedFrom } as never,
+    });
+
+    expect(out).toEqual([]);
+    expect(createClient).not.toHaveBeenCalled();
+    expect(injectedFrom).toHaveBeenCalledWith("news_event");
+  });
+
+  it("falls back to session client when no client is injected", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+
+    await getRecentNewsEvents();
+
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(mocks.from).toHaveBeenCalledWith("news_event");
+  });
+
   it("maps non-empty rows to NewsEvent[]", async () => {
     mocks.resolved = {
       data: [
