@@ -67,13 +67,26 @@ export async function getMonthlyTotal(
       .from('cost_log')
       .select('cost_krw')
       .eq('month', month)
-      // R3 HIGH-1 + R4 MEDIUM fix — concurrent-safe deterministic order.
-      // Primary: `called_at` ASC (NOT NULL DEFAULT now() — monotonic). 새 INSERT는 항상
-      // 기존 행 뒤에 정렬되어 offset pagination의 page boundary 이동/duplicate 차단.
-      // Secondary: `id` ASC (uuid PK, tiebreak — 동일 called_at 마이크로초 충돌 시 안정).
-      // cost_log은 INSERT-only (UPDATE/DELETE 코드 부재) → monotonic ordering 정합.
-      // R3 fix(`.order('id')` 단일)는 random UUID라 concurrent INSERT가 기존 행 앞으로
-      // 정렬되어 row duplicate risk 있었음 (R4 catch).
+      // R3 HIGH-1 + R4 MEDIUM + R5 MEDIUM partial fix — deterministic ordering snapshot.
+      // Primary: `called_at` ASC. Secondary: `id` ASC (tiebreak — 동일 called_at 마이크로초
+      // 충돌 시 안정).
+      //
+      // ⚠️ HONESTY (R5 MEDIUM 박제 — 과증명 차단):
+      //   "concurrent insert safety / row-limit 무관 total invariant"는 본 fix가 100% 보장
+      //   못함. called_at DEFAULT now()는 application-level monotonic 가정에만 의존:
+      //   - insertCostLog의 CostLogRow interface에 `called_at` 필드 부재 → TS callers는
+      //     called_at을 명시 못함 → DB default(now())로 가는 path만 보장.
+      //   - 그러나 schema에 `CHECK (called_at >= ...)` 부재 → direct SQL / future code /
+      //     manual admin INSERT가 backdated called_at으로 우회 가능.
+      //   - PostgreSQL now()도 transaction start time이라 parallel insert / NTP step /
+      //     동일 microsecond에 정확한 commit-order sequence는 아님.
+      //   잔여 risk = 월 1000+ rows 시 backdated/parallel INSERT가 기존 page boundary 앞에
+      //   들어올 경우 page 간 row skip/duplicate (hardcap undercount fail-open).
+      //
+      //   현재 production reality (cost_log=0 + 월 ~150 rows 추정 + 어드민 3인 manual click
+      //   동시성 거의 0)에서는 실현 가능성 매우 낮음. 완전 차단 = SECURITY DEFINER RPC
+      //   (server-side SUM, transaction snapshot 안 + is_admin guard 안) 또는 schema
+      //   CHECK 마이그레이션. defer = HANDOFF §9.5 W-cost-log-pagination-snapshot.
       .order('called_at', { ascending: true })
       .order('id', { ascending: true })
       .range(offset, offset + COST_LOG_PAGE_SIZE - 1);
