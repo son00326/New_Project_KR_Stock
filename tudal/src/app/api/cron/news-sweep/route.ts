@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { MOCK_ADMIN_NEWS } from "@/lib/data/mock-admin-news";
+import { getRecentNewsEvents } from "@/lib/data/admin-news";
 import type { NewsCandidate } from "@/lib/news/classifier";
 import {
   classifyNews,
@@ -12,7 +12,8 @@ import type { AlertEvent } from "@/types/admin";
 
 // Vercel Cron daily 00:00 UTC (vercel.json schedule `0 0 * * *`). ServicePlan-Admin §3.10 R3.10-1~3.
 // 네이버 뉴스 API 1차 + 스크래핑 2차(stub) → classifier → dedupe → Critical만 AlertEvent 발행.
-// mock-mode(NAVER 키 미설정): MOCK_ADMIN_NEWS를 결과로 노출.
+// mock-mode(NAVER 키 미설정 + non-production): 실 news_event SELECT (Step 2.6).
+// production-like + NAVER 키 없음 = 운영 오설정 (500 fail-closed, 변경 없음).
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,8 +90,12 @@ export async function GET(request: NextRequest) {
     const scraped = await scrapeSources([]);
     candidates = dedupeByUrl([...batches.flat(), ...scraped]);
   } else {
-    // dev/mock 모드: fixture 타이틀만 재분류해 흐름 검증
-    candidates = MOCK_ADMIN_NEWS.map((n) => ({
+    // dev/mock 모드 (non-production + NAVER 키 미설정):
+    // Step 2.6 (2026-05-28) — MOCK_ADMIN_NEWS → 실 news_event SELECT 전환.
+    // production news_event 행 부재 시 candidates=[] (정상 — 흐름 검증 종료).
+    // 이미 분류된 row를 재분류하지만 dev 환경 흐름 검증 목적이라 허용 (idempotent).
+    const recent = await getRecentNewsEvents({ limit: 50 });
+    candidates = recent.map((n) => ({
       ticker: n.ticker,
       title: n.title,
       source: n.source,

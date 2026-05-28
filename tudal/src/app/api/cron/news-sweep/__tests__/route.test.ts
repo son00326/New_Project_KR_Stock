@@ -9,6 +9,12 @@ vi.mock("@/lib/news/naver-api", () => ({
   fetchNaverNews: naverMock.fetchNaverNews,
 }));
 
+// Mock cleanup Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT.
+// dev mock-mode 흐름은 admin-news.getRecentNewsEvents()를 호출하므로 테스트에서 stub 필요.
+vi.mock("@/lib/data/admin-news", () => ({
+  getRecentNewsEvents: vi.fn(() => Promise.resolve([])),
+}));
+
 describe("GET /api/cron/news-sweep", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -80,6 +86,25 @@ describe("GET /api/cron/news-sweep", () => {
     expect(res.status).toBe(502);
     expect(body.ok).toBe(false);
     expect(body.failedQueries).toBe(2);
+  });
+
+  it("Step 2.6 — non-production + NAVER 키 미설정 → getRecentNewsEvents() empty → mockMode summary", async () => {
+    // 명시적: vi.stubEnv NODE_ENV development (production 아님). NAVER 키 둘 다 unset.
+    vi.stubEnv("NODE_ENV", "development");
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.mockMode).toBe(true);
+    expect(body.fetched).toBe(0);
+    expect(body.alertsEmitted).toBe(0);
   });
 
   describe("authorization (G-cron-auth)", () => {

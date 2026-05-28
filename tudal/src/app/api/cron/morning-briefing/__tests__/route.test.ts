@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+// Mock cleanup Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT.
+// topNews 산출이 admin-news.getRecentNewsEvents()를 호출하므로 테스트에서 stub 필요.
+vi.mock("@/lib/data/admin-news", () => ({
+  getRecentNewsEvents: vi.fn(() => Promise.resolve([])),
+}));
+
 describe("GET /api/cron/morning-briefing", () => {
   beforeEach(() => {
     vi.resetModules();
