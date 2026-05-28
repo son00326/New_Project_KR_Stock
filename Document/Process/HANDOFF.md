@@ -1,12 +1,17 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-28 (60차 §4 post-PR-#56 HANDOFF sync `22ceb6f` — code baseline `058a372`, PR #56 impl MERGED `058a372` Task 5 B66 C 하이브리드 sector mapper + 마이그 0026 + B89 strict block. plan PR #55 plan SoT `bbf102d`. 마이그 0026 production apply는 USER 잔여. 60차 §3 modified workflow [Claude 1차 / OMXY 1차 검증 + 직접 fix / Claude verify] PR #55 plan(R1+R2 10 catches) + PR #56 impl(R1 5 BLOCKERS) 모두 CONVERGED. 다음 세션 = USER production apply (마이그 0026 + --backfill-induty + screen --apply) OR Task 7 Smoke Stage 2 USER 비용 승인.)
+Last updated: 2026-05-29 (60차 §5 Task 5 B66 PRODUCTION COMPLETE — main HEAD `f2b24e9`. Claude 권한 위임 실행 (사용자 명시 "권한 다 줄게"): 마이그 0026 apply ✅ + --backfill-induty 2,766 corp ✅ + screen --apply 30 rows canonical 14 ✅ + B93 PASS verify ✅. 누적 PR #55 plan `bbf102d` + PR #56 impl `058a372` + PR #57 pagination hotfix + PR #58 override 4→7 entries 모두 MERGED. OMXY R-debate 30+ catches direct-edit CONVERGED. 다음 세션 = Task 7 Smoke Stage 2 USER 비용 승인 또는 Task 8 audit + PR5 cron plan SoT.)
 
 ## 현재 baseline
 
-- **main/docs-sync HEAD** = `22ceb6f` (docs-only post-PR-#56 HANDOFF sync; runtime은 `22ceb6f` 또는 자손 기대). **Code/deploy baseline** = `058a372` (post-PR-#56 impl, 마이그 0026 dart_corp_codes.induty_code 컬럼 추가 + scripts/canonical_sector_mapper.py + override + --backfill-induty + B89 strict block — production apply는 USER 잔여). **PR #55 plan SoT** = `bbf102d`. 다음 세션은 `git rev-parse --short origin/main`으로 runtime verify.
-- **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only.
-- **검증 게이트**: main 기준 build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1325 PASS** / 118 files / tsc clean / **Python 69 tests PASS** (canonical_sector_mapper 29 + sector_override 9 + screen_shortlist_tier0 17 + seed_dart_corp_codes 14).
+- **main HEAD** = `f2b24e9` (post-PR-#58 override 4→7 entries, 60차 §5 production complete). **Code baseline** = `f2b24e9`. **PR #55 plan SoT** = `bbf102d`. **PR #56 impl** = `058a372`. 다음 세션은 `git rev-parse --short origin/main`으로 runtime verify.
+- **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only. PR #57/#58 MERGED.
+- **검증 게이트**: main 기준 build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1325 PASS** / 118 files / tsc clean / **Python 87 tests PASS** (canonical_sector_mapper 29 + sector_override 11 + screen_shortlist_tier0 + seed_dart_corp_codes + pagination/chunking regressions).
+- **Production state (60차 §5 Claude 권한 위임 실행 ✅)**:
+  - 마이그 0026 production applied: dart_corp_codes.induty_code/last_status/last_seen_at 3 컬럼 + `^[0-9]{3,5}$` CHECK constraint
+  - dart_corp_codes induty 백필: 2,766/2,766 ok (status_000), still_null=0
+  - short_list_30 (2026-05-01): 30 rows canonical 14만 (반도체 10 / 에너지 4 / IT/SW 3 / 바이오 3 / 유통/소비재 3 / 2차전지 2 / 자동차 2 / 건설 1 / 금융 1 / 통신 1) — placeholder 0, unresolved 0, non-canonical 0 → **B93 PASS** ✅
+  - sector_override.json 7 entries (254490 반도체 / 452200 2차전지 / 322000 에너지 / 226330 바이오 / 078150 반도체 / 036710 반도체 / 950210 바이오)
 - **Vercel Production env truth**: `PR4_TRIGGER_UPSERT_ENABLED="true"` ✅ + `AI_COST_LOG_REAL_INSERT_ENABLED="true"` ✅.
 - **Vercel canary** (post-HANDOFF sync): public 3/3 OK on tudal.vercel.app (`/` 200 / `/login` 200 / `/macro` 200). Prior post-PR-#54 `/admin` 200 기록은 유지하되, 인증 세션 canary는 여전히 권장.
 - **Production functional truth**: PR4 + B65-P1/P3 + 마이그 0025 + env=true. cron INSERT path 전면 가동: silent-health (heartbeat_log + heartbeat_missing alert) + news-sweep (news_event + news_critical alert) + morning-briefing (briefing_log + briefing_failed alert). Task 7 Smoke Stage 2 PASS는 아직 아님.
@@ -16,15 +21,14 @@ Last updated: 2026-05-28 (60차 §4 post-PR-#56 HANDOFF sync `22ceb6f` — code 
 
 ## 다음 1순위
 
-**남은 USER gate (Task 5 production backfill)**:
-1. **(USER, Task 5)** 마이그 `tudal/supabase/migrations/0026_dart_corp_codes_induty_code.sql` production apply (Supabase MCP `apply_migration` 또는 dashboard) — dart_corp_codes.induty_code/last_status/last_seen_at 컬럼 추가 + `^[0-9]{3,5}$` CHECK constraint.
-2. **(USER, Task 5)** `DART_API_KEY` 환경변수 로드 후 `scripts/.venv/bin/python scripts/seed_dart_corp_codes.py --backfill-induty` 실행 (DART API key + ~46분 소요, fail_fast 시 즉시 중단). 2,766 corp_code에 induty 백필.
-3. **(USER, Task 5)** `scripts/.venv/bin/python scripts/screen_shortlist_tier0.py --month 2026-05-01 --as-of 2026-05-11 --apply --csv-backup scripts/out/short_list_30_2026-05_C-hybrid.csv` (B89 strict block 통과 후) — B93 PASS 확인 (`select sector, count(*) from short_list_30 group by sector` → canonical 14만, placeholder/unknown_pending 0).
-4. **(USER, 비차단)** §5.3 PR #54 preflight (Supabase re-auth) + 인증 세션 canary.
-5. **(USER+CLAUDE)** Task 7 Smoke Stage 2 — 환경 준비 완료; USER 1회 비용 승인 후 실 AI smoke (~5,000~6,000원/회).
-6. **(CLAUDE)** 이후 Task 8 audit + PR5 cron 30 자동 plan SoT. (cron mock cleanup Step 2 전체 완료 — 모든 cron INSERT 실 path 가동.)
+**Task 5 B66 완전 해소 ✅** (60차 §5 Claude 권한 위임 실행 완료, 사용자 명시 "권한 다 줄게"). 모든 production backfill 3-step PASS.
 
-**실 AI trigger 클릭은 Task 7 승인 전 절대 금지** (~5,000~6,000원/회 burn).
+**다음 액션 큐**:
+1. **(USER, 비차단)** §5.3 PR #54 preflight (Supabase re-auth 후 alert_event CHECK + briefing_log date UNIQUE 검증) + 인증 세션 canary.
+2. **(USER+CLAUDE) Task 7 Smoke Stage 2** — 환경 준비 완료; USER **1회 비용 승인** 후 실 AI smoke (~5,000~6,000원/회). USER 승인 즉시 CLAUDE 자동 실행 + 결과 보고.
+3. **(CLAUDE)** Task 8 audit + PR5 cron 30 자동 plan SoT 진입. (cron mock cleanup Step 2 전체 완료 / Task 5 B66 production complete 이후 PR5 readiness 모두 충족.)
+
+**실 AI trigger 클릭은 Task 7 USER 비용 승인 전 절대 금지** (~5,000~6,000원/회 burn).
 
 **운영 원칙**: 본 HANDOFF는 다음 세션 행동에 필요한 최소 current state만 inline. 직전 2 code/history entry만 §6에 유지하고, older detail/round count/commit chain은 git log + PR body + spec/plan docs에 위임. self-referential drift 위험이 큰 commit count/SHA chain/round count는 runtime verify 우선.
 
@@ -33,21 +37,21 @@ Last updated: 2026-05-28 (60차 §4 post-PR-#56 HANDOFF sync `22ceb6f` — code 
 ## 0. 세션 시작 루틴 (verify + auto-progress)
 
 ```bash
-# 60차 §4 baseline — docs-sync HEAD `22ceb6f` 또는 자손 / code baseline `058a372` post-PR-#56 Task 5 impl MERGED / PR #55 plan SoT `bbf102d`.
-# 60차 누적: PR #53 (heartbeat_log + news_event) + PR #54 (alert_event 3-source + briefing_log) + PR #55 (Task 5 B66 plan SoT) + PR #56 (Task 5 B66 impl).
+# 60차 §5 baseline — main HEAD `f2b24e9` (post-PR-#58 override 7 entries) / Task 5 B66 PRODUCTION COMPLETE / PR #55 plan SoT `bbf102d` / PR #56 impl `058a372` / PR #57 pagination hotfix / PR #58 override 4→7 entries.
+# 60차 누적: PR #53 + PR #54 + PR #55 + PR #56 + PR #57 + PR #58 = 6 PR 머지. Task 5 B66 production write 완료 (Claude 권한 위임 실행).
 # 59차 누적 MERGED: PR #39~#51 — Mock cleanup Step 2.3~2.7b.1 + docs sync.
 # 58차 누적 MERGED: PR #30~#34 + 마이그 0025 production applied.
 # OPEN: #2 only (format-error, CONFLICTING 보류).
-# main/docs-sync HEAD = `22ceb6f` 또는 자손. code baseline = `058a372` post-PR-#56 Task 5 impl MERGED. PR #55 plan SoT = `bbf102d`. 마이그 0026 = dart_corp_codes.induty_code (USER production apply 잔여).
+# main HEAD = `f2b24e9` 또는 자손 (post-PR-#58). PR #56 impl = `058a372`. PR #55 plan SoT = `bbf102d`. 마이그 0026 ✅ production applied + 백필 2,766/2,766 ok + short_list_30 30 rows canonical 14만 + B93 PASS.
 cd /Users/yong/New_Project_KR_Stock
 
 # 1. main branch state runtime 확인 (B75 fixed SHA 박제 금지 — post-PR-#56 descendant 자손 기대)
 git checkout main && git pull origin main
 git rev-parse --abbrev-ref HEAD                   # main
-git rev-parse --short HEAD                        # 기대: `22ceb6f` 또는 자손 (docs-sync); code baseline은 `058a372`
+git rev-parse --short HEAD                        # 기대: `f2b24e9` 또는 자손 (post-PR-#58)
 git status --short                                # clean
 
-# 2. OPEN PRs (60차 §4 PR #56 종료 post-merge baseline: #2 only — PR #39~#56 MERGED, feature/docs branches deleted)
+# 2. OPEN PRs (60차 §5 PR #58 종료 post-merge baseline: #2 only — PR #39~#58 MERGED, feature/docs branches deleted)
 gh pr list --state open --json number,title,headRefName,mergeable
 #   #2   fix/s7a-format-error-inventory (format-error, CONFLICTING 보류)
 
@@ -102,12 +106,15 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ---
 
-## 1. 현재 상태 (docs-sync HEAD `22ceb6f` 또는 자손 / code baseline `058a372` post-PR-#56 Task 5 impl MERGED / PR #55 plan SoT `bbf102d` / Vercel canary public 3/3 OK, 2026-05-28)
+## 1. 현재 상태 (main HEAD `f2b24e9` post-PR-#58 / Task 5 B66 PRODUCTION COMPLETE / Vercel canary public 3/3 OK, 2026-05-29)
 
 | 영역 | 상태 |
 |---|---|
-| main/docs-sync HEAD | **`22ceb6f`** (docs-only post-PR-#56 HANDOFF sync; runtime은 `22ceb6f` 또는 자손 기대). **Code baseline `058a372`** = PR #56 Task 5 B66 C 하이브리드 impl MERGED. **PR #55 plan SoT `bbf102d`** + **PR #56 impl `058a372`** (11 files / +1846 lines, 마이그 0026 dart_corp_codes.induty_code + scripts/canonical_sector_mapper.py + override + --backfill-induty + B89 strict block — 마이그 production apply는 USER 잔여). **다음 세션 진입 시 `git rev-parse --short origin/main`으로 runtime verify**. |
-| **PR #56 (60차 §4 Task 5 B66 impl)** | ✅ MERGED `058a372` — 11 files / +1846 lines, Python 69 tests + Vitest +8 drift detect (test:ci 1317 → 1325). 60차 §3 modified workflow OMXY R1 **5 BLOCKERS direct-edit** (HIGH: B89 dry-run fail-closed exit 2 + --backfill-induty fail_fast return 1 / MED: KSIC 282/2820/28202 exact prefix + T5/T7/T8 coverage gap + 322000/226330 override seed). 신규 SoT code: `scripts/canonical_sector_mapper.py` (longest-prefix mapper + override loader + resolve_sector + explain) + `scripts/sector_override.json` (4 entries) + `scripts/screen_shortlist_tier0.py::resolve_sectors_for_universe + enforce_b89_strict_block` + `scripts/seed_dart_corp_codes.py --backfill-induty + DART status matrix + crtfc_key redaction` + 마이그 0026 (dart_corp_codes induty_code + last_status + last_seen_at + `^[0-9]{3,5}$` CHECK) + TS drift detect (canonical-sectors.ts 수정 0). **USER 잔여 액션 (Task 5 production backfill 3-step)**: 마이그 0026 apply → `DART_API_KEY` 로드 후 venv seed `--backfill-induty` → venv screen `--apply --csv-backup` (B89 strict block). |
+| main HEAD | **`f2b24e9`** (post-PR-#58 override 4→7 entries). **Code baseline `f2b24e9`** = PR #55 plan SoT `bbf102d` + PR #56 impl `058a372` + PR #57 pagination hotfix + PR #58 override 4→7 누적. **60차 §5 Production COMPLETE** (Claude 권한 위임 실행). **다음 세션 진입 시 `git rev-parse --short origin/main`으로 runtime verify**. |
+| **60차 §5 production execution (Claude 권한 위임)** | ✅ **Task 5 B66 PRODUCTION COMPLETE** (사용자 명시 "권한 다 줄게"). 3-step: (1) 마이그 0026 apply via Supabase MCP `apply_migration` ✅ — dart_corp_codes induty_code/last_status/last_seen_at 3 컬럼 + `^[0-9]{3,5}$` CHECK constraint live. (2) `--backfill-induty` 실행 ✅ — 2,766/2,766 ok (status_000), still_null=0. (3) `screen --apply` ✅ — short_list_30 (2026-05-01) 30 rows 갱신: 반도체 10 / 에너지 4 / IT/SW 3 / 바이오 3 / 유통/소비재 3 / 2차전지 2 / 자동차 2 / 건설 1 / 금융 1 / 통신 1. **B93 PASS verify ✅** (total=30, canonical_14=30, placeholder=0, non_canonical=0, unresolved=0). 운영 중 2 production bug catch + hotfix (PR #57 pagination LIMIT 1000 + PR #58 override 3 신규). OMXY R-debate 누적 30+ catches direct-edit CONVERGED. |
+| **PR #58 (60차 §5 sector_override expansion)** | ✅ MERGED `f2b24e9` — 4→7 entries (078150 HB테크놀러지 반도체 / 036710 심텍홀딩스 반도체 / 950210 프레스티지바이오파마 바이오). 60차 §5 production dry-run unresolved=3 catch 기반. Python schema test 11 PASS. data-only PR (코드/마이그/TS 변경 0). |
+| **PR #57 (60차 §5 pagination hotfix)** | ✅ MERGED — 2 PostgREST default LIMIT 1000 production bugs catch (`backfill_induty` + `resolve_sectors_for_universe`). OMXY R1 2 BLOCKERS direct-edit (regression test 강화 + screen chunking). Python 69 → 87 tests (+18 pagination/chunking regression). 60차 §3 modified workflow CONVERGED. |
+| **PR #56 (60차 §4 Task 5 B66 impl)** | ✅ MERGED `058a372` — 11 files / +1846 lines, Python 69 tests + Vitest +8 drift detect (test:ci 1317 → 1325). 60차 §3 modified workflow OMXY R1 **5 BLOCKERS direct-edit** (HIGH: B89 dry-run fail-closed exit 2 + --backfill-induty fail_fast return 1 / MED: KSIC 282/2820/28202 exact prefix + T5/T7/T8 coverage gap + 322000/226330 override seed). 신규 SoT code: `canonical_sector_mapper.py` + `sector_override.json` + `screen_shortlist_tier0.py::resolve_sectors_for_universe + enforce_b89_strict_block` + `seed_dart_corp_codes.py --backfill-induty + DART status matrix + crtfc_key redaction` + 마이그 0026 + TS drift detect. |
 | **PR #55 (60차 §3 Task 5 B66 plan SoT)** | ✅ MERGED `bbf102d` — plan-only PR (PR #28 Task 4 plan SoT 패턴), 1 file +494 lines, 코드 변경 0. **60차 §3 modified workflow (사용자 명시)**: 1차 진행 Claude / 1차 검증 + 직접 fix OMXY / fix verify Claude. OMXY R1+R2 누적 **10 catches direct-edit**. plan §부록 A 산출물 catalog → PR #56 1:1 구현 완료. plan SoT path: `docs/superpowers/plans/2026-05-28-task5-b66-c-hybrid-sector-mapper.md`. |
 | **PR #54 (60차 §2 Mock cleanup Step 2.7b.3)** | ✅ MERGED `50cb94a` — 3 cron route alert_event INSERT (heartbeat_missing + news_critical + briefing_failed) + morning-briefing briefing_log INSERT. 통합 `insertAlertEvents` (append, ALERT_TYPE_SET+SEVERITY_SET guard) + `insertBriefingLog` (date upsert). independent best-effort (각 독립 try/catch, dbError ??=, skip 0). omxy R-debate **5 rounds CONVERGED** (R1~R4 plan + R6 impl, native critic subagents 동원, 누적 15 plan catches + impl 0). 7 commits FF / +21 net tests (1296→1317) / 회귀 0. **W-cron-alert-event-insert + W-briefing-log-insert resolved**. PR #54 §5.3 production schema preflight는 USER re-auth 후 권장 잔여. |
 | **PR #53 (60차 Mock cleanup Step 2.7b.2)** | ✅ MERGED `a351033` — silent-health heartbeat_log + news-sweep news_event INSERT. omxy 6 rounds CONVERGED. 상세 = git log + PR #53 body. |
@@ -130,19 +137,19 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **PR #21 OMXY (57차 §1, 4 rounds CONVERGED)** | R1+R2+R3+R4 — 모두 **BLOCKERS 0** · WATCH (비차단): P3 도입 시 feature flag toggle (`PR4_TRIGGER_UPSERT_ENABLED`, B98 default) |
 | **57차 §2 Task 3 OMXY (8 rounds, SIGNAL=ESCALATE max-8-rounds 정합 §7.5)** | R1 6 BLOCKERS + R2 5 + R3 5 + R4 3 + R5 2 + R6 1+2 minor + R7 2 + R8 ESCALATE max-8 + 3 mechanical fix. native critic subagent 6명 (Godel R1 5 BLOCKERS + 4 WATCH / Feynman R2 / Planck R3 / Schrodinger R4 / Franklin R5 / Hypatia R6). **누적 catch 30+ 모두 fix 반영**. |
 | ✅ **PR4 + B65-P1/P3 + Mock cleanup Step 1~2.7b.3 + 마이그 0025 + Vercel env=true** | production functional 가능 상태. cron INSERT mock cleanup Step 2 전체 완료. 단 `cost_log=0 / stock_reports=0` last-known audit상 아직 실 AI trigger/PR5 cron 실행 기록 0건. trigger 클릭은 실 AI 비용 burn(~5,000~6,000원/회)이므로 Task 7 USER 승인 전 금지. §9는 Smoke/B66/PR5 readiness catalog로 유지. |
-| **B66 quality/trust blocker** | `short_list_30` 30 rows sector="코스닥"/"코스피" placeholder는 아직 production data에 잔존. **Approach lock-in = C 하이브리드**: PR #55 plan SoT `bbf102d` + PR #56 impl `058a372` 모두 MERGED. mapper/override/마이그 0026/--backfill-induty/B89 strict block 코드는 준비 완료이며, 실제 `short_list_30` backfill write는 USER Supabase re-auth/write gate 잔여. |
+| **B66 quality/trust blocker** | ✅ **PRODUCTION RESOLVED** (60차 §5, 2026-05-29). placeholder ("코스피"/"코스닥") production data 0건 / canonical 14 only 30 rows / unresolved 0건. PR #55 plan + PR #56 impl + PR #57 pagination hotfix + PR #58 override expansion + 마이그 0026 apply + `--backfill-induty` 2,766/2,766 ok + `screen --apply` 30 rows + B93 PASS verify (Supabase MCP). |
 | **B67~B98 + 9 신규 audit (57차 §2 + 58차 Step 2.x)** | 56차 §5 omxy 11+ 항목 + 57차 §2 R-debate 6 신규 (B79 / B-versioning / W-tier1pill / W-grant-smoke ✅ RESOLVED / W-sectionfallback-text / W-cost-log-env-gate) + 58차 Step 2.x 3 신규 (W-mock2-rls-drift / W-s5b-admin-assertion / W-ticker-re-kr-only). Smoke Stage 2 PASS 후 audit (§9 + Task 8). |
 | **58차 Task 4 B65-P3 impl ✅ MERGED `3c09d6e` + 마이그 0025 production applied** | PR #30 7 commits FF, omxy R1~R3 CONVERGED. 마이그 0025 = `upsert_report_sections_0_7_admin` admin-only UPSERT RPC + 4-grant matrix + SECURITY DEFINER + search_path. 옵션 A lock-in 정합. |
-| **다음 세션 1순위** | ⭐ USER 작업 = **Task 5 production backfill 3-step** (마이그 0026 apply → `DART_API_KEY` 로드 후 `scripts/.venv/bin/python scripts/seed_dart_corp_codes.py --backfill-induty` → `scripts/.venv/bin/python scripts/screen_shortlist_tier0.py --month 2026-05-01 --as-of 2026-05-11 --apply --csv-backup scripts/out/short_list_30_2026-05_C-hybrid.csv`). PR #54 §5.3/canary는 USER 권장 잔여(비차단), Task 7 Smoke Stage 2 비용 승인은 필수 USER gate. |
+| **다음 세션 1순위** | ⭐ (USER+CLAUDE) **Task 7 Smoke Stage 2** — USER 1회 비용 승인 (~5,000~6,000원) 후 CLAUDE 자동 실 AI smoke 실행 + 결과 보고. (USER 권장, 비차단) PR #54 §5.3 preflight + 인증 canary. (CLAUDE) 이후 Task 8 audit + PR5 cron 30 자동 plan SoT 진입. Task 5 B66 production complete로 PR5 readiness 모두 충족. |
 | Mock Skeleton + DQ-7 + S7e + S7a + Tier 2 | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) / ✅ S7a MERGED (51차) / ✅ Tier 2 D21 (52차+53차) |
 | 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR5 cron 가동 시 메인 path 활성 (Mock cleanup Step 2 완료 + B66 C 하이브리드 backfill + Smoke Stage 1+2 PASS 후만 진입)**. |
 | 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired + B65-P3 admin-only UPSERT RPC + 마이그 0025 production applied + Vercel env=true. **production functional 가능 상태이나 last-known audit상 cost_log=0 / stock_reports=0 — 아직 성공/기록된 AI 호출 및 리포트 0건**. trigger 클릭은 비용 burn이므로 Task 7 승인 하에 Smoke Stage 2에서 검증. |
 | OPEN PRs | **#2** (format-error, CONFLICTING 보류) only — PR #56 impl `058a372` + HANDOFF sync `22ceb6f` 완료; PR #55 plan SoT `bbf102d`; PR #54 Step 2.7b.3 `50cb94a`; PR #53 `a351033`; 59차 PR #39~#51 + 58차 PR #30~#34 MERGED. |
 | 실 AI 호출 | **현재 0건** (last-known production audit: cost_log=0). Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true` 완료, 충전 완료. 첫 실 AI smoke는 지금 가능하지만 비용 burn(~5,000~6,000원/회)이므로 Task 7 USER 승인 후 실행. |
 | Production deploy/canary | Vercel code baseline `058a372` (docs-sync `22ceb6f`는 code delta 0); post-HANDOFF sync public canary 3/3 OK (`/` + `/login` + `/macro`) ✓ public 회귀 0. Prior post-PR-#54 `/admin` 200 기록 유지. 인증 세션 canary 권장: `/admin/settings/health` + `/admin/settings/cost` + `/admin/report/[ticker]/regenerate` + `/admin/alerts` + `/admin/settings` empty state. cron route 검증: silent-health 15:00 UTC (heartbeat_log+alert) + news-sweep 00:00 UTC (news_event+alert) + morning-briefing 23:00 UTC (briefing_log+alert). |
-| Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0025 production 적용 완료** (0025 = 58차 Task 4 `upsert_report_sections_0_7_admin` admin-only UPSERT RPC). **0026 SQL committed in PR #56 but production apply USER 잔여** (dart_corp_codes.induty_code). SECURITY DEFINER 4-grant 패턴 유지. |
-| 검증 게이트 (code baseline `058a372`; docs-sync 자손 허용) | build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1325 PASS / 118 files** / tsc clean / **Python 69 tests PASS**. |
-| omxy debate 상태 | 최신 PR #55 plan + PR #56 impl 모두 CONVERGED (60차 §3 modified workflow, PR #55 OMXY R1+R2 10 catches, PR #56 OMXY R1 5 BLOCKERS direct-edit). HANDOFF에는 current 결론/W-ticket만 유지하고, 라운드 수·catch 수·fix commit 세부 chain은 git log + PR body + cmux transcript 위임. |
+| Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0026 production 적용 완료** (0026 = 60차 §5 Claude 권한 위임 실행 — dart_corp_codes induty_code + last_status + last_seen_at + `^[0-9]{3,5}$` CHECK). SECURITY DEFINER 4-grant 패턴 유지. dart_corp_codes 2,766/2,766 induty 백필 완료. |
+| 검증 게이트 (code baseline `f2b24e9`) | build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1325 PASS / 118 files** / tsc clean / **Python 87 tests PASS** (pagination/chunking regression 포함). |
+| omxy debate 상태 | 60차 §3~§5 누적 6 PR (PR #53~#58) 모두 CONVERGED (60차 §3 modified workflow Claude+OMXY+Claude, 30+ catches direct-edit). HANDOFF에는 current 결론/W-ticket만 유지하고, 라운드 수·catch 수·fix commit 세부 chain은 git log + PR body + cmux transcript 위임. |
 
 ---
 
@@ -164,17 +171,19 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 상세 분류 + Output Modes + Context Packet 표준 + Native Critic Role Taxonomy + 단계별 subagent/skill 매핑 = CLAUDE.md 참조. memory: [[feedback_user_action_auto_progress]] + [[feedback_omxy_debate_workflow]] + [[feedback_no_user_approval_gate]].
 
-### §2.1 Step matrix (main docs-sync `22ceb6f` post-PR-#56 HANDOFF sync; PR #56 impl `058a372`; PR #55 plan SoT `bbf102d` — **PR5 진입 = Task 5 production backfill + Smoke Stage 1~2 PASS 후**)
+### §2.1 Step matrix (main HEAD `f2b24e9` post-PR-#58 / Task 5 B66 PRODUCTION COMPLETE — **PR5 진입 = Task 7 Smoke Stage 2 PASS 후**)
 
-**현재 위치 = 60차 §4 post-PR-#56 HANDOFF sync baseline (Task 5 impl PR #56 ✅ + plan SoT PR #55 ✅ + cron INSERT mock cleanup Step 2 전체 완료)**:
-- **PR #53** Step 2.7b.2 heartbeat_log + news_event INSERT 완료 (`a351033`).
-- **PR #54** Step 2.7b.3 alert_event 3-source + briefing_log INSERT 완료 (`50cb94a`). 세부 catch/fix chain은 PR #53/#54 body + git log 위임.
-- **PR #55** Task 5 B66 C 하이브리드 plan SoT 완료 (`bbf102d`, plan-only/code 0, OMXY R1+R2 10 catches direct-edit CONVERGED).
-- **PR #56** Task 5 B66 C 하이브리드 impl 완료 (`058a372`, 11 files/+1846, OMXY R1 5 BLOCKERS direct-edit CONVERGED, production apply USER 잔여).
+**현재 위치 = 60차 §5 post-Task-5-complete baseline (60차 §3~§5 누적 6 PR MERGED + Task 5 B66 production write 완료)**:
+- **PR #53/#54** Step 2.7b.2/2.7b.3 cron INSERT 실 path 완료
+- **PR #55** Task 5 plan SoT (`bbf102d`)
+- **PR #56** Task 5 impl (`058a372`)
+- **PR #57** Pagination hotfix (PostgREST LIMIT 1000 bug 2 path — backfill_induty + resolve_sectors_for_universe)
+- **PR #58** Override expansion 4→7 entries (60차 §5 production dry-run unresolved=3 catch)
+- **60차 §5 Claude 권한 위임 실행 ✅**: 마이그 0026 apply + --backfill-induty 2,766/2,766 + screen --apply 30 rows + B93 PASS verify
 
-**누적 박제**: 58차 PR #30~#34 + 마이그 0025 + 59차 PR #39~#51 + 60차 PR #53/#54/#55/#56 모두 MERGED, main docs-sync `22ceb6f`. 라운드/commit 상세는 git log + PR body 위임.
+**누적 박제**: 58차 PR #30~#34 + 마이그 0025 + 59차 PR #39~#51 + 60차 PR #53~#58 모두 MERGED + 마이그 0026 production applied + short_list_30 canonical 14 only. 라운드/commit 상세는 git log + PR body 위임.
 
-**다음 1순위** = **(USER) Task 5 production backfill 3-step**: 마이그 0026 production apply → `DART_API_KEY` 로드 후 `scripts/.venv/bin/python scripts/seed_dart_corp_codes.py --backfill-induty` → `scripts/.venv/bin/python scripts/screen_shortlist_tier0.py --month 2026-05-01 --as-of 2026-05-11 --apply --csv-backup scripts/out/short_list_30_2026-05_C-hybrid.csv` (B89 strict block). **(USER 권장)** PR #54 §5.3 production schema preflight + 인증 세션 canary. **(USER 필수)** Task 7 Smoke Stage 2 비용 승인. B66 production write는 USER Supabase re-auth/write gate. Vercel env는 이미 true; 실 AI trigger는 Task 7 승인 전 금지.
+**다음 1순위** = **(USER+CLAUDE) Task 7 Smoke Stage 2** USER 1회 비용 승인 (~5,000~6,000원) 후 CLAUDE 자동 실 AI smoke. **(USER 권장)** PR #54 §5.3 preflight + 인증 canary. **(CLAUDE)** 이후 Task 8 audit + PR5 cron 30 자동 plan SoT 진입. Task 5 B66 production write 완료로 PR5 readiness 모두 충족.
 
 Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이어서 진행" 권한으로 push/PR-create 자동; docs-sync PR/direct post-merge baseline commit은 사용자 명시+docs-only 범위에서 허용, deploy/migration은 USER).
 
@@ -186,7 +195,7 @@ Owner 의미: **USER** (사용자만) · **CLAUDE** (자동) · **SHARED** ("이
 | 2 | **B65-P1 immediate guard (Phase 1) + B86 month format** | CLAUDE | ✅ **MERGED in main `5b99e03`** (57차 §1, PR #21, Vercel deploy SUCCESS) | `triggerFullReport`에 `reportExistsForMonth(input.ticker, ${month}-01)` preflight 추가. false → `report_not_found` / throws → `report_lookup_failed`. **historical**: P2/P3 미완료 시 cost-burn fail-fast. 현재는 P3 + env=true 완료로 real path 가능. |
 | 3 | **B65-P2 real enablement (Phase 2) + B88 RPC R-debate spec doc** | CLAUDE | ✅ **COMPLETED in 57차 §2 (spec doc CONVERGED R8 final)** | spec doc = `docs/superpowers/specs/2026-05-26-b65-p2-rpc-rdebate.md`. omxy R-debate 8 rounds (R8 ESCALATE max-8 정합 §7.5) + native critic subagent 6명 + 누적 catch 30+ 모두 fix. **결정 lock-in: 옵션 A** `upsert_report_sections_0_7_admin` admin-only UPSERT RPC + section_0~7 + appendix only + axis (i)A admin trigger 책임 = section_0~7 only + axis (ii) B79 deferred → PR5 plan + axis (iii) PR5 cron path 충돌 없음. spec doc only (no impl code, 0 migrations). **Task 4에서 마이그 0025 + feature flag impl 완료**. 신규 6 audit ticket 박제 (B79 / B-versioning / W-tier1pill / W-grant-smoke / W-sectionfallback-text / W-cost-log-env-gate). |
 | 4 | **B65-P3 P1/P2 호환 (Phase 3) + B98 default policy (feature flag) + 마이그 0025 impl** | CLAUDE | ✅ **impl MERGED in main `3c09d6e`** (58차, PR #30 rebase FF + delete-branch, omxy R-debate 3 rounds CONVERGED). ✅ 마이그 0025 production apply + Vercel env=true 완료 → production functional 가능; Task 7 Smoke Stage 2는 USER 비용 승인 후 | **plan SoT** = `docs/superpowers/plans/2026-05-26-b65-p3-feature-flag-impl.md` (929 lines, MERGED). omxy R-debate R1~R5 누적 23 BLOCKERS catch & fix (Schop 8 + Kepler 3 + Plato 3 + Sartre 2 + Aristotle 1 = 17 unique + 6 dup recall) — Ramanujan R5 CATCH 0 CONVERGED + HANDOFF sweep R1~R2 Descartes CATCH 0. **impl scope**: (i) feature flag `PR4_TRIGGER_UPSERT_ENABLED` (.env.example=`false` safe default, Production Vercel env=`true` 적용 완료, B98 lock-in) + (ii) 마이그 0025 `upsert_report_sections_0_7_admin.sql` + rollback (admin-only, service_role 명시 REVOKE — Kepler B2 critical) + (iii) orchestrator 분기 + rpcName-guarded error 분리 + (iv) actions B65-P1 guard flag toggle + (v) format-error 2 keys + 1 prefix handler = 3 entries + (vi) TDD invariants 8종 (Test 1 action seam + Test 4b 2-phase DB integration + Test 7 SQLSTATE matrix + Test 8 env cleanup). **smoke는 P3 후만 가능** (B94). impl PR #30 MERGED, branch deleted; 상세 = PR #30 body + git log. |
-| 5 | **B66 C 하이브리드 + B84 backfill + B89 unknown policy + B93 PASS criteria** | CLAUDE ✅ → USER(production apply) | ✅ **impl PR MERGED `058a372`** (60차 §4 PR #56, OMXY R1 5 BLOCKERS CONVERGED). plan SoT `bbf102d` PR #55. **USER 잔여 = production backfill 3-step** | **plan SoT** = `docs/superpowers/plans/2026-05-28-task5-b66-c-hybrid-sector-mapper.md` (494 lines, MERGED). **60차 §3 modified workflow (사용자 명시)**: 1차 진행 Claude / 1차 검증 + 직접 fix OMXY / fix verify Claude. **R1 lock-ins (PR #55)**: longest-prefix `^[0-9]{3,5}$` mapper (5-digit 가정 폐기), KSIC coverage = mapper rule + mandatory override fixture, **B89 strict block** (unresolved 1+ → `--apply` 전면 거부, `unknown_pending` production 저장 금지 = B93 위반), override 최소화 (mapper가 틀리는 ticker만), dart_corp_codes consumer matrix (`seed_dart_corp_codes.py` + `screen_shortlist_tier0.py` + `dart_signals.py::_lookup_corp_code`), Python↔TS drift = TS SoT 유지 + drift test가 TS 읽기. **impl complete (PR #56, plan §부록 A 1:1)**: (i) `scripts/canonical_sector_mapper.py` ✅ + `sector_override.json` ✅ 4 entries (254490/452200/322000/226330) (ii) 마이그 0026 ✅ (iii) `seed_dart_corp_codes.py --backfill-induty` ✅ + fail_fast return 1 (iv) `screen_shortlist_tier0.py` placeholder 제거 ✅ + enforce_b89_strict_block dry-run/apply exit 2 (v) TDD: Python 69 + TS 드리프트 8 = 1325 PASS. **Production write gate (USER 잔여 액션 3-step)**: (1) 마이그 0026 production apply (Supabase MCP) (2) `DART_API_KEY` 환경변수 로드 후 `scripts/.venv/bin/python scripts/seed_dart_corp_codes.py --backfill-induty` (~46분, fail_fast 즉시 중단) (3) `scripts/.venv/bin/python scripts/screen_shortlist_tier0.py --month 2026-05-01 --as-of 2026-05-11 --apply --csv-backup scripts/out/short_list_30_2026-05_C-hybrid.csv` (B89 strict block 통과 후). **B93 PASS**: (1) 30 rows all sector ∈ `CANONICAL_SECTORS` (2) sector ∉ ('코스피','코스닥') (3) sub_tags jsonb null OR string[]. |
+| 5 | **B66 C 하이브리드 + B84 backfill + B89 unknown policy + B93 PASS criteria** | CLAUDE 권한 위임 실행 ✅ | ✅ **PRODUCTION COMPLETE** (60차 §5 Claude 권한 위임 실행, 사용자 명시 "권한 다 줄게"). PR #55 plan + PR #56 impl + PR #57 pagination hotfix + PR #58 override 4→7 + 마이그 0026 apply + --backfill-induty 2,766/2,766 + screen --apply 30 rows + B93 PASS verify | **plan SoT** = `docs/superpowers/plans/2026-05-28-task5-b66-c-hybrid-sector-mapper.md` (494 lines, MERGED). **60차 §3 modified workflow (사용자 명시)**. **R1 lock-ins**: longest-prefix `^[0-9]{3,5}$` mapper / B89 strict block / override 최소화 / Python↔TS drift TS SoT 유지. **Production execution (60차 §5)**: (1) Supabase MCP `apply_migration` → 마이그 0026 ✅ live (induty_code + last_status + last_seen_at + `^[0-9]{3,5}$` CHECK) (2) `--backfill-induty` ✅ — 2,766/2,766 ok / status_000 / still_null=0 (3) `--dry-run` v1 → B89 unresolved=3 catch (078150 HB테크놀러지 / 036710 심텍홀딩스 / 950210 프레스티지바이오파마) → PR #58 override 4→7 entries 추가 → `--dry-run` v2 unresolved=0 → `--apply` 30 rows. **B93 PASS**: 반도체 10 / 에너지 4 / IT/SW 3 / 바이오 3 / 유통/소비재 3 / 2차전지 2 / 자동차 2 / 건설 1 / 금융 1 / 통신 1 = 10 canonical sectors / placeholder 0 / unresolved 0 / non-canonical 0. **운영 중 catch**: PR #57 pagination hotfix (PostgREST default LIMIT 1000 → `.range()` pagination + screen 500-ticker chunking, OMXY R1 2 BLOCKERS direct-edit). |
 | 6 | **Smoke Stage 1 — non-AI dry-run (B97 fix)** | CLAUDE | 🔴 PR5 entry blocker 4순위 (Task 4 후 진입) | `triggerFullReport`에 mock `orchestrateFullReport` 주입 (vi.doMock). **P1+P2+P3 호환 invariant test**: P3 호환 완료 시 P2 path 진입 (mock called) / 비호환 시 P1 fail-fast (mock not called). cost=0. **B96 target**: short_list_30 존재 + stock_reports 부재 ticker. TDD 단위 테스트. |
 | 7 | **Smoke Stage 2 — single real AI (B97 fix + B85 + B87)** | CLAUDE+USER | 🔴 PR5 entry blocker 5순위 (Task 6 후 진입) | **Stage 1 PASS 후만 진입**. USER 승인 + B85 model id 1 token verify 선행. **Core smoke (필수)**: criteria 1 `cost_log` row + 2 `stock_reports` row sections + 3 `report_critic_findings` + 5 UI render. **Full-path (옵션 B만)**: criteria 4 `committee_votes`. real cost = `cost_log` 기준 확정 (token usage 기반). |
 | 8 | **B67~B98 audit + PR5 진입** | CLAUDE | 🟢→⭐ (Task 7 후 진입) | Smoke Stage 2 PASS 후: B67~B98 catalog 11+ 항목 audit (cron / cost_log retry / RPC 책임 / hardcap mock 등). 모든 priority audit clear 후 **PR5 cron 30 자동 + 큐 인프라** plan SoT 작성 진입 (T11 분할 결정 보존, 16,050원/월 hardcap 4%; B65-P2 RPC 선택이 PR5 cron path와 호환 시만). |
@@ -295,6 +304,29 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 ## 6. 완료/active 이력 (직전 2 §6 inline entry · older + parallel OPEN PR은 git log + PR body 위임)
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
+
+### 60차 §5 Task 5 B66 PRODUCTION COMPLETE ✅ — Claude 권한 위임 실행 (사용자 명시 "권한 다 줄게"), 마이그 0026 apply + --backfill-induty 2,766/2,766 ok + screen --apply 30 rows canonical 14 + B93 PASS verify, OMXY R-debate 30+ catches direct-edit CONVERGED 누적 6 PR (2026-05-29)
+
+- **사용자 명시 modified workflow + 권한 위임 (60차 §3+§5)**: Claude 1차 / OMXY 1차 검증 + 직접 fix / Claude verify 패턴 누적 + Claude 위임 권한 production execution (사용자 명시 "권한 다 줄게" — Supabase MCP `apply_migration` + Bash venv Python + DART API + service-role write).
+- **누적 6 PR MERGED in 60차 §3~§5**:
+  - **PR #55 `bbf102d`** (60차 §3 plan SoT, 494 lines, OMXY R1+R2 10 catches direct-edit)
+  - **PR #56 `058a372`** (60차 §4 impl, 11 files / +1846 lines, OMXY R1 5 BLOCKERS direct-edit)
+  - **PR #57** (60차 §5 pagination hotfix, OMXY R1 2 BLOCKERS direct-edit — PostgREST default LIMIT 1000 bug 2 production path)
+  - **PR #58 `f2b24e9`** (60차 §5 override 4→7 entries, production dry-run unresolved=3 catch)
+- **Production execution sequence (60차 §5)**:
+  1. **마이그 0026 apply** via Supabase MCP `apply_migration` (name=`dart_corp_codes_induty_code`) → 3 컬럼 (induty_code text + induty_last_status text + induty_last_seen_at timestamptz) + `dart_corp_codes_induty_code_format_check` CHECK constraint (`induty_code ~ '^[0-9]{3,5}$'` or NULL) verified via `information_schema.columns` + `pg_constraint`.
+  2. **--backfill-induty v1 (buggy, killed)**: PostgREST default LIMIT 1000으로 short_list 30 중 22개 누락 catch → **PR #57 hotfix**: `backfill_induty` (range-based pagination via `.order("ticker").range(start, end)` + page_rows<page_size 종료) + `resolve_sectors_for_universe` (500-ticker chunking, OMXY R1 B2 catch — 동일 LIMIT bug 후속 path 잔존). Python 69 → 87 tests. **PR #57 MERGED**.
+  3. **--backfill-induty v2 (paginated, success)**: 2,766/2,766 ok (status_000) / no_data 0 / retry_exhausted 0 / fail_fast 0 / timeout 0 / written 2,131 (635개는 이전 partial run에서 이미 채워져 idempotent skip).
+  4. **screen --dry-run v1**: 2345 universe / B89 unresolved selected=3 — 078150 HB테크놀러지 (29272 측정장비 → 디스플레이/반도체 검사장비) / 036710 심텍홀딩스 (715 지주 → 자회사 심텍 PCB) / 950210 프레스티지바이오파마 (70113 R&D → 항체 바이오시밀러) → exit 2 fail-closed (B89 strict block 작동 검증).
+  5. **PR #58 override 4→7 entries**: 사업 실질 기반 명시 override (각 reason 박제). Python schema test 11 PASS. **PR #58 MERGED `f2b24e9`**.
+  6. **screen --dry-run v2**: unresolved selected=0 PASS / preview 미리보기 확인.
+  7. **screen --apply**: replace month rows → short_list_30 (2026-05-01) 30 rows / bucket short=10/mid=10/long=10. **B93 PASS verify (Supabase MCP)**: total_rows=30 / canonical_14_count=30 / placeholder_count=0 / non_canonical_count=0 / unresolved_count=0.
+- **Final B66 production state**: 반도체 10 / 에너지 4 / IT/SW 3 / 바이오 3 / 유통/소비재 3 / 2차전지 2 / 자동차 2 / 건설 1 / 금융 1 / 통신 1 = **10 canonical sectors 다양화 + placeholder/unresolved 영구 0**.
+- **OMXY R-debate 누적 30+ catches direct-edit CONVERGED**: PR #55 R1+R2 10 + PR #56 R1 5 + PR #57 R1 2 + HANDOFF sync R1×2 5+5 + PR #58 schema validation = 30+ catches 모두 fix.
+- **검증 게이트 ALL GREEN**: build 25 routes / lint 0 err 5 pre-existing warn / test:ci 1325 PASS / 118 files / tsc clean / Python 87 tests PASS.
+- **post-merge canary**: public 3/3 OK on tudal.vercel.app.
+- **W- defer 업데이트**: `W-alert-event-dedup` (다음 마이그 슬롯 0027+, PR #56이 0026 차지). 신규 WATCH (PR #57 OMXY R1): offset pagination은 concurrent seed/delete 중 snapshot-safe 아님 (manual/stable backfill에는 충분, cron/general-purpose화 시 keyset/RPC 고려).
+- **다음 세션 1순위**: (USER+CLAUDE) Task 7 Smoke Stage 2 — USER 1회 비용 승인 (~5,000~6,000원) 후 CLAUDE 자동 실 AI smoke + 결과 보고.
 
 ### 60차 §4 Task 5 B66 C 하이브리드 impl ✅ MERGED in main `058a372` (PR #56 rebase FF + --delete-branch + --admin, 60차 §3 modified workflow Claude+OMXY+Claude R1 5 BLOCKERS direct-edit CONVERGED, 2026-05-28)
 
@@ -653,7 +685,7 @@ Stage 1 PASS 전 Stage 2 진입 금지.
 - **P2** ✅ **spec doc CONVERGED R8 final (57차 §2 Task 3)** — 옵션 A lock-in
 - **P3** ✅ **impl MERGED in main `3c09d6e` + 마이그 0025 production applied + Vercel env=true** (PR #30, 58차 Task 4)
 
-**B66 진행률**: **impl ✅ MERGED `058a372` (60차 §4 PR #56, OMXY R1 5 BLOCKERS direct-edit CONVERGED)**. plan SoT `bbf102d` PR #55 + impl `058a372` PR #56 모두 완료. 산출물 11 files / +1846 lines / Python 69 tests + Vitest 1325 PASS. **USER 잔여 액션 (production backfill 3-step)**: (1) 마이그 0026 production apply (2) `DART_API_KEY` 로드 후 `scripts/.venv/bin/python scripts/seed_dart_corp_codes.py --backfill-induty` (~46분) (3) `scripts/.venv/bin/python scripts/screen_shortlist_tier0.py --month 2026-05-01 --as-of 2026-05-11 --apply --csv-backup scripts/out/short_list_30_2026-05_C-hybrid.csv` (B89 strict block 통과 후). B93 PASS 검증은 USER apply 직후.
+**B66 진행률**: ✅ **PRODUCTION COMPLETE** (60차 §5 Claude 권한 위임 실행, 2026-05-29). plan SoT `bbf102d` PR #55 + impl `058a372` PR #56 + pagination hotfix PR #57 + override 4→7 PR #58 `f2b24e9` 모두 MERGED. 마이그 0026 production applied + dart_corp_codes induty 2,766/2,766 ok + short_list_30 30 rows canonical 14만 + **B93 PASS verify** (Supabase MCP: total=30/canonical_14=30/placeholder=0/non_canonical=0/unresolved=0). production state: 반도체 10 / 에너지 4 / IT/SW 3 / 바이오 3 / 유통/소비재 3 / 2차전지 2 / 자동차 2 / 건설 1 / 금융 1 / 통신 1 = 10 canonical sectors 다양화.
 
 **Smoke 진행률**: 미진행 (Task 6 Stage 1 dry-run TDD + Task 7 Stage 2 single real AI USER 승인). Vercel env는 true 완료; Stage 2 직전 재확인만 필요.
 
