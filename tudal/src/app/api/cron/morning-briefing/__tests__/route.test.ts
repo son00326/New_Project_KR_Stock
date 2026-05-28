@@ -10,12 +10,21 @@ const serviceRoleMock = vi.hoisted(() => ({
   client: { role: "service-role" },
   createServiceRoleClient: vi.fn(),
 }));
+// Step 2.7b.3: briefing_log + alert_event INSERT mocks.
+const briefingLogMock = vi.hoisted(() => ({ insertBriefingLog: vi.fn() }));
+const alertsInsertMock = vi.hoisted(() => ({ insertAlertEvents: vi.fn() }));
 
 vi.mock("@/lib/data/admin-news", () => ({
   getRecentNewsEvents: adminNewsMock.getRecentNewsEvents,
 }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
+}));
+vi.mock("@/lib/data/admin-briefing-log", () => ({
+  insertBriefingLog: briefingLogMock.insertBriefingLog,
+}));
+vi.mock("@/lib/data/admin-alerts-insert", () => ({
+  insertAlertEvents: alertsInsertMock.insertAlertEvents,
 }));
 
 describe("GET /api/cron/morning-briefing", () => {
@@ -32,9 +41,15 @@ describe("GET /api/cron/morning-briefing", () => {
     serviceRoleMock.createServiceRoleClient.mockReturnValue(
       serviceRoleMock.client as never,
     );
+    briefingLogMock.insertBriefingLog.mockReset();
+    briefingLogMock.insertBriefingLog.mockResolvedValue(undefined);
+    alertsInsertMock.insertAlertEvents.mockReset();
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
+    // omxy R1 HIGH-2: vi.doMock("resend") mock leakage 차단.
+    vi.doUnmock("@/lib/email/resend");
     vi.unstubAllEnvs();
   });
 
@@ -86,6 +101,87 @@ describe("GET /api/cron/morning-briefing", () => {
     expect(body.ok).toBe(false);
     expect(body.sentChannels).toEqual(["dashboard"]);
     expect(body.alertEmitted).toMatch(/수신자/);
+  });
+
+  // Step 2.7b.3: briefing_log + briefing_failed alert_event INSERT wiring.
+  function mockResendSuccess() {
+    vi.doMock("@/lib/email/resend", () => ({
+      sendEmail: async () => ({
+        success: true,
+        providerId: "test-msg",
+        mockMode: false,
+        error: undefined as string | undefined,
+      }),
+    }));
+  }
+
+  it("success → briefing_log INSERT + alert_event empty array (Step 2.7b.3)", async () => {
+    mockResendSuccess(); // ADMIN_EMAILS set (beforeEach) + email success → generationFailed=false.
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/morning-briefing", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(briefingLogMock.insertBriefingLog).toHaveBeenCalledTimes(1);
+    const [rec, opts] = briefingLogMock.insertBriefingLog.mock.calls[0];
+    expect(rec).toHaveProperty("date");
+    expect(opts).toHaveProperty("client", serviceRoleMock.client);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    expect(alertsInsertMock.insertAlertEvents.mock.calls[0][0]).toHaveLength(0);
+  });
+
+  it("email-fail generationFailed → briefing_failed alert_event INSERT non-empty (Step 2.7b.3)", async () => {
+    // 기본 beforeEach: production + ADMIN_EMAILS + no RESEND → 실 sendEmail 실패 → generationFailed=true.
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/morning-briefing", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(502);
+    expect(briefingLogMock.insertBriefingLog).toHaveBeenCalledTimes(1);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    const arr = alertsInsertMock.insertAlertEvents.mock.calls[0][0];
+    expect(arr).toHaveLength(1);
+    expect(arr[0].alertType).toBe("briefing_failed");
+  });
+
+  it("briefing_log fail + alert success → both attempted, non-empty alert, dbError=briefing_log (skip 0, omxy R2 MED-1+MED-2)", async () => {
+    briefingLogMock.insertBriefingLog.mockRejectedValue(
+      new Error("briefing_log_insert_failed:23505"),
+    );
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/morning-briefing", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(502);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    const arr = alertsInsertMock.insertAlertEvents.mock.calls[0][0];
+    expect(arr).toHaveLength(1);
+    expect(arr[0].alertType).toBe("briefing_failed");
+    const body = await res.json();
+    expect(body.dbError).toBe("briefing_log_insert_failed:23505");
+  });
+
+  it("alert INSERT fail → dbError recorded (omxy R1 MED-1)", async () => {
+    briefingLogMock.insertBriefingLog.mockResolvedValue(undefined);
+    alertsInsertMock.insertAlertEvents.mockRejectedValue(
+      new Error("alert_event_insert_failed:23514"),
+    );
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/morning-briefing", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.dbError).toBe("alert_event_insert_failed:23514");
   });
 
   describe("authorization (G-cron-auth)", () => {
