@@ -10,9 +10,12 @@ vi.mock("@/lib/news/naver-api", () => ({
 }));
 
 // Mock cleanup Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT.
-// dev mock-mode 흐름은 admin-news.getRecentNewsEvents()를 호출하므로 테스트에서 stub 필요.
+// Step 2.7b.1 (2026-05-28): createServiceRoleClient() 주입 — 테스트에서 stub 필요.
 vi.mock("@/lib/data/admin-news", () => ({
   getRecentNewsEvents: vi.fn(() => Promise.resolve([])),
+}));
+vi.mock("@/lib/supabase/service-role", () => ({
+  createServiceRoleClient: vi.fn(() => ({} as unknown as never)),
 }));
 
 describe("GET /api/cron/news-sweep", () => {

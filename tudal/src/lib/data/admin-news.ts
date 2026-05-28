@@ -16,7 +16,8 @@ import type { NewsEvent, Severity } from "@/types/admin";
 // Step 2.7a (2026-05-28): cron 호출자 service-role client DI seam 추가.
 // admin pages는 options.client 없이 호출 → 기존 session client (`createClient`) 사용.
 // cron route가 createServiceRoleClient()를 주입하면 RLS bypass + 정상 SELECT.
-// W-news-cron-service-role-read는 본 파일의 DI half만 준비됨; route wiring은 별도 scope.
+// Step 2.7b.1 (2026-05-28): news-sweep + morning-briefing route wiring 완료 →
+// W-news-cron-service-role-read 완전 해소.
 
 export interface NewsEventDbRow {
   id: string;

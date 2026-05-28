@@ -4,6 +4,8 @@
 //   허용 (cron route 직접 import + DI seam helpers를 통한 간접 사용):
 //     - tudal/src/app/api/cron/monthly-batch/** (PR1 B17 원본)
 //     - tudal/src/app/api/cron/silent-health/** (Step 2.7a, 2026-05-28)
+//     - tudal/src/app/api/cron/news-sweep/** (Step 2.7b.1, 2026-05-28)
+//     - tudal/src/app/api/cron/morning-briefing/** (Step 2.7b.1, 2026-05-28)
 //     - tudal/src/lib/data/admin-batch-runs-cron.ts (PR1 B17 원본)
 //   허용 (DI seam을 통한 cron 호출자 service-role 주입 — admin pages는 session client 유지):
 //     - tudal/src/lib/data/admin-news.ts (Step 2.7a: options.client?)
