@@ -119,6 +119,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   cost_log_insert_failed: "비용 로그 저장 실패",
   // Mock cleanup Step 2.5 — pipeline_health 실 SELECT 통로 error 매핑.
   pipeline_health_select_failed: "파이프라인 헬스 조회 실패",
+  // Mock cleanup Step 2.6 — news_event 실 SELECT 통로 error 매핑 (cron + admin alerts page 공통).
+  news_event_select_failed: "뉴스 조회 실패",
+  news_event_invalid_severity: "뉴스 분류값이 올바르지 않습니다",
+  news_event_invalid_severity_filter: "뉴스 분류 필터값이 올바르지 않습니다",
   // PR3c — 3-step orchestration critic + revise + sector_reference_backlog + report_critic_findings (omxy R6 CONVERGED)
   critic_llm_failed: "AI 검증 단계가 실패했습니다",
   critic_parse_failed: "AI 검증 응답을 파싱할 수 없습니다",
@@ -223,6 +227,16 @@ export function formatErrorMessage(code: string): string {
   // Mock cleanup Step 2.5 — pipeline_health_select_failed:<pg-code | invalid_pipeline | invalid_status | non_finite_latency | negative_latency>
   if (code.startsWith("pipeline_health_select_failed:")) {
     return KOREAN_MAPPINGS["pipeline_health_select_failed"];
+  }
+  // Mock cleanup Step 2.6 — news_event_select_failed:<pg-code> + invalid_severity:<val> + invalid_severity_filter:<val>
+  if (code.startsWith("news_event_select_failed:")) {
+    return KOREAN_MAPPINGS["news_event_select_failed"];
+  }
+  if (code.startsWith("news_event_invalid_severity:")) {
+    return KOREAN_MAPPINGS["news_event_invalid_severity"];
+  }
+  if (code.startsWith("news_event_invalid_severity_filter:")) {
+    return KOREAN_MAPPINGS["news_event_invalid_severity_filter"];
   }
   // PR3c — orchestrate / critic / revise / backlog / critic_findings suffix throw 호환 4 prefix:
   if (code.startsWith("critic_validation_failed:") || code.startsWith("critic_parse_failed:") || code.startsWith("critic_llm_failed:")) {

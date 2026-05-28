@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { composeBriefing, toBriefingLogRecord } from "@/lib/briefing/compose";
 import { sendEmail } from "@/lib/email/resend";
-import { MOCK_ADMIN_NEWS } from "@/lib/data/mock-admin-news";
+import { getRecentNewsEvents } from "@/lib/data/admin-news";
 import type { AlertEvent, NewsEvent } from "@/types/admin";
 
 // Vercel Cron 매일 23:00 UTC = 08:00 KST. ServicePlan-Admin §3.9 R3.9-1.
-// 실데이터 전환 시 전일 포트 스냅샷 + 주의 종목 + 뉴스 3건을 Supabase에서 SELECT.
-// mock-mode에서는 고정 샘플로 compose + Resend mock 발송.
+// Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT 전환.
+// portfolio_snapshot / attentionTickers 실 SELECT는 별도 트랙 (Step 2.7 cron 이후).
+// production news_event 행 부재 시 topNews=[] (정상 — "오늘의 주요 뉴스 없음" 라인).
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,11 +57,15 @@ export async function GET(request: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Step 2.6 (2026-05-28): 실 news_event SELECT — published_at desc 정렬은 helper 내부.
+  // pickTopNews는 severity weight × publishedAt로 top 3 추출. production rows=0 → topNews=[].
+  // helper 자체가 throw 시 (RLS / DB error) Server route는 500을 자연스럽게 반환 (Next.js default).
+  const recentNewsEvents = await getRecentNewsEvents({ limit: 20 });
   const composed = composeBriefing({
     date: todayKstIsoDate(),
-    portfolioSnapshot: null, // mock-mode: null → "어제 포트 데이터 없음" 라인
+    portfolioSnapshot: null, // mock-mode: null → "어제 포트 데이터 없음" 라인 (Step 2.7 scope)
     attentionTickers: [],
-    topNews: pickTopNews(MOCK_ADMIN_NEWS),
+    topNews: pickTopNews(recentNewsEvents),
   });
 
   const sentChannels: string[] = ["dashboard"]; // 대시보드는 항상
