@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-28 (60차 post-merge sync — PR #53 Mock cleanup Step 2.7b.2 MERGED in main `a351033`. cron INSERT 실 path 가동: heartbeat_log + news_event. omxy R-debate 6 rounds CONVERGED.)
+Last updated: 2026-05-28 (60차 종료 — PR #53 Mock cleanup Step 2.7b.2 MERGED + §5.3 preflight ALL PASS drift 0 + production audit baseline 박제. USER 잔여 액션 = 0.)
 
 ## 현재 baseline
 
@@ -10,17 +10,19 @@ Last updated: 2026-05-28 (60차 post-merge sync — PR #53 Mock cleanup Step 2.7
 - **Vercel Production env truth**: `PR4_TRIGGER_UPSERT_ENABLED="true"` ✅ + `AI_COST_LOG_REAL_INSERT_ENABLED="true"` ✅. 더 이상 USER 잔여 env-toggle 액션 아님.
 - **Vercel canary** (post-PR-#53 deploy `4844409647`): public 4/4 OK (`/` 200 / `/login` 200 / `/macro` 200 / `/admin` 200 — 일부 CDN cache HIT 정상).
 - **Production functional truth**: PR4 + B65-P1/P3 + 마이그 0025 + env=true로 admin trigger / regenerate real AI path는 production functional 가능 상태. **신규**: silent-health + news-sweep cron INSERT path 가동 (heartbeat_log + news_event 실 적재). Task 7 Smoke Stage 2 PASS는 아직 아님 (실 AI 호출 비용 burn ~5,000~6,000원/회).
-- **Last-known production audit** (Supabase MCP token expired this session — 재auth 후 재확인 권장): `cost_log=0 / stock_reports=0 / committee_votes=0 / short_list_30=30`. 신규 측정 필요: `heartbeat_log` / `news_event` rows (cron 15:00 UTC + 00:00 UTC 다음 가동 후 적재 검증).
+- **Production audit baseline (60차 종료 측정)**: `cost_log=0 / stock_reports=0 / committee_votes=0 / alert_event=0 / pipeline_health=0 / heartbeat_log=0 / news_event=0 / short_list_30=30`. 신규 cron INSERT path는 다음 cron 실행 (silent-health 15:00 UTC + news-sweep 00:00 UTC) 후 적재 검증 가능.
+- **§5.3 schema preflight (60차 종료) — ALL PASS, drift 0**: (1) heartbeat_log_date_uniq + news_event_url_uniq 유니크 인덱스 ✅ (2) admin all RLS 정책 ✅ (3) CHECK constraints 1:1 정합 (status ∈ {ok,red_alert} / severity ∈ {critical,warning,info} / critical_alert_count>=0 / warning_alert_count>=0) ✅.
 - **W- defer 상태**: `W-cost-log-env-gate` ✅ resolved, `W-news-cron-service-role-read` ✅ resolved, `W-pipeline-health-admin-assertion` ✅ **fully resolved** (READ Step 2.7a + INSERT Step 2.7b.2). 신규 W-defer: `W-cron-alert-event-insert` (3-source 통합 Step 2.7b.3) + `W-briefing-log-insert` (Step 2.7b.3) + `W-portfolio-snapshot-real` (S7b).
 
 ## 다음 1순위
 
-1. **(USER)** §5.3 production schema preflight — Supabase MCP token re-auth 후 다음 3 query 실행 (PR #53 omxy R6 non-blocking caution): pg_indexes (heartbeat_log_date_uniq + news_event_url_uniq) / pg_policies (heartbeat_log + news_event admin all) / pg_constraint (status_check ∈ {ok,red_alert} + severity_check ∈ {critical,warning,info} + count_check >= 0). drift 없으면 merge gate 통과.
-2. **(USER 권장)** 인증 세션 canary verify: `/admin/settings/cost` + `/admin/report/[ticker]/regenerate` + `/admin/portfolio` (실 trigger 클릭은 Task 7 비용 승인 전 금지).
-3. **(CLAUDE)** **Mock cleanup Step 2.7b.3 (cron INSERT 3종 통합)** — fresh branch off main. alert_event INSERT (silent missingAlert + news criticals + briefing failed 3-source) + briefing_log INSERT (morning-briefing line 111 TODO 해소).
-4. **(CLAUDE 병렬 가능)** Task 5 B66 production backfill (`short_list_30` sector placeholder → canonical 14).
-5. **(CLAUDE+USER)** Task 7 Smoke Stage 2 — 환경 준비 완료; USER 1회 비용 승인 후 실 AI smoke.
-6. 이후 Task 8 audit + PR5 cron 30 자동 plan SoT.
+USER 잔여 액션 = 0 (§5.3 preflight ALL PASS 완료).
+
+1. **(USER 권장)** 인증 세션 canary verify: `/admin/settings/cost` + `/admin/report/[ticker]/regenerate` + `/admin/portfolio` + `/admin/settings/health` (실 trigger 클릭은 Task 7 비용 승인 전 금지). cron 다음 실행 (15:00 UTC silent-health + 00:00 UTC news-sweep) 후 `heartbeat_log` / `news_event` row 적재 spot-check.
+2. **(CLAUDE)** **Mock cleanup Step 2.7b.3 (cron INSERT 3종 통합)** — fresh branch off main. alert_event INSERT (silent missingAlert + news criticals + briefing failed 3-source) + briefing_log INSERT (morning-briefing line 111 TODO 해소).
+3. **(CLAUDE 병렬 가능)** Task 5 B66 production backfill (`short_list_30` sector placeholder → canonical 14).
+4. **(CLAUDE+USER)** Task 7 Smoke Stage 2 — 환경 준비 완료; USER 1회 비용 승인 후 실 AI smoke.
+5. 이후 Task 8 audit + PR5 cron 30 자동 plan SoT.
 
 **운영 원칙**: 본 HANDOFF는 다음 세션 행동에 필요한 최소 current state만 inline. 직전 2 code/history entry만 §6에 유지하고, older detail/round count/commit chain은 git log + PR body + spec/plan docs에 위임. self-referential drift 위험이 큰 commit count/SHA chain/round count는 runtime verify 우선.
 
