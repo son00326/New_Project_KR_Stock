@@ -97,3 +97,37 @@ export async function getRecentNewsEvents(
   }
   return (data ?? []).map((r) => transformNewsEventRow(r as NewsEventDbRow));
 }
+
+// 59차 Mock cleanup Step 2.7b.2: news-sweep cron classifier 결과를 news_event 테이블에 batch
+// upsert. ON CONFLICT (url) DO NOTHING (news_event_url_uniq) — append-only news, classifier
+// deterministic → 동일 URL 재분류 무의미 (plan §0 D2). service-role client 주입 시 RLS
+// using(is_admin()) 우회 (cron context).
+
+export async function insertNewsEvents(
+  events: NewsEvent[],
+  options: { client?: SupabaseClient } = {},
+): Promise<void> {
+  if (events.length === 0) return;
+  for (const e of events) {
+    if (!SEVERITY_SET.has(e.severity)) {
+      throw new Error(`news_event_invalid_severity:${e.severity}`);
+    }
+  }
+  const supabase = options.client ?? (await createClient());
+  const rows = events.map((e) => ({
+    ticker: e.ticker,
+    severity: e.severity,
+    title: e.title,
+    source: e.source,
+    url: e.url,
+    published_at: e.publishedAt,
+    fetched_at: e.fetchedAt,
+    classification_reason: e.classificationReason,
+  }));
+  const { error } = await supabase
+    .from("news_event")
+    .upsert(rows, { onConflict: "url", ignoreDuplicates: true });
+  if (error) {
+    throw new Error(`news_event_insert_failed:${error.code ?? "unknown"}`);
+  }
+}
