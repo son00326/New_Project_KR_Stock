@@ -9,8 +9,14 @@
 // SoT: 0006_s5a_automation.sql §news_event (severity check + published_at desc index +
 //      admin RLS) + 0010 RLS 정합.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { NewsEvent, Severity } from "@/types/admin";
+
+// Step 2.7a (2026-05-28): cron 호출자 service-role client DI seam 추가.
+// admin pages는 options.client 없이 호출 → 기존 session client (`createClient`) 사용.
+// cron (silent-health/news-sweep/...)은 createServiceRoleClient() 주입 → RLS bypass + 정상 SELECT.
+// W-news-cron-service-role-read (Step 2.6 PR #46 omxy R1 HIGH defer) 해소.
 
 export interface NewsEventDbRow {
   id: string;
@@ -63,12 +69,17 @@ const NEWS_SELECT_COLUMNS =
  * - 0 rows → empty array.
  */
 export async function getRecentNewsEvents(
-  options: { severity?: Severity; limit?: number } = {},
+  options: {
+    severity?: Severity;
+    limit?: number;
+    client?: SupabaseClient;
+  } = {},
 ): Promise<NewsEvent[]> {
   if (options.severity && !SEVERITY_SET.has(options.severity)) {
     throw new Error(`news_event_invalid_severity_filter:${options.severity}`);
   }
-  const supabase = await createClient();
+  // Step 2.7a DI seam: cron service-role client 주입 시 session client 우회.
+  const supabase = options.client ?? (await createClient());
   let query = supabase
     .from("news_event")
     .select(NEWS_SELECT_COLUMNS)

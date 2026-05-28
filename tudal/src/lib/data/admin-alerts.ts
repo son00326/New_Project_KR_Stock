@@ -10,8 +10,13 @@
 // SoT: 0001_rls_sketch.sql §6 alert_event + 0010_alert_event_rls_hardening.sql
 //      (12 alert_type enum + signal_sent_at desc index + admin SELECT RLS).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { AlertEvent, AlertType, ExitDecision, Severity } from "@/types/admin";
+
+// Step 2.7a (2026-05-28): cron 호출자 service-role client DI seam 추가.
+// admin pages는 options.client 없이 호출 → 기존 session client (`createClient`) 사용.
+// cron (silent-health 등)은 createServiceRoleClient() 주입 → RLS bypass + 정상 SELECT.
 
 export interface AlertEventDbRow {
   id: string;
@@ -111,9 +116,10 @@ const ALERT_SELECT_COLUMNS =
  * - SELECT 실패 → throw (caller catch + 한국어 매핑).
  */
 export async function getRecentAlertEvents(
-  options: { limit?: number } = {},
+  options: { limit?: number; client?: SupabaseClient } = {},
 ): Promise<AlertEvent[]> {
-  const supabase = await createClient();
+  // Step 2.7a DI seam: cron service-role client 주입 시 session client 우회.
+  const supabase = options.client ?? (await createClient());
   let query = supabase
     .from("alert_event")
     .select(ALERT_SELECT_COLUMNS)

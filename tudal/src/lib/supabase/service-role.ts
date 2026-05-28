@@ -1,9 +1,14 @@
 // PR1 B1+B11+B17 fix — server-only service-role Supabase client.
 // B11 (omxy R3): `import "server-only"` 강제 — Next.js 빌드타임에 client import 차단.
-// B17 (omxy R5): 사용 boundary는 cron/monthly-batch/ + cron lock helper에 한정.
-//   허용:
-//     - tudal/src/app/api/cron/monthly-batch/**
-//     - tudal/src/lib/data/admin-batch-runs-cron.ts
+// B17 (omxy R5): 사용 boundary는 cron + cron lock helper에 한정.
+//   허용 (cron route 직접 import + DI seam helpers를 통한 간접 사용):
+//     - tudal/src/app/api/cron/monthly-batch/** (PR1 B17 원본)
+//     - tudal/src/app/api/cron/silent-health/** (Step 2.7a, 2026-05-28)
+//     - tudal/src/lib/data/admin-batch-runs-cron.ts (PR1 B17 원본)
+//   허용 (DI seam을 통한 cron 호출자 service-role 주입 — admin pages는 session client 유지):
+//     - tudal/src/lib/data/admin-news.ts (Step 2.7a: options.client?)
+//     - tudal/src/lib/data/admin-alerts.ts (Step 2.7a: options.client?)
+//     - tudal/src/lib/data/admin-pipeline-health.ts (Step 2.5 기존 options.client?)
 //   금지 (DI-only 패턴 사용):
 //     - tudal/src/lib/data/admin-alerts-insert.ts (supabase: SupabaseClient를 인자로 받음)
 //     - tudal/src/app/(admin)/admin/portfolio/actions.ts (session-based createClient만)
