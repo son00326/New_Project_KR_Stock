@@ -4,6 +4,13 @@ import { NextRequest } from "next/server";
 const naverMock = vi.hoisted(() => ({
   fetchNaverNews: vi.fn(),
 }));
+const adminNewsMock = vi.hoisted(() => ({
+  getRecentNewsEvents: vi.fn(),
+}));
+const serviceRoleMock = vi.hoisted(() => ({
+  client: { role: "service-role" },
+  createServiceRoleClient: vi.fn(),
+}));
 
 vi.mock("@/lib/news/naver-api", () => ({
   fetchNaverNews: naverMock.fetchNaverNews,
@@ -12,10 +19,10 @@ vi.mock("@/lib/news/naver-api", () => ({
 // Mock cleanup Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT.
 // Step 2.7b.1 (2026-05-28): createServiceRoleClient() 주입 — 테스트에서 stub 필요.
 vi.mock("@/lib/data/admin-news", () => ({
-  getRecentNewsEvents: vi.fn(() => Promise.resolve([])),
+  getRecentNewsEvents: adminNewsMock.getRecentNewsEvents,
 }));
 vi.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: vi.fn(() => ({} as unknown as never)),
+  createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
 }));
 
 describe("GET /api/cron/news-sweep", () => {
@@ -26,7 +33,13 @@ describe("GET /api/cron/news-sweep", () => {
     process.env.CRON_SECRET = "cron-secret";
     delete process.env.NAVER_CLIENT_ID;
     delete process.env.NAVER_CLIENT_SECRET;
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
     naverMock.fetchNaverNews.mockReset();
+    adminNewsMock.getRecentNewsEvents.mockResolvedValue([]);
+    serviceRoleMock.createServiceRoleClient.mockReturnValue(
+      serviceRoleMock.client as never,
+    );
   });
 
   it("fails closed when only one Naver credential is configured", async () => {
@@ -91,7 +104,7 @@ describe("GET /api/cron/news-sweep", () => {
     expect(body.failedQueries).toBe(2);
   });
 
-  it("Step 2.6 — non-production + NAVER 키 미설정 → getRecentNewsEvents() empty → mockMode summary", async () => {
+  it("Step 2.7b.1 — non-production + NAVER 키 미설정 → service-role read → mockMode summary", async () => {
     // 명시적: vi.stubEnv NODE_ENV development (production 아님). NAVER 키 둘 다 unset.
     vi.stubEnv("NODE_ENV", "development");
     const { GET } = await import("../route");
@@ -108,9 +121,38 @@ describe("GET /api/cron/news-sweep", () => {
     expect(body.mockMode).toBe(true);
     expect(body.fetched).toBe(0);
     expect(body.alertsEmitted).toBe(0);
+    expect(serviceRoleMock.createServiceRoleClient).toHaveBeenCalledTimes(1);
+    expect(adminNewsMock.getRecentNewsEvents).toHaveBeenCalledWith({
+      client: serviceRoleMock.client,
+      limit: 50,
+    });
+  });
+
+  it("does not create a service-role read client in live Naver mode", async () => {
+    process.env.NAVER_CLIENT_ID = "client-id";
+    process.env.NAVER_CLIENT_SECRET = "client-secret";
+    naverMock.fetchNaverNews.mockResolvedValue([]);
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(serviceRoleMock.createServiceRoleClient).not.toHaveBeenCalled();
+    expect(adminNewsMock.getRecentNewsEvents).not.toHaveBeenCalled();
   });
 
   describe("authorization (G-cron-auth)", () => {
+    function neutralizeProductionLikeEnvs() {
+      vi.stubEnv("NODE_ENV", "test");
+      vi.stubEnv("VERCEL_ENV", "");
+      vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
+      delete process.env.CRON_SECRET;
+    }
+
     it("rejects request without Authorization header", async () => {
       const { GET } = await import("../route");
       const res = await GET(
@@ -140,5 +182,29 @@ describe("GET /api/cron/news-sweep", () => {
       );
       expect(res.status).toBe(401);
     });
+
+    it.each([
+      ["NODE_ENV=production", "NODE_ENV", "production"],
+      ["VERCEL_ENV=preview", "VERCEL_ENV", "preview"],
+      ["VERCEL_ENV=production", "VERCEL_ENV", "production"],
+      ["NEXT_PUBLIC_APP_ENV=production", "NEXT_PUBLIC_APP_ENV", "production"],
+    ])(
+      "rejects when CRON_SECRET is undefined in %s",
+      async (_label, envKey, envValue) => {
+        neutralizeProductionLikeEnvs();
+        vi.stubEnv(envKey, envValue);
+        const { GET } = await import("../route");
+
+        const res = await GET(
+          new NextRequest("http://localhost/api/cron/news-sweep", {
+            headers: { authorization: "Bearer anything" },
+          }),
+        );
+
+        expect(res.status).toBe(401);
+        expect(serviceRoleMock.createServiceRoleClient).not.toHaveBeenCalled();
+        expect(adminNewsMock.getRecentNewsEvents).not.toHaveBeenCalled();
+      },
+    );
   });
 });
