@@ -6,6 +6,7 @@ const naverMock = vi.hoisted(() => ({
 }));
 const adminNewsMock = vi.hoisted(() => ({
   getRecentNewsEvents: vi.fn(),
+  insertNewsEvents: vi.fn(),
 }));
 const serviceRoleMock = vi.hoisted(() => ({
   client: { role: "service-role" },
@@ -20,6 +21,7 @@ vi.mock("@/lib/news/naver-api", () => ({
 // Step 2.7b.1 (2026-05-28): createServiceRoleClient() 주입 — 테스트에서 stub 필요.
 vi.mock("@/lib/data/admin-news", () => ({
   getRecentNewsEvents: adminNewsMock.getRecentNewsEvents,
+  insertNewsEvents: adminNewsMock.insertNewsEvents,
 }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
@@ -37,6 +39,7 @@ describe("GET /api/cron/news-sweep", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
     naverMock.fetchNaverNews.mockReset();
     adminNewsMock.getRecentNewsEvents.mockResolvedValue([]);
+    adminNewsMock.insertNewsEvents.mockResolvedValue(undefined);
     serviceRoleMock.createServiceRoleClient.mockReturnValue(
       serviceRoleMock.client as never,
     );
@@ -128,7 +131,9 @@ describe("GET /api/cron/news-sweep", () => {
     });
   });
 
-  it("does not create a service-role read client in live Naver mode", async () => {
+  // Step 2.7b.2 (omxy R1 HIGH-1 + R2 MED-2): live mode는 service-role을 INSERT 위해 1회 lazy
+  // create, READ는 호출 안 함. WRITE only invariant.
+  it("creates service-role client once in live Naver mode (WRITE only, no READ call)", async () => {
     process.env.NAVER_CLIENT_ID = "client-id";
     process.env.NAVER_CLIENT_SECRET = "client-secret";
     naverMock.fetchNaverNews.mockResolvedValue([]);
@@ -141,8 +146,71 @@ describe("GET /api/cron/news-sweep", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(serviceRoleMock.createServiceRoleClient).not.toHaveBeenCalled();
+    expect(serviceRoleMock.createServiceRoleClient).toHaveBeenCalledTimes(1);
     expect(adminNewsMock.getRecentNewsEvents).not.toHaveBeenCalled();
+    expect(adminNewsMock.insertNewsEvents).toHaveBeenCalledTimes(1);
+  });
+
+  // Step 2.7b.2 (plan §Task 4): mock-mode classified events INSERT.
+  it("mock-mode (Naver keys missing): classified events INSERT with service-role client (Step 2.7b.2)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(adminNewsMock.insertNewsEvents).toHaveBeenCalledTimes(1);
+    const [events, opts] = adminNewsMock.insertNewsEvents.mock.calls[0];
+    expect(Array.isArray(events)).toBe(true);
+    expect(opts).toHaveProperty("client", serviceRoleMock.client);
+  });
+
+  // Step 2.7b.2 (omxy R2 MED-2 — lazy per branch): live Naver all-fail → 502 early return
+  // + insertNewsEvents NOT called + service-role NOT created.
+  it("live-mode Naver all-fail → 502 early + insertNewsEvents NOT called + service-role NOT created", async () => {
+    process.env.NAVER_CLIENT_ID = "client-id";
+    process.env.NAVER_CLIENT_SECRET = "client-secret";
+    naverMock.fetchNaverNews
+      .mockRejectedValueOnce(new Error("naver 500"))
+      .mockRejectedValueOnce(new Error("naver timeout"))
+      .mockRejectedValueOnce(new Error("naver 429"));
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(res.status).toBe(502);
+    expect(adminNewsMock.insertNewsEvents).not.toHaveBeenCalled();
+    expect(serviceRoleMock.createServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  // Step 2.7b.2 (plan §0 D3): INSERT 실패 → 502 + dbError audit + alertsEmitted=0 + classified preserved.
+  it("INSERT fail → 502 + dbError, alertsEmitted=0 + classified preserved (Step 2.7b.2)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    adminNewsMock.insertNewsEvents.mockRejectedValue(
+      new Error("news_event_insert_failed:23502"),
+    );
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.dbError).toBe("news_event_insert_failed:23502");
+    expect(body.classified).toBeDefined();
+    expect(body.alertsEmitted).toBe(0);
   });
 
   describe("authorization (G-cron-auth)", () => {

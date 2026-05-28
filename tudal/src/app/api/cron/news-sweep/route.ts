@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getRecentNewsEvents } from "@/lib/data/admin-news";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getRecentNewsEvents, insertNewsEvents } from "@/lib/data/admin-news";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { NewsCandidate } from "@/lib/news/classifier";
 import {
@@ -73,6 +74,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Step 2.7b.2 (plan §0 D3b + R2 MED-2): service-role client는 lazy per branch.
+  // live Naver fetch 실패 / partial failure path는 호출 0건.
+  let serviceRoleClient: SupabaseClient | null = null;
   const naverOn = hasNaverClientId && hasNaverClientSecret;
   let candidates: NewsCandidate[] = [];
 
@@ -105,11 +109,12 @@ export async function GET(request: NextRequest) {
     candidates = dedupeByUrl([...batches.flat(), ...scraped]);
   } else {
     // dev/mock 모드 (non-production + NAVER 키 미설정):
-    // Step 2.7b.1 (2026-05-28) — service-role client 주입 (W-news-cron-service-role-read
-    // 완전 해소). cron context에는 admin cookie 없어 session client는 RLS silent-0.
-    // Step 2.6 (실 news_event SELECT 전환) 위에 wiring 완료.
+    // Step 2.7b.1 (2026-05-28) — service-role client 주입.
+    // Step 2.7b.2 (2026-05-28) — lazy create: mock branch는 READ fallback 직전 1회 생성,
+    // 이후 WRITE에서 동일 인스턴스 재사용.
+    serviceRoleClient = createServiceRoleClient();
     const recent = await getRecentNewsEvents({
-      client: createServiceRoleClient(),
+      client: serviceRoleClient,
       limit: 50,
     });
     candidates = recent.map((n) => ({
@@ -139,15 +144,32 @@ export async function GET(request: NextRequest) {
     decisionMemo: null,
   }));
 
-  return NextResponse.json({
-    ok: true,
-    mockMode: !naverOn,
-    fetched: candidates.length,
-    classified: {
-      critical: criticals.length,
-      warning: classified.filter((n) => n.severity === "warning").length,
-      info: classified.filter((n) => n.severity === "info").length,
+  // Step 2.7b.2: classified news_event batch upsert via service-role.
+  // ON CONFLICT (url) DO NOTHING (plan §0 D2). R2 MED-2 — live branch는 INSERT 직전 service-role
+  // 1회 lazy create (Naver 실패 path는 위 early return으로 차단 → 여기 도달 0).
+  if (serviceRoleClient === null) {
+    serviceRoleClient = createServiceRoleClient();
+  }
+  let dbError: string | null = null;
+  try {
+    await insertNewsEvents(classified, { client: serviceRoleClient });
+  } catch (err) {
+    dbError = err instanceof Error ? err.message : "news_event_insert_failed:unknown";
+  }
+
+  return NextResponse.json(
+    {
+      ok: !dbError,
+      mockMode: !naverOn,
+      fetched: candidates.length,
+      classified: {
+        critical: criticals.length,
+        warning: classified.filter((n) => n.severity === "warning").length,
+        info: classified.filter((n) => n.severity === "info").length,
+      },
+      alertsEmitted: dbError ? 0 : alerts.length,
+      dbError,
     },
-    alertsEmitted: alerts.length,
-  });
+    { status: dbError ? 502 : 200 },
+  );
 }
