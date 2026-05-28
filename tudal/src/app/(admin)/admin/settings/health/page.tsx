@@ -48,7 +48,7 @@ function formatTime(iso: string): string {
 export default async function AdminHealthPage() {
   // Mock cleanup Step 2.5: MOCK_ADMIN_PIPELINE_HEALTH → 실 pipeline_health SELECT.
   // 기본 7일 윈도우 (page aggregate 24h + recentFailures 50 most recent 양쪽 cover).
-  // production pipeline_health=0 rows → 빈 위젯 / overall=info / failures=[] (정상 표시).
+  // production pipeline_health=0 rows → 빈 위젯 / overall=warning / failures=[] (미확인 fail-closed).
   // RLS deny / non-finite / invalid enum 시 throw → admin 라우트 error boundary.
   const refNow = new Date();
   const records = await getRecentPipelineHealth({ refNow });
@@ -68,7 +68,8 @@ export default async function AdminHealthPage() {
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           ※ 실 pipeline_health SELECT — 5개 파이프라인 (dart/news/price/ai/alert)
-          run 결과 자동 적재. production pipeline_health 적재 본격화 전에는 빈 위젯 (정상).
+          run 결과 자동 적재. production pipeline_health 적재 전에는 빈 위젯이며 미확인
+          상태로 Warning 표시.
         </p>
       </header>
 

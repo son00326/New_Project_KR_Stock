@@ -4,8 +4,8 @@
 //
 // Step 2.3/2.4 hardening 패턴 정합:
 //   - pagination loop (PAGE_SIZE=1000) — 24h window 내 수만 row 누적 시 truncate 차단
-//   - monotonic ordering snapshot (`started_at` DESC primary + `id` ASC tiebreak)
-//   - schema fail-closed (pipeline / status enum 위반 + non-finite latency_ms throw)
+//   - monotonic ordering snapshot (`started_at` ASC primary + `id` ASC tiebreak)
+//   - schema fail-closed (pipeline / status enum 위반 + non-finite/negative latency_ms throw)
 //   - DI seam (`options: { client?: SupabaseClient } = {}`)
 //
 // 윈도우: 기본 7일 (168h) — page aggregate(24h) + recentFailures(50 most recent)
@@ -63,6 +63,9 @@ function transformPipelineHealthRow(row: DbPipelineHealthRow): PipelineHealth {
     if (!Number.isFinite(n)) {
       throw new Error(`pipeline_health_select_failed:non_finite_latency`);
     }
+    if (n < 0) {
+      throw new Error(`pipeline_health_select_failed:negative_latency`);
+    }
     latencyMs = n;
   }
   return {
@@ -111,7 +114,10 @@ export async function getRecentPipelineHealth(
       .from("pipeline_health")
       .select(PIPELINE_HEALTH_SELECT_COLUMNS)
       .gte("started_at", cutoff)
-      .order("started_at", { ascending: false })
+      // Step 2.3/2.4 pagination hardening 정합: default-now/forward-moving inserts가
+      // page boundary 앞에 끼어들어 offset pagination을 흔들지 않도록 ASC로 읽고,
+      // "최근순" 표시는 aggregatePipelineHealth/recentFailures가 in-memory sort로 처리.
+      .order("started_at", { ascending: true })
       .order("id", { ascending: true })
       .range(offset, offset + PIPELINE_HEALTH_PAGE_SIZE - 1);
     if (error) {

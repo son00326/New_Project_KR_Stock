@@ -220,7 +220,7 @@ export function formatErrorMessage(code: string): string {
   if (code.startsWith("cost_log_insert_failed:")) {
     return KOREAN_MAPPINGS["cost_log_insert_failed"];
   }
-  // Mock cleanup Step 2.5 — pipeline_health_select_failed:<pg-code | invalid_pipeline | invalid_status | non_finite_latency>
+  // Mock cleanup Step 2.5 — pipeline_health_select_failed:<pg-code | invalid_pipeline | invalid_status | non_finite_latency | negative_latency>
   if (code.startsWith("pipeline_health_select_failed:")) {
     return KOREAN_MAPPINGS["pipeline_health_select_failed"];
   }
