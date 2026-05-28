@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { composeBriefing, toBriefingLogRecord } from "@/lib/briefing/compose";
 import { sendEmail } from "@/lib/email/resend";
 import { getRecentNewsEvents } from "@/lib/data/admin-news";
+import { insertBriefingLog } from "@/lib/data/admin-briefing-log";
+import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { AlertEvent, NewsEvent } from "@/types/admin";
 
@@ -74,8 +76,10 @@ export async function GET(request: NextRequest) {
   // Step 2.7b.1: service-role client 주입 → cron context RLS 우회 (W-news-cron-service-role-read
   // 완전 해소). production news_event rows=0 → topNews=[] (정상). helper throw 시 (DB error)
   // Server route는 500을 자연스럽게 반환 (Next.js default).
+  // Step 2.7b.3: service-role client 변수 추출 → news SELECT + briefing_log/alert INSERT 재사용.
+  const serviceRoleClient = createServiceRoleClient();
   const recentNewsEvents = await getRecentNewsEvents({
-    client: createServiceRoleClient(),
+    client: serviceRoleClient,
     limit: 20,
   });
   const composed = composeBriefing({
@@ -108,7 +112,6 @@ export async function GET(request: NextRequest) {
   const generationFailed = Boolean(configError || (emailError && recipients.length > 0));
   const logPayload = toBriefingLogRecord(composed, sentChannels, generationFailed);
 
-  // 실데이터 전환: Supabase INSERT briefing_log + (실패 시) alert_event
   let alertPayload: Omit<AlertEvent, "id" | "isRead"> | null = null;
   if (generationFailed) {
     alertPayload = {
@@ -124,15 +127,41 @@ export async function GET(request: NextRequest) {
     };
   }
 
+  // Step 2.7b.3: briefing_log INSERT (date upsert) + briefing_failed alert_event INSERT.
+  // independent best-effort (plan §0 D6 omxy R1 MED-2): 둘 다 독립 시도. dbError ??= 첫 실패 보존.
+  let dbError: string | null = null;
+  try {
+    await insertBriefingLog(logPayload, { client: serviceRoleClient });
+  } catch (err) {
+    dbError ??= err instanceof Error ? err.message : "briefing_log_insert_failed:unknown";
+  }
+  try {
+    await insertAlertEvents(alertPayload ? [alertPayload] : [], {
+      client: serviceRoleClient,
+    });
+  } catch (err) {
+    dbError ??= err instanceof Error ? err.message : "alert_event_insert_failed:unknown";
+  }
+
+  // status 우선순위: configError(500) → generationFailed(502) → dbError(502) → 200.
+  const finalStatus = configError
+    ? 500
+    : generationFailed
+    ? 502
+    : dbError
+    ? 502
+    : 200;
+
   return NextResponse.json(
     {
-      ok: !generationFailed,
+      ok: !generationFailed && !dbError,
       date: composed.date,
       sentChannels,
       contentPreview: composed.contentSummary.slice(0, 120),
       log: logPayload,
       alertEmitted: alertPayload?.triggerReason ?? null,
+      dbError,
     },
-    { status: configError ? 500 : generationFailed ? 502 : 200 },
+    { status: finalStatus },
   );
 }
