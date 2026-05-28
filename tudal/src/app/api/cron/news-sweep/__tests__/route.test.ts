@@ -12,6 +12,10 @@ const serviceRoleMock = vi.hoisted(() => ({
   client: { role: "service-role" },
   createServiceRoleClient: vi.fn(),
 }));
+// Step 2.7b.3: alert_event INSERT mock (news_critical).
+const alertsInsertMock = vi.hoisted(() => ({
+  insertAlertEvents: vi.fn(),
+}));
 
 vi.mock("@/lib/news/naver-api", () => ({
   fetchNaverNews: naverMock.fetchNaverNews,
@@ -25,6 +29,9 @@ vi.mock("@/lib/data/admin-news", () => ({
 }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
+}));
+vi.mock("@/lib/data/admin-alerts-insert", () => ({
+  insertAlertEvents: alertsInsertMock.insertAlertEvents,
 }));
 
 describe("GET /api/cron/news-sweep", () => {
@@ -40,6 +47,8 @@ describe("GET /api/cron/news-sweep", () => {
     naverMock.fetchNaverNews.mockReset();
     adminNewsMock.getRecentNewsEvents.mockResolvedValue([]);
     adminNewsMock.insertNewsEvents.mockResolvedValue(undefined);
+    alertsInsertMock.insertAlertEvents.mockReset();
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
     serviceRoleMock.createServiceRoleClient.mockReturnValue(
       serviceRoleMock.client as never,
     );
@@ -211,6 +220,101 @@ describe("GET /api/cron/news-sweep", () => {
     expect(body.dbError).toBe("news_event_insert_failed:23502");
     expect(body.classified).toBeDefined();
     expect(body.alertsEmitted).toBe(0);
+  });
+
+  // Step 2.7b.3: news_critical alert_event INSERT wiring.
+  it("criticals → alert_event INSERT via service-role (Step 2.7b.3, omxy R1 HIGH-1)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    // omxy R1 HIGH-1: "삼성 급락"은 info. critical regex 매칭 "실적 쇼크" 사용 (classifier.ts).
+    adminNewsMock.getRecentNewsEvents.mockResolvedValue([
+      {
+        id: "n1",
+        ticker: "005930",
+        severity: "critical",
+        title: "삼성전자 실적 쇼크",
+        source: "Naver",
+        url: "https://x/1",
+        publishedAt: "2026-05-28T00:00:00.000Z",
+        fetchedAt: "2026-05-28T00:01:00.000Z",
+        classificationReason: "급락",
+      },
+    ]);
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    const [arr, opts] = alertsInsertMock.insertAlertEvents.mock.calls[0];
+    expect(arr).toHaveLength(1);
+    expect(arr[0].alertType).toBe("news_critical");
+    expect(opts).toHaveProperty("client", serviceRoleMock.client);
+  });
+
+  it("alert INSERT fail → 502 + dbError, news_event success (omxy R1 MED-1)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    adminNewsMock.getRecentNewsEvents.mockResolvedValue([
+      {
+        id: "n1",
+        ticker: "005930",
+        severity: "critical",
+        title: "삼성전자 실적 쇼크",
+        source: "Naver",
+        url: "https://x/1",
+        publishedAt: "2026-05-28T00:00:00.000Z",
+        fetchedAt: "2026-05-28T00:01:00.000Z",
+        classificationReason: "급락",
+      },
+    ]);
+    adminNewsMock.insertNewsEvents.mockResolvedValue(undefined);
+    alertsInsertMock.insertAlertEvents.mockRejectedValue(
+      new Error("alert_event_insert_failed:23514"),
+    );
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.dbError).toBe("alert_event_insert_failed:23514");
+  });
+
+  it("news_event fail + alert success → both attempted (skip 0, omxy R1 MED-2 + R2 MED-2)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    adminNewsMock.getRecentNewsEvents.mockResolvedValue([
+      {
+        id: "n1",
+        ticker: "005930",
+        severity: "critical",
+        title: "삼성전자 실적 쇼크",
+        source: "Naver",
+        url: "https://x/1",
+        publishedAt: "2026-05-28T00:00:00.000Z",
+        fetchedAt: "2026-05-28T00:01:00.000Z",
+        classificationReason: "급락",
+      },
+    ]);
+    adminNewsMock.insertNewsEvents.mockRejectedValue(
+      new Error("news_event_insert_failed:23502"),
+    );
+    alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
+    const { GET } = await import("../route");
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    expect(res.status).toBe(502);
+    expect(alertsInsertMock.insertAlertEvents).toHaveBeenCalledTimes(1);
+    const body = await res.json();
+    expect(body.dbError).toBe("news_event_insert_failed:23502"); // 첫 실패 보존
+    // omxy R2 MED-2: alert INSERT 성공이므로 alertsEmitted는 실제 alert 수 반영 (0 거짓 보고 차단).
+    expect(body.alertsEmitted).toBe(1);
   });
 
   describe("authorization (G-cron-auth)", () => {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRecentNewsEvents, insertNewsEvents } from "@/lib/data/admin-news";
+import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { NewsCandidate } from "@/lib/news/classifier";
 import {
@@ -154,7 +155,19 @@ export async function GET(request: NextRequest) {
   try {
     await insertNewsEvents(classified, { client: serviceRoleClient });
   } catch (err) {
-    dbError = err instanceof Error ? err.message : "news_event_insert_failed:unknown";
+    dbError ??= err instanceof Error ? err.message : "news_event_insert_failed:unknown";
+  }
+
+  // Step 2.7b.3: news_critical alert_event INSERT. independent best-effort (plan §0 D6):
+  // news_event 실패와 무관하게 시도. dbError ??= (첫 실패 보존). alerts 빈 배열 시 short-circuit.
+  // alertInsertOk: response alertsEmitted가 dbError(news_event)와 무관하게 실제 alert 성공 반영
+  // (omxy R2 MED-2 — news_event fail + alert success 시 alertsEmitted 0 거짓 보고 차단).
+  let alertInsertOk = false;
+  try {
+    await insertAlertEvents(alerts, { client: serviceRoleClient });
+    alertInsertOk = true;
+  } catch (err) {
+    dbError ??= err instanceof Error ? err.message : "alert_event_insert_failed:unknown";
   }
 
   return NextResponse.json(
@@ -167,7 +180,7 @@ export async function GET(request: NextRequest) {
         warning: classified.filter((n) => n.severity === "warning").length,
         info: classified.filter((n) => n.severity === "info").length,
       },
-      alertsEmitted: dbError ? 0 : alerts.length,
+      alertsEmitted: alertInsertOk ? alerts.length : 0,
       dbError,
     },
     { status: dbError ? 502 : 200 },
