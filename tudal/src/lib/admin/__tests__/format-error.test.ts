@@ -29,6 +29,10 @@ const KNOWN_ACTION_CODES = [
   "cost_log_lookup_failed",
   // Mock cleanup Step 2.5 — health page pipeline_health 실 SELECT 통로
   "pipeline_health_select_failed",
+  // Mock cleanup Step 2.6 — news cron/news_event 실 SELECT 통로
+  "news_event_select_failed",
+  "news_event_invalid_severity",
+  "news_event_invalid_severity_filter",
   // PR4 Step 2.3 — regenerate orchestrate wire (omxy R1 B29 fix)
   "shortlist_item_not_found",
   "orchestrate_full_report_failed",
@@ -406,6 +410,21 @@ describe("formatErrorMessage", () => {
       expect(
         formatErrorMessage("pipeline_health_select_failed:invalid_pipeline:foo"),
       ).toContain("파이프라인");
+    });
+    it("news_event_select_failed:<pg-code> → 한국어 '뉴스 조회 실패'", () => {
+      expect(formatErrorMessage("news_event_select_failed:42501")).toContain(
+        "뉴스",
+      );
+    });
+    it("news_event_invalid_severity:<value> → 한국어 '뉴스 분류값'", () => {
+      expect(formatErrorMessage("news_event_invalid_severity:bad")).toContain(
+        "분류값",
+      );
+    });
+    it("news_event_invalid_severity_filter:<value> → 한국어 '뉴스 분류 필터값'", () => {
+      expect(
+        formatErrorMessage("news_event_invalid_severity_filter:bad"),
+      ).toContain("필터값");
     });
   });
 
