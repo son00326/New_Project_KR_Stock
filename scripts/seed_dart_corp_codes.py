@@ -253,9 +253,26 @@ def backfill_induty(
     from datetime import datetime, timezone
 
     # 1. fetch existing rows lacking induty_code (또는 강제 갱신은 별도 옵션 — 본 PR scope 외)
-    # NOTE: supabase-py select chain — induty_code is null 인 row만.
-    res = client.table("dart_corp_codes").select("ticker, corp_code, corp_name, induty_code").execute()
-    rows = res.data or []
+    # NOTE: supabase-py / PostgREST default LIMIT은 1000 — 2,766 corp_codes를 모두 읽으려면 명시 pagination 필요.
+    # `.range(start, end)` 호출로 페이지 단위 fetch + 빈 페이지 도달 시 종료.
+    rows: list[dict[str, Any]] = []
+    page_size = 1000
+    page_start = 0
+    while True:
+        page = (
+            client.table("dart_corp_codes")
+            .select("ticker, corp_code, corp_name, induty_code")
+            .order("ticker")
+            .range(page_start, page_start + page_size - 1)
+            .execute()
+        )
+        page_rows = page.data or []
+        if not page_rows:
+            break
+        rows.extend(page_rows)
+        if len(page_rows) < page_size:
+            break
+        page_start += page_size
     rows_to_process = [r for r in rows if not r.get("induty_code")]
     if limit is not None and limit > 0:
         rows_to_process = rows_to_process[:limit]

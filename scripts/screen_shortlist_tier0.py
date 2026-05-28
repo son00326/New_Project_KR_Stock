@@ -381,15 +381,19 @@ def resolve_sectors_for_universe(
     induty_by_ticker: dict[str, Optional[str]] = {}
     if supabase_client is not None and universe:
         tickers = [u["ticker"] for u in universe]
-        # supabase-py는 .in_("ticker", [...])로 batch 가능
-        res = (
-            supabase_client.table("dart_corp_codes")
-            .select("ticker, induty_code")
-            .in_("ticker", tickers)
-            .execute()
-        )
-        for row in (res.data or []):
-            induty_by_ticker[row["ticker"]] = row.get("induty_code")
+        # supabase-py / PostgREST default LIMIT은 1000. universe가 1000개를 넘을 수
+        # 있으므로 `.in_(ticker, [...])` 조회도 chunking해서 truncation을 막는다.
+        chunk_size = 500
+        for start in range(0, len(tickers), chunk_size):
+            ticker_chunk = tickers[start : start + chunk_size]
+            res = (
+                supabase_client.table("dart_corp_codes")
+                .select("ticker, induty_code")
+                .in_("ticker", ticker_chunk)
+                .execute()
+            )
+            for row in (res.data or []):
+                induty_by_ticker[row["ticker"]] = row.get("induty_code")
 
     for row in universe:
         ticker = row["ticker"]

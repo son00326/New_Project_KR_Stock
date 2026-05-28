@@ -264,6 +264,55 @@ class ResolveSectorsForUniverseTest(unittest.TestCase):
         self.assertEqual(result[0]["sector_source"], "mapper")
         self.assertEqual(result[0]["induty_code"], "264")
 
+    def test_resolve_with_supabase_induty_chunks_beyond_postgrest_default_limit(self):
+        universe = [
+            {"ticker": f"{i:06d}", "name": f"mock-{i}", "market": "KOSPI", "market_cap_won": 1}
+            for i in range(1500)
+        ]
+
+        class FakeChain:
+            def __init__(self, induty_by_ticker, calls):
+                self._induty_by_ticker = induty_by_ticker
+                self._calls = calls
+                self._tickers = []
+
+            def select(self, _):
+                return self
+
+            def in_(self, _, tickers):
+                self._tickers = list(tickers)
+                self._calls.append(len(self._tickers))
+                return self
+
+            def execute(self):
+                class R:
+                    pass
+
+                r = R()
+                # Supabase/PostgREST default cap emulation: a naive one-shot in_ with
+                # 1500 tickers would only return the first 1000 rows.
+                capped = self._tickers[:1000]
+                r.data = [
+                    {"ticker": ticker, "induty_code": self._induty_by_ticker[ticker]}
+                    for ticker in capped
+                    if ticker in self._induty_by_ticker
+                ]
+                return r
+
+        class FakeSupabase:
+            def __init__(self):
+                self.calls = []
+                self._induty_by_ticker = {row["ticker"]: "264" for row in universe}
+
+            def table(self, _):
+                return FakeChain(self._induty_by_ticker, self.calls)
+
+        fake = FakeSupabase()
+        result = MODULE.resolve_sectors_for_universe(universe, supabase_client=fake)
+        self.assertEqual(fake.calls, [500, 500, 500])
+        self.assertTrue(all(row["sector"] == "통신" for row in result))
+        self.assertTrue(all(row["induty_code"] == "264" for row in result))
+
     def test_resolve_unresolved_when_induty_unmatched(self):
         class FakeChain:
             def select(self, _):
