@@ -3,14 +3,25 @@ import { NextRequest } from "next/server";
 
 // Step 2.7a (2026-05-28): silent-health route는 createServiceRoleClient() + 실 SELECT 호출.
 // 기존 telegram/email 발송 실패 path 테스트가 무리없게 stubbed helpers + service-role 사용.
+const serviceRoleMock = vi.hoisted(() => ({
+  client: { role: "service-role" },
+  createServiceRoleClient: vi.fn(),
+}));
+const pipelineHealthMock = vi.hoisted(() => ({
+  getRecentPipelineHealth: vi.fn(),
+}));
+const alertEventsMock = vi.hoisted(() => ({
+  getRecentAlertEvents: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: vi.fn(() => ({} as unknown as never)),
+  createServiceRoleClient: serviceRoleMock.createServiceRoleClient,
 }));
 vi.mock("@/lib/data/admin-pipeline-health", () => ({
-  getRecentPipelineHealth: vi.fn(() => Promise.resolve([])),
+  getRecentPipelineHealth: pipelineHealthMock.getRecentPipelineHealth,
 }));
 vi.mock("@/lib/data/admin-alerts", () => ({
-  getRecentAlertEvents: vi.fn(() => Promise.resolve([])),
+  getRecentAlertEvents: alertEventsMock.getRecentAlertEvents,
 }));
 
 describe("GET /api/cron/silent-health", () => {
@@ -24,6 +35,13 @@ describe("GET /api/cron/silent-health", () => {
     delete process.env.TELEGRAM_CHAT_ID;
     delete process.env.TELEGRAM_CHAT_IDS;
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
+    serviceRoleMock.createServiceRoleClient.mockReturnValue(
+      serviceRoleMock.client as never,
+    );
+    pipelineHealthMock.getRecentPipelineHealth.mockResolvedValue([]);
+    alertEventsMock.getRecentAlertEvents.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -46,6 +64,28 @@ describe("GET /api/cron/silent-health", () => {
     expect(body.ok).toBe(false);
     expect(body.sentChannels).toEqual(["dashboard"]);
     expect(body.alertEmitted).toMatch(/하트비트/);
+  });
+
+  it("injects one service-role client into both Supabase read helpers", async () => {
+    const { GET } = await import("../route");
+
+    await GET(
+      new NextRequest("http://localhost/api/cron/silent-health", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(serviceRoleMock.createServiceRoleClient).toHaveBeenCalledTimes(1);
+    expect(pipelineHealthMock.getRecentPipelineHealth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client: serviceRoleMock.client,
+        refNow: expect.any(Date),
+      }),
+    );
+    expect(alertEventsMock.getRecentAlertEvents).toHaveBeenCalledWith({
+      client: serviceRoleMock.client,
+      limit: 200,
+    });
   });
 
   it("returns non-2xx status when production has no outbound heartbeat channel", async () => {
@@ -96,6 +136,13 @@ describe("GET /api/cron/silent-health", () => {
   });
 
   describe("authorization (G-cron-auth)", () => {
+    function neutralizeProductionLikeEnvs() {
+      vi.stubEnv("NODE_ENV", "test");
+      vi.stubEnv("VERCEL_ENV", "");
+      vi.stubEnv("NEXT_PUBLIC_APP_ENV", "");
+      delete process.env.CRON_SECRET;
+    }
+
     it("rejects request without Authorization header", async () => {
       const { GET } = await import("../route");
       const res = await GET(
@@ -125,5 +172,28 @@ describe("GET /api/cron/silent-health", () => {
       );
       expect(res.status).toBe(401);
     });
+
+    it.each([
+      ["NODE_ENV=production", "NODE_ENV", "production"],
+      ["VERCEL_ENV=preview", "VERCEL_ENV", "preview"],
+      ["VERCEL_ENV=production", "VERCEL_ENV", "production"],
+      ["NEXT_PUBLIC_APP_ENV=production", "NEXT_PUBLIC_APP_ENV", "production"],
+    ])(
+      "rejects when CRON_SECRET is undefined in %s",
+      async (_label, envKey, envValue) => {
+        neutralizeProductionLikeEnvs();
+        vi.stubEnv(envKey, envValue);
+        const { GET } = await import("../route");
+
+        const res = await GET(
+          new NextRequest("http://localhost/api/cron/silent-health", {
+            headers: { authorization: "Bearer anything" },
+          }),
+        );
+
+        expect(res.status).toBe(401);
+        expect(serviceRoleMock.createServiceRoleClient).not.toHaveBeenCalled();
+      },
+    );
   });
 });

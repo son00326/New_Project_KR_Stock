@@ -161,6 +161,29 @@ describe("getRecentAlertEvents", () => {
     expect(out).toEqual([]);
   });
 
+  it("uses injected client without creating a session client", async () => {
+    const chain = makeListChain();
+    const injectedFrom = vi.fn(() => chain);
+    const { createClient } = await import("@/lib/supabase/server");
+
+    const out = await getRecentAlertEvents({
+      client: { from: injectedFrom } as never,
+    });
+
+    expect(out).toEqual([]);
+    expect(createClient).not.toHaveBeenCalled();
+    expect(injectedFrom).toHaveBeenCalledWith("alert_event");
+  });
+
+  it("falls back to session client when no client is injected", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+
+    await getRecentAlertEvents();
+
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(mocks.from).toHaveBeenCalledWith("alert_event");
+  });
+
   it("maps non-empty rows to AlertEvent[]", async () => {
     mocks.resolved = {
       data: [

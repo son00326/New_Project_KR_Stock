@@ -19,14 +19,25 @@ import type { AlertEvent } from "@/types/admin";
 // Step 2.7a (2026-05-28): MOCK_ADMIN_PIPELINE_HEALTH + MOCK_ADMIN_ALERTS → 실 SELECT via
 // createServiceRoleClient() + DI seam (admin-pipeline-health.ts + admin-alerts.ts). cron은
 // admin cookie 없어 RLS using(is_admin())을 통과 못하므로 service-role 주입 필수.
-// W-news-cron-service-role-read + W-pipeline-health-admin-assertion 부분 해소.
+// W-pipeline-health-admin-assertion read side 부분 해소. W-news는 admin-news.ts DI half만 별도 준비.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// PR1 monthly-batch MF4 정합: service-role cron은 CRON_SECRET 누락 시 production-like
+// 환경(NODE_ENV/VERCEL_ENV/NEXT_PUBLIC_APP_ENV)에서 반드시 fail-closed.
+function isProductionLikeForAuth(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.NEXT_PUBLIC_APP_ENV === "production"
+  );
+}
+
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production";
+  if (!secret) return !isProductionLikeForAuth();
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -62,8 +73,8 @@ export async function GET(request: NextRequest) {
     .filter(Boolean);
 
   // Step 2.7a: service-role client 단일 인스턴스 생성 → 두 helper에 주입.
-  // production pipeline_health=0 / alert_event=0 → 모두 [] (정상 → status='ok' 또는 'warning'
-  // per classifyHeartbeat 기본 규칙 — 추후 production rows 적재 시 정확한 24h 통계).
+  // production pipeline_health=0 / alert_event=0 → 모두 [] (classification.status='ok';
+  // pipeline summary는 "no run" warning일 수 있음 — 추후 row 적재 시 정확한 24h 통계).
   const serviceRoleClient = createServiceRoleClient();
   const [pipelineHealth, recentAlerts] = await Promise.all([
     getRecentPipelineHealth({ client: serviceRoleClient, refNow: now }),
