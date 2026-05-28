@@ -290,12 +290,27 @@ class TestBackfillIndutyMain(unittest.TestCase):
             self.rows = [
                 {"ticker": "005930", "corp_code": "00126380", "corp_name": "삼성전자", "induty_code": None},
             ]
-            self.updates: list[dict] = []
+            self.updates: list[dict[str, str | None]] = []
+            self._range: tuple[int, int] | None = None
+            self.range_calls: list[tuple[int, int]] = []
+            self._mode: str = "select"  # 'select' or 'update'
 
         def select(self, *_args, **_kwargs):
+            self._mode = "select"
+            self._range = None
+            return self
+
+        def order(self, *_args, **_kwargs):
+            return self
+
+        def range(self, start: int, end: int):
+            # PostgREST .range(a, b)는 inclusive — `rows[a : b+1]` 정합.
+            self._range = (start, end)
+            self.range_calls.append((start, end))
             return self
 
         def update(self, payload):
+            self._mode = "update"
             self.updates.append(payload)
             return self
 
@@ -303,7 +318,18 @@ class TestBackfillIndutyMain(unittest.TestCase):
             return self
 
         def execute(self):
-            return SimpleNamespace(data=self.rows)
+            if self._mode == "update":
+                return SimpleNamespace(data=[])
+            # select mode — apply pagination if .range() was called.
+            if self._range is not None:
+                start, end = self._range
+                slice_ = self.rows[start : end + 1]
+                self._range = None
+                return SimpleNamespace(data=slice_)
+            # Supabase/PostgREST default response cap emulation: without explicit `.range()`,
+            # naive select() sees only the first 1000 rows. This makes the pagination
+            # regression test fail if backfill_induty is accidentally reverted.
+            return SimpleNamespace(data=self.rows[:1000])
 
     class _FakeClient:
         def __init__(self):
@@ -337,6 +363,49 @@ class TestBackfillIndutyMain(unittest.TestCase):
         self.assertEqual(counts["ok"], 1)
         self.assertEqual(counts["written"], 1)
         self.assertEqual(client.table_obj.updates[0]["induty_code"], "264")
+
+    def test_backfill_induty_paginates_beyond_postgrest_default_limit(self):
+        """PostgREST default LIMIT is 1000 — backfill_induty must paginate via .range().
+
+        Regression test for production bug discovered 2026-05-29: backfill processed only the
+        first 1000 of 2,766 dart_corp_codes, leaving 22 of 30 short_list tickers unresolved.
+        """
+        import scripts.seed_dart_corp_codes as mod_under_test
+
+        # 1,500 rows — all missing induty_code. With LIMIT 1000, naive .select() would only
+        # return the first 1000, missing 500. Pagination via .range(0,999), .range(1000,1999) must
+        # capture all 1,500.
+        client = self._FakeClient()
+        client.table_obj.rows = [
+            {"ticker": f"{i:06d}", "corp_code": f"{i:08d}", "corp_name": f"co{i}", "induty_code": None}
+            for i in range(1500)
+        ]
+        with (
+            patch.object(mod_under_test, "fetch_induty", return_value={"induty_code": "264", "induty_last_status": "000", "error_kind": None}),
+            patch.object(mod_under_test.time, "sleep", lambda *_args, **_kwargs: None),
+        ):
+            counts = mod_under_test.backfill_induty(client, "TESTKEY", dry_run=True)
+        # All 1,500 rows must be processed (not just 1,000).
+        self.assertEqual(counts["processed"], 1500)
+        self.assertEqual(counts["ok"], 1500)
+        self.assertEqual(client.table_obj.range_calls, [(0, 999), (1000, 1999)])
+
+    def test_backfill_induty_fetches_empty_page_when_total_is_exact_page_size(self):
+        """If total rows exactly match page_size, the loop must terminate on an empty next page."""
+        import scripts.seed_dart_corp_codes as mod_under_test
+
+        client = self._FakeClient()
+        client.table_obj.rows = [
+            {"ticker": f"{i:06d}", "corp_code": f"{i:08d}", "corp_name": f"co{i}", "induty_code": None}
+            for i in range(1000)
+        ]
+        with (
+            patch.object(mod_under_test, "fetch_induty", return_value={"induty_code": "264", "induty_last_status": "000", "error_kind": None}),
+            patch.object(mod_under_test.time, "sleep", lambda *_args, **_kwargs: None),
+        ):
+            counts = mod_under_test.backfill_induty(client, "TESTKEY", dry_run=True)
+        self.assertEqual(counts["processed"], 1000)
+        self.assertEqual(client.table_obj.range_calls, [(0, 999), (1000, 1999)])
 
     def test_main_returns_nonzero_when_backfill_hits_fail_fast(self):
         import scripts.seed_dart_corp_codes as mod_under_test
