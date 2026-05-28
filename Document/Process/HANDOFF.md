@@ -1,24 +1,26 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-28 (59차 stale correction — Vercel production env=true 24h ago 확인 반영, HANDOFF 중복/stale sweep. main `1935ea2` post-PR-#51 docs sync; code baseline `20b434d` PR #50 Step 2.7b.1)
+Last updated: 2026-05-28 (60차 post-merge sync — PR #53 Mock cleanup Step 2.7b.2 MERGED in main `a351033`. cron INSERT 실 path 가동: heartbeat_log + news_event. omxy R-debate 6 rounds CONVERGED.)
 
-## 현재 baseline (stale correction)
+## 현재 baseline
 
-- **main HEAD** = `1935ea2` (post-PR-#51 docs sync; code baseline `20b434d` post-PR-#50 Step 2.7b.1). 다음 세션은 `git rev-parse --short origin/main`으로 자손 허용 verify.
+- **main HEAD** = `a351033` (post-PR-#53 Mock cleanup Step 2.7b.2). 다음 세션은 `git rev-parse --short origin/main`으로 자손 허용 verify.
 - **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only.
-- **검증 게이트**: main 기준 build 25 routes / lint 0 err 5 warn (pre-existing) / test:ci 1282 PASS / tsc clean.
-- **Vercel Production env truth (사용자 확인, 2026-05-28 기준 24h ago 설정 완료)**: `PR4_TRIGGER_UPSERT_ENABLED="true"` ✅ + `AI_COST_LOG_REAL_INSERT_ENABLED="true"` ✅. 더 이상 USER 잔여 env-toggle 액션 아님.
-- **Production functional truth**: PR4 + B65-P1/P3 + 마이그 0025 + env=true로 admin trigger / regenerate real AI path는 **production functional 가능 상태**. 단, 버튼 클릭은 실 AI 호출 비용 burn(대략 5,000~6,000원/회)이며 아직 Task 7 Smoke Stage 2 PASS는 아님.
-- **Last-known production audit** (Supabase MCP currently disconnected — 다음 세션 재확인): `cost_log=0 / stock_reports=0 / committee_votes=0 / short_list_30=30`. 해석 = 아직 누가 trigger를 누르지 않았거나 PR5 cron 30 자동 미가동.
-- **W- defer 상태**: `W-cost-log-env-gate` ✅ fully resolved (env=true 완료), `W-news-cron-service-role-read` ✅ fully resolved, `W-pipeline-health-admin-assertion` READ side resolved / INSERT side Step 2.7b.2 잔여.
+- **검증 게이트**: main 기준 build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1296 PASS** / 115 files / tsc clean.
+- **Vercel Production env truth**: `PR4_TRIGGER_UPSERT_ENABLED="true"` ✅ + `AI_COST_LOG_REAL_INSERT_ENABLED="true"` ✅. 더 이상 USER 잔여 env-toggle 액션 아님.
+- **Vercel canary** (post-PR-#53 deploy `4844409647`): public 4/4 OK (`/` 200 / `/login` 200 / `/macro` 200 / `/admin` 200 — 일부 CDN cache HIT 정상).
+- **Production functional truth**: PR4 + B65-P1/P3 + 마이그 0025 + env=true로 admin trigger / regenerate real AI path는 production functional 가능 상태. **신규**: silent-health + news-sweep cron INSERT path 가동 (heartbeat_log + news_event 실 적재). Task 7 Smoke Stage 2 PASS는 아직 아님 (실 AI 호출 비용 burn ~5,000~6,000원/회).
+- **Last-known production audit** (Supabase MCP token expired this session — 재auth 후 재확인 권장): `cost_log=0 / stock_reports=0 / committee_votes=0 / short_list_30=30`. 신규 측정 필요: `heartbeat_log` / `news_event` rows (cron 15:00 UTC + 00:00 UTC 다음 가동 후 적재 검증).
+- **W- defer 상태**: `W-cost-log-env-gate` ✅ resolved, `W-news-cron-service-role-read` ✅ resolved, `W-pipeline-health-admin-assertion` ✅ **fully resolved** (READ Step 2.7a + INSERT Step 2.7b.2). 신규 W-defer: `W-cron-alert-event-insert` (3-source 통합 Step 2.7b.3) + `W-briefing-log-insert` (Step 2.7b.3) + `W-portfolio-snapshot-real` (S7b).
 
 ## 다음 1순위
 
-1. **(USER 권장)** 인증 세션 canary verify: `/admin/settings/cost` empty 실 cost_log SELECT, `/admin/report/[ticker]/regenerate` real cost_log SELECT path, `/admin/portfolio` trigger 버튼 노출/경고 확인. **실 trigger 클릭은 Task 7 비용 승인 전 금지**.
-2. **(CLAUDE)** **Mock cleanup Step 2.7b.2 (cron INSERT 실 path)** — fresh branch off main. silent-health `heartbeat_log` INSERT + news-sweep `news_event` INSERT. idempotency / retry / conflict resolution architectural decisions → PR plan R-debate 권장.
-3. **(CLAUDE 병렬 가능)** Task 5 B66 production backfill (`short_list_30` sector placeholder → canonical 14).
-4. **(CLAUDE+USER)** Task 7 Smoke Stage 2 — 환경은 준비 완료(env=true); USER 1회 비용 승인 후 실 AI smoke.
-5. 이후 Task 8 audit + PR5 cron 30 자동 plan SoT.
+1. **(USER)** §5.3 production schema preflight — Supabase MCP token re-auth 후 다음 3 query 실행 (PR #53 omxy R6 non-blocking caution): pg_indexes (heartbeat_log_date_uniq + news_event_url_uniq) / pg_policies (heartbeat_log + news_event admin all) / pg_constraint (status_check ∈ {ok,red_alert} + severity_check ∈ {critical,warning,info} + count_check >= 0). drift 없으면 merge gate 통과.
+2. **(USER 권장)** 인증 세션 canary verify: `/admin/settings/cost` + `/admin/report/[ticker]/regenerate` + `/admin/portfolio` (실 trigger 클릭은 Task 7 비용 승인 전 금지).
+3. **(CLAUDE)** **Mock cleanup Step 2.7b.3 (cron INSERT 3종 통합)** — fresh branch off main. alert_event INSERT (silent missingAlert + news criticals + briefing failed 3-source) + briefing_log INSERT (morning-briefing line 111 TODO 해소).
+4. **(CLAUDE 병렬 가능)** Task 5 B66 production backfill (`short_list_30` sector placeholder → canonical 14).
+5. **(CLAUDE+USER)** Task 7 Smoke Stage 2 — 환경 준비 완료; USER 1회 비용 승인 후 실 AI smoke.
+6. 이후 Task 8 audit + PR5 cron 30 자동 plan SoT.
 
 **운영 원칙**: 본 HANDOFF는 다음 세션 행동에 필요한 최소 current state만 inline. 직전 2 code/history entry만 §6에 유지하고, older detail/round count/commit chain은 git log + PR body + spec/plan docs에 위임. self-referential drift 위험이 큰 commit count/SHA chain/round count는 runtime verify 우선.
 
@@ -27,30 +29,31 @@ Last updated: 2026-05-28 (59차 stale correction — Vercel production env=true 
 ## 0. 세션 시작 루틴 (verify + auto-progress)
 
 ```bash
-# 59차 stale-correction baseline — main `1935ea2` (post-PR-#51 docs sync; code baseline `20b434d` PR #50 Step 2.7b.1).
-# 59차 누적 MERGED: PR #39~#51 — Mock cleanup Step 2.3~2.7b.1 + docs sync. 상세 commit/round/catch chain은 git log + PR body 위임.
+# 60차 post-merge baseline — main `a351033` (post-PR-#53 Mock cleanup Step 2.7b.2 cron INSERT).
+# 60차 추가: PR #53 cron INSERT 실 path (heartbeat_log + news_event), omxy R-debate 6 rounds CONVERGED.
+# 59차 누적 MERGED: PR #39~#51 — Mock cleanup Step 2.3~2.7b.1 + docs sync.
 # 58차 누적 MERGED: PR #30~#34 + 마이그 0025 production applied.
 # OPEN: #2 only (format-error, CONFLICTING 보류).
-# main HEAD = `1935ea2` post-PR-#51 docs sync (code baseline `20b434d`; 실제 SHA는 runtime verify로 갱신, 자손 허용)
+# main HEAD = `a351033` post-PR-#53 (실제 SHA는 runtime verify로 갱신, 자손 허용)
 cd /Users/yong/New_Project_KR_Stock
 
 # 1. main branch state runtime 확인 (B75 fixed SHA 박제 금지 — post-PR-#51 descendant 자손 기대)
 git checkout main && git pull origin main
 git rev-parse --abbrev-ref HEAD                   # main
-git rev-parse --short HEAD                        # 기대: `1935ea2` 또는 자손 (runtime 동적 verify)
+git rev-parse --short HEAD                        # 기대: `a351033` 또는 자손 (runtime 동적 verify)
 git status --short                                # clean
 
 # 2. OPEN PRs (59차 PR #51 종료 post-merge baseline: #2 only — PR #39~#51 MERGED, feature/docs branches deleted)
 gh pr list --state open --json number,title,headRefName,mergeable
 #   #2   fix/s7a-format-error-inventory (format-error, CONFLICTING 보류)
 
-# 3. 59차 누적 MERGED + canonical 5-PR + B65 3-phase 확인
+# 3. 60차 누적 MERGED + canonical 5-PR + B65 3-phase 확인
 git log --oneline | head -10
-#   기대: `1935ea2` PR #51 docs sync 또는 자손 (code baseline PR #50 `20b434d`)
+#   기대: `a351033` PR #53 Step 2.7b.2 cron INSERT 또는 자손
 #   상세 commit 체인 = git log + PR body 위임
 
-# 4. 검증 게이트 (main `1935ea2` 또는 자손 — 매 세션 진입 시 1회)
-#    - test:ci 실측 = 1282 PASS / 113 files (59차 PR #50 baseline; +10 vs PR #48 baseline 1272)
+# 4. 검증 게이트 (main `a351033` 또는 자손 — 매 세션 진입 시 1회)
+#    - test:ci 실측 = 1296 PASS / 115 files (60차 PR #53 baseline; +14 net vs PR #50 baseline 1282)
 #    - build 25 routes (cron routes 정상) / lint 0 err 5 warn (pre-existing) / tsc clean / 0 migrations since PR #50 code baseline
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
 
@@ -69,26 +72,16 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 #    실 trigger click은 Task 7 비용 승인 후만 실행.
 ```
 
-### 진입자 자동 행동 (§2.0 default-progress policy, 59차 종료 갱신)
+### 진입자 자동 행동 (§2.0 default-progress policy, 60차 종료 갱신)
 
-1. **§0 verify 실행** → branch state + PR state (**#2 CONFLICTING 보류 only** — PR #39~#51 MERGED, feature/docs branches deleted) + 검증 게이트 + **production audit 재확인** (Task 1).
-2. **§9 박제 확인** — PR4 + B65-P1/P3 MERGED + 마이그 0025 applied + Vercel env=true 완료로 production functional 가능 상태. 단, 아직 Smoke Stage 2 PASS 전이며 trigger 클릭은 실 AI 비용 burn이므로 USER 승인 전 금지.
+1. **§0 verify 실행** → branch state + PR state (**#2 CONFLICTING 보류 only** — PR #39~#53 MERGED) + 검증 게이트 + **production audit 재확인** (USER §5.3 preflight + Supabase rows).
+2. **§9 박제 확인** — PR4 + B65-P1/P3 MERGED + 마이그 0025 applied + Vercel env=true + **PR #53 cron INSERT 실 path 가동**. Smoke Stage 2 PASS 전이며 trigger 클릭은 실 AI 비용 burn이므로 USER 승인 전 금지.
 3. **§2.1 active matrix 다음 unblocked step 식별**:
-   - Task 1 ✅ COMPLETED (57차 §1, production audit 1회) — **다음 세션 entry routine 1순위 재실행**
-   - Task 2 ✅ MERGED `5b99e03` (B65-P1 PR #21)
-   - Task 3 ✅ COMPLETED (57차 §2, B65-P2 spec doc CONVERGED R8 — 옵션 A lock-in)
-   - **Task 4 ✅ MERGED `3c09d6e` (58차, PR #30 B65-P3 impl) + 마이그 0025 ✅ production applied**
-   - **B-trackrecord-rls ✅ MERGED `838386e` (58차, PR #31)**
-   - **Mock cleanup Step 1 ✅ MERGED `1d2db08` (58차, PR #32, omxy R1~R4 CONVERGED)**
-   - **Mock cleanup Step 2.1 ✅ MERGED `e6be73f` (58차, PR #33, omxy 2 rounds CONVERGED)**
-   - **Mock cleanup Step 2.2 ✅ MERGED `2dca060` (58차, PR #34, omxy R1 CONVERGED)**
-   - **Mock cleanup Step 2.3 ✅ MERGED `e273cc2` (59차, PR #39, omxy 6 rounds CONVERGED 12 catches → 10 fix + 2 W- defer)**
-   - **Mock cleanup Step 2.4 ✅ MERGED `4e15176` (59차, PR #42, omxy patch-suggest 2 rounds CONVERGED 1 BLOCKER catch + fix + 1 W- defer)**
-   - **Mock cleanup Step 2.5 ✅ MERGED `6c5ce2c` (59차, PR #44, omxy patch-suggest 2 rounds CONVERGED 4 catches → fix + 2 W- defer)**
-   - **Mock cleanup Step 2.6 ✅ MERGED `845b9ca` (59차, PR #46, omxy patch-suggest 2 rounds CONVERGED 2 catches → 1 LOW fix + 1 HIGH defer)**
-   - **Mock cleanup Step 2.7a ✅ MERGED `6c85f13` (59차, PR #48, omxy patch-suggest 2 rounds CONVERGED 4 catches → omxy 직접 fix `4f55548`)**
-   - **Mock cleanup Step 2.7b.1 ✅ MERGED `20b434d` (59차, PR #50, news cron service-role wiring + W-news-cron-service-role-read fully resolved, omxy patch-suggest 2 rounds CONVERGED 3 catches → omxy 직접 fix `63b2888`)**
-   - **다음 1순위**: (CLAUDE) **Mock cleanup Step 2.7b.2 (cron INSERT 실 path)** 진입 — fresh branch off main. silent-health heartbeat_log INSERT + news-sweep news_event INSERT. idempotency / retry / conflict resolution architectural decisions. → Task 5 B66 backfill + Task 7 Smoke Stage 2 (env 준비 완료, USER 비용 승인 필요)
+   - Task 1 ✅ (57차 §1) / Task 2 ✅ `5b99e03` / Task 3 ✅ (57차 §2) / Task 4 ✅ `3c09d6e` + 마이그 0025
+   - B-trackrecord-rls ✅ `838386e` / Mock cleanup Step 1 ✅ `1d2db08` / Step 2.1 ✅ `e6be73f` / Step 2.2 ✅ `2dca060`
+   - Step 2.3 ✅ `e273cc2` / Step 2.4 ✅ `4e15176` / Step 2.5 ✅ `6c5ce2c` / Step 2.6 ✅ `845b9ca`
+   - Step 2.7a ✅ `6c85f13` / Step 2.7b.1 ✅ `20b434d` / **Step 2.7b.2 ✅ `a351033` (60차 PR #53, omxy R-debate 6 rounds CONVERGED 13 catches catch & fix)**
+   - **다음 1순위**: (USER) §5.3 preflight (Supabase MCP re-auth) → (CLAUDE) **Mock cleanup Step 2.7b.3 (alert_event INSERT 3-source 통합 + briefing_log INSERT)** → Task 5 B66 backfill → Task 7 Smoke Stage 2.
 4. **Owner 별 행동**:
    - **[CLAUDE]** → 즉시 자동 시작 (stacked 1세션+ 작업은 진입 의사 1회 확인).
    - **[SHARED]** → "이어서 진행" 권한으로 prepare/commit/push/PR-create 자동; docs-sync merge는 CLAUDE.md 자동 허용 범위 안에서만.
@@ -98,12 +91,13 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ---
 
-## 1. 현재 상태 (main `1935ea2` post-PR-#51 docs sync — code baseline `20b434d` PR #50 Step 2.7b.1, Vercel env=true 완료, 2026-05-28)
+## 1. 현재 상태 (main `a351033` post-PR-#53 Mock cleanup Step 2.7b.2, Vercel canary 4/4 OK, 2026-05-28)
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **`1935ea2`** (post-PR-#51 docs sync; code baseline `20b434d` post-PR-#50 Step 2.7b.1). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify**. |
-| **PR #50 (59차 Mock cleanup Step 2.7b.1)** | ✅ MERGED `20b434d` — news-sweep + morning-briefing cron route에 `createServiceRoleClient()` 주입. service-role.ts B17 boundary 확장 (cron/news-sweep + cron/morning-briefing 추가). `isProductionLikeForAuth()` 4-way fail-closed. omxy patch-suggest 2 rounds CONVERGED 3 catches → omxy 직접 fix commit `63b2888` (MED DI invariant + MED scope guard + LOW/MED 4-way auth regression). **W-news-cron-service-role-read fully resolved** (3-step chain Step 2.6 → 2.7a → 2.7b.1). |
+| main HEAD | **`a351033`** (post-PR-#53 Mock cleanup Step 2.7b.2 cron INSERT 실 path). 자손 SHA 허용. **다음 세션 진입 시 `git rev-parse --short origin/main`으로 verify**. |
+| **PR #53 (60차 Mock cleanup Step 2.7b.2)** | ✅ MERGED `a351033` — silent-health `heartbeat_log` INSERT + news-sweep `news_event` INSERT 실 path. ON CONFLICT (date) DO UPDATE / (url) DO NOTHING. service-role lazy per branch (Naver 실패 path 호출 0). omxy R-debate **6 rounds CONVERGED** (R1~R5 plan + R6 impl, 누적 13 catches catch & fix). 5 commits FF / 신규 helpers `admin-heartbeat-log.ts` + `admin-news.ts::insertNewsEvents` / +14 net tests (1282→1296) / 회귀 0. **W-pipeline-health-admin-assertion INSERT side fully resolved**. |
+| **PR #50 (59차 Mock cleanup Step 2.7b.1)** | ✅ MERGED `20b434d` — news cron service-role wiring + 4-way auth hardening. W-news-cron-service-role-read fully resolved. |
 | **PR #48 (59차 Mock cleanup Step 2.7a)** | ✅ MERGED `6c85f13` — silent-health 실 SELECT via service-role DI + 3 mock 삭제 + 4-way auth hardening + W-pipeline-health-admin-assertion READ side fully resolved. |
 | **PR #46 (59차 Mock cleanup Step 2.6)** | ✅ MERGED `845b9ca` — news cron routes MOCK_ADMIN_NEWS → 기존 `admin-news.ts::getRecentNewsEvents` 재사용 + format-error mapping + 2 mock 삭제 + W-news-cron-service-role-read defer 박제. |
 | **PR #44 (59차 Mock cleanup Step 2.5)** | ✅ MERGED `6c5ce2c` — health page MOCK_ADMIN_PIPELINE_HEALTH → 실 pipeline_health SELECT (신규 helper `admin-pipeline-health.ts::getRecentPipelineHealth` + Step 2.3/2.4 ASC pagination 정합 + schema fail-closed enum + non-finite/negative latency guard + Server Component async + format-error mapping), omxy patch-suggest 2 rounds CONVERGED 4 catches + omxy 직접 fix commit `fd2d4e8` + 2 W-pipeline-health-* defer. |
@@ -113,7 +107,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **PR #21 (B65-P1)** | ✅ MERGED `5b99e03` (57차 §1) — Task 2 production active |
 | **PR #20+#22+#24+#25 (docs chain, 57차 §1 lifecycle)** | ✅ MERGED in main (branches deleted, PR #23 CLOSED 운영 원칙 반려) |
 | **PR #26 (57차 §2 — B65-P2 spec doc + HANDOFF sweep + cleanup, docs-only, 3 commits)** | ✅ **MERGED in main `33098e0`** (rebase FF, --delete-branch, 2026-05-26, Vercel deploy SUCCESS E41zxrqAeRGfB7E99h82hXpZkAd2) |
-| **Vercel last verified production deploy/canary** | ✅ main `20b434d` post-PR-#50 public canary 4/4 OK (`/` 200 + `/login` 200 + `/macro` 200 + `/admin` 307→/login auth redirect) ✓ public 회귀 0. 인증 세션 canary 권장: `/admin/settings/health` (Step 2.5) + `/admin/settings/cost` (Step 2.4) + `/admin/alerts` empty state. cron route 검증: silent-health 15:00 UTC + news-sweep 00:00 UTC + morning-briefing 23:00 UTC (모두 service-role 주입 — production rows=0 시 정상 빈 결과). |
+| **Vercel last verified production deploy/canary** | ✅ main `a351033` post-PR-#53 public canary 4/4 OK on `tudal.vercel.app` (`/` 200 + `/login` 200 + `/macro` 200 + `/admin` 200 — 일부 CDN cache HIT 정상). deploy id `4844409647` SUCCESS. 인증 세션 canary 권장: `/admin/settings/health` + `/admin/settings/cost` + `/admin/alerts` empty state. cron route 검증: **silent-health 15:00 UTC INSERT heartbeat_log + news-sweep 00:00 UTC INSERT news_event** (이번 PR #53 신규 가동) + morning-briefing 23:00 UTC (service-role 주입 유지, briefing_log INSERT는 Step 2.7b.3 후속). |
 | **PR4 (canonical 5-PR 마지막)** | ✅ MERGED `7de9696` (PR #19, 56차 §5) — 상세 = §6 56차 §5 entry + PR #19 body |
 | canonical 5-PR MERGED (전체 완료) | PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696` |
 | **57차 §1 Task 1 (production audit)** | ✅ COMPLETED — drift 0 (57차 §2 entry routine 재실행 시점에도 동일 ground truth) |
@@ -125,15 +119,15 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **B66 quality/trust blocker** | `short_list_30` 30 rows sector="코스닥"/"코스피" placeholder. PR5 entry blocker — Task 5 backfill 후 PR5 진입 가능. |
 | **B67~B98 + 9 신규 audit (57차 §2 + 58차 Step 2.x)** | 56차 §5 omxy 11+ 항목 + 57차 §2 R-debate 6 신규 (B79 / B-versioning / W-tier1pill / W-grant-smoke ✅ RESOLVED / W-sectionfallback-text / W-cost-log-env-gate) + 58차 Step 2.x 3 신규 (W-mock2-rls-drift / W-s5b-admin-assertion / W-ticker-re-kr-only). Smoke Stage 2 PASS 후 audit (§9 + Task 8). |
 | **58차 Task 4 B65-P3 impl ✅ MERGED `3c09d6e` + 마이그 0025 production applied** | PR #30 7 commits FF, omxy R1~R3 CONVERGED. 마이그 0025 = `upsert_report_sections_0_7_admin` admin-only UPSERT RPC + 4-grant matrix + SECURITY DEFINER + search_path. 옵션 A lock-in 정합. |
-| **다음 세션 1순위** | ⭐ **(CLAUDE) Mock cleanup Step 2.7b.2 (cron INSERT 실 path) 진입** — fresh branch off main. silent-health heartbeat_log INSERT 실 path + news-sweep news_event INSERT 실 path. **architectural decisions 필요**: idempotency / retry / conflict resolution. PR plan 단계 R-debate 선행 권장. **(CLAUDE 병렬 가능)** Task 5 B66 backfill. **(CLAUDE+USER)** Task 7 Stage 2는 env 준비 완료 + USER 비용 승인 필요. |
+| **다음 세션 1순위** | ⭐ **(USER)** §5.3 production schema preflight (PR #53 omxy R6 non-blocking caution, Supabase MCP re-auth 필요) → **(CLAUDE) Mock cleanup Step 2.7b.3** (alert_event INSERT 3-source 통합 + briefing_log INSERT) → **(CLAUDE 병렬 가능)** Task 5 B66 backfill → **(CLAUDE+USER)** Task 7 Stage 2. |
 | Mock Skeleton + DQ-7 + S7e + S7a + Tier 2 | ✅ Mock 완료 / 🟢 DQ-7 ~97% (Smoke #4/#5 + Session 4 QA 잔여) / 🟢 S7e 7/8 (T7e.7 RLS QA 잔여) / ✅ S7a MERGED (51차) / ✅ Tier 2 D21 (52차+53차) |
 | 선정 흐름 메인 path | 🟢 spec lock-in: Tier 0 150 → Tier 1 Core 11 AI 평가 → 단/중/장 top 10 = 30. 현재 production = Tier 0 단독 30 직선정 (fallback). **PR5 cron 가동 시 메인 path 활성 (Mock cleanup Step 2 완료 + B66 backfill + Smoke Stage 1+2 PASS 후만 진입)**. |
 | 풀 리포트 흐름 | 🟢 PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step orchestration + PR4 admin caller wired + B65-P3 admin-only UPSERT RPC + 마이그 0025 production applied + Vercel env=true. **production functional 가능 상태이나 last-known audit상 cost_log=0 / stock_reports=0 — 아직 성공/기록된 AI 호출 및 리포트 0건**. trigger 클릭은 비용 burn이므로 Task 7 승인 하에 Smoke Stage 2에서 검증. |
-| OPEN PRs | **#2** (format-error, CONFLICTING 보류) only — 59차 누적 MERGED 추가: **PR #50 Step 2.7b.1 news cron service-role wiring (`20b434d`) + PR #49 docs (`55c06da`) + PR #48 Step 2.7a (`6c85f13`) + PR #47 docs + PR #46 Step 2.6 + PR #45 docs + PR #44 Step 2.5 + PR #43 docs + PR #42 Step 2.4 + PR #40 docs + PR #39 Step 2.3**. 58차 누적: PR #30~#34 + 마이그 0025. |
+| OPEN PRs | **#2** (format-error, CONFLICTING 보류) only — 60차 추가: **PR #53 Step 2.7b.2 cron INSERT (`a351033`)** + 59차 누적 PR #39~#51 + 58차 누적 PR #30~#34 + 마이그 0025. |
 | 실 AI 호출 | **현재 0건** (last-known production audit: cost_log=0). Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true` 완료, 충전 완료. 첫 실 AI smoke는 지금 가능하지만 비용 burn(~5,000~6,000원/회)이므로 Task 7 USER 승인 후 실행. |
 | Production deploy/canary | Vercel main `20b434d` post-PR-#50 public canary 4/4 OK ✓ public 회귀 0. 인증 세션 canary 권장: `/admin/settings/health` + `/admin/settings/cost` + `/admin/report/[ticker]/regenerate` + `/admin/alerts` + `/admin/settings` empty state. cron route 검증: silent-health 15:00 UTC + news-sweep 00:00 UTC + morning-briefing 23:00 UTC (모두 service-role 주입, production rows=0 시 정상 빈 결과). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0025 production 적용 완료** (0025 = 58차 Task 4 `upsert_report_sections_0_7_admin` admin-only UPSERT RPC). SECURITY DEFINER 4-grant 패턴 유지. PR #39 = 0 migrations (코드 + docs only — cost-logger.ts pagination root-cause fix + getMonthlyTotal hardening). |
-| 검증 게이트 (main `1935ea2`) | build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1282 PASS / 113 files** / tsc clean. |
+| 검증 게이트 (main `a351033`) | build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1296 PASS / 115 files** (PR #53 +14 net) / tsc clean. |
 | omxy debate 상태 | 최신 PR #50 Step 2.7b.1까지 CONVERGED. HANDOFF에는 current 결론/W-ticket만 유지하고, 라운드 수·catch 수·fix commit 세부 chain은 git log + PR body + cmux transcript 위임. |
 
 ---
@@ -285,6 +279,33 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
 
 상세는 git log + spec/plan/Slice/PR body + REVIEW.md. 본 §6은 직전 2 entry만 inline.
 
+### 60차 Mock cleanup Step 2.7b.2 ✅ MERGED in main `a351033` (PR #53 rebase FF, cron INSERT 실 path — heartbeat_log + news_event, omxy R-debate 6 rounds CONVERGED 누적 13 catches catch & fix, 2026-05-28)
+
+- **scope**: silent-health cron `heartbeat_log` INSERT + news-sweep cron `news_event` INSERT 실 path 가동. ON CONFLICT (date) DO UPDATE (heartbeat retry/D10 정합) / (url) DO NOTHING (append-only, classifier deterministic). service-role client lazy per branch (Naver 실패 path 호출 0). **W-pipeline-health-admin-assertion INSERT side fully resolved** (READ Step 2.7a + INSERT Step 2.7b.2).
+- **code commits** (branch `feat/mock-cleanup-step-2-7b-2-cron-insert`, deleted post-merge): 5 commits FF — `9b0981a` plan v5 / `da03f0c` Task 1 helper / `2e9d3b4` Task 2 helper / `78e7113` Task 3 silent-health wiring / `9c3bd00` Task 4 news-sweep wiring.
+- **신규 SoT code**:
+  - `tudal/src/lib/data/admin-heartbeat-log.ts` (신규 51 lines) — `insertHeartbeatLog(record, {client?})` + STATUS_SET enum guard + camelCase→snake_case mapping + `.upsert({onConflict:'date'})`.
+  - `tudal/src/lib/data/admin-news.ts` (+33 lines) — `insertNewsEvents(events, {client?})` batch upsert + SEVERITY_SET pre-loop + empty short-circuit + `.upsert(rows, {onConflict:'url', ignoreDuplicates:true})`.
+  - `tudal/src/app/api/cron/silent-health/route.ts` (+19 lines) — INSERT wiring + `dbError` 응답 필드 + finalStatus 우선순위 (noConfiguredOutboundChannel:500 → sendFailed:502 → dbError:502 → 200).
+  - `tudal/src/app/api/cron/news-sweep/route.ts` (+14 lines) — `serviceRoleClient: SupabaseClient | null = null` lazy declaration + mock branch 직접 할당 + WRITE 직전 null-check + dbError 502 응답.
+  - `tudal/src/lib/supabase/service-role.ts` — B17 boundary 주석에 silent-health INSERT + news-sweep INSERT + admin-heartbeat-log.ts DI seam 추가.
+- **신규 tests +14 net** (4 helper heartbeat + 5 helper news + 2 silent-health route + 4 news-sweep route - 1 rename = +14): admin-heartbeat-log.test.ts (4 신규) + admin-news-insert.test.ts (5 신규) + silent-health route.test.ts (+2 + heartbeatLogMock hoisted) + news-sweep route.test.ts (+4 + adminNewsMock.insertNewsEvents hoisted + rename "does not create service-role read client in live mode" → "creates service-role client once in live Naver mode WRITE only").
+- **omxy R-debate 6 rounds CONVERGED (gpt-5.5 xhigh, ultrawork mode)**:
+  - R1 (plan v1, 7 BLOCKERS): 3 HIGH (Task 4 live INSERT 미검증 + vi.mock 중복 + bare Request) + 2 MED (DI fallback + quote-agnostic grep) + 1 LOW/MED (test count) + 1 LOW (production preflight) → fix v2
+  - R2 (plan v2, 2 MED): §5.3 CHECK constraint preflight + lazy per branch (D3b refinement) → fix v3
+  - R3 (plan v3, 1 MED): §5.2 multiline grep `rg -U` → fix v4
+  - R4 (plan v4, 3 BLOCKERS): vi.hoisted TDZ-safe + describe-internal placement + grep target cron route → fix v5
+  - R5 (plan v5): **BLOCKERS 0 → SIGNAL: CONVERGED** (architecture final D1~D7 + D3b)
+  - R6 (impl review): **BLOCKERS 0 → SIGNAL: CONVERGED** (1:1 정합 + 회귀 0 + scope-guard PASS)
+- **검증**: build 25 routes / lint 0 err 5 warn (pre-existing) / test:ci 1282 → 1296 PASS (+14 net) / tsc clean / scope-guard grep ALL PASS.
+- **post-merge canary**: deploy `4844409647` SUCCESS / public canary 4/4 OK on tudal.vercel.app (`/` 200 + `/login` 200 + `/macro` 200 + `/admin` 200 일부 CDN cache HIT 정상).
+- **scope-out + W- defer 업데이트**:
+  - **W-cron-alert-event-insert** (Step 2.7b.3 후속, 신규 박제) — 3-source alert_event INSERT 통합 (silent missingAlert + news criticals + briefing failed).
+  - **W-briefing-log-insert** (Step 2.7b.3 후속, 신규 박제) — morning-briefing briefing_log INSERT (line 111 TODO 해소).
+  - **W-portfolio-snapshot-real** (S7b 트랙, 신규 박제) — morning-briefing portfolioSnapshot 실 SELECT.
+  - **W-pipeline-health-admin-assertion**: **fully resolved** ✅ (READ Step 2.7a + INSERT Step 2.7b.2 complete chain).
+- **USER 잔여 액션 (omxy R6 non-blocking caution)**: §5.3 production schema preflight (Supabase MCP re-auth 후 3 query 실행: pg_indexes + pg_policies + pg_constraint). drift 없으면 merge gate 통과.
+
 ### 59차 Mock cleanup Step 2.7b.1 ✅ MERGED in main `20b434d` (PR #50 rebase FF, news cron service-role wiring + 4-way auth hardening, W-news-cron-service-role-read 완전 해소, omxy patch-suggest 2 rounds CONVERGED 3 catches → omxy 직접 fix, 2026-05-28)
 
 - **scope**: news-sweep + morning-briefing cron route에 `createServiceRoleClient()` 주입 → `getRecentNewsEvents({client})` cron context RLS using(is_admin()) 우회. service-role.ts B17 boundary 확장 (cron/news-sweep + cron/morning-briefing 추가). `isProductionLikeForAuth()` 4-way fail-closed (PR1 MF4 + PR #48 silent-health 패턴 정합). **W-news-cron-service-role-read 완전 해소** (Step 2.6 → 2.7a → 2.7b.1 3-step chain).
@@ -307,32 +328,8 @@ PR4 lifecycle (Task 1.0 ~ Task 9 모두 ✅ MERGED, 50 BLOCKERS catch & fix, 3-t
   - `W-news-cron-service-role-read`: **fully resolved** ✅ (Step 2.6 → 2.7a → 2.7b.1 chain).
   - `W-pipeline-health-admin-assertion`: READ side resolved (Step 2.7a), INSERT side 잔여 (Step 2.7b.2).
 
-### 59차 Mock cleanup Step 2.7a ✅ MERGED in main `6c85f13` (PR #48 rebase FF, silent-health 실 SELECT via service-role DI + 3 mock 삭제 + 4-way auth hardening, omxy patch-suggest 2 rounds CONVERGED 4 catches → omxy 직접 fix, 2026-05-28)
-
-- **scope**: silent-health cron (`/api/cron/silent-health`)의 `MOCK_ADMIN_PIPELINE_HEALTH` + `MOCK_ADMIN_ALERTS` → 실 `pipeline_health` + `alert_event` SELECT via `createServiceRoleClient()` (단일 인스턴스 양쪽 helper 주입). admin-news.ts + admin-alerts.ts에 `options.client?: SupabaseClient` DI seam 추가 (admin-pipeline-health.ts는 Step 2.5 기존 옵션 재활용). service-role.ts B17 boundary 확장 (cron/silent-health + 3 DI seam helpers 간접 사용 허용). `isProductionLikeForAuth()` 4-way fail-closed (NODE_ENV / VERCEL_ENV preview+production / NEXT_PUBLIC_APP_ENV). 3 mock 파일 삭제. **Step 2.7 분할**: 2.7a (DI seam + READ + auth hardening) / 2.7b (cron INSERT + news cron service-role wiring 별도).
-- **code commits** (branch `feat/mock-cleanup-step-2-7a-silent-health-service-role`, deleted post-merge): 2 commits FF — `2ed2563` initial impl (CLAUDE) + `4f55548` omxy patch-suggest hardening. 상세 git log + PR #48 body 위임.
-- **신규 SoT code**: `tudal/src/app/api/cron/silent-health/route.ts` (`createServiceRoleClient() + Promise.all 2 SELECT` + `isProductionLikeForAuth() 4-way`) + `tudal/src/lib/data/admin-news.ts` (`options.client?` DI seam) + `tudal/src/lib/data/admin-alerts.ts` (`options.client?` DI seam) + `tudal/src/lib/supabase/service-role.ts` (B17 boundary 확장) + 5 tests files (DI invariant + 4 CRON_SECRET undefined production rejection + DI seam regression 양방향).
-- **행동 변화**:
-  - silent-health: production pipeline_health=0 + alert_event=0 → 실 SELECT 결과 모두 [] → classification.status='ok' (정상). CRON_SECRET 누락 시 production-like 4-way reject.
-  - admin pages (alerts / settings/health): options.client 미주입 → 기존 session client 유지 (회귀 0).
-  - service-role 사용 boundary: cron/monthly-batch + **cron/silent-health** + 3 DI seam helpers 간접 사용 허용. admin pages는 여전히 session client만.
-- **omxy patch-suggest 2 rounds CONVERGED (사용자 명시 변형 워크플로우)**:
-  - R1 (7m 25s, gpt-5.5 xhigh, 4 catches → 직접 fix commit `4f55548`):
-    · **HIGH** — `isAuthorized` CRON_SECRET undefined fallback `NODE_ENV !== "production"` 단일 조건 → VERCEL_ENV=preview|production / NEXT_PUBLIC_APP_ENV=production privileged SELECT dev-fallthrough 가능. PR1 monthly-batch MF4 4-way 패턴 (`isProductionLikeForAuth()`) 추가.
-    · **MED** — service-role single-instance invariant 증명 부족. hoisted mock + `createServiceRoleClient() 1회 + 동일 client 양쪽 helper에 주입` assertion 추가.
-    · **MED/LOW** — admin-news/admin-alerts DI seam regression 부족. injected client 사용 시 createClient 미호출 + options 없음 시 session fallback 양방향 테스트 추가.
-    · **LOW** — 주석 W-news-cron-service-role-read 해소 과장 + heartbeat warning status 암시 → DI half만 준비, route wiring 별도 scope로 정정. classification.status='ok' 명기.
-  - R2 (CONVERGED, Catch 0): 4 catches fully respond + 4-way PR1 MF4 정합 + single-instance invariant 충분 + DI seam regression 양방향 cover + W-news-cron-service-role-read half-resolved 정합 + Step 2.7a scope intact + 잔여 결함 0.
-- **CLAUDE 추가 verify (Trust 3-step)**: omxy patch commit `4f55548` 독립 verify — git diff inspect + npm run test:ci 1272 PASS / build 25 routes / lint 0 err 5 warn / tsc clean. policy-level 재판단 ALL OK.
-- **마이그 0건** (기존 0006 pipeline_health + 0001/0010 alert_event 활용).
-- **검증**: build 25 routes / lint 0 err 5 warn (pre-existing) / tsc clean / test:ci 1263 → 1272 PASS (+9, 회귀 0).
-- **scope-out + W- defer 상태 업데이트**:
-  - Step 2.7b (cron INSERT + news cron service-role wiring) — silent-health heartbeat_log INSERT + news-sweep news_event INSERT + news-sweep + morning-briefing route service-role 주입. idempotency / retry / conflict resolution architectural 결정 필요.
-  - `W-pipeline-health-admin-assertion`: **READ side fully resolved** (silent-health service-role). INSERT side 잔여 (Step 2.7b).
-  - `W-news-cron-service-role-read`: **half-resolved** — admin-news.ts DI seam 준비 ✓, news cron route wiring 잔여 (Step 2.7b).
-
-
-**Demoted to historical (59차 PR #50 sweep — strict 직전 2 §6 inline entry 적용)**:
+**Demoted to historical (60차 PR #53 sweep — strict 직전 2 §6 inline entry 적용)**:
+- **59차 Mock cleanup Step 2.7a ✅ MERGED in main `6c85f13`** (PR #48 rebase FF, silent-health 실 SELECT via service-role DI + 3 mock 삭제 + 4-way auth hardening, omxy patch-suggest 2 rounds CONVERGED 4 catches → omxy 직접 fix `4f55548`) = git log + PR #48 body 위임.
 - **59차 Mock cleanup Step 2.6 ✅ MERGED in main `845b9ca`** (PR #46 rebase FF, news cron MOCK_ADMIN_NEWS → 실 news_event SELECT + 2 dead mock 삭제, omxy patch-suggest 2 rounds CONVERGED 2 catches → 1 LOW fix `1860a16` + 1 HIGH defer W-news-cron-service-role-read [본 PR Step 2.7b.1에서 완전 해소]) = git log + PR #46 body 위임.
 - **59차 Mock cleanup Step 2.5 ✅ MERGED in main `6c5ce2c`** (PR #44 rebase FF, health page MOCK_ADMIN_PIPELINE_HEALTH → 실 pipeline_health SELECT + ASC pagination hardening, omxy patch-suggest 2 rounds CONVERGED 4 catches + omxy 직접 fix `fd2d4e8` + 2 W- defer) = git log + PR #44 body 위임.
 - **59차 Mock cleanup Step 2.4 ✅ MERGED in main `4e15176`** (PR #42 rebase FF, cost page MOCK 3 fixture → 실 cost_log SELECT, omxy patch-suggest 2 rounds CONVERGED 1 BLOCKER catch + omxy 직접 fix commit `c2897b4` + 1 W-cost-log-core11-drift defer) = git log + PR #42 body 위임.
