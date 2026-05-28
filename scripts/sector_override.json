@@ -1,0 +1,24 @@
+{
+  "override_version": "v1",
+  "override_date": "2026-05-28",
+  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed.",
+  "schema_note": "tickers[<6-digit>] = {canonical: <one of CANONICAL_SECTORS 14>, reason: <non-empty>}. canonical_sector_mapper.OverrideSchemaError가 schema 위반을 fail-fast 한다.",
+  "tickers": {
+    "254490": {
+      "canonical": "반도체",
+      "reason": "미래반도체 — DART induty_code=467 (도매)이나 사업 실질은 반도체 유통/소형 부품. mapper broad rule '46→유통/소비재'를 override. B66 2026-05 current row (short bucket)."
+    },
+    "322000": {
+      "canonical": "에너지",
+      "reason": "HD현대에너지솔루션 — DART induty_code=2612(전자부품/반도체)이나 사업 실질은 태양광 모듈/에너지솔루션. mapper '2612→반도체'를 override. B66 2026-05 DART apply/full preview current row."
+    },
+    "226330": {
+      "canonical": "바이오",
+      "reason": "신테카바이오 — DART induty_code=582(SW)이나 사업 실질은 AI 신약개발/바이오 R&D. mapper '582→IT/SW'를 override. B66 2026-05 DART apply/full preview current row."
+    },
+    "452200": {
+      "canonical": "2차전지",
+      "reason": "민테크 — DART induty_code=27212 (의료/정밀/광학 측정장비)이나 배터리 진단장비 사업. mapper '27→바이오'를 override. B66 2026-05 current row (short bucket)."
+    }
+  }
+}

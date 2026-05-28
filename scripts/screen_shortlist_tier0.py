@@ -92,7 +92,35 @@ import os
 import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Optional
+from pathlib import Path
+from typing import Any, Optional
+
+
+# --- B66 C 하이브리드 (plan PR #55 `bbf102d`) ---
+_MAPPER_DIR = Path(__file__).parent
+try:
+    from canonical_sector_mapper import (
+        CANONICAL_SECTORS,
+        UNRESOLVED,
+        load_override,
+        resolve_sector,
+        explain as explain_sector,
+        OverrideSchemaError,
+    )
+except ImportError:
+    # 일부 환경에서 scripts/가 sys.path에 안 들어있을 수 있음.
+    sys.path.insert(0, str(_MAPPER_DIR))
+    from canonical_sector_mapper import (  # noqa: E402
+        CANONICAL_SECTORS,
+        UNRESOLVED,
+        load_override,
+        resolve_sector,
+        explain as explain_sector,
+        OverrideSchemaError,
+    )
+
+# B89 strict block exit code (plan §4.3 R1 lock-in)
+EXIT_CODE_UNRESOLVED = 2
 
 
 # ============================================================================
@@ -275,7 +303,11 @@ def resolve_target_date(run_date: date, requested_as_of: Optional[date]) -> date
 def fetch_universe(target_date: date, limit: Optional[int] = None) -> list[dict]:
     """KOSPI + KOSDAQ 종목을 시총 + 종목명 기반으로 필터링.
 
-    Returns: [{ticker, name, sector, market_cap_won}, ...]
+    Returns: [{ticker, name, market, market_cap_won}, ...]
+
+    NOTE: sector field는 **본 함수에서 채우지 않는다** (B66 C 하이브리드, plan PR #55 `bbf102d`).
+    sector는 후속 단계에서 `dart_corp_codes.induty_code` + `canonical_sector_mapper.resolve_sector`로
+    채워진다 (resolve_sectors_for_universe). 임시 market label 박제는 placeholder leak 위험.
     """
     ensure_pykrx()
     from pykrx import stock
@@ -300,14 +332,12 @@ def fetch_universe(target_date: date, limit: Optional[int] = None) -> list[dict]
                 continue
             if UNIVERSE_FILTERS["exclude_pref_suffix"] and name.endswith("우"):
                 continue
-            # 섹터: pykrx에 직접 노출이 없어 KRX 산업분류 API 활용 어렵다.
-            # MVP는 "미분류" 또는 market 명을 fallback으로 — 추후 KRX 산업분류 시드 별도.
-            sector = "코스피" if market == "KOSPI" else "코스닥"
             result.append({
                 "ticker": ticker,
                 "name": name,
-                "sector": sector,
+                "market": market,                          # 'KOSPI' or 'KOSDAQ' (B66 후 sector resolve의 fallback 정보 X — induty 기반)
                 "market_cap_won": mcap,
+                # sector 필드는 의도적으로 미설정 — resolve_sectors_for_universe에서 induty 기반 결정.
             })
 
     # 시총 큰 순으로 정렬 후 옵션 limit 적용 (디버깅용 작은 universe)
@@ -315,6 +345,123 @@ def fetch_universe(target_date: date, limit: Optional[int] = None) -> list[dict]
     if limit is not None and limit > 0:
         result = result[:limit]
     return result
+
+
+# ============================================================================
+# B66 sector resolution (plan PR #55 `bbf102d`)
+# ============================================================================
+
+def resolve_sectors_for_universe(
+    universe: list[dict],
+    supabase_client: Any = None,  # type: ignore[name-defined]
+    override_path: Optional[Path] = None,
+) -> list[dict]:
+    """`canonical_sector_mapper.resolve_sector`로 universe에 sector 채우기.
+
+    각 row에 `sector` (CanonicalSector OR UNRESOLVED) + diagnostic fields 추가.
+
+    Args:
+      universe: fetch_universe 출력.
+      supabase_client: dart_corp_codes에서 induty_code lookup. None이면 induty=None 처리.
+      override_path: sector_override.json path. None이면 default (scripts/sector_override.json).
+
+    Returns: in-place mutation + return same list. Each row gains:
+      - sector: str (CanonicalSector or "unresolved")
+      - induty_code: str | None
+      - sector_source: "override" | "mapper" | "unresolved"
+    """
+    try:
+        override = load_override(override_path) if override_path or (Path(__file__).parent / "sector_override.json").exists() else {}
+    except OverrideSchemaError as exc:
+        sys.exit(f"sector_override.json schema 위반: {exc}")
+    except FileNotFoundError:
+        override = {}
+
+    # batch fetch induty_code from dart_corp_codes (단일 SELECT)
+    induty_by_ticker: dict[str, Optional[str]] = {}
+    if supabase_client is not None and universe:
+        tickers = [u["ticker"] for u in universe]
+        # supabase-py는 .in_("ticker", [...])로 batch 가능
+        res = (
+            supabase_client.table("dart_corp_codes")
+            .select("ticker, induty_code")
+            .in_("ticker", tickers)
+            .execute()
+        )
+        for row in (res.data or []):
+            induty_by_ticker[row["ticker"]] = row.get("induty_code")
+
+    for row in universe:
+        ticker = row["ticker"]
+        induty = induty_by_ticker.get(ticker)
+        diag = explain_sector(ticker, induty, override)
+        row["sector"] = diag["final_sector"]
+        row["induty_code"] = induty
+        row["sector_source"] = diag["source"]
+
+    return universe
+
+
+def write_sector_review_csv(rows: list[dict], path: str) -> int:
+    """unresolved + override 적용 trace를 review CSV로 출력. Returns: unresolved count.
+
+    Plan §4.3 R1 lock-in: --apply 직전에 호출되어 unresolved > 0이면 write block 신호.
+    dry-run에서도 동일 CSV를 출력해 운영자가 다음 PR에서 override 추가하도록 가이드.
+    """
+    unresolved_count = sum(1 for r in rows if r.get("sector") == UNRESOLVED)
+    review_rows = [r for r in rows if r.get("sector") == UNRESOLVED or r.get("sector_source") == "override"]
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["ticker", "name", "market", "induty_code", "sector", "sector_source", "note"],
+        )
+        writer.writeheader()
+        for r in review_rows:
+            note = ""
+            if r.get("sector") == UNRESOLVED:
+                if r.get("induty_code") is None:
+                    note = "induty_code 미수집 — seed_dart_corp_codes.py --backfill-induty 실행 후 재시도"
+                else:
+                    note = "mapper rule 또는 override 미정합 — sector_override.json에 추가 권장"
+            elif r.get("sector_source") == "override":
+                note = "override 적용 — sector_override.json 적용 확인"
+            writer.writerow({
+                "ticker": r["ticker"],
+                "name": r.get("name", ""),
+                "market": r.get("market", ""),
+                "induty_code": r.get("induty_code", ""),
+                "sector": r["sector"],
+                "sector_source": r.get("sector_source", ""),
+                "note": note,
+            })
+    return unresolved_count
+
+
+def enforce_b89_strict_block(unresolved_count: int, *, apply: bool, review_csv_path: str) -> None:
+    """B89 strict block: unresolved selected rows must stop both dry-run and apply.
+
+    Plan §4.3 R1 lock-in:
+      - dry-run: review CSV + warning + exit code 2
+      - --apply: DB write 전면 거부 + exit code 2
+    """
+    if unresolved_count <= 0:
+        return
+    if apply:
+        print(
+            f"[ABORT] B89 strict block: selected 30 rows 중 {unresolved_count}개가 unresolved sector. "
+            f"sector_override.json에 ticker 추가 후 재실행하거나 mapper rule을 보강하세요. "
+            f"review CSV: {review_csv_path}",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CODE_UNRESOLVED)
+    print(
+        f"[warn] dry-run: selected 30 rows 중 {unresolved_count}개 unresolved (review CSV 참조). "
+        f"--apply 전에 해소 필요. review CSV: {review_csv_path}",
+        file=sys.stderr,
+    )
+    sys.exit(EXIT_CODE_UNRESOLVED)
 
 
 # ============================================================================
@@ -695,6 +842,12 @@ def main() -> None:
                         help="시장 데이터 기준일 YYYY-MM-DD (기본: 실행일의 전 영업일, 장중 drift 방지)")
     parser.add_argument("--universe-limit", type=int, default=None,
                         help="universe 사이즈 cap (디버깅용, prod 미사용)")
+    parser.add_argument(
+        "--sector-review-csv",
+        default=None,
+        help="(B89 strict block, B66 C 하이브리드) unresolved/override trace를 출력할 CSV 경로. "
+             "미설정 시 --csv-backup의 stem + '_sector_review.csv'.",
+    )
     args = parser.parse_args()
 
     target_date = resolve_target_date(date.today(), args.as_of)
@@ -705,7 +858,7 @@ def main() -> None:
           f"({'explicit --as-of' if args.as_of else 'previous completed weekday'})",
           file=sys.stderr)
 
-    print(f"[1/6] universe fetch (KOSPI+KOSDAQ, 시총 ≥ {UNIVERSE_FILTERS['min_market_cap_won']:,}원) ...",
+    print(f"[1/7] universe fetch (KOSPI+KOSDAQ, 시총 ≥ {UNIVERSE_FILTERS['min_market_cap_won']:,}원) ...",
           file=sys.stderr, flush=True)
     universe = fetch_universe(target_date, limit=args.universe_limit)
     print(f"      → {len(universe)}개 종목", file=sys.stderr, flush=True)
@@ -722,7 +875,17 @@ def main() -> None:
               "(장기 bucket 의미 약화)",
               file=sys.stderr)
 
-    print(f"[2/6] per-ticker signals (pykrx OHLCV + 외국인 + DART hook) — {len(universe)}회 호출, 수 분 소요 ...",
+    # B66 C 하이브리드: universe에 sector resolve. dart_supabase로 induty_code lookup.
+    # induty 없으면 sector="unresolved" → 후속 B89 strict block 트리거.
+    print(f"[1.5/7] B66 sector resolve — dart_corp_codes.induty_code → canonical 14 mapper + override ...",
+          file=sys.stderr, flush=True)
+    resolve_sectors_for_universe(universe, supabase_client=dart_supabase)
+    sector_dist: dict[str, int] = {}
+    for u in universe:
+        sector_dist[u["sector"]] = sector_dist.get(u["sector"], 0) + 1
+    print(f"      → sector 분포: {dict(sorted(sector_dist.items()))}", file=sys.stderr, flush=True)
+
+    print(f"[2/7] per-ticker signals (pykrx OHLCV + 외국인 + DART hook) — {len(universe)}회 호출, 수 분 소요 ...",
           file=sys.stderr, flush=True)
     signals: list[StockSignal] = []
     for i, u in enumerate(universe, start=1):
@@ -754,7 +917,7 @@ def main() -> None:
         if i % 100 == 0:
             print(f"      [{i}/{len(universe)}]", file=sys.stderr, flush=True)
 
-    print(f"[3/6] normalize signals (cross-section z → 0~100) ...", file=sys.stderr, flush=True)
+    print(f"[3/7] normalize signals (cross-section z → 0~100) ...", file=sys.stderr, flush=True)
     normalize_signals(signals)
     if dart_available:
         try:
@@ -766,13 +929,13 @@ def main() -> None:
         for signal, quality_score in zip(signals, quality_scores):
             signal.quality = quality_score
 
-    print(f"[4/6] bucket selection (단/중/장 각 후보 {CANDIDATE_POOL_PER_BUCKET} → 상위 {TOP_K_PER_BUCKET}) ...",
+    print(f"[4/7] bucket selection (단/중/장 각 후보 {CANDIDATE_POOL_PER_BUCKET} → 상위 {TOP_K_PER_BUCKET}) ...",
           file=sys.stderr, flush=True)
     selections = select_top_per_bucket(signals)
 
     prior_tickers: set[str] = set()
     if args.apply:
-        print(f"[5/6] prior month tickers fetch ({prev_month_first(args.month).isoformat()}) ...",
+        print(f"[5/7] prior month tickers fetch ({prev_month_first(args.month).isoformat()}) ...",
               file=sys.stderr, flush=True)
         supabase = get_supabase_client()
         prior_tickers = fetch_prior_month_tickers(supabase, args.month)
@@ -784,12 +947,34 @@ def main() -> None:
     rows = build_rows(selections, args.month, prior_tickers, dart_available)
     validate_shortlist_rows(rows)
 
-    print(f"[6/6] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
+    # B89 strict block (plan §4.3 R1 lock-in): selected 30 rows에 unresolved 있는지 검사.
+    # build_rows는 signals를 사용하고, signals.sector는 universe.sector를 그대로 받는다.
+    # resolve_sectors_for_universe가 universe에 sector를 설정했으므로 signals/rows의 sector는 정확.
+    review_csv_path = args.sector_review_csv or args.csv_backup.replace(".csv", "_sector_review.csv")
+    if review_csv_path == args.csv_backup:
+        review_csv_path = args.csv_backup + ".sector_review.csv"
+    selected_universe_view = [
+        {
+            "ticker": s.ticker,
+            "name": s.name,
+            "market": next((u.get("market", "") for u in universe if u["ticker"] == s.ticker), ""),
+            "induty_code": next((u.get("induty_code") for u in universe if u["ticker"] == s.ticker), None),
+            "sector": s.sector,
+            "sector_source": next((u.get("sector_source") for u in universe if u["ticker"] == s.ticker), "unresolved"),
+        }
+        for s in (signal for bucket_picks in selections.values() for signal, _ in bucket_picks)
+    ]
+    unresolved_count = write_sector_review_csv(selected_universe_view, review_csv_path)
+    print(f"      [B89] sector review CSV → {review_csv_path} (unresolved selected={unresolved_count})",
+          file=sys.stderr, flush=True)
+    enforce_b89_strict_block(unresolved_count, apply=args.apply, review_csv_path=review_csv_path)
+
+    print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
     write_csv(args.csv_backup, rows)
 
     if args.apply:
         assert supabase is not None
-        print(f"      replace month rows → short_list_30 ({len(rows)} rows, on_conflict=month,ticker)",
+        print(f"[7/7] replace month rows → short_list_30 ({len(rows)} rows, on_conflict=month,ticker)",
               file=sys.stderr, flush=True)
         upsert_supabase(supabase, rows)
         print(f"[done] applied · month={args.month} · rows={len(rows)} · bucket dist short/mid/long="
