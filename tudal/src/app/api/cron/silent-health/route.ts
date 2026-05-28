@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRecentAlertEvents } from "@/lib/data/admin-alerts";
+import { insertHeartbeatLog } from "@/lib/data/admin-heartbeat-log";
 import { getRecentPipelineHealth } from "@/lib/data/admin-pipeline-health";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { sendEmail } from "@/lib/email/resend";
@@ -151,6 +152,16 @@ export async function GET(request: NextRequest) {
     sendFailed,
   );
 
+  // Step 2.7b.2: heartbeat_log 실 INSERT (service-role 단일 인스턴스 재사용 — plan §0 D5).
+  // ON CONFLICT (date) DO UPDATE — cron 재실행 / D10 catch-up retry / 수동 trigger 시 latest
+  // status 갱신 (plan §0 D1). INSERT 실패 = audit trail loss → 5xx + dbError audit (plan §0 D3).
+  let dbError: string | null = null;
+  try {
+    await insertHeartbeatLog(log, { client: serviceRoleClient });
+  } catch (err) {
+    dbError = err instanceof Error ? err.message : "heartbeat_log_insert_failed:unknown";
+  }
+
   // 3) D10 catch-up도 실패하면 heartbeat_missing AlertEvent 적재
   let missingAlert: Omit<AlertEvent, "id" | "isRead"> | null = null;
   if (allFailed) {
@@ -160,16 +171,26 @@ export async function GET(request: NextRequest) {
     missingAlert = buildHeartbeatMissingAlert(date, reason);
   }
 
+  // status 우선순위: noConfiguredOutboundChannel(500) → sendFailed(502) → dbError(502) → 200.
+  const finalStatus = noConfiguredOutboundChannel
+    ? 500
+    : sendFailed
+    ? 502
+    : dbError
+    ? 502
+    : 200;
+
   return NextResponse.json(
     {
-      ok: !sendFailed,
+      ok: !sendFailed && !dbError,
       date,
       status: classification.status,
       sentChannels,
       d10Triggered,
       log,
       alertEmitted: missingAlert?.triggerReason ?? null,
+      dbError,
     },
-    { status: noConfiguredOutboundChannel ? 500 : sendFailed ? 502 : 200 },
+    { status: finalStatus },
   );
 }
