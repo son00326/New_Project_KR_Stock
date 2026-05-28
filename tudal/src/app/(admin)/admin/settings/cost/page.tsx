@@ -5,18 +5,14 @@ import {
 } from "@/lib/cost/aggregate";
 import { buildDryRunReport } from "@/lib/cost/dry-run-estimate";
 import { DEFAULT_MODEL } from "@/lib/cost/anthropic-pricing";
-import {
-  MOCK_ADMIN_COST_LOG,
-  MOCK_ADMIN_COST_LOG_OVER_HARDCAP,
-  MOCK_ADMIN_COST_LOG_OVER_WARNING,
-} from "@/lib/data/mock-admin-cost-log";
+import { getMonthlyCostLog } from "@/lib/data/admin-cost-log";
 import {
   COST_HARDCAP_KRW,
   COST_WARNING_THRESHOLD_KRW,
 } from "@/types/admin";
 
-// M17 AI API 비용 실시간 모니터링 대시보드 (S6 T6.2)
-// ref: ServicePlan-Admin §3.12 R3.12-1~3
+// M17 AI API 비용 실시간 모니터링 대시보드 (S6 T6.2 · Mock cleanup Step 2.4 — 2026-05-28
+// 실 cost_log SELECT 전환). ref: ServicePlan-Admin §3.12 R3.12-1~3
 // 35만 경보 배너 · 40만 hardcap 활성 · purpose별 비중 · Top 5 기여 · BL-18 견적 비교
 
 export const dynamic = "force-dynamic";
@@ -55,17 +51,13 @@ interface ScenarioRow {
   triggered: "hardcap" | "warning" | "ok";
 }
 
-export default function AdminCostPage() {
+export default async function AdminCostPage() {
   const month = currentMonth();
-  // 현재 월 = 2026-04 (정상 운용) · 2026-03 = 경보 시연 · 2026-02 = hardcap 시연
-  const allLogs = [
-    ...MOCK_ADMIN_COST_LOG,
-    ...MOCK_ADMIN_COST_LOG_OVER_WARNING,
-    ...MOCK_ADMIN_COST_LOG_OVER_HARDCAP,
-  ];
-  const summary = aggregateMonthlyCost(allLogs, month);
-  const warningDemo = aggregateMonthlyCost(allLogs, "2026-03-01");
-  const hardcapDemo = aggregateMonthlyCost(allLogs, "2026-02-01");
+  // Mock cleanup Step 2.4: MOCK_ADMIN_COST_LOG 3 fixture → 실 cost_log SELECT.
+  // production cost_log 적재 0건 시 빈 배열 → totalKrw=0 / banner=null / 정상 운용 표시.
+  // RLS deny / non-finite / negative cost_krw 시 throw → admin 라우트 error boundary.
+  const logs = await getMonthlyCostLog(month);
+  const summary = aggregateMonthlyCost(logs, month);
   const dryRun = buildDryRunReport(DEFAULT_MODEL);
 
   const banner: { tone: string; label: string; body: string } | null =
@@ -132,9 +124,8 @@ export default function AdminCostPage() {
           .
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ mock fixture · 실데이터 전환 시 cost_log SELECT SUM(cost_krw) WHERE
-          month=? 로 교체. BL-16 A 실시간 usage 파싱은 Anthropic API 호출 wrapper
-          (TODO).
+          ※ 실 cost_log SELECT — cost-logger.ts insert SoT 정합 (실 AI 호출 시
+          자동 적재). production cost_log 적재 본격화 전에는 totalKrw=0 (정상).
         </p>
       </header>
 
@@ -300,47 +291,12 @@ export default function AdminCostPage() {
         )}
       </section>
 
-      <section
-        aria-label="시연 — 35만/40만 트리거 미리보기"
-        className="rounded-lg border border-dashed bg-card/50 p-4"
-      >
-        <h2 className="text-sm font-semibold">시연 (mock-only)</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          실데이터 전환 전, 35만·40만 임계가 어떻게 표시되는지 확인용.
-        </p>
-        <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-md border p-3">
-            <dt className="text-xs text-muted-foreground">2026-03 (경보 시연)</dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">
-              {formatKrw(warningDemo.totalKrw)}
-            </dd>
-            <dd className="mt-1 text-xs text-yellow-700 dark:text-yellow-400">
-              {warningDemo.warningTriggered ? "⚠️ 경보" : "정상"} ·{" "}
-              {warningDemo.hardcapTriggered ? "🚨 hardcap" : "hardcap 미도달"}
-            </dd>
-          </div>
-          <div className="rounded-md border p-3">
-            <dt className="text-xs text-muted-foreground">
-              2026-02 (hardcap 시연)
-            </dt>
-            <dd className="mt-1 text-lg font-semibold tabular-nums">
-              {formatKrw(hardcapDemo.totalKrw)}
-            </dd>
-            <dd className="mt-1 text-xs text-[var(--color-market-down)]">
-              {hardcapDemo.hardcapTriggered
-                ? "🚨 hardcap 도달 — 재생성 차단"
-                : "정상"}
-            </dd>
-          </div>
-        </dl>
-      </section>
-
       <footer className="text-xs text-muted-foreground">
         ※ 본 페이지는 M17 DoD{" "}
         <span>
           &quot;당월 누적 + 35만 경보 + 40만 hardcap + Top 5 + override&quot;
         </span>{" "}
-        충족. override 토글(BL-17 B 대표 1인)은 실데이터 전환 시 추가.
+        충족. override 토글(BL-17 B 대표 1인)은 후속 PR에서 추가.
       </footer>
     </div>
   );
