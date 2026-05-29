@@ -189,6 +189,24 @@ export async function runReportBatchChunk(
     month: monthDate,
     client,
   })) as ShortListLite[];
+  if (shortList.length === 0) {
+    console.info(
+      JSON.stringify({
+        event: "short_list_not_seeded",
+        month,
+      }),
+    );
+    return {
+      month,
+      claimed: 0,
+      done: 0,
+      skipped: 0,
+      failed: 0,
+      deferred: 0,
+      remaining: 0,
+      aborted: null,
+    };
+  }
   if (shortList.length !== 30) {
     return await abortBeforeSpend(
       client,
