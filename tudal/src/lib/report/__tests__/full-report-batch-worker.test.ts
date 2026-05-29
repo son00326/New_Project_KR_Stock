@@ -172,7 +172,41 @@ describe("runReportBatchChunk step-0 fail-closed (T9 — R2 HIGH-2 + R3 HIGH-1)"
     expect(insertAlertEventsMock).toHaveBeenCalled();
   });
 
-  it("short_list_30이 30개가 아니면 fail-closed + alert, LLM 0", async () => {
+  it("short_list_30이 아직 seed되지 않은 0개 상태면 quiet skip + alert 0 + LLM 0", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      getActiveShortListMock.mockResolvedValue([]);
+      const { client, rpcCalls } = makeFakeClient({ claimedJobs: [] });
+      const res = await runReportBatchChunk({
+        month: "2026-06",
+        client: workerClient(client),
+      });
+      expect(res).toEqual({
+        month: "2026-06",
+        claimed: 0,
+        done: 0,
+        skipped: 0,
+        failed: 0,
+        deferred: 0,
+        remaining: 0,
+        aborted: null,
+      });
+      expect(orchestrateMock).not.toHaveBeenCalled();
+      expect(insertAlertEventsMock).not.toHaveBeenCalled();
+      expect(insertPipelineHealthMock).not.toHaveBeenCalled();
+      expect(preflightMock).not.toHaveBeenCalled();
+      expect(
+        rpcCalls.find((c) => c.name === "claim_next_report_jobs"),
+      ).toBeUndefined();
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining("short_list_not_seeded"),
+      );
+    } finally {
+      infoSpy.mockRestore();
+    }
+  });
+
+  it("short_list_30이 1~29개면 fail-closed + alert, LLM 0", async () => {
     getActiveShortListMock.mockResolvedValue([
       { ticker: "005930", name: "삼성전자", sector: "반도체" },
     ]);
