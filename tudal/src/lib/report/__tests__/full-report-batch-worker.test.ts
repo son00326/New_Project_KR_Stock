@@ -35,7 +35,10 @@ vi.mock("@/lib/data/admin-alerts-insert", () => ({
   insertAlertEvents: (...a: unknown[]) => insertAlertEventsMock(...a),
 }));
 
-import { runReportBatchChunk } from "@/lib/report/full-report-batch-worker";
+import {
+  runGuardedReportChunk,
+  runReportBatchChunk,
+} from "@/lib/report/full-report-batch-worker";
 
 type WorkerClient = Parameters<typeof runReportBatchChunk>[0]["client"];
 function workerClient(client: unknown): WorkerClient {
@@ -54,9 +57,13 @@ function makeFakeClient(opts: {
   claimedJobs: Array<{ id: string; ticker: string }>;
   userExists?: boolean;
   remainingCount?: number;
+  acquireRunId?: string | null;
+  acquireError?: { code?: string } | null;
+  releaseErrors?: Array<{ code?: string }>;
 }) {
   const rpcCalls: RpcCall[] = [];
   const updatePayloads: unknown[] = [];
+  const releaseErrors = [...(opts.releaseErrors ?? [])];
   const makeWriteChain = () => {
     const chain: Record<string, unknown> = {};
     const done = async () => ({ error: null });
@@ -95,6 +102,18 @@ function makeFakeClient(opts: {
     }),
     rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
       rpcCalls.push({ name, args });
+      if (name === "acquire_report_worker_lock") {
+        return {
+          data: opts.acquireRunId ?? null,
+          error: opts.acquireError ?? null,
+        };
+      }
+      if (name === "release_report_worker_lock") {
+        return {
+          data: null,
+          error: releaseErrors.shift() ?? null,
+        };
+      }
       if (name === "claim_next_report_jobs") {
         return { data: opts.claimedJobs, error: null };
       }
@@ -109,6 +128,7 @@ const ORIG_ENV = { ...process.env };
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
+  process.env.PR5_CRON_AUTO_ENABLED = "true";
   process.env.CRON_SYSTEM_USER_ID = VALID_UUID;
   getActiveShortListMock.mockResolvedValue([
     { ticker: "005930", name: "삼성전자", sector: "반도체" },
@@ -143,6 +163,16 @@ afterEach(() => {
 });
 
 describe("runReportBatchChunk step-0 fail-closed (T9 — R2 HIGH-2 + R3 HIGH-1)", () => {
+  it("PR5_CRON_AUTO_ENABLED!==true → pr5_cron_auto_disabled, LLM 0", async () => {
+    process.env.PR5_CRON_AUTO_ENABLED = "false";
+    const { client } = makeFakeClient({ claimedJobs: [] });
+    await expect(
+      runReportBatchChunk({ month: "2026-06", client: workerClient(client) }),
+    ).rejects.toThrow("pr5_cron_auto_disabled");
+    expect(orchestrateMock).not.toHaveBeenCalled();
+    expect(insertAlertEventsMock).toHaveBeenCalled();
+  });
+
   it("AI_COST_LOG_REAL_INSERT_ENABLED!==true → cost_logging_disabled, LLM 0", async () => {
     process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "false";
     const { client } = makeFakeClient({ claimedJobs: [] });
@@ -314,6 +344,50 @@ describe("runReportBatchChunk sequential + skip + isolation", () => {
       expect.anything(),
     );
   });
+
+  it("TC-6 transient retry: critic_llm_failed 3회 실패 후 해당 job failed, 다음 ticker 계속 처리", async () => {
+    vi.useFakeTimers();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      orchestrateMock
+        .mockRejectedValueOnce(new Error("critic_llm_failed"))
+        .mockRejectedValueOnce(new Error("critic_llm_failed"))
+        .mockRejectedValueOnce(new Error("critic_llm_failed"))
+        .mockResolvedValueOnce({
+          reportId: "r2",
+          costKrw: 535,
+          revised: false,
+          criticVerdict: {},
+          criticRunId: "c2",
+        });
+      const { client, rpcCalls } = makeFakeClient({
+        claimedJobs: [
+          { id: "j1", ticker: "005930" },
+          { id: "j2", ticker: "000660" },
+        ],
+      });
+      const pending = runReportBatchChunk({
+        month: "2026-06",
+        client: workerClient(client),
+      });
+      await vi.runAllTimersAsync();
+      const res = await pending;
+
+      expect(orchestrateMock).toHaveBeenCalledTimes(4);
+      expect(res.failed).toBe(1);
+      expect(res.done).toBe(1);
+      const marks = rpcCalls.filter((c) => c.name === "mark_report_job");
+      expect(marks.find((m) => m.args.p_id === "j1")?.args.p_status).toBe(
+        "failed",
+      );
+      expect(marks.find((m) => m.args.p_id === "j2")?.args.p_status).toBe(
+        "done",
+      );
+    } finally {
+      errorSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("runReportBatchChunk cost_hardcap abort (T4)", () => {
@@ -338,5 +412,132 @@ describe("runReportBatchChunk cost_hardcap abort (T4)", () => {
       expect.objectContaining({ pipeline: "ai", status: "failed" }),
       expect.anything(),
     );
+  });
+
+  it("CRF-1 batch hardcap: alert insert failure is best-effort after deferring open jobs", async () => {
+    preflightMock.mockRejectedValue(new Error("cost_hardcap_40man"));
+    emitCostAlertMock.mockRejectedValue(new Error("alert_event_insert_failed"));
+    const { client, updatePayloads } = makeFakeClient({
+      claimedJobs: [],
+      remainingCount: 5,
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await runReportBatchChunk({
+        month: "2026-06",
+        client: workerClient(client),
+      });
+      expect(res.aborted).toBe("cost_hardcap");
+      expect(updatePayloads).toContainEqual(
+        expect.objectContaining({ status: "deferred" }),
+      );
+      expect(emitCostAlertMock).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("CRF-1 mid-loop hardcap: defer open jobs before best-effort alert, then throw original hardcap", async () => {
+    orchestrateMock.mockRejectedValue(new Error("cost_hardcap_40man"));
+    emitCostAlertMock.mockRejectedValue(new Error("alert_event_insert_failed"));
+    const { client, updatePayloads } = makeFakeClient({
+      claimedJobs: [{ id: "j1", ticker: "005930" }],
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(
+        runReportBatchChunk({ month: "2026-06", client: workerClient(client) }),
+      ).rejects.toThrow("cost_hardcap_40man");
+      expect(updatePayloads).toContainEqual(
+        expect.objectContaining({ status: "deferred" }),
+      );
+      expect(emitCostAlertMock).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+});
+
+describe("runGuardedReportChunk lock mutex (TC-2 + OPS-2)", () => {
+  it("acquire→run_id → chunk runs → release same run_id as succeeded", async () => {
+    const { client, rpcCalls } = makeFakeClient({
+      acquireRunId: "run-1",
+      claimedJobs: [{ id: "j1", ticker: "005930" }],
+    });
+    const res = await runGuardedReportChunk({
+      month: "2026-06",
+      client: workerClient(client),
+    });
+    expect(res.result?.done).toBe(1);
+    expect(orchestrateMock).toHaveBeenCalledTimes(1);
+    expect(
+      rpcCalls.find((c) => c.name === "release_report_worker_lock")?.args,
+    ).toMatchObject({
+      p_month: "2026-06",
+      p_run_id: "run-1",
+      p_status: "succeeded",
+    });
+  });
+
+  it("acquire→null → already_running skip, orchestrate 미호출", async () => {
+    const { client } = makeFakeClient({
+      acquireRunId: null,
+      claimedJobs: [{ id: "j1", ticker: "005930" }],
+    });
+    const res = await runGuardedReportChunk({
+      month: "2026-06",
+      client: workerClient(client),
+    });
+    expect(res).toEqual({ skipped: "already_running" });
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it("chunk throws → release same run_id as failed exactly once", async () => {
+    process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "false";
+    const { client, rpcCalls } = makeFakeClient({
+      acquireRunId: "run-2",
+      claimedJobs: [],
+    });
+    await expect(
+      runGuardedReportChunk({ month: "2026-06", client: workerClient(client) }),
+    ).rejects.toThrow("cost_logging_disabled");
+    const releases = rpcCalls.filter(
+      (c) => c.name === "release_report_worker_lock",
+    );
+    expect(releases).toHaveLength(1);
+    expect(releases[0].args).toMatchObject({
+      p_run_id: "run-2",
+      p_status: "failed",
+    });
+  });
+
+  it("acquire rpc error → throws acquire_lock_failed", async () => {
+    const { client } = makeFakeClient({
+      acquireRunId: null,
+      acquireError: { code: "42501" },
+      claimedJobs: [],
+    });
+    await expect(
+      runGuardedReportChunk({ month: "2026-06", client: workerClient(client) }),
+    ).rejects.toThrow("acquire_lock_failed:42501");
+  });
+
+  it("OPS-2: if release('succeeded') throws, catch attempts release('failed') with same run_id", async () => {
+    const { client, rpcCalls } = makeFakeClient({
+      acquireRunId: "run-3",
+      claimedJobs: [],
+      releaseErrors: [{ code: "XX000" }],
+    });
+    await expect(
+      runGuardedReportChunk({ month: "2026-06", client: workerClient(client) }),
+    ).rejects.toThrow("release_report_worker_lock_failed:XX000");
+    const releases = rpcCalls.filter(
+      (c) => c.name === "release_report_worker_lock",
+    );
+    expect(releases.map((c) => c.args.p_status)).toEqual([
+      "succeeded",
+      "failed",
+    ]);
+    expect(releases[1].args.p_run_id).toBe("run-3");
   });
 });

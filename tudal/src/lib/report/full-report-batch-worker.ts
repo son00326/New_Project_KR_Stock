@@ -7,7 +7,7 @@
 // 핵심 invariants:
 //   - 순차 for-loop (병렬 fan-out 금지) — concurrent preflightHardcap race 차단 (R2 HIGH-1, §3.5).
 //   - fail-closed step 0 (R2 HIGH-2 + R3 HIGH-1 + R3 MEDIUM-2): CRON_SYSTEM_USER_ID(UUID + auth.users 존재 via admin API)
-//     + AI_COST_LOG_REAL_INSERT_ENABLED='true' (false면 cost_log noop → hardcap fail-open) — 첫 LLM 호출 전 abort.
+//     + AI_COST_LOG_REAL_INSERT_ENABLED='true' + PR5_CRON_AUTO_ENABLED='true' — 첫 LLM 호출 전 abort.
 //   - report-only: orchestrateFullReport(callerKind:'cron') → section_0~7 + appendix (cron UPSERT RPC). committee_votes = PR5b.
 //   - idempotent skip: reportExistsAndCompleteForMonth (section_0 AND section_7).
 //   - retry N=2 transient만 (full_report/critic/revise_llm_failed/429/529/network).
@@ -115,6 +115,23 @@ async function deferOpenJobs(
   }
 }
 
+async function emitCostAlertBestEffort(
+  ctx: Parameters<typeof emitCostAlert>[0],
+  options: Parameters<typeof emitCostAlert>[1],
+): Promise<void> {
+  try {
+    await emitCostAlert(ctx, options);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "report_worker_cost_alert_failed",
+        month: ctx.month,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
+
 async function resetJobForSystemicAbort(
   client: SupabaseClient,
   jobId: string,
@@ -166,6 +183,10 @@ export async function runReportBatchChunk(
   const chunkSize = input.chunkSize ?? DEFAULT_CHUNK_SIZE;
 
   // ── step 0: fail-closed 선행 검증 (첫 LLM 호출 전, spend 0) ──────────────
+  // (a0) cron UPSERT feature flag 강제: route gate 우회(manual/direct entry)도 spend 0으로 fail-closed.
+  if (process.env.PR5_CRON_AUTO_ENABLED !== "true") {
+    return await abortBeforeSpend(client, month, "pr5_cron_auto_disabled");
+  }
   // (a) cost logging 강제 (R3 HIGH-1): false면 insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open.
   if (process.env.AI_COST_LOG_REAL_INSERT_ENABLED !== "true") {
     return await abortBeforeSpend(client, month, "cost_logging_disabled");
@@ -272,7 +293,9 @@ export async function runReportBatchChunk(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("cost_hardcap_40man")) {
-      await emitCostAlert(
+      // 남은 pending/running을 먼저 deferred 표시해야 alert insert 장애가 month-stop을 막지 않는다.
+      await deferOpenJobs(client, month, "cost_hardcap_40man");
+      await emitCostAlertBestEffort(
         {
           month,
           currentTotalKrw: currentTotal,
@@ -280,8 +303,6 @@ export async function runReportBatchChunk(
         },
         { client },
       );
-      // 남은 pending/running을 deferred 표시 (이번 달 더 진행 안 함)
-      await deferOpenJobs(client, month, "cost_hardcap_40man");
       await summarize(
         client,
         month,
@@ -304,7 +325,7 @@ export async function runReportBatchChunk(
     }
     throw err;
   }
-  await emitCostAlert(
+  await emitCostAlertBestEffort(
     {
       month,
       currentTotalKrw: currentTotal,
@@ -385,8 +406,9 @@ export async function runReportBatchChunk(
         msg.includes("cost_hardcap_40man")
       ) {
         if (msg.includes("cost_hardcap_40man")) {
+          await deferOpenJobs(client, month, "cost_hardcap_40man");
           const currentTotalAfter = await getMonthlyTotal(month, { client });
-          await emitCostAlert(
+          await emitCostAlertBestEffort(
             {
               month,
               currentTotalKrw: currentTotalAfter,
@@ -394,7 +416,6 @@ export async function runReportBatchChunk(
             },
             { client },
           );
-          await deferOpenJobs(client, month, "cost_hardcap_40man");
         } else {
           await resetJobForSystemicAbort(client, job.id, msg);
         }
@@ -481,8 +502,8 @@ export async function runGuardedReportChunk(
   let chunkSucceeded = false;
   try {
     const result = await runReportBatchChunk(input);
-    chunkSucceeded = true;
     await releaseWorkerLock(client, month, runId as string, "succeeded");
+    chunkSucceeded = true;
     return { result };
   } catch (err) {
     if (!chunkSucceeded) {
