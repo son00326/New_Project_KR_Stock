@@ -4,6 +4,13 @@ import { NextRequest } from 'next/server';
 
 const guardedMock = vi.fn();
 
+// next/server `after()`는 request scope를 요구 → vitest node env에서 throw.
+// NextResponse/NextRequest는 real 유지하고 after만 no-op stub (self-continue 게이트 결정만 검증).
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>();
+  return { ...actual, after: () => {} };
+});
+
 vi.mock('@/lib/supabase/service-role', () => ({
   createServiceRoleClient: () => ({ rpc: vi.fn() }),
 }));
@@ -93,5 +100,30 @@ describe('report-worker run-mutex + result', () => {
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.error).toBe('cost_logging_disabled');
+  });
+});
+
+describe('report-worker self-continue forward-progress gate (OPS-3)', () => {
+  it('claimed>0 + remaining>0 + SELF_CONTINUE → 202 continued', async () => {
+    process.env.PR5_CRON_SELF_CONTINUE = 'true';
+    guardedMock.mockResolvedValue({
+      result: { month: '2026-06', claimed: 3, done: 3, skipped: 0, failed: 0, deferred: 0, remaining: 27, aborted: null },
+    });
+    const res = await GET(req({ authorization: 'Bearer secret-x' }));
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.continued).toBe(true);
+  });
+
+  it('claimed=0 + remaining>0 + SELF_CONTINUE → 200 (no zero-progress self-loop)', async () => {
+    process.env.PR5_CRON_SELF_CONTINUE = 'true';
+    guardedMock.mockResolvedValue({
+      result: { month: '2026-06', claimed: 0, done: 0, skipped: 0, failed: 0, deferred: 0, remaining: 5, aborted: null },
+    });
+    const res = await GET(req({ authorization: 'Bearer secret-x' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.continued).toBeUndefined();
+    expect(body.ok).toBe(true);
   });
 });

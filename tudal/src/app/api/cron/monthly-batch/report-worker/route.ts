@@ -73,7 +73,13 @@ export async function GET(request: NextRequest) {
 
   // optional self-continue accelerator (env-gated, load-bearing 아님 — R1/MEDIUM-3).
   // waitUntil/after 취소 가능 → 정확성은 daily cron + idempotent claim에 의존. 기본 off.
-  const hasMore = result.remaining > 0 && result.aborted === null;
+  // OPS-3: forward-progress gate — claimed>0일 때만 self-continue. claimed=0 + remaining>0은
+  // 남은 row가 모두 non-stale 'running'(직전 crash mid-flight, <10min job-stale)이라는 뜻이고,
+  // 즉시 재호출하면 10min job-stale window 전까지 zero-progress tight-loop가 된다. 그 reclaim은
+  // load-bearing daily cron이 처리하므로, madeProgress 게이트로 낭비 루프를 차단한다.
+  const madeProgress = result.claimed > 0;
+  const hasMore =
+    result.remaining > 0 && result.aborted === null && madeProgress;
   if (hasMore && process.env.PR5_CRON_SELF_CONTINUE === "true") {
     const secret = process.env.CRON_SECRET;
     const selfUrl = new URL(
