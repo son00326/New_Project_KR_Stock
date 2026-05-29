@@ -1,10 +1,11 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-29 (60차 §5 Task 5 B66 PRODUCTION COMPLETE — main/docs-sync HEAD `0f4e662`, code baseline `f2b24e9`. Claude 권한 위임 실행 (사용자 명시 "권한 다 줄게" — 본 Task 한정 예외): 마이그 0026 apply ✅ + --backfill-induty 2,766 corp ✅ + screen --apply 30 rows canonical 14 ✅ + B93 PASS verify ✅. 누적 PR #55 plan `bbf102d` + PR #56 impl `058a372` + PR #57 pagination hotfix `bbd33c6` + PR #58 override `f2b24e9` 모두 MERGED. OMXY R-debate 30+ catches direct-edit CONVERGED. 다음 세션 1순위 = Task 7 Smoke Stage 2 USER 1회 비용 승인 → 승인 후 CLAUDE 자동 실 AI smoke.)
+Last updated: 2026-05-29 (61차 PR5 plan SoT + impl **ready-but-gated** — branch `feat/pr5-cron-monthly-report-worker` @ `7418b1c` (**UNMERGED**, main `4bc5f9d` 불변). PR5 plan omxy R1~R4 **17 catch** CONVERGED → impl Claude 1차 → omxy direct-fix (8+1) → Claude 2차검증 APPROVED. **다음 세션 진입 = §0.A + §2.0a 워크플로우 순서 참조**. **워크플로우 순서 = ① Claude 1차 작업 → ② omxy 1차 검증 → ③ omxy 검증후 수정(direct-fix) → ④ Claude 2차 검증** (사용자 명시 61차, §2.0a). 이전 60차 §5: Task 5 B66 PRODUCTION COMPLETE — 마이그 0026 + short_list_30 30 rows canonical 14 + B93 PASS (PR #55~#58 MERGED).)
 
 ## 현재 baseline
 
-- **main/docs-sync HEAD** = `0f4e662` (post-Task-5 production complete HANDOFF sync). **Code baseline** = `f2b24e9` (post-PR-#58 override 4→7 entries). **PR #55 plan SoT** = `bbf102d`. **PR #56 impl** = `058a372`. 다음 세션은 `git rev-parse --short origin/main`으로 runtime verify.
+- ⭐ **61차 PR5 — `feat/pr5-cron-monthly-report-worker` @ `7418b1c` (UNMERGED, ready-but-gated)**: cron monthly-batch report-only worker (마이그 0027 + worker + route + helpers + 23 tests). main(`4bc5f9d`)에 **미머지** — Task 7 게이트 + USER 게이트 미충족이라 의도적 보류. **branch 검증 게이트 ALL GREEN** (build 26 routes / lint 0 err 5 warn / test:ci 121 files **1350 PASS** / tsc clean). plan SoT(branch): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`. **다음 세션: `git checkout feat/pr5-cron-monthly-report-worker` 후 §2.0a 워크플로우로 USER 게이트 → merge** (§0.A 참조).
+- **main HEAD** = `4bc5f9d` (60차 §5 종결 sweep, post-`0f4e662`). **Code baseline** = `f2b24e9` (post-PR-#58). 다음 세션은 `git rev-parse --short origin/main`으로 runtime verify (`4bc5f9d` 또는 자손).
 - **OPEN PRs**: **#2** (format-error, CONFLICTING 보류) only. PR #57/#58 MERGED.
 - **검증 게이트**: main 기준 build 25 routes / lint 0 err 5 warn (pre-existing) / **test:ci 1325 PASS** / 118 files / tsc clean / **Python 87 tests PASS** (canonical_sector_mapper 29 + sector_override 11 + screen_shortlist_tier0 + seed_dart_corp_codes + pagination/chunking regressions).
 - **Production state (60차 §5 Claude 권한 위임 실행 ✅)**:
@@ -21,14 +22,19 @@ Last updated: 2026-05-29 (60차 §5 Task 5 B66 PRODUCTION COMPLETE — main/docs
 
 ## 다음 1순위
 
-**Task 5 B66 완전 해소 ✅** (60차 §5 Claude 권한 위임 실행 완료, 사용자 명시 "권한 다 줄게"). 모든 production backfill 3-step PASS.
+**61차 PR5 plan + impl 완료 ✅ (branch `feat/pr5-cron-monthly-report-worker` @ `7418b1c`, UNMERGED ready-but-gated)**. plan(omxy R1~R4 17 catch CONVERGED) + impl(Claude 1차 → omxy direct-fix 8+1 → Claude 2차검증 APPROVED). branch 게이트 ALL GREEN.
 
-**다음 액션 큐**:
-1. **(USER+CLAUDE) Task 7 Smoke Stage 2** — 환경 준비 완료; USER **1회 비용 승인** 후 실 AI smoke (~5,000~6,000원/회). USER 승인 즉시 CLAUDE 자동 실행 + 결과 보고.
-2. **(USER, 비차단)** §5.3 PR #54 preflight (Supabase re-auth 후 alert_event CHECK + briefing_log date UNIQUE 검증) + 인증 세션 canary.
-3. **(CLAUDE)** Task 8 audit + PR5 cron 30 자동 plan SoT 진입. (cron mock cleanup Step 2 전체 완료 / Task 5 B66 production complete 이후 PR5 readiness 모두 충족.)
+**다음 액션 큐** (다음 세션은 §2.0a 워크플로우 순서로 진행):
+1. **(USER, PR5 가동 게이트 — 모두 production external, CLAUDE 실행 X)** PR5 branch를 main에 머지·가동하려면 선행 필요:
+   - **(a) Task 7 Smoke Stage 2** — USER **1회 비용 승인** 후 단일 실 AI 리포트 검증 (~5,000~6,000원). canonical sequence상 batch 자동화 전 선행.
+   - **(b) 마이그 0027 production apply** (Supabase, USER OAuth) — `report_batch_job` + `report_worker_run` + 5 RPC.
+   - **(c) `cron-system` auth.users 1회 seed** → 그 UUID를 Vercel env `CRON_SYSTEM_USER_ID`에 입력 (cost_log.called_by FK).
+   - **(d) Vercel env** `PR5_CRON_AUTO_ENABLED=true` (가동 토글) + (옵션) `PR5_CRON_SELF_CONTINUE`.
+2. **(CLAUDE, USER 승인/게이트 후 자동)** PR5 branch push + PR create → omxy 1차 검증(있으면 omxy direct-fix) → Claude 2차검증 → rebase FF merge + delete-branch + canary + HANDOFF sync. **(머지 전까지 main 불변.)**
+3. **(USER, 비차단)** §5.3 PR #54 preflight (Supabase re-auth 후 alert_event CHECK + briefing_log date UNIQUE) + 인증 세션 canary.
+4. **(CLAUDE, PR5 머지+가동 후)** Task 8 audit + **PR5b** (committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate** — plan §3.2/§9 G2) + Step 4 Reflection.
 
-**실 AI trigger 클릭은 Task 7 USER 비용 승인 전 절대 금지** (~5,000~6,000원/회 burn).
+**실 AI trigger/cron 가동은 Task 7 USER 비용 승인 + 위 게이트 전 절대 금지** (~5,000~6,000원/회 burn). PR5 branch는 commit만 됨 (push/PR/merge 미실행).
 
 **운영 원칙**: 본 HANDOFF는 다음 세션 행동에 필요한 최소 current state만 inline. 직전 2 code/history entry만 §6에 유지하고, older detail/round count/commit chain은 git log + PR body + spec/plan docs에 위임. self-referential drift 위험이 큰 commit count/SHA chain/round count는 runtime verify 우선.
 
@@ -36,8 +42,23 @@ Last updated: 2026-05-29 (60차 §5 Task 5 B66 PRODUCTION COMPLETE — main/docs
 
 ## 0. 세션 시작 루틴 (verify + auto-progress)
 
+### §0.A — ⭐ 61차 PR5 branch 진입 (다음 세션 1순위, "HANDOFF 보고 이어서" 시 여기부터)
+
 ```bash
-# 60차 §5 baseline — main/docs-sync HEAD `0f4e662` / code baseline `f2b24e9` (post-PR-#58 override 7 entries) / Task 5 B66 PRODUCTION COMPLETE / PR #55 plan SoT `bbf102d` / PR #56 impl `058a372` / PR #57 pagination hotfix `bbd33c6` / PR #58 override `f2b24e9`.
+# main entry routine (아래 bash) 후, PR5 작업 이어가려면 branch checkout:
+cd /Users/yong/New_Project_KR_Stock
+git fetch origin && git branch -a | grep pr5-cron        # feat/pr5-cron-monthly-report-worker 존재 확인
+git checkout feat/pr5-cron-monthly-report-worker          # @ 7418b1c (3 commits ahead of main 4bc5f9d)
+git log --oneline -4                                      # 7418b1c omxy 0-rows fix / 5240625 omxy 8 fix / 89bd28d Claude impl
+cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..  # 기대: build 26 routes / lint 0 err / test:ci 121 files 1350 PASS / tsc clean
+```
+- **PR5 = cron monthly-batch report-only worker** (기존 30 short_list_30 over `orchestrateFullReport` Section 0~7 자동 생성). plan SoT(branch): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`.
+- **상태**: plan omxy R1~R4 17 catch CONVERGED + impl omxy direct-fix(8+1) + Claude 2차검증 APPROVED. branch 게이트 ALL GREEN. **main 미머지 (gated).**
+- **다음 행동**: §다음 1순위 액션 큐 1번(USER 게이트 a~d) 미충족이면 USER에 게이트 보고 + 다음 unblocked CLAUDE step. USER 게이트 충족 시 §2.0a 워크플로우로 push → PR → omxy 1차검증 → omxy 수정 → Claude 2차검증 → merge.
+- **committee_votes/Section 8 = PR5b로 분리** (D11 운용검증 전 land 강제, plan §3.2/§9 G2). Claude 리뷰 follow-up: `W-pr5-admin-trigger` / `W-pr5-b78-render-log` / `W-pr5-shortlist-not-ready` ✅ resolved(7418b1c).
+
+```bash
+# 60차 §5 baseline — main HEAD `4bc5f9d` (post-`0f4e662` 종결 sweep) / code baseline `f2b24e9` (post-PR-#58 override 7 entries) / Task 5 B66 PRODUCTION COMPLETE / PR #55 plan SoT `bbf102d` / PR #56 impl `058a372` / PR #57 pagination hotfix `bbd33c6` / PR #58 override `f2b24e9`.
 # 60차 누적: PR #53 + PR #54 + PR #55 + PR #56 + PR #57 + PR #58 = 6 PR 머지. Task 5 B66 production write 완료 (Claude 권한 위임 실행).
 # 59차 누적 MERGED: PR #39~#51 — Mock cleanup Step 2.3~2.7b.1 + docs sync.
 # 58차 누적 MERGED: PR #30~#34 + 마이그 0025 production applied.
@@ -171,9 +192,28 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 상세 분류 + Output Modes + Context Packet 표준 + Native Critic Role Taxonomy + 단계별 subagent/skill 매핑 = CLAUDE.md 참조. memory: [[feedback_user_action_auto_progress]] + [[feedback_omxy_debate_workflow]] + [[feedback_no_user_approval_gate]].
 
-### §2.1 Step matrix (main/docs-sync HEAD `0f4e662`, code baseline `f2b24e9` / Task 5 B66 PRODUCTION COMPLETE — **PR5 진입 = Task 7 Smoke Stage 2 PASS 후**)
+### §2.0a — ⭐ Claude↔omxy 작업 워크플로우 순서 (사용자 명시 61차, 다음 섹션 강제 적용)
 
-**현재 위치 = 60차 §5 post-Task-5-complete baseline (60차 §3~§5 누적 6 PR MERGED + Task 5 B66 production write 완료)**:
+**4단계 순서 (모든 비-trivial 작업 단위 = plan / impl / fix에 적용)**:
+
+| 단계 | 주체 | 내용 |
+|---|---|---|
+| ① **1차 작업/수정** | **Claude** | 구현·변경·문서를 1차 작성 (impl 코드 / plan / fix). branch에 commit해 baseline diff 확보. |
+| ② **1차 검증** | **omxy** | omxy가 실 코드/diff를 적대적 검토 (agent+skill 사용). 결함을 찾는다. |
+| ③ **1차 검증 후 수정** | **omxy** | omxy가 찾은 결함을 **전부 직접 수정**(direct-edit, catch-only 아님). 게이트(build/lint/test:ci/tsc) ALL GREEN 유지하며 working tree edit + 수정 요약 보고 (commit은 Claude). |
+| ④ **2차 검증** | **Claude** | Claude가 omxy 수정을 코드 근거로 검증 (receiving-code-review — 맹목 수용 X). 잔여 결함 발견 시 → ③으로 되돌려 omxy가 재수정 → 다시 ④. **Claude 2차검증 clean(잔여 0)일 때 종료** + Claude가 commit. |
+
+**근거/정합**: 본 순서는 `CLAUDE.md ⚙️ Claude+omxy R-debate Workflow` 의 **direct-push/direct-edit mode**(60차 §3 modified workflow) 구체화. 61차 PR5 impl에서 실증: Claude 1차 impl(`89bd28d`) → omxy direct-fix 8건(`5240625`) → Claude 2차검증 APPROVED → Claude 리뷰 finding 1건 → omxy 재수정(`7418b1c`) → Claude 2차검증 clean. 누적 omxy 적대적 검증 26건 모두 코드 근거 CORRECT.
+
+**omxy 환경/송신**: cmux pair-debate (§7.2~7.3). peer surface runtime discover (`cmux list-panes` → omxy pane). 동일 working tree 공유 → omxy가 같은 branch 파일 direct-edit, Claude가 `git diff`로 ④ 검증.
+
+**plan 단계는 역할 반전** (참고): plan 작성 시 ①Claude=작성 ②omxy=catch-only ③Claude=fix (61차 PR5 plan R1~R4 패턴). **impl/fix 단계는 위 4단계** (omxy=fixer / Claude=reviewer). 사용자가 명시한 "1차 수정 Claude / 1차 검증 omxy / 검증후 수정 omxy / 2차검증 Claude"는 **impl·fix 단계** 기준.
+
+**USER 게이트는 본 순서와 무관하게 항상 적용** (§2.0 + CLAUDE.md): Vercel env/secrets/flag / 마이그 production apply / billing / live-money / cost burn / external account / 외부 메시지 / destructive — CLAUDE는 가이드+체크리스트만, 실행은 USER.
+
+### §2.1 Step matrix (main HEAD `4bc5f9d`, code baseline `f2b24e9` / Task 5 B66 PRODUCTION COMPLETE — **61차 PR5 plan+impl branch ready-but-gated, 머지·가동 = Task 7 + USER 게이트 후**)
+
+**현재 위치 = 61차 PR5 plan+impl 완료, branch `feat/pr5-cron-monthly-report-worker` @ `7418b1c` (UNMERGED)**. 이전 §2.1 Task 8 "PR5 cron 30 자동 plan SoT 진입"은 본 branch로 **완료** (plan + impl + omxy 검증 + Claude 2차검증). 다음 = §다음1순위 액션 큐(USER 게이트 → merge → PR5b). 아래 60차 §5 baseline은 production 상태 참고용:
 - **PR #53/#54** Step 2.7b.2/2.7b.3 cron INSERT 실 path 완료
 - **PR #55** Task 5 plan SoT (`bbf102d`)
 - **PR #56** Task 5 impl (`058a372`)
