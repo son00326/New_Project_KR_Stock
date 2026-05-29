@@ -11,7 +11,7 @@
 --   5. upsert_report_sections_0_7_cron — section_0~7 + appendix UPSERT (service_role, 0025 admin 버전의 cron 대응)
 --
 -- scope guard (재해석 금지):
---   - committee_votes / Section 8 partA/C/D (commit_persona_eval/commit_sector_personas grant) = PR5b (마이그 0028). 본 마이그 미포함.
+--   - committee_votes / Section 8 partA/C/D (committee-vote RPC grants) = PR5b (마이그 0028). 본 마이그 미포함.
 --   - upsert_report_sections_0_7_admin (0025) service_role REVOKE 유지 — 본 마이그 미변경.
 --   - cost_log schema 미변경 (called_by = reserved 'cron-system' auth.users UUID로 해소, R3 HIGH-3).
 --   - pipeline_health grant 미추가 (service_role RLS bypass + Supabase 기본 table grant — 기존 cron INSERT helper와 동일).
@@ -189,6 +189,10 @@ begin
         last_error = p_error,
         finished_at = case when p_status in ('done', 'failed', 'deferred') then now() else finished_at end
   where id = p_id;
+
+  if not found then
+    raise exception 'report_job_not_found';
+  end if;
 end;
 $$;
 
