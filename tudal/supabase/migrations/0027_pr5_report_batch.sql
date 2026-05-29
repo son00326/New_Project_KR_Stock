@@ -94,6 +94,11 @@ end $$;
 
 -- ===========================================================================
 -- 3a. claim_next_report_jobs — atomic claim (SKIP LOCKED + attempts<3 + stale sweep)
+--    INVARIANT (SRC-2): MUST be called ONLY while holding acquire_report_worker_lock
+--    (single-claimer serialization). The 10-minute job stale-reclaim below is safe only
+--    under that mutex — a hypothetical second concurrent claimer could reclaim a still-
+--    in-flight (>10min) job and double-orchestrate (duplicate LLM spend). The sole caller
+--    chain today is report-worker route → runGuardedReportChunk(lock) → runReportBatchChunk.
 -- ===========================================================================
 create or replace function public.claim_next_report_jobs(p_month text, p_limit int)
 returns setof public.report_batch_job
@@ -188,10 +193,18 @@ begin
         report_id = coalesce(p_report_id, report_id),
         last_error = p_error,
         finished_at = case when p_status in ('done', 'failed', 'deferred') then now() else finished_at end
-  where id = p_id;
+  where id = p_id
+    -- SRC-3: terminal 'done'을 failed/deferred로 silent 재오픈 금지 (idempotent no-op).
+    -- single-worker serialization 하에서 benign하나, out-of-order 호출(부분 chunk 후 재시도 등)에
+    -- 대한 방어. 'done' 행에 done 재기록(idempotent)이나 다른 비-terminal 전이는 허용.
+    and not (status = 'done' and p_status in ('failed', 'deferred'));
 
   if not found then
-    raise exception 'report_job_not_found';
+    -- 0 rows: 진짜 부재 vs 이미 'done'인데 failed/deferred 시도(guard no-op) 구분.
+    if not exists (select 1 from public.report_batch_job where id = p_id) then
+      raise exception 'report_job_not_found';
+    end if;
+    -- else: terminal 'done' 보호로 인한 정상 no-op (예외 아님).
   end if;
 end;
 $$;
@@ -231,6 +244,12 @@ begin
 
   -- atomic acquire: 신규 OR 비-running OR stale(15min) running만 획득. run_id 새로 발급 (R3 MEDIUM-1 fencing).
   -- R4 LOW-1: 재획득 시 finished_at = null reset.
+  -- SRC-1 rationale: stale window(15min)는 worker function의 max wall-clock(Vercel maxDuration,
+  --   Pro 300s / Hobby 60s — OPS-1 plan-tier 확인 대상)을 반드시 초과해야 한다. 그래야 hard-timeout
+  --   kill로 release가 못 돈 worker의 lock을 다음 invocation이 회수하되, 정상 실행 중인 worker를
+  --   조기 reclaim하지 않는다. 15min은 300s 대비 충분한 margin(clock skew 포함). tradeoff: 동일 월
+  --   manual re-trigger가 직전 run 후 15min 내면 차단되지만, load-bearing daily cron이 회수하므로
+  --   correctness 무영향. (window 축소는 plan-tier 확정 후 검토 — premature 축소는 reclaim race 위험.)
   insert into public.report_worker_run (month, run_id, status, claimed_at, finished_at)
   values (p_month, gen_random_uuid(), 'running', now(), null)
   on conflict (month) do update
