@@ -85,9 +85,11 @@ describe('orchestrateFullReport — B65-P3 UPSERT feature flag (orchestrator sea
   beforeEach(() => {
     vi.resetModules();
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+    delete process.env.PR5_CRON_AUTO_ENABLED;
   });
   afterEach(() => {
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+    delete process.env.PR5_CRON_AUTO_ENABLED;
   });
 
   // ── Test 5: callerKind × flag matrix → rpcName ──────────────────────────────
@@ -114,12 +116,37 @@ describe('orchestrateFullReport — B65-P3 UPSERT feature flag (orchestrator sea
     expect(rpc).toHaveBeenCalledWith('update_report_sections_0_7', expect.any(Object));
   });
 
-  it('Test 5d: callerKind=cron + flag=true → update_report_sections_0_7 (cron never uses new RPC)', async () => {
+  it('Test 5d: callerKind=cron + PR4 flag=true → update_report_sections_0_7 (cron ignores admin RPC flag)', async () => {
     process.env.PR4_TRIGGER_UPSERT_ENABLED = 'true';
     const rpc = okRpc();
     const { orchestrateFullReport, fakeClient } = await loadOrchestrateWithMocks(rpc);
     await orchestrateFullReport(validInput, { client: fakeClient as never, callerKind: 'cron' });
     expect(rpc).toHaveBeenCalledWith('update_report_sections_0_7', expect.any(Object));
+  });
+
+  it('Test 5f: callerKind=cron + PR5 flag=true → upsert_report_sections_0_7_cron', async () => {
+    process.env.PR5_CRON_AUTO_ENABLED = 'true';
+    const rpc = okRpc();
+    const { orchestrateFullReport, fakeClient } = await loadOrchestrateWithMocks(rpc);
+    await orchestrateFullReport(validInput, { client: fakeClient as never, callerKind: 'cron' });
+    expect(rpc).toHaveBeenCalledWith('upsert_report_sections_0_7_cron', expect.any(Object));
+  });
+
+  it('Test 5g: callerKind=cron + PR5 flag=false/unset → update_report_sections_0_7', async () => {
+    const rpc = okRpc();
+    const { orchestrateFullReport, fakeClient } = await loadOrchestrateWithMocks(rpc);
+    await orchestrateFullReport(validInput, { client: fakeClient as never, callerKind: 'cron' });
+    expect(rpc).toHaveBeenNthCalledWith(1, 'update_report_sections_0_7', expect.any(Object));
+
+    vi.resetModules();
+    process.env.PR5_CRON_AUTO_ENABLED = 'false';
+    const rpcFalse = okRpc();
+    const loaded = await loadOrchestrateWithMocks(rpcFalse);
+    await loaded.orchestrateFullReport(validInput, {
+      client: loaded.fakeClient as never,
+      callerKind: 'cron',
+    });
+    expect(rpcFalse).toHaveBeenCalledWith('update_report_sections_0_7', expect.any(Object));
   });
 
   it('Test 5e: callerKind undefined + flag=true → update_report_sections_0_7 (safe default)', async () => {
@@ -207,5 +234,29 @@ describe('orchestrateFullReport — B65-P3 UPSERT feature flag (orchestrator sea
     await expect(
       orchestrateFullReport(validInput, { client: fakeClient as never, callerKind: 'admin' }),
     ).rejects.toThrow('upsert_report_sections_0_7_admin_failed:23505');
+  });
+
+  it('Test 6d: cron upsert path + no_returning error → throw cron upsert literal', async () => {
+    process.env.PR5_CRON_AUTO_ENABLED = 'true';
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'upsert_report_sections_0_7_cron_failed_no_returning', code: 'P0001' },
+    });
+    const { orchestrateFullReport, fakeClient } = await loadOrchestrateWithMocks(rpc);
+    await expect(
+      orchestrateFullReport(validInput, { client: fakeClient as never, callerKind: 'cron' }),
+    ).rejects.toThrow('upsert_report_sections_0_7_cron_failed_no_returning');
+  });
+
+  it('Test 6e: cron upsert path + foreign error code → generic cron upsert failed (no legacy/admin leak)', async () => {
+    process.env.PR5_CRON_AUTO_ENABLED = 'true';
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'report_not_found_for_section_0_7_update', code: '23505' },
+    });
+    const { orchestrateFullReport, fakeClient } = await loadOrchestrateWithMocks(rpc);
+    await expect(
+      orchestrateFullReport(validInput, { client: fakeClient as never, callerKind: 'cron' }),
+    ).rejects.toThrow('upsert_report_sections_0_7_cron_failed:23505');
   });
 });

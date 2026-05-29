@@ -195,6 +195,8 @@ export async function reportExistsForMonth(
 // reportExistsForMonth는 row 존재만 본다 — screening/PR5b가 section_8만 채운 row(본문 부재)도 true.
 // cron worker는 "본문 완성"까지 판별해야 함: cron UPSERT가 section_0~7을 atomic write하므로
 // 양끝(section_0 AND section_7) non-null을 complete proxy로 사용 (section_0만 채워진 partial 식별).
+// CI-2 invariant: PR5 cron UPSERT is the only expected section_0~7 writer in this path;
+// a foreign writer that stores empty {} in both endpoints must be caught by a separate writer contract.
 // DI seam: cron service-role client 주입.
 export async function reportExistsAndCompleteForMonth(
   ticker: string,
