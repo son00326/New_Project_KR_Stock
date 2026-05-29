@@ -111,3 +111,7 @@ export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw(
 // 평균 30% revise trigger 가정 시 ≈ 345원/ticker × 30 ≈ 10,350원/월 (2.6%).
 export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
   FULL_REPORT_MAX_COST_PER_CALL_KRW + CRITIC_MAX_COST_PER_CALL_KRW + REVISE_MAX_COST_PER_CALL_KRW;
+
+// PR5 — cron batch cost-warning 임계 (HARDCAP_KRW=400k 대비 조기 경고).
+// best-effort budget guard (R4 MEDIUM-2): 535는 projection이지 strict token ceiling 아님.
+export const COST_WARNING_THRESHOLD_KRW = 350_000;

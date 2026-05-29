@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type {
   BucketKind,
@@ -136,9 +137,10 @@ export function aggregateShortListDelta(items: ShortListItem[]): ShortListDelta 
 }
 
 export async function getActiveShortList(
-  options?: { month?: string; tickerMeta?: TickerMetaLookup },
+  options?: { month?: string; tickerMeta?: TickerMetaLookup; client?: SupabaseClient },
 ): Promise<ShortListItem[]> {
-  const client = await createClient();
+  // PR5 (DI seam): cron worker가 service-role client 주입 (auth.uid()=null이라 session client는 RLS reject).
+  const client = options?.client ?? (await createClient());
   let query = client
     .from("short_list_30")
     .select(

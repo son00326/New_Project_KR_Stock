@@ -243,12 +243,18 @@ export async function orchestrateFullReport(
   // env read는 함수 body 내부에서 (top-level const 금지 — Next.js 16 inline 회피, omxy R1 Schop B2).
   // strict 'true'만 enable; undefined/empty/'false' 모두 false fallback (.env.example=false safe default).
   // cron 또는 flag=false → 기존 update_report_sections_0_7 (UPDATE-only) 유지.
-  const upsertEnabled =
+  const upsertAdmin =
     options.callerKind === 'admin' &&
     process.env.PR4_TRIGGER_UPSERT_ENABLED === 'true';
-  const rpcName = upsertEnabled
+  // PR5: cron caller + flag=true 시 신규 cron UPSERT RPC (INSERT-if-missing) — UPDATE-only P0002 근본원인 해소.
+  const upsertCron =
+    options.callerKind === 'cron' &&
+    process.env.PR5_CRON_AUTO_ENABLED === 'true';
+  const rpcName = upsertAdmin
     ? 'upsert_report_sections_0_7_admin'
-    : 'update_report_sections_0_7';
+    : upsertCron
+      ? 'upsert_report_sections_0_7_cron'
+      : 'update_report_sections_0_7';
 
   const { data, error } = await supabase.rpc(rpcName, {
     p_ticker: enriched.ticker,
@@ -271,6 +277,10 @@ export async function orchestrateFullReport(
     }
     if (rpcName === 'upsert_report_sections_0_7_admin' && msg.includes('upsert_report_sections_0_7_admin_failed_no_returning')) {
       throw new Error('upsert_report_sections_0_7_admin_failed_no_returning');
+    }
+    // PR5: cron UPSERT RPC error literal guard (cross-path leak 차단, R1 Schop B3 패턴).
+    if (rpcName === 'upsert_report_sections_0_7_cron' && msg.includes('upsert_report_sections_0_7_cron_failed_no_returning')) {
+      throw new Error('upsert_report_sections_0_7_cron_failed_no_returning');
     }
     throw new Error(`${rpcName}_failed:${error.code ?? 'unknown'}`);
   }

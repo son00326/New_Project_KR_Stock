@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { ShortListItem, StockReport, StockReportSections } from "@/types/admin";
 import {
@@ -188,6 +189,38 @@ export async function reportExistsForMonth(
     );
   }
   return data !== null;
+}
+
+// PR5 (R3 MEDIUM-1 / MEDIUM-1): cron resume/skip predicate.
+// reportExistsForMonth는 row 존재만 본다 — screening/PR5b가 section_8만 채운 row(본문 부재)도 true.
+// cron worker는 "본문 완성"까지 판별해야 함: cron UPSERT가 section_0~7을 atomic write하므로
+// 양끝(section_0 AND section_7) non-null을 complete proxy로 사용 (section_0만 채워진 partial 식별).
+// DI seam: cron service-role client 주입.
+export async function reportExistsAndCompleteForMonth(
+  ticker: string,
+  month: string,
+  options?: { client?: SupabaseClient },
+): Promise<{ exists: boolean; complete: boolean }> {
+  const client = options?.client ?? (await createClient());
+  const { data, error } = await client
+    .from("stock_reports")
+    .select("id, section_0, section_7")
+    .eq("ticker", ticker)
+    .eq("month", month)
+    .eq("is_latest", true)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `stock_reports completeness check failed: ${error.message ?? "unknown error"}`,
+    );
+  }
+  if (data === null) {
+    return { exists: false, complete: false };
+  }
+  const row = data as { section_0: unknown; section_7: unknown };
+  const complete = row.section_0 !== null && row.section_7 !== null;
+  return { exists: true, complete };
 }
 
 // ---------------------------------------------------------------------------

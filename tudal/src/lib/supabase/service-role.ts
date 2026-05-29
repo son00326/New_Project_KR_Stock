@@ -2,7 +2,8 @@
 // B11 (omxy R3): `import "server-only"` 강제 — Next.js 빌드타임에 client import 차단.
 // B17 (omxy R5): 사용 boundary는 cron + cron lock helper에 한정.
 //   허용 (cron route 직접 import + DI seam helpers를 통한 간접 사용):
-//     - tudal/src/app/api/cron/monthly-batch/** (PR1 B17 원본)
+//     - tudal/src/app/api/cron/monthly-batch/** (PR1 B17 원본 + PR5 report-worker/** 하위)
+//     - tudal/src/lib/report/full-report-batch-worker.ts (PR5: report 생성 chunk driver, service-role 주입)
 //     - tudal/src/app/api/cron/silent-health/** (Step 2.7a SELECT + Step 2.7b.2 INSERT)
 //     - tudal/src/app/api/cron/news-sweep/** (Step 2.7b.1 SELECT + Step 2.7b.2 INSERT)
 //     - tudal/src/app/api/cron/morning-briefing/** (Step 2.7b.1 SELECT + Step 2.7b.3 INSERT)
@@ -14,6 +15,10 @@
 //     - tudal/src/lib/data/admin-heartbeat-log.ts (Step 2.7b.2: options.client? INSERT)
 //     - tudal/src/lib/data/admin-alerts-insert.ts (Step 2.7b.3: insertAlertEvents options.client? INSERT — recordSchedulerFailAlert DI-only 보존)
 //     - tudal/src/lib/data/admin-briefing-log.ts (Step 2.7b.3: options.client? INSERT)
+//     - tudal/src/lib/data/admin-shortlist.ts (PR5: getActiveShortList options.client? SELECT)
+//     - tudal/src/lib/data/admin-reports.ts (PR5: reportExistsAndCompleteForMonth options.client? SELECT)
+//     - tudal/src/lib/data/admin-pipeline-health-insert.ts (PR5: insertPipelineHealth options.client? INSERT)
+//     - tudal/src/lib/data/admin-cost-alerts.ts (PR5: emitCostAlert → insertAlertEvents options.client? INSERT)
 //   금지 (DI-only 패턴 사용):
 //     - tudal/src/app/(admin)/admin/portfolio/actions.ts (session-based createClient만)
 // 절대 client component / browser에서 import 금지 (SUPABASE_SERVICE_ROLE_KEY 노출).
