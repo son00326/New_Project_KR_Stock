@@ -24,6 +24,9 @@ interface SelectChain<T> {
   // chain shape: select → eq → range (terminal Promise<QueryResult<T>>).
   range: (from: number, to: number) => Promise<QueryResult<T>>;
   single: () => Promise<QueryResult<T>>;
+  // PR-B: fetchFinancialsSummary chain — corp 조회 .maybeSingle(), financial_cache .limit(2) 후 await.
+  maybeSingle: () => Promise<QueryResult<T>>;
+  limit: (n: number) => SelectChain<T>;
   then: <R>(onFulfilled: (v: QueryResult<T>) => R) => Promise<R>; // awaitable terminal
 }
 
@@ -70,6 +73,8 @@ function makeSelectChain<T>(result: QueryResult<T>): SelectChain<T> {
     order: () => chain,
     range: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
+    maybeSingle: () => Promise.resolve(result),
+    limit: () => chain,
     then: (onFulfilled) => Promise.resolve(result).then(onFulfilled),
   };
   return chain;
@@ -89,11 +94,21 @@ vi.mock('@/lib/supabase/server', () => ({
           select: () => makeSelectChain({ data: buildShortlistRows(), error: null }),
         };
       }
+      // PR-B: fetchFinancialsSummary는 dart_corp_codes(ticker→corp_code) → dart_financial_cache(corp_code) JOIN.
+      if (table === 'dart_corp_codes') {
+        return {
+          select: () => makeSelectChain({ data: { corp_code: 'corp-test' }, error: null }),
+        };
+      }
       if (table === 'dart_financial_cache') {
+        // 신 shape: 최신 2개 연간 (period_key desc) — revenue/op_income/net_income/total_equity/total_debt.
         return {
           select: () =>
             makeSelectChain({
-              data: { quarter_revenue: 1, trailing_revenue: 1, quality_score: 1 },
+              data: [
+                { period_key: '2025', revenue: 1000, op_income: 100, net_income: 50, total_equity: 500, total_debt: 200 },
+                { period_key: '2024', revenue: 800, op_income: 80, net_income: 40, total_equity: 480, total_debt: 210 },
+              ],
               error: null,
             }),
         };

@@ -7,6 +7,7 @@ import { assignBadge, isTopTier } from '@/lib/screening/consensus';
 import { commitTickerReport, commitBadgeOnly, commitSectorReport } from '@/lib/report/writer';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 import { isCanonicalSector } from '@/lib/screening/canonical-sectors';
+import { fetchFinancialsSummary } from '@/lib/data/dart-financials';
 // PR4 Task 3 분리 (Next.js 16 'use server' sync export 차단 — shouldRunTier2 sync helper).
 import { shouldRunTier2 } from '@/lib/screening/tier2-gate';
 // PR4 Task 3 (Group F): Track Record 누적 vs 월별 아카이브 탭 분리.
@@ -109,19 +110,11 @@ export async function triggerMonthlyPersonaEvalAction(
   };
 
   // Step 3c: Tier 2도 동일 financials fetcher 재사용 (closure).
-  const fetchFinancials = async (ticker: string): Promise<string> => {
-    // omxy R1 BLOCKER: schema mismatch (실 0014는 corp_code 키, quarter/trailing/quality 컬럼 미존재)는
-    // billing-on smoke (HANDOFF §C, 별도 PR)에서 실 컬럼 매핑. 본 PR은 silent bad input 방지만 보장.
-    const { data, error } = await supabase
-      .from('dart_financial_cache')
-      .select('quarter_revenue, trailing_revenue, quality_score')
-      .eq('ticker', ticker)
-      .single();
-    if (error) {
-      throw new Error(`financials_fetch_failed:${error.code ?? 'unknown'}`);
-    }
-    return JSON.stringify(data ?? {});
-  };
+  // PR-B (ADR 2026-05-31): B3 guaranteed-throw 버그fix — dart_financial_cache는 corp_code 키(ticker 컬럼 없음).
+  // 기존 ticker/quarter_revenue/trailing_revenue/quality_score 조회는 실 스키마에 없어 모든 ticker throw였음.
+  // dart-financials.ts 공유 모듈(ticker→corp_code JOIN + ROE/op_margin/부채비율/YoY 파생)로 단일화.
+  const fetchFinancials = (ticker: string): Promise<string> =>
+    fetchFinancialsSummary(ticker, { client: supabase });
 
   try {
     const evalResult = await runMonthlyPersonaEval({
