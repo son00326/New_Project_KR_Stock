@@ -53,6 +53,14 @@ python3 scripts/screen_shortlist_tier0.py \
     --as-of 2026-05-11 \
     --apply \
     --csv-backup scripts/out/short_list_30_2026-05.csv
+
+# PR-D (ADR D-3): AI 메인 path 입력 — tier0_candidates_150 (단/중/장 disjoint 50씩 = 150 후보) 산출.
+# short_list_30 30 직선정(위, 비-AI fallback)과 별개 테이블. TS getTier0Candidates consumer가
+# SELECT → runMonthlyBatchOrchestrator(Tier 1 Core 11 AI)가 150 → 30 선정.
+python3 scripts/screen_shortlist_tier0.py \
+    --month 2026-06-01 \
+    --apply --emit-candidates \
+    --csv-backup scripts/out/tier0_candidates_150_2026-06.csv
 ```
 
 알고리즘 (5-Signal Composite × 시간대별 가중치)
@@ -246,6 +254,24 @@ class ShortListRow:
     suggested_weight: float
     signal_4_basis: str = "not_applicable"
     quality_insufficient: bool = True
+
+
+@dataclass
+class Tier0CandidateRow:
+    """PR-D — tier0_candidates_150 row (단/중/장 disjoint 50씩 = 150 후보).
+
+    short_list_30 (최종 30 직선정 fallback)과 별개. AI 메인 path 입력:
+    TS getTier0Candidates consumer가 SELECT → Tier1Candidate[] → runMonthlyBatchOrchestrator.
+    bucket은 ticker가 top-50 후보로 선정된 단일 timeframe (cross-bucket disjoint).
+    """
+    month: str          # YYYY-MM-DD (1일 고정)
+    ticker: str
+    name: str
+    sector: str         # canonical 14 (B89 strict block 통과 보장)
+    bucket: str         # short / mid / long (단일)
+    rank: int           # 1..pool_size (보통 50)
+    tier0_score: float  # bucket weight 적용 composite score
+    signal_label: str
 
 
 # ============================================================================
@@ -662,6 +688,43 @@ def select_top_per_bucket(
     return result
 
 
+def select_candidate_pool_per_bucket(
+    signals: list[StockSignal],
+    pool_size: int = CANDIDATE_POOL_PER_BUCKET,
+) -> dict[str, list[tuple[StockSignal, float]]]:
+    """PR-D — 각 bucket별 bucket-weighted score 상위 pool_size 종목을 cross-bucket dedup 선정.
+
+    short → mid → long 순서로 used_tickers 누적 → 3 buckets disjoint = 3*pool_size distinct ticker.
+    (select_top_per_bucket의 top-10 → 후보 pool 50 일반화 — 동일 dedup 규칙, k=pool_size.)
+
+    runMonthlyBatchOrchestrator `candidates.length===150` + runTier1Screening distinct-ticker
+    계약(persona-eval.ts) 충족용. tie-break = score desc, ticker asc (deterministic, TS
+    computeTier0Ranks localeCompare 정합).
+    """
+    used_tickers: set[str] = set()
+    result: dict[str, list[tuple[StockSignal, float]]] = {}
+    for bucket in BUCKETS:
+        scored = [(s, compose_bucket_score(s, bucket)) for s in signals]
+        # score 내림차순 + ticker 오름차순 tie-break (reproducible seed + 안정 dedup).
+        scored.sort(key=lambda t: (-t[1], t[0].ticker))
+        picks: list[tuple[StockSignal, float]] = []
+        for s, score in scored:
+            if s.ticker in used_tickers:
+                continue
+            picks.append((s, score))
+            used_tickers.add(s.ticker)
+            if len(picks) == pool_size:
+                break
+        if len(picks) < pool_size:
+            raise ValueError(
+                f"{bucket} bucket 후보를 {pool_size}개로 채우지 못했습니다 "
+                f"(선정 {len(picks)}개). universe를 늘리세요 "
+                f"(최소 {pool_size * len(BUCKETS)}종목 필요)."
+            )
+        result[bucket] = picks
+    return result
+
+
 # ============================================================================
 # Delta status (vs 전월)
 # ============================================================================
@@ -832,6 +895,111 @@ def upsert_supabase(supabase, rows: list[ShortListRow]) -> None:
 
 
 # ============================================================================
+# PR-D — tier0_candidates_150 (단/중/장 disjoint 50씩 = 150 후보) output
+# ============================================================================
+
+def build_candidate_rows(
+    selections: dict[str, list[tuple[StockSignal, float]]],
+    month: date,
+) -> list[Tier0CandidateRow]:
+    rows: list[Tier0CandidateRow] = []
+    for bucket, ranked in selections.items():
+        for idx, (s, score) in enumerate(ranked, start=1):
+            rows.append(Tier0CandidateRow(
+                month=month.isoformat(),
+                ticker=s.ticker,
+                name=s.name,
+                sector=s.sector,
+                bucket=bucket,
+                rank=idx,
+                tier0_score=round(score, 2),
+                signal_label=primary_signal_label(s, bucket),
+            ))
+    return rows
+
+
+def validate_candidate_rows(
+    rows: list[Tier0CandidateRow],
+    pool_size: int = CANDIDATE_POOL_PER_BUCKET,
+) -> None:
+    """tier0_candidates_150 shape contract: exactly pool_size*3 rows, pool_size per bucket,
+    unique (month, ticker), single month.
+
+    runMonthlyBatchOrchestrator `candidates.length===150` + distinct-ticker assert를 producer 측에서
+    선검증 (DB unique(month,ticker)는 2차 방어).
+    """
+    expected_total = pool_size * len(BUCKETS)
+    bucket_counts = {bucket: 0 for bucket in BUCKETS}
+    seen: set[tuple[str, str]] = set()
+    duplicates: list[tuple[str, str]] = []
+    months = {row.month for row in rows}
+    for row in rows:
+        if row.bucket not in bucket_counts:
+            raise ValueError(f"알 수 없는 bucket입니다: {row.bucket}")
+        bucket_counts[row.bucket] += 1
+        key = (row.month, row.ticker)
+        if key in seen:
+            duplicates.append(key)
+        seen.add(key)
+
+    if len(months) != 1:
+        raise ValueError(f"한 번의 candidate payload에는 하나의 month만 허용됩니다: {sorted(months)}")
+    if duplicates:
+        raise ValueError(f"중복 ticker payload가 감지되었습니다: {duplicates[:5]}")
+    if len(rows) != expected_total:
+        raise ValueError(f"Tier 0 candidate row 수가 {expected_total}개가 아닙니다: {len(rows)}개")
+
+    bad_buckets = {b: c for b, c in bucket_counts.items() if c != pool_size}
+    if bad_buckets:
+        raise ValueError(f"bucket별 {pool_size}개 계약 위반: {bad_buckets}")
+
+
+def candidate_row_to_db_dict(row: Tier0CandidateRow) -> dict:
+    return {
+        "month": row.month,
+        "ticker": row.ticker,
+        "name": row.name,
+        "sector": row.sector,
+        "bucket": row.bucket,
+        "rank": row.rank,
+        "tier0_score": row.tier0_score,
+        "signal_label": row.signal_label,
+    }
+
+
+def write_candidates_csv(path: str, rows: list[Tier0CandidateRow]) -> None:
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=list(candidate_row_to_db_dict(rows[0]).keys()) if rows else [],
+        )
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(candidate_row_to_db_dict(r))
+
+
+def upsert_candidates_supabase(
+    supabase,
+    rows: list[Tier0CandidateRow],
+    pool_size: int = CANDIDATE_POOL_PER_BUCKET,
+) -> None:
+    """현재 month를 latest 150 rows로 교체 (delete → upsert, set-based idempotency).
+
+    upsert_supabase(short_list_30)와 동일 패턴 — 같은 month 재실행 시 stale row 누적 방지.
+    """
+    validate_candidate_rows(rows, pool_size=pool_size)
+    month = rows[0].month
+    payload = [candidate_row_to_db_dict(r) for r in rows]
+    supabase.table("tier0_candidates_150").delete().eq("month", month).execute()
+    (
+        supabase.table("tier0_candidates_150")
+        .upsert(payload, on_conflict="month,ticker")
+        .execute()
+    )
+
+
+# ============================================================================
 # Orchestration
 # ============================================================================
 
@@ -851,6 +1019,13 @@ def main() -> None:
         default=None,
         help="(B89 strict block, B66 C 하이브리드) unresolved/override trace를 출력할 CSV 경로. "
              "미설정 시 --csv-backup의 stem + '_sector_review.csv'.",
+    )
+    parser.add_argument(
+        "--emit-candidates",
+        action="store_true",
+        help="(PR-D, ADR D-3) short_list_30 30 대신 tier0_candidates_150 (단/중/장 disjoint 50씩 = 150 후보) "
+             "산출. AI 메인 path 입력 — TS getTier0Candidates consumer가 SELECT → runMonthlyBatchOrchestrator. "
+             "--dry-run/--apply 와 조합 (dry-run=CSV만, apply=tier0_candidates_150 write).",
     )
     args = parser.parse_args()
 
@@ -933,27 +1108,25 @@ def main() -> None:
         for signal, quality_score in zip(signals, quality_scores):
             signal.quality = quality_score
 
-    print(f"[4/7] bucket selection (단/중/장 각 후보 {CANDIDATE_POOL_PER_BUCKET} → 상위 {TOP_K_PER_BUCKET}) ...",
-          file=sys.stderr, flush=True)
-    selections = select_top_per_bucket(signals)
-
-    prior_tickers: set[str] = set()
-    if args.apply:
-        print(f"[5/7] prior month tickers fetch ({prev_month_first(args.month).isoformat()}) ...",
+    # [4/7] selection — mode-dependent. emit-candidates는 150 후보 (단/중/장 disjoint 50),
+    # 기본(fallback)은 30 직선정 (단/중/장 top-10).
+    if args.emit_candidates:
+        print(f"[4/7] candidate pool selection (단/중/장 각 {CANDIDATE_POOL_PER_BUCKET}, cross-bucket disjoint "
+              f"= {CANDIDATE_POOL_PER_BUCKET * len(BUCKETS)} 후보) ...",
               file=sys.stderr, flush=True)
-        supabase = get_supabase_client()
-        prior_tickers = fetch_prior_month_tickers(supabase, args.month)
-        print(f"      → {len(prior_tickers)}개 전월 ticker (delta_status hold 판정용)",
-              file=sys.stderr, flush=True)
+        selections = select_candidate_pool_per_bucket(signals)
     else:
-        supabase = None
+        print(f"[4/7] bucket selection (단/중/장 각 후보 {CANDIDATE_POOL_PER_BUCKET} → 상위 {TOP_K_PER_BUCKET}) ...",
+              file=sys.stderr, flush=True)
+        selections = select_top_per_bucket(signals)
 
-    rows = build_rows(selections, args.month, prior_tickers, dart_available)
-    validate_shortlist_rows(rows)
+    supabase = get_supabase_client() if args.apply else None
 
-    # B89 strict block (plan §4.3 R1 lock-in): selected 30 rows에 unresolved 있는지 검사.
-    # build_rows는 signals를 사용하고, signals.sector는 universe.sector를 그대로 받는다.
-    # resolve_sectors_for_universe가 universe에 sector를 설정했으므로 signals/rows의 sector는 정확.
+    # B89 strict block (plan §4.3 R1 lock-in): selected rows(30 또는 150)에 unresolved sector 있는지 검사.
+    # selections는 모드별로 다르지만 (30 vs 150) selected_universe_view 구성은 동일.
+    # resolve_sectors_for_universe가 universe에 sector를 설정했으므로 signals/selections의 sector는 정확.
+    # emit-candidates 150도 동일 strict block 적용 — unresolved가 AI pipeline(Tier1Candidate.sector)에 leak
+    # 되어 최종 30(short_list_30)의 B66 canonical-14 불변식을 깨는 것을 producer 단계에서 차단.
     review_csv_path = args.sector_review_csv or args.csv_backup.replace(".csv", "_sector_review.csv")
     if review_csv_path == args.csv_backup:
         review_csv_path = args.csv_backup + ".sector_review.csv"
@@ -972,6 +1145,49 @@ def main() -> None:
     print(f"      [B89] sector review CSV → {review_csv_path} (unresolved selected={unresolved_count})",
           file=sys.stderr, flush=True)
     enforce_b89_strict_block(unresolved_count, apply=args.apply, review_csv_path=review_csv_path)
+
+    if args.emit_candidates:
+        # --- PR-D: tier0_candidates_150 (AI 메인 path 입력) ---
+        rows = build_candidate_rows(selections, args.month)
+        validate_candidate_rows(rows)
+
+        print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
+        write_candidates_csv(args.csv_backup, rows)
+
+        if args.apply:
+            assert supabase is not None
+            print(f"[7/7] replace month rows → tier0_candidates_150 ({len(rows)} rows, on_conflict=month,ticker)",
+                  file=sys.stderr, flush=True)
+            upsert_candidates_supabase(supabase, rows)
+            print(f"[done] applied (emit-candidates) · month={args.month} · rows={len(rows)} · bucket dist short/mid/long="
+                  f"{sum(1 for r in rows if r.bucket=='short')}/"
+                  f"{sum(1 for r in rows if r.bucket=='mid')}/"
+                  f"{sum(1 for r in rows if r.bucket=='long')}",
+                  file=sys.stderr)
+        else:
+            print(f"[done] dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · CSV={args.csv_backup}",
+                  file=sys.stderr)
+            print("\n--- preview (bucket별 top 3 후보) ---")
+            for bucket in BUCKETS:
+                picks = [r for r in rows if r.bucket == bucket][:3]
+                print(f"[{bucket}]")
+                for r in picks:
+                    print(f"  #{r.rank} {r.ticker} {r.name} ({r.sector}) "
+                          f"tier0_score={r.tier0_score} signal={r.signal_label}")
+        return
+
+    # --- short_list_30 (30 직선정 fallback, 비-AI) ---
+    prior_tickers: set[str] = set()
+    if args.apply:
+        assert supabase is not None
+        print(f"[5/7] prior month tickers fetch ({prev_month_first(args.month).isoformat()}) ...",
+              file=sys.stderr, flush=True)
+        prior_tickers = fetch_prior_month_tickers(supabase, args.month)
+        print(f"      → {len(prior_tickers)}개 전월 ticker (delta_status hold 판정용)",
+              file=sys.stderr, flush=True)
+
+    rows = build_rows(selections, args.month, prior_tickers, dart_available)
+    validate_shortlist_rows(rows)
 
     print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
     write_csv(args.csv_backup, rows)

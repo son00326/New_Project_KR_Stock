@@ -1,8 +1,8 @@
 // PR1 — cron monthly-batch real path (omxy R1~R8 CONVERGED).
 // B1+B11+B12+B15 fix: cron service-role client + orchestrator 내부 scheduler_fail alert + JSON 502 only.
-// 실 LLM 호출은 후속 PR (실 키 + hardcap 운영 검증 후). 본 PR scope에서는 mock tier0Source/callPersonaPanel이
-// production 진입 시점에 throw → orchestrator 내부 catch → recordSchedulerFailAlert + release failed.
-// route catch는 JSON 502만 반환 (alert 중복 호출 차단).
+// PR-D (ADR D-3): tier0Source = tier0_candidates_150 실 SELECT (mock 제거). 나머지(callPersonaPanel/
+//   commitBadgeOnly)는 실 LLM 호출 PR(PR-E) 까지 stub throw → orchestrator 내부 catch →
+//   recordSchedulerFailAlert + release failed. route catch는 JSON 502만 반환 (alert 중복 호출 차단).
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   acquireBatchLockCron,
@@ -11,6 +11,7 @@ import {
 import { recordSchedulerFailAlert } from '@/lib/data/admin-alerts-insert';
 import { runMonthlyBatchOrchestrator } from '@/lib/screening/monthly-batch-orchestrator';
 import { upsertShortList30 } from '@/lib/data/admin-shortlist-persist';
+import { getTier0Candidates } from '@/lib/data/admin-tier0-candidates';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import type { Tier1Candidate } from '@/lib/screening/persona-eval';
 import type { PersonaScore } from '@/lib/screening/tier1-schema';
@@ -45,11 +46,12 @@ function currentMonthYM(): string {
   return `${now.getUTCFullYear()}-${m}`;
 }
 
-// Placeholder mock — 본 PR scope에서는 Tier 0 source 실 구현 OOS (후속 PR + Python tier0_candidates_150 시드).
-// B15 fix (omxy R4): production 진입 시점에 throw → orchestrator 내부 catch → recordSchedulerFailAlert + release failed.
-// route catch는 JSON 502만 반환 (alert 중복 호출 차단).
-async function mockTier0Source(): Promise<Tier1Candidate[]> {
-  throw new Error('tier0_source_not_wired_pr1_followup');
+// PR-D (ADR D-3): Tier 0 source 실 SELECT — tier0_candidates_150 (Python --emit-candidates 시드).
+// service-role client 주입 (cron auth.uid()=null → RLS bypass). 해당 월 시드 부재 시 0건 →
+// orchestrator가 `tier1_candidates_must_be_150 (got 0)` throw → 내부 catch → recordSchedulerFailAlert
+// + release failed → route catch JSON 502 (정상 degraded — 운영자가 Python 시드 후 재실행).
+async function tier0SourceForCron(month: string): Promise<Tier1Candidate[]> {
+  return getTier0Candidates({ month, client: createServiceRoleClient() });
 }
 
 async function mockCallPersonaPanel(): Promise<PersonaScore[]> {
@@ -120,7 +122,7 @@ export async function GET(request: NextRequest) {
         process.env.PROMPT_VERSION_ID ?? 'render-user-prompt@v1',
       personasVersionId:
         process.env.PERSONAS_VERSION_ID ?? 'core11@v3.1',
-      tier0Source: mockTier0Source,
+      tier0Source: () => tier0SourceForCron(month),
       callPersonaPanel: mockCallPersonaPanel,
       fetchFinancials: mockFetchFinancials,
       lock: {
