@@ -17,7 +17,7 @@ current_progress: 100%
 
 ## 목표 (Why)
 
-Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent Health 하트비트)를 완성하여 "AI 비용 폭주"와 "조용한 장애"를 동시에 방어한다. S4에서 심어둔 cost_log stub을 여기서 활성화한다. **S6 Mock 완료 시 Must 19 Mock 동작 전원 가동 = Mock Skeleton Stage 1 완성.** 진짜 MVP는 S7 실데이터 전환 + 운용 1개월+ 검증 후 (HANDOFF.md §6).
+Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent Health 하트비트)를 완성하여 "AI 비용 폭주"와 "조용한 장애"를 동시에 방어한다. S4에서 심어둔 cost_log stub을 여기서 활성화한다. **S6 Mock 완료 시 Must 19 Mock 동작 전원 가동 = Mock Skeleton Stage 1 완성.** 진짜 MVP는 S7 실데이터 전환 + 운용 1개월+ 검증 후 (HANDOFF.md §2 Runbook).
 
 **진입 게이트**: BL-18 (P5 I-03 토큰 dry-run 실측) — 22차 후속 결정 = **B 견적 임계치** (실 API dry-run 미실시, src/lib/cost/dry-run-estimate.ts에 보수적 추정 박제).
 
@@ -114,5 +114,5 @@ Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent H
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-16 | 초기 생성. architect S7 블록 기반. M18 이관(S5 동시) 반영. 40만 hardcap 활성·Silent Health 운용 개시가 이 슬라이스 완료 시점. |
-| 2026-04-20 | **S6 ✅ Mock 완료 (23차)**. BL-16/17/18 + G-3 4건 해소. T6.1~T6.6 실행. 0008 마이그레이션(cost_log 확장 + heartbeat_log + RLS) + src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts + src/lib/health/heartbeat.ts + `/admin/settings/cost` + `/api/cron/silent-health` + Vitest 3 files 30+ tests. **20 files / 190 tests pass** · build 22 routes · lint 0. **Mock 동작 19/19 달성 · 실데이터 0/19 · 운용 0일** — Mock Skeleton Stage 1 완성. 진짜 MVP는 S7(실데이터 전환, HANDOFF.md §6) + 운용 1개월+ 검증 후. |
+| 2026-04-20 | **S6 ✅ Mock 완료 (23차)**. BL-16/17/18 + G-3 4건 해소. T6.1~T6.6 실행. 0008 마이그레이션(cost_log 확장 + heartbeat_log + RLS) + src/lib/cost/{anthropic-pricing,dry-run-estimate,aggregate}.ts + src/lib/health/heartbeat.ts + `/admin/settings/cost` + `/api/cron/silent-health` + Vitest 3 files 30+ tests. **20 files / 190 tests pass** · build 22 routes · lint 0. **Mock 동작 19/19 달성 · 실데이터 0/19 · 운용 0일** — Mock Skeleton Stage 1 완성. 진짜 MVP는 S7(실데이터 전환, HANDOFF.md §2 Runbook) + 운용 1개월+ 검증 후. |
 | 2026-04-20 | **23차 후속 정정**. "MVP Stage 1 완료"·"Must 19/19 (100%) 달성" 어휘가 mock-only를 종결 어휘로 오인케 한다는 사용자 지적. 목표·의사결정 로그·변경 이력을 "Mock Skeleton 완성 + 실데이터·운용 검증 후속" 구조로 정정. feedback_mvp_framing.md 규칙 반영. |
