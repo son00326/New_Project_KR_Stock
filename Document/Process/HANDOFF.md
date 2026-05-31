@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-31 — **HANDOFF 단일화·정리** (Claude↔omxy §2.0a 워크플로우, branch `docs/handoff-consolidation`). 비대해진 HANDOFF를 "한눈에 보면 이해되는" 단일본으로 정리: §7 omxy 런북 → `docs/superpowers/omxy-rdebate-runbook.md`, §9 audit 카탈로그 → `docs/superpowers/audit-catalog.md`로 분리(이동, §번호 stub 유지), per-PR 역사 행은 git log/PR body 위임. **직전 상태 = 62차 §2.0a PR5 pre-merge review**(branch `feat/pr5-cron-monthly-report-worker`, UNMERGED ready-but-gated — HEAD는 git rev-parse로 verify). 그 이전 = 60차 §5 Task 5 B66 PRODUCTION COMPLETE.
+Last updated: 2026-05-31 — **PR5 MERGED** (PR #60, main `c2f7504` 또는 자손): cron monthly-batch 자동 리포트(report-only) + 마이그 0027 production applied + Vercel canary 3/3 + /admin 307 OK. Workflow 24-agent deep review + omxy §2.0a CONVERGED(확정 HIGH 코드 블로커 0, 62차 fix 전부 intact). **cron은 `PR5_CRON_AUTO_ENABLED` 미설정으로 dormant(spend 0) — 실 가동은 USER 게이트(cron-system seed + Vercel env + Task 7 비용 smoke + cron-persist canary) 잔여.** 그 이전: HANDOFF 단일화·정리(PR #59, §7→omxy-rdebate-runbook / §9→audit-catalog 분리) / 60차 §5 Task 5 B66 PRODUCTION COMPLETE.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -8,24 +8,23 @@ Last updated: 2026-05-31 — **HANDOFF 단일화·정리** (Claude↔omxy §2.0a
 
 ## 한눈에 (현재 상태 + 다음 행동)
 
-**지금 어디**: canonical 5-PR(PR1~PR4) + Mock cleanup Step 1~2.7b.3 + B65-P1/P2/P3 + Task 5 B66 **production 모두 완료**. 다음 큰 단위 = **PR5(cron 30종목 월간 리포트 자동 생성)**. PR5 plan+impl+62차 pre-merge review는 branch에 **ready-but-gated**(미머지). 가동 = **USER 게이트 a~e** 필요.
+**지금 어디**: canonical 5-PR + Mock cleanup + B65-P1/P2/P3 + Task 5 B66 + **PR5(cron 자동 리포트, report-only) 코드 MERGED**(main `c2f7504`) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음 = **PR5 go-live 활성화 USER 게이트** → 가동 후 PR5b(committee votes, D11 전 hard gate).
 
-**main HEAD**: `git rev-parse --short origin/main` (HANDOFF 단일화·정리 머지 후 `7dcffa9` 또는 자손).
-**PR5 branch**: `feat/pr5-cron-monthly-report-worker` (HEAD = `git rev-parse --short feat/pr5-cron-monthly-report-worker`; local solo, 미push, UNMERGED — rebase 시 SHA 변동). branch 게이트 ALL GREEN(build 26 / lint 0err 5warn / test:ci 123 files 1376 PASS / tsc clean).
+**main HEAD**: `git rev-parse --short origin/main` (PR5 머지 후 `c2f7504` 또는 자손).
+**PR5**: ✅ **MERGED** (PR #60, rebase FF + delete-branch). 게이트 ALL GREEN(build 26 / lint 0err 5warn / test:ci 123 files 1376 PASS / tsc clean). branch 삭제됨.
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
-**Production**: 마이그 0001~0026 applied · short_list_30 = 30 rows canonical 14 only(B93 PASS) · Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true` · public canary 3/3 OK · **실 AI 호출 0건**(cost_log=0, 첫 호출은 Task 7 비용 승인 후).
+**Production**: 마이그 0001~**0027** applied (0027 = report_batch_job + report_worker_run 2 테이블 + 5 RPC, RLS + 4-grant(anon=false) + 내부 is_admin guard + search_path 검증) · short_list_30 = 30 rows canonical 14(B93 PASS) · Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true` (**PR5 env 미설정 → cron dormant**) · canary 3/3 + /admin 307 OK · **실 AI 호출 0건**(cost_log=0, 첫 호출은 Task 7 비용 승인 후).
 
-**다음 액션 큐** (§2.0a 워크플로우 순서로 진행 — ①Claude 1차 → ②omxy 검증 → ③omxy 수정 → ④Claude 2차검증):
+**다음 액션 큐 — PR5 go-live 활성화** (§2.0a 순서; (b) 마이그는 완료):
 
-1. **[USER] PR5 가동 게이트 a~e** (모두 production external — CLAUDE는 가이드/체크리스트만, 실행 X):
-   - **(a) Task 7 Smoke Stage 2** — 1회 비용 승인(~5,000~6,000원) 후 단일 실 AI 리포트 검증. canonical 순서상 batch 자동화 **선행**.
-   - **(b) 마이그 0027 production apply** (Supabase, USER OAuth) — `report_batch_job` + `report_worker_run` + 5 RPC.
-   - **(c) `cron-system` auth.users 1회 seed** → 그 UUID를 Vercel env `CRON_SYSTEM_USER_ID`에 입력 (cost_log.called_by FK).
-   - **(d) Vercel env**: `CRON_SYSTEM_USER_ID=<seed UUID>` + `PR5_CRON_AUTO_ENABLED=true` + (옵션) `PR5_CRON_SELF_CONTINUE`.
-   - **(e) Vercel plan tier 확인** (62차 OPS-1, 유일한 OPEN finding): `vercel.json` 신규 `functions.maxDuration:300`이 Hobby면 60s로 silent cap → chunk mid-flight kill (정확성은 daily-cron fallback 유지, throughput 저하). Pro 업그레이드 또는 chunk를 60s 내로 조정.
-2. **[CLAUDE] USER 게이트 충족 후 자동**: PR5 branch push + PR create → §2.0a(omxy 검증→omxy 수정→Claude 2차검증) → rebase FF merge + delete-branch + canary + HANDOFF sync. **머지 전까지 main 불변.**
-3. **[USER, 비차단]** PR #54 §5.3 preflight (Supabase re-auth 후 alert_event CHECK + briefing_log date UNIQUE) + 인증 세션 canary.
-4. **[CLAUDE] PR5 머지·가동 후**: Task 8 audit(→ `docs/superpowers/audit-catalog.md`) + **PR5b**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**) + Step 4 Reflection.
+1. **[USER] go-live 활성화 게이트** (production external — CLAUDE는 가이드/체크리스트만, 실행 X):
+   - **(b) 마이그 0027 apply** — ✅ **DONE** (Supabase MCP, `rbrpcynhphrpljbjirfo`, 2 테이블 + 5 RPC 검증, advisor anon=false).
+   - **(c) `cron-system` auth.users 1회 seed** — Auto Confirm ON, `ADMIN_EMAILS` 제외, placeholder UUID(`0000...`) 재사용 금지 → UUID를 Vercel env `CRON_SYSTEM_USER_ID`.
+   - **(d) Vercel env**: `CRON_SYSTEM_USER_ID=<seed UUID>` + `PR5_CRON_AUTO_ENABLED=true` (+ 옵션 `PR5_CRON_SELF_CONTINUE`).
+   - **(a) Task 7 Smoke** — 1회 비용 승인(~5,000~6,000원) 후: B85 1-token **hardcode 모델** verify(writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001` — env var 아님) → admin 1종목 트리거(5 PASS: cost_log/stock_reports/critic_findings/UI) → **별도 cron-persist canary**(service-role→`upsert_report_sections_0_7_cron`→stock_reports row).
+   - **(e) Vercel plan tier**(OPS-1, 비차단): Hobby면 maxDuration 60s cap(정확성 무관, throughput만).
+2. **[CLAUDE] go-live 후 자동**: cron 가동 모니터링 + Task 8 audit(→ `audit-catalog.md`) + **PR5b**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**) + Step 4 Reflection.
+3. **[USER, 비차단]** PR #54 §5.3 preflight + 인증 세션 canary.
 
 **ACTIVE blocker / W-ticket** (full catalog → `docs/superpowers/audit-catalog.md`):
 - **OPS-1** (open) — 위 (e) Vercel plan tier. 비차단(정확성 영향 0)이나 가동 전 확인 권장.
@@ -65,20 +64,19 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 #   drift(cost_log>0 등) 시 = 누군가 trigger를 눌렀거나 Smoke/cron 실행됨 → §1 ground truth 갱신.
 ```
 
-### §0.A — PR5 branch 진입 ("HANDOFF 보고 이어서" 시 여기부터)
+### §0.A — PR5 go-live 활성화 진입 ("HANDOFF 보고 이어서" 시 여기부터)
+
+**PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §다음 액션 큐 1번): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` / (d) Vercel PR5 env / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
 ```bash
-git branch --list 'feat/pr5-cron-monthly-report-worker'   # local 존재 확인 (push/PR 전이라 remote 없음)
-git rev-parse --short feat/pr5-cron-monthly-report-worker  # 출력 = PR5 HEAD (62차 §2.0a review-hardened; rebase 시 변동, 이 출력값 사용)
-git checkout feat/pr5-cron-monthly-report-worker
-git log --oneline -6   # 5 commits(최신순): R2(OPS-3/SRC-1·2·3) / R1(10 findings) / omxy 0-rows quiet-skip / omxy 8 fix / Claude impl+마이그0027 — SHA는 rebase 시 변동
+cd /Users/yong/New_Project_KR_Stock
+git checkout main && git pull origin main
+git rev-parse --short HEAD          # PR5 머지 후 c2f7504 또는 자손
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
 #   기대: build 26 routes / lint 0 err 5 warn / test:ci 123 files 1376 PASS / tsc clean
 ```
-- **PR5** = cron monthly-batch report-only worker (기존 30 short_list_30 over `orchestrateFullReport` Section 0~7 자동 생성). plan SoT(branch-only, merge 전 main에 없음): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`.
-- **상태**: plan omxy R1~R4 17 catch CONVERGED + impl + 62차 §2.0a 2-round pre-merge review(R1 10 fix / R2 deferred 4) = 0 open finding. branch 게이트 ALL GREEN. **main 미머지(gated)**.
-- **다음 행동**: 한눈에 §다음 액션 큐 1번(USER 게이트 a~e). 미충족이면 USER에 게이트 보고 + 다음 unblocked CLAUDE step. 충족 시 §2.0a로 push→PR→omxy 검증→omxy 수정→Claude 2차검증→merge.
-- **committee_votes / Section 8 full path = PR5b로 분리** (D11 운용 검증 전 land 강제 hard gate, plan §3.2/§9 G2).
+- PR5 plan SoT(main 머지됨): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`. go-live 상세 = `audit-catalog.md §9.4` + W-pr5-cron-persist-canary.
+- **go-live 후 [CLAUDE]**: cron 가동 모니터링 + Task 8 audit + **PR5b**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**, plan §3.2/§9 G2) + Step 4 Reflection.
 
 ### 진입자 자동 행동 (§2.0 default-progress)
 
@@ -95,19 +93,18 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (단일화·정리 머지 후 `7dcffa9` 또는 자손). code baseline `f2b24e9`(post-PR-#58). |
-| PR5 branch | `feat/pr5-cron-monthly-report-worker` — **UNMERGED, ready-but-gated** (local solo, HEAD runtime-verify · rebase 시 SHA 변동). plan+impl+62차 2-round review 완료, 0 open finding. |
-| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#58 + canonical 5-PR 모두 MERGED(상세 git log). |
-| 검증 게이트 (main) | build 25 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1325 PASS / 118 files** / tsc clean / **Python 87 tests PASS**. |
-| 검증 게이트 (PR5 branch) | build 26 routes / lint 0 err 5 warn / **test:ci 1376 PASS / 123 files** / tsc clean. |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (PR5 머지 후 `c2f7504` 또는 자손). |
+| PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
+| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#60 + canonical 5-PR 모두 MERGED(상세 git log). |
+| 검증 게이트 (main, PR5 포함) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1376 PASS / 123 files** / tsc clean / **Python 87 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
 | Task 5 B66 | ✅ **PRODUCTION COMPLETE** (60차 §5): 마이그 0026 + induty 백필 2,766/2,766 + short_list_30 30 rows canonical 14(B93 PASS). placeholder/unresolved 영구 0. |
 | 선정 흐름 | spec lock-in: Tier 0 150 → Tier 1 Core 11 AI → 단/중/장 top 10 = 30. 현 production = Tier 0 단독 30(fallback). **PR5 가동 시 메인 path 활성**. |
 | 풀 리포트 | PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step + PR4 admin caller + 마이그 0025 RPC + env=true. **functional 가능, last-known audit cost_log=0/stock_reports=0** → Task 7 Smoke Stage 2에서 첫 실 검증. |
 | 실 AI 호출 | **현재 0건** (cost_log=0). 첫 실 smoke는 Task 7 USER 비용 승인 후. |
-| Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0026 production applied** · SECURITY DEFINER 4-grant 패턴 · dart_corp_codes 2,766/2,766 induty 백필. |
-| Vercel canary | code baseline `f2b24e9`; public 3/3 OK (`/` + `/login` + `/macro`). cron route: silent-health 15:00 UTC(heartbeat_log+alert) / news-sweep 00:00 UTC(news_event+alert) / morning-briefing 23:00 UTC(briefing_log+alert) — 전면 INSERT 실 path. 인증 세션 canary 권장. |
+| Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0027 production applied** (0027 = report_batch_job + report_worker_run 2 테이블 + 5 RPC, RLS + 4-grant anon=false + 내부 is_admin guard + search_path) · SECURITY DEFINER 패턴 · dart_corp_codes 2,766/2,766 induty 백필. |
+| Vercel canary | PR5 머지 deploy(`tudal-9bwx5js8g`) Ready; public 3/3 OK (`/` + `/login` + `/macro`) + `/admin` 307. cron route 5개(monthly-batch / morning-briefing / news-sweep / silent-health / **report-worker daily — dormant**). 인증 세션 canary 권장. |
 | Mock/슬라이스 | Mock ✅ / DQ-7 ~97%(Smoke #4/#5 + Session 4 QA 잔여) / S7e 7/8(T7e.7 RLS QA 잔여) / S7a ✅ / Tier 2 D21 ✅ / cron INSERT mock cleanup Step 2 전체 완료. |
 
 ---
@@ -142,7 +139,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix — 8-row (Task 1~5 ✅, Task 7 + PR5 USER gates next)
 
-**현재 위치** = 61차 PR5 plan+impl + 62차 §2.0a pre-merge review 완료, branch ready-but-gated. 이전 "Task 8 PR5 plan 진입"은 본 branch로 완료. 다음 = §다음 액션 큐(USER 게이트 → merge → PR5b). **상세 박제·라운드 수는 git log + PR body + plan docs + `docs/superpowers/audit-catalog.md` 위임.**
+**현재 위치** = **PR5 코드 MERGED**(PR #60, main `c2f7504`) + 마이그 0027 production applied. cron **dormant**(flag off). 다음 = **PR5 go-live 활성화 USER 게이트**(한눈에 §다음 액션 큐) → 가동 후 PR5b. **상세 박제·라운드 수는 git log + PR body + plan docs + `docs/superpowers/audit-catalog.md` 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
@@ -152,8 +149,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 4 | B65-P3 호환 feature flag + 마이그 0025 impl | CLAUDE | ✅ MERGED `3c09d6e` (PR #30) + 마이그 0025 applied + Vercel env=true |
 | 5 | B66 C 하이브리드 + B84/B89/B93 | CLAUDE(위임) | ✅ **PRODUCTION COMPLETE** (60차 §5) — 마이그 0026 + 백필 + 30 rows canonical 14 + B93 PASS |
 | 6 | Smoke Stage 1 — non-AI dry-run | CLAUDE | 🟡 optional zero-cost prep (다음 명시 gate는 Task 7) |
-| 7 | **Smoke Stage 2 — single real AI** | CLAUDE+USER | ⭐ **다음 1순위 USER gate** — 비용 승인 후 CLAUDE 자동. B85 model id verify 선행. PASS = cost_log + stock_reports + report_critic_findings + UI render |
-| 8 | B67~B98 audit + PR5 진입 | CLAUDE | 🟢 PR5 branch ready-but-gated. Smoke Stage 2 + USER gates a~e 후 §2.0a로 merge. PR5b는 D11 전 land hard gate |
+| 7 | **Task 7 Smoke — single real AI** (go-live gate a) | CLAUDE+USER | ⭐ **USER 비용 승인 게이트** — 승인 후 CLAUDE 자동. B85 1-token **hardcode 모델** verify(`claude-opus-4-7` / `claude-haiku-4-5-20251001`). PASS = cost_log + stock_reports + critic_findings + UI + **별도 cron-persist canary** |
+| 8 | PR5 cron 자동 리포트 (report-only) | CLAUDE | ✅ **MERGED** (PR #60, main `c2f7504`) + 마이그 0027 applied. Workflow 24-agent + omxy §2.0a CONVERGED. cron dormant → go-live = USER 게이트(c/d/a/e). PR5b(committee votes) = D11 전 hard gate |
 
 ### §2.2 ✅ 어드민 출시 게이트 (S9 1개월+ 후 7 criteria)
 
@@ -245,19 +242,19 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
 
-### 62차 §2.0a — PR5 pre-merge review (branch `feat/pr5-cron-monthly-report-worker`, UNMERGED ready-but-gated)
+### PR5 MERGED — cron monthly-batch 자동 리포트 (report-only) + 마이그 0027 (PR #60, main `c2f7504`)
 
-- 61차: PR5 plan(omxy R1~R4 17 catch CONVERGED) + impl(Claude 1차 → omxy direct-fix 8+1 → Claude 2차검증 APPROVED).
-- 62차: 2-round pre-merge review — R1(omxy direct-fix 10: TC-1 cron-upsert RPC 분기 / CRF-1 hardcap defer+best-effort alert / CI-1 worker step-0 `PR5_CRON_AUTO_ENABLED` fail-closed money-safe / OPS-2 lock-leak / TC-2~6 invariant 테스트) + R2(deferred 4: OPS-3 forward-progress gate / SRC-1·2 mutex·claim 주석 / SRC-3 terminal-state guard). test:ci 1350→1376, 0 open finding.
-- **잔여 OPEN = OPS-1** (USER deploy gate (e), Vercel plan tier). CRF-3~6 = verified CLEAN.
+- **검증 (Workflow 24-agent + omxy §2.0a cross-runtime)**: 6차원 deep review 38 findings → 18 HIGH/MED 적대 verify → **전부 LOW/MED 강등, 4 refuted, 확정 HIGH 코드 블로커 0** + omxy CONVERGED(신규 블로커 0, merge-before-migration 안전, cost-logger spend-before-log = bounded follow-up). 게이트 build 26 / test:ci 1376 / tsc clean.
+- **61/62차 review fix 잔존 (2회 rebase 후)**: CI-1 step-0 fail-closed / CRF-1 hardcap defer / OPS-2 lock-leak / OPS-3 forward-progress / SRC-1·2·3 / TC-1~6 전부 코드+테스트 present, grep gate 11/11, regression 0.
+- **마이그 0027 production applied** (Supabase MCP, `rbrpcynhphrpljbjirfo`): report_batch_job + report_worker_run 2 테이블 + 5 RPC, RLS + 4-grant(anon=false) + 내부 is_admin guard + search_path 검증. advisor = 기존 ~13 함수와 동일 패턴(회귀 0).
+- **omxy ③ docs fix (④ Claude 재검증)**: B85 hardcode 모델 정정(`claude-opus-4-7` / `claude-haiku-4-5-20251001`) + cron-persist canary 추가 + .env.example project 주석 정정 + follow-up 티켓(W-cost-atomic-reservation / W-pr5-cron-persist-canary).
+- cron **dormant**(flag off → spend 0). 실 가동 = USER 게이트(c cron-system seed / d Vercel env / a Task 7 비용 smoke / e plan tier OPS-1). public canary 3/3 + /admin 307 OK.
 
-### 60차 §5 — Task 5 B66 PRODUCTION COMPLETE (Claude 권한 위임 실행, "권한 다 줄게")
+### HANDOFF 단일화·정리 (PR #59 선행)
 
-- 누적 6 PR MERGED: PR #53 `a351033` + #54 `50cb94a`(cron INSERT 실 path) + #55 `bbf102d`(plan) + #56 `058a372`(impl) + #57 `bbd33c6`(pagination hotfix) + #58 `f2b24e9`(override 4→7).
-- production execution: 마이그 0026 apply → `--backfill-induty` 2,766/2,766 ok → `screen --dry-run`(B89 unresolved 3 catch → override 7) → `--apply` 30 rows. **B93 PASS**(canonical 14만 / placeholder·unresolved 0). 반도체 10 / 에너지 4 / IT/SW 3 / 바이오 3 / 유통·소비재 3 / 2차전지 2 / 자동차 2 / 건설 1 / 금융 1 / 통신 1.
-- OMXY R-debate 누적 30+ catches direct-edit CONVERGED.
+- 693→296L 단일본 + §7→`omxy-rdebate-runbook.md` / §9→`audit-catalog.md` 분리(§번호 stub 유지) + SessionLog archive + stale 포인터 13곳 정정. Claude↔omxy §2.0a CONVERGED, docs-only.
 
-> 59차 이하 (Mock cleanup Step 1~2.7b.1 / 58차 PR #30~#34 / canonical 5-PR / S7a / Tier 2 등) = git log + PR body + spec/plan/REVIEW docs 위임.
+> 60차 §5 이하 (Task 5 B66 PRODUCTION COMPLETE 마이그 0026 + B93 PASS / Mock cleanup / 58차 PR #30~#34 / canonical 5-PR / S7a / Tier 2 등) = git log + PR body + spec/plan/REVIEW docs 위임.
 
 ---
 
