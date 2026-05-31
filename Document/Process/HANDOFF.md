@@ -160,7 +160,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | Step | Owner | Trigger | Default action |
 |---|---|---|---|
-| **PR5** cron 30 report-only 자동 + β2′ DB job queue | CLAUDE | branch ready-but-gated; merge/golive = Task 7 + USER gates a~e 후 | `orchestrateFullReport` Section 0~7 자동. queue = `report_batch_job` + `report_worker_run` run-mutex, fail = sequential + retry N=2 + summary/cost alert, cost ≈ 16,050원/월. 마이그 0027 + `CRON_SYSTEM_USER_ID` + Vercel PR5 env 필요. **committee_votes/Section 8 = PR5b(D11 전 land hard gate)**. |
+| **PR5** cron 30 report-only 자동 + β2′ DB job queue | CLAUDE | ✅ **코드 MERGED**(PR #60) + 마이그 0027 applied. go-live = USER 게이트(c seed / d env / a Task 7 smoke / e plan tier) 후 cron 가동 | `orchestrateFullReport` Section 0~7 자동. queue = `report_batch_job` + `report_worker_run` run-mutex, fail = sequential + retry N=2 + summary/cost alert, cost ≈ 16,050원/월. cron dormant(flag off). **committee_votes/Section 8 = PR5b(D11 전 land hard gate)**. |
 | **Step 4 Reflection** | CLAUDE | PR5 cron 가동 + 실 Tier 1 결과 누적 후 | reflection_log 마이그 + Tier 1 context 주입. |
 | **Step 7 S7b** 뉴스+브리핑 mock→real | USER(B-7 Resend + B-8 Naver) + CLAUDE | PR5 가동 후 | 실 Naver news sweep + Resend 도메인 인증 + 모닝 브리핑 cron. |
 | **Step 8 D11 AI 가상 포트 1차 가동 게이트** | USER 운용 + CLAUDE 모니터링 | S7b 완료 후, S7c 진입 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증 (의사결정 품질·승인·재생성 cap·뉴스 분류). **S7c/S8 진입 게이트**. |
