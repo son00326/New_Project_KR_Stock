@@ -1,6 +1,6 @@
 # 실데이터 + 실 AI end-to-end — 사전결정 ADR + sequenced 로드맵 (PR-A)
 
-Status: **DRAFT** (Claude 1차 — Workflow 9-agent 매핑 + completeness critique + omxy §2.0a R1 5 catch 반영). omxy R2 재검증 대기.
+Status: **CONVERGED** (Claude 1차 — Workflow 9-agent 매핑 + completeness critique + omxy §2.0a R1 5 catch + R2 3 catch 반영 → **omxy R3 CONVERGED**, 잔여 HIGH/MED 0).
 Date: 2026-05-31
 Base: main `5385512`
 SoT 산출: Workflow `wf_69256ccc-149` (7차원 매핑 + 완성도 검증 + 로드맵) + omxy §2.0a R1 (HIGH×2 / MED×2 / LOW×1).
