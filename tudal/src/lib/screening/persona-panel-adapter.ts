@@ -13,18 +13,51 @@ import type {
 import { PERSONA_SCORE_USER_PROMPT_TEMPLATE } from "@/lib/ai/prompts/user-prompt-template";
 import { PersonaScoreSchema, type PersonaScore } from "@/lib/screening/tier1-schema";
 
-// content에서 첫 JSON object 추출 (마크다운 펜스 / 앞뒤 텍스트 허용).
+// content에서 첫 parse 가능한 JSON object 추출 (마크다운 펜스 / 앞뒤 텍스트 허용).
 function extractJsonObject(content: string): unknown {
   const trimmed = content.trim();
   // ```json ... ``` 또는 ``` ... ``` 펜스 제거.
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = (fenced ? fenced[1] : trimmed).trim();
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  if (start === -1 || end === -1 || end < start) {
+  let sawBalancedObject = false;
+  for (let start = 0; start < candidate.length; start++) {
+    if (candidate[start] !== "{") continue;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === "\\") {
+          escaped = true;
+        } else if (ch === "\"") {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === "\"") {
+        inString = true;
+      } else if (ch === "{") {
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          sawBalancedObject = true;
+          try {
+            return JSON.parse(candidate.slice(start, i + 1));
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (!sawBalancedObject) {
     throw new Error("persona_score_parse_failed:no_json_object");
   }
-  return JSON.parse(candidate.slice(start, end + 1));
+  throw new Error("persona_score_parse_failed:invalid_json");
 }
 
 /**

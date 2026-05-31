@@ -56,6 +56,13 @@ describe("parsePersonaScore — 파싱/검증", () => {
     expect(s.scores.short).toBe(80);
   });
 
+  it("앞뒤 텍스트에 중괄호가 있어도 첫 parse 가능한 JSON object를 추출", () => {
+    const noisy = `참고: scores는 {short, mid, long} 구조입니다.\n${validJson}\n끝`;
+    const s = parsePersonaScore(noisy, "peter-lynch");
+    expect(s.persona_id).toBe("peter-lynch");
+    expect(s.scores.short).toBe(80);
+  });
+
   it("rationale_kr 80자 초과 → graceful truncate (ticker fail 방지)", () => {
     const long = "가".repeat(120);
     const s = parsePersonaScore(
