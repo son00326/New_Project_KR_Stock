@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     orchestrateFullReport: vi.fn(),
     // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
     getMonthlyTotal: vi.fn(),
+    isCostLoggingEnabled: vi.fn(),
   };
 });
 
@@ -41,14 +42,14 @@ vi.mock("@/lib/report/full-report-orchestrator", () => ({
 
 vi.mock("@/lib/cost/cost-logger", () => ({
   getMonthlyTotal: mocks.getMonthlyTotal,
-  // PR-B2 (B7/D-8): regenerateReport의 cost-logging fail-closed guard 통과 (실 AI 진행 happy-path).
-  isCostLoggingEnabled: () => true,
+  isCostLoggingEnabled: mocks.isCostLoggingEnabled,
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   // PR-B2 (B7/D-8): regenerateReport은 실 AI 전 isCostLoggingEnabled() fail-closed guard. happy-path는 flag ON.
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
+  mocks.isCostLoggingEnabled.mockReturnValue(true);
   mocks.getUser.mockResolvedValue({
     data: { user: { id: "mock-admin-1" } },
   });
@@ -320,6 +321,22 @@ describe("regenerateReport", () => {
 
   // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
   describe("cost_log 실 SELECT (58차 Mock cleanup Step 2.3)", () => {
+    it("PR-B2: AI_COST_LOG_REAL_INSERT_ENABLED!==true → cost_logging_disabled + spend 0", async () => {
+      mocks.isCostLoggingEnabled.mockReturnValueOnce(false);
+      const { regenerateReport } = await import("../actions");
+
+      const result = await regenerateReport({
+        ticker: "005930",
+        month: "2026-04-01",
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error).toBe("cost_logging_disabled");
+      expect(mocks.getMonthlyTotal).not.toHaveBeenCalled();
+      expect(mocks.incrementManualRegenCount).not.toHaveBeenCalled();
+      expect(mocks.orchestrateFullReport).not.toHaveBeenCalled();
+    });
+
     it("returns cost_log_lookup_failed when getMonthlyTotal throws (RLS deny / DB error)", async () => {
       mocks.getMonthlyTotal.mockRejectedValueOnce(
         new Error("cost_log_select_failed:PGRST301"),

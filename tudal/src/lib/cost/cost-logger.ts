@@ -30,7 +30,8 @@ function isEnabled(): boolean {
 
 // PR-B2 (B7/D-8, ADR 2026-05-31): admin real-AI 진입점 fail-closed guard용 공개 helper.
 // flag off면 insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open(40만원 hardcap 무력화 = 무제한 burn).
-// admin path(triggerFullReport / regenerateReport / triggerMonthlyPersonaEvalAction)는 실 AI spend 전 본 helper로 차단.
+// admin report paths(triggerFullReport / regenerateReport)는 실 AI spend 전 본 helper로 차단.
+// Legacy triggerMonthlyPersonaEvalAction은 UI caller 0 + D-1 deprecate 예정이라 PR-B2 코드 가드 OOS.
 export function isCostLoggingEnabled(): boolean {
   return isEnabled();
 }
