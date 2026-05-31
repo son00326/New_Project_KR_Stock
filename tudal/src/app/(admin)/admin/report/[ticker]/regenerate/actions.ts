@@ -1,6 +1,6 @@
 "use server";
 
-import { getMonthlyTotal } from "@/lib/cost/cost-logger";
+import { getMonthlyTotal, isCostLoggingEnabled } from "@/lib/cost/cost-logger";
 import { HARDCAP_KRW } from "@/lib/cost/pricing";
 import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { incrementManualRegenCount } from "@/lib/data/admin-regen-counters";
@@ -97,6 +97,12 @@ export async function regenerateReport(input: {
   }
   if (!adminUserId) {
     return { success: false, error: "auth_unavailable" };
+  }
+
+  // PR-B2 (B7/D-8): cost-logging fail-closed — flag off면 getMonthlyTotal=0 fail-open(hardcap 무력화).
+  //   실 AI(regen orchestrate) 전 차단, spend 0.
+  if (!isCostLoggingEnabled()) {
+    return { success: false, error: "cost_logging_disabled" };
   }
 
   // S6 M17 — 월 40만원 hardcap (58차 Mock cleanup Step 2.3: 실 cost_log SELECT 통로).

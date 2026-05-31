@@ -11,6 +11,7 @@ import {
   resolvePortfolioDispute,
 } from "@/lib/data/admin-approvals";
 import { reportExistsForMonth } from "@/lib/data/admin-reports";
+import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
@@ -627,6 +628,12 @@ export async function triggerFullReport(input: {
   const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
   if (adminErr || !isAdmin) {
     return { success: false, error: "admin_required" };
+  }
+
+  // PR-B2 (B7/D-8): cost-logging fail-closed — flag off면 cost_log noop → getMonthlyTotal=0 →
+  //   preflightHardcap fail-open(40만원 hardcap 무력화). 실 AI(orchestrate) 전 차단, spend 0.
+  if (!isCostLoggingEnabled()) {
+    return { success: false, error: "cost_logging_disabled" };
   }
 
   // B65-P1 Phase 1: row-missing preflight (cost burn 차단).

@@ -44,9 +44,12 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     // B65-P3 omxy R2 flake-guard: shell env에 PR4_TRIGGER_UPSERT_ENABLED=true 잔존 시
     // B65-P1 default/preflight regression 테스트가 무력화될 수 있어 명시 delete.
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+    // PR-B2 (B7/D-8): triggerFullReport은 실 AI 전 isCostLoggingEnabled() fail-closed guard. happy-path는 flag ON.
+    process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'true';
   });
   afterEach(() => {
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+    delete process.env.AI_COST_LOG_REAL_INSERT_ENABLED;
   });
 
   it('rejects when input.ticker empty (invalid_input)', async () => {
@@ -155,6 +158,26 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       }),
       { client: supabaseClient, callerKind: 'admin' },
     );
+  });
+
+  it('PR-B2 (B7/D-8): AI_COST_LOG_REAL_INSERT_ENABLED!==true → cost_logging_disabled + orchestrate NOT called (hardcap fail-open 차단)', async () => {
+    process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'false';
+    const orchestrateMock = vi.fn();
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
+      rpc: adminRpc,
+    };
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({
+      orchestrateFullReport: orchestrateMock,
+    }));
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: async () => supabaseClient,
+    }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport(validArgs);
+    // flag off → cost_log noop → getMonthlyTotal=0 → preflightHardcap fail-open이므로, 실 AI 진입 전 차단.
+    expect(res).toEqual({ success: false, error: 'cost_logging_disabled' });
+    expect(orchestrateMock).not.toHaveBeenCalled();
   });
 
   it('returns error when auth unavailable (user null)', async () => {

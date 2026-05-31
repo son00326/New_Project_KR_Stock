@@ -28,6 +28,13 @@ function isEnabled(): boolean {
   return process.env.AI_COST_LOG_REAL_INSERT_ENABLED === 'true';
 }
 
+// PR-B2 (B7/D-8, ADR 2026-05-31): admin real-AI 진입점 fail-closed guard용 공개 helper.
+// flag off면 insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open(40만원 hardcap 무력화 = 무제한 burn).
+// admin path(triggerFullReport / regenerateReport / triggerMonthlyPersonaEvalAction)는 실 AI spend 전 본 helper로 차단.
+export function isCostLoggingEnabled(): boolean {
+  return isEnabled();
+}
+
 export async function insertCostLog(
   row: CostLogRow,
   options: CostHelperOptions = {},

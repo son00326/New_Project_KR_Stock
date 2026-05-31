@@ -24,6 +24,7 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   reason_too_short: "사유는 10자 이상 입력해주세요",
   // regenerate
   cost_hardcap_40man: "월 AI 비용 한도(40만원)를 초과했습니다",
+  cost_logging_disabled: "AI 비용 로깅이 비활성화되어 실 AI 호출을 차단했습니다 (운영자: AI_COST_LOG_REAL_INSERT_ENABLED 확인)",
   manual_cap_exhausted: "수동 재생성 한도(월 2회)를 모두 사용했습니다",
   report_lookup_failed: "리포트 조회 실패 — 다시 시도해주세요",
   report_not_found: "리포트를 찾을 수 없습니다",

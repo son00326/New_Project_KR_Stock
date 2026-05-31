@@ -28,6 +28,8 @@ const costMocks = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/cost/cost-logger', () => ({
   getMonthlyTotal: costMocks.getMonthlyTotal,
+  // PR-B2 (B7/D-8): regenerateReport cost-logging fail-closed guard 통과 (orchestrate wire 검증).
+  isCostLoggingEnabled: () => true,
 }));
 
 const validInput = {
@@ -64,6 +66,8 @@ describe('regenerateReport orchestrate wire (PR4 Task 2 Step 2.3)', () => {
     // history/implementation을 clear하지 않음. costMocks를 매 test마다 default 0원으로 reset
     // (call count contamination 차단 — 향후 "called once / not called" cost_log invariant 보호).
     costMocks.getMonthlyTotal.mockReset().mockResolvedValue(0);
+    // PR-B2 (B7/D-8): regenerateReport은 실 AI 전 cost-logging fail-closed guard. orchestrate wire 검증은 flag ON.
+    vi.stubEnv("AI_COST_LOG_REAL_INSERT_ENABLED", "true");
   });
 
   afterEach(() => {
