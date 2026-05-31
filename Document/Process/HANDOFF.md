@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-05-31 — **HANDOFF 단일화·정리** (Claude↔omxy §2.0a 워크플로우, branch `docs/handoff-consolidation`). 비대해진 HANDOFF를 "한눈에 보면 이해되는" 단일본으로 정리: §7 omxy 런북 → `docs/superpowers/omxy-rdebate-runbook.md`, §9 audit 카탈로그 → `docs/superpowers/audit-catalog.md`로 분리(이동, §번호 stub 유지), per-PR 역사 행은 git log/PR body 위임. **직전 상태 = 62차 §2.0a PR5 pre-merge review**(branch `feat/pr5-cron-monthly-report-worker` @ `d4d6d9a`, UNMERGED ready-but-gated). 그 이전 = 60차 §5 Task 5 B66 PRODUCTION COMPLETE.
+Last updated: 2026-05-31 — **HANDOFF 단일화·정리** (Claude↔omxy §2.0a 워크플로우, branch `docs/handoff-consolidation`). 비대해진 HANDOFF를 "한눈에 보면 이해되는" 단일본으로 정리: §7 omxy 런북 → `docs/superpowers/omxy-rdebate-runbook.md`, §9 audit 카탈로그 → `docs/superpowers/audit-catalog.md`로 분리(이동, §번호 stub 유지), per-PR 역사 행은 git log/PR body 위임. **직전 상태 = 62차 §2.0a PR5 pre-merge review**(branch `feat/pr5-cron-monthly-report-worker`, UNMERGED ready-but-gated — HEAD는 git rev-parse로 verify). 그 이전 = 60차 §5 Task 5 B66 PRODUCTION COMPLETE.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -10,8 +10,8 @@ Last updated: 2026-05-31 — **HANDOFF 단일화·정리** (Claude↔omxy §2.0a
 
 **지금 어디**: canonical 5-PR(PR1~PR4) + Mock cleanup Step 1~2.7b.3 + B65-P1/P2/P3 + Task 5 B66 **production 모두 완료**. 다음 큰 단위 = **PR5(cron 30종목 월간 리포트 자동 생성)**. PR5 plan+impl+62차 pre-merge review는 branch에 **ready-but-gated**(미머지). 가동 = **USER 게이트 a~e** 필요.
 
-**main HEAD**: `git rev-parse --short origin/main` (62차 docs-sync 기준 `3e4886c`; 본 정리 브랜치 머지 후 자손).
-**PR5 branch**: `feat/pr5-cron-monthly-report-worker` @ `d4d6d9a` (local solo, 미push, UNMERGED). branch 게이트 ALL GREEN(build 26 / lint 0err 5warn / test:ci 123 files 1376 PASS / tsc clean).
+**main HEAD**: `git rev-parse --short origin/main` (HANDOFF 단일화·정리 머지 후 `7dcffa9` 또는 자손).
+**PR5 branch**: `feat/pr5-cron-monthly-report-worker` (HEAD = `git rev-parse --short feat/pr5-cron-monthly-report-worker`; local solo, 미push, UNMERGED — rebase 시 SHA 변동). branch 게이트 ALL GREEN(build 26 / lint 0err 5warn / test:ci 123 files 1376 PASS / tsc clean).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
 **Production**: 마이그 0001~0026 applied · short_list_30 = 30 rows canonical 14 only(B93 PASS) · Vercel env `PR4_TRIGGER_UPSERT_ENABLED=true` + `AI_COST_LOG_REAL_INSERT_ENABLED=true` · public canary 3/3 OK · **실 AI 호출 0건**(cost_log=0, 첫 호출은 Task 7 비용 승인 후).
 
@@ -45,7 +45,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # 62차 docs-sync `3e4886c` 또는 자손 (본 정리 브랜치 머지 후)
+git rev-parse --short HEAD          # 단일화·정리 머지 후 `7dcffa9` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -69,14 +69,14 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ```bash
 git branch --list 'feat/pr5-cron-monthly-report-worker'   # local 존재 확인 (push/PR 전이라 remote 없음)
-git rev-parse --short feat/pr5-cron-monthly-report-worker  # 기대: d4d6d9a (62차 §2.0a review-hardened)
+git rev-parse --short feat/pr5-cron-monthly-report-worker  # 출력 = PR5 HEAD (62차 §2.0a review-hardened; rebase 시 변동, 이 출력값 사용)
 git checkout feat/pr5-cron-monthly-report-worker
-git log --oneline -6   # d4d6d9a R2 / bd000fb R1 / 7418b1c omxy 0-rows / 5240625 omxy 8 fix / 89bd28d Claude impl
+git log --oneline -6   # 5 commits(최신순): R2(OPS-3/SRC-1·2·3) / R1(10 findings) / omxy 0-rows quiet-skip / omxy 8 fix / Claude impl+마이그0027 — SHA는 rebase 시 변동
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
 #   기대: build 26 routes / lint 0 err 5 warn / test:ci 123 files 1376 PASS / tsc clean
 ```
 - **PR5** = cron monthly-batch report-only worker (기존 30 short_list_30 over `orchestrateFullReport` Section 0~7 자동 생성). plan SoT(branch-only, merge 전 main에 없음): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`.
-- **상태**: plan omxy R1~R4 17 catch CONVERGED + impl + 62차 §2.0a 2-round pre-merge review(R1 `bd000fb` 10 fix / R2 `d4d6d9a` deferred 4) = 0 open finding. branch 게이트 ALL GREEN. **main 미머지(gated)**.
+- **상태**: plan omxy R1~R4 17 catch CONVERGED + impl + 62차 §2.0a 2-round pre-merge review(R1 10 fix / R2 deferred 4) = 0 open finding. branch 게이트 ALL GREEN. **main 미머지(gated)**.
 - **다음 행동**: 한눈에 §다음 액션 큐 1번(USER 게이트 a~e). 미충족이면 USER에 게이트 보고 + 다음 unblocked CLAUDE step. 충족 시 §2.0a로 push→PR→omxy 검증→omxy 수정→Claude 2차검증→merge.
 - **committee_votes / Section 8 full path = PR5b로 분리** (D11 운용 검증 전 land 강제 hard gate, plan §3.2/§9 G2).
 
@@ -95,8 +95,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (62차 docs-sync `3e4886c`; 본 정리 브랜치 머지 후 자손). code baseline `f2b24e9`(post-PR-#58). |
-| PR5 branch | `feat/pr5-cron-monthly-report-worker` @ `d4d6d9a` — **UNMERGED, ready-but-gated** (local solo). plan+impl+62차 2-round review 완료, 0 open finding. |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (단일화·정리 머지 후 `7dcffa9` 또는 자손). code baseline `f2b24e9`(post-PR-#58). |
+| PR5 branch | `feat/pr5-cron-monthly-report-worker` — **UNMERGED, ready-but-gated** (local solo, HEAD runtime-verify · rebase 시 SHA 변동). plan+impl+62차 2-round review 완료, 0 open finding. |
 | OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#58 + canonical 5-PR 모두 MERGED(상세 git log). |
 | 검증 게이트 (main) | build 25 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1325 PASS / 118 files** / tsc clean / **Python 87 tests PASS**. |
 | 검증 게이트 (PR5 branch) | build 26 routes / lint 0 err 5 warn / **test:ci 1376 PASS / 123 files** / tsc clean. |
@@ -245,10 +245,10 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
 
-### 62차 §2.0a — PR5 pre-merge review (branch `feat/pr5-cron-monthly-report-worker` @ `d4d6d9a`, UNMERGED ready-but-gated)
+### 62차 §2.0a — PR5 pre-merge review (branch `feat/pr5-cron-monthly-report-worker`, UNMERGED ready-but-gated)
 
-- 61차: PR5 plan(omxy R1~R4 17 catch CONVERGED) + impl(Claude `89bd28d` → omxy direct-fix 8+1 → Claude 2차검증 APPROVED, `7418b1c`).
-- 62차: 2-round pre-merge review — R1 `bd000fb`(omxy direct-fix 10: TC-1 cron-upsert RPC 분기 / CRF-1 hardcap defer+best-effort alert / CI-1 worker step-0 `PR5_CRON_AUTO_ENABLED` fail-closed money-safe / OPS-2 lock-leak / TC-2~6 invariant 테스트) + R2 `d4d6d9a`(deferred 4: OPS-3 forward-progress gate / SRC-1·2 mutex·claim 주석 / SRC-3 terminal-state guard). test:ci 1350→1376, 0 open finding.
+- 61차: PR5 plan(omxy R1~R4 17 catch CONVERGED) + impl(Claude 1차 → omxy direct-fix 8+1 → Claude 2차검증 APPROVED).
+- 62차: 2-round pre-merge review — R1(omxy direct-fix 10: TC-1 cron-upsert RPC 분기 / CRF-1 hardcap defer+best-effort alert / CI-1 worker step-0 `PR5_CRON_AUTO_ENABLED` fail-closed money-safe / OPS-2 lock-leak / TC-2~6 invariant 테스트) + R2(deferred 4: OPS-3 forward-progress gate / SRC-1·2 mutex·claim 주석 / SRC-3 terminal-state guard). test:ci 1350→1376, 0 open finding.
 - **잔여 OPEN = OPS-1** (USER deploy gate (e), Vercel plan tier). CRF-3~6 = verified CLEAN.
 
 ### 60차 §5 — Task 5 B66 PRODUCTION COMPLETE (Claude 권한 위임 실행, "권한 다 줄게")
