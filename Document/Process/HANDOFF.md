@@ -291,6 +291,6 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 **Smoke 2-stage 요약** (상세 = audit-catalog.md §9.4):
 - **Stage 1** (cost=0, optional prep): `triggerFullReport`에 mock `orchestrateFullReport` 주입한 P1/P2/P3 호환 invariant TDD.
-- **Stage 2** (USER 비용 승인 후 1회): B85 1-token model id verify 선행 → admin UI click/server action 직접 호출. PASS = ① cost_log row ② stock_reports section_0~7 + appendix non-null + zod valid ③ report_critic_findings row ④ (옵션 B) committee_votes ⑤ `/admin/report/[ticker]` 정상 본문/의도된 SectionFallback 렌더(매핑된 에러 메시지 노출도 FAIL). real cost = cost_log 기준 확정(수치 박제 금지).
+- **Stage 2** (USER 비용 승인 후 1회): B85 1-token model id verify 선행(존재하지 않는 model env var가 아니라 hardcode 모델: writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001`) → admin UI click/server action 직접 호출. PASS = ① cost_log row ② stock_reports section_0~7 + appendix non-null + zod valid ③ report_critic_findings row ④ (옵션 B) committee_votes ⑤ `/admin/report/[ticker]` 정상 본문/의도된 SectionFallback 렌더(매핑된 에러 메시지 노출도 FAIL). **PR5 cron은 admin Task 7과 다른 `upsert_report_sections_0_7_cron` service-role path라 별도 cron-persist canary 필수.** real cost = cost_log 기준 확정(수치 박제 금지).
 
 **B66 production state**: ✅ resolved (60차 §5). placeholder 0 / canonical 14 only 30 rows. 재발 방지 = C 하이브리드(DART induty KSIC longest-prefix → canonical 14 + `sector_override.json` fallback + B89 strict block). PR5 cron 신규 row도 canonical 14 자동 부여.

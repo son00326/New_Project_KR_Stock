@@ -69,10 +69,11 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 
 **Stage 2 — single real AI smoke** (USER 승인 후 1회):
 - production env에서 admin UI click OR server action 직접 호출
-- **B85 model id verify 선행** (1 token test로 production env vars 정합 확인)
+- **B85 model id verify 선행**: 존재하지 않는 model env var(`ANTHROPIC_OPUS_MODEL_ID` 등)가 아니라 코드 hardcode 모델을 1-token API로 직접 확인한다 — writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001`.
 - **B87 PASS criteria 5종**:
   - **Core (필수, 모든 옵션)**: 1 `cost_log` row exists / 2 `stock_reports` row + section_0~7 + appendix all non-null + zod schema valid / 3 `report_critic_findings` row (critic 6-axis verdict) / 5 `/admin/report/[ticker]` UI **정상 본문 또는 의도된 SectionFallback 렌더** — raw/technical/`format-error.ts` 매핑된 에러 메시지 노출 시 모두 FAIL (B107 정정 — 매핑된 에러 메시지도 upstream issue 신호이므로 PASS 아님)
   - **Full-path (옵션 B만)**: 4 `committee_votes` row(s) — 11 core + 0~14 sector
+- **PR5 cron-persist canary 별도 필수**: Task 7 admin smoke는 `upsert_report_sections_0_7_admin`, PR5 cron은 service-role `upsert_report_sections_0_7_cron`이므로 동일 검증으로 간주 금지. 마이그 0027 apply + flag/env 설정 후 service-role 경로로 1 ticker `upsert_report_sections_0_7_cron` → `stock_reports` row 생성/갱신 확인(테스트 row 정리 또는 동일 월/ticker 의도 확인).
 - real cost = `cost_log` 기준 확정 (token usage 기반, production 환경별 변동 — 수치 박제 금지 B91)
 
 ### 9.5 audit catalog (B103+B106 정정 — B67~B85 항목별 1줄 + B79+B81~B85 알려진 항목 + 카테고리 buckets)
@@ -86,7 +87,7 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 - **B70** — Regen UX (`/admin/report/[ticker]/regenerate`) admin path swap 후 첫 실 호출 검증 필요. PR4 Task 2.3 Regen orchestrate wire commit `8b63e1f` MERGED.
 - **B71** — `short_list_30` stale data (2026-05-12 legacy mechanical seed 1회, B66 placeholder + ~14일 stale). C 하이브리드 적용 후 PR5 cron 가동 시 신규 row INSERT도 canonical 14로 생성되는지 확인.
 - **B72** — row-missing preflight 통합 (B65-P1 `reportExistsForMonth` + 향후 cron path 호환). B86 month format 박제 적용 후 helper 통일.
-- **B73** — model id verify timing (B85 1-token test 시점 = Stage 2 진입 직전). production env vars 3종 정합 검증.
+- **B73** — model id verify timing (B85 1-token test 시점 = Stage 2 진입 직전). 검증 대상은 model env vars가 아니라 hardcode API model 3경로(writer/revise Opus, critic Haiku) + `ANTHROPIC_API_KEY`.
 - **B74** — `cost_log` accounting (writer + critic + 조건부 revise 토큰 사용량 정확 적재). persist fail 시 적재 보장 + alert.
 - **B75** — RPC responsibility boundary (Section 8 partA/partC/partD + committee_votes의 admin/cron path 동일 RPC 사용 여부 결정 — B79와 연계).
 - **B76** — hardcap mock vs real 일관성 (16,050원/월 박제가 production cost_log 적재 시 enforce 트리거 및 alert 발송).
@@ -116,7 +117,9 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 - **B81** — 단일 실 AI smoke 비용 분석 (per-call low / batch large). Stage 2 cost 추정 reference.
 - **B82** — B65 docs-only 박제 strict (본 세션 내 코드 변경 금지). 다음 세션에서 해제.
 - **B83 / B84** — `short_list_30` C 하이브리드 backfill verify command (seed pipeline DART induty mapper + override fallback 실행 후 `select sector, count(*) from short_list_30 group by sector` cross-check). B66 Task 5 PASS criteria 1~3.
-- **B85** — 다음 세션 Stage 2 진입 직전 1-token model id verify (`ANTHROPIC_API_KEY` + `ANTHROPIC_OPUS_MODEL_ID` + `ANTHROPIC_HAIKU_MODEL_ID` Vercel env 정합).
+- **B85** — 다음 세션 Stage 2 진입 직전 1-token model id verify. `ANTHROPIC_OPUS_MODEL_ID`/`ANTHROPIC_HAIKU_MODEL_ID` 같은 env var는 존재하지 않는다. 코드 hardcode 모델을 직접 확인: writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001`, 공통 `ANTHROPIC_API_KEY`.
+- **W-cost-atomic-reservation** — PR5 go-live deep review MED follow-up. 현재 cost gate는 sequential+chunk=3+per-attempt `getMonthlyTotal` 재읽기+400k headroom으로 hardcap 초과 가능성이 낮고 alert가 있으나, LLM 호출 후 `insertCostLog` 실패 시 spend-before-log gap으로 월 누적 undercount 가능. go-live blocker는 아니며 후속 hardening: 선차감 reservation/atomic ledger 또는 `insertCostLog` 실패 시 batch stop + explicit reconciliation alert.
+- **W-pr5-cron-persist-canary** — admin Task 7 smoke(`upsert_report_sections_0_7_admin`)와 cron persist(`upsert_report_sections_0_7_cron`)는 다른 RPC/권한 경로. 마이그 0027 apply 후 PR5 flag-on 전후로 service-role cron UPSERT 1회 canary를 별도 수행해 `stock_reports` row 생성/갱신을 확인.
 
 **post-merge production deploy verify (추가)**: public canary는 완료. 다음 권장 = 인증 세션 canary (`/admin/settings/cost`, `/admin/report/[ticker]/regenerate`, `/admin/portfolio` 버튼 노출/경고). **실 trigger 클릭은 Task 7 비용 승인 후만**.
 
