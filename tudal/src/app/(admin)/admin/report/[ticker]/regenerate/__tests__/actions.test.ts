@@ -41,10 +41,14 @@ vi.mock("@/lib/report/full-report-orchestrator", () => ({
 
 vi.mock("@/lib/cost/cost-logger", () => ({
   getMonthlyTotal: mocks.getMonthlyTotal,
+  // PR-B2 (B7/D-8): regenerateReport의 cost-logging fail-closed guard 통과 (실 AI 진행 happy-path).
+  isCostLoggingEnabled: () => true,
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // PR-B2 (B7/D-8): regenerateReport은 실 AI 전 isCostLoggingEnabled() fail-closed guard. happy-path는 flag ON.
+  process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
   mocks.getUser.mockResolvedValue({
     data: { user: { id: "mock-admin-1" } },
   });

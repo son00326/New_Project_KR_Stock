@@ -78,6 +78,9 @@ export async function triggerMonthlyPersonaEvalAction(
   if (adminErr || !isAdmin) {
     return { ok: false, error: 'admin_required' };
   }
+  // 주: triggerMonthlyPersonaEvalAction은 dangling(UI caller 0) + D-1 deprecate 예정.
+  //     cost-logging fail-closed guard(B7)는 orchestrator(monthly-batch) 메인 path step-0로 일원화 — D-1.
+  //     AI_COST_LOG_REAL_INSERT_ENABLED는 본 경로에서 tier2-gate(tier2-gate.ts)로 이중 사용 중이라 여기 kill-switch 미적용.
 
   // Step 3c: sector + sub_tags 추가 (마이그 0012 name/sector + 0018 sub_tags jsonb production apply 박제).
   // typed Supabase client에 sub_tags 컬럼 미반영 시 narrow cast fallback (Database type stale 안전망).

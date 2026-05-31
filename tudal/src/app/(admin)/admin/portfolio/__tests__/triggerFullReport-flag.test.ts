@@ -39,9 +39,12 @@ describe('triggerFullReport — B65-P3 feature flag toggle (Test 1 action seam)'
   beforeEach(() => {
     vi.resetModules();
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+    // PR-B2 (B7/D-8): cost-logging fail-closed guard 통과 위해 flag ON (PR4 flag와 독립).
+    process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'true';
   });
   afterEach(() => {
     delete process.env.PR4_TRIGGER_UPSERT_ENABLED;
+    delete process.env.AI_COST_LOG_REAL_INSERT_ENABLED;
   });
 
   it('flag unset (default false): B65-P1 guard 진입 — reportExistsForMonth called + report_not_found', async () => {
