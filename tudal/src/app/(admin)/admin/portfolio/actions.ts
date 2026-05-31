@@ -518,6 +518,10 @@ export async function triggerMonthlyBatch(input: {
   const { upsertShortList30 } = await import(
     "@/lib/data/admin-shortlist-persist"
   );
+  // PR-D (ADR D-3): Tier 0 source 실 SELECT — tier0_candidates_150.
+  const { getTier0Candidates } = await import(
+    "@/lib/data/admin-tier0-candidates"
+  );
 
   if (!input || typeof input.month !== "string") {
     return { success: false, error: "invalid_input" };
@@ -540,9 +544,9 @@ export async function triggerMonthlyBatch(input: {
         process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
       personasVersionId:
         process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
-      tier0Source: async () => {
-        throw new Error("tier0_source_not_wired_pr1_followup");
-      },
+      // PR-D: admin은 session client 주입 (is_admin() RLS). input.month=YYYY-MM → consumer가 YYYY-MM-01 변환.
+      // 시드 부재 시 0건 → orchestrator `tier1_candidates_must_be_150 (got 0)` throw → action error 반환.
+      tier0Source: () => getTier0Candidates({ month: input.month, client: supabase }),
       callPersonaPanel: async () => {
         throw new Error("persona_panel_not_wired_pr1_followup");
       },

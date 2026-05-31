@@ -442,6 +442,143 @@ class B89StrictBlockTest(unittest.TestCase):
         MODULE.enforce_b89_strict_block(0, apply=True, review_csv_path="/tmp/review.csv")
 
 
+class Tier0CandidatesEmitTest(unittest.TestCase):
+    """PR-D (ADR D-3/B1) — tier0_candidates_150 producer (단/중/장 disjoint 50씩 = 150)."""
+
+    def test_select_candidate_pool_disjoint_and_full(self):
+        # 모든 signal의 시그널이 동일 score → 모든 bucket이 동일 정렬 → short/mid/long이
+        # 자연스럽게 disjoint 50씩 (used_tickers 누적). 200종목 universe → 150 distinct.
+        signals = [stock_signal(f"{i:06d}", 1000 - i) for i in range(200)]
+        selections = MODULE.select_candidate_pool_per_bucket(signals, pool_size=50)
+        self.assertEqual(
+            {b: len(p) for b, p in selections.items()},
+            {"short": 50, "mid": 50, "long": 50},
+        )
+        all_tickers = [s.ticker for picks in selections.values() for s, _ in picks]
+        self.assertEqual(len(all_tickers), 150)
+        self.assertEqual(len(set(all_tickers)), 150)  # cross-bucket disjoint
+
+    def test_select_candidate_pool_raises_when_universe_too_small(self):
+        signals = [stock_signal(f"{i:06d}", 1000 - i) for i in range(100)]  # < 150
+        with self.assertRaisesRegex(ValueError, "채우지 못했습니다"):
+            MODULE.select_candidate_pool_per_bucket(signals, pool_size=50)
+
+    def test_build_candidate_rows_150_validates(self):
+        signals = [stock_signal(f"{i:06d}", 1000 - i) for i in range(200)]
+        selections = MODULE.select_candidate_pool_per_bucket(signals, pool_size=50)
+        rows = MODULE.build_candidate_rows(selections, MODULE.date(2026, 6, 1))
+        self.assertEqual(len(rows), 150)
+        self.assertEqual(len({(r.month, r.ticker) for r in rows}), 150)
+        # rank는 bucket별 1..50
+        for bucket in MODULE.BUCKETS:
+            ranks = sorted(r.rank for r in rows if r.bucket == bucket)
+            self.assertEqual(ranks, list(range(1, 51)))
+        MODULE.validate_candidate_rows(rows)  # raise 없어야 함
+
+    def test_validate_candidate_rows_rejects_non_150(self):
+        rows = [
+            MODULE.Tier0CandidateRow(
+                month="2026-06-01", ticker=f"{i:06d}", name="x", sector="반도체",
+                bucket="short", rank=i + 1, tier0_score=1.0, signal_label="모멘텀",
+            )
+            for i in range(10)
+        ]
+        with self.assertRaisesRegex(ValueError, "150개가 아닙니다"):
+            MODULE.validate_candidate_rows(rows)
+
+    def test_validate_candidate_rows_rejects_duplicate_ticker(self):
+        base = MODULE.Tier0CandidateRow(
+            month="2026-06-01", ticker="000001", name="x", sector="반도체",
+            bucket="short", rank=1, tier0_score=1.0, signal_label="모멘텀",
+        )
+        with self.assertRaisesRegex(ValueError, "중복 ticker"):
+            MODULE.validate_candidate_rows([base, base])
+
+    def test_candidate_db_dict_shape(self):
+        row = MODULE.Tier0CandidateRow(
+            month="2026-06-01", ticker="005930", name="삼성전자", sector="반도체",
+            bucket="short", rank=1, tier0_score=88.5, signal_label="모멘텀",
+        )
+        d = MODULE.candidate_row_to_db_dict(row)
+        self.assertEqual(
+            set(d.keys()),
+            {"month", "ticker", "name", "sector", "bucket", "rank", "tier0_score", "signal_label"},
+        )
+        self.assertEqual(d["tier0_score"], 88.5)
+        # short_list_30 전용 컬럼(composite_score/delta_status 등)은 candidate dict에 없어야 함.
+        self.assertNotIn("composite_score", d)
+        self.assertNotIn("delta_status", d)
+
+    def test_upsert_candidates_replaces_month_rows(self):
+        rows = []
+        for bidx, bucket in enumerate(MODULE.BUCKETS):
+            for i in range(1, MODULE.CANDIDATE_POOL_PER_BUCKET + 1):
+                rows.append(
+                    MODULE.Tier0CandidateRow(
+                        month="2026-06-01",
+                        ticker=f"{bidx}{i:05d}",  # 6-digit unique across 150
+                        name=f"name-{bidx}-{i}",
+                        sector="반도체",
+                        bucket=bucket,
+                        rank=i,
+                        tier0_score=float(100 - i),
+                        signal_label="모멘텀",
+                    )
+                )
+
+        class FakeTable:
+            def __init__(self, calls):
+                self.calls = calls
+
+            def delete(self):
+                self.calls.append(("delete",))
+                return self
+
+            def eq(self, column, value):
+                self.calls.append(("eq", column, value))
+                return self
+
+            def upsert(self, payload, on_conflict=None):
+                self.calls.append(("upsert", len(payload), on_conflict))
+                return self
+
+            def execute(self):
+                self.calls.append(("execute",))
+                return None
+
+        class FakeSupabase:
+            def __init__(self):
+                self.calls = []
+
+            def table(self, name):
+                self.calls.append(("table", name))
+                return FakeTable(self.calls)
+
+        supabase = FakeSupabase()
+        MODULE.upsert_candidates_supabase(supabase, rows)
+
+        self.assertEqual(
+            supabase.calls[:5],
+            [
+                ("table", "tier0_candidates_150"),
+                ("delete",),
+                ("eq", "month", "2026-06-01"),
+                ("execute",),
+                ("table", "tier0_candidates_150"),
+            ],
+        )
+        self.assertIn(("upsert", 150, "month,ticker"), supabase.calls)
+
+    def test_upsert_candidates_rejects_duplicate_before_supabase_call(self):
+        base = MODULE.Tier0CandidateRow(
+            month="2026-06-01", ticker="005930", name="삼성전자", sector="반도체",
+            bucket="short", rank=1, tier0_score=1.0, signal_label="모멘텀",
+        )
+        # validate 선행 → supabase(None) 접근 전에 raise.
+        with self.assertRaisesRegex(ValueError, "중복 ticker"):
+            MODULE.upsert_candidates_supabase(None, [base, base])
+
+
 # Source 파일 string for grep-based tests (FetchUniverseSectorTest 전용)
 MODULE_SOURCE = SCRIPT_PATH.read_text(encoding="utf-8")
 

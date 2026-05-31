@@ -16,6 +16,7 @@
 //     - tudal/src/lib/data/admin-alerts-insert.ts (Step 2.7b.3: insertAlertEvents options.client? INSERT — recordSchedulerFailAlert DI-only 보존)
 //     - tudal/src/lib/data/admin-briefing-log.ts (Step 2.7b.3: options.client? INSERT)
 //     - tudal/src/lib/data/admin-shortlist.ts (PR5: getActiveShortList options.client? SELECT)
+//     - tudal/src/lib/data/admin-tier0-candidates.ts (PR-D: getTier0Candidates options.client? SELECT — cron service-role / admin session)
 //     - tudal/src/lib/data/admin-reports.ts (PR5: reportExistsAndCompleteForMonth options.client? SELECT)
 //     - tudal/src/lib/data/admin-pipeline-health-insert.ts (PR5: insertPipelineHealth options.client? INSERT)
 //     - tudal/src/lib/data/admin-cost-alerts.ts (PR5: emitCostAlert → insertAlertEvents options.client? INSERT)
