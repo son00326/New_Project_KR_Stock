@@ -12,6 +12,9 @@ export interface CallPersonaInput {
   financials: string;
   reflectionContext: string;
   adminUserId: string;
+  // PR-C (ADR 2026-05-31): output 스키마 override. 미지정 시 persona.userPromptTemplate(legacy {vote}) 유지(비파괴).
+  //   Tier 1 selection 어댑터는 PERSONA_SCORE_USER_PROMPT_TEMPLATE(scores/winning_timeframe/conviction) 주입.
+  userPromptTemplate?: string;
 }
 
 export interface CallPersonaResult {
@@ -38,7 +41,8 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
     ? [{ type: 'text' as const, text: persona.systemPrompt, cache_control: { type: 'ephemeral' as const } }]
     : [{ type: 'text' as const, text: persona.systemPrompt }];
 
-  const userPrompt = renderUserPrompt(persona.userPromptTemplate, {
+  // PR-C: adapter override 우선 (PersonaScore 출력). 미지정 시 persona 기본 템플릿(legacy {vote}).
+  const userPrompt = renderUserPrompt(input.userPromptTemplate ?? persona.userPromptTemplate, {
     ticker: input.ticker,
     financials: input.financials,
     reflectionContext: input.reflectionContext,
