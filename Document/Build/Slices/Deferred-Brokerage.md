@@ -13,7 +13,7 @@
 상세 박제 위치:
 - `BusinessPlan.md §12` — 2026-04-21 결정 기록
 - `ServicePlan-Admin.md §1A.5 D16` + `§3.13` 신설
-- `HANDOFF.md §6·§10` — S8 로드맵 + Deferred-X 승격 표기
+- `HANDOFF.md §2 Runbook` — S8 로드맵 + Deferred-X 승격 표기
 - `ProgressDashboard.md §1` — S8 행 추가, Deferred-X 행은 ~~취소선~~
 - `Document/Build/Slices/S8-AutoTrading.md` — 승격된 본체
 

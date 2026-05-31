@@ -16,7 +16,7 @@ Status: 기획 확정 (Q1~Q11) + 투심위·자동화 설계 확정 + 보고서 
 **부가 트랙 2 (별도, 현 플랜과 무관)**: 멤버 배포(500cap 초대제 리서치 뷰어) — Deferred-D
 **최악 시나리오**: 본인·친구 투자 도구로 계속 사용. 멤버 트랙은 원할 때 재개.
 
-> **2026-04-21 프레임 정리**: "지인 Beta·Friends & Family·Closed Beta" 등 멤버 배포 로드맵은 **별도 트랙 (Deferred-D)** 으로 분리됨. 아래 §5 단계별 실행 로드맵의 Stage 2/3/4+는 원래 이 멤버 배포 경로를 가정한 것이며, **현 개발 진행 순서는 그와 무관**. 개발 순서의 SoT는 `Document/Process/HANDOFF.md §6` 실데이터 로드맵과 `Document/Build/Slices/S8-AutoTrading.md` 참조.
+> **2026-04-21 프레임 정리**: "지인 Beta·Friends & Family·Closed Beta" 등 멤버 배포 로드맵은 **별도 트랙 (Deferred-D)** 으로 분리됨. 아래 §5 단계별 실행 로드맵의 Stage 2/3/4+는 원래 이 멤버 배포 경로를 가정한 것이며, **현 개발 진행 순서는 그와 무관**. 개발 순서의 SoT는 `Document/Process/HANDOFF.md §2 Runbook`과 `Document/Build/Slices/S8-AutoTrading.md` 참조.
 
 ---
 
@@ -173,7 +173,7 @@ Status: 기획 확정 (Q1~Q11) + 투심위·자동화 설계 확정 + 보고서 
 
 ### §5.A 현 진행 트랙 — 어드민 내부 도구 (본인 + 친구 3명)
 
-현 개발 순서의 단일 SoT는 `Document/Process/HANDOFF.md §6` + `Document/Build/ProgressDashboard.md §2`. 요약:
+현 개발 순서의 단일 SoT는 `Document/Process/HANDOFF.md §2 Runbook` + `Document/Build/ProgressDashboard.md §2`. 요약:
 
 ```
 Mock Skeleton (S0~S6) ✅
@@ -556,4 +556,4 @@ Tier 3 최소 기준 = 가격 차트 + 기업 개요 + 재무 요약 + 기술적
 | 2026-04-15 | **P5 Q-OP 후속 → v1.1 확정: D15 승인 Holding + 2인 게이팅 (Q-OP2 해소)** — 3인 투심위 1인 의사결정 변질 방지(pre-mortem 시나리오 D). R3.3-7 Short List 생성 후 24h Holding(Accept 차단) · R3.3-8 3인 중 2인 이상이 풀 리포트 Section 0+ 열람 시에만 Accept 활성화 · R3.3-9 연휴 우회(24h 또는 D+4 중 짧은 쪽) · R3.3-10 이의 제기 시 48h 추가 Hold. E4 PortfolioApproval 필드 확장(shortlist_generated_at·dispute_raised_at·dispute_resolved_at). 상세 `ServicePlan-Admin.md §3.3 / §1A.5 D15`. |
 | 2026-04-15 | **Q-OP3·Q-OP4 개발 완료 전까지 재질문 금지 (사용자 지시)** — Q-OP3(멤버 유료 모델 재검토)·Q-OP4(Y1 투자자문업 등록 경로)는 개발·운영 단계에서 실제 필요성이 발생할 때만 재검토. Claude는 선제적으로 묻지 않음. 과금 원칙 재확인: **돈은 멤버 플랜에서만 발생, 어드민은 지불 주체 아님**(§Q11 유지). Y1 등록 경로(§Q4)는 변호사 1차 자문 결과 확보 전까지 유보. 관련 HANDOFF §🟡 유보 목록에 고정. |
 | 2026-04-20 | **법무·약관 유예 확정** — 어드민 3명 내부 운용은 Q16(법무 자문)·Q17(이용약관·개인정보처리방침) 모두 불필요. Footer 면책 문구로 충분. Deferred-D 멤버 오픈 시점(재개 트리거)부터 `/legal/*` 라우트 신설 + 약관 초안 + 변호사 자문. 현 어드민 트랙에서 법무 관련 DQ 제거. |
-| **2026-04-21** | **어드민 = 본인 + 친구 3명 투자 내부 도구 재정의 + 트레이딩 Stage 교체 + 자동매매 S8 승격** — (a) 어드민은 서비스·멤버·MVP Stage 프레임에서 분리된 "내부 투자 도구"로 재정의. Must 19·MVP Stage 1/2 어휘는 어드민 트랙에서 강제 게이트로 쓰지 않음. (b) 구 "트레이딩 3-Stage (매뉴얼→API→AI 자율)" 어휘 폐기. 자동매매는 **S8 단일 슬라이스**로 통합되고, Strategy drop-in + AI 어댑터 embed 인터페이스를 먼저 박고, AI agent·skill 본체는 어드민이 추후 drop-in. (c) 자동매매 자산군 확장: 주식(KIS 모의→실계좌) + **코인 바이낸스 USDT-M 선물(테스트넷→메인넷)**. 대상 종목 스코프: Short List / 자유 종목 / 바이낸스 선물 선택 가능. (d) Deferred-X(증권사 API + 매뉴얼/자동매매 UI)는 S8로 승격 이관. (e) 지인 Beta·Friends & Family 등 멤버 배포 로드맵은 현 어드민 진행 플랜과 분리, §5.B에 보존. (f) 리스크 가드레일 기본값 박제: 레버리지 ≤5x · 일일 -3% 정지 · AI 일 주문 ≤20회. 관련 SoT: `HANDOFF.md §6` · `ProgressDashboard.md` · `Slices/S8-AutoTrading.md`. |
+| **2026-04-21** | **어드민 = 본인 + 친구 3명 투자 내부 도구 재정의 + 트레이딩 Stage 교체 + 자동매매 S8 승격** — (a) 어드민은 서비스·멤버·MVP Stage 프레임에서 분리된 "내부 투자 도구"로 재정의. Must 19·MVP Stage 1/2 어휘는 어드민 트랙에서 강제 게이트로 쓰지 않음. (b) 구 "트레이딩 3-Stage (매뉴얼→API→AI 자율)" 어휘 폐기. 자동매매는 **S8 단일 슬라이스**로 통합되고, Strategy drop-in + AI 어댑터 embed 인터페이스를 먼저 박고, AI agent·skill 본체는 어드민이 추후 drop-in. (c) 자동매매 자산군 확장: 주식(KIS 모의→실계좌) + **코인 바이낸스 USDT-M 선물(테스트넷→메인넷)**. 대상 종목 스코프: Short List / 자유 종목 / 바이낸스 선물 선택 가능. (d) Deferred-X(증권사 API + 매뉴얼/자동매매 UI)는 S8로 승격 이관. (e) 지인 Beta·Friends & Family 등 멤버 배포 로드맵은 현 어드민 진행 플랜과 분리, §5.B에 보존. (f) 리스크 가드레일 기본값 박제: 레버리지 ≤5x · 일일 -3% 정지 · AI 일 주문 ≤20회. 관련 SoT: `HANDOFF.md §2 Runbook` · `ProgressDashboard.md` · `Slices/S8-AutoTrading.md`. |
