@@ -71,6 +71,9 @@ describe('triggerMonthlyBatch', () => {
     expect(args.adminUserId).toBe('admin-uuid-123');
     // Server action path: recordSchedulerFailAlert is noop wire.
     expect(typeof args.recordSchedulerFailAlert).toBe('function');
+    await expect(args.persist('2026-06', [])).rejects.toThrow(
+      'tier1_persist_blocked_until_pr_e',
+    );
   });
 
   it('orchestrator throw → error mapped to message', async () => {

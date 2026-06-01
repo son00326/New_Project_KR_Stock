@@ -109,6 +109,7 @@ describe("getTier0Candidates", () => {
     const out = await getTier0Candidates({ month: "2026-06", client });
 
     expect(spies.from).toHaveBeenCalledWith("tier0_candidates_150");
+    expect(spies.select).toHaveBeenCalledWith("ticker, sector, bucket, rank, tier0_score");
     expect(spies.eq).toHaveBeenCalledWith("month", "2026-06-01");
     expect(spies.order1).toHaveBeenCalledWith("bucket", { ascending: true });
     expect(spies.order2).toHaveBeenCalledWith("rank", { ascending: true });
@@ -122,6 +123,61 @@ describe("getTier0Candidates", () => {
     const { client } = buildClient({ data: null, error: null });
     const out = await getTier0Candidates({ month: "2026-06", client });
     expect(out).toEqual([]);
+  });
+
+  it("rejects 150-row payloads that are not exactly 50 per bucket", async () => {
+    const rows: Tier0CandidateDbRow[] = [
+      ...Array.from({ length: 100 }, (_, i) => ({
+        ticker: `${i}`.padStart(6, "0"),
+        sector: "반도체",
+        bucket: "short" as const,
+        rank: (i % 50) + 1,
+        tier0_score: 100 - i,
+      })),
+      ...Array.from({ length: 50 }, (_, i) => ({
+        ticker: `${i + 100}`.padStart(6, "0"),
+        sector: "반도체",
+        bucket: "mid" as const,
+        rank: i + 1,
+        tier0_score: 50 - i,
+      })),
+    ];
+    const { client } = buildClient({ data: rows, error: null });
+    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
+      /tier0_candidates_bucket_contract_violation/,
+    );
+  });
+
+  it("rejects 150-row payloads with duplicate/missing bucket ranks", async () => {
+    const rows: Tier0CandidateDbRow[] = ["short", "mid", "long"].flatMap((bucket, bidx) =>
+      Array.from({ length: 50 }, (_, i) => ({
+        ticker: `${bidx * 100 + i}`.padStart(6, "0"),
+        sector: "반도체",
+        bucket: bucket as "short" | "mid" | "long",
+        rank: bucket === "short" && i === 49 ? 49 : i + 1,
+        tier0_score: 100 - i,
+      })),
+    );
+    const { client } = buildClient({ data: rows, error: null });
+    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
+      /tier0_candidates_rank_contract_violation/,
+    );
+  });
+
+  it("rejects 150-row payloads with non-canonical sector", async () => {
+    const rows: Tier0CandidateDbRow[] = ["short", "mid", "long"].flatMap((bucket, bidx) =>
+      Array.from({ length: 50 }, (_, i) => ({
+        ticker: `${bidx * 100 + i}`.padStart(6, "0"),
+        sector: bidx === 0 && i === 0 ? "코스피" : "반도체",
+        bucket: bucket as "short" | "mid" | "long",
+        rank: i + 1,
+        tier0_score: 100 - i,
+      })),
+    );
+    const { client } = buildClient({ data: rows, error: null });
+    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
+      /tier0_candidates_sector_contract_violation/,
+    );
   });
 
   it("throws wrapped error when supabase select errors", async () => {
