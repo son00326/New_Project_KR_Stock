@@ -402,4 +402,59 @@ describe('runTier1Screening (PR2 lock-in)', () => {
       expect(ticker.weighted_scores.short).toBeCloseTo(62.5, 1);
     });
   });
+
+  describe('PR-E commentsByTicker (AI 코멘트/conviction carry)', () => {
+    it('comment_kr = top-conviction persona rationale + conviction = panel avg (available ticker)', async () => {
+      const result = await runTier1Screening({
+        candidates: makeCandidates(150),
+        callPersonaPanel: async ({ ticker }) =>
+          CORE_11_IDS.map((pid) => ({
+            persona_id: pid,
+            scores: { short: 50, mid: 50, long: 50 },
+            winning_timeframe: 'short' as const,
+            // warren-buffett 최고 conviction 90 → comment_kr = buffett rationale.
+            rationale_kr: pid === 'warren-buffett' ? `${ticker} 강력 매수` : '보통',
+            conviction: pid === 'warren-buffett' ? 90 : 50,
+          })),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      });
+      const c = result.commentsByTicker?.['T000'];
+      expect(c).toBeDefined();
+      expect(c?.comment_kr).toBe('T000 강력 매수');
+      // avg = (90 + 50×10) / 11 = 590/11 ≈ 53.64
+      expect(c?.conviction).toBeCloseTo(53.64, 1);
+    });
+
+    it('omits degraded (panel reject) tickers', async () => {
+      const result = await runTier1Screening({
+        candidates: makeCandidates(150),
+        callPersonaPanel: async ({ ticker }) => {
+          if (ticker === 'T000') throw new Error('ai_call_failed');
+          return CORE_11_IDS.map((pid) => ({
+            persona_id: pid,
+            scores: { short: 50, mid: 50, long: 50 },
+            winning_timeframe: 'short' as const,
+            rationale_kr: 'ok',
+            conviction: 50,
+          }));
+        },
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      });
+      expect(result.commentsByTicker?.['T000']).toBeUndefined();
+      expect(result.commentsByTicker?.['T001']).toBeDefined();
+    });
+
+    it('omits tier1AvailableByTicker override-false tickers', async () => {
+      const result = await runTier1Screening({
+        ...makeInput(() => 50),
+        tier1AvailableByTicker: { T005: false },
+      });
+      expect(result.commentsByTicker?.['T005']).toBeUndefined();
+      expect(result.commentsByTicker?.['T000']).toBeDefined();
+    });
+  });
 });
