@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type {
   BucketKind,
+  ConsensusBadge,
   DeltaStatus,
   ShortListItem,
 } from "@/types/admin";
@@ -25,6 +26,31 @@ export interface ShortListDbRow {
   summary_3line: string | null;
   suggested_weight: string | number | null;
   created_at: string;
+  // 마이그 0029 (PR-E) — Tier 1 AI 산출 컬럼. AI 선정 전(Tier 0 fallback) row는 null.
+  consensus_badge?: string | null;
+  ai_score?: string | number | null;
+  winning_timeframe?: string | null;
+  conviction?: string | number | null;
+  ai_comment_kr?: string | null;
+}
+
+const CONSENSUS_BADGES: readonly ConsensusBadge[] = ["🟢", "🔵", "🟣", "🟡", "⚪"];
+
+function toBadge(v: string | null | undefined): ConsensusBadge | null {
+  return v != null && (CONSENSUS_BADGES as readonly string[]).includes(v)
+    ? (v as ConsensusBadge)
+    : null;
+}
+
+function toTimeframe(v: string | null | undefined): BucketKind | null {
+  return v === "short" || v === "mid" || v === "long" ? v : null;
+}
+
+// num()은 null→0 (점수 0과 무AI 구분 안 됨). AI 필드는 null 보존이 필요 → numOrNull.
+function numOrNull(v: string | number | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === "number" ? v : parseFloat(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 export interface ShortListDelta {
@@ -113,6 +139,12 @@ export function transformShortListRow(
     summary3Line: str(row.summary_3line),
     suggestedWeight: num(row.suggested_weight),
     createdAt: row.created_at,
+    // PR-F (마이그 0029) — Tier 1 AI 산출. DB null(Tier 0 fallback) → null 보존 (AI 대기 UI 판정).
+    consensusBadge: toBadge(row.consensus_badge),
+    aiScore: numOrNull(row.ai_score),
+    aiCommentKr: row.ai_comment_kr ?? null,
+    winningTimeframe: toTimeframe(row.winning_timeframe),
+    conviction: numOrNull(row.conviction),
   };
 }
 
@@ -144,7 +176,7 @@ export async function getActiveShortList(
   let query = client
     .from("short_list_30")
     .select(
-      "id, month, ticker, name, sector, bucket, rank, composite_score, trend_score, momentum_score, volatility_score, signal_label, delta_status, delta_reason, summary_3line, suggested_weight, created_at",
+      "id, month, ticker, name, sector, bucket, rank, composite_score, trend_score, momentum_score, volatility_score, signal_label, delta_status, delta_reason, summary_3line, suggested_weight, created_at, consensus_badge, ai_score, winning_timeframe, conviction, ai_comment_kr",
     );
 
   if (options?.month) {

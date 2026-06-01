@@ -1,9 +1,24 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronRight, FileText } from "lucide-react";
-import type { ShortListItem } from "@/types/admin";
+import type { ConsensusBadge, ShortListItem } from "@/types/admin";
 import { CRISIS_VOL_THRESHOLD } from "@/types/admin";
 import { ShortlistRowActionSlot } from "./shortlist-row-action-slot";
+
+// PR-F (D19 Q5b) — 5종 합의 배지 한국어 라벨.
+const BADGE_LABEL: Record<ConsensusBadge, string> = {
+  "🟢": "강한 합의",
+  "🔵": "숫자 우세",
+  "🟣": "AI 우세",
+  "🟡": "관망",
+  "⚪": "AI 분석 대기",
+};
+
+const TIMEFRAME_LABEL: Record<"short" | "mid" | "long", string> = {
+  short: "단기",
+  mid: "중기",
+  long: "장기",
+};
 
 interface ShortlistRowProps {
   item: ShortListItem;
@@ -90,8 +105,14 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
           className="hidden sm:inline-block"
         />
 
-        {/* composite score */}
-        <span className="w-12 text-right font-mono text-base font-semibold tabular-nums">
+        {/* PR-F: 🤖 AI 점수 + 합의 배지 (ADR D-7). null/⚪ = AI 분석 대기 (W-tier1pill). */}
+        <AiBadge badge={item.consensusBadge} score={item.aiScore} />
+
+        {/* composite score (🔢 Tier 0) */}
+        <span
+          className="w-12 text-right font-mono text-base font-semibold tabular-nums"
+          aria-label={`Tier 0 점수 ${item.compositeScore}`}
+        >
           {item.compositeScore}
         </span>
 
@@ -118,6 +139,20 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
             <p className="whitespace-pre-line leading-relaxed">
               {item.summary3Line}
             </p>
+            {/* PR-F: AI 코멘트 (있을 때만 — Tier 1 평가 완료 종목). */}
+            {item.aiCommentKr ? (
+              <div className="mt-2 rounded border border-border/60 bg-background/60 px-2.5 py-1.5">
+                <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  🤖 AI 코멘트
+                  {item.consensusBadge ? (
+                    <span className="ml-1 font-normal normal-case">
+                      {item.consensusBadge} {BADGE_LABEL[item.consensusBadge]}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="leading-relaxed">{item.aiCommentKr}</p>
+              </div>
+            ) : null}
             <div className="mt-2 text-xs text-muted-foreground">
               Delta: {item.deltaReason}
             </div>
@@ -132,6 +167,26 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
               <dd className="text-right font-mono tabular-nums">
                 {item.trendScore}·{item.momentumScore}·{item.volatilityScore}
               </dd>
+              {/* PR-F: AI 점수/horizon/conviction (Tier 1 평가 완료 시). */}
+              {item.aiScore != null ? (
+                <>
+                  <dt className="text-muted-foreground">🤖 AI 점수</dt>
+                  <dd className="text-right font-mono tabular-nums">
+                    {Math.round(item.aiScore)}
+                    {item.winningTimeframe
+                      ? ` · ${TIMEFRAME_LABEL[item.winningTimeframe]}`
+                      : ""}
+                  </dd>
+                </>
+              ) : null}
+              {item.conviction != null ? (
+                <>
+                  <dt className="text-muted-foreground">Conviction</dt>
+                  <dd className="text-right font-mono tabular-nums">
+                    {Math.round(item.conviction)}
+                  </dd>
+                </>
+              ) : null}
             </dl>
             <Link
               href={`/admin/report/${item.ticker}`}
@@ -237,6 +292,40 @@ function DeltaBadge({ status }: { status: ShortListItem["deltaStatus"] }) {
   return (
     <span className="inline-flex w-14 justify-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
       HOLD
+    </span>
+  );
+}
+
+// PR-F (ADR D-7): 요약 행의 🤖 AI 점수 + 합의 배지. null/⚪ = AI 분석 대기 muted pill (W-tier1pill).
+function AiBadge({
+  badge,
+  score,
+}: {
+  badge?: ConsensusBadge | null;
+  score?: number | null;
+}) {
+  if (badge == null || badge === "⚪") {
+    return (
+      <span
+        className="inline-flex w-16 items-center justify-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+        title="AI 분석 대기 (Tier 0 지표만)"
+      >
+        ⚪<span className="hidden lg:inline">AI 대기</span>
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex w-16 items-center justify-center gap-1 text-xs"
+      title={`합의 ${BADGE_LABEL[badge]}${score != null ? ` · AI ${Math.round(score)}` : ""}`}
+      aria-label={`합의 배지 ${BADGE_LABEL[badge]}${score != null ? `, AI 점수 ${Math.round(score)}` : ""}`}
+    >
+      <span aria-hidden>{badge}</span>
+      {score != null ? (
+        <span className="font-mono font-semibold tabular-nums">
+          🤖{Math.round(score)}
+        </span>
+      ) : null}
     </span>
   );
 }

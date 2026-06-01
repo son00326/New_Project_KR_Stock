@@ -84,3 +84,38 @@ describe('ShortlistRow 구조 invariant (PR4 Task 9 omxy R5 B45)', () => {
     expect(details!.nextElementSibling).toBeNull();
   });
 });
+
+describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
+  it('AI 데이터 있으면 합의 배지 + 🤖 점수 + AI 코멘트 렌더', () => {
+    const aiItem: ShortListItem = {
+      ...fixture,
+      consensusBadge: '🟢',
+      aiScore: 78,
+      aiCommentKr: '강력한 장기 매수 신호.',
+      winningTimeframe: 'long',
+      conviction: 82,
+    };
+    render(<ShortlistRow item={aiItem} />);
+    // 요약 행 합의 배지 (aria-label)
+    expect(screen.getByLabelText(/합의 배지 강한 합의/)).toBeInTheDocument();
+    // expanded AI 코멘트 (details collapsed여도 DOM에 존재)
+    expect(screen.getByText('강력한 장기 매수 신호.')).toBeInTheDocument();
+    expect(screen.getByText(/AI 코멘트/)).toBeInTheDocument();
+  });
+
+  it('AI 데이터 없으면(Tier 0 fallback) AI 대기 pill + 크래시 없음 + AI 코멘트 미렌더', () => {
+    render(<ShortlistRow item={fixture} />); // fixture에 AI 필드 없음(undefined)
+    expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
+    expect(screen.queryByText(/AI 코멘트/)).not.toBeInTheDocument();
+  });
+
+  it('⚪ 배지는 AI 대기로 취급 (점수 미표시)', () => {
+    const waitItem: ShortListItem = {
+      ...fixture,
+      consensusBadge: '⚪',
+      aiScore: null,
+    };
+    render(<ShortlistRow item={waitItem} />);
+    expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
+  });
+});
