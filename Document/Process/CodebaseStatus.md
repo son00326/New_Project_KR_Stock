@@ -476,7 +476,7 @@
 - **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·Anthropic·DART UI 표시는 아직 미연결. T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
 - **실 운용 검증**: **0일**
 
-**어드민 내부 도구 완성 기준** = Mock + 실데이터(S7) + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물) + 운용 검증(S9) **4조건 AND** → **미달성**. 진행 경로 = HANDOFF.md §2 Runbook(S7b~S9 후속 PR + 운영).
+**🎉 출시(launch) 기준** = Mock + 실데이터(S7) + 운용 검증(S9) — **자동매매 제외**, "AI 추천 + 가상 포트 + 알림" 도구 (사용자 결정 2026-06-01). **어드민 내부 도구 완성 기준**(출시 후 도달) = 출시 + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물, 실운용하며 개발) → 둘 다 **미달성**. 진행 경로 = HANDOFF.md §2 Runbook(S7b~S9 후속 PR + 운영).
 
 > **2026-04-21 어휘 정리 (D16)**: 구 "MVP Stage 1 완료" 어휘는 대외 서비스 프레임에서 파생된 것이며 어드민 내부 도구 트랙에는 강제 게이트가 아님. 자세한 재정의는 CLAUDE.md 상단 "⭐ 프로젝트 재정의" 참조.
 
@@ -512,7 +512,7 @@
 - [x] origin push (46차 production hotfix push 완료 — ahead 39 + 46차 P0/P1 batch sync, B-15 해소)
 - [ ] Cron 4건 실 실행 검증 (S7b/S7d 진입 시점에 monthly-batch/morning-briefing/news-sweep/silent-health durable write 검증)
 - [ ] D11 AI 가상 포트 운용 검증 (S7a + S7b 후 어드민 3인 며칠~1주, 30 카드 + 합의 배지 + Section 8 위원 표 가독성)
-- [ ] 어드민 1개월+ 운용 검증 (D11 후속 → S7c·S7d → S8 진입 전 게이트)
+- [ ] 어드민 1개월+ 운용 검증 (D11 후속 → S7c·S7d → 🎉 **출시 게이트**; 자동매매 S8은 출시 후 — 2026-06-01)
 
 ### 법무 (⏸ Deferred-D 멤버 오픈 시점까지 유예 · 2026-04-20)
 - [⏸] Q16 법무 자문 — 어드민 3명 내부 운용만이므로 현 단계에서 불필요

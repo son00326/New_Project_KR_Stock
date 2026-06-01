@@ -386,7 +386,7 @@ OMXY 검토자는 아래 6 항목을 적대적으로 검증:
 본 task = docs 정정 spec까지. 아래 항목은 본 spec 적용 대상 아님:
 
 - 후속 implementation PR (canonical PR2 → PR3a → PR1 → PR3b → PR4 코드 변경) — 별도 세션.
-- DQ-7 Smoke #4/#5, KIS 발급, Binance 테스트넷, S8 자동매매 — 별도 트랙 (S7c → S7d → S8 순).
+- DQ-7 Smoke #4/#5, KIS 발급, Binance 테스트넷, S8 자동매매 — 별도 트랙 (S7c → S7d → S9 운용 → 🎉 출시 → S8 순; **S8 자동매매는 출시 후** — 2026-06-01 재배치).
 - 멤버 페이지 (Deferred-D 트랙).
 - 비용 최적화 (Tier 1 호출 범위는 후속 PR2에서 결정 — §5 open question (i) 참조).
 - 12 sectors reference 자료 수집 (lazy 결정 시 운용 중 추가 — §5 open question (ii) 참조).
