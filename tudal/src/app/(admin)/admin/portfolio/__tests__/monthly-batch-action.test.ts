@@ -3,12 +3,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const {
   getUserMock,
+  rpcMock,
   runOrchestratorMock,
   upsertMock,
   isCostLoggingEnabledMock,
   preflightHardcapMock,
 } = vi.hoisted(() => ({
   getUserMock: vi.fn(),
+  rpcMock: vi.fn(),
   runOrchestratorMock: vi.fn(),
   upsertMock: vi.fn(),
   isCostLoggingEnabledMock: vi.fn(),
@@ -18,6 +20,7 @@ const {
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: { getUser: getUserMock },
+    rpc: rpcMock,
   }),
 }));
 vi.mock('@/lib/screening/monthly-batch-orchestrator', () => ({
@@ -53,6 +56,8 @@ const ORCHESTRATOR_OK = {
 
 beforeEach(() => {
   getUserMock.mockReset();
+  rpcMock.mockReset();
+  rpcMock.mockResolvedValue({ data: true, error: null });
   runOrchestratorMock.mockReset();
   upsertMock.mockReset();
   upsertMock.mockResolvedValue(undefined);
@@ -81,6 +86,14 @@ describe('triggerMonthlyBatch', () => {
     getUserMock.mockResolvedValue({ data: { user: null } });
     const res = await triggerMonthlyBatch({ month: '2026-06' });
     expect(res).toEqual({ success: false, error: 'auth_unavailable' });
+    expect(runOrchestratorMock).not.toHaveBeenCalled();
+  });
+
+  it('PR-E review fix: non-admin session fails before orchestrator/AI preflight', async () => {
+    getUserMock.mockResolvedValue(ADMIN_USER);
+    rpcMock.mockResolvedValue({ data: false, error: null });
+    const res = await triggerMonthlyBatch({ month: '2026-06' });
+    expect(res).toEqual({ success: false, error: 'admin_required' });
     expect(runOrchestratorMock).not.toHaveBeenCalled();
   });
 

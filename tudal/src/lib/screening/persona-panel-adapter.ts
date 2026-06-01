@@ -13,6 +13,46 @@ import type {
 import { PERSONA_SCORE_USER_PROMPT_TEMPLATE } from "@/lib/ai/prompts/user-prompt-template";
 import { PersonaScoreSchema, type PersonaScore } from "@/lib/screening/tier1-schema";
 
+const DEFAULT_MAX_CONCURRENT_PERSONA_CALLS = 4;
+
+function resolveMaxConcurrentCalls(explicit?: number): number {
+  const raw =
+    explicit ??
+    (process.env.TIER1_PERSONA_MAX_CONCURRENCY
+      ? Number(process.env.TIER1_PERSONA_MAX_CONCURRENCY)
+      : DEFAULT_MAX_CONCURRENT_PERSONA_CALLS);
+  if (!Number.isInteger(raw) || raw < 1) {
+    throw new Error("invalid_tier1_persona_max_concurrency");
+  }
+  return raw;
+}
+
+function createLimiter(maxConcurrent: number) {
+  let active = 0;
+  const queue: Array<() => void> = [];
+
+  const pump = () => {
+    if (active >= maxConcurrent) return;
+    const next = queue.shift();
+    if (!next) return;
+    active += 1;
+    next();
+  };
+
+  return async function runLimited<T>(task: () => Promise<T>): Promise<T> {
+    await new Promise<void>((resolve) => {
+      queue.push(resolve);
+      pump();
+    });
+    try {
+      return await task();
+    } finally {
+      active -= 1;
+      pump();
+    }
+  };
+}
+
 // content에서 첫 parse 가능한 JSON object 추출 (마크다운 펜스 / 앞뒤 텍스트 허용).
 function extractJsonObject(content: string): unknown {
   const trimmed = content.trim();
@@ -100,6 +140,12 @@ export interface CallPersonaPanelDeps {
   reflectionContext: string; // 첫달은 빈 문자열
   adminUserId: string; // cron-system UUID 등
   userPromptTemplate?: string; // default = PERSONA_SCORE_USER_PROMPT_TEMPLATE
+  /**
+   * PR-E impl-review fix: runTier1Screening invokes 150 panels concurrently.
+   * This cap is shared by the returned closure, so the real path queues 1650 persona
+   * calls instead of firing them all at once and rate-limit failing the 150/150 gate.
+   */
+  maxConcurrentCalls?: number;
 }
 
 /**
@@ -111,17 +157,20 @@ export function makeCallPersonaPanel(
   deps: CallPersonaPanelDeps,
 ): (input: { ticker: string; financials: string }) => Promise<PersonaScore[]> {
   const template = deps.userPromptTemplate ?? PERSONA_SCORE_USER_PROMPT_TEMPLATE;
+  const runLimited = createLimiter(resolveMaxConcurrentCalls(deps.maxConcurrentCalls));
   return async ({ ticker, financials }) => {
     return Promise.all(
       deps.personas.map(async (persona) => {
-        const res = await deps.callPersona({
-          personaId: persona.id,
-          ticker,
-          financials,
-          reflectionContext: deps.reflectionContext,
-          adminUserId: deps.adminUserId,
-          userPromptTemplate: template,
-        });
+        const res = await runLimited(() =>
+          deps.callPersona({
+            personaId: persona.id,
+            ticker,
+            financials,
+            reflectionContext: deps.reflectionContext,
+            adminUserId: deps.adminUserId,
+            userPromptTemplate: template,
+          }),
+        );
         return parsePersonaScore(res.content, persona.id);
       }),
     );

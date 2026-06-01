@@ -546,6 +546,14 @@ export async function triggerMonthlyBatch(input: {
   } = await supabase.auth.getUser();
   if (!user?.id) return { success: false, error: "auth_unavailable" };
 
+  // PR-E review fix: cost_log SELECT RLS alone is not an admin assertion.
+  // Non-admin sessions would see 0 rows (RLS filter) and pass hardcap, then burn AI before
+  // cost_log INSERT fails. Match triggerFullReport's server-side admin gate before real AI.
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  if (adminErr || !isAdmin) {
+    return { success: false, error: "admin_required" };
+  }
+
   try {
     const outcome = await runMonthlyBatchOrchestrator({
       month: input.month,

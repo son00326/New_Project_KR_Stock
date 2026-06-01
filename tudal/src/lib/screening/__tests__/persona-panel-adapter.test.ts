@@ -171,4 +171,33 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
       /ai_key_unavailable/,
     );
   });
+
+  it("PR-E review fix: parallel panel invocations share a persona-call concurrency cap", async () => {
+    let active = 0;
+    let observedMax = 0;
+    const callPersona = vi.fn(async () => {
+      active += 1;
+      observedMax = Math.max(observedMax, active);
+      await Promise.resolve();
+      active -= 1;
+      return callResult(validJson);
+    });
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      maxConcurrentCalls: 3,
+    });
+
+    const [a, b] = await Promise.all([
+      panel({ ticker: "005930", financials: "f" }),
+      panel({ ticker: "000660", financials: "f" }),
+    ]);
+
+    expect(a).toHaveLength(11);
+    expect(b).toHaveLength(11);
+    expect(callPersona).toHaveBeenCalledTimes(22);
+    expect(observedMax).toBeLessThanOrEqual(3);
+  });
 });
