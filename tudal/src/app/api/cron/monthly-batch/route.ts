@@ -50,6 +50,13 @@ function currentMonthYM(): string {
 // service-role client 주입 (cron auth.uid()=null → RLS bypass). 해당 월 시드 부재 시 0건 →
 // orchestrator가 `tier1_candidates_must_be_150 (got 0)` throw → 내부 catch → recordSchedulerFailAlert
 // + release failed → route catch JSON 502 (정상 degraded — 운영자가 Python 시드 후 재실행).
+//
+// ⚠️ 운영 순서 게이트 (PR-E 선행 필수 — deep-review MED clobber 위험 박제):
+//   PR-D는 tier0Source만 un-stub. callPersonaPanel은 PR-E까지 stub throw → 본 cron이 150 시드를 만나면
+//   runTier1Screening 전부 degraded(⚪) → orchestrator가 persist(30 ⚪) 호출 후 commitBadgeOnly stub에서 throw.
+//   이 persist는 upsertShortList30이 name/sector를 안 채워(PR-E가 매핑 수정) production short_list_30(canonical 30)을
+//   sector-less ⚪ 30으로 덮어쓴다. 따라서 **PR-E 머지 전에는 tier0_candidates_150 시드 + cron 활성화 금지**.
+//   (자동 재현 불가 — cron dormant(PR5_CRON_AUTO_ENABLED off) + admin trigger UI caller 0 = USER 게이트.)
 async function tier0SourceForCron(month: string): Promise<Tier1Candidate[]> {
   return getTier0Candidates({ month, client: createServiceRoleClient() });
 }

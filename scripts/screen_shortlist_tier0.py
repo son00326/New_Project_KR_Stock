@@ -480,14 +480,14 @@ def enforce_b89_strict_block(unresolved_count: int, *, apply: bool, review_csv_p
         return
     if apply:
         print(
-            f"[ABORT] B89 strict block: selected 30 rows 중 {unresolved_count}개가 unresolved sector. "
+            f"[ABORT] B89 strict block: selected rows 중 {unresolved_count}개가 unresolved sector. "
             f"sector_override.json에 ticker 추가 후 재실행하거나 mapper rule을 보강하세요. "
             f"review CSV: {review_csv_path}",
             file=sys.stderr,
         )
         sys.exit(EXIT_CODE_UNRESOLVED)
     print(
-        f"[warn] dry-run: selected 30 rows 중 {unresolved_count}개 unresolved (review CSV 참조). "
+        f"[warn] dry-run: selected rows 중 {unresolved_count}개 unresolved (review CSV 참조). "
         f"--apply 전에 해소 필요. review CSV: {review_csv_path}",
         file=sys.stderr,
     )
