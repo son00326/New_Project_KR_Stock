@@ -37,7 +37,8 @@ export interface RunMonthlyBatchOrchestratorInput {
    * PR-E (omxy §2.0a 설계 합의) — 실 AI 호출 전 fail-closed 비용 가드.
    * lock + tier0Source + 150-invariant 통과 후, runTier1Screening 직전 1회 호출.
    * caller(admin)는 isCostLoggingEnabled + ANTHROPIC_API_KEY + preflightHardcap(1650) 주입.
-   * cron caller는 cron_real_ai_blocked_until_pr_g throw (실 cron AI = PR-G).
+   * cron caller(PR-G)는 preflightCronRealAi 4-gate(flag/cost/key/CRON_SYSTEM_USER_ID) 주입 —
+   *   MONTHLY_BATCH_CRON_AI_ENABLED off(default) 시 monthly_batch_cron_ai_disabled throw (실 AI 0회, cost 0).
    * callCount = candidates.length * 11 (Core 11 panel 실 Anthropic 호출 수).
    */
   preflight: (input: { month: string; callCount: number }) => Promise<void>;
@@ -92,7 +93,7 @@ export async function runMonthlyBatchOrchestrator(
     }
 
     // PR-E (omxy §2.0a 합의) — 실 AI 호출 전 fail-closed 비용 가드. 통과 못하면 여기서 throw
-    //   (callPersonaPanel 0회 → cost 0). cron은 cron_real_ai_blocked_until_pr_g로 항상 차단.
+    //   (callPersonaPanel 0회 → cost 0). cron(PR-G)은 MONTHLY_BATCH_CRON_AI_ENABLED off(default) 시 차단.
     await input.preflight({
       month: input.month,
       callCount: candidates.length * 11, // Core 11 panel = 150*11 = 1650 실 Anthropic 호출 예상.

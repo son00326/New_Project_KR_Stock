@@ -2,7 +2,26 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { runMock } = vi.hoisted(() => ({ runMock: vi.fn() }));
+const {
+  runMock,
+  getUserByIdMock,
+  preflightHardcapMock,
+  callPersonaMock,
+  fetchFinancialsSummaryMock,
+  serviceClientMock,
+} = vi.hoisted(() => {
+  const getUserByIdMock = vi.fn();
+  return {
+    runMock: vi.fn(),
+    getUserByIdMock,
+    preflightHardcapMock: vi.fn(),
+    callPersonaMock: vi.fn(),
+    fetchFinancialsSummaryMock: vi.fn(),
+    serviceClientMock: {
+      auth: { admin: { getUserById: getUserByIdMock } },
+    },
+  };
+});
 
 vi.mock('@/lib/screening/monthly-batch-orchestrator', () => ({
   runMonthlyBatchOrchestrator: runMock,
@@ -19,11 +38,19 @@ vi.mock('@/lib/data/admin-alerts-insert', () => ({
 vi.mock('@/lib/data/admin-shortlist-persist', () => ({
   upsertShortList30: vi.fn(),
 }));
-const { getUserByIdMock } = vi.hoisted(() => ({ getUserByIdMock: vi.fn() }));
 vi.mock('@/lib/supabase/service-role', () => ({
-  createServiceRoleClient: vi.fn(() => ({
-    auth: { admin: { getUserById: getUserByIdMock } },
-  })),
+  createServiceRoleClient: vi.fn(() => serviceClientMock),
+}));
+vi.mock('@/lib/cost/cost-logger', () => ({
+  isCostLoggingEnabled: () =>
+    process.env.AI_COST_LOG_REAL_INSERT_ENABLED === 'true',
+  preflightHardcap: preflightHardcapMock,
+}));
+vi.mock('@/lib/ai/anthropic-client', () => ({
+  callPersona: callPersonaMock,
+}));
+vi.mock('@/lib/data/dart-financials', () => ({
+  fetchFinancialsSummary: fetchFinancialsSummaryMock,
 }));
 
 describe('GET /api/cron/monthly-batch', () => {
@@ -31,6 +58,10 @@ describe('GET /api/cron/monthly-batch', () => {
     vi.resetModules();
     runMock.mockReset();
     getUserByIdMock.mockReset();
+    preflightHardcapMock.mockReset();
+    callPersonaMock.mockReset();
+    fetchFinancialsSummaryMock.mockReset();
+    fetchFinancialsSummaryMock.mockResolvedValue('[005930] 재무 데이터 없음');
     process.env.CRON_SECRET = 'cron-secret';
   });
 
@@ -264,12 +295,18 @@ describe('GET /api/cron/monthly-batch', () => {
     }
 
     it('flag off (default) → monthly_batch_cron_ai_disabled (실 AI 차단, cost 0)', async () => {
-      // MONTHLY_BATCH_CRON_AI_ENABLED 미설정 = off. createServiceRoleClient.auth 미접근.
-      const preflight = await getPreflight();
-      await expect(
-        preflight({ month: '2026-06', callCount: 1650 }),
-      ).rejects.toThrow('monthly_batch_cron_ai_disabled');
-      expect(getUserByIdMock).not.toHaveBeenCalled();
+      // MONTHLY_BATCH_CRON_AI_ENABLED=false/미설정 = off. createServiceRoleClient.auth 미접근.
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'false');
+      try {
+        const preflight = await getPreflight();
+        await expect(
+          preflight({ month: '2026-06', callCount: 1650 }),
+        ).rejects.toThrow('monthly_batch_cron_ai_disabled');
+        expect(getUserByIdMock).not.toHaveBeenCalled();
+        expect(preflightHardcapMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
 
     it('flag on + cost-logging off → cost_logging_disabled (hardcap fail-open 차단)', async () => {
@@ -329,6 +366,105 @@ describe('GET /api/cron/monthly-batch', () => {
         expect(getUserByIdMock).toHaveBeenCalledWith(
           '00000000-0000-4000-8000-000000000000',
         );
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('route-level contract: flag off stops before the Anthropic panel', async () => {
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'false');
+      runMock.mockImplementation(async (args) => {
+        await args.preflight({ month: '2026-06', callCount: 1650 });
+        await args.callPersonaPanel({ ticker: '005930', financials: 'f' });
+        return okOutcome;
+      });
+      try {
+        const { GET } = await import('../route');
+        const res = await GET(
+          new NextRequest('http://localhost/api/cron/monthly-batch', {
+            headers: { authorization: 'Bearer cron-secret' },
+          }),
+        );
+        const body = await res.json();
+        expect(res.status).toBe(502);
+        expect(body.error).toBe('monthly_batch_cron_ai_disabled');
+        expect(callPersonaMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('route-level contract: open gates validate cron user and thread service-role costClient into panel calls', async () => {
+      const cronUserId = '00000000-0000-4000-8000-000000000000';
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'true');
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test');
+      vi.stubEnv('CRON_SYSTEM_USER_ID', cronUserId);
+      getUserByIdMock.mockResolvedValue({
+        data: { user: { id: cronUserId } },
+        error: null,
+      });
+      callPersonaMock.mockResolvedValue({
+        content: JSON.stringify({
+          scores: { short: 70, mid: 71, long: 72 },
+          winning_timeframe: 'long',
+          rationale_kr: '테스트 근거',
+          conviction: 80,
+        }),
+        usage: {
+          input_tokens: 1,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 1,
+        },
+        costKrw: 1,
+        promptCacheEnabled: false,
+      });
+
+      const order: string[] = [];
+      let panelLength = 0;
+      let financials = '';
+      runMock.mockImplementation(async (args) => {
+        await args.preflight({ month: '2026-06', callCount: 1650 });
+        order.push('preflight');
+        const panel = await args.callPersonaPanel({
+          ticker: '005930',
+          financials: 'f',
+        });
+        panelLength = panel.length;
+        order.push('panel');
+        financials = await args.fetchFinancials('005930');
+        order.push('financials');
+        return okOutcome;
+      });
+
+      try {
+        const { GET } = await import('../route');
+        const res = await GET(
+          new NextRequest('http://localhost/api/cron/monthly-batch', {
+            headers: { authorization: 'Bearer cron-secret' },
+          }),
+        );
+        expect(res.status).toBe(200);
+        expect(order).toEqual(['preflight', 'panel', 'financials']);
+        expect(panelLength).toBe(11);
+        expect(financials).toBe('[005930] 재무 데이터 없음');
+        expect(getUserByIdMock).toHaveBeenCalledWith(cronUserId);
+        expect(preflightHardcapMock).toHaveBeenCalledWith(
+          { month: '2026-06', callCount: 1650 },
+          { client: serviceClientMock },
+        );
+        expect(callPersonaMock).toHaveBeenCalledTimes(11);
+        expect(callPersonaMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            ticker: '005930',
+            adminUserId: cronUserId,
+            costClient: serviceClientMock,
+          }),
+        );
+        expect(fetchFinancialsSummaryMock).toHaveBeenCalledWith('005930', {
+          client: serviceClientMock,
+        });
       } finally {
         vi.unstubAllEnvs();
       }
