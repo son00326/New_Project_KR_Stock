@@ -8,6 +8,9 @@
 
 export type BucketKind = "short" | "mid" | "long";
 export type DeltaStatus = "new" | "hold" | "removed";
+// PR-F (D19 Q5b) — 5종 합의 배지. 산출 알고리즘 SoT = lib/screening/consensus.ts assignBadge.
+//   🟢 강한 합의 / 🔵 숫자 우세 / 🟣 AI 우세 / 🟡 관망 / ⚪ AI 분석 대기.
+export type ConsensusBadge = "🟢" | "🔵" | "🟣" | "🟡" | "⚪";
 export type PersonaLayer = "core" | "sector";
 export type VoteKind = "approve" | "reject" | "abstain";
 export type ApprovalType = "accept" | "reject";
@@ -50,6 +53,12 @@ export interface ShortListItem {
   summary3Line: string;
   suggestedWeight: number;
   createdAt: string;
+  // PR-F (ADR D-7, 마이그 0029) — Tier 1 AI 산출 카드 필드. null/undefined = Tier 0 fallback(AI 평가 대기).
+  consensusBadge?: ConsensusBadge | null; // assigned_timeframe 5종 합의 배지
+  aiScore?: number | null; // 🤖 AI 점수 = weighted_scores[assigned_timeframe] (0~100)
+  aiCommentKr?: string | null; // AI 코멘트 1~2줄 (assigned_timeframe 최고-conviction persona rationale)
+  winningTimeframe?: BucketKind | null; // primary_timeframe (AI가 본 ticker 본질 horizon)
+  conviction?: number | null; // panel 평균 conviction (0~100)
 }
 
 // M1/M4/M6 UI 파생 상수

@@ -134,6 +134,44 @@ describe("transformShortListRow", () => {
     expect(item.compositeScore).toBe(70);
     expect(item.suggestedWeight).toBe(0.04);
   });
+
+  // PR-F (마이그 0029, ADR D-7) — Tier 1 AI 컬럼 매핑.
+  it("PR-F: maps AI columns (badge/aiScore/comment/winningTimeframe/conviction) when present", () => {
+    const row: ShortListDbRow = {
+      ...baseRow,
+      consensus_badge: "🟢",
+      ai_score: "78.5", // PostgREST numeric → string
+      winning_timeframe: "long",
+      conviction: 82,
+      ai_comment_kr: "강력한 장기 매수 신호.",
+    };
+    const item = transformShortListRow(row);
+    expect(item.consensusBadge).toBe("🟢");
+    expect(item.aiScore).toBe(78.5);
+    expect(item.winningTimeframe).toBe("long");
+    expect(item.conviction).toBe(82);
+    expect(item.aiCommentKr).toBe("강력한 장기 매수 신호.");
+  });
+
+  it("PR-F: null/absent AI columns → null (Tier 0 fallback = AI 대기)", () => {
+    const item = transformShortListRow(baseRow); // baseRow에 AI 컬럼 없음
+    expect(item.consensusBadge).toBeNull();
+    expect(item.aiScore).toBeNull();
+    expect(item.winningTimeframe).toBeNull();
+    expect(item.conviction).toBeNull();
+    expect(item.aiCommentKr).toBeNull();
+  });
+
+  it("PR-F: invalid badge/timeframe 문자열 → null (defensive)", () => {
+    const row: ShortListDbRow = {
+      ...baseRow,
+      consensus_badge: "X",
+      winning_timeframe: "weekly",
+    };
+    const item = transformShortListRow(row);
+    expect(item.consensusBadge).toBeNull();
+    expect(item.winningTimeframe).toBeNull();
+  });
 });
 
 describe("aggregateShortListDelta", () => {
