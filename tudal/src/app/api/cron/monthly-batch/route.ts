@@ -11,6 +11,7 @@ import {
 import { recordSchedulerFailAlert } from '@/lib/data/admin-alerts-insert';
 import { runMonthlyBatchOrchestrator } from '@/lib/screening/monthly-batch-orchestrator';
 import { getTier0Candidates } from '@/lib/data/admin-tier0-candidates';
+import { upsertShortList30 } from '@/lib/data/admin-shortlist-persist';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import type { Tier1Candidate } from '@/lib/screening/persona-eval';
 import type { PersonaScore, Tier1ScreeningResult } from '@/lib/screening/tier1-schema';
@@ -49,17 +50,19 @@ function currentMonthYM(): string {
 // service-role client 주입 (cron auth.uid()=null → RLS bypass). 해당 월 시드 부재 시 0건 →
 // orchestrator가 `tier1_candidates_must_be_150 (got 0)` throw → 내부 catch → recordSchedulerFailAlert
 // + release failed → route catch JSON 502 (정상 degraded — 운영자가 Python 시드 후 재실행).
-//
-// ⚠️ 운영 순서 게이트 (PR-E 선행 필수 — deep-review MED clobber 위험 박제):
-//   PR-D는 tier0Source만 un-stub. callPersonaPanel은 PR-E까지 stub throw → 본 cron이 150 시드를 만나면
-//   runTier1Screening 전부 degraded(⚪) → orchestrator가 persist(30 ⚪) 호출 후 commitBadgeOnly stub에서 throw.
-//   이 persist는 upsertShortList30이 name/sector를 안 채워(PR-E가 매핑 수정) production short_list_30(canonical 30)을
-//   sector-less ⚪ 30으로 덮어쓴다. 따라서 **PR-E 머지 전에는 tier0_candidates_150 시드 + cron 활성화 금지**.
-//   (자동 재현 불가 — cron dormant(PR5_CRON_AUTO_ENABLED off) + admin trigger UI caller 0 = USER 게이트.)
 async function tier0SourceForCron(month: string): Promise<Tier1Candidate[]> {
   return getTier0Candidates({ month, client: createServiceRoleClient() });
 }
 
+// PR-E (omxy §2.0a 합의 D6 Option B) — cron 실 AI는 PR-G까지 차단.
+//   preflight에서 항상 throw → callPersonaPanel/persist/commitBadgeOnly 전부 unreachable.
+//   실 cron AI는 PR-G(CRON_SYSTEM_USER_ID 실존 UUID for cost_log.called_by FK + service-role cost client)
+//   제공 후 본 preflight 차단 제거로 활성. preflight가 callPersonaPanel(실 Anthropic) 전에 throw하므로 cost 0.
+async function preflightCronBlockedUntilPrG(): Promise<void> {
+  throw new Error('cron_real_ai_blocked_until_pr_g');
+}
+
+// preflight가 먼저 throw → 아래 3개는 PR-G 전까지 unreachable (stub/wired-unreachable 유지).
 async function mockCallPersonaPanel(): Promise<PersonaScore[]> {
   throw new Error('persona_panel_not_wired_pr1_followup');
 }
@@ -68,20 +71,19 @@ async function mockFetchFinancials(): Promise<string> {
   return '';
 }
 
-async function commitBadgeOnlyPlaceholder(): Promise<void> {
-  throw new Error('commit_badge_only_not_wired_pr1_followup');
-}
+// PR-E — commitBadgeOnly no-op (배지는 persist의 short_list_30.consensus_badge로 기록. 150/150 게이트
+//   통과 시 selected는 전부 non-⚪이라 호출 0회). cron에서는 preflight 차단으로 unreachable.
+async function commitBadgeOnlyNoop(): Promise<void> {}
 
-// PR-D guard: callPersonaPanel/commitBadgeOnly가 stub인 중간 상태에서는 runTier1Screening이
-// 150개 전부 ⚪ degraded로 selected를 만들 수 있다. 실제 PR-E panel+persist mapping 전까지는
-// short_list_30 쓰기를 코드 레벨에서 차단해 production 30 rows clobber를 방지한다.
-async function persistBlockedUntilPrE(
+// PR-E — cron persist 복원 (service-role + commentsByTicker 라우팅). preflight 차단으로 PR-G까지 unreachable.
+//   PR-G는 preflightCronBlockedUntilPrG 제거만 하면 본 실 persist 경로 활성.
+async function persistForCron(
   month: string,
   selected: Tier1ScreeningResult['selected'],
+  commentsByTicker?: Tier1ScreeningResult['commentsByTicker'],
 ): Promise<void> {
-  void month;
-  void selected;
-  throw new Error('tier1_persist_blocked_until_pr_e');
+  const supabase = createServiceRoleClient();
+  await upsertShortList30(month, selected, { client: supabase, commentsByTicker });
 }
 
 // orchestrator interface 요구에 맞춰 cron route 내부 wrapper.
@@ -131,14 +133,16 @@ export async function GET(request: NextRequest) {
       personasVersionId:
         process.env.PERSONAS_VERSION_ID ?? 'core11@v3.1',
       tier0Source: () => tier0SourceForCron(month),
+      // PR-E (omxy §2.0a D6 Option B): preflight 항상 throw → 실 AI/persist unreachable (PR-G까지).
+      preflight: preflightCronBlockedUntilPrG,
       callPersonaPanel: mockCallPersonaPanel,
       fetchFinancials: mockFetchFinancials,
       lock: {
         acquire: acquireBatchLockCron,
         release: releaseBatchLockCron,
       },
-      persist: persistBlockedUntilPrE,
-      commitBadgeOnly: commitBadgeOnlyPlaceholder,
+      persist: persistForCron,
+      commitBadgeOnly: commitBadgeOnlyNoop,
       recordSchedulerFailAlert: recordSchedulerFailAlertForCron,
     });
     return NextResponse.json({ ok: true, outcome }, { status: 200 });

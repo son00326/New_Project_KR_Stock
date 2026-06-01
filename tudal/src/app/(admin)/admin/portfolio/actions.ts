@@ -23,7 +23,6 @@ import {
 } from "@/lib/portfolio/dispute";
 import { isUniqueViolation } from "@/lib/portfolio/approval-logic";
 import { createClient } from "@/lib/supabase/server";
-import type { Tier1ScreeningResult } from "@/lib/screening/tier1-schema";
 import type { PortfolioApproval, ShortListItem } from "@/types/admin";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
@@ -503,26 +502,13 @@ export async function resolveDispute(input: {
 
 const TRIGGER_MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-// PR-D intermediate-state guard:
-// tier0Source is real, but callPersonaPanel/commitBadgeOnly intentionally remain stubs until PR-E.
-// runTier1Screening degrades stubbed panel calls to ⚪ selected rows, so persisting here would clobber
-// production short_list_30 before PR-E fixes panel+mapping. Keep the consumer wired, but block writes.
-async function persistBlockedUntilPrE(
-  month: string,
-  selected: Tier1ScreeningResult["selected"],
-): Promise<void> {
-  void month;
-  void selected;
-  throw new Error("tier1_persist_blocked_until_pr_e");
-}
-
 export async function triggerMonthlyBatch(input: {
   month: string;
 }): Promise<
   | { success: true; data: { selectedCount: number } }
   | { success: false; error: string }
 > {
-  // Dynamic import — heavy lib (orchestrator + screening) lazy load.
+  // Dynamic import — heavy lib (orchestrator + screening + AI) lazy load.
   const { runMonthlyBatchOrchestrator } = await import(
     "@/lib/screening/monthly-batch-orchestrator"
   );
@@ -532,6 +518,19 @@ export async function triggerMonthlyBatch(input: {
   // PR-D (ADR D-3): Tier 0 source 실 SELECT — tier0_candidates_150.
   const { getTier0Candidates } = await import(
     "@/lib/data/admin-tier0-candidates"
+  );
+  // PR-E (omxy §2.0a 합의) — 실 AI 배선.
+  const { upsertShortList30 } = await import(
+    "@/lib/data/admin-shortlist-persist"
+  );
+  const { makeCallPersonaPanel } = await import(
+    "@/lib/screening/persona-panel-adapter"
+  );
+  const { CORE_11_PERSONAS } = await import("@/lib/ai/prompts/personas");
+  const { callPersona } = await import("@/lib/ai/anthropic-client");
+  const { fetchFinancialsSummary } = await import("@/lib/data/dart-financials");
+  const { isCostLoggingEnabled, preflightHardcap } = await import(
+    "@/lib/cost/cost-logger"
   );
 
   if (!input || typeof input.month !== "string") {
@@ -558,15 +557,34 @@ export async function triggerMonthlyBatch(input: {
       // PR-D: admin은 session client 주입 (is_admin() RLS). input.month=YYYY-MM → consumer가 YYYY-MM-01 변환.
       // 시드 부재 시 0건 → orchestrator `tier1_candidates_must_be_150 (got 0)` throw → action error 반환.
       tier0Source: () => getTier0Candidates({ month: input.month, client: supabase }),
-      callPersonaPanel: async () => {
-        throw new Error("persona_panel_not_wired_pr1_followup");
+      // PR-E (omxy §2.0a) — 실 Anthropic 전 fail-closed 비용 가드: flag off / 키 부재 / hardcap 초과 시
+      //   여기서 throw (callPersonaPanel 0회 → cost 0). cost_log_admin_select RLS로 getMonthlyTotal 정확.
+      preflight: async ({ month, callCount }) => {
+        if (!isCostLoggingEnabled()) {
+          throw new Error("cost_logging_disabled");
+        }
+        if (!process.env.ANTHROPIC_API_KEY) {
+          throw new Error("ai_key_unavailable");
+        }
+        await preflightHardcap({ month, callCount }, { client: supabase });
       },
-      fetchFinancials: async () => "",
+      // PR-E — 실 Core 11 panel (PR-C 어댑터). 키 부재/rate-limit/parse 실패 → ticker reject → 150/150
+      //   게이트가 persist 차단(degraded clobber 방지). adminUserId=user.id → cost_log.called_by FK + RLS 통과.
+      callPersonaPanel: makeCallPersonaPanel({
+        callPersona,
+        personas: CORE_11_PERSONAS,
+        reflectionContext: "",
+        adminUserId: user.id,
+      }),
+      // PR-E — 실 재무 요약 (dart_financial_cache, session client). 미캐시 ticker는 빈/부분 문자열.
+      fetchFinancials: (ticker) =>
+        fetchFinancialsSummary(ticker, { client: supabase }),
       lock: { acquire: acquireBatchLock, release: releaseBatchLock },
-      persist: persistBlockedUntilPrE,
-      commitBadgeOnly: async () => {
-        throw new Error("commit_badge_only_not_wired_pr1_followup");
-      },
+      // PR-E — persist 복원 (session client + commentsByTicker → short_list_30 AI 컬럼). 150/150 게이트 통과 시만 도달.
+      persist: (month, selected, commentsByTicker) =>
+        upsertShortList30(month, selected, { client: supabase, commentsByTicker }),
+      // PR-E — commitBadgeOnly no-op (배지는 persist의 consensus_badge. 150/150 게이트 후 ⚪ 0 → 호출 0회).
+      commitBadgeOnly: async () => {},
       // server action path는 alert noop wire (admin trigger fail은 UI toast로 — PR4 scope)
       recordSchedulerFailAlert: async () => {},
     });

@@ -233,7 +233,8 @@ describe('GET /api/cron/monthly-batch', () => {
     expect(typeof args.recordSchedulerFailAlert).toBe('function');
   });
 
-  it('blocks short_list_30 persistence while PR-E panel wiring is still stubbed', async () => {
+  it('PR-E: cron preflight blocks real AI until PR-G (cron_real_ai_blocked_until_pr_g)', async () => {
+    // omxy §2.0a D6 Option B — cron 실 AI는 PR-G까지 preflight에서 차단 (callPersonaPanel/persist unreachable).
     runMock.mockResolvedValue({
       month: '2026-06',
       selectedCount: 30,
@@ -249,8 +250,8 @@ describe('GET /api/cron/monthly-batch', () => {
       }),
     );
     const args = runMock.mock.calls[0][0];
-    await expect(args.persist('2026-06', [])).rejects.toThrow(
-      'tier1_persist_blocked_until_pr_e',
-    );
+    await expect(
+      args.preflight({ month: '2026-06', callCount: 1650 }),
+    ).rejects.toThrow('cron_real_ai_blocked_until_pr_g');
   });
 });
