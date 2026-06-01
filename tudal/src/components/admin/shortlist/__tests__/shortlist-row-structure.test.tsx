@@ -127,6 +127,7 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
       ...fixture,
       consensusBadge: '⚪',
       aiScore: 0,
+      aiCommentKr: '비정상 코멘트',
       winningTimeframe: 'short',
       conviction: 0,
     };
@@ -135,6 +136,7 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
     expect(screen.queryByText('🤖 AI 점수')).not.toBeInTheDocument();
     expect(screen.queryByText('AI 선호 시점')).not.toBeInTheDocument();
     expect(screen.queryByText('Conviction')).not.toBeInTheDocument();
+    expect(screen.queryByText('비정상 코멘트')).not.toBeInTheDocument();
   });
 
   // Workflow MED-2: backfill 종목은 ai_score=weighted[assigned_tf]와 winningTimeframe=primary_tf가 상이.
