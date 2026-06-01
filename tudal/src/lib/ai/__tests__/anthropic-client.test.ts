@@ -86,6 +86,42 @@ describe('anthropic-client (Q6)', () => {
     expect(insertCostLog).toHaveBeenCalledTimes(1);
   });
 
+  // PR-G — cost_log client DI seam. cron path는 service-role client 주입 → insertCostLog 2nd arg로 전파.
+  it('threads costClient to insertCostLog 2nd arg (cron service-role path)', async () => {
+    process.env.AI_PROMPT_CACHE_ENABLED = 'false';
+    mockMessagesCreate.mockResolvedValue(happyResponse);
+    const fakeClient = { __serviceRole: true } as never;
+    await callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: '00000000-0000-4000-8000-000000000000',
+      costClient: fakeClient,
+    });
+    expect(insertCostLog).toHaveBeenCalledWith(
+      expect.objectContaining({ called_by: '00000000-0000-4000-8000-000000000000' }),
+      { client: fakeClient },
+    );
+  });
+
+  // admin path (costClient 미지정) → insertCostLog 2nd arg = { client: undefined } → session createClient fallback.
+  it('passes { client: undefined } to insertCostLog when costClient omitted (admin session path)', async () => {
+    process.env.AI_PROMPT_CACHE_ENABLED = 'false';
+    mockMessagesCreate.mockResolvedValue(happyResponse);
+    await callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: 'admin-uuid',
+    });
+    expect(insertCostLog).toHaveBeenCalledWith(
+      expect.objectContaining({ called_by: 'admin-uuid' }),
+      { client: undefined },
+    );
+  });
+
   it('Anthropic API error → throws ai_call_failed (한국어 매핑은 format-error)', async () => {
     mockMessagesCreate.mockRejectedValue(new Error('API timeout'));
     await expect(callPersona({

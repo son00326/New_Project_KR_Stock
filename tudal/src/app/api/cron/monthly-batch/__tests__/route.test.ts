@@ -19,14 +19,18 @@ vi.mock('@/lib/data/admin-alerts-insert', () => ({
 vi.mock('@/lib/data/admin-shortlist-persist', () => ({
   upsertShortList30: vi.fn(),
 }));
+const { getUserByIdMock } = vi.hoisted(() => ({ getUserByIdMock: vi.fn() }));
 vi.mock('@/lib/supabase/service-role', () => ({
-  createServiceRoleClient: vi.fn(() => ({})),
+  createServiceRoleClient: vi.fn(() => ({
+    auth: { admin: { getUserById: getUserByIdMock } },
+  })),
 }));
 
 describe('GET /api/cron/monthly-batch', () => {
   beforeEach(() => {
     vi.resetModules();
     runMock.mockReset();
+    getUserByIdMock.mockReset();
     process.env.CRON_SECRET = 'cron-secret';
   });
 
@@ -233,8 +237,105 @@ describe('GET /api/cron/monthly-batch', () => {
     expect(typeof args.recordSchedulerFailAlert).toBe('function');
   });
 
-  it('PR-E: cron preflight blocks real AI until PR-G (cron_real_ai_blocked_until_pr_g)', async () => {
-    // omxy §2.0a D6 Option B — cron 실 AI는 PR-G까지 preflight에서 차단 (callPersonaPanel/persist unreachable).
+  // ── PR-G: cron 실 AI preflight 4 게이트 (fail-closed, callPersonaPanel 전 throw → cost 0) ──
+  describe('PR-G real-AI preflight gates', () => {
+    const okOutcome = {
+      month: '2026-06',
+      selectedCount: 30,
+      notSelectedCount: 120,
+      badgeOnlyCount: 0,
+      promptVersionId: 'render-user-prompt@v1',
+      personasVersionId: 'core11@v3.1',
+    };
+
+    async function getPreflight() {
+      runMock.mockResolvedValue(okOutcome);
+      const { GET } = await import('../route');
+      await GET(
+        new NextRequest('http://localhost/api/cron/monthly-batch', {
+          headers: { authorization: 'Bearer cron-secret' },
+        }),
+      );
+      const args = runMock.mock.calls[0][0];
+      return args.preflight as (i: {
+        month: string;
+        callCount: number;
+      }) => Promise<void>;
+    }
+
+    it('flag off (default) → monthly_batch_cron_ai_disabled (실 AI 차단, cost 0)', async () => {
+      // MONTHLY_BATCH_CRON_AI_ENABLED 미설정 = off. createServiceRoleClient.auth 미접근.
+      const preflight = await getPreflight();
+      await expect(
+        preflight({ month: '2026-06', callCount: 1650 }),
+      ).rejects.toThrow('monthly_batch_cron_ai_disabled');
+      expect(getUserByIdMock).not.toHaveBeenCalled();
+    });
+
+    it('flag on + cost-logging off → cost_logging_disabled (hardcap fail-open 차단)', async () => {
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'true');
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'false');
+      try {
+        const preflight = await getPreflight();
+        await expect(
+          preflight({ month: '2026-06', callCount: 1650 }),
+        ).rejects.toThrow('cost_logging_disabled');
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('flag on + cost on + no ANTHROPIC_API_KEY → ai_key_unavailable', async () => {
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'true');
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
+      vi.stubEnv('ANTHROPIC_API_KEY', '');
+      try {
+        const preflight = await getPreflight();
+        await expect(
+          preflight({ month: '2026-06', callCount: 1650 }),
+        ).rejects.toThrow('ai_key_unavailable');
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('flag on + cost on + key + invalid CRON_SYSTEM_USER_ID → cron_system_user_id_invalid', async () => {
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'true');
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test');
+      vi.stubEnv('CRON_SYSTEM_USER_ID', 'cron-system'); // not a UUID
+      try {
+        const preflight = await getPreflight();
+        await expect(
+          preflight({ month: '2026-06', callCount: 1650 }),
+        ).rejects.toThrow('cron_system_user_id_invalid');
+        expect(getUserByIdMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('flag on + valid UUID + user not found → cron_system_user_not_found', async () => {
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'true');
+      vi.stubEnv('AI_COST_LOG_REAL_INSERT_ENABLED', 'true');
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test');
+      vi.stubEnv('CRON_SYSTEM_USER_ID', '00000000-0000-4000-8000-000000000000');
+      getUserByIdMock.mockResolvedValue({ data: { user: null }, error: null });
+      try {
+        const preflight = await getPreflight();
+        await expect(
+          preflight({ month: '2026-06', callCount: 1650 }),
+        ).rejects.toThrow('cron_system_user_not_found');
+        expect(getUserByIdMock).toHaveBeenCalledWith(
+          '00000000-0000-4000-8000-000000000000',
+        );
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+  });
+
+  it('PR-G: wires real callPersonaPanel + fetchFinancials (not throwing stubs)', async () => {
     runMock.mockResolvedValue({
       month: '2026-06',
       selectedCount: 30,
@@ -250,8 +351,8 @@ describe('GET /api/cron/monthly-batch', () => {
       }),
     );
     const args = runMock.mock.calls[0][0];
-    await expect(
-      args.preflight({ month: '2026-06', callCount: 1650 }),
-    ).rejects.toThrow('cron_real_ai_blocked_until_pr_g');
+    expect(typeof args.callPersonaPanel).toBe('function');
+    expect(typeof args.fetchFinancials).toBe('function');
+    expect(typeof args.preflight).toBe('function');
   });
 });

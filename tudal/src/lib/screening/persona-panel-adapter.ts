@@ -6,6 +6,7 @@
 //
 // 실패 정책: 한 페르소나라도 parse/validation 실패 시 panel 전체 reject → runTier1Screening allSettled가 ticker를 ⚪ 처리.
 //           (PersonaPanelSchema + assertPanelMatchesCore11은 정확히 11명 요구 → all-or-nothing per ticker.)
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CallPersonaInput,
   CallPersonaResult,
@@ -146,6 +147,11 @@ export interface CallPersonaPanelDeps {
    * calls instead of firing them all at once and rate-limit failing the 150/150 gate.
    */
   maxConcurrentCalls?: number;
+  /**
+   * PR-G (cron 실 AI prep): cost_log INSERT용 client DI. callPersona로 전파.
+   *   cron caller = service-role client (auth.uid()=null RLS bypass). admin caller = 미지정(session fallback).
+   */
+  costClient?: SupabaseClient;
 }
 
 /**
@@ -169,6 +175,7 @@ export function makeCallPersonaPanel(
             reflectionContext: deps.reflectionContext,
             adminUserId: deps.adminUserId,
             userPromptTemplate: template,
+            costClient: deps.costClient,
           }),
         );
         return parsePersonaScore(res.content, persona.id);
