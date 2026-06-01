@@ -119,4 +119,41 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
     render(<ShortlistRow item={waitItem} />);
     expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
   });
+
+  // Workflow MED-1: degraded 종목은 persist 시 consensus_badge='⚪' + ai_score=0 (numOrNull 보존)으로 저장됨.
+  //   요약 pill은 AI 대기인데 expanded가 "AI 점수 0"을 보이면 모순 → expanded도 isAiPending 게이트로 미표시.
+  it('Workflow MED-1: ⚪ degraded(배지 ⚪ + aiScore 0)는 expanded에도 AI 점수/선호시점/conviction 미표시', () => {
+    const degraded: ShortListItem = {
+      ...fixture,
+      consensusBadge: '⚪',
+      aiScore: 0,
+      winningTimeframe: 'short',
+      conviction: 0,
+    };
+    render(<ShortlistRow item={degraded} />);
+    expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
+    expect(screen.queryByText('🤖 AI 점수')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI 선호 시점')).not.toBeInTheDocument();
+    expect(screen.queryByText('Conviction')).not.toBeInTheDocument();
+  });
+
+  // Workflow MED-2: backfill 종목은 ai_score=weighted[assigned_tf]와 winningTimeframe=primary_tf가 상이.
+  //   한 줄 pairing("72 · 장기") 금지 — AI 점수와 선호 시점은 별도 행.
+  it('Workflow MED-2: AI 점수와 AI 선호 시점은 별도 행 (pairing 안 함)', () => {
+    const backfill: ShortListItem = {
+      ...fixture,
+      consensusBadge: '🔵',
+      aiScore: 72, // assigned(mid) 점수
+      winningTimeframe: 'long', // primary(argmax) — assigned과 다름
+      conviction: 60,
+    };
+    render(<ShortlistRow item={backfill} />);
+    const scoreLabel = screen.getByText('🤖 AI 점수');
+    const horizonLabel = screen.getByText('AI 선호 시점');
+    expect(scoreLabel).toBeInTheDocument();
+    expect(horizonLabel).toBeInTheDocument();
+    // 점수 dd는 "72"만 (장기 미포함) — pairing 회귀 방지.
+    expect(scoreLabel.nextElementSibling?.textContent).toBe('72');
+    expect(horizonLabel.nextElementSibling?.textContent).toBe('장기');
+  });
 });
