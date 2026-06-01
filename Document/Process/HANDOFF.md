@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + **PR-F(카드 AI 렌더 — 🤖 점수+합의 배지+코멘트, main `69a8d5c`, PR #67)** 모두 MERGED (omxy §2.0a + Workflow 교차검증 + gstack 시각검토 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G(실 AI 첫 가동 — Python 150 시드 + 실 30선정, USER 비용 승인)**. 실 AI 호출 여전히 0회(코드 완성, 실행 = PR-G). **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + **PR-F(카드 AI 렌더 — 🤖 점수+합의 배지+코멘트, main `69a8d5c`, PR #67)** 모두 MERGED (omxy §2.0a + Workflow 교차검증 + gstack 시각검토 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G(실 AI 첫 가동)** — ⓐ CLAUDE prep(cron callPersona cost-log service-role DI, 비용0, **다음 세션 CLAUDE 1순위**) + ⓑ USER 게이트(Python 150 시드 + 실 30선정 비용 승인). 실 AI 호출 0회(**선정 엔진·프론트 완성, cron 실경로 prep ⓐ는 CLAUDE 잔여**). **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -8,7 +8,7 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 ## 한눈에 (현재 상태 + 다음 행동)
 
-**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 완성** — PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + **PR-F(카드 AI 렌더, main `69a8d5c`)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G(실 AI 첫 가동)**. 실 AI는 아직 0회(코드 완성; seed=0이라 현재 trigger는 150-invariant `got 0`에서 AI 전 실패 = cost-safe). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
+**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 완성** — PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + **PR-F(카드 AI 렌더, main `69a8d5c`)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G(실 AI 첫 가동)** — ⓐ CLAUDE prep(cron cost-log service-role DI, 비용0) 후 ⓑ USER 실행/비용 게이트. 실 AI는 아직 0회(선정 엔진·프론트 완성, cron 실경로 prep ⓐ는 CLAUDE 잔여; seed=0이라 현재 trigger는 150-invariant `got 0`에서 AI 전 실패 = cost-safe). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
 **main HEAD**: `git rev-parse --short origin/main` (현재 `69a8d5c` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
@@ -17,7 +17,9 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
-1. **[USER+CLAUDE] PR-G** 실 AI 첫 가동: Python `--emit-candidates` 실 150 시드(KRX/DART) + cron-system seed(`CRON_SYSTEM_USER_ID` 실존 UUID) + Vercel 플래그 확인(`AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` — 둘 다 prod 존재) + cron preflight block 해제 + **실 AI 첫 30선정 검증**(비용 burn USER 승인 ~5–6천원/회). callPersona cost-log service-role client DI는 cron 가동 시 필요. 성공 시 카드에 실 배지/점수/코멘트 표시(PR-F 렌더 활성).
+1. **PR-G 실 AI 첫 가동** (다음 1순위 — **ⓐ CLAUDE prep(비용0, 지금 가능) + ⓑ USER 실행/비용 게이트**):
+   - **ⓐ [CLAUDE] 지금 가능한 prep (비용 0, USER 대기 불필요)**: cron 실 AI 경로의 `callPersona` cost-log **service-role client DI** 추가 (현재 `insertCostLog`가 session `createClient` → cron `auth.uid()=null`+`called_by` UUID FK로 실패. admin path는 동작, cron만 미동작). + cron route의 `preflightCronBlockedUntilPrG`/`mockCallPersonaPanel`/`persistForCron` 실 배선 준비. §2.0a flow(설계→omxy→gstack 불필요). **이게 다음 세션 CLAUDE 1순위 unblocked step.**
+   - **ⓑ [USER] 게이트 (실행·비용)**: Python `--emit-candidates` 실 150 시드(KRX/DART) + cron-system seed(`CRON_SYSTEM_USER_ID` 실존 auth.users UUID) + Vercel 플래그 확인(`AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` — 둘 다 prod 존재) + cron preflight block 해제(env 또는 코드) + **실 AI 첫 30선정 트리거**(비용 burn 승인 ~5–6천원/회). 성공 시 카드에 실 배지/점수/코멘트 표시(PR-F 렌더 활성).
 2. **[CLAUDE] PR-H** 리포트 enrich+manual trigger(reject→batch / Regen→단일 ticker) → **PR-I** Tier2 sector14+Section8(PR5b) → **PR-J** mock 전면정리. **PR-K**(Reflection) defer.
 
 **[별도 트랙] PR5 cron 리포트 go-live** (위 e2e와 독립, USER 게이트): cron-system seed + Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + cron-persist canary. 마이그 0027 ✅ applied. (PR #60 MERGED-dormant.)
@@ -38,7 +40,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # PR-E 머지+docs sync 후 `f1d0c68` 또는 자손
+git rev-parse --short HEAD          # PR-F 머지+docs sync 후 `0e2e973` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -59,7 +61,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 #   drift(cost_log>0 또는 short_list_30 AI 컬럼 non-null 등) 시 = 누군가 실 AI trigger/seed 실행 → §1 ground truth 갱신.
 ```
 
-### §0.A — PR5 go-live 활성화 진입 ("HANDOFF 보고 이어서" 시 여기부터)
+### §0.A — PR5 go-live 활성화 진입 (⚠️ **별도 트랙** — 1순위 아님)
+
+> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G**(실 AI 첫 가동). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙이다 — PR-G와 혼동 금지. PR-G가 USER 비용 게이트로 막히면 §0.A(PR5)도 동일 USER 게이트라, CLAUDE는 [USER]gate 보고 후 **§다음 액션 큐의 CLAUDE-prep**(아래 PR-G ⓐ)으로 진행한다.
 
 **PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` / (d) Vercel PR5 env / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
@@ -99,7 +103,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 풀 리포트 | PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step + PR4 admin caller + 마이그 0025 RPC + env=true. **functional 가능, last-known audit cost_log=0/stock_reports=0** → Task 7 Smoke Stage 2에서 첫 실 검증. |
 | 실 AI 호출 | **현재 0건** (cost_log=0). **선정 path 첫 실 AI = PR-G**(150 시드 + Tier1 30선정). report-only 첫 smoke = Task 7(PR5 트랙, 별도). 둘 다 USER 비용 승인 후. |
 | Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0029 production applied** (0028 = tier0_candidates_150 disjoint 50×3 + canonical CHECK + unique(month,bucket,rank); 0029 = short_list_30 AI 컬럼 8종 nullable + consensus_badge/winning_timeframe CHECK) · SECURITY DEFINER 패턴 · dart_corp_codes 2,766/2,766 induty 백필. |
-| Vercel canary | PR5 머지 deploy(`tudal-9bwx5js8g`) Ready; public 3/3 OK (`/` + `/login` + `/macro`) + `/admin` 307. cron route 5개(monthly-batch / morning-briefing / news-sweep / silent-health / **report-worker daily — dormant**). 인증 세션 canary 권장. |
+| Vercel canary | 최근 PR-F deploy Ready; **public 4/4 OK** (`/` + `/login` + `/macro` 200 + `/admin` 307→login, tudal-tawny.vercel.app). cron route 5개(monthly-batch / morning-briefing / news-sweep / silent-health / **report-worker daily — dormant**). 인증 세션 canary 권장. |
 | Mock/슬라이스 | Mock ✅ / DQ-7 ~97%(Smoke #4/#5 + Session 4 QA 잔여) / S7e 7/8(T7e.7 RLS QA 잔여) / S7a ✅ / Tier 2 D21 ✅ / cron INSERT mock cleanup Step 2 전체 완료. |
 
 ---
@@ -132,7 +136,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - **omxy 환경/송신**: cmux pair-debate, peer surface runtime discover. 상세 runbook → `docs/superpowers/omxy-rdebate-runbook.md`.
 - **USER 게이트는 본 순서와 무관하게 항상 적용** (§2.0).
 
-### §2.1 Step matrix — 8-row (Task 1~5 ✅, Task 7 + PR5 USER gates next)
+### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. 현 1순위 = PR-G, 한눈에 큐)
 
 **현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F MERGED + 마이그 0028/0029 applied). **다음 1순위 = PR-G(실 AI 첫 가동) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
