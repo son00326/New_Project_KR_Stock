@@ -106,6 +106,7 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
   it('AI 데이터 없으면(Tier 0 fallback) AI 대기 pill + 크래시 없음 + AI 코멘트 미렌더', () => {
     render(<ShortlistRow item={fixture} />); // fixture에 AI 필드 없음(undefined)
     expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
+    expect(screen.getByLabelText('AI 분석 대기')).toBeInTheDocument();
     expect(screen.queryByText(/AI 코멘트/)).not.toBeInTheDocument();
   });
 
