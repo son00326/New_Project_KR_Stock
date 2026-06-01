@@ -30,12 +30,30 @@ create table if not exists public.tier0_candidates_150 (
   created_at timestamptz not null default now()
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'tier0_candidates_150_sector_canonical_check'
+      and conrelid = 'public.tier0_candidates_150'::regclass
+  ) then
+    alter table public.tier0_candidates_150
+      add constraint tier0_candidates_150_sector_canonical_check
+      check (
+        sector is not null and sector in (
+          '바이오','반도체','건설','금융','2차전지','자동차','IT/SW',
+          '유통/소비재','에너지','엔터/미디어','통신','철강/소재','운송/물류','보험/증권'
+        )
+      );
+  end if;
+end $$;
+
 -- (month, ticker) 조회·중복 방지 — 150 distinct ticker 계약 enforce.
 create unique index if not exists tier0_candidates_150_month_ticker_uniq
   on public.tier0_candidates_150 (month, ticker);
 
--- bucket+rank 정렬 조회 (consumer SELECT order).
-create index if not exists tier0_candidates_150_month_bucket_rank_idx
+-- bucket별 rank 1..50 중복 방지 — 50×3 contract 2차 방어.
+create unique index if not exists tier0_candidates_150_month_bucket_rank_uniq
   on public.tier0_candidates_150 (month, bucket, rank);
 
 alter table public.tier0_candidates_150 enable row level security;

@@ -10,11 +10,10 @@ import {
 } from '@/lib/data/admin-batch-runs-cron';
 import { recordSchedulerFailAlert } from '@/lib/data/admin-alerts-insert';
 import { runMonthlyBatchOrchestrator } from '@/lib/screening/monthly-batch-orchestrator';
-import { upsertShortList30 } from '@/lib/data/admin-shortlist-persist';
 import { getTier0Candidates } from '@/lib/data/admin-tier0-candidates';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import type { Tier1Candidate } from '@/lib/screening/persona-eval';
-import type { PersonaScore } from '@/lib/screening/tier1-schema';
+import type { PersonaScore, Tier1ScreeningResult } from '@/lib/screening/tier1-schema';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,14 +72,16 @@ async function commitBadgeOnlyPlaceholder(): Promise<void> {
   throw new Error('commit_badge_only_not_wired_pr1_followup');
 }
 
-// MF1 fix (3-track deep-review): cron path는 service-role client을 upsertShortList30에 명시 주입.
-// session-based createClient는 cron 환경에서 auth.uid()=null → RLS rejects → persist 항상 실패.
-async function persistForCron(
+// PR-D guard: callPersonaPanel/commitBadgeOnly가 stub인 중간 상태에서는 runTier1Screening이
+// 150개 전부 ⚪ degraded로 selected를 만들 수 있다. 실제 PR-E panel+persist mapping 전까지는
+// short_list_30 쓰기를 코드 레벨에서 차단해 production 30 rows clobber를 방지한다.
+async function persistBlockedUntilPrE(
   month: string,
-  selected: Parameters<typeof upsertShortList30>[1],
+  selected: Tier1ScreeningResult['selected'],
 ): Promise<void> {
-  const supabase = createServiceRoleClient();
-  await upsertShortList30(month, selected, { client: supabase });
+  void month;
+  void selected;
+  throw new Error('tier1_persist_blocked_until_pr_e');
 }
 
 // orchestrator interface 요구에 맞춰 cron route 내부 wrapper.
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest) {
         acquire: acquireBatchLockCron,
         release: releaseBatchLockCron,
       },
-      persist: persistForCron,
+      persist: persistBlockedUntilPrE,
       commitBadgeOnly: commitBadgeOnlyPlaceholder,
       recordSchedulerFailAlert: recordSchedulerFailAlertForCron,
     });

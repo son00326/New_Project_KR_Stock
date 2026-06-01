@@ -23,6 +23,7 @@ import {
 } from "@/lib/portfolio/dispute";
 import { isUniqueViolation } from "@/lib/portfolio/approval-logic";
 import { createClient } from "@/lib/supabase/server";
+import type { Tier1ScreeningResult } from "@/lib/screening/tier1-schema";
 import type { PortfolioApproval, ShortListItem } from "@/types/admin";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
@@ -502,6 +503,19 @@ export async function resolveDispute(input: {
 
 const TRIGGER_MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+// PR-D intermediate-state guard:
+// tier0Source is real, but callPersonaPanel/commitBadgeOnly intentionally remain stubs until PR-E.
+// runTier1Screening degrades stubbed panel calls to ⚪ selected rows, so persisting here would clobber
+// production short_list_30 before PR-E fixes panel+mapping. Keep the consumer wired, but block writes.
+async function persistBlockedUntilPrE(
+  month: string,
+  selected: Tier1ScreeningResult["selected"],
+): Promise<void> {
+  void month;
+  void selected;
+  throw new Error("tier1_persist_blocked_until_pr_e");
+}
+
 export async function triggerMonthlyBatch(input: {
   month: string;
 }): Promise<
@@ -514,9 +528,6 @@ export async function triggerMonthlyBatch(input: {
   );
   const { acquireBatchLock, releaseBatchLock } = await import(
     "@/lib/data/admin-batch-runs"
-  );
-  const { upsertShortList30 } = await import(
-    "@/lib/data/admin-shortlist-persist"
   );
   // PR-D (ADR D-3): Tier 0 source 실 SELECT — tier0_candidates_150.
   const { getTier0Candidates } = await import(
@@ -552,7 +563,7 @@ export async function triggerMonthlyBatch(input: {
       },
       fetchFinancials: async () => "",
       lock: { acquire: acquireBatchLock, release: releaseBatchLock },
-      persist: upsertShortList30,
+      persist: persistBlockedUntilPrE,
       commitBadgeOnly: async () => {
         throw new Error("commit_badge_only_not_wired_pr1_followup");
       },

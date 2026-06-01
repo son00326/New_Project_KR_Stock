@@ -17,11 +17,14 @@ import type { Tier1Candidate } from "@/lib/screening/persona-eval";
 import { isCanonicalSector, type CanonicalSector } from "@/lib/screening/canonical-sectors";
 
 const MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const EXPECTED_TOTAL_CANDIDATES = 150;
+const EXPECTED_PER_BUCKET = 50;
 
 export interface Tier0CandidateDbRow {
   ticker: string;
   sector: string | null;
   bucket: "short" | "mid" | "long";
+  rank?: number | null;
   // PostgREST는 numeric 컬럼을 string으로 반환할 수 있다 (admin-shortlist.ts num() 패턴 동일).
   tier0_score: string | number | null;
 }
@@ -57,6 +60,65 @@ export function transformTier0CandidateRow(row: Tier0CandidateDbRow): Tier1Candi
   };
 }
 
+function assertTier0CandidateRows(rows: Tier0CandidateDbRow[]): void {
+  // Empty/short months keep the existing orchestrator error path (`got N`).
+  // The extra checks close the 150-row-but-not-50/50/50, duplicate-rank, and
+  // non-canonical-sector holes that length+distinct asserts miss.
+  if (rows.length !== EXPECTED_TOTAL_CANDIDATES) return;
+
+  const bucketCounts: Record<Tier0CandidateDbRow["bucket"], number> = {
+    short: 0,
+    mid: 0,
+    long: 0,
+  };
+  const ranksByBucket: Record<Tier0CandidateDbRow["bucket"], Set<number>> = {
+    short: new Set(),
+    mid: new Set(),
+    long: new Set(),
+  };
+  const tickers = new Set<string>();
+  for (const row of rows) {
+    if (row.sector === null || !isCanonicalSector(row.sector)) {
+      throw new Error(`tier0_candidates_sector_contract_violation:${row.ticker}`);
+    }
+    if (
+      row.rank == null ||
+      !Number.isInteger(row.rank) ||
+      row.rank < 1 ||
+      row.rank > EXPECTED_PER_BUCKET
+    ) {
+      throw new Error(`tier0_candidates_rank_contract_violation:${row.ticker}`);
+    }
+    bucketCounts[row.bucket] += 1;
+    ranksByBucket[row.bucket].add(row.rank);
+    tickers.add(row.ticker);
+  }
+
+  if (tickers.size !== rows.length) {
+    throw new Error(
+      `tier0_candidates_duplicate_tickers:${tickers.size}/${rows.length}`,
+    );
+  }
+  const badBuckets = Object.entries(bucketCounts).filter(
+    ([, count]) => count !== EXPECTED_PER_BUCKET,
+  );
+  if (badBuckets.length > 0) {
+    throw new Error(
+      `tier0_candidates_bucket_contract_violation:${JSON.stringify(bucketCounts)}`,
+    );
+  }
+  for (const [bucket, ranks] of Object.entries(ranksByBucket)) {
+    if (
+      ranks.size !== EXPECTED_PER_BUCKET ||
+      !Array.from({ length: EXPECTED_PER_BUCKET }, (_, i) => i + 1).every((rank) =>
+        ranks.has(rank),
+      )
+    ) {
+      throw new Error(`tier0_candidates_rank_contract_violation:${bucket}`);
+    }
+  }
+}
+
 /**
  * 해당 month의 Tier 0 150 후보를 SELECT → Tier1Candidate[].
  * @param options.month YYYY-MM (consumer가 YYYY-MM-01 date로 변환해 조회).
@@ -74,7 +136,7 @@ export async function getTier0Candidates(options: {
 
   const { data, error } = await supabase
     .from("tier0_candidates_150")
-    .select("ticker, sector, bucket, tier0_score")
+    .select("ticker, sector, bucket, rank, tier0_score")
     .eq("month", monthDate)
     .order("bucket", { ascending: true })
     .order("rank", { ascending: true });
@@ -86,5 +148,6 @@ export async function getTier0Candidates(options: {
   }
 
   const rows = (data ?? []) as Tier0CandidateDbRow[];
+  assertTier0CandidateRows(rows);
   return rows.map(transformTier0CandidateRow);
 }

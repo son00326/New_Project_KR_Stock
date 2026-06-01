@@ -232,4 +232,25 @@ describe('GET /api/cron/monthly-batch', () => {
     expect(typeof args.lock.release).toBe('function');
     expect(typeof args.recordSchedulerFailAlert).toBe('function');
   });
+
+  it('blocks short_list_30 persistence while PR-E panel wiring is still stubbed', async () => {
+    runMock.mockResolvedValue({
+      month: '2026-06',
+      selectedCount: 30,
+      notSelectedCount: 120,
+      badgeOnlyCount: 0,
+      promptVersionId: 'render-user-prompt@v1',
+      personasVersionId: 'core11@v3.1',
+    });
+    const { GET } = await import('../route');
+    await GET(
+      new NextRequest('http://localhost/api/cron/monthly-batch', {
+        headers: { authorization: 'Bearer cron-secret' },
+      }),
+    );
+    const args = runMock.mock.calls[0][0];
+    await expect(args.persist('2026-06', [])).rejects.toThrow(
+      'tier1_persist_blocked_until_pr_e',
+    );
+  });
 });
