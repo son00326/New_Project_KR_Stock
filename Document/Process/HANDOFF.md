@@ -67,7 +67,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §0.A — PR5 go-live 활성화 진입 (⚠️ **별도 트랙** — 1순위 아님)
 
-> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G**(실 AI 첫 가동). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙이다 — PR-G와 혼동 금지. PR-G가 USER 비용 게이트로 막히면 §0.A(PR5)도 동일 USER 게이트라, CLAUDE는 [USER]gate 보고 후 **§다음 액션 큐의 CLAUDE-prep**(아래 PR-G ⓐ)으로 진행한다.
+> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G ⓑ**(실 AI 첫 30선정). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). ⓑ 잔여 = **① 150 재시드(KRX throttle 실패) + ④ 로컬 one-off 러너(A′+B) 빌드·실행** — cron/admin HTTP는 NON-VIABLE(타임아웃)이라 "USER 비용 게이트만"이 아니다(CLAUDE 주도 작업 + 비용 승인). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
 
 **PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` ✅ **DONE**(62차, PR5+PR-G 공용) / (d) Vercel PR5 env(`PR5_CRON_AUTO_ENABLED=true`) / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
@@ -142,7 +142,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. 현 1순위 = PR-G, 한눈에 큐)
 
-**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F MERGED + 마이그 0028/0029 applied). **다음 1순위 = PR-G(실 AI 첫 가동) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
+**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028/0029 applied). **다음 1순위 = PR-G ⓑ(실 AI 첫 30선정, ④=로컬 러너·cron 불가) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
