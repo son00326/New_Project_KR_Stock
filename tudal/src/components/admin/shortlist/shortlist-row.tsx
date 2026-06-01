@@ -148,16 +148,14 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
             <p className="whitespace-pre-line leading-relaxed">
               {item.summary3Line}
             </p>
-            {/* PR-F: AI 코멘트 (있을 때만 — Tier 1 평가 완료 종목). */}
-            {item.aiCommentKr ? (
+            {/* PR-F: AI 코멘트 (있을 때만 — Tier 1 평가 완료 종목). ⚪/null 대기 상태와 lockstep. */}
+            {!isAiPending(item.consensusBadge) && item.aiCommentKr ? (
               <div className="mt-2 rounded border border-border/60 bg-background/60 px-2.5 py-1.5">
                 <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   🤖 AI 코멘트
-                  {item.consensusBadge ? (
-                    <span className="ml-1 font-normal normal-case">
-                      {item.consensusBadge} {BADGE_LABEL[item.consensusBadge]}
-                    </span>
-                  ) : null}
+                  <span className="ml-1 font-normal normal-case">
+                    {item.consensusBadge} {BADGE_LABEL[item.consensusBadge]}
+                  </span>
                 </div>
                 <p className="leading-relaxed">{item.aiCommentKr}</p>
               </div>
