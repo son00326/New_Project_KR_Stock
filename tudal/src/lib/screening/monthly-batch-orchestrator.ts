@@ -33,6 +33,14 @@ export interface RunMonthlyBatchOrchestratorInput {
   promptVersionId: string;
   personasVersionId: string;
   tier0Source: () => Promise<Tier1Candidate[]>;
+  /**
+   * PR-E (omxy §2.0a 설계 합의) — 실 AI 호출 전 fail-closed 비용 가드.
+   * lock + tier0Source + 150-invariant 통과 후, runTier1Screening 직전 1회 호출.
+   * caller(admin)는 isCostLoggingEnabled + ANTHROPIC_API_KEY + preflightHardcap(1650) 주입.
+   * cron caller는 cron_real_ai_blocked_until_pr_g throw (실 cron AI = PR-G).
+   * callCount = candidates.length * 11 (Core 11 panel 실 Anthropic 호출 수).
+   */
+  preflight: (input: { month: string; callCount: number }) => Promise<void>;
   callPersonaPanel: (input: {
     ticker: string;
     financials: string;
@@ -42,6 +50,8 @@ export interface RunMonthlyBatchOrchestratorInput {
   persist: (
     month: string,
     selected: Tier1ScreeningResult['selected'],
+    // PR-E — 성공 panel ticker별 AI 코멘트/conviction (degraded는 부재). persist가 short_list_30 매핑.
+    commentsByTicker?: Tier1ScreeningResult['commentsByTicker'],
   ) => Promise<void>;
   commitBadgeOnly: (input: {
     month: string;
@@ -81,6 +91,13 @@ export async function runMonthlyBatchOrchestrator(
       );
     }
 
+    // PR-E (omxy §2.0a 합의) — 실 AI 호출 전 fail-closed 비용 가드. 통과 못하면 여기서 throw
+    //   (callPersonaPanel 0회 → cost 0). cron은 cron_real_ai_blocked_until_pr_g로 항상 차단.
+    await input.preflight({
+      month: input.month,
+      callCount: candidates.length * 11, // Core 11 panel = 150*11 = 1650 실 Anthropic 호출 예상.
+    });
+
     // B3 lesson — runTier1Screening은 allSettled 패턴. throw는 invariant 한정.
     const result = await runTier1Screening({
       candidates,
@@ -89,9 +106,21 @@ export async function runMonthlyBatchOrchestrator(
       promptVersionId: input.promptVersionId,
       personasVersionId: input.personasVersionId,
     });
+    // callCountDone = ticker/panel 단위 진행 수 (candidates.length). 실 Anthropic 호출 수(×11)가 아님
+    //   (omxy §2.0a non-blocking note). cost 정확도는 cost_log(per-call row)가 SoT.
     callCountDone = candidates.length;
 
-    await input.persist(input.month, result.selected);
+    // PR-E (omxy §2.0a 합의) — post-screening 완결성 게이트. degraded(panel 실패/override) ticker가
+    //   하나라도 있으면(commentsByTicker < 150) tier1Ranks/배지/30선정이 왜곡되므로 persist 금지(fail-closed).
+    //   PR1 B3 "degraded ⚪ success" 계약 supersede — 실 AI path는 150/150 완결 시에만 short_list_30 기록.
+    const completedPanels = Object.keys(result.commentsByTicker ?? {}).length;
+    if (completedPanels !== candidates.length) {
+      throw new Error(
+        `tier1_panel_incomplete:${completedPanels}/${candidates.length}`,
+      );
+    }
+
+    await input.persist(input.month, result.selected, result.commentsByTicker);
 
     // B5 fix — badge-only commit은 assigned_timeframe badge가 ⚪인 경우만.
     let badgeOnlyCount = 0;

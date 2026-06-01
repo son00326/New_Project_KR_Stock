@@ -43,15 +43,18 @@ function makeBaseInput(overrides: Partial<Parameters<typeof runMonthlyBatchOrche
   const tier0Source = vi.fn().mockResolvedValue(buildCandidates(150));
   const callPersonaPanel = vi.fn().mockResolvedValue(buildPanelPass());
   const fetchFinancials = vi.fn().mockResolvedValue('mock financials');
+  // PR-E (omxy §2.0a) — preflight DI seam (default success). admin은 fail-closed 비용 가드 주입.
+  const preflight = vi.fn().mockResolvedValue(undefined);
 
   return {
-    spies: { acquire, release, persist, commitBadgeOnly, recordSchedulerFailAlert, tier0Source, callPersonaPanel, fetchFinancials },
+    spies: { acquire, release, persist, commitBadgeOnly, recordSchedulerFailAlert, tier0Source, callPersonaPanel, fetchFinancials, preflight },
     input: {
       month: '2026-06',
       adminUserId: 'cron-system',
       promptVersionId: 'render-user-prompt@v1',
       personasVersionId: 'core11@v3.1',
       tier0Source,
+      preflight,
       callPersonaPanel,
       fetchFinancials,
       lock: { acquire, release },
@@ -93,18 +96,19 @@ describe('runMonthlyBatchOrchestrator', () => {
     expect(spies.release).not.toHaveBeenCalled();
   });
 
-  it('B3 fix: callPersonaPanel all-reject → degraded 30 ⚪ selected + commitBadgeOnly 30회 + lock succeeded (case 3)', async () => {
+  it('PR-E (supersedes B3): callPersonaPanel all-reject → 150/150 게이트가 tier1_panel_incomplete throw → no persist + alert + release failed (case 3)', async () => {
+    // omxy §2.0a 합의: 실 AI path는 degraded(⚪)를 persist하지 않는다 (clobber 방지). PR1 B3 "30 ⚪ success" supersede.
     const { input, spies } = makeBaseInput({
       callPersonaPanel: vi.fn().mockRejectedValue(new Error('ai_key_unavailable')),
     });
-    const outcome = await runMonthlyBatchOrchestrator(input);
-    expect(outcome.selectedCount).toBe(30);
-    expect(outcome.notSelectedCount).toBe(120);
-    expect(outcome.badgeOnlyCount).toBe(30);
-    expect(spies.commitBadgeOnly).toHaveBeenCalledTimes(30);
-    expect(spies.recordSchedulerFailAlert).not.toHaveBeenCalled();
+    await expect(runMonthlyBatchOrchestrator(input)).rejects.toThrow(
+      /tier1_panel_incomplete:0\/150/,
+    );
+    expect(spies.persist).not.toHaveBeenCalled();
+    expect(spies.commitBadgeOnly).not.toHaveBeenCalled();
+    expect(spies.recordSchedulerFailAlert).toHaveBeenCalledTimes(1);
     expect(spies.release).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'succeeded' }),
+      expect.objectContaining({ status: 'failed' }),
     );
   });
 
@@ -136,21 +140,25 @@ describe('runMonthlyBatchOrchestrator', () => {
     );
   });
 
-  it('commit_badge_only failure → alert + release failed + throw (case 6)', async () => {
+  it('PR-E gate: partial panel (149/150 성공) → tier1_panel_incomplete:149/150 → no persist + alert + release failed (case 6)', async () => {
+    // 1 ticker만 panel reject → commentsByTicker 149 → 게이트 차단 (부분 성공은 ranking 왜곡 → persist 금지).
     const { input, spies } = makeBaseInput({
-      callPersonaPanel: vi.fn().mockRejectedValue(new Error('ai_key_unavailable')),
-      commitBadgeOnly: vi.fn().mockRejectedValue(new Error('commit_badge_only_failed')),
+      callPersonaPanel: vi.fn(async ({ ticker }: { ticker: string }) => {
+        if (ticker === '100000') throw new Error('ai_call_failed');
+        return buildPanelPass();
+      }),
     });
     await expect(runMonthlyBatchOrchestrator(input)).rejects.toThrow(
-      /commit_badge_only_failed/,
+      /tier1_panel_incomplete:149\/150/,
     );
+    expect(spies.persist).not.toHaveBeenCalled();
     expect(spies.recordSchedulerFailAlert).toHaveBeenCalledTimes(1);
     expect(spies.release).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' }),
     );
   });
 
-  it('normal path all-pass: 30 selected + badgeOnlyCount=0 + alert 0 (case 7)', async () => {
+  it('normal path all-pass: 30 selected + badgeOnlyCount=0 + alert 0 + persist receives 150 commentsByTicker (case 7)', async () => {
     const { input, spies } = makeBaseInput();
     const outcome = await runMonthlyBatchOrchestrator(input);
     expect(outcome.selectedCount).toBe(30);
@@ -160,6 +168,31 @@ describe('runMonthlyBatchOrchestrator', () => {
     expect(spies.recordSchedulerFailAlert).not.toHaveBeenCalled();
     expect(spies.release).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'succeeded', callCountDone: 150 }),
+    );
+    // PR-E: 150/150 게이트 통과 → persist가 commentsByTicker(150 keys) 3번째 인자로 받음.
+    const persistArgs = spies.persist.mock.calls[0];
+    expect(Object.keys(persistArgs[2] ?? {})).toHaveLength(150);
+  });
+
+  it('PR-E: preflight invoked with callCount=1650 (150×11) before screening (case 10)', async () => {
+    const { input, spies } = makeBaseInput();
+    await runMonthlyBatchOrchestrator(input);
+    expect(spies.preflight).toHaveBeenCalledTimes(1);
+    expect(spies.preflight).toHaveBeenCalledWith({ month: '2026-06', callCount: 1650 });
+  });
+
+  it('PR-E: preflight throw (cost guard fail-closed) → no callPersonaPanel/persist + alert + release failed (case 11)', async () => {
+    const { input, spies } = makeBaseInput({
+      preflight: vi.fn().mockRejectedValue(new Error('cost_logging_disabled')),
+    });
+    await expect(runMonthlyBatchOrchestrator(input)).rejects.toThrow(
+      /cost_logging_disabled/,
+    );
+    expect(spies.callPersonaPanel).not.toHaveBeenCalled();
+    expect(spies.persist).not.toHaveBeenCalled();
+    expect(spies.recordSchedulerFailAlert).toHaveBeenCalledTimes(1);
+    expect(spies.release).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed' }),
     );
   });
 
