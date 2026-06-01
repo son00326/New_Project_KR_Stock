@@ -39,7 +39,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # 단일화·정리 머지 후 `7dcffa9` 또는 자손
+git rev-parse --short HEAD          # PR-E 머지+docs sync 후 `f1d0c68` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -47,21 +47,22 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3) 검증 게이트 (매 세션 1회)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   main 기준 기대: build 25 routes / lint 0 err 5 warn(pre-existing) / test:ci 1325 PASS / 118 files / tsc clean / Python 87 tests PASS
+#   main 기준 기대: build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1430 PASS / 126 files / tsc clean / Python 95 tests PASS
 
 # 4) production audit 재확인 (Supabase MCP execute_sql 또는 dashboard) — drift detect
 #   select count(*) from cost_log;          -- 기대 0 (실 trigger/PR5 실행 전)
 #   select count(*) from stock_reports;      -- 기대 0
 #   select count(*) from committee_votes;    -- 기대 0
-#   select count(*) from short_list_30;      -- 기대 30
+#   select count(*) from short_list_30;      -- 기대 30 (AI 컬럼 consensus_badge/ai_score 전부 null = Tier0 fallback)
+#   select count(*) from tier0_candidates_150; -- 기대 0 (PR-G Python --emit-candidates 시드 전)
 #   select sector, count(*) from short_list_30 group by sector order by 2 desc;
 #     -- 기대: canonical 14만 / placeholder('코스피','코스닥') 0 / B93 PASS
-#   drift(cost_log>0 등) 시 = 누군가 trigger를 눌렀거나 Smoke/cron 실행됨 → §1 ground truth 갱신.
+#   drift(cost_log>0 또는 short_list_30 AI 컬럼 non-null 등) 시 = 누군가 실 AI trigger/seed 실행 → §1 ground truth 갱신.
 ```
 
 ### §0.A — PR5 go-live 활성화 진입 ("HANDOFF 보고 이어서" 시 여기부터)
 
-**PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §다음 액션 큐 1번): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` / (d) Vercel PR5 env / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
+**PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` / (d) Vercel PR5 env / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
 ```bash
 cd /Users/yong/New_Project_KR_Stock
@@ -134,7 +135,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix — 8-row (Task 1~5 ✅, Task 7 + PR5 USER gates next)
 
-**현재 위치** = **PR5 코드 MERGED**(PR #60, main `c2f7504`) + 마이그 0027 production applied. cron **dormant**(flag off). 다음 = **PR5 go-live 활성화 USER 게이트**(한눈에 §다음 액션 큐) → 가동 후 PR5b. **상세 박제·라운드 수는 git log + PR body + plan docs + `docs/superpowers/audit-catalog.md` 위임.**
+**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~E MERGED + 마이그 0028/0029 applied). **다음 1순위 = PR-F(프론트 카드 렌더) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
@@ -172,8 +173,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 우선 | 작업 | 필요 액션 |
 |---|---|---|
-| ⭐ PR-D 잔여 | 마이그 0028 apply + Python `--emit-candidates` 실 150 시드(KRX/DART 키) | **PR-E 머지 전 150 시드+cron 가동 금지** (clobber는 `persistBlockedUntilPrE` 코드 guard로 봉쇄). 한눈에 §다음 액션 큐 1번 참조 |
-| ⭐ PR5 gates a~e | Task 7 비용 승인 / 마이그 0027 apply / cron-system seed + `CRON_SYSTEM_USER_ID` / Vercel PR5 env / plan tier(OPS-1) | 한눈에 §다음 액션 큐 1번 참조 |
+| ⭐ PR-G (실 AI 첫 가동) | Python `--emit-candidates` 실 150 시드(KRX/DART) + cron-system seed(`CRON_SYSTEM_USER_ID`) + cron preflight block 해제 + 실 AI 첫 30선정 (비용 burn 승인). 마이그 0028/0029 = ✅ applied | 한눈에 §다음 액션 큐 2번 참조 |
+| PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / cron-system seed + `CRON_SYSTEM_USER_ID` / Vercel PR5 env / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
@@ -245,7 +246,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - **설계 합의**: omxy 설계 토론 R2 CONVERGED (150/150 게이트 = omxy 추가). impl 후 omxy 적대검토 + Workflow 6-dim(11 agents) **교차검증 — 양쪽 동일 HIGH**: triggerMonthlyBatch is_admin 게이트 부재 → cost fail-open(B7 class). omxy direct-edit: **is_admin() RPC 게이트**(triggerFullReport 패턴) + **persona panel 동시성 제한기**(default 4, env TIER1_PERSONA_MAX_CONCURRENCY — 1650 rate-limit storm 차단). ④ Claude 재검증 정합.
 - **게이트**: build 26 / lint 0err / test:ci 1430(+8: comment carry 3 + persist 1 + orchestrator preflight/gate 2 + admin preflight 4 + cron preflight 1 − …) / tsc clean / Python 95.
 - **마이그 0029 applied + 검증**: 8 컬럼 + 2 CHECK(consensus_badge 5종 / winning_timeframe 3종), short_list_30 30 rows 보존(AI 컬럼 null = Tier0 fallback), cost_log 0, tier0_150 0(미시드). **merge-cost-safe**: seed=0 → trigger는 150-invariant `got 0`에서 preflight·AI 전 실패.
-- **commit 체인**: 57bf54e(0029) → 39426be(carry+매핑) → e585756(task#8 실배선) → a3a1dd4(omxy is_admin+limiter). PR #66 body.
+- **commit**: PR #66 (4 commits — 0029 → carry+매핑 → task#8 실배선 → omxy is_admin+limiter — rebase FF onto main, head `492cd46`). 상세 체인 = `git log` (branch SHA는 rebase로 변경 — main SHA 기준 확인).
 - **USER 잔여(PR-G)**: 실 150 시드 + cron-system seed + 실 AI 첫 선정(비용 승인).
 
 ### PR-D MERGED — tier0_candidates_150 producer/consumer (PR #65, main `123d995`)
@@ -253,8 +254,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - **scope (B1/D-3)**: AI 30선정 메인 path의 Tier 0 150-후보 SoT. 마이그 0028(`tier0_candidates_150` disjoint 50×3, unique(month,ticker)+(month,bucket,rank), canonical sector CHECK, RLS=0002 패턴) + Python `--emit-candidates`(150 disjoint producer) + TS `getTier0Candidates` consumer + cron/admin `tier0Source` un-stub. 30-direct fallback 무변경. **실 LLM 비용 0**(callPersonaPanel/commitBadgeOnly stub 유지).
 - **검토 (§2.0a)**: Workflow 5-dim deep review(22 agents, 0 confirmed/17 refuted) + **omxy R1 CONVERGED**(code-reviewer+architect lanes). 2 confirmed direct-edit: **HIGH degraded-clobber** → cron/admin persist를 `persistBlockedUntilPrE`(throw)로 fail-closed 차단(doc guard→코드 guard 승격, PR-E가 `persistForCron` 복원 시 해제) / **MED 150-contract** → 마이그 canonical CHECK + unique(month,bucket,rank) + consumer `assertTier0CandidateRows`. ④ Claude 독립 재검증 잔여 0.
 - **게이트**: build 26 / lint 0err / test:ci 1418(+13 신규: python 8 + consumer 9 + 회귀 4 − ...) / tsc clean / Python 95. **merge-before-migration 안전**(persist 코드 guard + dormant + 테이블 미존재 query graceful 502).
-- **USER 잔여**: 마이그 0028 apply + Python 실 150 시드. **PR-E 머지 전 150 시드+cron 가동 금지**(단 clobber는 코드 guard로 봉쇄).
-- 박제: PR #65 body + git `4fd9e64`(①) `3f6fe87`(deep-review) `123d995`(②③④).
+- **USER 잔여 (PR-D 당시)**: 마이그 0028 apply + Python 실 150 시드. → **현재: 0028 ✅ applied (PR-E와 함께), 잔여 = PR-G Python 150 seed.**
+- 박제: PR #65 body (3 commits — ①1차 → deep-review fix → ②③④omxy — rebase FF, head `123d995`). branch SHA는 rebase로 변경 — `git log` 기준 확인.
 
 ### 실데이터+실AI e2e 트랙 — AI 30선정 코드 엔진 (PR-A~C MERGED, main `e65b03d`)
 
@@ -307,7 +308,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 **ACTIVE blocker / W-ticket**:
 - **OPS-1** (open) — Vercel plan tier (한눈에 게이트 (e)). maxDuration:300이 Hobby면 60s cap. 비차단(정확성 영향 0).
-- **W-alert-event-dedup** — alert_event partial unique index, 다음 마이그 슬롯(0028+).
+- **W-alert-event-dedup** — alert_event partial unique index, 다음 미사용 마이그 슬롯(0030+).
 - **W-portfolio-snapshot-real** — S7b morning-briefing portfolioSnapshot 실 SELECT.
 - **W-tier1pill** — Section 8 absent 리포트 = Tier 1 평가 대기 pill UI (D11 운용 검증 acceptance gate).
 
