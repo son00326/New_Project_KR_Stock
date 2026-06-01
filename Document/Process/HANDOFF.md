@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G ⓑ (실 AI 첫 가동 — USER 게이트만 잔여)**: Vercel `MONTHLY_BATCH_CRON_AI_ENABLED=true` + Python 150 시드 + `CRON_SYSTEM_USER_ID` auth.users seed + 실 30선정 비용 승인. 실 AI 호출 0회(**선정 엔진·프론트·cron 실경로 완성**. 현재는 tier0_150=0(미시드)이라 trigger가 `tier1_candidates_must_be_150 (got 0)`에서 실패 = cost 0; 150 시드 후에도 `MONTHLY_BATCH_CRON_AI_ENABLED` off면 preflight가 실 Anthropic 전 차단). **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)** — 62차 prep 진행 후 사용자 ④ 보류. **④ 실행방식 확정 = 로컬 러너**(cron/admin HTTP는 1650콜 ~30-55분 ≫ Vercel maxDuration → 타임아웃, Claude+omxy CONVERGED). prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -8,7 +8,7 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 ## 한눈에 (현재 상태 + 다음 행동)
 
-**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G ⓑ (실 AI 첫 가동 — USER 게이트만)**. PR-G ⓐ로 cron 실 AI 경로가 완전 배선됐으나 `MONTHLY_BATCH_CRON_AI_ENABLED` default-off → preflight가 실 Anthropic 전 throw → 실 AI 0회·cost 0 (merge-safe). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
+**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. 62차 prep 후 사용자 ④ 보류. **④ = 로컬 one-off 러너 확정**(cron/admin HTTP는 1650콜 ~30-55분 타임아웃 → NON-VIABLE; 매달 자동화는 별도 선정 청크워커 PR — §다음 액션 큐 1). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
 **main HEAD**: `git rev-parse --short origin/main` (현재 `d15da47` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
@@ -17,18 +17,22 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
-1. **PR-G ⓑ 실 AI 첫 가동** (다음 1순위 — **USER 게이트만 잔여**, PR-G ⓐ ✅ MERGED `d15da47`/PR #68):
-   - ⓐ [CLAUDE] ✅ **DONE**: cron `callPersona` cost-log service-role DI + `persona-panel-adapter` costClient thread + cron route `preflightCronRealAi` 4-gate(flag/cost/key/CRON_SYSTEM_USER_ID) + 실 `makeCallPersonaPanel`/`fetchFinancialsSummary` 배선. `MONTHLY_BATCH_CRON_AI_ENABLED` default-off → cost 0. omxy §2.0a CONVERGED + Workflow 6-dim 16→0 confirmed.
-   - **ⓑ [USER] 게이트 (실행·비용 — external state)**: ① Python `--emit-candidates` 실 150 시드(KRX/DART) → tier0_candidates_150 ② cron-system seed(`CRON_SYSTEM_USER_ID` 실존 auth.users UUID) ③ Vercel env `MONTHLY_BATCH_CRON_AI_ENABLED=true` (+ `AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` — 둘 다 prod 존재) ④ **실 AI 첫 30선정 트리거**(cron 또는 admin `triggerMonthlyBatch`, 비용 burn ~5–6천원/회). 성공 시 카드에 실 배지/점수/코멘트(PR-F 렌더) 활성. ※ admin path(`triggerMonthlyBatch`)는 cron flag·②(`CRON_SYSTEM_USER_ID`) **무관** — is_admin + ① 150 시드 + cost logging/key + ④ 트리거/비용으로 가동(called_by=session user.id). ②③은 cron route 전용.
+1. **PR-G ⓑ 실 AI 첫 30선정** (다음 1순위 — ⓐ ✅ MERGED `d15da47`/PR #68. **④ 실행방식 = 로컬 러너 확정** [cron 불가]. 사용자 결정: 이번 세션 ④ 보류, prep만):
+   - ⓐ [CLAUDE] ✅ **DONE**: cron 실 AI 경로 배선 (PR #68, §6 참조).
+   - **prep 상태 (62차 세션, 사용자 ①~④ 위임)**: ② ✅ cron-system user 생성 `39202d8b-1042-48a6-8da0-df14a52fabea`(= cron-system@joopick.internal, auth.users 존재·confirmed, getUserById OK, PR5+PR-G 공용). ③ ✅/복원 Vercel prod env: `CRON_SYSTEM_USER_ID` set(유지) · `AI_COST_LOG_REAL_INSERT_ENABLED=true`·`ANTHROPIC_API_KEY` 확인 · `MONTHLY_BATCH_CRON_AI_ENABLED`는 **false로 복원**(cron 비viable이라 merge-safe 기본 유지 — 7월 cron 타임아웃 잠재리스크 제거). ① ❌ **150 시드 재실행 필요**(KRX throttle: `get_market_trading_value_and_volume` 빈응답 연쇄 ~2000/2269 실패. tier0_candidates_150 = 0, 부분기록 0. 재시도 시 KRX backoff/off-peak 권장).
+   - **⚠️ ④ 실행방식 결정 (Claude+omxy R4 CONVERGED)**: **cron/admin HTTP 동기 트리거 NON-VIABLE** — 1650 Opus콜(150×11, adapter 공유 limiter default 4) ~30-55분 ≫ Vercel maxDuration(monthly-batch route override 없음 → ≤300s) → 타임아웃 + 부분 cost burn + lock 잔류 + cost_log 미기록. **필수 경로 = 로컬 러너**: (A′) one-off 러너 + JSON 체크포인트(150 패널 저장, 실패 ticker만 재시도, 150/150 완성 시 `upsertShortList30` persist) + (B) `callPersona` transient 재시도(messages.create 429/5xx/APIConnection/timeout 1-2회 — parse/validation/cost insert 금지, admin path 공유라 비파괴 검증). **A′ 러너 = Node/tsx 독립 프로세스**(Next dev HTTP route 호출이 아님 — route는 serverless 시간제한 동일)이라 maxDuration 무관. prod Supabase service-role + prod ANTHROPIC_API_KEY 사용.
+   - **실비용 정정**: reservation cap = 1650 × 82.23원 = **135,680원**(< 40만 hardcap, preflight 통과) / 실제 ≈ **6.5–8만원**(opus-4-7 $5/$25 per M, max_tokens 1024, 캐시 off). **구 "~5–6천원" 표기는 오기**.
+   - **다음 세션 ④ 절차 (= 일회성 검증)**: (a) ① 150 재시드(KRX 안정 시) (b) 로컬 러너 A′+B 빌드(§2.0a) (c) 로컬 실행 ~55분 (d) short_list_30 AI컬럼/cost_log/배지 검증 → 카드 실 배지 활성. **로컬 러너 = 첫 1회 실 AI 선정 품질 검증용 one-off일 뿐, 매달 자동화 아님.**
+   - **⭐ 매달 자동화 (1일 cron → 자동 30선정 + 30리포트) 아키텍처 (사용자 Q 62차)**: serverless 300s 제한 때문에 **단발 실행 불가 → 청크 워커 필수**. (i) **30리포트** = PR5 report-worker가 **이미 청크 워커 완성**(report_batch_job 큐 + claim_next_report_jobs + run-mutex + self-continue, daily cron, dormant) → **go-live만** 하면 자동. (ii) **30선정** = 현재 단발 orchestrator(1650콜 타임아웃) → **PR5와 동일 청크 워커 패턴으로 재구성 필요**(`tier1_selection_job` 큐 → cron이 몇 종목씩 패널 처리 → 150 완성 시 선정 확정). **별도 상시 서버 불필요** — Vercel cron 청크가 정답(PR5가 입증). 대안 = Vercel Workflow(WDK durable) 또는 전용 워커서버(과함). **신규 작업 = "선정 청크 워커 PR"**(PR5 패턴 복제, PR-G ⓑ 일회성 검증 후).
 2. **[CLAUDE] PR-H** 리포트 enrich+manual trigger(reject→batch / Regen→단일 ticker) → **PR-I** Tier2 sector14+Section8(PR5b) → **PR-J** mock 전면정리. **PR-K**(Reflection) defer.
 
-**[별도 트랙] PR5 cron 리포트 go-live** (위 e2e와 독립, USER 게이트): cron-system seed + Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + cron-persist canary. 마이그 0027 ✅ applied. (PR #60 MERGED-dormant.)
+**[별도 트랙] PR5 cron 리포트 go-live** (위 e2e와 독립, USER 게이트): cron-system seed ✅(62차 done — `CRON_SYSTEM_USER_ID` prod set + user `39202d8b-…`, PR5+PR-G 공용) + Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + cron-persist canary. 마이그 0027 ✅ applied. (PR #60 MERGED-dormant.)
 
 **BLOCKER 등급 갭 (ADR §2)**: B1 tier0 150 SoT→**PR-D ✅** / B2 어댑터→**PR-C ✅** / B3 DART 스키마→**PR-B ✅** / B4 배지 컬럼→**PR-E ✅** / B5 배지 알고리즘 단일화(ADR D-2 consensus.ts) ✅ / B7 fail-open→**PR-B2+PR-E is_admin 게이트 ✅** / 잔여 B6(disjoint RPC — commit_persona_eval=report-path, selection 배지=short_list_30, PR-E 분리 확정).
 
 **ACTIVE blocker / W-ticket** (full catalog → `docs/superpowers/audit-catalog.md`): OPS-1(plan tier, PR5 트랙) / W-alert-event-dedup / W-portfolio-snapshot-real / W-tier1pill.
 
-> **실 AI trigger/cron 가동은 USER 비용 승인 전 절대 금지** (~5,000~6,000원/회 burn). 현 short_list_30 30종목은 **AI가 아닌 Tier 0 지표로 고른 fallback**.
+> **실 AI trigger/cron 가동은 USER 비용 승인 전 절대 금지** (실 30선정 1회 ≈ 6.5–8만원, reservation cap 135,680원 — 구 "~5-6천원"은 오기). 현 short_list_30 30종목은 **AI가 아닌 Tier 0 지표로 고른 fallback**.
 
 ---
 
@@ -65,7 +69,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 > **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G**(실 AI 첫 가동). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙이다 — PR-G와 혼동 금지. PR-G가 USER 비용 게이트로 막히면 §0.A(PR5)도 동일 USER 게이트라, CLAUDE는 [USER]gate 보고 후 **§다음 액션 큐의 CLAUDE-prep**(아래 PR-G ⓐ)으로 진행한다.
 
-**PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` / (d) Vercel PR5 env / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
+**PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` ✅ **DONE**(62차, PR5+PR-G 공용) / (d) Vercel PR5 env(`PR5_CRON_AUTO_ENABLED=true`) / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
 ```bash
 cd /Users/yong/New_Project_KR_Stock
@@ -178,8 +182,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 우선 | 작업 | 필요 액션 |
 |---|---|---|
-| ⭐ PR-G ⓑ (실 AI 첫 가동, 다음 1순위) | PR-G ⓐ ✅ MERGED(`d15da47`/PR #68 — cron 실경로 완전 배선). USER 잔여 = ① Python `--emit-candidates` 실 150 시드(KRX/DART) ② cron-system seed(`CRON_SYSTEM_USER_ID` auth.users UUID) ③ Vercel `MONTHLY_BATCH_CRON_AI_ENABLED=true` ④ 실 AI 첫 30선정 트리거(비용 burn ~5–6천원). 마이그 0028/0029 = ✅ applied | 한눈에 §다음 액션 큐 1번 참조 |
-| PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / cron-system seed + `CRON_SYSTEM_USER_ID` / Vercel PR5 env / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
+| ⭐ PR-G ⓑ (실 AI 첫 30선정, 다음 1순위) | ⓐ ✅ MERGED. 62차 prep: ② cron-system user ✅ · ③ env ✅(flag false 복원) · ① 150 시드 ❌ KRX throttle 재실행 필요. **④ = 로컬 러너 확정**(cron 불가/타임아웃). 다음 세션 = ① 재시드 + 로컬 러너 A′+B 빌드 + 실행(~55분, ~6.5-8만원). CLAUDE 주도(사용자 ①~④ 위임) | 한눈에 §다음 액션 큐 1번 참조 |
+| PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / ~~cron-system seed~~ ✅(62차 done, `CRON_SYSTEM_USER_ID` prod set) / Vercel `PR5_CRON_AUTO_ENABLED=true` / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
@@ -244,6 +248,13 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ---
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
+
+### PR-G ⓑ prep (62차) — ④ 보류 + ④ 실행방식 결정 (코드/DB 변경 0, 외부 prep만)
+
+- **계기**: 사용자 "①~④ 전부 너가 진행 (workflows + omxy 검증·수정)". CLAUDE가 external-state prep 수행 + ④ 실행가능성 pre-burn 검증.
+- **수행**: ② cron-system auth user 생성(GoTrue admin API) `39202d8b-1042-48a6-8da0-df14a52fabea` (getUserById 검증). ③ Vercel prod env: `CRON_SYSTEM_USER_ID` 추가(유지) + `MONTHLY_BATCH_CRON_AI_ENABLED` 추가→**false 복원**(안전) + 재배포(`tudal-tawny` alias) + `AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` 확인. ① KRX/DART 150 스크리닝 → **KRX throttle 실패**(~2000/2269, tier0_150=0, 부분기록 0).
+- **⚠️ ④ 핵심 발견 (Claude+omxy R4 CONVERGED)**: cron/admin HTTP 동기 트리거 = 1650 Opus콜 ~30-55분 ≫ maxDuration(≤300s) → **타임아웃·NON-VIABLE**. timeout 시 cost_log도 미기록 가능. **필수 = 로컬 러너**(A′ 체크포인트 + B callPersona transient 재시도). 실비용 정정 ~6.5-8만원(구 ~5-6천원 오기). 사용자 ④ 보류 결정.
+- **end-state**: DB 드리프트 0(cost_log=0, tier0_150=0, short_list_30=30 2026-05만, AI컬럼 null). prod env 안전(flag false). 코드/마이그 변경 0. 다음 세션 = §다음 액션 큐 1.
 
 ### PR-G ⓐ MERGED — cron monthly-batch 실 AI prep (PR #68, main `d15da47`)
 
