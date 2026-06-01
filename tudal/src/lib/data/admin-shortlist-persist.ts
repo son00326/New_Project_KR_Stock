@@ -23,7 +23,22 @@ interface ShortListRow {
   // B4 fix (omxy R1) — 마이그 0002 `delta_status text not null check ('new','hold','removed')`
   delta_status: 'new' | 'hold' | 'removed';
   delta_reason: string | null;
+  // PR-E (마이그 0029, ADR D-7) — Tier 1 AI 산출 컬럼.
+  consensus_badge: TickerAggregate['consensus_badges_by_timeframe']['short'];
+  ai_score: number;
+  weighted_score_short: number;
+  weighted_score_mid: number;
+  weighted_score_long: number;
+  winning_timeframe: TickerAggregate['primary_timeframe'];
+  conviction: number | null;
+  ai_comment_kr: string | null;
 }
+
+// PR-E — runTier1Screening.commentsByTicker carry (성공 panel ticker만, degraded는 부재).
+export type TickerCommentMap = Record<
+  string,
+  { comment_kr: string; conviction: number }
+>;
 
 function toMonthDate(monthYM: string): string {
   if (!MONTH_RE.test(monthYM)) {
@@ -39,7 +54,7 @@ function toMonthDate(monthYM: string): string {
 export async function upsertShortList30(
   monthYM: string,
   selected: readonly TickerAggregate[],
-  options: { client?: SupabaseClient } = {},
+  options: { client?: SupabaseClient; commentsByTicker?: TickerCommentMap } = {},
 ): Promise<void> {
   if (selected.length !== 30) {
     throw new Error(
@@ -70,6 +85,8 @@ export async function upsertShortList30(
   const newTickers: string[] = [];
   for (const tf of ['short', 'mid', 'long'] as const) {
     byTf[tf].forEach((agg, idx) => {
+      // PR-E — AI 컬럼 매핑. tf = assigned_timeframe (byTf 키). 배지/ai_score는 assigned timeframe 기준.
+      const comment = options.commentsByTicker?.[agg.ticker];
       rows.push({
         month: monthDate,
         ticker: agg.ticker,
@@ -81,6 +98,16 @@ export async function upsertShortList30(
         // B4 fix — delta_status NOT NULL. PR1 첫 실행 모두 'new'.
         delta_status: 'new',
         delta_reason: null,
+        // PR-E (ADR D-7) — assigned_timeframe(tf) 기준 배지/점수 + primary_timeframe + panel 코멘트/conviction.
+        consensus_badge: agg.consensus_badges_by_timeframe[tf],
+        ai_score: agg.weighted_scores[tf],
+        weighted_score_short: agg.weighted_scores.short,
+        weighted_score_mid: agg.weighted_scores.mid,
+        weighted_score_long: agg.weighted_scores.long,
+        winning_timeframe: agg.primary_timeframe,
+        // degraded(⚪) ticker는 commentsByTicker 부재 → null (마이그 0029 nullable).
+        conviction: comment?.conviction ?? null,
+        ai_comment_kr: comment?.comment_kr ?? null,
       });
       newTickers.push(agg.ticker);
     });

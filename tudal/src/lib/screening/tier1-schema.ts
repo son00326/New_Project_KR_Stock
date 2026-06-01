@@ -193,16 +193,32 @@ export const SelectionMetaSchema = z.object({
 export type SelectionMeta = z.infer<typeof SelectionMetaSchema>;
 
 /**
+ * PR-E (ADR D-7) — per-ticker AI 코멘트 + conviction (카드 산출물).
+ * - comment_kr: assigned/primary timeframe 관점 1줄 — panel 최고-conviction persona rationale_kr (≤80자).
+ * - conviction: panel 11명 평균 conviction (0~100, 카드 신뢰도).
+ * TickerAggregate(53차 §5 locked invariant)는 무변경 — 본 보조 맵으로 분리 carry (회귀 표면 최소화).
+ * degraded(⚪) ticker는 본 맵에 부재 → persist가 null 매핑.
+ */
+export const TickerCommentSchema = z.object({
+  comment_kr: z.string(),
+  conviction: z.number().min(0).max(100),
+});
+export type TickerComment = z.infer<typeof TickerCommentSchema>;
+
+/**
  * Tier1ScreeningResult — PR2 deliverable.
  *
  * 30 selected (10/timeframe) + 120 notSelected = 150 total.
  * refine: counts 일관성 검증.
+ *
+ * PR-E: commentsByTicker (optional) — 성공 panel ticker별 AI 코멘트/conviction. 기존 refine 무영향.
  */
 export const Tier1ScreeningResultSchema = z
   .object({
     selected: z.array(TickerAggregateSchema),
     notSelected: z.array(TickerAggregateSchema),
     selectionMeta: SelectionMetaSchema,
+    commentsByTicker: z.record(z.string(), TickerCommentSchema).optional(),
   })
   .refine((v) => v.selected.length === 30, { message: 'selected_must_be_30' })
   .refine((v) => v.notSelected.length === 120, { message: 'notSelected_must_be_120' })

@@ -494,6 +494,30 @@ export async function runTier1Screening(
     };
   });
 
+  // PR-E (ADR D-7) — per-ticker AI 코멘트/conviction (카드 산출물). available(non-⚪) ticker만.
+  //   comment_kr = panel 최고-conviction persona rationale_kr (tie-break persona_id asc, 결정적).
+  //   conviction = panel 11명 평균 (0~100, 소수 2자리 반올림).
+  // TickerAggregate(locked) 무변경 — 별도 보조 맵으로 carry (Tier1ScreeningResult.commentsByTicker).
+  const availableByTicker = new Map(partial.map((p) => [p.ticker, p.available]));
+  const commentsByTicker: Record<string, { comment_kr: string; conviction: number }> = {};
+  for (const e of enriched) {
+    if (e.personaScores === null) continue;
+    if (!availableByTicker.get(e.candidate.ticker)) continue; // override-false 제외
+    const scores = e.personaScores;
+    const avgConviction =
+      scores.reduce((sum, p) => sum + p.conviction, 0) / scores.length;
+    const top = scores.reduce((best, p) =>
+      p.conviction > best.conviction ||
+      (p.conviction === best.conviction && p.persona_id < best.persona_id)
+        ? p
+        : best,
+    );
+    commentsByTicker[e.candidate.ticker] = {
+      comment_kr: top.rationale_kr,
+      conviction: Math.round(avgConviction * 100) / 100,
+    };
+  }
+
   // 3. Compute consensus badges per timeframe (Tier 0 + Tier 1 ranking) — immutable aggregate build.
   const tier0Ranks = computeTier0Ranks(input.candidates);
   const tier1Ranks = computeTier1Ranks(partial);
@@ -594,6 +618,7 @@ export async function runTier1Screening(
       personasVersionId: input.personasVersionId,
       generatedAt,
     },
+    commentsByTicker,
   };
 
   return Tier1ScreeningResultSchema.parse(result);

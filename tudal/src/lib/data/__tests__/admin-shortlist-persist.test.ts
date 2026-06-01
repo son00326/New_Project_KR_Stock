@@ -170,4 +170,31 @@ describe('upsertShortList30', () => {
       upsertShortList30('2026-06', buildSelected30()),
     ).rejects.toThrow(/shortlist_persist_failed:42501/);
   });
+
+  // PR-E (마이그 0029 / ADR D-7) — AI 컬럼 매핑.
+  it('PR-E: maps AI columns (badge/ai_score/weighted_scores/winning_timeframe) + commentsByTicker', async () => {
+    upsertMock.mockResolvedValue({ error: null });
+    const selected = buildSelected30();
+    const firstTicker = selected[0].ticker; // '000000' (short, primary=short)
+    await upsertShortList30('2026-06', selected, {
+      commentsByTicker: {
+        [firstTicker]: { comment_kr: '강력 매수', conviction: 82.5 },
+      },
+    });
+    const rows = upsertMock.mock.calls[0][0] as Array<Record<string, unknown>>;
+    const r0 = rows.find((r) => r.ticker === firstTicker)!;
+    expect(r0.consensus_badge).toBe('🟢');
+    expect(r0.ai_score).toBe(70); // weighted_scores[assigned_tf=short]
+    expect(r0.weighted_score_short).toBe(70);
+    expect(r0.weighted_score_mid).toBe(70);
+    expect(r0.weighted_score_long).toBe(70);
+    expect(r0.winning_timeframe).toBe('short'); // primary_timeframe
+    expect(r0.conviction).toBe(82.5);
+    expect(r0.ai_comment_kr).toBe('강력 매수');
+    // comment 부재 ticker → conviction/ai_comment_kr null, 배지는 항상 매핑.
+    const rOther = rows.find((r) => r.ticker !== firstTicker)!;
+    expect(rOther.conviction).toBeNull();
+    expect(rOther.ai_comment_kr).toBeNull();
+    expect(rOther.consensus_badge).toBe('🟢');
+  });
 });
