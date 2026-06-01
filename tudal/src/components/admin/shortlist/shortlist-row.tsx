@@ -309,6 +309,7 @@ function AiBadge({
       <span
         className="inline-flex w-16 items-center justify-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
         title="AI 분석 대기 (Tier 0 지표만)"
+        aria-label="AI 분석 대기"
       >
         ⚪<span className="hidden lg:inline">AI 대기</span>
       </span>
