@@ -142,6 +142,36 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     );
   });
 
+  it("costClient를 callPersona로 전파 (cron service-role cost-log DI)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const fakeClient = { __serviceRole: true } as never;
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "00000000-0000-4000-8000-000000000000",
+      costClient: fakeClient,
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ costClient: fakeClient }),
+    );
+  });
+
+  it("costClient 미지정 → callPersona에 costClient undefined (admin session path)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ costClient: undefined }),
+    );
+  });
+
   it("한 페르소나 parse 실패 → panel 전체 reject (ticker ⚪)", async () => {
     const callPersona = vi.fn(async (input: { personaId: string }) =>
       callResult(input.personaId === "core-5" ? "평가 불가" : validJson),
