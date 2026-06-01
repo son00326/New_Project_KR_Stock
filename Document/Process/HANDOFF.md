@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + **PR-F(카드 AI 렌더 — 🤖 점수+합의 배지+코멘트, main `69a8d5c`, PR #67)** 모두 MERGED (omxy §2.0a + Workflow 교차검증 + gstack 시각검토 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G(실 AI 첫 가동)** — ⓐ CLAUDE prep(cron callPersona cost-log service-role DI, 비용0, **다음 세션 CLAUDE 1순위**) + ⓑ USER 게이트(Python 150 시드 + 실 30선정 비용 승인). 실 AI 호출 0회(**선정 엔진·프론트 완성, cron 실경로 prep ⓐ는 CLAUDE 잔여**). **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G ⓑ (실 AI 첫 가동 — USER 게이트만 잔여)**: Vercel `MONTHLY_BATCH_CRON_AI_ENABLED=true` + Python 150 시드 + `CRON_SYSTEM_USER_ID` auth.users seed + 실 30선정 비용 승인. 실 AI 호출 0회(**선정 엔진·프론트·cron 실경로 완성**. 현재는 tier0_150=0(미시드)이라 trigger가 `tier1_candidates_must_be_150 (got 0)`에서 실패 = cost 0; 150 시드 후에도 `MONTHLY_BATCH_CRON_AI_ENABLED` off면 preflight가 실 Anthropic 전 차단). **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -8,18 +8,18 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 ## 한눈에 (현재 상태 + 다음 행동)
 
-**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 완성** — PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + **PR-F(카드 AI 렌더, main `69a8d5c`)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G(실 AI 첫 가동)** — ⓐ CLAUDE prep(cron cost-log service-role DI, 비용0) 후 ⓑ USER 실행/비용 게이트. 실 AI는 아직 0회(선정 엔진·프론트 완성, cron 실경로 prep ⓐ는 CLAUDE 잔여; seed=0이라 현재 trigger는 150-invariant `got 0`에서 AI 전 실패 = cost-safe). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
+**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G ⓑ (실 AI 첫 가동 — USER 게이트만)**. PR-G ⓐ로 cron 실 AI 경로가 완전 배선됐으나 `MONTHLY_BATCH_CRON_AI_ENABLED` default-off → preflight가 실 Anthropic 전 throw → 실 AI 0회·cost 0 (merge-safe). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
-**main HEAD**: `git rev-parse --short origin/main` (현재 `69a8d5c` 또는 자손).
+**main HEAD**: `git rev-parse --short origin/main` (현재 `d15da47` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
-**검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1438 PASS / 126 files** / tsc clean / Python 95.
+**검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1449 PASS / 126 files** / tsc clean / Python 95.
 **Production**: 마이그 0001~**0029** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 8종) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 0 rows(미시드) · **실 AI 호출 0건**(cost_log=0).
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
-1. **PR-G 실 AI 첫 가동** (다음 1순위 — **ⓐ CLAUDE prep(비용0, 지금 가능) + ⓑ USER 실행/비용 게이트**):
-   - **ⓐ [CLAUDE] 지금 가능한 prep (비용 0, USER 대기 불필요)**: cron 실 AI 경로의 `callPersona` cost-log **service-role client DI** 추가 (현재 `insertCostLog`가 session `createClient` → cron `auth.uid()=null`+`called_by` UUID FK로 실패. admin path는 동작, cron만 미동작). + cron route의 `preflightCronBlockedUntilPrG`/`mockCallPersonaPanel`/`persistForCron` 실 배선 준비. §2.0a flow(설계→omxy→gstack 불필요). **이게 다음 세션 CLAUDE 1순위 unblocked step.**
-   - **ⓑ [USER] 게이트 (실행·비용)**: Python `--emit-candidates` 실 150 시드(KRX/DART) + cron-system seed(`CRON_SYSTEM_USER_ID` 실존 auth.users UUID) + Vercel 플래그 확인(`AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` — 둘 다 prod 존재) + cron preflight block 해제(env 또는 코드) + **실 AI 첫 30선정 트리거**(비용 burn 승인 ~5–6천원/회). 성공 시 카드에 실 배지/점수/코멘트 표시(PR-F 렌더 활성).
+1. **PR-G ⓑ 실 AI 첫 가동** (다음 1순위 — **USER 게이트만 잔여**, PR-G ⓐ ✅ MERGED `d15da47`/PR #68):
+   - ⓐ [CLAUDE] ✅ **DONE**: cron `callPersona` cost-log service-role DI + `persona-panel-adapter` costClient thread + cron route `preflightCronRealAi` 4-gate(flag/cost/key/CRON_SYSTEM_USER_ID) + 실 `makeCallPersonaPanel`/`fetchFinancialsSummary` 배선. `MONTHLY_BATCH_CRON_AI_ENABLED` default-off → cost 0. omxy §2.0a CONVERGED + Workflow 6-dim 16→0 confirmed.
+   - **ⓑ [USER] 게이트 (실행·비용 — external state)**: ① Python `--emit-candidates` 실 150 시드(KRX/DART) → tier0_candidates_150 ② cron-system seed(`CRON_SYSTEM_USER_ID` 실존 auth.users UUID) ③ Vercel env `MONTHLY_BATCH_CRON_AI_ENABLED=true` (+ `AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` — 둘 다 prod 존재) ④ **실 AI 첫 30선정 트리거**(cron 또는 admin `triggerMonthlyBatch`, 비용 burn ~5–6천원/회). 성공 시 카드에 실 배지/점수/코멘트(PR-F 렌더) 활성. ※ admin path(`triggerMonthlyBatch`)는 cron flag·②(`CRON_SYSTEM_USER_ID`) **무관** — is_admin + ① 150 시드 + cost logging/key + ④ 트리거/비용으로 가동(called_by=session user.id). ②③은 cron route 전용.
 2. **[CLAUDE] PR-H** 리포트 enrich+manual trigger(reject→batch / Regen→단일 ticker) → **PR-I** Tier2 sector14+Section8(PR5b) → **PR-J** mock 전면정리. **PR-K**(Reflection) defer.
 
 **[별도 트랙] PR5 cron 리포트 go-live** (위 e2e와 독립, USER 게이트): cron-system seed + Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + cron-persist canary. 마이그 0027 ✅ applied. (PR #60 MERGED-dormant.)
@@ -40,7 +40,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # PR-F 머지+docs sync 후 `0e2e973` 또는 자손
+git rev-parse --short HEAD          # PR-G ⓐ 머지+docs sync 후 `d15da47` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -48,7 +48,7 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3) 검증 게이트 (매 세션 1회)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   main 기준 기대: build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1438 PASS / 126 files / tsc clean / Python 95 tests PASS
+#   main 기준 기대: build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1449 PASS / 126 files / tsc clean / Python 95 tests PASS
 
 # 4) production audit 재확인 (Supabase MCP execute_sql 또는 dashboard) — drift detect
 #   select count(*) from cost_log;          -- 기대 0 (실 trigger/PR5 실행 전)
@@ -92,10 +92,10 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (PR-F 머지 후 `69a8d5c` 또는 자손). |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (PR-G ⓐ 머지 후 `d15da47` 또는 자손). |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
-| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#60 + canonical 5-PR 모두 MERGED(상세 git log). |
-| 검증 게이트 (main, PR-F 포함) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1438 PASS / 126 files** / tsc clean / **Python 95 tests PASS**. |
+| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#68 + canonical 5-PR 모두 MERGED(상세 git log). |
+| 검증 게이트 (main, PR-G ⓐ 포함) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1449 PASS / 126 files** / tsc clean / **Python 95 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
 | Task 5 B66 | ✅ **PRODUCTION COMPLETE** (60차 §5): 마이그 0026 + induty 백필 2,766/2,766 + short_list_30 30 rows canonical 14(B93 PASS). placeholder/unresolved 영구 0. |
@@ -178,7 +178,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 우선 | 작업 | 필요 액션 |
 |---|---|---|
-| ⭐ PR-G (실 AI 첫 가동, 다음 1순위) | Python `--emit-candidates` 실 150 시드(KRX/DART) + cron-system seed(`CRON_SYSTEM_USER_ID`) + cron preflight block 해제 + 실 AI 첫 30선정 (비용 burn 승인). 마이그 0028/0029 = ✅ applied | 한눈에 §다음 액션 큐 1번 참조 |
+| ⭐ PR-G ⓑ (실 AI 첫 가동, 다음 1순위) | PR-G ⓐ ✅ MERGED(`d15da47`/PR #68 — cron 실경로 완전 배선). USER 잔여 = ① Python `--emit-candidates` 실 150 시드(KRX/DART) ② cron-system seed(`CRON_SYSTEM_USER_ID` auth.users UUID) ③ Vercel `MONTHLY_BATCH_CRON_AI_ENABLED=true` ④ 실 AI 첫 30선정 트리거(비용 burn ~5–6천원). 마이그 0028/0029 = ✅ applied | 한눈에 §다음 액션 큐 1번 참조 |
 | PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / cron-system seed + `CRON_SYSTEM_USER_ID` / Vercel PR5 env / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
@@ -244,6 +244,14 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ---
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
+
+### PR-G ⓐ MERGED — cron monthly-batch 실 AI prep (PR #68, main `d15da47`)
+
+- **scope**: cron이 실 Core 11 AI 30선정을 켤 수 있도록 배선 + **default-off=cost 0 (merge-safe)**. ① `anthropic-client.callPersona`에 `costClient?:SupabaseClient` DI → `insertCostLog(row,{client})` (admin=session fallback 무변경 / cron=service-role RLS bypass + called_by FK). ② `persona-panel-adapter.makeCallPersonaPanel` costClient thread. ③ cron route `preflightCronBlockedUntilPrG`(무조건 throw) → **`preflightCronRealAi` 4-gate fail-closed**(`MONTHLY_BATCH_CRON_AI_ENABLED` flag + `isCostLoggingEnabled` + `ANTHROPIC_API_KEY` + `CRON_SYSTEM_USER_ID` UUID/auth.users) + 통과 시 `preflightHardcap`(service-role) + 실 `makeCallPersonaPanel`/`fetchFinancialsSummary` 배선. ④ `.env.example` flag(PR5 step-0 패턴). UUID_RE = PR5 worker 패턴 정합.
+- **검토 (§2.0a 4-step + 교차)**: ① Claude impl(`4719ec9`) → **Workflow 6-dim 적대 검토(22 agents): 16 findings → 0 confirmed/16 refuted** → **② omxy 적대 검증(2-subagent code-reviewer/architect + code-review-graph MCP): 프로덕션 코드 결함 0, CONVERGED** → **③ omxy direct-edit**: route-level contract 테스트 2종(flag-off→502+callPersona 0회 cost-safe 종단 / open-gate→order+costClient·service-role 전파 증명) + env-isolation 강화 → **④ Claude 재검증**(`d15da47`): omxy 테스트 코드근거 확인 + orchestrator stale 주석 2곳 정정.
+- **게이트**: build 26 / lint 0err 5warn(pre-existing) / **test:ci 1449 PASS**(+11) / tsc clean. 마이그 불필요. production audit 무드리프트(cost_log=0 유지) + 공개 canary 3/3.
+- **commit**: PR #68 (2 commits — `4719ec9` impl + `d15da47` omxy test/④ 주석 — rebase FF). 
+- **다음**: PR-G ⓑ(USER external state — Vercel flag + 150 시드 + CRON_SYSTEM_USER_ID seed + 실 AI 첫 30선정 비용 승인).
 
 ### PR-F MERGED — short_list_30 카드 AI 렌더 (PR #67, main `69a8d5c`)
 
