@@ -20,6 +20,15 @@ const TIMEFRAME_LABEL: Record<"short" | "mid" | "long", string> = {
   long: "장기",
 };
 
+// PR-F (Workflow MED-1 fix): AI 미평가 판정 단일 출처. 요약 pill(AiBadge)과 expanded AI 행이 동일 게이트
+//   사용 → degraded 종목이 consensus_badge='⚪' + ai_score=0으로 persist돼도 양쪽 모두 "AI 대기"로 일관.
+// type guard — else 분기에서 badge가 활성 4종(non-⚪)으로 narrow되어 BADGE_LABEL[badge] type-safe.
+function isAiPending(
+  badge?: ConsensusBadge | null,
+): badge is null | undefined | "⚪" {
+  return badge == null || badge === "⚪";
+}
+
 interface ShortlistRowProps {
   item: ShortListItem;
   // PR4 Task 1 Step 1.3.4.1 (B10 fix omxy R2): optional action slot — BucketSection이 row 옆에
@@ -167,24 +176,36 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
               <dd className="text-right font-mono tabular-nums">
                 {item.trendScore}·{item.momentumScore}·{item.volatilityScore}
               </dd>
-              {/* PR-F: AI 점수/horizon/conviction (Tier 1 평가 완료 시). */}
-              {item.aiScore != null ? (
+              {/* PR-F: AI 점수/선호시점/conviction — 요약 pill과 동일 isAiPending 게이트 (lockstep).
+                  ⚪/null(degraded·미평가)는 점수 0이 persist돼도 미표시 (D19, Workflow MED-1 fix). */}
+              {!isAiPending(item.consensusBadge) ? (
                 <>
-                  <dt className="text-muted-foreground">🤖 AI 점수</dt>
-                  <dd className="text-right font-mono tabular-nums">
-                    {Math.round(item.aiScore)}
-                    {item.winningTimeframe
-                      ? ` · ${TIMEFRAME_LABEL[item.winningTimeframe]}`
-                      : ""}
-                  </dd>
-                </>
-              ) : null}
-              {item.conviction != null ? (
-                <>
-                  <dt className="text-muted-foreground">Conviction</dt>
-                  <dd className="text-right font-mono tabular-nums">
-                    {Math.round(item.conviction)}
-                  </dd>
+                  {item.aiScore != null ? (
+                    <>
+                      <dt className="text-muted-foreground">🤖 AI 점수</dt>
+                      <dd className="text-right font-mono tabular-nums">
+                        {Math.round(item.aiScore)}
+                      </dd>
+                    </>
+                  ) : null}
+                  {/* Workflow MED-2 fix: ai_score=weighted[assigned_tf] ≠ winningTimeframe=primary_tf
+                      (backfill 종목은 두 timeframe 상이) → 점수와 한 줄로 묶으면 오독. 별도 "AI 선호 시점" 행. */}
+                  {item.winningTimeframe ? (
+                    <>
+                      <dt className="text-muted-foreground">AI 선호 시점</dt>
+                      <dd className="text-right font-mono">
+                        {TIMEFRAME_LABEL[item.winningTimeframe]}
+                      </dd>
+                    </>
+                  ) : null}
+                  {item.conviction != null ? (
+                    <>
+                      <dt className="text-muted-foreground">Conviction</dt>
+                      <dd className="text-right font-mono tabular-nums">
+                        {Math.round(item.conviction)}
+                      </dd>
+                    </>
+                  ) : null}
                 </>
               ) : null}
             </dl>
@@ -304,7 +325,7 @@ function AiBadge({
   badge?: ConsensusBadge | null;
   score?: number | null;
 }) {
-  if (badge == null || badge === "⚪") {
+  if (isAiPending(badge)) {
     return (
       <span
         className="inline-flex w-16 items-center justify-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
