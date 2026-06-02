@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { getRecentPipelineHealth } from "@/lib/data/admin-pipeline-health";
 import {
   aggregatePipelineHealth,
@@ -50,8 +51,17 @@ export default async function AdminHealthPage() {
   // 기본 7일 윈도우 (page aggregate 24h + recentFailures 50 most recent 양쪽 cover).
   // production pipeline_health=0 rows → 빈 위젯 / overall=warning / failures=[] (미확인 fail-closed).
   // RLS deny / non-finite / invalid enum 시 throw → admin 라우트 error boundary.
+  // PR-A (a): RLS using(is_admin())만으로는 admin assertion이 아니다.
+  // non-admin / env(ADMIN_EMAILS)↔DB(admin_emails) drift 시 SELECT가 throw가 아니라
+  // 0 rows(RLS silent filter)를 정상 반환 → '전체 상태: Warning' + '실패 없음'을 "정상 미발생"으로
+  // 오인. is_admin()은 SECURITY DEFINER + authenticated execute grant(0015a:28)로 RLS 우회.
+  // adminErr || !isAdmin 모두 fail-closed (track-record/actions.ts:77 + portfolio/actions.ts:552 패턴).
+  // server component라 return-string deny 불가 → 배너 boolean으로 변환 (데이터는 RLS가 이미 게이트, throw 금지).
   const refNow = new Date();
-  const records = await getRecentPipelineHealth({ refNow });
+  const supabase = await createClient();
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  const adminVerified = !(adminErr || !isAdmin);
+  const records = await getRecentPipelineHealth({ refNow, client: supabase });
   const summaries = aggregatePipelineHealth(records, { now: refNow });
   const overall = overallSeverity(summaries);
   const failures = recentFailures(records, 50);
@@ -71,6 +81,12 @@ export default async function AdminHealthPage() {
           run 결과 자동 적재. production pipeline_health 적재 전에는 빈 위젯이며 미확인
           상태로 Warning 표시.
         </p>
+        {!adminVerified && (
+          <p className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400">
+            ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 0건/Warning은 실제
+            미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
+          </p>
+        )}
       </header>
 
       <section
