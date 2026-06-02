@@ -14,7 +14,7 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
 **검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1513 PASS / 135 files** / tsc clean / Python 95.
 **Production**: 마이그 0001~**0030** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 + **0030 get_cost_log_monthly_total_admin cost RPC, 2026-06-02 applied+verify**) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 0 rows(미시드) · **실 AI 호출 0건**(cost_log=0).
-**⭐ 2026-06-02 비용0 라운드 완료** (PR #69~#75 MERGED): STEP-1 리포트 UI sweep + STEP-2 cost_log RPC(마이그 0030) + PR-A silent-0 4페이지 diagnostic + FE bridge-gap sweep(notifications nav · archive `?month` deep-link · Section8 partD 렌더 · portfolio dispute/하드코딩/배너 정직화). **추가 cost-0 CLAUDE 작업 0(소진)**. **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정 = 내일 Anthropic 키 발급 후 시작**(= 실 AI 켜기 = 출시 critical path 진입). KIS 키 = **이미 제공됨**(brokerage_connection 1행, mock_mode, S7c는 재발급 아니라 모드/WS권한 검증 + 코드). FLAGGED 6종 = 각 phase(S7b/c/cron)에 흡수(§3 하단).
+**⭐ 2026-06-02 비용0 라운드 완료** (PR #69~#75 MERGED): STEP-1 리포트 UI sweep + STEP-2 cost_log RPC(마이그 0030) + PR-A silent-0 4페이지 diagnostic + FE bridge-gap sweep(notifications nav · archive `?month` deep-link · Section8 partD 렌더 · portfolio dispute/하드코딩/배너 정직화). **추가 cost-0 CLAUDE 작업 0(소진)**. **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정 = 내일 Anthropic 키 발급 후 시작**(= 실 AI 켜기 = 출시 critical path 진입). **🔑 키 구조**: **Anthropic AI 키 = 유일한 공통(shared) 키**(도구 1개, env `ANTHROPIC_API_KEY`, 3인 공용) / **KIS·Binance = per-admin**(각자 발급·암호화 저장, DQ-7). KIS 현황 = **3명 중 1명만 보유**(다른 1명의 모의 키 1행) → **사용자 포함 2명 KIS 발급 필요**(S7c 시세는 1개 충분, S8 자동매매는 3명 each). 남은 외부 키 = Anthropic(공통, 내일) + Naver/Resend(S7b) + Telegram(S7c) + KIS 2명분. FLAGGED 6종 = 각 phase(S7b/c/cron)에 흡수(§3 하단).
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
@@ -191,7 +191,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
 | B-9 | Telegram bot token + admin 3 chat_id | S7c alerts |
-| ~~B-10 KIS 키 발급~~ ✅ 제공됨 | KIS 본인 1개 = **이미 brokerage_connection 1행 저장**(mock_mode·account 있음·active·미사용, masked `PS**···9W7Q`). S7c 잔여 = **재발급 아님** → ① 모의(mock) 키가 S7c read-only 실시간시세에 충분한지 / 실시간시세 권한 확인 ② S7c WebSocket 코드(CLAUDE 미구현) ③ Smoke #4/#5(credential RLS) | S7c WS read-only |
+| B-10 KIS 키 (per-admin, 1/3 보유) | ★ KIS·Binance = **per-admin 키**(DQ-7 모델, 각자 UI 입력·암호화 저장). 현재 **3명 중 1명만 보유** (brokerage_connection 1행 = 다른 1명의 **모의(mock)** 키, account 있음·active·미사용, masked `PS**···9W7Q`). **사용자님 포함 2명 KIS 발급 필요.** S7c **장중 read-only 시세는 1개로 충분**(시세는 계정 공유 무관 — D18); per-admin 전체(특히 S8 자동매매 주문)는 3명 각자 필요. S7c 코드 잔여: 모의 키 실시간시세 권한 확인 + WebSocket 코드(CLAUDE 미구현) + Smoke #4/#5 | S7c(1개 read-only) / S8(3명 each) |
 | FLAGGED 6종 (2026-06-02 FE-audit) | §6 FE-audit entry 박제. **phase 흡수**: alerts/[id] exit RPC·settings 3모드 → S7c / notifications 본체 seam → S7b(Resend/Telegram) / cost day-month·health error-tail → cron(PR5) go-live 후 / Bell 링크 = UX(veto 가능). 해당 phase 진입 시 audit-catalog §9.5 W-ticket 승격 | 각 phase 도달 시 |
 | B-11 | Binance key (testnet 우선) | S8 진입 시 |
 | B-D11 | D11 AI 가상 포트 며칠~1주 운용 검증 (어드민 3인 만족도 → S7c 진입 승인) | S7b 완료 후, S7c 전 |
