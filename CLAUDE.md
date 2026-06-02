@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## ⭐ 프로젝트 재정의 (2026-04-21 D16 · 2026-05-08 D18 시퀀스 v3 · 2026-05-08 D19 AI 강화 v3.1 · 2026-05-20 D21·D22 Tier 2 14×14 overlay + Kevin v3.1 quality target v3.2 · 2026-05-21 D23 53차 §5 정정 v3.3 · 2026-05-22 D24 54차 §3 PR3a MERGED + Group H Hard gate 해소 v3.4 · 2026-05-22 D25 PR1 MERGED v3.5 · **2026-06-02 e2e engine PR-D~PR-G ⓐ + 비용0/FE-audit round MERGED, main `8fc91d4` — 현 진행 상태 live SoT = `Document/Process/HANDOFF.md`**)
+## ⭐ 프로젝트 재정의 (2026-04-21 D16 · 2026-05-08 D18 시퀀스 v3 · 2026-05-08 D19 AI 강화 v3.1 · 2026-05-20 D21·D22 Tier 2 14×14 overlay + Kevin v3.1 quality target v3.2 · 2026-05-21 D23 53차 §5 정정 v3.3 · 2026-05-22 D24 54차 §3 PR3a MERGED + Group H Hard gate 해소 v3.4 · 2026-05-22 D25 PR1 MERGED v3.5 · **2026-06-02 e2e engine PR-D~PR-G ⓐ + 비용0/FE-audit + launch-readiness PR #79(A~E) MERGED, main `532a0a5` — 현 진행 상태 live SoT = `Document/Process/HANDOFF.md`**)
 
 **어드민 = 본인 + 친구 2명(총 3명)이 주식·코인 투자를 편하게 하기 위한 내부 도구**.
 
@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **세션별 진행 박제** (36차~49차 등): `Document/Process/HANDOFF.md §6` (최근 1차) + `Document/Build/ProgressDashboard.md` + `Document/Build/Slices/S7-RealData.md` + `git log`. CLAUDE.md는 자동 로드되므로 세션 박제 잔존 금지 — 사업/데이터 모델 차원 결정(D16~D25)만 남긴다.
 
-**현 진행 순서 (현 진행 상태 live SoT = `Document/Process/HANDOFF.md` · `Document/Build/ProgressDashboard.md §2` — main `8fc91d4` 기준 canonical 5-PR + e2e engine PR-D~PR-G ⓐ MERGED, 다음 1순위 = PR-G ⓑ 실 AI 첫 30선정)**:
+**현 진행 순서 (현 진행 상태 live SoT = `Document/Process/HANDOFF.md` · `Document/Build/ProgressDashboard.md §2` — main `532a0a5` 기준 canonical 5-PR + e2e engine PR-D~PR-G ⓐ + launch-readiness PR #79(A~E) MERGED, 다음 1순위 = PR-G ⓑ 실 AI 첫 30선정)**:
 ```
 Mock Skeleton ✅
   → DQ-7 Admin Credential (Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예 · Session 4 QA 잔여)
@@ -40,8 +40,8 @@ Mock Skeleton ✅
        · **D21 박제**: canonical 14 sectors × 14 personas/sector overlay (10 base + 2 primary + 2 sub_tag) + sub_tag crosswalk 7개 (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW+엔터/미디어 · 가전→유통/소비재 · 제약→바이오 · 부동산→건설)
        · **신규 SoT 코드**: `tudal/src/lib/screening/canonical-sectors.ts` (CANONICAL_SECTORS 14 + 상수 + helper) · `writer.ts` commitSectorReport + parseSectorContentStrict · `persona-eval.ts` runSectorEval scaffold · `mock-admin-committee-personas.ts` 196 stub (legacy 5인 105 격리 보존) · 마이그 0018 (sub_tags jsonb) + 0019 (commit_sector_personas RPC)
        · **D22 박제**: Tier 2 production prompts 196 quality target = **`origin/IMVCOM @ 1faee1b` Kevin v3.1 reference** (Step 3a Kevin 정합 머지 PR 진입 대기)
-       · **출시 Runbook 진입점 = `Document/Process/HANDOFF.md §2`** (현재 위치·다음 1순위 live SoT = HANDOFF) · main `8fc91d4` 기준 canonical 5-PR + e2e engine PR-D~PR-G ⓐ MERGED → **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정** (내일 Anthropic 키 발급 + USER 비용 승인 게이트)
-       · 다음 1순위 = **canonical 5-PR 전체 MERGED (PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`) + e2e engine PR-D~PR-G ⓐ MERGED (main `8fc91d4`) → PR-G ⓑ 실 AI 첫 30선정** · Reflection/PR-K = 출시 게이트 아님 (S9/go-live 후 defer) · 상세·중간 단계 live SoT = HANDOFF §2
+       · **출시 Runbook 진입점 = `Document/Process/HANDOFF.md §2`** (현재 위치·다음 1순위 live SoT = HANDOFF) · main `532a0a5` 기준 canonical 5-PR + e2e engine PR-D~PR-G ⓐ + launch-readiness PR #79(A~E) MERGED → **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정** (내일 Anthropic 키 발급 + USER 비용 승인 게이트)
+       · 다음 1순위 = **canonical 5-PR 전체 MERGED (PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`) + e2e engine PR-D~PR-G ⓐ + launch-readiness PR #79(A~E, main `532a0a5`) MERGED → PR-G ⓑ 실 AI 첫 30선정** · Reflection/PR-K = 출시 게이트 아님 (S9/go-live 후 defer) · 상세·중간 단계 live SoT = HANDOFF §2
        · **🔑 키 구조 (live)**: Anthropic AI 키 = 유일한 공통(shared, env `ANTHROPIC_API_KEY`, 3인 공용, 내일 발급) / KIS·Binance = per-admin(DQ-7 암호화 저장) · KIS 현재 3명 중 1명만 보유(다른 1명 모의 키) → **사용자 포함 2명 발급 필요** (S7c read-only 시세는 1개 충분, S8 자동매매는 3명 each)
        · T7e.7 RLS 브라우저 수동 QA는 D11 운용 검증 직전 마무리 (1시간 안짝 수동)
   → [D11 전 hard gate · 상세 HANDOFF §2] PR-G ⓑ 실 AI 첫 30선정 → PR-H 리포트 enrich+manual trigger → PR-I·PR5b Tier2 sector14+Section8 full path → PR-J runtime mock 전면정리
