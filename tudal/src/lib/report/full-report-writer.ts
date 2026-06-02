@@ -147,13 +147,16 @@ export async function commitFullReport(
   // max_tokens 8192 calibration (input 3000 + output 6000). preflightHardcap 호출 시 caller가
   // 명시적으로 override 주입해야 — 기본 MAX_COST_PER_CALL_KRW (2000 output)은 부족.
   // PR4 Task 1 Step 1.1 (B2): caller-supplied client 전파 (cost_log RLS 정합).
+  // STEP-2: callerKind='cron'은 service-role client라 admin-only cost_log SUM RPC 미경유.
   await preflightHardcap(
     {
       month: input.month,
       callCount: 1,
       maxCostPerCallKrw: FULL_REPORT_MAX_COST_PER_CALL_KRW,
     },
-    { client: options.client },
+    options.callerKind === 'cron'
+      ? { client: options.client, callerKind: 'service-role' }
+      : { client: options.client },
   );
 
   // P1 #7 fix: prompt module wire — buildFullReportUserPrompt + FULL_REPORT_SYSTEM_PROMPT 직접 호출.

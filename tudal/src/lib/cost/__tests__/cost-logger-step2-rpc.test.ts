@@ -108,10 +108,14 @@ describe('getMonthlyTotal STEP-2 — session RPC-first vs service-role direct SE
     expect(total).toBe(700);
   });
 
-  it('session: undefined_function(42883) → falls back to paginated SELECT (pre-migration only)', async () => {
+  it('session: target undefined_function(42883) → falls back to paginated SELECT (pre-migration only)', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,
-      error: { message: 'undefined function', code: '42883' },
+      error: {
+        message:
+          'function public.get_cost_log_monthly_total_admin(p_month => text) does not exist',
+        code: '42883',
+      },
     });
     const rangeSpy = vi
       .fn()
@@ -128,6 +132,17 @@ describe('getMonthlyTotal STEP-2 — session RPC-first vs service-role direct SE
       client: client as unknown as DiClient,
     });
     expect(total).toBe(50);
+  });
+
+  it('session: unrelated undefined_function(42883) → fail-closed, NO fallback', async () => {
+    const { client, from } = rpcClient({
+      data: null,
+      error: { message: 'function public.is_admin_broken() does not exist', code: '42883' },
+    });
+    await expect(
+      getMonthlyTotal('2026-06', { client: client as unknown as DiClient }),
+    ).rejects.toThrow('cost_log_select_failed:42883');
+    expect(from).not.toHaveBeenCalled();
   });
 
   it('session: RPC negative SUM guard → fail-closed throw', async () => {

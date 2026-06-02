@@ -48,9 +48,10 @@ const usage = {
 
 async function loadOrchestrateWithMocks(rpc: ReturnType<typeof vi.fn>) {
   const fakeClient = { rpc };
+  const preflightHardcapMock = vi.fn().mockResolvedValue(undefined);
   vi.doMock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
   vi.doMock('@/lib/cost/cost-logger', () => ({
-    preflightHardcap: vi.fn().mockResolvedValue(undefined),
+    preflightHardcap: preflightHardcapMock,
     insertCostLog: vi.fn().mockResolvedValue(undefined),
   }));
   vi.doMock('@/lib/ai/full-report-client', () => ({
@@ -73,7 +74,7 @@ async function loadOrchestrateWithMocks(rpc: ReturnType<typeof vi.fn>) {
     insertOrBumpBacklog: vi.fn().mockResolvedValue(undefined),
   }));
   const { orchestrateFullReport } = await import('@/lib/report/full-report-orchestrator');
-  return { orchestrateFullReport, fakeClient };
+  return { orchestrateFullReport, fakeClient, preflightHardcapMock };
 }
 
 const okRpc = () =>
@@ -147,6 +148,20 @@ describe('orchestrateFullReport — B65-P3 UPSERT feature flag (orchestrator sea
       callerKind: 'cron',
     });
     expect(rpcFalse).toHaveBeenCalledWith('update_report_sections_0_7', expect.any(Object));
+  });
+
+  it('STEP-2: callerKind=cron → preflightHardcap uses service-role cost path', async () => {
+    const rpc = okRpc();
+    const { orchestrateFullReport, fakeClient, preflightHardcapMock } =
+      await loadOrchestrateWithMocks(rpc);
+    await orchestrateFullReport(validInput, {
+      client: fakeClient as never,
+      callerKind: 'cron',
+    });
+    expect(preflightHardcapMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: fakeClient, callerKind: 'service-role' },
+    );
   });
 
   it('Test 5e: callerKind undefined + flag=true → update_report_sections_0_7 (safe default)', async () => {
