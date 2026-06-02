@@ -278,7 +278,8 @@ export async function runReportBatchChunk(
     );
   }
   const pendingCount = remainingBefore ?? 0;
-  const currentTotal = await getMonthlyTotal(month, { client });
+  // STEP-2: service-role client → 직접 SELECT(RLS bypass) 유지. admin-only RPC 미경유(worker 무회귀).
+  const currentTotal = await getMonthlyTotal(month, { client, callerKind: 'service-role' });
   const projectedKrw = pendingCount * ORCHESTRATE_TOTAL_COST_BUDGET_KRW;
   // hardcap 도달 시 chunk 진입 전 abort + alert (cost_hardcap).
   try {
@@ -288,7 +289,8 @@ export async function runReportBatchChunk(
         callCount: pendingCount,
         maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
       },
-      { client },
+      // STEP-2: preflightHardcap이 options를 getMonthlyTotal로 전파 → service-role 직접 SELECT 고정.
+      { client, callerKind: 'service-role' },
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -407,7 +409,7 @@ export async function runReportBatchChunk(
       ) {
         if (msg.includes("cost_hardcap_40man")) {
           await deferOpenJobs(client, month, "cost_hardcap_40man");
-          const currentTotalAfter = await getMonthlyTotal(month, { client });
+          const currentTotalAfter = await getMonthlyTotal(month, { client, callerKind: 'service-role' });
           await emitCostAlertBestEffort(
             {
               month,

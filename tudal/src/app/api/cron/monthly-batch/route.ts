@@ -98,7 +98,8 @@ async function preflightCronRealAi(input: {
   }
   await preflightHardcap(
     { month: input.month, callCount: input.callCount },
-    { client: input.client },
+    // STEP-2: cron service-role client → 직접 SELECT(RLS bypass) 유지. admin-only RPC 미경유.
+    { client: input.client, callerKind: 'service-role' },
   );
 }
 

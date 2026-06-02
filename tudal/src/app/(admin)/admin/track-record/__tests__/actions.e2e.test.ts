@@ -145,6 +145,9 @@ beforeEach(() => {
     if (name === 'acquire_batch_lock') return { data: { acquired: true, resumed: false }, error: null };
     if (name === 'commit_persona_eval') return { data: { success: true, report_id: 'rpt-1' }, error: null };
     if (name === 'commit_badge_only') return { data: { success: true }, error: null };
+    // STEP-2: persona-eval(admin session 경로) preflightHardcap → getMonthlyTotal RPC-first.
+    //   admin이므로 RPC가 server-side SUM 반환(여기선 0 = hardcap 여유). non-admin이면 prod에서 raise.
+    if (name === 'get_cost_log_monthly_total_admin') return { data: 0, error: null };
     return { data: null, error: { message: `unexpected_rpc:${name}` } };
   });
 });

@@ -46,7 +46,8 @@ describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
       const { preflightHardcap } = await import('@/lib/cost/cost-logger');
       await preflightHardcap(
         { month: '2026-06', callCount: 1 },
-        { client: { from: fromMock } as never },
+        // STEP-2: DI seam은 service-role 직접 SELECT 경로(from 체인)로 검증 (session=RPC 경로는 별 파일).
+        { client: { from: fromMock } as never, callerKind: 'service-role' },
       );
       expect(fromMock).toHaveBeenCalledWith('cost_log');
       expect(createClientSpy).not.toHaveBeenCalled();
@@ -57,7 +58,8 @@ describe('cost-logger — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
       const createClientSpy = vi.fn().mockResolvedValue({ from: fromMock });
       vi.doMock('@/lib/supabase/server', () => ({ createClient: createClientSpy }));
       const { preflightHardcap } = await import('@/lib/cost/cost-logger');
-      await preflightHardcap({ month: '2026-06', callCount: 1 });
+      // STEP-2: service-role 직접 SELECT 경로로 createClient fallback DI seam 검증.
+      await preflightHardcap({ month: '2026-06', callCount: 1 }, { callerKind: 'service-role' });
       expect(createClientSpy).toHaveBeenCalled();
       expect(fromMock).toHaveBeenCalledWith('cost_log');
     });

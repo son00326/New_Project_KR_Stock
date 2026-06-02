@@ -452,7 +452,8 @@ describe('GET /api/cron/monthly-batch', () => {
         expect(getUserByIdMock).toHaveBeenCalledWith(cronUserId);
         expect(preflightHardcapMock).toHaveBeenCalledWith(
           { month: '2026-06', callCount: 1650 },
-          { client: serviceClientMock },
+          // STEP-2: cron service-role → 직접 SELECT 경로 고정(admin-only RPC raise 회피).
+          { client: serviceClientMock, callerKind: 'service-role' },
         );
         expect(callPersonaMock).toHaveBeenCalledTimes(11);
         expect(callPersonaMock).toHaveBeenCalledWith(
