@@ -41,7 +41,21 @@ import {
 } from "@/lib/data/admin-report-view-log";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { recordReportView } from "@/app/(admin)/admin/report/[ticker]/record-view";
-import type { CommitteeVote } from "@/types/admin";
+import type { CommitteeVote, ConsensusBadge } from "@/types/admin";
+
+// PR3b STEP-1 — 5종 합의 배지 한국어 라벨 (shortlist-row.tsx BADGE_LABEL 미러; 그쪽은 non-export private).
+const BADGE_LABEL: Record<ConsensusBadge, string> = {
+  "🟢": "강한 합의",
+  "🔵": "숫자 우세",
+  "🟣": "AI 우세",
+  "🟡": "관망",
+  "⚪": "AI 분석 대기",
+};
+
+// PR3b STEP-1 — AI 미평가 판정 단일 출처 (shortlist-row.tsx isAiPending 미러). null/undefined/⚪ = Tier 0 fallback.
+function isAiPending(badge?: ConsensusBadge | null): boolean {
+  return badge == null || badge === "⚪";
+}
 
 interface AdminReportPageProps {
   params: Promise<{ ticker: string }>;
@@ -182,6 +196,12 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
             </span>
             <DeltaPill status={shortListRow.deltaStatus} />
           </div>
+          {/* PR3b STEP-1 (c) — Tier 1 AI 요약 1행: 🔢 숫자 + 🤖 AI + 합의 배지. persist된 값 렌더만 (추가 fetch 0). */}
+          <ReportSummaryAiRow
+            compositeScore={shortListRow.compositeScore}
+            aiScore={shortListRow.aiScore}
+            consensusBadge={shortListRow.consensusBadge}
+          />
         </header>
 
         {/* T2.3 Section 0~8 accordion 렌더러 */}
@@ -333,15 +353,57 @@ function ReportSectionAccordion({
   );
 }
 
-// PR3a — Section 0~7 본문 미구현 / validation 실패 시 fallback UI.
-// 후속 PR3b (writer Section 0~7 본문 구현)에서 채워진다.
+// PR3b STEP-1 (c) — Section 0 요약 AI 1행. 🔢 숫자(compositeScore) + 🤖 AI(aiScore) + 합의 배지.
+//   aiScore null(=AI 평가 대기, Tier 0 fallback) → 🤖 영역 'AI 대기'. consensusBadge null/⚪ → ⚪ AI 분석 대기.
+//   persist된 값 렌더만 — 추가 fetch 금지(STEP-1 원칙).
+function ReportSummaryAiRow({
+  compositeScore,
+  aiScore,
+  consensusBadge,
+}: {
+  compositeScore: number;
+  aiScore?: number | null;
+  consensusBadge?: ConsensusBadge | null;
+}) {
+  const pending = isAiPending(consensusBadge);
+  const badge: ConsensusBadge = consensusBadge ?? "⚪";
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+      <span className="inline-flex items-center gap-1">
+        <span aria-hidden>🔢</span>
+        <span className="text-muted-foreground">숫자</span>
+        <b className="font-mono tabular-nums">{compositeScore}</b>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span aria-hidden>🤖</span>
+        <span className="text-muted-foreground">AI</span>
+        {aiScore == null ? (
+          <span className="text-muted-foreground">AI 대기</span>
+        ) : (
+          <b className="font-mono tabular-nums">{aiScore}</b>
+        )}
+      </span>
+      <span
+        className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+        title={pending ? "AI 분석 대기 (Tier 0 지표만)" : `합의 배지 ${BADGE_LABEL[badge]}`}
+        aria-label={pending ? "AI 분석 대기" : `합의 배지 ${BADGE_LABEL[badge]}`}
+      >
+        <span aria-hidden>{badge}</span>
+        <span>{BADGE_LABEL[badge]}</span>
+      </span>
+    </div>
+  );
+}
+
+// PR3b MERGED (cf68731) — writer Section 0~7 본문 구현 완료. 이 fallback은 더 이상 '미구현' 상태가 아니라
+//   해당 섹션 jsonb가 비어 있거나(아직 미생성) zod validation 실패 시의 degraded UI다.
 function SectionFallback({ sectionId }: { sectionId: string }) {
   return (
     <div className="rounded border border-dashed bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
       <div className="font-medium">본문 미작성</div>
       <p className="mt-1 text-xs">
-        {sectionId} 본문은 후속 PR3b (writer Section 0~7 본문 구현)에서 채워집니다.
-        DB에 jsonb가 비어 있거나 validation 실패 상태입니다.
+        {sectionId} 본문이 아직 생성되지 않았거나 validation에 실패했습니다.
+        DB에 해당 섹션 jsonb가 비어 있거나 형식 검증을 통과하지 못한 상태입니다.
       </p>
     </div>
   );
@@ -612,7 +674,26 @@ function Section8View({
   sector: string;
   votes: CommitteeVote[];
 }) {
-  if (!data) return <SectionFallback sectionId="8 · 최종 의견" />;
+  // PR3b STEP-1 (b) — report row는 존재(page line 76 notFound 가드 통과)하나 section_8 부재/null.
+  //   = 투심위(Section 8) 미생성 = Tier 1 합의 평가 대기. D11 운용 검증 acceptance gate UI.
+  //   section_8 존재 시(modern/legacy) 이 pill은 렌더되지 않음.
+  if (!data) {
+    return (
+      <div className="rounded border border-dashed bg-muted/10 px-3 py-4 text-sm">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground"
+          title="Tier 1 합의 평가 대기 (투심위 미생성)"
+          aria-label="Tier 1 평가 대기"
+        >
+          <span aria-hidden>🤖</span>
+          Tier 1 평가 대기
+        </span>
+        <p className="mt-2 text-xs text-muted-foreground">
+          최종 의견·투심위(Section 8)가 아직 생성되지 않았습니다. AI 합의 평가 후 채워집니다.
+        </p>
+      </div>
+    );
+  }
   if (data.shape === "modern") {
     return (
       <Section8ModernView

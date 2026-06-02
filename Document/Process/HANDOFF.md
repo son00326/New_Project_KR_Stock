@@ -168,7 +168,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | **PR5** cron 30 report-only 자동 + β2′ DB job queue | CLAUDE | ✅ **코드 MERGED**(PR #60) + 마이그 0027 applied. go-live = USER 게이트(c seed / d env / a Task 7 smoke / e plan tier) 후 cron 가동 | `orchestrateFullReport` Section 0~7 자동. queue = `report_batch_job` + `report_worker_run` run-mutex, fail = sequential + retry N=2 + summary/cost alert, cost ≈ 16,050원/월. cron dormant(flag off). **committee_votes/Section 8 = PR5b(D11 전 land hard gate)**. |
 | **Step 4 Reflection** | CLAUDE | PR5 cron 가동 + 실 Tier 1 결과 누적 후 | reflection_log 마이그 + Tier 1 context 주입. |
 | **Step 7 S7b** 뉴스+브리핑 mock→real | USER(B-7 Resend + B-8 Naver) + CLAUDE | PR5 가동 후 | 실 Naver news sweep + Resend 도메인 인증 + 모닝 브리핑 cron. |
-| **Step 8 D11 AI 가상 포트 1차 가동 게이트** | USER 운용 + CLAUDE 모니터링 | S7b 완료 후, S7c 진입 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증 (의사결정 품질·승인·재생성 cap·뉴스 분류). **S7c 진입 게이트** (자동매매 S8은 출시 후). |
+| **Step 8 D11 AI 가상 포트 1차 가동 게이트** | USER 운용 + CLAUDE 모니터링 | S7b 완료 후, S7c 진입 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증 (의사결정 품질·승인·재생성 cap·뉴스 분류). **acceptance gate UI = 리포트 페이지 section_8 부재 시 '🤖 Tier 1 평가 대기' pill + Section 0 요약 🔢숫자/🤖AI/합의 배지 1행** (PR3b STEP-1, W-tier1pill 해소). **S7c 진입 게이트** (자동매매 S8은 출시 후). |
 | **Step 9 S7c** 장중·KIS WS + Exit 2채널 | USER(B-9 Telegram + B-10 KIS) + CLAUDE | D11 검증 통과 후 | 실 alert_event + KIS 본인 1개 WS read-only + J3 Exit 3채널 + 대안 3 + T+7 outcome. |
 | **Step 10 S7d** Silent Health | CLAUDE | S7c 완료 후 | 5 파이프라인 success_rate + red_alert 0 + Exit outcome T+7 cron. |
 | **Step 15 S9 운용 → 🎉 출시** | USER 1개월+ + CLAUDE hotfix | **S7d 완료 후** | 어드민 3인 실 사용 1개월+ + §2.2 7 criteria 통과 = 출시. **자동매매 없는 "AI 추천 + 가상 포트 + 알림" 도구**(criterion #7 N/A). |
