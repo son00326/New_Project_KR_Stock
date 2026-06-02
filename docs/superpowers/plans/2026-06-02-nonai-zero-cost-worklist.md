@@ -197,9 +197,13 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 **완성도 비평**: STEP 목록 밖 신규 cost-0 누락 = 없음. PR #2(format-error OPEN) + ProgressDashboard docs-sync는 STEP-12 docs 묶음 합류.
 **DEFER 6 트리거**: PR5 cron go-live / 실 AI 켜기 시점에 클러스터(cost-hardening: STEP-4+0030 apply / 매달자동화: STEP-9 / 러너+시드: STEP-10+11 / report prep: STEP-6 / mock: STEP-8 after PR-I).
 
-### 실행 현황 (2026-06-02)
+### 실행 현황 (2026-06-02 — 비용 0 작업 라운드 완료)
 - ✅ STEP-1 UI sweep MERGED `d00bd53` (PR #69)
-- ✅ STEP-2 cost_log RPC + service-role fork MERGED `31cb624` (PR #70) — 마이그 0030 USER apply 대기
-- 🔄 PR-A (STEP-3 a+c, explicit is_admin diagnostic, 마이그 0) — 진행
-  - omxy ② catch 반영: alerts list client 재사용 + cost monitor/alert detail silent-0 진단 추가(마이그 0).
-- ⏳ PR-B (STEP-7 seam) — PR-A 후
+- ✅ STEP-2 cost_log RPC + service-role fork MERGED `31cb624` (PR #70) — **마이그 0030 USER apply 대기**
+- ✅ **PR-A (STEP-3 a+c → silent-0 4페이지 sweep) MERGED `24559cc` (PR #71)** — health/alerts/alerts[id]/cost 모두 explicit `rpc('is_admin')` diagnostic 배너(마이그 0). omxy ② 4-page completeness 확장 + Claude ③ CONVERGED.
+- 🟡 **PR-B (STEP-7 seam) DEFER** — 코드 검증 결과 "라벨 전용 seam"이 아니라 `VoteList`가 personas를 **id로 매칭**(`page.tsx:1107 per.id === v.personaId`)하는 vote-roster. legacy id(`core-1`/`sector-…`) vs 실 committee_votes id(production 페르소나, PR-I에서 확정) 불일치 → DEFER된 vote-write 경로와 얽힘. **STEP-8/PR-I와 함께 일관 재배선**(실 committee_votes + sector eval land 시). 단독 swap = premature(투기적 id 정렬).
+
+### 🎯 비용 0 라운드 결론
+- **지금 머지 완료 = 3건** (STEP-1 + STEP-2 + PR-A). 전부 비용 0, 게이트 ALL GREEN, omxy CONVERGED.
+- **잔여 = 전부 DEFER(실AI/cron 시점) 또는 USER**. 추가 비용 0 CLAUDE 코딩 작업 없음(불필요 작업 0).
+- **USER 잔여 액션**: 마이그 **0030** production apply + grant matrix verify (STEP-2 하드닝 활성화. 코드는 fallback이라 apply 전 무회귀). STEP-11 150 재시드 / STEP-12 RLS QA는 실AI/D11 시점.
