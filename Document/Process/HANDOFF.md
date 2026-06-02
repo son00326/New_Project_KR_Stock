@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028+0029 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)** — 62차 prep 진행 후 사용자 ④ 보류. **④ 실행방식 확정 = 로컬 러너**(cron/admin HTTP는 1650콜 ~30-55분 ≫ Vercel maxDuration → 타임아웃, Claude+omxy CONVERGED). prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-02 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)** — 62차 prep 진행 후 사용자 ④ 보류. **④ 실행방식 확정 = 로컬 러너**(cron/admin HTTP는 1650콜 ~30-55분 ≫ Vercel maxDuration → 타임아웃, Claude+omxy CONVERGED). prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -8,13 +8,13 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 ## 한눈에 (현재 상태 + 다음 행동)
 
-**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. 62차 prep 후 사용자 ④ 보류. **④ = 로컬 one-off 러너 확정**(cron/admin HTTP는 1650콜 ~30-55분 타임아웃 → NON-VIABLE; 매달 자동화는 별도 선정 청크워커 PR — §다음 액션 큐 1). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
+**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028~0030 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. 62차 prep 후 사용자 ④ 보류. **④ = 로컬 one-off 러너 확정**(cron/admin HTTP는 1650콜 ~30-55분 타임아웃 → NON-VIABLE; 매달 자동화는 별도 선정 청크워커 PR — §다음 액션 큐 1). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
-**main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit 라운드 후 = `bb5e69a` 또는 자손).
+**main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync 후 = `fe08fcb` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
 **검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1513 PASS / 135 files** / tsc clean / Python 95.
 **Production**: 마이그 0001~**0030** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 + **0030 get_cost_log_monthly_total_admin cost RPC, 2026-06-02 applied+verify**) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 0 rows(미시드) · **실 AI 호출 0건**(cost_log=0).
-**⭐ 2026-06-02 비용0 라운드 완료** (PR #69~#75 MERGED): STEP-1 리포트 UI sweep + STEP-2 cost_log RPC(마이그 0030) + PR-A silent-0 4페이지 diagnostic + FE bridge-gap sweep(notifications nav · archive `?month` deep-link · Section8 partD 렌더 · portfolio dispute/하드코딩/배너 정직화). **추가 cost-0 CLAUDE 작업 0(소진)**. **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정 = 내일 Anthropic 키 발급 후 시작**(= 실 AI 켜기 = 출시 critical path 진입). **🔑 키 구조**: **Anthropic AI 키 = 유일한 공통(shared) 키**(도구 1개, env `ANTHROPIC_API_KEY`, 3인 공용) / **KIS·Binance = per-admin**(각자 발급·암호화 저장, DQ-7). KIS 현황 = **3명 중 1명만 보유**(다른 1명의 모의 키 1행) → **사용자 포함 2명 KIS 발급 필요**(S7c 시세는 1개 충분, S8 자동매매는 3명 each). 남은 외부 키 = Anthropic(공통, 내일) + Naver/Resend(S7b) + Telegram(S7c) + KIS 2명분. FLAGGED 6종 = 각 phase(S7b/c/cron)에 흡수(§3 하단).
+**⭐ 2026-06-02 비용0 라운드 완료** (PR #69~#76 반영): STEP-1 리포트 UI sweep + STEP-2 cost_log RPC(마이그 0030) + PR-A silent-0 4페이지 diagnostic + FE bridge-gap sweep(notifications nav · archive `?month` deep-link · Section8 partD 렌더 · portfolio dispute/하드코딩/배너 정직화). **추가 cost-0 CLAUDE 작업 0(소진)**. **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정 = 내일 Anthropic 키 발급 후 시작**(= 실 AI 켜기 = 출시 critical path 진입). **🔑 키 구조**: **Anthropic AI 키 = 유일한 공통(shared) 키**(도구 1개, env `ANTHROPIC_API_KEY`, 3인 공용) / **KIS·Binance = per-admin**(각자 발급·암호화 저장, DQ-7). KIS 현황 = **3명 중 1명만 보유**(다른 1명의 모의 키 1행) → **사용자 포함 2명 KIS 발급 필요**(S7c 시세는 1개 충분, S8 자동매매는 3명 each). 남은 외부 키 = Anthropic(공통, 내일) + Naver/Resend(S7b) + Telegram(S7c) + KIS 2명분. FLAGGED 6종 = 각 phase(S7b/c/cron)에 흡수(§3 하단).
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
@@ -25,7 +25,7 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
    - **실비용 정정**: reservation cap = 1650 × 82.23원 = **135,680원**(< 40만 hardcap, preflight 통과) / 실제 ≈ **6.5–8만원**(opus-4-7 $5/$25 per M, max_tokens 1024, 캐시 off). **구 "~5–6천원" 표기는 오기**.
    - **다음 세션 ④ 절차 (= 일회성 검증)**: (a) ① 150 재시드(KRX 안정 시) (b) 로컬 러너 A′+B 빌드(§2.0a) (c) 로컬 실행 ~55분 (d) short_list_30 AI컬럼/cost_log/배지 검증 → 카드 실 배지 활성. **로컬 러너 = 첫 1회 실 AI 선정 품질 검증용 one-off일 뿐, 매달 자동화 아님.**
    - **⭐ 매달 자동화 (1일 cron → 자동 30선정 + 30리포트) 아키텍처 (사용자 Q 62차)**: serverless 300s 제한 때문에 **단발 실행 불가 → 청크 워커 필수**. (i) **30리포트** = PR5 report-worker가 **이미 청크 워커 완성**(report_batch_job 큐 + claim_next_report_jobs + run-mutex + self-continue, daily cron, dormant) → **go-live만** 하면 자동. (ii) **30선정** = 현재 단발 orchestrator(1650콜 타임아웃) → **PR5와 동일 청크 워커 패턴으로 재구성 필요**(`tier1_selection_job` 큐 → cron이 몇 종목씩 패널 처리 → 150 완성 시 선정 확정). **별도 상시 서버 불필요** — Vercel cron 청크가 정답(PR5가 입증). 대안 = Vercel Workflow(WDK durable) 또는 전용 워커서버(과함). **신규 작업 = "선정 청크 워커 PR"**(PR5 패턴 복제, PR-G ⓑ 일회성 검증 후).
-2. **[CLAUDE] PR-H** 리포트 enrich+manual trigger(reject→batch / Regen→단일 ticker) → **PR-I** Tier2 sector14+Section8(PR5b) → **PR-J** mock 전면정리. **PR-K**(Reflection) defer.
+2. **[CLAUDE] D11 전 hard-gate lane**: **PR-H** 리포트 enrich+manual trigger(reject→batch / Regen→단일 ticker) → **PR-I/PR5b** Tier2 sector14+Section8 full path → **PR-J** runtime mock 전면정리. **D11 진입 전 완료 필수**(§2.2 D11 row). **PR-K**(Reflection)는 출시 게이트 아님 — S9/go-live 후 defer.
 
 **[별도 트랙] PR5 cron 리포트 go-live** (위 e2e와 독립, USER 게이트): cron-system seed ✅(62차 done — `CRON_SYSTEM_USER_ID` prod set + user `39202d8b-…`, PR5+PR-G 공용) + Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + cron-persist canary. 마이그 0027 ✅ applied. (PR #60 MERGED-dormant.)
 
@@ -45,7 +45,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # PR-G ⓐ 머지+docs sync 후 `d15da47` 또는 자손
+git rev-parse --short HEAD          # 2026-06-02 비용0+FE-audit+launch-order docs sync 후 `fe08fcb` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -81,7 +81,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 #   기대: build 26 routes / lint 0 err 5 warn / test:ci 123 files 1376 PASS / tsc clean
 ```
 - PR5 plan SoT(main 머지됨): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`. go-live 상세 = `audit-catalog.md §9.4` + W-pr5-cron-persist-canary.
-- **go-live 후 [CLAUDE]**: cron 가동 모니터링 + Task 8 audit + **PR5b**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**, plan §3.2/§9 G2) + Step 4 Reflection.
+- **go-live 후 [CLAUDE]**: cron 가동 모니터링 + Task 8 audit + **PR5b/PR-I**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**, plan §3.2/§9 G2). **Step 4 Reflection/PR-K는 출시 게이트 아님** — S9/go-live 후 실 운용 결과 누적 시 defer.
 
 ### 진입자 자동 행동 (§2.0 default-progress)
 
@@ -98,9 +98,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (PR-G ⓐ 머지 후 `d15da47` 또는 자손). |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync 후 `fe08fcb` 또는 자손). |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
-| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#68 + canonical 5-PR 모두 MERGED(상세 git log). |
+| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#76 + canonical 5-PR 모두 반영/머지(상세 git log). |
 | 검증 게이트 (main, 2026-06-02 비용0+FE-audit 후) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1513 PASS / 135 files** / tsc clean / **Python 95 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
@@ -108,7 +108,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | 선정 흐름 | spec lock-in: Tier 0 150 → Tier 1 Core 11 AI → 단/중/장 top 10 = 30. 현 production = Tier 0 단독 30(fallback). **PR-G 실 AI 첫 30선정 시 메인 path 활성** (PR5=별도 report-only cron, 선정 path 아님). |
 | 풀 리포트 | PR3b writer Section 0~7 + Section 8 partA/partD + PR3c 3-step + PR4 admin caller + 마이그 0025 RPC + env=true. **functional 가능, last-known audit cost_log=0/stock_reports=0** → Task 7 Smoke Stage 2에서 첫 실 검증. |
 | 실 AI 호출 | **현재 0건** (cost_log=0). **선정 path 첫 실 AI = PR-G**(150 시드 + Tier1 30선정). report-only 첫 smoke = Task 7(PR5 트랙, 별도). 둘 다 USER 비용 승인 후. |
-| Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0029 production applied** (0028 = tier0_candidates_150 disjoint 50×3 + canonical CHECK + unique(month,bucket,rank); 0029 = short_list_30 AI 컬럼 8종 nullable + consensus_badge/winning_timeframe CHECK) · SECURITY DEFINER 패턴 · dart_corp_codes 2,766/2,766 induty 백필. |
+| Supabase | project `rbrpcynhphrpljbjirfo` · **0001~0030 production applied** (0028 = tier0_candidates_150 disjoint 50×3 + canonical CHECK + unique(month,bucket,rank); 0029 = short_list_30 AI 컬럼 8종 nullable + consensus_badge/winning_timeframe CHECK; 0030 = `get_cost_log_monthly_total_admin` cost RPC) · SECURITY DEFINER 패턴 · dart_corp_codes 2,766/2,766 induty 백필. |
 | Vercel canary | 최근 PR-F deploy Ready; **public 4/4 OK** (`/` + `/login` + `/macro` 200 + `/admin` 307→login, tudal-tawny.vercel.app). cron route 5개(monthly-batch / morning-briefing / news-sweep / silent-health / **report-worker daily — dormant**). 인증 세션 canary 권장. |
 | Mock/슬라이스 | Mock ✅ / DQ-7 ~97%(Smoke #4/#5 + Session 4 QA 잔여) / S7e 7/8(T7e.7 RLS QA 잔여) / S7a ✅ / Tier 2 D21 ✅ / cron INSERT mock cleanup Step 2 전체 완료. |
 
@@ -144,7 +144,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. 현 1순위 = PR-G, 한눈에 큐)
 
-**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028/0029 applied). **다음 1순위 = PR-G ⓑ(실 AI 첫 30선정, ④=로컬 러너·cron 불가) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
+**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **다음 1순위 = PR-G ⓑ(실 AI 첫 30선정, ④=로컬 러너·cron 불가) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
@@ -168,10 +168,10 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | Step | Owner | Trigger | Default action |
 |---|---|---|---|
 | **PR5** cron 30 report-only 자동 + β2′ DB job queue | CLAUDE | ✅ **코드 MERGED**(PR #60) + 마이그 0027 applied. go-live = USER 게이트(c seed / d env / a Task 7 smoke / e plan tier) 후 cron 가동 | `orchestrateFullReport` Section 0~7 자동. queue = `report_batch_job` + `report_worker_run` run-mutex, fail = sequential + retry N=2 + summary/cost alert, cost ≈ 16,050원/월. cron dormant(flag off). **committee_votes/Section 8 = PR5b(D11 전 land hard gate)**. |
-| **Step 4 Reflection** | CLAUDE | PR5 cron 가동 + 실 Tier 1 결과 누적 후 | reflection_log 마이그 + Tier 1 context 주입. |
+| **[defer] Step 4 Reflection / PR-K** | CLAUDE | **출시 게이트 아님** — S9/go-live 후 실 운용 결과 누적 시 | reflection_log 마이그 + Tier 1 context 주입. |
 | **Step 7 S7b** 뉴스+브리핑 mock→real | USER(B-7 Resend + B-8 Naver) + CLAUDE | PR5 가동 후 | 실 Naver news sweep + Resend 도메인 인증 + 모닝 브리핑 cron. |
-| **Step 8 D11 AI 가상 포트 1차 가동 게이트** | USER 운용 + CLAUDE 모니터링 | S7b 완료 후, S7c 진입 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증 (의사결정 품질·승인·재생성 cap·뉴스 분류). **acceptance gate UI = 리포트 페이지 section_8 부재 시 '🤖 Tier 1 평가 대기' pill + Section 0 요약 🔢숫자/🤖AI/합의 배지 1행** (PR3b STEP-1, W-tier1pill 해소). **S7c 진입 게이트** (자동매매 S8은 출시 후). |
-| **Step 9 S7c** 장중·KIS WS + Exit 2채널 | USER(B-9 Telegram + B-10 KIS) + CLAUDE | D11 검증 통과 후 | 실 alert_event + KIS 본인 1개 WS read-only + J3 Exit 3채널 + 대안 3 + T+7 outcome. |
+| **Step 8 D11 AI 가상 포트 1차 가동 게이트** | USER 운용 + CLAUDE 모니터링 | S7b 완료 + **PR-H/I/J D11 전 hard gate**(manual trigger 2종 + PR5b/Section8 full path + runtime mock grep 0) 완료 후, S7c 진입 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증 (의사결정 품질·승인·재생성 cap·뉴스 분류). **acceptance gate UI = 리포트 페이지 section_8 부재 시 '🤖 Tier 1 평가 대기' pill + Section 0 요약 🔢숫자/🤖AI/합의 배지 1행** (PR3b STEP-1, W-tier1pill 해소). **S7c 진입 게이트** (자동매매 S8은 출시 후). |
+| **Step 9 S7c** 장중·KIS WS + Exit 2채널 | USER(B-9 Telegram + B-10 KIS) + CLAUDE | D11 검증 통과 후 | 실 alert_event + KIS read-only 1개(권한 확인, B-10) WS + J3 Exit 3채널 + 대안 3 + T+7 outcome. |
 | **Step 10 S7d** Silent Health | CLAUDE | S7c 완료 후 | 5 파이프라인 success_rate + red_alert 0 + Exit outcome T+7 cron. |
 | **Step 15 S9 운용 → 🎉 출시** | USER 1개월+ + CLAUDE hotfix | **S7d 완료 후** | 어드민 3인 실 사용 1개월+ + §2.2 7 criteria 통과 = 출시. **자동매매 없는 "AI 추천 + 가상 포트 + 알림" 도구**(criterion #7 N/A). |
 | **[출시 후] S8 자동매매** (분리 단독) | USER(B-11 Binance) + CLAUDE | **출시 후** (어드민 3인 실운용하며 보면서 개발) | 주식 KIS + 바이낸스 USDT-M 선물 · Strategy drop-in + AI 어댑터 · 가드레일 + Binance Smoke #3. |
@@ -194,7 +194,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | B-10 KIS 키 (per-admin, 1/3 보유) | ★ KIS·Binance = **per-admin 키**(DQ-7 모델, 각자 UI 입력·암호화 저장). 현재 **3명 중 1명만 보유** (brokerage_connection 1행 = 다른 1명의 **모의(mock)** 키, account 있음·active·미사용, masked `PS**···9W7Q`). **사용자님 포함 2명 KIS 발급 필요.** S7c **장중 read-only 시세는 1개로 충분**(시세는 계정 공유 무관 — D18); per-admin 전체(특히 S8 자동매매 주문)는 3명 각자 필요. S7c 코드 잔여: 모의 키 실시간시세 권한 확인 + WebSocket 코드(CLAUDE 미구현) + Smoke #4/#5 | S7c(1개 read-only) / S8(3명 each) |
 | FLAGGED 6종 (2026-06-02 FE-audit) | §6 FE-audit entry 박제. **phase 흡수**: alerts/[id] exit RPC·settings 3모드 → S7c / notifications 본체 seam → S7b(Resend/Telegram) / cost day-month·health error-tail → cron(PR5) go-live 후 / Bell 링크 = UX(veto 가능). 해당 phase 진입 시 audit-catalog §9.5 W-ticket 승격 | 각 phase 도달 시 |
 | B-11 | Binance key (testnet 우선) | S8 진입 시 |
-| B-D11 | D11 AI 가상 포트 며칠~1주 운용 검증 (어드민 3인 만족도 → S7c 진입 승인) | S7b 완료 후, S7c 전 |
+| B-D11 | D11 AI 가상 포트 며칠~1주 운용 검증 (어드민 3인 만족도 → S7c 진입 승인) | S7b + PR-H/I/J hard gate 완료 후, S7c 전 |
 | ~~W-tier1pill~~ ✅ | Section 8 absent = Tier 1 평가 대기 pill UI — **STEP-1(PR #69)에서 반영** (리포트 페이지 pill + Section0 🔢🤖배지 1행). D11 acceptance gate UI 완료 | — |
 | B-12 | 보안 rotate (Supabase anon/service_role/DB pw/PAT, 노출 키) | 권장 |
 | B-13 | Vercel CLI update | 향후 deploy 권장 |
