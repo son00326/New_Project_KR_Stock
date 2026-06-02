@@ -30,7 +30,7 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **BLOCKER 등급 갭 (ADR §2)**: B1 tier0 150 SoT→**PR-D ✅** / B2 어댑터→**PR-C ✅** / B3 DART 스키마→**PR-B ✅** / B4 배지 컬럼→**PR-E ✅** / B5 배지 알고리즘 단일화(ADR D-2 consensus.ts) ✅ / B7 fail-open→**PR-B2+PR-E is_admin 게이트 ✅** / 잔여 B6(disjoint RPC — commit_persona_eval=report-path, selection 배지=short_list_30, PR-E 분리 확정).
 
-**ACTIVE blocker / W-ticket** (full catalog → `docs/superpowers/audit-catalog.md`): OPS-1(plan tier, PR5 트랙) / W-alert-event-dedup / W-portfolio-snapshot-real / W-tier1pill.
+**ACTIVE blocker / W-ticket** (full catalog → `docs/superpowers/audit-catalog.md`): OPS-1(plan tier, PR5 트랙) / W-alert-event-dedup / W-portfolio-snapshot-real. ~~W-tier1pill~~ = STEP-1 branch에서 UI acceptance gate 반영.
 
 > **실 AI trigger/cron 가동은 USER 비용 승인 전 절대 금지** (실 30선정 1회 ≈ 6.5–8만원, reservation cap 135,680원 — 구 "~5-6천원"은 오기). 현 short_list_30 30종목은 **AI가 아닌 Tier 0 지표로 고른 fallback**.
 
