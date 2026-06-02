@@ -9,6 +9,10 @@ const {
   callPersonaMock,
   fetchFinancialsSummaryMock,
   serviceClientMock,
+  acquireBatchLockCronMock,
+  releaseBatchLockCronMock,
+  recordSchedulerFailAlertMock,
+  getTier0CandidatesMock,
 } = vi.hoisted(() => {
   const getUserByIdMock = vi.fn();
   return {
@@ -20,20 +24,28 @@ const {
     serviceClientMock: {
       auth: { admin: { getUserById: getUserByIdMock } },
     },
+    // PR-fix1 (A) — dormant 게이트가 orchestrator/lock/tier0/alert 진입 前 0회임을 직접 고정하기 위해 accessible mock으로 hoist.
+    acquireBatchLockCronMock: vi.fn(),
+    releaseBatchLockCronMock: vi.fn(),
+    recordSchedulerFailAlertMock: vi.fn(),
+    getTier0CandidatesMock: vi.fn(),
   };
 });
 
 vi.mock('@/lib/screening/monthly-batch-orchestrator', () => ({
   runMonthlyBatchOrchestrator: runMock,
 }));
-// service-role/lock/persist/alert는 본 test에서 직접 호출 안 됨 (orchestrator stub이 가로챔).
-// 하지만 import boundary 검증 차원에서 같이 mock 처리.
+// service-role/lock/persist/alert는 happy-path test에서 직접 호출 안 됨 (orchestrator stub이 가로챔).
+// PR-fix1 (A): dormant 게이트 0회 검증을 위해 lock/alert/tier0를 accessible mock으로 노출.
 vi.mock('@/lib/data/admin-batch-runs-cron', () => ({
-  acquireBatchLockCron: vi.fn(),
-  releaseBatchLockCron: vi.fn(),
+  acquireBatchLockCron: acquireBatchLockCronMock,
+  releaseBatchLockCron: releaseBatchLockCronMock,
 }));
 vi.mock('@/lib/data/admin-alerts-insert', () => ({
-  recordSchedulerFailAlert: vi.fn(),
+  recordSchedulerFailAlert: recordSchedulerFailAlertMock,
+}));
+vi.mock('@/lib/data/admin-tier0-candidates', () => ({
+  getTier0Candidates: getTier0CandidatesMock,
 }));
 vi.mock('@/lib/data/admin-shortlist-persist', () => ({
   upsertShortList30: vi.fn(),
@@ -62,7 +74,14 @@ describe('GET /api/cron/monthly-batch', () => {
     callPersonaMock.mockReset();
     fetchFinancialsSummaryMock.mockReset();
     fetchFinancialsSummaryMock.mockResolvedValue('[005930] 재무 데이터 없음');
+    acquireBatchLockCronMock.mockReset();
+    releaseBatchLockCronMock.mockReset();
+    recordSchedulerFailAlertMock.mockReset();
+    getTier0CandidatesMock.mockReset();
     process.env.CRON_SECRET = 'cron-secret';
+    // PR-fix1 (A): 대부분의 기존 test는 실 AI 경로(flag on)를 가정하므로 default ON으로 두고,
+    // dormant 게이트 test만 명시적으로 off(stubEnv)한다.
+    process.env.MONTHLY_BATCH_CRON_AI_ENABLED = 'true';
   });
 
   describe('authorization (G-cron-auth)', () => {
@@ -280,6 +299,13 @@ describe('GET /api/cron/monthly-batch', () => {
     };
 
     async function getPreflight() {
+      // PR-fix1 (A): route 초입 dormant 게이트는 flag!=='true'면 orchestrator 미호출 → preflight 추출 불가.
+      //   preflight 함수 자체의 4-gate(특히 flag-off) 단위 검증을 위해, GET 동안만 flag ON으로 강제해
+      //   orchestrator를 노출시키고, 추출 직후 각 test가 stub한 의도값으로 복원한다. preflight는 호출
+      //   시점의 env를 읽으므로 flag-off 분기 검증이 유지된다 (이 분기는 route 게이트와 중복인 cron-path
+      //   redundant secondary guard지만 회귀 방지 위해 단위 검증 존치 — route.ts:164 주석과 동일).
+      const intended = process.env.MONTHLY_BATCH_CRON_AI_ENABLED;
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'true');
       runMock.mockResolvedValue(okOutcome);
       const { GET } = await import('../route');
       await GET(
@@ -288,6 +314,7 @@ describe('GET /api/cron/monthly-batch', () => {
         }),
       );
       const args = runMock.mock.calls[0][0];
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', intended ?? '');
       return args.preflight as (i: {
         month: string;
         callCount: number;
@@ -371,13 +398,12 @@ describe('GET /api/cron/monthly-batch', () => {
       }
     });
 
-    it('route-level contract: flag off stops before the Anthropic panel', async () => {
+    // PR-fix1 (A) — dormant 게이트 (route 초입). flag off(default) → orchestrator/lock/tier0/alert/panel
+    //   진입 前 200 skip. 종전엔 flag off라도 orchestrator가 lock+tier0(150-invariant) 후 preflight throw →
+    //   catch에서 recordSchedulerFailAlert(critical) + 502를 매월 발생시켰다(가짜 알림). report-worker
+    //   PR5_CRON_AUTO_ENABLED 패턴 정합. dormant ≠ failure → 200 skip, spend 0.
+    it('route-level contract: flag off (default) → 200 dormant skip, orchestrator/lock/tier0/alert/panel 0회', async () => {
       vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', 'false');
-      runMock.mockImplementation(async (args) => {
-        await args.preflight({ month: '2026-06', callCount: 1650 });
-        await args.callPersonaPanel({ ticker: '005930', financials: 'f' });
-        return okOutcome;
-      });
       try {
         const { GET } = await import('../route');
         const res = await GET(
@@ -385,10 +411,37 @@ describe('GET /api/cron/monthly-batch', () => {
             headers: { authorization: 'Bearer cron-secret' },
           }),
         );
+        expect(res.status).toBe(200);
         const body = await res.json();
-        expect(res.status).toBe(502);
-        expect(body.error).toBe('monthly_batch_cron_ai_disabled');
+        expect(body.ok).toBe(true);
+        expect(body.skipped).toBe(true);
+        expect(body.reason).toBe('monthly_batch_cron_ai_disabled');
+        // 게이트가 orchestrator 진입 자체를 막으므로, orchestrator가 보유한 lock/tier0/alert 콜백은 0회.
+        expect(runMock).not.toHaveBeenCalled();
+        expect(acquireBatchLockCronMock).not.toHaveBeenCalled();
+        expect(getTier0CandidatesMock).not.toHaveBeenCalled();
+        expect(recordSchedulerFailAlertMock).not.toHaveBeenCalled();
         expect(callPersonaMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    // 게이트 조건은 !== 'true' → empty string·기타 비-'true' 값도 'false'와 동일하게 dormant.
+    // (vi.stubEnv('')는 empty-string 대표 케이스 — 진짜 env absence가 아니라 non-'true' 값 검증.)
+    it("route-level contract: flag가 비-'true' 값(empty string) → 200 dormant skip", async () => {
+      vi.stubEnv('MONTHLY_BATCH_CRON_AI_ENABLED', '');
+      try {
+        const { GET } = await import('../route');
+        const res = await GET(
+          new NextRequest('http://localhost/api/cron/monthly-batch', {
+            headers: { authorization: 'Bearer cron-secret' },
+          }),
+        );
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        expect(body.skipped).toBe(true);
+        expect(runMock).not.toHaveBeenCalled();
       } finally {
         vi.unstubAllEnvs();
       }
