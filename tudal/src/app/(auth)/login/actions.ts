@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 // 오류 코드: "invalid_credentials" · "not_admin" · "auth_error".
 // ---------------------------------------------------------------------------
 
+// PR-fix2 (D) — env ADMIN_EMAILS = pre-session gate. DB admin_emails + is_admin()(RLS/server-action gate)와
+//   의도적 dual-gate. 어드민 변경 시 양쪽 동시 갱신 필수 (상세: lib/supabase/middleware.ts D 주석).
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((e) => e.trim().toLowerCase())

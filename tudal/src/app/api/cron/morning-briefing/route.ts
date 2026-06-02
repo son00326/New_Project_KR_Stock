@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { composeBriefing, toBriefingLogRecord } from "@/lib/briefing/compose";
 import { sendEmail } from "@/lib/email/resend";
+import { sendTelegram, isTelegramConfigured } from "@/lib/notify/telegram";
 import { getRecentNewsEvents } from "@/lib/data/admin-news";
 import { insertBriefingLog } from "@/lib/data/admin-briefing-log";
 import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
@@ -109,6 +110,16 @@ export async function GET(request: NextRequest) {
     else emailError = result.error ?? "email send failed";
   }
 
+  // PR-fix2 (C) — telegram best-effort. composeBriefing이 composed.telegram을 만들지만 종전엔 미발송(dead branch).
+  //   isTelegramConfigured()일 때만 시도(미설정 prod에서 sendTelegram success:false 잡음 회피). 성공 시 채널 기록.
+  //   ※ telegram 실패/미설정은 generationFailed/finalStatus에 절대 반영 안 함 (best-effort, silent-health 정합).
+  let telegramError: string | null = null;
+  if (isTelegramConfigured()) {
+    const tg = await sendTelegram({ text: composed.telegram });
+    if (tg.success) sentChannels.push("telegram");
+    else telegramError = tg.error ?? "telegram send failed";
+  }
+
   const generationFailed = Boolean(configError || (emailError && recipients.length > 0));
   const logPayload = toBriefingLogRecord(composed, sentChannels, generationFailed);
 
@@ -161,6 +172,7 @@ export async function GET(request: NextRequest) {
       log: logPayload,
       alertEmitted: alertPayload?.triggerReason ?? null,
       dbError,
+      telegramError,
     },
     { status: finalStatus },
   );
