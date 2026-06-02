@@ -77,12 +77,24 @@ class MissingCostRpcError extends Error {
   }
 }
 
+interface CostRpcError {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+}
+
 // STEP-2: missing-function(pre-migration) fallback 판정 — 0030 apply 전 무회귀 전용.
-//   PGRST202 = PostgREST schema-cache function-not-found, 42883 = undefined_function.
+//   PGRST202 = PostgREST schema-cache target RPC not found.
+//   42883(undefined_function)는 광범위하므로 target RPC명이 error payload에 있을 때만 허용
+//   (내부 dependency undefined_function → 직접 SELECT fallback = fail-open 재노출 차단).
 //   ★ admin_required / auth_unavailable / permission(42501) / RLS / 기타 DB error는 fallback 금지
 //     (fail-closed throw — undercount 우회 차단). omxy 합의.
-function isMissingFunctionError(code: string | undefined): boolean {
-  return code === 'PGRST202' || code === '42883';
+function isMissingFunctionError(error: CostRpcError): boolean {
+  if (error.code === 'PGRST202') return true;
+  if (error.code !== '42883') return false;
+  const payload = [error.message, error.details, error.hint].filter(Boolean).join('\n');
+  return payload.includes('get_cost_log_monthly_total_admin');
 }
 
 // STEP-2: SESSION 경로 server-side SUM RPC (admin-only, 마이그 0030).
@@ -96,7 +108,7 @@ async function getMonthlyTotalViaRpc(
     p_month: month,
   });
   if (error) {
-    if (isMissingFunctionError(error.code)) {
+    if (isMissingFunctionError(error)) {
       // pre-migration only — caller에게 fallback 신호 (직접 SELECT로 무회귀).
       throw new MissingCostRpcError();
     }
@@ -117,9 +129,13 @@ export async function getMonthlyTotal(
   month: string,
   options: CostHelperOptions = {},
 ): Promise<number> {
+  const callerKind = options.callerKind ?? 'session';
+  if (callerKind !== 'session' && callerKind !== 'service-role') {
+    throw new Error('cost_log_caller_kind_invalid');
+  }
   const supabase = options.client ?? (await createClient());
   // STEP-2 fork: session(default) = RPC-first(fail-closed) / service-role = 직접 SELECT(RLS bypass).
-  if ((options.callerKind ?? 'session') === 'session') {
+  if (callerKind === 'session') {
     try {
       return await getMonthlyTotalViaRpc(supabase, month);
     } catch (err) {

@@ -29,8 +29,8 @@ declare
   v_total numeric;
   v_negative_exists boolean;
 begin
-  -- input regex guard (0025 패턴 동일 — PostgreSQL POSIX regex portability)
-  if p_month !~ '^[0-9]{4}-[0-9]{2}$' then
+  -- input regex guard (PostgreSQL POSIX regex portability + app YYYY-MM month range와 정합)
+  if p_month !~ '^[0-9]{4}-(0[1-9]|1[0-2])$' then
     raise exception 'invalid_month';
   end if;
 
@@ -43,24 +43,23 @@ begin
     raise exception 'admin_required';
   end if;
 
-  -- financial integrity guard: 음수 cost_krw row가 1개라도 있으면 fail-closed
+  -- financial integrity guard + server-side SUM을 단일 statement로 수행:
+  -- READ COMMITTED에서 guard/SUM 사이에 음수 row가 끼어드는 snapshot skew 차단.
   -- (0017 schema에 cost_krw>=0 CHECK 부재 → hardcap undercount 우회 차단).
-  select exists (
-    select 1 from public.cost_log
-    where month = p_month and cost_krw < 0
-  ) into v_negative_exists;
+  select
+    coalesce(sum(cost_krw), 0),
+    coalesce(bool_or(cost_krw < 0), false)
+    into v_total, v_negative_exists
+    from public.cost_log
+    where month = p_month;
+
   if v_negative_exists then
     raise exception 'cost_log_select_failed_negative_cost_krw';
   end if;
 
-  -- server-side SUM — transaction snapshot (pagination / row-limit / parallel-insert page skew 무관).
+  -- server-side SUM — statement snapshot (pagination / row-limit / parallel-insert page skew 무관).
   -- PostgREST aggregate disabled 이슈는 RPC(plpgsql)에는 적용 안 됨.
-  -- 빈 month → SUM=NULL → coalesce 0 (PostgreSQL IF-null guard).
-  select coalesce(sum(cost_krw), 0)
-    into v_total
-    from public.cost_log
-    where month = p_month;
-
+  -- 빈 month → SUM=NULL → coalesce 0.
   if v_total is null then
     v_total := 0;
   end if;

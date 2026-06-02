@@ -81,6 +81,40 @@ describe('commitFullReport — caller DI seam (PR4 Task 1 Step 1.1)', () => {
     );
   });
 
+  it('STEP-2: callerKind=cron → preflightHardcap uses service-role cost path', async () => {
+    const fakeClient = {
+      rpc: vi.fn().mockResolvedValue({
+        data: { success: true, report_id: 'rpt-cron' },
+        error: null,
+      }),
+    };
+    const preflightHardcapMock = vi.fn().mockResolvedValue(undefined);
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
+    vi.doMock('@/lib/cost/cost-logger', () => ({
+      preflightHardcap: preflightHardcapMock,
+      insertCostLog: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.doMock('@/lib/ai/full-report-client', () => ({
+      callFullReport: vi.fn().mockResolvedValue({
+        content: validFullReportJson(),
+        usage: {
+          input_tokens: 1,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 1,
+        },
+        costKrw: 1,
+      }),
+    }));
+    const { commitFullReport } = await import('@/lib/report/full-report-writer');
+    await commitFullReport(validInput, { client: fakeClient as never, callerKind: 'cron' });
+
+    expect(preflightHardcapMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      { client: fakeClient, callerKind: 'service-role' },
+    );
+  });
+
   it('falls back to createClient when options omitted (default behavior preserved)', async () => {
     const createClientSpy = vi.fn().mockResolvedValue({
       rpc: vi.fn().mockResolvedValue({

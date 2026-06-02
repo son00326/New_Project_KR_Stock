@@ -144,13 +144,17 @@ export async function orchestrateFullReport(
   // B1 fix: cost-hardcap preflight (ORCHESTRATE_TOTAL_COST_BUDGET_KRW = writer + critic + revise worst case)
   // PR4 Task 2 Step 2.1: caller-supplied client 전파 (cost_log RLS 정합).
   // PR4 Task 8 W7 fix: enriched.month 사용.
+  // STEP-2: cron은 service-role client를 주입하므로 admin-only cost_log SUM RPC를 타면
+  // auth.uid()=null/admin_required로 worker가 깨진다. cron path만 service-role 직접 SELECT로 고정.
   await preflightHardcap(
     {
       month: enriched.month,
       callCount: 1,
       maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
     },
-    { client: options.client },
+    options.callerKind === 'cron'
+      ? { client: options.client, callerKind: 'service-role' }
+      : { client: options.client },
   );
 
   // Step 2 writer (Opus max 8192 — PR3b callFullReport 재사용)
