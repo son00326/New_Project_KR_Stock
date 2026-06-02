@@ -184,7 +184,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 |---|---|---|
 | ⭐ PR-G ⓑ (실 AI 첫 30선정, 다음 1순위) | ⓐ ✅ MERGED. 62차 prep: ② cron-system user ✅ · ③ env ✅(flag false 복원) · ① 150 시드 ❌ KRX throttle 재실행 필요. **④ = 로컬 러너 확정**(cron 불가/타임아웃). 다음 세션 = ① 재시드 + 로컬 러너 A′+B 빌드 + 실행(~55분, ~6.5-8만원). CLAUDE 주도(사용자 ①~④ 위임) | 한눈에 §다음 액션 큐 1번 참조 |
 | PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / ~~cron-system seed~~ ✅(62차 done, `CRON_SYSTEM_USER_ID` prod set) / Vercel `PR5_CRON_AUTO_ENABLED=true` / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
-| ⭐ 마이그 0030 apply (비용 0 라운드, STEP-2) | `tudal/supabase/migrations/0030_get_cost_log_monthly_total_admin.sql` production apply + grant matrix verify(`pg_proc.proacl`: authenticated만, anon/service_role/PUBLIC 없음) + get_advisors. **코드는 merged(main `24559cc`) + fallback이라 apply 전 무회귀** — apply 시 cost_log non-admin silent-0 fail-closed 하드닝 활성. (supabase MCP 재연결 후) | §6 비용 0 라운드 entry |
+| ~~마이그 0030 apply~~ ✅ DONE (2026-06-02) | `0030_get_cost_log_monthly_total_admin` production applied + verify PASS: grant matrix(authenticated만/anon·service_role·PUBLIC 제외) + fail-closed 가드 production 확인(무세션→auth_unavailable raise) + advisor baseline + cost_log drift 0. STEP-2 cost_log 하드닝 production 활성 | §6 비용 0 라운드 entry |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
@@ -259,8 +259,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
   - **STEP-2** cost_log RPC `31cb624` (PR #70): 마이그 0030 `get_cost_log_monthly_total_admin` SECDEF(non-admin silent-0 fail-open → fail-closed) + **service-role fork**(session=RPC / cron·worker·orchestrator·writer=직접 SELECT, callerKind). omxy가 누락 caller(orchestrator/writer cron) + unrelated-42883 fail-open catch. test:ci 1476.
   - **PR-A**(=STEP-3 a+c → 4페이지 확장) `24559cc` (PR #71): health/alerts/alerts[id]/cost 전부 explicit `rpc('is_admin')` silent-0 diagnostic 배너(마이그 0). test:ci 1501/132.
 - **PR-B(STEP-7 seam) DEFER**: 코드 검증 결과 VoteList가 personas를 id로 매칭(vote-roster)이고 실 vote id 스키마는 PR-I에서 확정 → STEP-8/PR-I와 일관 재배선. 단독 swap premature.
-- **잔여 = 전부 DEFER(실AI/cron) 또는 USER**. 추가 비용 0 CLAUDE 작업 0. **USER 액션 = 마이그 0030 apply**(§3, STEP-2 하드닝 활성화 — 코드 fallback이라 apply 전 무회귀).
-- **end-state**: main `24559cc`. test:ci 1501/132 PASS / build 26 / lint 0err 5warn / tsc clean. 마이그 0030 미apply(USER). DB 드리프트 0(cost_log=0 등, PR-A는 마이그 0).
+- **잔여 = 전부 DEFER(실AI/cron) 또는 USER**. 추가 비용 0 CLAUDE 작업 0. **마이그 0030 ✅ apply DONE (2026-06-02)** — STEP-2 cost_log 하드닝 production 활성(verify PASS). 비용 0 라운드 USER 잔여 = 0.
+- **end-state**: main `24559cc`. test:ci 1501/132 PASS / build 26 / lint 0err 5warn / tsc clean. **마이그 0001~0030 production applied** (0030 = 2026-06-02 cost RPC). DB 드리프트 0(cost_log=0 등, PR-A는 마이그 0). 다음 = 실AI 켜기 결정(PR-G ⓑ) 또는 DEFER 항목 트리거 시점.
 
 ### PR-G ⓑ prep (62차) — ④ 보류 + ④ 실행방식 결정 (코드/DB 변경 0, 외부 prep만)
 

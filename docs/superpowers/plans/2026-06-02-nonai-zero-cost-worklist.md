@@ -199,11 +199,11 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 
 ### 실행 현황 (2026-06-02 — 비용 0 작업 라운드 완료)
 - ✅ STEP-1 UI sweep MERGED `d00bd53` (PR #69)
-- ✅ STEP-2 cost_log RPC + service-role fork MERGED `31cb624` (PR #70) — **마이그 0030 USER apply 대기**
+- ✅ STEP-2 cost_log RPC + service-role fork MERGED `31cb624` (PR #70) — **마이그 0030 ✅ production applied (2026-06-02)**: grant matrix PASS(authenticated만, anon/service_role/PUBLIC 제외) + fail-closed 가드 production 확인(무세션 호출→auth_unavailable raise) + advisor 기존 baseline. cost_log 하드닝 활성.
 - ✅ **PR-A (STEP-3 a+c → silent-0 4페이지 sweep) MERGED `24559cc` (PR #71)** — health/alerts/alerts[id]/cost 모두 explicit `rpc('is_admin')` diagnostic 배너(마이그 0). omxy ② 4-page completeness 확장 + Claude ③ CONVERGED.
 - 🟡 **PR-B (STEP-7 seam) DEFER** — 코드 검증 결과 "라벨 전용 seam"이 아니라 `VoteList`가 personas를 **id로 매칭**(`page.tsx:1107 per.id === v.personaId`)하는 vote-roster. legacy id(`core-1`/`sector-…`) vs 실 committee_votes id(production 페르소나, PR-I에서 확정) 불일치 → DEFER된 vote-write 경로와 얽힘. **STEP-8/PR-I와 함께 일관 재배선**(실 committee_votes + sector eval land 시). 단독 swap = premature(투기적 id 정렬).
 
 ### 🎯 비용 0 라운드 결론
 - **지금 머지 완료 = 3건** (STEP-1 + STEP-2 + PR-A). 전부 비용 0, 게이트 ALL GREEN, omxy CONVERGED.
 - **잔여 = 전부 DEFER(실AI/cron 시점) 또는 USER**. 추가 비용 0 CLAUDE 코딩 작업 없음(불필요 작업 0).
-- **USER 잔여 액션**: 마이그 **0030** production apply + grant matrix verify (STEP-2 하드닝 활성화. 코드는 fallback이라 apply 전 무회귀). STEP-11 150 재시드 / STEP-12 RLS QA는 실AI/D11 시점.
+- **USER 잔여 액션**: ~~마이그 0030 apply~~ ✅ **DONE (2026-06-02)**. STEP-11 150 재시드 / STEP-12 RLS QA는 실AI/D11 시점. **비용 0 라운드 USER 잔여 = 0** (실AI 켜기 결정만 남음).
