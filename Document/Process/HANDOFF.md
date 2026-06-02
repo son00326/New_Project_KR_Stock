@@ -10,10 +10,11 @@ Last updated: 2026-06-01 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028+0029 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. 62차 prep 후 사용자 ④ 보류. **④ = 로컬 one-off 러너 확정**(cron/admin HTTP는 1650콜 ~30-55분 타임아웃 → NON-VIABLE; 매달 자동화는 별도 선정 청크워커 PR — §다음 액션 큐 1). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
-**main HEAD**: `git rev-parse --short origin/main` (현재 `d15da47` 또는 자손).
+**main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit 라운드 후 = `bb5e69a` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
-**검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1449 PASS / 126 files** / tsc clean / Python 95.
-**Production**: 마이그 0001~**0029** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 8종) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 0 rows(미시드) · **실 AI 호출 0건**(cost_log=0).
+**검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1513 PASS / 135 files** / tsc clean / Python 95.
+**Production**: 마이그 0001~**0030** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 + **0030 get_cost_log_monthly_total_admin cost RPC, 2026-06-02 applied+verify**) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 0 rows(미시드) · **실 AI 호출 0건**(cost_log=0).
+**⭐ 2026-06-02 비용0 라운드 완료** (PR #69~#75 MERGED): STEP-1 리포트 UI sweep + STEP-2 cost_log RPC(마이그 0030) + PR-A silent-0 4페이지 diagnostic + FE bridge-gap sweep(notifications nav · archive `?month` deep-link · Section8 partD 렌더 · portfolio dispute/하드코딩/배너 정직화). **추가 cost-0 CLAUDE 작업 0(소진)**. **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정 = 내일 Anthropic 키 발급 후 시작**(= 실 AI 켜기 = 출시 critical path 진입). KIS 키 = **이미 제공됨**(brokerage_connection 1행, mock_mode, S7c는 재발급 아니라 모드/WS권한 검증 + 코드). FLAGGED 6종 = 각 phase(S7b/c/cron)에 흡수(§3 하단).
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
@@ -52,7 +53,8 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3) 검증 게이트 (매 세션 1회)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   main 기준 기대: build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1449 PASS / 126 files / tsc clean / Python 95 tests PASS
+#   main 기준 기대 (2026-06-02 비용0+FE-audit 후): build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1513 PASS / 135 files / tsc clean / Python 95 tests PASS
+#   select count(*) from cost_log; -- 기대 0 (마이그 0030 RPC applied, 실 AI 전이라 cost 0)
 
 # 4) production audit 재확인 (Supabase MCP execute_sql 또는 dashboard) — drift detect
 #   select count(*) from cost_log;          -- 기대 0 (실 trigger/PR5 실행 전)
@@ -99,7 +101,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | main HEAD | **runtime verify** `git rev-parse --short origin/main` (PR-G ⓐ 머지 후 `d15da47` 또는 자손). |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
 | OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#68 + canonical 5-PR 모두 MERGED(상세 git log). |
-| 검증 게이트 (main, PR-G ⓐ 포함) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1449 PASS / 126 files** / tsc clean / **Python 95 tests PASS**. |
+| 검증 게이트 (main, 2026-06-02 비용0+FE-audit 후) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1513 PASS / 135 files** / tsc clean / **Python 95 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
 | Task 5 B66 | ✅ **PRODUCTION COMPLETE** (60차 §5): 마이그 0026 + induty 백필 2,766/2,766 + short_list_30 30 rows canonical 14(B93 PASS). placeholder/unresolved 영구 0. |
@@ -189,7 +191,8 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
 | B-9 | Telegram bot token + admin 3 chat_id | S7c alerts |
-| B-10 | KIS 본인 1개 OpenAPI key/account | S7c WS read-only |
+| ~~B-10 KIS 키 발급~~ ✅ 제공됨 | KIS 본인 1개 = **이미 brokerage_connection 1행 저장**(mock_mode·account 있음·active·미사용, masked `PS**···9W7Q`). S7c 잔여 = **재발급 아님** → ① 모의(mock) 키가 S7c read-only 실시간시세에 충분한지 / 실시간시세 권한 확인 ② S7c WebSocket 코드(CLAUDE 미구현) ③ Smoke #4/#5(credential RLS) | S7c WS read-only |
+| FLAGGED 6종 (2026-06-02 FE-audit) | §6 FE-audit entry 박제. **phase 흡수**: alerts/[id] exit RPC·settings 3모드 → S7c / notifications 본체 seam → S7b(Resend/Telegram) / cost day-month·health error-tail → cron(PR5) go-live 후 / Bell 링크 = UX(veto 가능). 해당 phase 진입 시 audit-catalog §9.5 W-ticket 승격 | 각 phase 도달 시 |
 | B-11 | Binance key (testnet 우선) | S8 진입 시 |
 | B-D11 | D11 AI 가상 포트 며칠~1주 운용 검증 (어드민 3인 만족도 → S7c 진입 승인) | S7b 완료 후, S7c 전 |
 | ~~W-tier1pill~~ ✅ | Section 8 absent = Tier 1 평가 대기 pill UI — **STEP-1(PR #69)에서 반영** (리포트 페이지 pill + Section0 🔢🤖배지 1행). D11 acceptance gate UI 완료 | — |
