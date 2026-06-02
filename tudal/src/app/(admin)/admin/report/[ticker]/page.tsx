@@ -377,7 +377,7 @@ function ReportSummaryAiRow({
       <span className="inline-flex items-center gap-1">
         <span aria-hidden>🤖</span>
         <span className="text-muted-foreground">AI</span>
-        {aiScore == null ? (
+        {pending || aiScore == null ? (
           <span className="text-muted-foreground">AI 대기</span>
         ) : (
           <b className="font-mono tabular-nums">{aiScore}</b>
@@ -675,21 +675,22 @@ function Section8View({
   votes: CommitteeVote[];
 }) {
   // PR3b STEP-1 (b) — report row는 존재(page line 76 notFound 가드 통과)하나 section_8 부재/null.
-  //   = 투심위(Section 8) 미생성 = Tier 1 합의 평가 대기. D11 운용 검증 acceptance gate UI.
+  //   투심위(Section 8) 미생성 또는 validation 실패 상태. D11 운용 검증 acceptance gate UI.
   //   section_8 존재 시(modern/legacy) 이 pill은 렌더되지 않음.
   if (!data) {
     return (
       <div className="rounded border border-dashed bg-muted/10 px-3 py-4 text-sm">
         <span
           className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground"
-          title="Tier 1 합의 평가 대기 (투심위 미생성)"
+          title="Tier 1 합의 평가 대기 (투심위 미생성 또는 validation 실패)"
           aria-label="Tier 1 평가 대기"
         >
           <span aria-hidden>🤖</span>
           Tier 1 평가 대기
         </span>
         <p className="mt-2 text-xs text-muted-foreground">
-          최종 의견·투심위(Section 8)가 아직 생성되지 않았습니다. AI 합의 평가 후 채워집니다.
+          최종 의견·투심위(Section 8)가 아직 생성되지 않았거나 validation에 실패했습니다.
+          AI 합의 평가 이후 정상 jsonb가 저장되면 채워집니다.
         </p>
       </div>
     );
