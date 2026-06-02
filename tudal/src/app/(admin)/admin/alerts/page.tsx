@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { getRecentAlertEvents } from "@/lib/data/admin-alerts";
 import { getRecentNewsEvents } from "@/lib/data/admin-news";
 import type { AlertEvent, AlertType, NewsEvent, Severity } from "@/types/admin";
@@ -59,6 +60,15 @@ const ALERT_LIMIT = 100;
 const NEWS_LIMIT_PER_SEVERITY = 50;
 
 export default async function AdminAlertsPage() {
+  // PR-A (c): line 83 캡션 '0건 = 실제 미발생'은 RLS-deny(비-admin은 0 rows fail-open)와
+  // 실제 미발생을 구분 못 함. is_admin()은 SECURITY DEFINER + authenticated execute grant(0015a:28)로
+  // RLS 우회 → admin assertion. adminErr || !isAdmin 모두 fail-closed
+  // (track-record/actions.ts:77 + portfolio/actions.ts:552 패턴). server component라 return 대신
+  // boolean으로 변환해 캡션을 조건부 정직화 (데이터는 RLS가 이미 게이트, throw 금지).
+  const supabase = await createClient();
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  const adminVerified = !(adminErr || !isAdmin);
+
   // alert_event / news_event 실 SELECT — 실패 시 page error.tsx로 위임.
   // helper는 이미 alert_event_select_failed / news_event_select_failed 구체 에러 throw.
   const [alertRows, criticalNewsRows, warningNewsRows] = await Promise.all([
@@ -78,10 +88,17 @@ export default async function AdminAlertsPage() {
           M12 뉴스 Critical · M10 스케줄러 실패 · M11 브리핑 실패 이력. Critical은
           즉시 알림, Warning은 대시보드 전용.
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          ※ alert_event · news_event 실 SELECT (58차 Mock cleanup Step 2.1).
-          0건 = 실제 미발생 (cron/exit detector가 INSERT하기 전 정상 상태).
-        </p>
+        {adminVerified ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            ※ alert_event · news_event 실 SELECT (58차 Mock cleanup Step 2.1).
+            0건 = 실제 미발생 (cron/exit detector가 INSERT하기 전 정상 상태).
+          </p>
+        ) : (
+          <p className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400">
+            ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 0건은 실제 미발생이
+            아니라 권한 검증 실패(RLS deny)일 수 있습니다.
+          </p>
+        )}
       </header>
 
       <section aria-label="알림 이벤트" className="rounded-lg border bg-card">

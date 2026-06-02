@@ -175,3 +175,30 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 
 1. **omxy 합의** (②③): 본 1차 플랜을 omxy 적대 검토 + direct-edit → Claude 재검증 → CONVERGED.
 2. CONVERGED 후 **STEP-1부터 §2.0a 4-step 실행**. 각 step 완료 시 HANDOFF/ProgressDashboard 동기화(문서 검증도 동일 프로세스).
+
+## 7. 재플랜 — 코드레벨 일괄 감사 결과 (2026-06-02, Workflow `wf_ef3c7021-3a4` 21 agents + 적대검증)
+
+사용자 지시("문제 다 찾은 뒤 진행 / step 과쪼개기 금지")에 따라 STEP-1·2 머지 후 **남은 STEP-3~12를 한 번에 코드레벨 감사**. 각 step을 가정검증·가치·premature·위험으로 재평가 + 적대적 re-bucket. **결과: 10개 → 지금 할 것 2개로 압축**(6개 premature, 1개 이미완료, 1개 USER).
+
+| STEP | 최종 bucket | 근거 |
+|---|---|---|
+| **STEP-3 (a)+(c)** | 🟢 **DO-NOW (PR-A)** | health admin-assertion + alerts "0건" 정직화. env ADMIN_EMAILS↔DB admin_emails drift(0002 seed commented-out)로 **현 production에 live한 silent-0 fail-open**. ★ **최소 접근 = explicit `rpc('is_admin')` diagnostic 배너, 마이그 0**(SECDEF aggregate RPC는 part b=DEFER). |
+| **STEP-7 seam** | 🟢 **DO-NOW (PR-B)** | page.tsx `mock-admin-committee-personas` runtime import → production seam 교체(ONE import). scaffold(runSectorEval/RPC/14패널/마이그 0019) 재구현 금지. STEP-8 unblock(단 STEP-8은 DEFER). marginal. |
+| STEP-3 (b) | 🟡 DEFER | window-aggregate RPC = pipeline_health=0 rows + audit-catalog "PR5 cron+Smoke Stage2" 명시 defer. premature. |
+| STEP-4 | 🟡 DEFER | insertCostLog spend-before-log gap 실재하나 두 flag(cron+AI) off라 발현 0. audit-catalog "go-live blocker 아님". cost-hardening 묶음으로 cron go-live 직전. |
+| STEP-6 | 🟡 DEFER | manual trigger — 노출 트리거(stock_reports seed)가 실 AI 전 없음. report go-live 직전 prep. ★prod AI_COST_LOG flag 이미 true라 seed 시점 latent exposure. |
+| STEP-8 | 🟡 DEFER | mock 제거 — committee_votes=0 + legacy id(`sector-반도체-1`) vs canonical id 불일치 → PR-I 재배선 필요. PR-I 후. |
+| STEP-9 | 🟡 DEFER | 선정 청크워커 — 매달자동화 정답이나 실 AI 전 no-op. HANDOFF "PR-G ⓑ 검증 후" 순서. |
+| STEP-10 | 🟡 DEFER | 로컬 러너 — throwaway one-off, 실행 게이트(150시드+USER 비용) 전 빌드 이득 0 + 중간위험(이중과금 경계). |
+| STEP-11 | 🟡 DEFER | 150 재시드 — backoff는 docstring "월1회라 불필요" 명시 제외 + 실 시드 USER 환경(KRX 키). |
+| STEP-12 | 🔵 USER | RLS 수동 QA — 3계정 실 JWT 필수, CLAUDE 코딩 불가. D11 직전. |
+| STEP-5 | ⬜ **DROP** | "증분"이 실은 **이미 7 test files/100 tests로 충족**. insertCostLog 0도 transitive 보장. |
+
+**완성도 비평**: STEP 목록 밖 신규 cost-0 누락 = 없음. PR #2(format-error OPEN) + ProgressDashboard docs-sync는 STEP-12 docs 묶음 합류.
+**DEFER 6 트리거**: PR5 cron go-live / 실 AI 켜기 시점에 클러스터(cost-hardening: STEP-4+0030 apply / 매달자동화: STEP-9 / 러너+시드: STEP-10+11 / report prep: STEP-6 / mock: STEP-8 after PR-I).
+
+### 실행 현황 (2026-06-02)
+- ✅ STEP-1 UI sweep MERGED `d00bd53` (PR #69)
+- ✅ STEP-2 cost_log RPC + service-role fork MERGED `31cb624` (PR #70) — 마이그 0030 USER apply 대기
+- 🔄 PR-A (STEP-3 a+c, explicit is_admin diagnostic, 마이그 0) — 진행
+- ⏳ PR-B (STEP-7 seam) — PR-A 후
