@@ -250,6 +250,15 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
 
+### 프론트 bridge-gap·spec-drift sweep (2026-06-02, PR #74 MERGED `b3ee84a`) — omxy ①조사+②수정 / Claude ③검증
+
+- **계기**: 사용자 "bridge 안 되어 프론트 미노출 / 기획과 다른 것 = omxy가 subagent·agent·skill로 컴포넌트 하나하나 검증+수정, 그 후 Claude 검증. 거기까지가 이번 세션." (역할 반전: omxy ①②, Claude ③.)
+- **omxy 방식**: admin 14페이지 × subagent(code-reviewer+architect) + code-review-graph MCP + **Playwright 실 렌더 검증**. 컴포넌트별 verdict 표(OK/bridge-gap/spec-drift/intended-empty/flag).
+- **FIXED (cost-0, 기획 근거, Claude ③ 검증 통과)**: (1) layout nav `settings/notifications`("알림 채널") 미노출 → 추가 (2) track-record archive → `/admin/report/[ticker]?month=YYYY-MM` deep-link + report `searchParams` 月 수용(+neighbors/regenerate 月 전파) = ServicePlan-Admin §line414 스펙 정합, default 무회귀 (3) report Section8 partD "Core 11 개별 의견" 미렌더 → 렌더 (4) portfolio: 하드코딩 `adminId:"admin-001"` 제거(본체 resolveAdminId() 세션 파생) + `resolveDispute` dangling→"이의 해결" 버튼 wired + Reject 배너 거짓("큐 추가됨")→정직("큐 미연결") + invariant 테스트 3 신규/2 보강.
+- **게이트**: build 26 / lint 0err 5warn / test:ci 1513/135(+12) / tsc clean. 마이그 0 / AI cost 0. canary 3/3.
+- **⚠️ FLAGGED follow-up (omxy 미수정 — 더 큰 scope/결정/deferred, 신규 W-ticket 후보)**: ① alerts/[id] exit decision 저장 RPC grant·RLS 결정 ② settings(index) 3모드·임계치 persistence ③ settings/cost day↔month switch·override(M17 R3.12 확장) ④ settings/health live error-tail source ⑤ settings/notifications 페이지 본체 backend seam(현 nav 노출만, 채널 설정 persistence 별도) ⑥ layout Bell→/admin/alerts 헤더 링크 = alerts 이미 nav 존재 → UX 추가(borderline, 유지·USER veto 가능).
+- **LEFT(intended-empty/deferred, 정확히 미수정)**: /admin 홈 브리핑·장중 카드(S7b/c) / alerts(PR-A 완료) / decision-tree seed / brokerage·binance(ping-gated) / main member mock.
+
 ### 비용 0 비-AI 하드닝 라운드 (2026-06-02, 사용자 "AI 보류 중 할 수 있는 것" 요청) — 3 PR MERGED
 
 - **계기**: 사용자 "실 AI 비용 보류, 그 전 비용 0 작업만 단계별 진행 (workflows + Claude①→omxy②→Claude③ + 합의 후 진행 + 불필요 작업 금지)". plan SoT = `docs/superpowers/plans/2026-06-02-nonai-zero-cost-worklist.md`.
