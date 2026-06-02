@@ -45,6 +45,10 @@ function formatMonthLabel(month: string): string {
   return `${y}년 ${Number(m)}월`;
 }
 
+function archiveReportHref(ticker: string, month: string): string {
+  return `/admin/report/${ticker}?month=${month.slice(0, 7)}`;
+}
+
 export function TrackRecordTabs({ cumulative, archives }: TrackRecordTabsProps) {
   return (
     <Tabs defaultValue="cumulative">
@@ -290,7 +294,7 @@ function ArchiveContent({ entries }: { entries: TrackRecordArchiveEntry[] }) {
             {entry.reports.map((r) => (
               <li key={`${entry.month}-${r.ticker}`}>
                 <Link
-                  href={`/admin/report/${r.ticker}`}
+                  href={archiveReportHref(r.ticker, entry.month)}
                   className="flex items-center justify-between rounded border px-2 py-1.5 text-sm hover:bg-muted/30"
                 >
                   <span className="font-mono">{r.ticker}</span>

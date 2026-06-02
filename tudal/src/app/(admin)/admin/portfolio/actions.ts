@@ -404,7 +404,7 @@ export async function rejectShortList(params: {
 // ---------------------------------------------------------------------------
 export async function raiseDispute(input: {
   approvalId: string;
-  adminId: string;
+  adminId?: string;
   reason: string;
 }): Promise<
   | { success: true; data: { raisedAt: string } }
@@ -467,7 +467,7 @@ export async function raiseDispute(input: {
 // ---------------------------------------------------------------------------
 export async function resolveDispute(input: {
   approvalId: string;
-  adminId: string;
+  adminId?: string;
 }): Promise<
   | { success: true; data: { resolvedAt: string } }
   | { success: false; error: string }

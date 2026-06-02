@@ -14,6 +14,10 @@ interface RegenerateConfirmPanelProps {
   allowed: boolean;
 }
 
+function reportHref(ticker: string, month: string): string {
+  return `/admin/report/${ticker}?month=${month.slice(0, 7)}`;
+}
+
 export function RegenerateConfirmPanel({
   ticker,
   month,
@@ -22,13 +26,14 @@ export function RegenerateConfirmPanel({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const returnHref = reportHref(ticker, month);
 
   function handleRegenerate() {
     setErrorMsg(null);
     startTransition(async () => {
       const result = await regenerateReport({ ticker, month });
       if (result.success) {
-        router.push(`/admin/report/${ticker}`);
+        router.push(returnHref);
         router.refresh();
       } else {
         setErrorMsg(formatErrorMessage(result.error));
@@ -52,7 +57,7 @@ export function RegenerateConfirmPanel({
         </Button>
 
         <Link
-          href={`/admin/report/${ticker}`}
+          href={returnHref}
           className={cn(buttonVariants({ variant: "outline" }))}
         >
           취소

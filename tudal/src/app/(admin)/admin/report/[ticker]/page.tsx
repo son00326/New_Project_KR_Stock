@@ -59,6 +59,29 @@ function isAiPending(badge?: ConsensusBadge | null): boolean {
 
 interface AdminReportPageProps {
   params: Promise<{ ticker: string }>;
+  searchParams?: Promise<{ month?: string | string[] | undefined }>;
+}
+
+function normalizeReportMonthParam(
+  value: string | string[] | undefined,
+): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return undefined;
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return `${raw}-01`;
+  if (/^\d{4}-(0[1-9]|1[0-2])-01$/.test(raw)) return raw;
+  return undefined;
+}
+
+function reportHref(ticker: string, month?: string): string {
+  return month
+    ? `/admin/report/${ticker}?month=${month.slice(0, 7)}`
+    : `/admin/report/${ticker}`;
+}
+
+function regenerateHref(ticker: string, month?: string): string {
+  return month
+    ? `/admin/report/${ticker}/regenerate?month=${month.slice(0, 7)}`
+    : `/admin/report/${ticker}/regenerate`;
 }
 
 // Sticky Side Nav 항목 정의 (T2.2)
@@ -75,12 +98,18 @@ const SECTION_LIST = [
   { id: "appendix", label: "Appendix", defaultOpen: false },
 ] as const;
 
-export default async function AdminReportPage({ params }: AdminReportPageProps) {
+export default async function AdminReportPage({
+  params,
+  searchParams,
+}: AdminReportPageProps) {
   const { ticker } = await params;
+  const requestedMonth = normalizeReportMonthParam((await searchParams)?.month);
   // T7e.3 — report·committee_votes·shortlist 모두 Supabase 실 SELECT 전환.
   // active shortlist의 month를 기준으로 report를 조회해야 여러 월의 is_latest
   // 리포트가 동시에 존재해도 Supabase maybeSingle() 다중 행 오류가 나지 않는다.
-  const shortlist = await getActiveShortList();
+  const shortlist = await getActiveShortList(
+    requestedMonth ? { month: requestedMonth } : undefined,
+  );
   const shortListRow = shortlist.find((r) => r.ticker === ticker);
   if (!shortListRow) notFound();
 
@@ -176,7 +205,7 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
               </span>
             </h1>
             <Link
-              href={`/admin/report/${ticker}/regenerate`}
+              href={regenerateHref(ticker, requestedMonth)}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted/40"
             >
               <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
@@ -239,7 +268,7 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
         >
           {neighbors.prev ? (
             <Link
-              href={`/admin/report/${neighbors.prev.ticker}`}
+              href={reportHref(neighbors.prev.ticker, requestedMonth)}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 hover:bg-muted/40"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -255,7 +284,7 @@ export default async function AdminReportPage({ params }: AdminReportPageProps) 
           </span>
           {neighbors.next ? (
             <Link
-              href={`/admin/report/${neighbors.next.ticker}`}
+              href={reportHref(neighbors.next.ticker, requestedMonth)}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 hover:bg-muted/40"
             >
               <span className="hidden sm:inline">{neighbors.next.name}</span>
@@ -809,6 +838,29 @@ function Section8ModernView({
           섹터 14인 패널 미활성 — Tier 2 cost gate OFF 또는 ⚪ 케이스. Core 11 평가만 표시.
         </div>
       )}
+
+      <div>
+        <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
+          Core 11 개별 의견 (Part D)
+        </div>
+        <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+          {data.partD.map((p) => (
+            <li
+              key={p.persona_id}
+              className="rounded border bg-muted/10 px-3 py-2 text-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium">{p.label}</span>
+                <PersonaVoteChip vote={p.vote} />
+              </div>
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                {p.philosophy}
+              </div>
+              <div className="mt-1 text-xs">{p.one_line}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {data.partB.length > 0 && (
         <div>

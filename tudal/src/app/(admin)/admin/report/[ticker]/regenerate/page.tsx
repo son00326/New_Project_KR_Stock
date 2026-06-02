@@ -11,13 +11,23 @@ import { RegenerateConfirmPanel } from "./regenerate-panel";
 
 interface AdminReportRegeneratePageProps {
   params: Promise<{ ticker: string }>;
+  searchParams?: Promise<{ month?: string | string[] | undefined }>;
+}
+
+function normalizeReportMonthParam(
+  value: string | string[] | undefined,
+): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return undefined;
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return `${raw}-01`;
+  if (/^\d{4}-(0[1-9]|1[0-2])-01$/.test(raw)) return raw;
+  return undefined;
 }
 
 function currentMonth(): string {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}-01`;
+  const kst = new Date(now.getTime() + 9 * 3600 * 1000);
+  return `${kst.toISOString().slice(0, 7)}-01`;
 }
 
 function formatMonthLabel(month: string): string {
@@ -28,9 +38,11 @@ function formatMonthLabel(month: string): string {
 
 export default async function AdminReportRegeneratePage({
   params,
+  searchParams,
 }: AdminReportRegeneratePageProps) {
   const { ticker } = await params;
-  const month = currentMonth();
+  const requestedMonth = normalizeReportMonthParam((await searchParams)?.month);
+  const month = requestedMonth ?? currentMonth();
   const monthLabel = formatMonthLabel(month);
 
   const counter = await getRegenCounter(ticker, month);

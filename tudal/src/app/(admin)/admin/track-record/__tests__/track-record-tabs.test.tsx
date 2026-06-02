@@ -89,8 +89,10 @@ describe('TrackRecordTabs (PR4 Task 3 Step 3.2)', () => {
     expect(screen.getByText('1/12개월 진행 중')).toBeInTheDocument();
   });
 
-  it('clicking archive tab → archive content visible (월 헤더 + ticker links)', () => {
-    render(<TrackRecordTabs cumulative={filledCumulative} archives={sampleArchive} />);
+  it('clicking archive tab → archive content visible (월 헤더 + month-scoped ticker links)', () => {
+    const { container } = render(
+      <TrackRecordTabs cumulative={filledCumulative} archives={sampleArchive} />,
+    );
     const archiveTab = screen.getByRole('tab', { name: '월별 아카이브' });
     fireEvent.click(archiveTab);
 
@@ -100,6 +102,13 @@ describe('TrackRecordTabs (PR4 Task 3 Step 3.2)', () => {
     // ticker links present (use getAllByText since 005930 appears in both months)
     const ticker005930s = screen.getAllByText('005930');
     expect(ticker005930s.length).toBeGreaterThanOrEqual(2);
+    // ServicePlan-Admin §2: 월별 아카이브 링크는 해당 월 report로 진입해야 함.
+    expect(
+      container.querySelector('a[href="/admin/report/005930?month=2026-04"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('a[href="/admin/report/005930?month=2026-03"]'),
+    ).toBeInTheDocument();
   });
 
   it('empty cumulative bundle → cumulative tab shows "운용 데이터 누적 후 산출" empty state', () => {

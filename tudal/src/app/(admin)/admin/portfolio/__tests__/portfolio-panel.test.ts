@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatPortfolioActionError } from "../portfolio-panel";
 
@@ -24,5 +26,30 @@ describe("formatPortfolioActionError", () => {
     expect(formatPortfolioActionError("unexpected_error")).toBe(
       "오류: unexpected_error",
     );
+  });
+});
+
+
+describe("PortfolioPanel dispute bridge", () => {
+  it("exposes resolveDispute in the 48h Hold UI and does not send client adminId", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "..", "portfolio-panel.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("resolveDispute({ approvalId: finalApproval.id })");
+    expect(source).toContain("이의 해결");
+    expect(source).not.toContain('adminId: "admin-001"');
+  });
+
+  it("does not claim Reject starts a live reanalysis queue before the queue is wired", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "..", "portfolio-panel.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("재분석 큐 미연결");
+    expect(source).toContain("실 재분석 큐 연결 전까지 전월 포트 유지 상태입니다");
+    expect(source).not.toContain("재분석 큐 추가됨");
   });
 });
