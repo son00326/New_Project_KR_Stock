@@ -35,6 +35,7 @@ import {
   CORE_PERSONAS,
   getSectorPersonas,
 } from "@/lib/data/mock-admin-committee-personas";
+import { resolveVotePersonaName } from "@/lib/data/resolve-vote-persona-name";
 import {
   getDistinctViewerCountForReport,
   getViewersForReport,
@@ -1156,13 +1157,16 @@ function VoteList({
       </div>
       <ul className="space-y-0.5 text-xs">
         {votes.map((v) => {
-          const p = personas.find((per) => per.id === v.personaId);
+          // PR-fix1 (B): legacy roster name → getPersonaById().label(canonical slot/subtag) → raw id.
+          //   종전 personas.find(id===personaId)?.name 단독은 Tier2 canonical id(sector-{s}-slot-{N})를
+          //   못 잡아 섹터 위원 이름이 raw personaId로 노출됐다.
+          const personaName = resolveVotePersonaName(v.personaId, personas);
           return (
             <li key={v.id} className="flex items-start gap-2">
               <span className="w-14 shrink-0 text-center" style={voteStyle(v.vote)}>
                 {v.vote === "approve" ? "찬성" : v.vote === "reject" ? "반대" : "기권"}
               </span>
-              <span className="w-28 shrink-0 truncate">{p?.name ?? v.personaId}</span>
+              <span className="w-28 shrink-0 truncate">{personaName}</span>
               <span className="flex-1 text-muted-foreground">{v.argumentExcerpt}</span>
             </li>
           );

@@ -155,6 +155,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  // PR-fix1 (A) — dormant 게이트 (route 초입, lock/tier0/150-invariant/preflight 前).
+  //   실 AI 경로가 비활성(default)이면 orchestrator에 진입하지 않고 200 skip.
+  //   종전: flag off라도 orchestrator가 lock + tier0(150-invariant) 후 preflight throw →
+  //   catch에서 recordSchedulerFailAlert(critical) + 502를 매월 1일 cron마다 발생시켜 가짜 알림.
+  //   report-worker PR5_CRON_AUTO_ENABLED step-0 패턴 정합 (dormant ≠ failure → 200, spend 0).
+  //   USER가 Vercel env로 MONTHLY_BATCH_CRON_AI_ENABLED=true + ANTHROPIC_API_KEY 충족 시 실 30선정 가동.
+  //   ※ preflightCronRealAi(route-local)에도 동일 flag 체크가 있으나 본 게이트가 그 앞단이라 cron 경로에선
+  //     사실상 redundant secondary guard(게이트 우회/리팩터 대비 fail-closed로만 유지). admin 수동 트리거
+  //     (portfolio/actions.ts triggerMonthlyBatch)는 preflightCronRealAi 미사용 + 이 flag 미체크 — 별도 inline preflight.
+  if (process.env.MONTHLY_BATCH_CRON_AI_ENABLED !== 'true') {
+    return NextResponse.json(
+      { ok: true, skipped: true, reason: 'monthly_batch_cron_ai_disabled' },
+      { status: 200 },
+    );
+  }
+
   const month = currentMonthYM();
   try {
     // service-role client (cron auth.uid()=null → RLS bypass). createServiceRoleClient는 캐시 →
