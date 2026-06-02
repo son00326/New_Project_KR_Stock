@@ -1,6 +1,6 @@
 # 비용 0 비-AI 작업 — 단계별 플랜 (출시 전, AI 실호출 보류 상태)
 
-Status: **DRAFT (Claude 1차)** — omxy 합의(리뷰+수정) → Claude 재검증 대기.
+Status: **CONVERGED (omxy R2, 2026-06-02)** — Claude 1차 → omxy R1 7-catch direct-edit(cost-safety/fail-closed) → Claude 코드근거 검증 수용 → omxy R2 SIGNAL CONVERGED. 실행 진입 = STEP-1.
 Date: 2026-06-02
 Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 산출: Workflow `wf_351f1641-2a0` (SoT 4소스 병렬 추출 24후보 → 12 step 시퀀싱 → 적대적 스코프 가드 PASS).
@@ -20,11 +20,12 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 
 | 단계 | 주체 | 내용 |
 |---|---|---|
-| ① 1차 작업/수정 | **Claude** | impl·변경·문서 1차 작성 + branch commit(baseline diff) |
-| ② 1차 리뷰+수정 | **omxy** | 적대적 검토 + 찾은 결함 **직접 수정**(direct-edit), 게이트 ALL GREEN 유지 |
-| ③ 2차 검증 | **Claude** | omxy 수정 코드 근거 검증(맹목 수용 X). 잔여 시 ②복귀, clean이면 commit |
+| ① 1차 작업/수정 | **Claude** | impl·변경·문서 1차 작성 + branch commit(baseline diff). **Workflow로 subagent/agent/skill 사용**(solo 금지) |
+| ② 1차 리뷰+수정 | **omxy** | 적대적 검토 + 찾은 결함 **직접 수정**(direct-edit), 게이트 ALL GREEN 유지. **omxy도 진행 시 자체 subagent/agent/skill 사용**(code-reviewer/architect lane + code-review-graph MCP + 도메인 skill) |
+| ③ 2차 검증 | **Claude** | omxy 수정 코드 근거 검증(맹목 수용 X). **Workflow 교차검증 subagent 사용**. 잔여 시 ②복귀, clean이면 commit |
 
 - 플랜 단계는 본 문서가 ①, 다음 omxy 합의가 ②③.
+- **에이전트/스킬 사용 강제 (사용자 명시)**: Claude는 모든 impl·검증을 **Workflow → subagent/agent/skill** 경로로 수행(단순 solo 편집 금지, trivial mechanical 제외). omxy도 review+fix 시 **자체 subagent/agent/skill** 사용하도록 매 라운드 context packet에 명시 지시.
 - USER 게이트(Vercel env / 마이그 production apply / billing / live-money / external account / 실 AI cost burn)는 본 순서와 무관하게 항상 적용.
 - 검증 게이트 = build 26 routes / lint 0 err / test:ci / tsc clean / (해당 시) grep gate + execute_sql RPC grant matrix.
 
@@ -35,7 +36,7 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 ### STEP-1 · 리포트 페이지 UI sweep (단일 PR, 마이그 불필요)
 - **scope**: page.tsx UI 3종 동시 정정 (동일 파일 same read 경로).
   - (a) SectionFallback line 337/343 `'PR3b…에서 채워집니다'` stale → PR3b MERGED(`cf68731`) 반영 문구 (W-sectionfallback-text).
-  - (b) Section 8 absent 리포트에 **'Tier 1 평가 대기' pill** 렌더 — `stock_reports` row null / Section 8 부재만으로 판정, 새 AI 호출 트리거 0 (W-tier1pill, D11 acceptance gate).
+  - (b) Section 8 absent 리포트에 **'Tier 1 평가 대기' pill** 렌더 — 현재 page는 `stock_reports` row null이면 `notFound()`이므로 이 step은 **기존 report row의 Section 8 부재/null** 판정에 한정(새 report-shell 생성은 scope 외), 새 AI 호출 트리거 0 (W-tier1pill, D11 acceptance gate).
   - (c) Section 0(요약)에 이미 persist된 `short_list_30` 값 1행 노출 — 🔢 `compositeScore`(line 175 기존 read) + 🤖 `ai_score` + 합의 배지(`consensus_badge`, PR-E 0029 nullable 컬럼). null이면 'AI 대기'.
 - **SoT**: audit-catalog §9.5 W-tier1pill + W-sectionfallback-text + ADR §4 PR-H row + §5 매핑 + ReportFramework §8 Step2 line 752.
 - **depends_on**: PR-E ✅ + PR3b ✅ (독립, 렌더 only).
@@ -47,11 +48,11 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - **scope**: 신규 마이그 0030 = `get_cost_log_monthly_total_admin(p_month)` SECURITY DEFINER(server-side SUM, transaction snapshot, `not is_admin() → raise`) + **3종 grant 세트**(revoke public + revoke anon + grant authenticated, service_role grant 금지).
   - (a) cost_log SELECT RLS `using(is_admin())`의 non-admin silent-0 fail-open → RPC raise로 fail-closed 격상 (W-cost-log-admin-assertion).
   - (b) `getMonthlyTotal` pagination(`.order('called_at').order('id')`) backdated/parallel INSERT undercount risk → server-side SUM 제거 (W-cost-log-pagination-snapshot).
-  - cost-logger.ts `getMonthlyTotal`/`preflightHardcap`을 RPC 우선 + 기존 pagination fallback 배선. triggerFullReport/regenerateReport/portfolio actions RPC 경유.
+  - cost-logger.ts `getMonthlyTotal`/`preflightHardcap`을 RPC 우선 배선. **fallback은 pre-migration/missing-function 호환만 허용**하고, `admin_required`/permission/RLS/DB error에서는 fallback 금지(fail-closed) — 아니면 RPC raise 목적이 무력화된다. triggerFullReport/regenerateReport/portfolio actions RPC 경유.
 - **SoT**: audit-catalog §9.5 W-cost-log-admin-assertion + W-cost-log-pagination-snapshot(catalog 명시 "동일 RPC 통합").
 - **depends_on**: STEP-1. 마이그 슬롯 0030. HANDOFF §4 SECURITY DEFINER 3종 세트 + PostgreSQL IF-null guard 규칙.
 - **DoD**: 마이그 0030 + rollback 짝. non-admin raise / admin SUM. RPC 경유 + fallback 보존. mock parity 무회귀.
-- **게이트**: build / lint / test:ci(RPC mock + RPC-first 경로 + non-admin raise 단위) / tsc / grep `from('admin_emails')` 직접 SELECT 0 + service_role grant 부재 / execute_sql has_function_privilege 4-grant matrix. **마이그 production apply = USER 게이트** (CLAUDE는 작성·로컬 테스트·verify 명령).
+- **게이트**: build / lint / test:ci(RPC mock + RPC-first 경로 + non-admin raise 단위 + RPC error fallback 금지) / tsc / grep `from('admin_emails')` 직접 SELECT 0 + service_role grant 부재 / execute_sql **4-role privilege matrix**(public=false, anon=false, authenticated=true, service_role=false). **마이그 production apply = USER 게이트** (CLAUDE는 작성·로컬 테스트·verify 명령).
 - **PR**: 별 branch + 0030 (dormant — fallback 보존이라 merge-safe).
 
 ### STEP-3 · pipeline_health hardening (마이그 0031)
@@ -62,7 +63,7 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - **SoT**: audit-catalog §9.5 W-pipeline-health-admin-assertion + W-pipeline-health-window-hardening + W-mock2-rls-drift.
 - **depends_on**: STEP-2(동일 SECURITY DEFINER 패턴 재사용). 마이그 0031.
 - **DoD**: 마이그 0031 + rollback. non-admin raise / admin aggregate. health page assertion. alerts RLS-deny vs 미발생 구분. mock parity 무회귀.
-- **게이트**: build / lint / test:ci(RPC aggregate mock + assertion + alerts diagnostic 단위) / tsc / grep silent-health INSERT side 미변경 + 4-grant matrix. 마이그 apply = USER.
+- **게이트**: build / lint / test:ci(RPC aggregate mock + assertion + alerts diagnostic 단위 + RPC error fallback 금지) / tsc / grep silent-health INSERT side 미변경 + **4-role privilege matrix**(public=false, anon=false, authenticated=true, service_role=false). 마이그 apply = USER.
 - **PR**: 별 branch + 0031. STEP-2 직후 동일 패턴.
 
 ### STEP-4 · insertCostLog spend-before-log gap (마이그 불필요)
@@ -78,7 +79,7 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - **scope**: flag-off(`MONTHLY_BATCH_CRON_AI_ENABLED` off + `AI_COST_LOG_REAL_INSERT_ENABLED` off)에서 cron route + admin trigger 호출 → preflight throw → `callPersonaPanel`(실 Anthropic) 0회 · cost 0 증명. PR-G ⓐ route-level 계약 테스트 기존 → **admin path · orchestrator preflight 추가 커버**가 증분.
 - **SoT**: ADR §4 PR-G scope + D-8 + §7.1 RESOLVED + HANDOFF §6 PR-G ⓐ.
 - **depends_on**: PR-B2 ✅ + PR-E ✅ + PR-G ⓐ ✅ (독립, 테스트 only).
-- **DoD**: flag-off 시 cron + admin(triggerFullReport/triggerMonthlyBatch/regenerateReport) 모두 preflight throw + callPersonaPanel spy 0 + insertCostLog 0 테스트 PASS.
+- **DoD**: flag-off 시 cron + admin(triggerFullReport/triggerMonthlyBatch/regenerateReport) 모두 preflight throw. selection path는 `callPersonaPanel` spy 0, report path는 `orchestrateFullReport`/writer·critic·revise AI-client spy 0, 공통 `insertCostLog` 0 테스트 PASS.
 - **게이트**: build / lint / test:ci(flag-off→throw + spy 0 assertion) / tsc / grep preflight + is_admin 게이트 present. cost_log=0 drift 0.
 - **PR**: 별 branch (테스트 보강 only).
 
@@ -86,11 +87,11 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - **scope**: D-9 3 trigger path 중 manual 2종 배선.
   - (a) reject 후 trigger 버튼 → `runMonthlyBatchOrchestrator`(30 재선정).
   - (b) 종목별 Regen 버튼 → `orchestrateFullReport`(단일 ticker, 기존 배지/점수 입력, 30선정 재실행 아님).
-  - server action은 PR-B2/PR-E is_admin + `AI_COST_LOG_REAL_INSERT_ENABLED` fail-closed로 이미 보호. **UI 버튼 + caller wiring + flag-off→throw(LLM 0/cost 0) 테스트만**. 실 burn = USER가 Vercel flag ON + 클릭(제외).
+  - server action은 PR-B2/PR-E is_admin + `AI_COST_LOG_REAL_INSERT_ENABLED` fail-closed로 보호되지만, prod에서는 해당 flag가 이미 true일 수 있다. **신규 manual-trigger 전용 flag(예: `PRH_MANUAL_TRIGGER_ENABLED`, default false) 또는 동등한 disabled gate를 추가**해야 dormant merge-safe가 성립한다. **UI 버튼 + caller wiring + flag-off→throw(LLM 0/cost 0) 테스트만**. 실 burn = USER가 manual flag ON + 클릭(제외).
 - **SoT**: ADR §3 D-9 + §4 PR-H row + ServicePlan-Admin D23 1.3 + §2 IA.
 - **depends_on**: PR-B2 ✅ + PR-E ✅ + STEP-5(flag-off 패턴 재사용).
-- **DoD**: 2 버튼 UI + caller. flag-off 클릭 = preflight throw + callPersona 0 테스트. 실 enrich/worker 가동 미포함.
-- **게이트**: build / lint / test:ci(caller wiring + flag-off→throw + is_admin + DI seam 5중 assertion per HANDOFF §8) / tsc / grep 버튼 caller + B2 guard 경유. flag default-off merge-safe cost 0.
+- **DoD**: 2 버튼 UI + caller. manual flag-off 클릭 = preflight throw + callPersona/orchestrate 0 테스트. 실 enrich/worker 가동 미포함.
+- **게이트**: build / lint / test:ci(caller wiring + manual flag-off→throw + is_admin + DI seam 5중 assertion per HANDOFF §8) / tsc / grep 버튼 caller + B2 guard 경유. manual flag default-off merge-safe cost 0.
 - **PR**: 별 branch + dormant flag.
 - **⚠️ impl 권고(스코프가드)**: ADR PR-H의 `placeholder→실 DART/배지 source` enrich(실 호출 아닌 입력 source swap 코드, 비용 0 부분)가 STEP-6/STEP-7 중 어디 귀속인지 impl 전 확정. STEP-6↔7 Section 8 Part A 렌더 책임 경계 분리(STEP-6=골격 없음 / STEP-7=14패널 골격).
 
@@ -98,12 +99,12 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - **scope**: 코드/RPC/렌더 dormant 부분만. `runSectorEval` scaffold(persona-eval.ts, unknown→degraded 기존) + `sector-persona-builder.ts` production prompt 정합 + `commit_sector_personas` RPC(마이그 0019 기존) 배선 + report Part A 14패널 렌더 골격을 **mock 14×14 fixture로 빌드·테스트**. 실 sector 14×30 eval(callPersona 14× 실 LLM) = I-realeval로 분리(제외).
 - **SoT**: ADR §4 PR-I row + §5 매핑 + ServicePlan-Admin D21 + §3.7 R3.7-6/7/8.
 - **depends_on**: PR-C ✅ + PR-E ✅ + PR-G ⓐ ✅. STEP-6 후.
-- **DoD**: runSectorEval 정합 + commit_sector_personas 배선 + Part A 14패널 mock render. prompts 부재 시 degraded ⚪(LLM 0). 실 14× 미포함.
+- **DoD**: runSectorEval 정합 + commit_sector_personas 배선 + Part A 14패널 mock render. **page.tsx의 `mock-admin-committee-personas` runtime import를 대체할 production persona metadata seam까지 마련**해야 STEP-8 mock 제거가 가능. prompts 부재 시 degraded ⚪(LLM 0). 실 14× 미포함.
 - **게이트**: build / lint / test:ci(mock stub + 14패널 render + RPC mock + degraded 단위) / tsc / grep 실 callPersona 미배선(dormant). 마이그 0019 기존.
 - **PR**: 별 branch dormant (mock fixture). 실 eval = USER 게이트.
 
 ### STEP-8 · PR-J runtime mock 제거 (마이그 불필요)
-- **scope**: 런타임 mock(mockTier0Source/mockCallPersonaPanel/mockFetchFinancials/commitBadgeOnlyPlaceholder throw-stub + mock-admin-* runtime 경로) 제거 + grep 0. **테스트 fixture 보존**. 멤버 트랙 stock mock은 USER 확인 — admin orphan만.
+- **scope**: 런타임 mock(mockTier0Source/mockCallPersonaPanel/mockFetchFinancials/commitBadgeOnlyPlaceholder throw-stub + mock-admin-* runtime 경로) 제거 + grep 0. **단, `page.tsx`가 현재 `mock-admin-committee-personas`를 runtime persona label source로 import하므로 STEP-7 대체 seam 없이는 삭제 금지. 테스트 fixture 보존**. 멤버 트랙 stock mock은 USER 확인 — admin orphan만.
 - **SoT**: ADR §4 PR-J row + §0 GOAL #5 + depends_on I.
 - **depends_on**: STEP-7(PR-I sector 실 경로 배선 후 안전 제거).
 - **DoD**: admin runtime mock orphan 삭제 + grep 0(런타임 import 0, fixture만). 게이트 무회귀.
@@ -113,7 +114,7 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 ### STEP-9 · 선정 청크 워커 PR (마이그 0032+, dormant flag)
 - **scope**: serverless 300s 제한 회피용 큐 인프라(매달 자동 30선정). 신규 마이그 = `tier1_selection_job` 테이블 + `claim_next_selection_jobs` RPC + `acquire_selection_worker_lock` run-mutex RPC (**PR5 0027 report_batch_job/claim_next_report_jobs/acquire_report_worker_lock 동형 복제**). 청크 드라이버 cron route + self-continue + TDD. 실 Core 11 패널 호출은 step-0 fail-closed flag(default-off) → **빌드/테스트/머지 cost 0**(PR5가 실증).
 - **SoT**: HANDOFF 다음 액션 큐 line 26 "매달 자동화 아키텍처 (ii) 30선정 = PR5와 동일 청크 워커 패턴으로 재구성 필요(tier1_selection_job 큐)" + ADR §4 D19 메인 path.
-- **depends_on**: HANDOFF "PR-G ⓑ 일회성 검증 후 진행 권장" — 단 dormant 코드/마이그/테스트 작성은 mock+flag-off라 선행 가능(빌드·머지 cost 0). 마이그 슬롯 0032+.
+- **depends_on**: HANDOFF "PR-G ⓑ 일회성 검증 후 진행 권장" — 단 dormant 코드/마이그/테스트 작성은 mock+flag-off라 선행 가능(빌드·머지 cost 0). 그래도 one-off 러너/150 재시드(STEP-10/11) 전 선행은 자동화 overbuild risk가 있으므로 **queue/RPC/flag-off infra-only로 scope 고정**. 마이그 슬롯 0032+.
 - **DoD**: 큐 + claim/mutex RPC 마이그 + 청크 cron route + self-continue. step-0 flag default-off → cost 0. PR5 run-mutex/forward-progress 테스트 1:1 복제. 실 패널 dormant.
 - **게이트**: build / lint / test:ci(claim/mutex/self-continue + flag-off→spend 0 + forward-progress, PR5 TC 패턴) / tsc / grep step-0 fail-closed flag default-off. 마이그 apply = USER.
 - **PR**: 대형 신규 + 마이그 0032+ dormant. PR5 0027 패턴 참조 강제. 실 가동 = USER.
@@ -121,7 +122,7 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 ### STEP-10 · PR-G ⓑ 로컬 러너 A′+B 코드 빌드 (실행 제외, 마이그 불필요)
 - **scope**: 로컬 러너 스크립트 코드(빌드 한정). (A′) Node/tsx 독립 프로세스 + JSON 체크포인트(150 패널 저장/로드, 실패 ticker만 재시도, 150/150 완성 시 `upsertShortList30` persist 배선). (B) `callPersona` transient 재시도 래퍼(messages.create 429/5xx/APIConnection/timeout 1-2회 — parse/validation/cost insert 재시도 금지, admin path 공유라 비파괴). mock callPersona 단위 테스트. **실 1회 실행(~55분, 1650 Opus콜, ≈6.5-8만원, cap 135,680원) = PRG-B-RUN 분리(제외)**.
 - **SoT**: HANDOFF 다음 액션 큐 ④ + 다음 세션 절차 (b) "로컬 러너 A′+B 빌드".
-- **depends_on**: STEP-11(러너 입력 = 150 후보) — 코드 빌드는 mock 입력으로 선행 가능, 실행만 150 시드 + USER 비용(PRG-B-RUN) 게이트.
+- **depends_on**: 코드 빌드는 mock 입력으로 선행 가능. **실행만 STEP-11 150 시드 + USER 비용(PRG-B-RUN) 게이트**(러너 입력 = 150 후보).
 - **DoD**: A′ 러너 + 체크포인트 + 실패-ticker 재시도 + persist 배선. transient 재시도 래퍼. mock 단위 테스트. 실 실행 미포함.
 - **게이트**: build / lint / test:ci(체크포인트 save/load + 재시도 + 150-invariant + transient/parse·cost 비재시도 assertion) / tsc. 실 burn = USER.
 - **PR**: 별 branch (러너 코드 only).
