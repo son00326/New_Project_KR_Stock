@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExitDecisionForm } from "@/app/(admin)/admin/alerts/[id]/exit-decision-form";
 import { getAlertEventById } from "@/lib/data/admin-alerts";
+import { createClient } from "@/lib/supabase/server";
 import type { AlertType, ExitDecision } from "@/types/admin";
 
 // 알림 상세 — S5a(M12 뉴스 Critical · M10 scheduler_fail · M11 briefing_failed)
@@ -73,8 +74,37 @@ export default async function AdminAlertDetailPage({
   params,
 }: AlertDetailPageProps) {
   const { id } = await params;
+  // PR-A follow-up: alert_event RLS silent-0이면 실제 row 부재와 권한 검증 실패가 모두
+  // null로 보일 수 있다. adminVerified=true일 때만 notFound로 확정하고, 권한 미확인 시
+  // 404로 숨기지 않고 진단을 표시한다.
+  const supabase = await createClient();
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  const adminVerified = !(adminErr || !isAdmin);
   const alert = await getAlertEventById(id);
-  if (!alert) notFound();
+  if (!alert && adminVerified) notFound();
+  if (!alert) {
+    return (
+      <div className="space-y-6">
+        <header>
+          <Link
+            href="/admin/alerts"
+            className="text-xs text-muted-foreground underline underline-offset-2"
+          >
+            ← 알림 이력
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold">알림 상세</h1>
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+          >
+            ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 404/알림 부재는 실제
+            미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
+          </p>
+        </header>
+      </div>
+    );
+  }
 
   const isExit = alert.alertType === "exit_signal";
   const t7Badge = computeT7Badge(alert.t7PriceChange);
