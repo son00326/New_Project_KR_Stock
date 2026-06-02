@@ -45,6 +45,19 @@ describe('PR4 Task 4 (PR3a OOS RT#1) — partA render invariant (omxy R2 B36 + R
     expect(source).toContain('섹터 14인 패널 미활성');
   });
 
+
+  it('page.tsx renders partD Core 11 row fields (ReportFramework §8 Part D)', () => {
+    const partDMapMatch = source.match(/data\.partD\.map\([^)]*\)\s*=>\s*\([\s\S]*?\)\)\}/);
+    expect(partDMapMatch).not.toBeNull();
+    const block = partDMapMatch![0];
+    expect(source).toContain('Core 11 개별 의견 (Part D)');
+    expect(block).toContain('key={p.persona_id}');
+    expect(block).toContain('p.label');
+    expect(block).toContain('p.philosophy');
+    expect(block).toContain('p.one_line');
+    expect(block).toMatch(/<PersonaVoteChip\s+vote=\{p\.vote\}\s*\/>/);
+  });
+
   it('PersonaVoteChip branch-label association 박제 — indexOf 순서 (B37+B38 fix omxy R3+R4)', () => {
     // B37 fix: file-wide contains 우회 차단 (function-scoped).
     // B38 fix: branch-label association 잠금 — BUY/SELL/HOLD branch와 매수/매도/관망 label 1:1 순서 검증.

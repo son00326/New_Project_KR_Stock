@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Bell } from "lucide-react";
 import { LogoutButton } from "@/app/(admin)/logout-button";
 import { JoopickLogo } from "@/components/layout/logo";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,7 @@ const ADMIN_NAV = [
   { href: "/admin/track-record", label: "Track Record" },
   { href: "/admin/decision-tree", label: "Decision Tree" },
   { href: "/admin/settings", label: "설정" },
+  { href: "/admin/settings/notifications", label: "알림 채널" },
   { href: "/admin/settings/cost", label: "AI 비용 (M17)" },
   { href: "/admin/settings/health", label: "Health (M18)" },
   { href: "/admin/settings/brokerage", label: "증권사 키" },
@@ -40,6 +42,14 @@ export default async function AdminLayout({
             <span className="text-xs text-muted-foreground">어드민</span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="/admin/alerts"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              aria-label="알림 이력 보기"
+            >
+              <Bell className="h-4 w-4" aria-hidden />
+              <span className="hidden md:inline">알림</span>
+            </Link>
             {user?.email && (
               <span className="hidden text-xs text-muted-foreground md:inline">
                 {user.email}

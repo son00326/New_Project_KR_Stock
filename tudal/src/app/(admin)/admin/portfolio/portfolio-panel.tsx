@@ -13,8 +13,16 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { acceptShortList, rejectShortList, raiseDispute } from "./actions";
-import { isAcceptBlockedByDispute, DISPUTE_ERROR_REASON_TOO_SHORT } from "@/lib/portfolio/dispute";
+import {
+  acceptShortList,
+  rejectShortList,
+  raiseDispute,
+  resolveDispute,
+} from "./actions";
+import {
+  DISPUTE_ERROR_REASON_TOO_SHORT,
+  isAcceptBlockedByDispute,
+} from "@/lib/portfolio/dispute";
 import { DISPUTE_REASON_MIN_LENGTH } from "@/types/admin";
 
 import type { AcceptGateReason } from "@/lib/portfolio/gating";
@@ -41,6 +49,7 @@ type BannerState =
   | { kind: "accept_done" }
   | { kind: "reject_done"; reanalysisCount: number; portfolioHoldWarning?: boolean }
   | { kind: "dispute_done" }
+  | { kind: "dispute_resolved" }
   | { kind: "error"; message: string }
   | null;
 
@@ -141,7 +150,6 @@ export function PortfolioPanel({
     startTransition(async () => {
       const result = await raiseDispute({
         approvalId: finalApproval.id,
-        adminId: "admin-001", // TODO(S3 hardening): 세션에서 주입
         reason: disputeReason,
       });
       if (result.success) {
@@ -154,6 +162,20 @@ export function PortfolioPanel({
         } else {
           setDisputeError(formatErrorMessage(result.error));
         }
+      }
+    });
+  }
+
+  function handleResolveDispute() {
+    if (!finalApproval) return;
+    setDisputeError(null);
+    startTransition(async () => {
+      const result = await resolveDispute({ approvalId: finalApproval.id });
+      if (result.success) {
+        setBanner({ kind: "dispute_resolved" });
+        router.refresh();
+      } else {
+        setBanner({ kind: "error", message: result.error });
       }
     });
   }
@@ -200,10 +222,10 @@ export function PortfolioPanel({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
           <div>
             <p className="font-semibold">
-              Reject 완료 — 재분석 큐 추가됨 (재분석 {banner.reanalysisCount}회)
+              Reject 기록 완료 — 재분석 큐 미연결 (요청 {banner.reanalysisCount}회)
             </p>
             <p className="mt-0.5 text-xs opacity-80">
-              재분석 완료 후 다시 확정해 주세요. 전월 포트 유지 상태입니다.
+              실 재분석 큐 연결 전까지 전월 포트 유지 상태입니다.
             </p>
           </div>
         </div>
@@ -224,17 +246,34 @@ export function PortfolioPanel({
         </div>
       )}
 
+      {banner?.kind === "dispute_resolved" && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-400/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+          <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="font-semibold">이의가 해결되었습니다. Accept Hold를 다시 계산합니다.</span>
+        </div>
+      )}
+
       {/* 이의 제기 48h Hold 배너 — disputeBlocked=true 시 */}
       {disputeBlocked && disputeHoldExpiresAt && (
-        <div className="flex items-center gap-2 rounded-lg border border-orange-400/50 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-900 dark:border-orange-500/40 dark:bg-orange-950/30 dark:text-orange-200">
-          ⏳ 이의 제기 48h Hold — 만료{" "}
-          {disputeHoldExpiresAt.toLocaleString("ko-KR", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-400/50 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-900 dark:border-orange-500/40 dark:bg-orange-950/30 dark:text-orange-200">
+          <span>
+            ⏳ 이의 제기 48h Hold — 만료{" "}
+            {disputeHoldExpiresAt.toLocaleString("ko-KR", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResolveDispute}
+            disabled={isPending}
+          >
+            이의 해결
+          </Button>
         </div>
       )}
 
