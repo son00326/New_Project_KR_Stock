@@ -109,13 +109,18 @@ describe('cost-logger (Q2 + Q6)', () => {
     await expect(preflightHardcap({
       month: '2026-05',
       callCount: 30,
-    })).rejects.toThrow('cost_hardcap_40man');
+    }, { callerKind: 'service-role' })).rejects.toThrow('cost_hardcap_40man');
   });
 
   // 58차 Mock cleanup Step 2.3 omxy R1 + R2 HIGH-1 fix — getMonthlyTotal pagination loop
   // (PostgREST aggregate disabled in production, PGRST123 live verified 2026-05-28).
   // regenerate cost_log 실 SELECT 통로 → row limit 무관 + non-finite guard 보장.
-  describe('getMonthlyTotal — pagination loop (HIGH-1 fix, R2 verified)', () => {
+  //
+  // STEP-2 (cost_log fail-open hardening): getMonthlyTotal에 callerKind 분기 도입.
+  //   본 describe의 pagination/guard 테스트는 callerKind:'service-role'(직접 SELECT, RLS bypass)
+  //   경로를 검증한다. session(default) RPC-first 경로 + non-admin fail-closed는
+  //   cost-logger-step2-rpc.test.ts가 커버.
+  describe('getMonthlyTotal — pagination loop (service-role 직접 SELECT, HIGH-1 fix)', () => {
     // R3 HIGH-1 + R4 MEDIUM fix — pagination chain shape: select → eq → order(called_at) → order(id) → range.
     // 헬퍼: 모든 page chain을 한 번에 wire. inner order() return은 자기 자신을 chain하여 2nd order
     // 호출 후 range로 이어지도록 구성.
@@ -130,7 +135,7 @@ describe('cost-logger (Q2 + Q6)', () => {
     it('returns 0 when first page is empty (0 rows / RLS deny)', async () => {
       const rangeSpy = vi.fn().mockResolvedValue({ data: [], error: null });
       mockSelect.mockReturnValue(buildChainWithRange(rangeSpy));
-      const total = await getMonthlyTotal('2026-05');
+      const total = await getMonthlyTotal('2026-05', { callerKind: 'service-role' });
       expect(total).toBe(0);
       expect(rangeSpy).toHaveBeenCalledTimes(1);
       expect(rangeSpy).toHaveBeenCalledWith(0, 999);
@@ -142,7 +147,7 @@ describe('cost-logger (Q2 + Q6)', () => {
         error: null,
       });
       mockSelect.mockReturnValue(buildChainWithRange(rangeSpy));
-      const total = await getMonthlyTotal('2026-05');
+      const total = await getMonthlyTotal('2026-05', { callerKind: 'service-role' });
       expect(total).toBe(350.5);
       expect(rangeSpy).toHaveBeenCalledTimes(1);
     });
@@ -156,7 +161,7 @@ describe('cost-logger (Q2 + Q6)', () => {
         .mockResolvedValueOnce({ data: page1, error: null })
         .mockResolvedValueOnce({ data: page2, error: null });
       mockSelect.mockReturnValue(buildChainWithRange(rangeSpy));
-      const total = await getMonthlyTotal('2026-05');
+      const total = await getMonthlyTotal('2026-05', { callerKind: 'service-role' });
       expect(total).toBe(200_000);
       expect(rangeSpy).toHaveBeenCalledTimes(2);
       expect(rangeSpy).toHaveBeenNthCalledWith(1, 0, 999);
@@ -176,7 +181,7 @@ describe('cost-logger (Q2 + Q6)', () => {
       const eqSpy = vi.fn().mockReturnValue({ order: orderChain.order });
       mockSelect.mockReturnValue({ eq: eqSpy });
 
-      await getMonthlyTotal('2026-05');
+      await getMonthlyTotal('2026-05', { callerKind: 'service-role' });
 
       // primary order = called_at asc, secondary order = id asc (chain 2회 호출).
       expect(orderChain.order).toHaveBeenCalledTimes(2);
@@ -193,7 +198,7 @@ describe('cost-logger (Q2 + Q6)', () => {
           }),
         ),
       );
-      await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
+      await expect(getMonthlyTotal('2026-05', { callerKind: 'service-role' })).rejects.toThrow(
         'cost_log_select_failed:PGRST301',
       );
     });
@@ -207,7 +212,7 @@ describe('cost-logger (Q2 + Q6)', () => {
           }),
         ),
       );
-      await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
+      await expect(getMonthlyTotal('2026-05', { callerKind: 'service-role' })).rejects.toThrow(
         'cost_log_select_failed:non_finite_cost_krw',
       );
     });
@@ -222,7 +227,7 @@ describe('cost-logger (Q2 + Q6)', () => {
           }),
         ),
       );
-      await expect(getMonthlyTotal('2026-05')).rejects.toThrow(
+      await expect(getMonthlyTotal('2026-05', { callerKind: 'service-role' })).rejects.toThrow(
         'cost_log_select_failed:negative_cost_krw',
       );
     });
@@ -246,6 +251,7 @@ describe('cost-logger (Q2 + Q6)', () => {
         client: customClient as unknown as Awaited<
           ReturnType<typeof import('@/lib/supabase/server').createClient>
         >,
+        callerKind: 'service-role',
       });
       expect(total).toBe(999);
       expect(customClient.from).toHaveBeenCalledWith('cost_log');

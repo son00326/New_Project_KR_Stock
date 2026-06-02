@@ -20,8 +20,17 @@ export interface CostLogRow {
 
 // PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — 모든 cost helper에 options 2nd arg.
 // Reference 패턴: tudal/src/lib/data/admin-shortlist-persist.ts:39-43.
+//
+// STEP-2 (cost_log fail-open hardening): getMonthlyTotal 경로 분기.
+//   - callerKind 'session' (default): admin JWT session client → get_cost_log_monthly_total_admin
+//     RPC-first (server-side SUM + not is_admin() raise = fail-closed). RLS using(is_admin())의
+//     non-admin silent-0 fail-open(undercount → hardcap 무력화) 차단.
+//   - callerKind 'service-role': service_role client(cron/worker) → 직접 paginated SELECT 유지.
+//     service_role은 RLS bypass라 전 row 가시(undercount 없음) + admin-only RPC의 admin_required
+//     raise 회피. ★ worker 무회귀의 핵심 — service-role 경로는 RPC를 절대 호출하지 않는다.
 export interface CostHelperOptions {
   client?: SupabaseClient;
+  callerKind?: 'session' | 'service-role';
 }
 
 function isEnabled(): boolean {
@@ -60,11 +69,66 @@ export async function insertCostLog(
 // NaN >= HARDCAP_KRW = false (silent fail-open) 차단.
 const COST_LOG_PAGE_SIZE = 1000;
 
+// STEP-2: pre-migration fallback 전용 sentinel (다른 error와 구분).
+class MissingCostRpcError extends Error {
+  constructor() {
+    super('cost_log_rpc_missing');
+    this.name = 'MissingCostRpcError';
+  }
+}
+
+// STEP-2: missing-function(pre-migration) fallback 판정 — 0030 apply 전 무회귀 전용.
+//   PGRST202 = PostgREST schema-cache function-not-found, 42883 = undefined_function.
+//   ★ admin_required / auth_unavailable / permission(42501) / RLS / 기타 DB error는 fallback 금지
+//     (fail-closed throw — undercount 우회 차단). omxy 합의.
+function isMissingFunctionError(code: string | undefined): boolean {
+  return code === 'PGRST202' || code === '42883';
+}
+
+// STEP-2: SESSION 경로 server-side SUM RPC (admin-only, 마이그 0030).
+//   non-admin은 RPC가 admin_required raise → throw 전파(fail-closed). RLS silent-0 fail-open 차단.
+//   transaction snapshot SUM = pagination undercount 제거(W-cost-log-pagination-snapshot).
+async function getMonthlyTotalViaRpc(
+  supabase: SupabaseClient,
+  month: string,
+): Promise<number> {
+  const { data, error } = await supabase.rpc('get_cost_log_monthly_total_admin', {
+    p_month: month,
+  });
+  if (error) {
+    if (isMissingFunctionError(error.code)) {
+      // pre-migration only — caller에게 fallback 신호 (직접 SELECT로 무회귀).
+      throw new MissingCostRpcError();
+    }
+    // admin_required / permission / RLS / 기타 — fail-closed.
+    throw new Error(`cost_log_select_failed:${error.code ?? 'unknown'}`);
+  }
+  const value = Number(data);
+  if (!Number.isFinite(value)) {
+    throw new Error(`cost_log_select_failed:non_finite_cost_krw`);
+  }
+  if (value < 0) {
+    throw new Error(`cost_log_select_failed:negative_cost_krw`);
+  }
+  return value;
+}
+
 export async function getMonthlyTotal(
   month: string,
   options: CostHelperOptions = {},
 ): Promise<number> {
   const supabase = options.client ?? (await createClient());
+  // STEP-2 fork: session(default) = RPC-first(fail-closed) / service-role = 직접 SELECT(RLS bypass).
+  if ((options.callerKind ?? 'session') === 'session') {
+    try {
+      return await getMonthlyTotalViaRpc(supabase, month);
+    } catch (err) {
+      if (!(err instanceof MissingCostRpcError)) {
+        throw err; // admin_required / DB error / guard violation = fail-closed 전파.
+      }
+      // pre-migration(0030 미적용)만 직접 SELECT로 폴백 — 무회귀.
+    }
+  }
   let total = 0;
   let offset = 0;
   // 무한 loop 차단: PAGE_SIZE 미만 page 도달 시 break.
