@@ -10,7 +10,7 @@ Last updated: 2026-06-02 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028~0030 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. 62차 prep 후 사용자 ④ 보류. **④ = 로컬 one-off 러너 확정**(cron/admin HTTP는 1650콜 ~30-55분 타임아웃 → NON-VIABLE; 매달 자동화는 별도 선정 청크워커 PR — §다음 액션 큐 1). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
-**main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync 후 = `532a0a5` 또는 자손).
+**main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync + launch-readiness PR #79 후 = `532a0a5` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
 **검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1526 PASS / 136 files** / tsc clean / Python 95.
 **Production**: 마이그 0001~**0030** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 + **0030 get_cost_log_monthly_total_admin cost RPC, 2026-06-02 applied+verify**) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 0 rows(미시드) · **실 AI 호출 0건**(cost_log=0).
@@ -47,7 +47,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # 2026-06-02 비용0+FE-audit+launch-order docs sync 후 `532a0a5` 또는 자손
+git rev-parse --short HEAD          # 2026-06-02 비용0+FE-audit+launch-order docs sync+launch-readiness PR #79 후 `532a0a5` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -55,7 +55,7 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3) 검증 게이트 (매 세션 1회)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   main 기준 기대 (2026-06-02 비용0+FE-audit 후): build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1526 PASS / 136 files / tsc clean / Python 95 tests PASS
+#   main 기준 기대 (2026-06-02 비용0+FE-audit+launch-readiness PR #79 후): build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1526 PASS / 136 files / tsc clean / Python 95 tests PASS
 #   select count(*) from cost_log; -- 기대 0 (마이그 0030 RPC applied, 실 AI 전이라 cost 0)
 
 # 4) production audit 재확인 (Supabase MCP execute_sql 또는 dashboard) — drift detect
@@ -80,7 +80,7 @@ cd /Users/yong/New_Project_KR_Stock
 git checkout main && git pull origin main
 git rev-parse --short HEAD          # PR5 머지 후 c2f7504 또는 자손
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   기대: build 26 routes / lint 0 err 5 warn / test:ci 136 files 1526 PASS / tsc clean
+#   기대: build 26 routes / lint 0 err 5 warn / test:ci 1526 PASS / 136 files / tsc clean
 ```
 - PR5 plan SoT(main 머지됨): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`. go-live 상세 = `audit-catalog.md §9.4` + W-pr5-cron-persist-canary.
 - **go-live 후 [CLAUDE]**: cron 가동 모니터링 + Task 8 audit + **PR5b/PR-I**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**, plan §3.2/§9 G2). **Step 4 Reflection/PR-K는 출시 게이트 아님** — S9/go-live 후 실 운용 결과 누적 시 defer.
@@ -100,10 +100,10 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync 후 `532a0a5` 또는 자손). |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync + launch-readiness PR #79 후 `532a0a5` 또는 자손). |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
-| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#76 + canonical 5-PR 모두 반영/머지(상세 git log). |
-| 검증 게이트 (main, 2026-06-02 비용0+FE-audit 후) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1526 PASS / 136 files** / tsc clean / **Python 95 tests PASS**. |
+| OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#76 + PR #79 + canonical 5-PR 모두 반영/머지(상세 git log). |
+| 검증 게이트 (main, 2026-06-02 비용0+FE-audit+launch-readiness PR #79 후) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1526 PASS / 136 files** / tsc clean / **Python 95 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
 | Task 5 B66 | ✅ **PRODUCTION COMPLETE** (60차 §5): 마이그 0026 + induty 백필 2,766/2,766 + short_list_30 30 rows canonical 14(B93 PASS). placeholder/unresolved 영구 0. |
