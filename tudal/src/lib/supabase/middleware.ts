@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// PR-fix2 (D) — 어드민 허용목록은 의도적 dual-gate (코드 통일은 별도 설계 PR로 defer):
+//   (1) 본 env ADMIN_EMAILS = 미들웨어 + 로그인(login/actions.ts)의 pre-session gate. DB 조회 없이 빠른 차단.
+//   (2) DB admin_emails 테이블 + is_admin() RPC = RLS / server-action gate (행 단위 권한, anon client RLS 경계).
+//   두 소스는 같은 어드민 집합을 가리켜야 한다 — 한쪽만 갱신 시 silent drift(인증 불일치) 위험.
+//   ⚠ 운영 체크리스트: 어드민 추가/제거 시 Vercel env ADMIN_EMAILS + DB admin_emails 를 반드시 동시 갱신.
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((e) => e.trim().toLowerCase())

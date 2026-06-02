@@ -13,6 +13,11 @@ const serviceRoleMock = vi.hoisted(() => ({
 // Step 2.7b.3: briefing_log + alert_event INSERT mocks.
 const briefingLogMock = vi.hoisted(() => ({ insertBriefingLog: vi.fn() }));
 const alertsInsertMock = vi.hoisted(() => ({ insertAlertEvents: vi.fn() }));
+// PR-fix2 (C): telegram best-effort mock.
+const telegramMock = vi.hoisted(() => ({
+  sendTelegram: vi.fn(),
+  isTelegramConfigured: vi.fn(),
+}));
 
 vi.mock("@/lib/data/admin-news", () => ({
   getRecentNewsEvents: adminNewsMock.getRecentNewsEvents,
@@ -25,6 +30,10 @@ vi.mock("@/lib/data/admin-briefing-log", () => ({
 }));
 vi.mock("@/lib/data/admin-alerts-insert", () => ({
   insertAlertEvents: alertsInsertMock.insertAlertEvents,
+}));
+vi.mock("@/lib/notify/telegram", () => ({
+  sendTelegram: telegramMock.sendTelegram,
+  isTelegramConfigured: telegramMock.isTelegramConfigured,
 }));
 
 describe("GET /api/cron/morning-briefing", () => {
@@ -45,6 +54,11 @@ describe("GET /api/cron/morning-briefing", () => {
     briefingLogMock.insertBriefingLog.mockResolvedValue(undefined);
     alertsInsertMock.insertAlertEvents.mockReset();
     alertsInsertMock.insertAlertEvents.mockResolvedValue(undefined);
+    // PR-fix2 (C): default 미설정 → 기존 test는 telegram 미시도 (sentChannels 무영향).
+    telegramMock.isTelegramConfigured.mockReset();
+    telegramMock.isTelegramConfigured.mockReturnValue(false);
+    telegramMock.sendTelegram.mockReset();
+    telegramMock.sendTelegram.mockResolvedValue({ success: true, mockMode: false });
   });
 
   afterEach(() => {
@@ -182,6 +196,69 @@ describe("GET /api/cron/morning-briefing", () => {
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.dbError).toBe("alert_event_insert_failed:23514");
+  });
+
+  // PR-fix2 (C) — telegram best-effort. composeBriefing이 composed.telegram을 만들지만 종전엔 미발송(dead branch).
+  //   isTelegramConfigured() 가드 + telegram 실패/미설정은 generationFailed/finalStatus에 절대 미반영(best-effort).
+  describe("telegram best-effort (PR-fix2 C)", () => {
+    it("configured + send 성공 + email 성공 → sentChannels telegram 포함, status 200", async () => {
+      mockResendSuccess();
+      telegramMock.isTelegramConfigured.mockReturnValue(true);
+      telegramMock.sendTelegram.mockResolvedValue({
+        success: true,
+        mockMode: false,
+      });
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/morning-briefing", {
+          headers: { authorization: "Bearer cron-secret" },
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.sentChannels).toContain("telegram");
+      expect(telegramMock.sendTelegram).toHaveBeenCalledTimes(1);
+      // composed.telegram 본문(text 필드)이 전달돼야 함.
+      expect(telegramMock.sendTelegram.mock.calls[0][0]).toHaveProperty("text");
+    });
+
+    it("configured + send 실패 + email 성공 → status 200 불변(best-effort), telegram 채널 없음, telegramError 기록", async () => {
+      mockResendSuccess();
+      telegramMock.isTelegramConfigured.mockReturnValue(true);
+      telegramMock.sendTelegram.mockResolvedValue({
+        success: false,
+        mockMode: false,
+        error: "telegram HTTP 403: forbidden",
+      });
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/morning-briefing", {
+          headers: { authorization: "Bearer cron-secret" },
+        }),
+      );
+      // telegram 실패가 briefing status를 502로 escalate하면 안 됨.
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+      expect(body.sentChannels).not.toContain("telegram");
+      expect(body.telegramError).toBe("telegram HTTP 403: forbidden");
+    });
+
+    it("미설정 → sendTelegram 미호출, telegram 채널 없음 (prod success:false 잡음 회피)", async () => {
+      mockResendSuccess();
+      telegramMock.isTelegramConfigured.mockReturnValue(false);
+      const { GET } = await import("../route");
+      const res = await GET(
+        new NextRequest("http://localhost/api/cron/morning-briefing", {
+          headers: { authorization: "Bearer cron-secret" },
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(telegramMock.sendTelegram).not.toHaveBeenCalled();
+      expect(body.sentChannels).not.toContain("telegram");
+      expect(body.telegramError ?? null).toBeNull();
+    });
   });
 
   describe("authorization (G-cron-auth)", () => {
