@@ -82,7 +82,11 @@ export default async function AdminHealthPage() {
           상태로 Warning 표시.
         </p>
         {!adminVerified && (
-          <p className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400">
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+          >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 0건/Warning은 실제
             미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
           </p>

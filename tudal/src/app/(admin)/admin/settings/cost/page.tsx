@@ -6,6 +6,7 @@ import {
 import { buildDryRunReport } from "@/lib/cost/dry-run-estimate";
 import { DEFAULT_MODEL } from "@/lib/cost/anthropic-pricing";
 import { getMonthlyCostLog } from "@/lib/data/admin-cost-log";
+import { createClient } from "@/lib/supabase/server";
 import {
   COST_HARDCAP_KRW,
   COST_WARNING_THRESHOLD_KRW,
@@ -56,7 +57,12 @@ export default async function AdminCostPage() {
   // Mock cleanup Step 2.4: MOCK_ADMIN_COST_LOG 3 fixture → 실 cost_log SELECT.
   // production cost_log 적재 0건 시 빈 배열 → totalKrw=0 / banner=null / 정상 운용 표시.
   // RLS deny / non-finite / negative cost_krw 시 throw → admin 라우트 error boundary.
-  const logs = await getMonthlyCostLog(month);
+  // PR-A follow-up: cost_log SELECT도 RLS silent-0 이슈가 있어, totalKrw=0 / 미도달
+  // 단정 전 is_admin() diagnostic으로 env ADMIN_EMAILS↔DB admin_emails drift를 표시.
+  const supabase = await createClient();
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  const adminVerified = !(adminErr || !isAdmin);
+  const logs = await getMonthlyCostLog(month, { client: supabase });
   const summary = aggregateMonthlyCost(logs, month);
   const dryRun = buildDryRunReport(DEFAULT_MODEL);
 
@@ -123,10 +129,21 @@ export default async function AdminCostPage() {
           </Link>
           .
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          ※ 실 cost_log SELECT — cost-logger.ts insert SoT 정합 (실 AI 호출 시
-          자동 적재). production cost_log 적재 본격화 전에는 totalKrw=0 (정상).
-        </p>
+        {adminVerified ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            ※ 실 cost_log SELECT — cost-logger.ts insert SoT 정합 (실 AI 호출 시
+            자동 적재). production cost_log 적재 본격화 전에는 totalKrw=0 (정상).
+          </p>
+        ) : (
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+          >
+            ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 totalKrw=0/미도달은
+            실제 미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
+          </p>
+        )}
       </header>
 
       {banner && (

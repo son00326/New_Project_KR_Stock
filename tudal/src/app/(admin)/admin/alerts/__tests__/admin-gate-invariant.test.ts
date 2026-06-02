@@ -51,6 +51,23 @@ describe('PR-A (c) — alerts page is_admin gate + 0건=정상 정직화 (source
     expect(bannerIdx).toBeGreaterThan(okCaptionIdx);
   });
 
+  it('alert_event/news_event SELECT에 동일 session client DI 재사용 (client: supabase)', () => {
+    expect(source).toMatch(
+      /getRecentAlertEvents\(\s*\{[^}]*limit:\s*ALERT_LIMIT[^}]*client:\s*supabase[^}]*\}\s*\)/,
+    );
+    expect(source).toMatch(
+      /getRecentNewsEvents\(\s*\{[\s\S]*severity:\s*["']critical["'][\s\S]*limit:\s*NEWS_LIMIT_PER_SEVERITY[\s\S]*client:\s*supabase[\s\S]*\}\s*\)/,
+    );
+    expect(source).toMatch(
+      /getRecentNewsEvents\(\s*\{[\s\S]*severity:\s*["']warning["'][\s\S]*limit:\s*NEWS_LIMIT_PER_SEVERITY[\s\S]*client:\s*supabase[\s\S]*\}\s*\)/,
+    );
+  });
+
+  it('권한 미확인 배너는 role=status + aria-live=polite로 노출', () => {
+    expect(source).toContain('role="status"');
+    expect(source).toContain('aria-live="polite"');
+  });
+
   it('기존 empty-state 문구 보존 — 무회귀 (알림 없음 / Critical 뉴스 없음 / Warning 뉴스 없음)', () => {
     expect(source).toContain('알림 없음.');
     expect(source).toContain('Critical 뉴스 없음.');

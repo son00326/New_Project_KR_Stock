@@ -201,4 +201,5 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - ✅ STEP-1 UI sweep MERGED `d00bd53` (PR #69)
 - ✅ STEP-2 cost_log RPC + service-role fork MERGED `31cb624` (PR #70) — 마이그 0030 USER apply 대기
 - 🔄 PR-A (STEP-3 a+c, explicit is_admin diagnostic, 마이그 0) — 진행
+  - omxy ② catch 반영: alerts list client 재사용 + cost monitor/alert detail silent-0 진단 추가(마이그 0).
 - ⏳ PR-B (STEP-7 seam) — PR-A 후

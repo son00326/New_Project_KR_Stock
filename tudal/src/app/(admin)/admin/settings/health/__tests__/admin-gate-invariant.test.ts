@@ -44,6 +44,11 @@ describe('PR-A (a) — health page is_admin gate + 권한 미확인 배너 (sour
     );
   });
 
+  it('권한 미확인 배너는 role=status + aria-live=polite로 노출', () => {
+    expect(source).toContain('role="status"');
+    expect(source).toContain('aria-live="polite"');
+  });
+
   it('기존 empty-state/안내 문구 보존 — 무회귀 (전체 상태 배너 + 실패 트레이스 + 적재 안내)', () => {
     expect(source).toContain('전체 상태:');
     expect(source).toContain('최근 실패 기록 없음.');
