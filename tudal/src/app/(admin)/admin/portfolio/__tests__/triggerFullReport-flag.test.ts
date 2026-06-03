@@ -83,6 +83,20 @@ describe('triggerFullReport — B65-P3 feature flag toggle (Test 1 action seam)'
       .fn()
       .mockResolvedValue({ reportId: 'rpt-upsert-1', costKrw: 535, revised: false });
     vi.doMock('@/lib/data/admin-reports', () => ({ reportExistsForMonth: reportExistsMock }));
+    // PR-H scope 2: enrich source (flag=true도 orchestrate 직전 enrich 경유).
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([{ ticker: '005930', name: '삼성전자', sector: '반도체' }]),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: vi.fn().mockResolvedValue({
+        tier1Verdict: 'BUY',
+        consensusBadge: '🟢',
+        financialsSummary: 'fin',
+        technicalsSummary: 'tech',
+        macroSummary: '근거 부족',
+        sectorReference: 'ref',
+      }),
+    }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
     vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
     const { triggerFullReport } = await import('../actions');

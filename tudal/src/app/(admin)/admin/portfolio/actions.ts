@@ -698,6 +698,50 @@ export async function triggerFullReport(input: {
     }
   }
 
+  // PR-H scope 2: 입력 enrich (placeholder → 실 source). short_list_30 row 1회 조회(cost 0 SELECT)
+  //   → enrichReportInput(row)로 stub 6필드 교체. input.month YYYY-MM → short_list_30.month YYYY-MM-01.
+  let enrich: Awaited<
+    ReturnType<typeof import("@/lib/report/report-input-enricher").enrichReportInput>
+  >;
+  let shortlistItem: ShortListItem | undefined;
+  try {
+    const items = await getActiveShortList({
+      month: `${input.month}-01`,
+      client: supabase,
+    });
+    const match = items.find((item) => item.ticker === input.ticker);
+    if (!match) {
+      return { success: false, error: "shortlist_item_not_found" };
+    }
+    if (match.name.trim() === "" || match.sector.trim() === "") {
+      return { success: false, error: "shortlist_item_not_found" };
+    }
+    shortlistItem = match;
+  } catch {
+    return { success: false, error: "shortlist_lookup_failed" };
+  }
+  if (!shortlistItem) {
+    return { success: false, error: "shortlist_item_not_found" };
+  }
+  try {
+    const { enrichReportInput } = await import(
+      "@/lib/report/report-input-enricher"
+    );
+    enrich = await enrichReportInput(shortlistItem, { client: supabase });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (
+      message.startsWith("financials_corp_lookup_failed:") ||
+      message.startsWith("financials_fetch_failed:")
+    ) {
+      return { success: false, error: message };
+    }
+    return {
+      success: false,
+      error: "enrich_failed",
+    };
+  }
+
   try {
     // PR4 Task 2 Step 2.2: commit → orchestrate swap (admin quality path).
     // T5 (Task 1)는 fast path. Task 2부터 quality path (3-step
@@ -709,17 +753,17 @@ export async function triggerFullReport(input: {
     const result = await orchestrateFullReport(
       {
         ticker: input.ticker,
-        name: input.name,
-        sector: input.sector,
+        name: shortlistItem.name,
+        sector: shortlistItem.sector,
         month: input.month,
-        // v2 (B3 fix): prompt-valid stub. enriched input은 후속 Tier 1·Tier 2 결과 활용
-        // (short_list_30 + cost_log + technicals 합산).
-        tier1Verdict: "HOLD",
-        consensusBadge: "🟡",
-        financialsSummary: "근거 부족",
-        technicalsSummary: "근거 부족",
-        macroSummary: "근거 부족",
-        sectorReference: "근거 부족",
+        // PR-H scope 2: stub → 실 source (short_list_30 배지/점수 + DART 재무, cost 0).
+        // macroSummary는 S7b 전까지 "근거 부족"(enrich 내부 고정).
+        tier1Verdict: enrich.tier1Verdict,
+        consensusBadge: enrich.consensusBadge,
+        financialsSummary: enrich.financialsSummary,
+        technicalsSummary: enrich.technicalsSummary,
+        macroSummary: enrich.macroSummary,
+        sectorReference: enrich.sectorReference,
         adminUserId: user.id,
       },
       {
@@ -734,6 +778,80 @@ export async function triggerFullReport(input: {
       error: err instanceof Error
         ? err.message
         : "orchestrate_full_report_failed",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PR-H scope 4 — triggerReportWorkerChunk admin server action (report-worker wiring).
+// SoT spec: tasks/w99tzsvzw.output §4.
+//
+// report-worker(runGuardedReportChunk, full-report-batch-worker MERGED-dormant)를 admin이 트리거.
+// admin은 session client로 is_admin() 게이트만 — 실행은 service-role client 주입 (worker 내부는
+// acquire_report_worker_lock / cost_log.called_by=CRON_SYSTEM_USER_ID / auth.admin.getUserById 등
+// service-role 전제). session client로는 worker가 깨짐.
+//
+// 실 가동 = USER flag (PR5_CRON_AUTO_ENABLED + AI_COST_LOG_REAL_INSERT_ENABLED + CRON_SYSTEM_USER_ID,
+// Vercel env, USER-only). flag-off면 worker step0 abortBeforeSpend → throw → action error, orchestrate
+// 0회 = cost 0. 신규 cost guard 코드 0 (worker step0 3중 flag + orchestrator preflightHardcap 재사용).
+// ---------------------------------------------------------------------------
+export async function triggerReportWorkerChunk(input: {
+  month: string; // YYYY-MM
+}): Promise<
+  | {
+      success: true;
+      data: { processed: number; remaining: number; aborted: string | null };
+    }
+  | { success: true; skipped: "already_running" }
+  | { success: false; error: string }
+> {
+  if (!input || typeof input.month !== "string") {
+    return { success: false, error: "invalid_input" };
+  }
+  if (!TRIGGER_MONTH_YM_RE.test(input.month)) {
+    return { success: false, error: "invalid_month" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) return { success: false, error: "auth_unavailable" };
+
+  // is_admin() 게이트 (triggerMonthlyBatch/triggerFullReport 대칭). 비admin worker 트리거 차단.
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  if (adminErr || !isAdmin) {
+    return { success: false, error: "admin_required" };
+  }
+
+  try {
+    // Dynamic import — worker(server-only service-role 전제) + heavy lib lazy load.
+    const { runGuardedReportChunk } = await import(
+      "@/lib/report/full-report-batch-worker"
+    );
+    const { createServiceRoleClient } = await import(
+      "@/lib/supabase/service-role"
+    );
+    const guarded = await runGuardedReportChunk({
+      month: input.month,
+      client: createServiceRoleClient(),
+    });
+    if (guarded.skipped) {
+      return { success: true, skipped: guarded.skipped };
+    }
+    const result = guarded.result!;
+    return {
+      success: true,
+      data: {
+        processed: result.done + result.skipped + result.failed,
+        remaining: result.remaining,
+        aborted: result.aborted,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "report_worker_failed",
     };
   }
 }

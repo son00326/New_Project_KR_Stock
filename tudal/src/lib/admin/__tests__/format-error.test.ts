@@ -45,6 +45,7 @@ const KNOWN_ACTION_CODES = [
   "writer_persona_count_mismatch",
   "sector_writer_persona_count_mismatch",
   // PR4 Task 9 Track 2 C-3 fix — track-record + archive query throw
+  "financials_corp_lookup_failed",
   "financials_fetch_failed",
   "stock_reports_archive_query_failed",
   "short_list_30_archive_query_failed",
@@ -75,6 +76,12 @@ const KNOWN_ACTION_CODES = [
   // B65-P3 옵션 A — admin-only UPSERT RPC error codes (마이그 0025, omxy R1 inventory gap fix)
   "upsert_report_sections_0_7_admin_failed",
   "upsert_report_sections_0_7_admin_failed_no_returning",
+  // PR-H — report enrich / report-worker admin trigger
+  "report_worker_failed",
+  "enrich_failed",
+  "pr5_cron_auto_disabled",
+  "cron_system_user_id_invalid",
+  "cron_system_user_not_found",
 ];
 
 describe("formatErrorMessage", () => {
@@ -216,6 +223,14 @@ describe("formatErrorMessage", () => {
       // so it falls through to the generic 오류: ${code} fallback.
       expect(formatErrorMessage("accept_gate_blocked")).toBe(
         "오류: accept_gate_blocked",
+      );
+    });
+  });
+
+  describe("PR-H prefix action errors", () => {
+    it("maps financials_corp_lookup_failed:<pg-code> without raw DB code exposure", () => {
+      expect(formatErrorMessage("financials_corp_lookup_failed:PGRST301")).toBe(
+        "재무 데이터 조회 실패 — 잠시 후 다시 시도하세요",
       );
     });
   });

@@ -50,6 +50,7 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   sector_writer_persona_count_mismatch: "섹터 AI 평가 결과 개수가 일치하지 않습니다",
   // PR4 Task 9 Track 2 C-3 fix: track-record/actions.ts + archive query throw 매핑.
   // financials_fetch_failed:* prefix throw + archive 3종 query failures (Server Component error boundary 보호).
+  financials_corp_lookup_failed: "재무 데이터 조회 실패 — 잠시 후 다시 시도하세요",
   financials_fetch_failed: "재무 데이터 조회 실패 — 잠시 후 다시 시도하세요",
   stock_reports_archive_query_failed: "월별 아카이브 조회 실패 (stock_reports)",
   short_list_30_archive_query_failed: "월별 아카이브 조회 실패 (short_list_30)",
@@ -135,6 +136,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   sector_reference_backlog_invalid_sector: "섹터 값이 올바르지 않습니다",
   report_critic_findings_rpc_failed: "AI 검증 결과 저장이 실패했습니다",
   report_critic_findings_list_failed: "AI 검증 결과 조회가 실패했습니다",
+  // PR-H — report enrich / report-worker admin trigger 신규 표면 코드.
+  report_worker_failed: "리포트 배치 실행에 실패했습니다 — 잠시 후 다시 시도하세요",
+  enrich_failed: "리포트 입력 보강에 실패했습니다 — 잠시 후 다시 시도하세요",
+  pr5_cron_auto_disabled: "리포트 배치 자동 실행이 비활성화되어 있습니다",
+  cron_system_user_id_invalid: "Cron 시스템 사용자 ID 설정이 올바르지 않습니다",
+  cron_system_user_not_found: "Cron 시스템 사용자를 찾을 수 없습니다",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -206,6 +213,9 @@ export function formatErrorMessage(code: string): string {
     );
   }
   // PR4 Task 9 Track 2 C-3 fix: financials_fetch_failed:* + archive query failed:* prefix handlers.
+  if (code.startsWith("financials_corp_lookup_failed:")) {
+    return KOREAN_MAPPINGS["financials_corp_lookup_failed"];
+  }
   if (code.startsWith("financials_fetch_failed:")) {
     return KOREAN_MAPPINGS["financials_fetch_failed"];
   }

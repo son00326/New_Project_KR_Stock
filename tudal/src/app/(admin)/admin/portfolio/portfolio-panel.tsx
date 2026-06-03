@@ -18,6 +18,8 @@ import {
   rejectShortList,
   raiseDispute,
   resolveDispute,
+  triggerMonthlyBatch,
+  triggerReportWorkerChunk,
 } from "./actions";
 import {
   DISPUTE_ERROR_REASON_TOO_SHORT,
@@ -50,6 +52,11 @@ type BannerState =
   | { kind: "reject_done"; reanalysisCount: number; portfolioHoldWarning?: boolean }
   | { kind: "dispute_done" }
   | { kind: "dispute_resolved" }
+  // PR-H scope 1a — 30 재선정(triggerMonthlyBatch) 결과 배너.
+  | { kind: "reanalyze_done"; selectedCount: number }
+  // PR-H scope 4 — report-worker chunk 결과 배너.
+  | { kind: "report_worker_done"; processed: number; remaining: number; aborted: string | null }
+  | { kind: "report_worker_skipped" }
   | { kind: "error"; message: string }
   | null;
 
@@ -144,6 +151,43 @@ export function PortfolioPanel({
     });
   }
 
+  // PR-H scope 1a — 30 재선정 (실 AI 재실행). reject(=거부 기록, cost 0)와 분리 — reject 자동
+  //   재선정 트리거 금지(silent cost burn 방지). 명시 버튼 + flag-off면 action 내부 fail-closed = cost 0.
+  function handleReanalyze() {
+    startTransition(async () => {
+      const result = await triggerMonthlyBatch({ month: month.slice(0, 7) });
+      if (result.success) {
+        setBanner({ kind: "reanalyze_done", selectedCount: result.data.selectedCount });
+        router.refresh();
+      } else {
+        setBanner({ kind: "error", message: result.error });
+      }
+    });
+  }
+
+  // PR-H scope 4 — report-worker chunk 트리거 (30 풀리포트 생성, 1 chunk). 실 가동은 USER flag
+  //   (PR5_CRON_AUTO_ENABLED). flag-off면 worker step0 abort = cost 0.
+  function handleReportWorker() {
+    startTransition(async () => {
+      const result = await triggerReportWorkerChunk({ month: month.slice(0, 7) });
+      if (!result.success) {
+        setBanner({ kind: "error", message: result.error });
+        return;
+      }
+      if ("skipped" in result) {
+        setBanner({ kind: "report_worker_skipped" });
+      } else {
+        setBanner({
+          kind: "report_worker_done",
+          processed: result.data.processed,
+          remaining: result.data.remaining,
+          aborted: result.data.aborted,
+        });
+      }
+      router.refresh();
+    });
+  }
+
   function handleDispute() {
     if (!finalApproval) return;
     setDisputeError(null);
@@ -222,10 +266,10 @@ export function PortfolioPanel({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
           <div>
             <p className="font-semibold">
-              Reject 기록 완료 — 재분석 큐 미연결 (요청 {banner.reanalysisCount}회)
+              Reject 기록 완료 (요청 {banner.reanalysisCount}회)
             </p>
             <p className="mt-0.5 text-xs opacity-80">
-              실 재분석 큐 연결 전까지 전월 포트 유지 상태입니다.
+              아래 “30 재선정 — 실 AI 재실행” 버튼으로 재선정하거나, 매월 1일 자동 배치를 기다립니다. 확정 전까지 전월 포트 유지 상태입니다.
             </p>
           </div>
         </div>
@@ -235,6 +279,41 @@ export function PortfolioPanel({
         <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           <span>{formatPortfolioActionError(banner.message)}</span>
+        </div>
+      )}
+
+      {/* PR-H scope 1a — 30 재선정 완료 배너 */}
+      {banner?.kind === "reanalyze_done" && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-400/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+          <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="font-semibold">
+            30 재선정 완료 — {banner.selectedCount}종목 선정. 표를 새로고침합니다.
+          </span>
+        </div>
+      )}
+
+      {/* PR-H scope 4 — report-worker chunk 결과 배너 */}
+      {banner?.kind === "report_worker_done" && (
+        <div className="flex items-start gap-3 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div>
+            <p className="font-semibold">
+              리포트 배치 chunk 처리 {banner.processed}건
+              {banner.aborted ? ` · 중단(${banner.aborted})` : ""}
+            </p>
+            <p className="mt-0.5 text-xs opacity-80">
+              {banner.remaining > 0
+                ? `남은 ${banner.remaining}건 — 다시 실행하거나 일일 cron이 이어서 처리합니다.`
+                : "남은 작업 없음."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {banner?.kind === "report_worker_skipped" && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+          <span>리포트 배치가 이미 진행 중입니다 (다른 워커 보유).</span>
         </div>
       )}
 
@@ -302,6 +381,34 @@ export function PortfolioPanel({
             disabled={isPending || disputeBlocked}
           >
             Reject — 재분석 요청
+          </Button>
+        </div>
+      )}
+
+      {/* PR-H scope 1a+4 — admin 배치 트리거 (실 AI / 비용 발생, USER flag·키 게이트 의존).
+          reject와 분리: 30 재선정은 명시 버튼(silent cost burn 방지). report-worker는 30 풀리포트 생성. */}
+      {!isAlreadyFinalized && (
+        <div className="flex flex-wrap items-center gap-3 border-t pt-3">
+          <span className="text-xs font-medium text-muted-foreground">
+            관리자 배치 (실 AI · 비용 발생)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReanalyze}
+            disabled={isPending}
+            title="실 AI로 30종목 재선정 (비용 발생 · AI 키/비용 게이트 필요)"
+          >
+            30 재선정 — 실 AI 재실행
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReportWorker}
+            disabled={isPending}
+            title="30 풀리포트 생성 (1 chunk · PR5 flag 활성 필요)"
+          >
+            리포트 배치 생성 (1 chunk)
           </Button>
         </div>
       )}

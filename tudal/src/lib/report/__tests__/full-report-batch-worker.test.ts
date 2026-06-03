@@ -11,7 +11,11 @@ const getMonthlyTotalMock = vi.fn();
 const insertPipelineHealthMock = vi.fn();
 const emitCostAlertMock = vi.fn();
 const insertAlertEventsMock = vi.fn();
+const enrichMock = vi.fn();
 
+vi.mock("@/lib/report/report-input-enricher", () => ({
+  enrichReportInput: (...a: unknown[]) => enrichMock(...a),
+}));
 vi.mock("@/lib/report/full-report-orchestrator", () => ({
   orchestrateFullReport: (...a: unknown[]) => orchestrateMock(...a),
 }));
@@ -139,6 +143,15 @@ beforeEach(() => {
       sector: "테스트",
     })),
   ]);
+  // PR-H scope 2 — chunk enrich default (cost 0, financials DB-read 격리). macro는 항상 근거 부족.
+  enrichMock.mockResolvedValue({
+    tier1Verdict: "BUY",
+    consensusBadge: "🟢",
+    financialsSummary: "[티커 2024 연간] 매출 100억",
+    technicalsSummary: "종합 80 · 추세 75 · 모멘텀 70 · 변동성 30 · breakout",
+    macroSummary: "근거 부족",
+    sectorReference: "반도체 섹터 Level A 레퍼런스 적용",
+  });
   preflightMock.mockResolvedValue({
     currentTotal: 0,
     reservation: 0,
@@ -264,6 +277,71 @@ describe("runReportBatchChunk sequential + skip + isolation", () => {
     expect(res.done).toBe(0);
     const marks = rpcCalls.filter((c) => c.name === "mark_report_job");
     expect(marks[0].args.p_status).toBe("done");
+  });
+
+  // PR-H scope 2 — chunk enrich wire: stub("HOLD"/"🟡"/"")  → enrichReportInput(row) 실값.
+  it("PR-H enrich: orchestrate receives enriched input (not stub) + enrich called per ticker (cost 0)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [{ id: "j1", ticker: "005930" }],
+    });
+    const res = await runReportBatchChunk({
+      month: "2026-06",
+      client: workerClient(client),
+    });
+    expect(res.done).toBe(1);
+    // enrich는 claimed ticker마다 호출 (row + service-role client 주입).
+    expect(enrichMock).toHaveBeenCalledTimes(1);
+    const [enrichItemArg, enrichOptArg] = enrichMock.mock.calls[0];
+    expect(enrichItemArg).toMatchObject({ ticker: "005930", name: "삼성전자", sector: "반도체" });
+    expect(enrichOptArg).toEqual({ client });
+    // orchestrate payload = enrich 실값 (stub "HOLD"/"🟡"/"" 역회귀 차단).
+    expect(orchestrateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticker: "005930",
+        tier1Verdict: "BUY",
+        consensusBadge: "🟢",
+        financialsSummary: "[티커 2024 연간] 매출 100억",
+        technicalsSummary: "종합 80 · 추세 75 · 모멘텀 70 · 변동성 30 · breakout",
+        macroSummary: "근거 부족",
+        sectorReference: "반도체 섹터 Level A 레퍼런스 적용",
+      }),
+      { client, callerKind: "cron" },
+    );
+  });
+
+  it("PR-H enrich: enrich error (financials SELECT) → per-ticker isolation (mark failed, 다음 ticker 계속)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      enrichMock
+        .mockRejectedValueOnce(new Error("financials_corp_lookup_failed:PGRST301"))
+        .mockResolvedValue({
+          tier1Verdict: "HOLD",
+          consensusBadge: "🟡",
+          financialsSummary: "fin",
+          technicalsSummary: "tech",
+          macroSummary: "근거 부족",
+          sectorReference: "ref",
+        });
+      const { client, rpcCalls } = makeFakeClient({
+        claimedJobs: [
+          { id: "j1", ticker: "005930" },
+          { id: "j2", ticker: "000660" },
+        ],
+      });
+      const res = await runReportBatchChunk({
+        month: "2026-06",
+        client: workerClient(client),
+      });
+      // enrich 실패 ticker는 failed (orchestrate 미진입), 나머지 계속.
+      expect(res.failed).toBe(1);
+      expect(res.done).toBe(1);
+      expect(orchestrateMock).toHaveBeenCalledTimes(1);
+      const marks = rpcCalls.filter((c) => c.name === "mark_report_job");
+      expect(marks.find((m) => m.args.p_id === "j1")?.args.p_status).toBe("failed");
+      expect(marks.find((m) => m.args.p_id === "j2")?.args.p_status).toBe("done");
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("T1 isolation: 1 종목 실패 → 나머지 처리 계속, 실패 종목 mark failed", async () => {
