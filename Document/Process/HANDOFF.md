@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-02 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)** — 62차 prep 진행 후 사용자 ④ 보류. **④ 실행방식 확정 = 로컬 러너**(cron/admin HTTP는 1650콜 ~30-55분 ≫ Vercel maxDuration → 타임아웃, Claude+omxy CONVERGED). prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-02 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)**. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) supersede**: ❶ 실행 = **B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제) — 로컬 러너 폐기 / ❷ 데이터 = **하이브리드 확정**(S1 종가·S2 거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / S3 외국인 = pykrx(공식 API 404) / S4·S5 = DART) — 날짜별 전종목 1콜로 KRX throttle 근본 해결. prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX 공식 API 전환 후 재시드 필요. 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -8,7 +8,7 @@ Last updated: 2026-06-02 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 ## 한눈에 (현재 상태 + 다음 행동)
 
-**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028~0030 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. 62차 prep 후 사용자 ④ 보류. **④ = 로컬 one-off 러너 확정**(cron/admin HTTP는 1650콜 ~30-55분 타임아웃 → NON-VIABLE; 매달 자동화는 별도 선정 청크워커 PR — §다음 액션 큐 1). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX throttle 재실행 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
+**지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028~0030 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) 결정**: ❶ 실행 = **B 청크 워커 단일화**(Vercel cron, PR5 패턴 — 첫 검증도 수동 트리거, 로컬 러너 폐기) / ❷ 데이터 소스 = **하이브리드**(시세·거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / 외국인 = pykrx / 재무 = DART → throttle 근본 해결). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① 150 시드 ❌ KRX 공식 API 전환 후 재시드 필요. 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
 **main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync + launch-readiness PR #79 후 = `532a0a5` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
@@ -20,13 +20,13 @@ Last updated: 2026-06-02 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
-1. **PR-G ⓑ 실 AI 첫 30선정** (다음 1순위 — ⓐ ✅ MERGED `d15da47`/PR #68. **④ 실행방식 = 로컬 러너 확정** [cron 불가]. 사용자 결정: 이번 세션 ④ 보류, prep만):
+1. **PR-G ⓑ 실 AI 첫 30선정** (다음 1순위 — ⓐ ✅ MERGED `d15da47`/PR #68. **63차(2026-06-02) 결정: ❶ 실행 = B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제 — 로컬 러너 폐기) **/ ❷ 데이터 = 하이브리드**(KRX 공식 Open API[시세·거래량·universe] + pykrx[S3 외국인] + DART[S4·S5])):
    - ⓐ [CLAUDE] ✅ **DONE**: cron 실 AI 경로 배선 (PR #68, §6 참조).
-   - **prep 상태 (62차 세션, 사용자 ①~④ 위임)**: ② ✅ cron-system user 생성 `39202d8b-1042-48a6-8da0-df14a52fabea`(= cron-system@joopick.internal, auth.users 존재·confirmed, getUserById OK, PR5+PR-G 공용). ③ ✅/복원 Vercel prod env: `CRON_SYSTEM_USER_ID` set(유지) · `AI_COST_LOG_REAL_INSERT_ENABLED=true`·`ANTHROPIC_API_KEY` 확인 · `MONTHLY_BATCH_CRON_AI_ENABLED`는 **false로 복원**(cron 비viable이라 merge-safe 기본 유지 — 7월 cron 타임아웃 잠재리스크 제거). ① ❌ **150 시드 재실행 필요**(KRX throttle: `get_market_trading_value_and_volume` 빈응답 연쇄 ~2000/2269 실패. tier0_candidates_150 = 0, 부분기록 0. 재시도 시 KRX backoff/off-peak 권장).
-   - **⚠️ ④ 실행방식 결정 (Claude+omxy R4 CONVERGED)**: **cron/admin HTTP 동기 트리거 NON-VIABLE** — 1650 Opus콜(150×11, adapter 공유 limiter default 4) ~30-55분 ≫ Vercel maxDuration(monthly-batch route override 없음 → ≤300s) → 타임아웃 + 부분 cost burn + lock 잔류 + cost_log 미기록. **필수 경로 = 로컬 러너**: (A′) one-off 러너 + JSON 체크포인트(150 패널 저장, 실패 ticker만 재시도, 150/150 완성 시 `upsertShortList30` persist) + (B) `callPersona` transient 재시도(messages.create 429/5xx/APIConnection/timeout 1-2회 — parse/validation/cost insert 금지, admin path 공유라 비파괴 검증). **A′ 러너 = Node/tsx 독립 프로세스**(Next dev HTTP route 호출이 아님 — route는 serverless 시간제한 동일)이라 maxDuration 무관. prod Supabase service-role + prod ANTHROPIC_API_KEY 사용.
+   - **prep 상태 (62차 세션, 사용자 ①~④ 위임)**: ② ✅ cron-system user 생성 `39202d8b-1042-48a6-8da0-df14a52fabea`(= cron-system@joopick.internal, auth.users 존재·confirmed, getUserById OK, PR5+PR-G 공용). ③ ✅/복원 Vercel prod env: `CRON_SYSTEM_USER_ID` set(유지) · `AI_COST_LOG_REAL_INSERT_ENABLED=true`·`ANTHROPIC_API_KEY` 확인 · `MONTHLY_BATCH_CRON_AI_ENABLED`는 **false로 복원**(cron 비viable이라 merge-safe 기본 유지 — 7월 cron 타임아웃 잠재리스크 제거). ① ❌ 150 시드 0 rows(구 pykrx per-ticker throttle: `get_market_trading_value_and_volume` 빈응답 ~2000/2269 실패). **63차 해결**: S1 종가·S2 거래량·universe를 **KRX 공식 Open API**(날짜별 전종목 1콜, 승인완료, env `KRX_OPENAPI_KEY`)로 전환 → throttle 근본 해결. S3 외국인만 pykrx 유지(공식 API에 없음=404, 기간 일괄 최적화). **CLAUDE 작업 = `screen_shortlist_tier0.py` 데이터소스 전환(이번 세션 가능, cost 0)**.
+   - **⚠️ ④ 실행방식 (63차 supersede = B 청크 워커, 로컬 러너 폐기)**: 동기 단발(cron/admin HTTP·로컬 러너 모두) 1650 Opus콜(150×11, limiter default 4) ~30-55분이라 serverless 300s 초과 = 타임아웃·NON-VIABLE. **확정 = Vercel cron 청크 워커**(PR5 report-worker 패턴 복제: `tier1_selection_job` 큐 + claim_next + run-mutex + self-continue — 몇 종목씩 패널 처리, 150 완성 시 선정 확정 + `upsertShortList30` persist). 첫 1회 품질 검증도 **이 워커를 수동 트리거**(별도 로컬 러너 안 만듦). `callPersona` transient 재시도(messages.create 429/5xx/APIConnection/timeout 1-2회 — parse/validation/cost insert 제외)는 워커에 포함. service-role + prod ANTHROPIC_API_KEY.
    - **실비용 정정**: reservation cap = 1650 × 82.23원 = **135,680원**(< 40만 hardcap, preflight 통과) / 실제 ≈ **6.5–8만원**(opus-4-7 $5/$25 per M, max_tokens 1024, 캐시 off). **구 "~5–6천원" 표기는 오기**.
-   - **다음 세션 ④ 절차 (= 일회성 검증)**: (a) ① 150 재시드(KRX 안정 시) (b) 로컬 러너 A′+B 빌드(§2.0a) (c) 로컬 실행 ~55분 (d) short_list_30 AI컬럼/cost_log/배지 검증 → 카드 실 배지 활성. **로컬 러너 = 첫 1회 실 AI 선정 품질 검증용 one-off일 뿐, 매달 자동화 아님.**
-   - **⭐ 매달 자동화 (1일 cron → 자동 30선정 + 30리포트) 아키텍처 (사용자 Q 62차)**: serverless 300s 제한 때문에 **단발 실행 불가 → 청크 워커 필수**. (i) **30리포트** = PR5 report-worker가 **이미 청크 워커 완성**(report_batch_job 큐 + claim_next_report_jobs + run-mutex + self-continue, daily cron, dormant) → **go-live만** 하면 자동. (ii) **30선정** = 현재 단발 orchestrator(1650콜 타임아웃) → **PR5와 동일 청크 워커 패턴으로 재구성 필요**(`tier1_selection_job` 큐 → cron이 몇 종목씩 패널 처리 → 150 완성 시 선정 확정). **별도 상시 서버 불필요** — Vercel cron 청크가 정답(PR5가 입증). 대안 = Vercel Workflow(WDK durable) 또는 전용 워커서버(과함). **신규 작업 = "선정 청크 워커 PR"**(PR5 패턴 복제, PR-G ⓑ 일회성 검증 후).
+   - **다음 세션 절차**: (a) `screen_shortlist_tier0.py` S1/S2/universe → KRX 공식 API 전환 + S3 pykrx 기간일괄 최적화 (cost 0, CLAUDE) (b) 150 시드 (c) 선정 청크 워커 PR 빌드(§2.0a — mock+flag-off는 cost 0) (d) Anthropic 키+비용 승인 후 워커 수동 트리거 ~55분 (e) short_list_30 AI컬럼/cost_log/배지 검증 → 카드 실 배지 활성. **첫 검증·매달 자동 모두 동일 청크 워커로 단일화.**
+   - **⭐ 매달 자동화 (1일 cron → 자동 30선정 + 30리포트) 아키텍처 (사용자 Q 62차)**: serverless 300s 제한 때문에 **단발 실행 불가 → 청크 워커 필수**. (i) **30리포트** = PR5 report-worker가 **이미 청크 워커 완성**(report_batch_job 큐 + claim_next_report_jobs + run-mutex + self-continue, daily cron, dormant) → **go-live만** 하면 자동. (ii) **30선정** = 현재 단발 orchestrator(1650콜 타임아웃) → **PR5와 동일 청크 워커 패턴으로 재구성 필요**(`tier1_selection_job` 큐 → cron이 몇 종목씩 패널 처리 → 150 완성 시 선정 확정). **별도 상시 서버 불필요** — Vercel cron 청크가 정답(PR5가 입증). 대안 = Vercel Workflow(WDK durable) 또는 전용 워커서버(과함). **신규 작업 = "선정 청크 워커 PR"**(PR5 패턴 복제 — 63차 결정으로 첫 검증·매달 자동 모두 이 워커로 단일화). **⚠️ OPEN**: 150 시드의 S3(pykrx=Python)는 Vercel(TS)에서 실행 불가 → monthly 자동화 시 GitHub Actions cron 등 외부 스케줄 필요(S1/S2/universe는 KRX 공식 REST API라 TS 가능). 청크워커 PR 설계에서 확정.
 2. **[CLAUDE] D11 전 hard-gate lane**: **PR-H** 리포트 enrich+manual trigger(reject→batch / Regen→단일 ticker) → **PR-I/PR5b** Tier2 sector14+Section8 full path → **PR-J** runtime mock 전면정리. **D11 진입 전 완료 필수**(§2.2 D11 row). **PR-K**(Reflection)는 출시 게이트 아님 — S9/go-live 후 defer.
 
 **[별도 트랙] PR5 cron 리포트 go-live** (위 e2e와 독립, USER 게이트): cron-system seed ✅(62차 done — `CRON_SYSTEM_USER_ID` prod set + user `39202d8b-…`, PR5+PR-G 공용) + Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + cron-persist canary. 마이그 0027 ✅ applied. (PR #60 MERGED-dormant.)
@@ -71,7 +71,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §0.A — PR5 go-live 활성화 진입 (⚠️ **별도 트랙** — 1순위 아님)
 
-> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G ⓑ**(실 AI 첫 30선정). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). ⓑ 잔여 = **① 150 재시드(KRX throttle 실패) + ④ 로컬 one-off 러너(A′+B) 빌드·실행** — cron/admin HTTP는 NON-VIABLE(타임아웃)이라 "USER 비용 게이트만"이 아니다(CLAUDE 주도 작업 + 비용 승인). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
+> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G ⓑ**(실 AI 첫 30선정). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). ⓑ 잔여 = **① `screen_shortlist_tier0.py` KRX 공식 API 전환 + 150 시드 + ④ 선정 청크 워커 PR(B, Vercel cron) 빌드·수동 트리거** — 동기 단발(로컬 러너 포함)은 NON-VIABLE(타임아웃)이라 "USER 비용 게이트만"이 아니다(CLAUDE 주도 작업 + 비용 승인). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
 
 **PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` ✅ **DONE**(62차, PR5+PR-G 공용) / (d) Vercel PR5 env(`PR5_CRON_AUTO_ENABLED=true`) / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
@@ -146,7 +146,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. 현 1순위 = PR-G, 한눈에 큐)
 
-**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **다음 1순위 = PR-G ⓑ(실 AI 첫 30선정, ④=로컬 러너·cron 불가) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
+**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **다음 1순위 = PR-G ⓑ(실 AI 첫 30선정, ④=B 청크 워커·63차 결정 / 데이터=하이브리드) — 한눈에 §다음 액션 큐 참조.** 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
@@ -186,12 +186,13 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 우선 | 작업 | 필요 액션 |
 |---|---|---|
-| ⭐ PR-G ⓑ (실 AI 첫 30선정, 다음 1순위) | ⓐ ✅ MERGED. 62차 prep: ② cron-system user ✅ · ③ env ✅(flag false 복원) · ① 150 시드 ❌ KRX throttle 재실행 필요. **④ = 로컬 러너 확정**(cron 불가/타임아웃). 다음 세션 = ① 재시드 + 로컬 러너 A′+B 빌드 + 실행(~55분, ~6.5-8만원). CLAUDE 주도(사용자 ①~④ 위임) | 한눈에 §다음 액션 큐 1번 참조 |
+| ⭐ PR-G ⓑ (실 AI 첫 30선정, 다음 1순위) | ⓐ ✅ MERGED. **63차 결정: ❶ B 청크 워커**(로컬 러너 폐기) **/ ❷ 하이브리드 데이터**(KRX 공식 API[시세·거래량·universe] + pykrx[S3 외국인] + DART[S4·S5]). 잔여 = `screen_shortlist_tier0.py` KRX 공식 API 전환(cost 0) + 150 시드 + 선정 청크 워커 PR + 수동 트리거(~55분, ~6.5-8만원). CLAUDE 주도 | 한눈에 §다음 액션 큐 1번 참조 |
 | PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / ~~cron-system seed~~ ✅(62차 done, `CRON_SYSTEM_USER_ID` prod set) / Vercel `PR5_CRON_AUTO_ENABLED=true` / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
 | ~~마이그 0030 apply~~ ✅ DONE (2026-06-02) | `0030_get_cost_log_monthly_total_admin` production applied + verify PASS: grant matrix(authenticated만/anon·service_role·PUBLIC 제외) + fail-closed 가드 production 확인(무세션→auth_unavailable raise) + advisor baseline + cost_log drift 0. STEP-2 cost_log 하드닝 production 활성 | §6 비용 0 라운드 entry |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
 | B-7 | Resend 도메인 인증 | S7b briefing 진입 시 |
 | B-8 | Naver key rotate/env | S7b news 진입 시 |
+| ⭐ B-KRX (63차) | KRX 공식 Open API 키 = **발급·8서비스 승인 완료**(2026-06-02, 일별매매 유가/코스닥/코넥스 + 종목기본 + 신주인수권). USER 액션 = (1) **채팅 노출분 rotate 권장** (2) `.env.local`(로컬) + Vercel env `KRX_OPENAPI_KEY`(클라우드) 저장 — 평문 코드/커밋 금지. 투자자별/외국인 미제공(S3=pykrx 유지) | screen_shortlist 전환 시 (이번 세션) |
 | B-9 | Telegram bot token + admin 3 chat_id | S7c alerts |
 | B-10 KIS 키 (per-admin, 1/3 보유) | ★ KIS·Binance = **per-admin 키**(DQ-7 모델, 각자 UI 입력·암호화 저장). 현재 **3명 중 1명만 보유** (brokerage_connection 1행 = 다른 1명의 **모의(mock)** 키, account 있음·active·미사용, masked `PS**···9W7Q`). **사용자님 포함 2명 KIS 발급 필요.** S7c **장중 read-only 시세는 1개로 충분**(시세는 계정 공유 무관 — D18); per-admin 전체(특히 S8 자동매매 주문)는 3명 각자 필요. S7c 코드 잔여: 모의 키 실시간시세 권한 확인 + WebSocket 코드(CLAUDE 미구현) + Smoke #4/#5 | S7c(1개 read-only) / S8(3명 each) |
 | FLAGGED 6종 (2026-06-02 FE-audit) | §6 FE-audit entry 박제. **phase 흡수**: alerts/[id] exit RPC·settings 3모드 → S7c / notifications 본체 seam → S7b(Resend/Telegram) / cost day-month·health error-tail → cron(PR5) go-live 후 / Bell 링크 = UX(veto 가능). 해당 phase 진입 시 audit-catalog §9.5 W-ticket 승격 | 각 phase 도달 시 |
@@ -255,6 +256,15 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
 
+### 데이터 소스 + 실행 아키텍처 결정 (63차, 2026-06-02) — 사용자 ❶❷ 확정 + KRX 공식 API 라이브 검증
+
+- **계기**: 사용자 "출시까지 남은 작업 정리" → PR-G ⓑ 실행방식(❶) + 150 시드 throttle 데이터소스(❷) 재검토. 사용자 결정 후 문서 전면 동기화. (코드 변경 0 — 본 entry는 결정 박제, 구현은 다음 세션.)
+- **❶ 실행 = B 청크 워커 (로컬 러너 supersede)**: 로컬 one-off 러너는 "컴퓨터 꺼지면 매달 자동 불가"(사용자 catch). 동기 단발(cron/admin/로컬) 모두 1650콜 ~30-55분 > serverless 300s. **확정 = Vercel cron 청크 워커**(PR5 report-worker 패턴 복제: `tier1_selection_job` 큐 + claim_next + run-mutex + self-continue). 첫 1회 검증·매달 자동 단일화. **OPEN** = 150 시드 S3(pykrx=Python) monthly 스케줄(GitHub Actions 등 외부 cron — Vercel은 TS만).
+- **❷ 데이터 = 하이브리드 (KRX 공식 API 라이브 검증)**: 구 throttle 원인 = pykrx(비공식 스크레이핑) 종목별 수천 콜. **확정**: S1 종가·S2 거래량·universe = **KRX 공식 Open API**(`data-dbg.krx.co.kr/svc/apis/`, `AUTH_KEY` 헤더, env `KRX_OPENAPI_KEY`) — 날짜별 전종목 1콜 → throttle 근본 해결. S3 외국인 = pykrx(공식 API 미제공). S4·S5 = DART(유지).
+  - **라이브 검증 (사용자 키, 8서비스 승인 2026-06-02)**: `sto/stk_bydd_trd` 948종목 HTTP 200(삼성전자 종가 317,000·거래량 37,241,537), `ksq_bydd_trd`·`stk_isu_base_info` 200. 외국인 후보 endpoint 404("API does not exist"). 키 유효성 = 틀린 키 `Unauthorized Key` vs 주신 키 `Unauthorized API Call`(활용신청 전) → 활용신청 후 200 확인.
+- **CLAUDE 다음 작업(cost 0)**: `screen_shortlist_tier0.py` S1/S2/universe → KRX 공식 REST 전환 + S3 pykrx 기간일괄 최적화 + env `KRX_OPENAPI_KEY`. 그 후 선정 청크 워커 PR(B).
+- **보안**: KRX 키가 채팅에 평문 노출 → rotate 권장 + env-only(코드/커밋/로그 금지).
+
 ### 프론트 bridge-gap·spec-drift sweep (2026-06-02, PR #74 MERGED `b3ee84a`) — omxy ①조사+②수정 / Claude ③검증
 
 - **계기**: 사용자 "bridge 안 되어 프론트 미노출 / 기획과 다른 것 = omxy가 subagent·agent·skill로 컴포넌트 하나하나 검증+수정, 그 후 Claude 검증. 거기까지가 이번 세션." (역할 반전: omxy ①②, Claude ③.)
@@ -278,9 +288,11 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### PR-G ⓑ prep (62차) — ④ 보류 + ④ 실행방식 결정 (코드/DB 변경 0, 외부 prep만)
 
+> **[63차 supersede]** ④ "로컬 러너 확정" → **B 청크 워커**(컴퓨터-off 시 매달 자동 불가 + 첫 검증·자동 단일화). 데이터 소스도 KRX 공식 API 하이브리드 확정. 상단 "데이터 소스 + 실행 아키텍처 결정 (63차)" entry 참조.
+
 - **계기**: 사용자 "①~④ 전부 너가 진행 (workflows + omxy 검증·수정)". CLAUDE가 external-state prep 수행 + ④ 실행가능성 pre-burn 검증.
 - **수행**: ② cron-system auth user 생성(GoTrue admin API) `39202d8b-1042-48a6-8da0-df14a52fabea` (getUserById 검증). ③ Vercel prod env: `CRON_SYSTEM_USER_ID` 추가(유지) + `MONTHLY_BATCH_CRON_AI_ENABLED` 추가→**false 복원**(안전) + 재배포(`tudal-tawny` alias) + `AI_COST_LOG_REAL_INSERT_ENABLED=true`/`ANTHROPIC_API_KEY` 확인. ① KRX/DART 150 스크리닝 → **KRX throttle 실패**(~2000/2269, tier0_150=0, 부분기록 0).
-- **⚠️ ④ 핵심 발견 (Claude+omxy R4 CONVERGED)**: cron/admin HTTP 동기 트리거 = 1650 Opus콜 ~30-55분 ≫ maxDuration(≤300s) → **타임아웃·NON-VIABLE**. timeout 시 cost_log도 미기록 가능. **필수 = 로컬 러너**(A′ 체크포인트 + B callPersona transient 재시도). 실비용 정정 ~6.5-8만원(구 ~5-6천원 오기). 사용자 ④ 보류 결정.
+- **⚠️ ④ 핵심 발견 (Claude+omxy R4 CONVERGED)**: cron/admin HTTP 동기 트리거 = 1650 Opus콜 ~30-55분 ≫ maxDuration(≤300s) → **타임아웃·NON-VIABLE**. timeout 시 cost_log도 미기록 가능. **[HISTORICAL · 63차에서 폐기] 당시 임시 결론 = 로컬 러너**(A′ 체크포인트 + B callPersona transient 재시도)였으나, 63차 결정으로 **Vercel cron 청크 워커**가 current guidance가 됨. 실비용 정정 ~6.5-8만원(구 ~5-6천원 오기). 사용자 ④ 보류 결정은 superseded.
 - **end-state**: DB 드리프트 0(cost_log=0, tier0_150=0, short_list_30=30 2026-05만, AI컬럼 null). prod env 안전(flag false). 코드/마이그 변경 0. 다음 세션 = §다음 액션 큐 1.
 
 ### PR-G ⓐ MERGED — cron monthly-batch 실 AI prep (PR #68, main `d15da47`)

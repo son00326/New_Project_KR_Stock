@@ -222,6 +222,7 @@
 - **Supabase 마이그**: 0010 `alert_event_rls_hardening` 적용 확인 (version 20260505134639) — BL-KRIT-7 ✅ 해소.
 - **검증 게이트 회귀**: `build` exit 0 (25 routes, +1 from 24 — 동일 라우트 셋, 카운트만 정정) · `lint` 0 errors · `test:ci` exit 0 (39 files / 314 tests pass; 이전 38/306 +1/+8). 추가로 `npx tsc --noEmit --pretty false` exit 0.
 - **Tier 0 데이터 수집 인프라 결정 (B-1)**: pykrx Python 의존성 → Vercel(Node) Edge Function 배제. 로컬 Python 스크립트(scripts/, idempotent upsert · dry-run · CSV 백업 · month 인자 · `--as-of` 기준일 고정 · env 기반 Supabase 접속) 채택. T7e.8에서 구현 완료. 자동화는 S7/S8 안정화 후 GitHub Actions로 승격.
+  - **[63차 supersede 2026-06-02]**: 데이터 소스 = **하이브리드** — S1 종가·S2 거래량·universe = **KRX 공식 Open API**(env `KRX_OPENAPI_KEY`, 8서비스 승인, 날짜별 전종목 1콜 → 구 pykrx 종목별 수천 콜 throttle 근본 해결) / S3 외국인 = pykrx(공식 API 미제공=404) / S4·S5 = DART. 선정 실행 = **Vercel cron 청크 워커**(로컬 러너 폐기). 150 시드 S3(pykrx=Python)는 monthly 자동화 시 외부 cron(GitHub Actions). 상세 = ADR D-10/D-11 + HANDOFF §6 63차 entry.
 - **세션 외 git status**: 32~33차 잔여(M 12 파일 — alerts/regenerate/cron/credentials/mock-admin-*) + 35차 박제 문서 8건은 본 세션에서 미터치. 커밋 단위 분리는 사용자 결정.
 - **Test 파일 보강**: `portfolio/__tests__/actions.test.ts`에 `vi.mock("@/lib/data/admin-shortlist")` 추가 — month 인자에 매칭되는 mock 행만 반환해 기존 5개 시나리오(invalid_input·24h hold·shortlist_month_not_found·viewers_insufficient·auth_unavailable·real_persistence_not_configured) 그대로 유지.
 
