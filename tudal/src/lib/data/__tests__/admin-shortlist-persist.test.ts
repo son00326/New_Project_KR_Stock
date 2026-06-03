@@ -279,10 +279,28 @@ describe('upsertShortList30', () => {
     expect(rOther.sector).toBeNull();
   });
 
-  it('SHORTLIST-PERSIST-METADATA-1: tier0 lookup error does NOT fail persist (best-effort, rows still upserted with null meta)', async () => {
+  it('SHORTLIST-PERSIST-METADATA-1: tier0 lookup returned error does NOT fail persist (best-effort, rows still upserted with null meta)', async () => {
     upsertMock.mockResolvedValue({ error: null });
     // lookup이 error + data:null → patch skip, persist는 정상 진행 (fail-open on display meta).
     tier0InMock.mockResolvedValue({ data: null, error: { code: '42501' } });
+
+    await expect(
+      upsertShortList30('2026-06', buildSelected30()),
+    ).resolves.toBeUndefined();
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    const rows = upsertMock.mock.calls[0][0] as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(30);
+    for (const row of rows) {
+      expect(row.name).toBeNull();
+      expect(row.composite_score).toBeNull();
+      expect(row.signal_label).toBeNull();
+    }
+  });
+
+  it('SHORTLIST-PERSIST-METADATA-1: tier0 lookup rejection does NOT fail persist', async () => {
+    upsertMock.mockResolvedValue({ error: null });
+    tier0InMock.mockRejectedValue(new Error('network'));
 
     await expect(
       upsertShortList30('2026-06', buildSelected30()),
