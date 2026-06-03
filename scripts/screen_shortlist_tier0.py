@@ -6,8 +6,9 @@
 목적
 ----
 AI 키 없이도 동작하는 "진짜 코스피·코스닥 30종목" 산출 파이프라인.
-현재 구현은 pykrx 기반 가격·거래량·외국인 3개 시그널을 산출하고, DART 기반
-실적·퀄리티 2개 시그널은 후속 hook으로 남겨둔다. 5-Signal Composite
+현재 구현은 가격·거래량=KRX 공식 Open API(날짜별 전종목 1콜), 외국인=pykrx로
+3개 시그널을 산출하고, DART 기반 실적·퀄리티 2개 시그널은 후속 hook으로
+남겨둔다. 5-Signal Composite
 인터페이스는 유지하되, DART hook 구현 전에는 S4/S5를 0으로 두고 시간대별
 가중치(단/중/장)를 적용한다. 단/중/장 후보 50씩 → 최종 10/10/10 = 30 종목을
 `short_list_30` 테이블에 idempotent upsert한다.
@@ -34,8 +35,10 @@ pip install pykrx supabase requests
 - `SUPABASE_SERVICE_ROLE_KEY` — `--apply` 시 필수. anon 키로는 RLS에 막힘.
 - `DART_API_KEY` — DART OpenAPI key. Signal 4(실적 모멘텀)·Signal 5(퀄리티) 산출에 필수.
   키가 없으면 두 시그널은 0으로 fail-soft 처리되고 단/중/장 라벨은 모멘텀·거래량만 반영.
-- `KRX_ID`, `KRX_PW` — pykrx KRX 인증. universe fetch + OHLCV/외국인 조회에 필수.
-  미설정 시 KRX 응답이 비어 universe 0건으로 종료된다 (44차 root cause).
+- `KRX_OPENAPI_KEY` — KRX 공식 Open API 인증키. universe fetch + 가격/거래량
+  (날짜별 전종목 시세) 조회에 필수. **평문 커밋 금지** — 로그·에러·CSV에 노출 금지.
+- `KRX_ID`, `KRX_PW` — pykrx KRX 인증. **외국인 순매수(S3) 조회(pykrx)에만 필수**.
+  미설정 시 외국인 시그널이 0 처리된다 (가격·거래량은 KRX 공식 API로 분리됨).
 
 사용 예
 -------
@@ -67,8 +70,8 @@ python3 scripts/screen_shortlist_tier0.py \
 ------------------------------------------------
 | 시그널 | 단기(short) | 중기(mid) | 장기(long) | 데이터 소스 |
 |---|---|---|---|---|
-| S1 모멘텀 (종가/MA60) | 0.40 | 0.20 | 0.10 | pykrx OHLCV |
-| S2 거래량 급증 (5일 vs 60일) | 0.30 | 0.15 | 0.05 | pykrx OHLCV |
+| S1 모멘텀 (종가/MA60) | 0.40 | 0.20 | 0.10 | KRX 공식 API |
+| S2 거래량 급증 (5일 vs 60일) | 0.30 | 0.15 | 0.05 | KRX 공식 API |
 | S3 외국인 순매수 강도 | 0.20 | 0.15 | 0.05 | pykrx 외국인 |
 | S4 실적 모멘텀 (YoY OP %) | 0.05 | 0.30 | 0.20 | DART hook (follow-up) |
 | S5 퀄리티 (ROE/FCF/부채) | 0.05 | 0.20 | 0.60 | DART hook (follow-up) |
@@ -149,7 +152,7 @@ UNIVERSE_FILTERS = {
     # 종목명 키워드로 ETF/리츠/SPAC 등 제외 (보통주 only)
     "exclude_keywords": (
         "ETF", "ETN", "KODEX", "TIGER", "KBSTAR", "HANARO", "ARIRANG", "ACE", "SOL",
-        "리츠", "스팩", "SPAC", "우B", "우C",
+        "리츠", "REIT", "스팩", "SPAC", "인프라", "펀드", "우B", "우C",
     ),
     # 종목명 끝이 "우"로 끝나는 우선주 제외 (예: "삼성전자우")
     "exclude_pref_suffix": True,
@@ -327,7 +330,10 @@ def resolve_target_date(run_date: date, requested_as_of: Optional[date]) -> date
 # ============================================================================
 
 def fetch_universe(target_date: date, limit: Optional[int] = None) -> list[dict]:
-    """KOSPI + KOSDAQ 종목을 시총 + 종목명 기반으로 필터링.
+    """KOSPI + KOSDAQ 종목을 시총 + 보통주 + 종목명 기반으로 필터링.
+
+    KRX 공식 Open API 날짜별 전종목 1콜 (`fetch_bydd_trd`) + 종목 기본정보
+    (`fetch_isu_base`)로 보통주 판별. pykrx per-ticker name/cap 루프를 대체한다.
 
     Returns: [{ticker, name, market, market_cap_won}, ...]
 
@@ -335,35 +341,37 @@ def fetch_universe(target_date: date, limit: Optional[int] = None) -> list[dict]
     sector는 후속 단계에서 `dart_corp_codes.induty_code` + `canonical_sector_mapper.resolve_sector`로
     채워진다 (resolve_sectors_for_universe). 임시 market label 박제는 placeholder leak 위험.
     """
-    ensure_pykrx()
-    from pykrx import stock
+    try:
+        from krx_openapi import fetch_bydd_trd, fetch_isu_base, is_common_stock, _to_float
+    except ImportError:
+        from scripts.krx_openapi import fetch_bydd_trd, fetch_isu_base, is_common_stock, _to_float
 
-    asof = last_business_day_on_or_before(target_date).strftime("%Y%m%d")
+    bas_dd = last_business_day_on_or_before(target_date).strftime("%Y%m%d")
     result: list[dict] = []
 
     for market in ("KOSPI", "KOSDAQ"):
-        cap_df = stock.get_market_cap_by_ticker(asof, market=market)
-        for ticker in cap_df.index:
-            mcap = float(cap_df.at[ticker, "시가총액"])
+        bydd = fetch_bydd_trd(market, bas_dd)
+        base = fetch_isu_base(market, bas_dd)
+        for r in bydd:
+            ticker = r.get("ISU_CD")
+            name = r.get("ISU_NM")
+            if not ticker or not name:
+                continue
+            mcap = _to_float(r.get("MKTCAP"))
             if mcap < UNIVERSE_FILTERS["min_market_cap_won"]:
                 continue
-            try:
-                name = stock.get_market_ticker_name(ticker)
-            except Exception:  # noqa: BLE001
+            # 결정 A: bydd ISU_CD(6자리) vs base 키 ISU_SRT_CD(6자리) — 동일 6자리로 매칭.
+            if not is_common_stock(base.get(ticker)):
                 continue
-            if not name:
-                continue
-            # 종목명 키워드 필터
-            if any(kw in name for kw in UNIVERSE_FILTERS["exclude_keywords"]):
-                continue
-            if UNIVERSE_FILTERS["exclude_pref_suffix"] and name.endswith("우"):
+            # 결정 B: 보통주 판별을 통과하더라도 리츠/스팩 종목명 안전망 유지.
+            if is_excluded_universe_name(name):
                 continue
             result.append({
                 "ticker": ticker,
                 "name": name,
                 "market": market,                          # 'KOSPI' or 'KOSDAQ' (B66 후 sector resolve의 fallback 정보 X — induty 기반)
                 "market_cap_won": mcap,
-                # sector 필드는 의도적으로 미설정 — resolve_sectors_for_universe에서 induty 기반 결정.
+                # 결정 C: sector 필드는 의도적으로 미설정 — resolve_sectors_for_universe에서 induty 기반 결정.
             })
 
     # 시총 큰 순으로 정렬 후 옵션 limit 적용 (디버깅용 작은 universe)
@@ -371,6 +379,18 @@ def fetch_universe(target_date: date, limit: Optional[int] = None) -> list[dict]
     if limit is not None and limit > 0:
         result = result[:limit]
     return result
+
+
+def is_excluded_universe_name(name: str) -> bool:
+    """ETF/ETN/리츠/스팩/인프라펀드/우선주명 안전망.
+
+    KRX 기본정보의 보통주+주권 판별이 1차 필터다. 이 함수는 스팩처럼 보통주+주권일
+    수 있는 예외와 종목명 기반 상품을 2차로 걸러낸다.
+    """
+    normalized = name.upper()
+    if any(str(keyword).upper() in normalized for keyword in UNIVERSE_FILTERS["exclude_keywords"]):
+        return True
+    return bool(UNIVERSE_FILTERS["exclude_pref_suffix"] and name.endswith("우"))
 
 
 # ============================================================================
@@ -498,30 +518,94 @@ def enforce_b89_strict_block(unresolved_count: int, *, apply: bool, review_csv_p
 # Signal compute
 # ============================================================================
 
-def fetch_price_signals(ticker: str, target_date: date) -> dict:
-    """pykrx OHLCV → momentum (close / MA60), volume_surge (MA5 / MA60), volatility (60d sigma).
+def prefetch_price_series(
+    target_date: date,
+    markets: tuple[str, ...] = ("KOSPI", "KOSDAQ"),
+) -> dict[str, dict]:
+    """KRX 날짜별 전종목 시세를 영업일 역산해 ticker별 시계열로 prefetch.
 
-    Returns dict with raw values or None when insufficient data.
+    per-ticker OHLCV 루프(pykrx)를 날짜별 batch 1콜로 역전한다. 각 영업일
+    `fetch_bydd_trd(market, d)` → 빈([]) 응답일(주말/휴장/미갱신) 스킵 →
+    ISU_CD별 closes/volumes를 날짜 오름차순으로 축적.
+
+    Returns: {ticker: {"closes": [...], "volumes": [...]}}
     """
-    from pykrx import stock
+    try:
+        from krx_openapi import fetch_bydd_trd, _to_float
+    except ImportError:
+        from scripts.krx_openapi import fetch_bydd_trd, _to_float
 
     end = last_business_day_on_or_before(target_date)
-    start = end - timedelta(days=PRICE_WINDOW_DAYS + 20)  # 영업일 buffer
+    # 달력 PRICE_WINDOW_DAYS + 20 + 1일 역산 후 주말 제거 → 영업일 오름차순.
+    span = PRICE_WINDOW_DAYS + 20 + 1
+    days = [end - timedelta(days=offset) for offset in range(span)]
+    business_days = sorted(d for d in days if d.weekday() < 5)
 
-    try:
-        df = stock.get_market_ohlcv_by_date(
-            start.strftime("%Y%m%d"),
-            end.strftime("%Y%m%d"),
-            ticker,
-        )
-    except Exception:  # noqa: BLE001
-        return {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0}
+    series: dict[str, dict] = {}
+    for market in markets:
+        for d in business_days:
+            rows = fetch_bydd_trd(market, d.strftime("%Y%m%d"))
+            if not rows:
+                continue  # 빈 영업일(휴장/미갱신) 스킵
+            for r in rows:
+                ticker = r.get("ISU_CD")
+                close = _to_float(r.get("TDD_CLSPRC"))
+                if not ticker or close <= 0:
+                    continue
+                entry = series.setdefault(ticker, {"closes": [], "volumes": []})
+                entry["closes"].append(close)
+                entry["volumes"].append(_to_float(r.get("ACC_TRDVOL")))
+    return series
 
-    if df is None or df.empty or len(df) < MOMENTUM_MA_WINDOW + 1:
-        return {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0}
 
-    closes = df["종가"].astype(float).tolist()
-    volumes = df["거래량"].astype(float).tolist()
+def zero_price_signals() -> dict:
+    return {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0}
+
+
+def fetch_price_signals(ticker: str, target_date: date, *, price_series: dict = None) -> dict:
+    """OHLCV → momentum (close / MA60), volume_surge (MA5 / MA60), volatility (60d sigma).
+
+    KRX 전환 후에는 `price_series` (prefetch_price_series 출력)를 주입한다.
+    price_series=None이면(하위호환) pykrx fallback. ticker가 series에 없거나
+    시계열 < MOMENTUM_MA_WINDOW+1이면 {0,0,0}.
+
+    Returns dict with 3 raw float keys: momentum_raw, volume_surge_raw, volatility_raw.
+    """
+    if price_series is not None:
+        entry = price_series.get(ticker)
+        if not isinstance(entry, dict):
+            return zero_price_signals()
+        closes = entry.get("closes", [])
+        volumes = entry.get("volumes", [])
+        if len(closes) < MOMENTUM_MA_WINDOW + 1 or len(volumes) < VOLUME_MA_LONG:
+            return zero_price_signals()
+        if len(volumes) < len(closes[-VOLUME_MA_LONG:]):
+            return zero_price_signals()
+        if any(close <= 0 for close in closes[-MOMENTUM_MA_WINDOW - 1:]):
+            return zero_price_signals()
+    else:
+        ensure_pykrx()
+        from pykrx import stock
+
+        end = last_business_day_on_or_before(target_date)
+        start = end - timedelta(days=PRICE_WINDOW_DAYS + 20)  # 영업일 buffer
+
+        try:
+            df = stock.get_market_ohlcv_by_date(
+                start.strftime("%Y%m%d"),
+                end.strftime("%Y%m%d"),
+                ticker,
+            )
+        except Exception:  # noqa: BLE001
+            return zero_price_signals()
+
+        if df is None or df.empty or len(df) < MOMENTUM_MA_WINDOW + 1:
+            return zero_price_signals()
+
+        closes = df["종가"].astype(float).tolist()
+        volumes = df["거래량"].astype(float).tolist()
+        if len(volumes) < VOLUME_MA_LONG or any(close <= 0 for close in closes[-MOMENTUM_MA_WINDOW - 1:]):
+            return zero_price_signals()
 
     ma60 = sum(closes[-MOMENTUM_MA_WINDOW:]) / MOMENTUM_MA_WINDOW
     last_close = closes[-1]
@@ -552,6 +636,7 @@ def fetch_foreign_signal(ticker: str, target_date: date) -> float:
 
     Returns raw won 합계. 양수면 매수 우위, 음수면 매도 우위.
     """
+    ensure_pykrx()
     from pykrx import stock
 
     end = last_business_day_on_or_before(target_date)
@@ -1064,7 +1149,13 @@ def main() -> None:
         sector_dist[u["sector"]] = sector_dist.get(u["sector"], 0) + 1
     print(f"      → sector 분포: {dict(sorted(sector_dist.items()))}", file=sys.stderr, flush=True)
 
-    print(f"[2/7] per-ticker signals (pykrx OHLCV + 외국인 + DART hook) — {len(universe)}회 호출, 수 분 소요 ...",
+    # KRX 날짜별 전종목 batch prefetch — per-ticker OHLCV 루프를 dict[ticker→시계열] lookup으로 역전.
+    print(f"[1.7/7] KRX price series prefetch (날짜별 전종목 batch, 영업일 역산) ...",
+          file=sys.stderr, flush=True)
+    price_series = prefetch_price_series(target_date)
+    print(f"      → {len(price_series)}개 ticker 시계열 prefetch", file=sys.stderr, flush=True)
+
+    print(f"[2/7] per-ticker signals (가격·거래량=KRX prefetch lookup + 외국인=pykrx + DART hook) — {len(universe)}회 ...",
           file=sys.stderr, flush=True)
     signals: list[StockSignal] = []
     for i, u in enumerate(universe, start=1):
@@ -1076,7 +1167,7 @@ def main() -> None:
             dart_supabase = get_supabase_client()
             print(f"      [refresh] supabase client recreated at ticker {i}",
                   file=sys.stderr, flush=True)
-        price = fetch_price_signals(u["ticker"], target_date)
+        price = fetch_price_signals(u["ticker"], target_date, price_series=price_series)
         foreign = fetch_foreign_signal(u["ticker"], target_date)
         dart = fetch_dart_signals(u["ticker"], target_date, dart_key, dart_supabase)
         signals.append(StockSignal(

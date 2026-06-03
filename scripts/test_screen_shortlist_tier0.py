@@ -579,6 +579,214 @@ class Tier0CandidatesEmitTest(unittest.TestCase):
             MODULE.upsert_candidates_supabase(None, [base, base])
 
 
+class FetchUniverseKrxTest(unittest.TestCase):
+    """§5.3 — KRX 공식 API 전환 후 fetch_universe.
+
+    krx_openapi.fetch_bydd_trd / fetch_isu_base 를 패치(fetch_universe가 lazy import 하므로
+    매 호출 재import → 패치된 모듈 심볼 사용)해서 보통주 필터 + 4키 계약을 검증.
+    """
+
+    def _patch_krx(self, bydd_by_market, base_rows_by_market):
+        import importlib.util as _ilu
+        krx_path = SCRIPT_PATH.with_name("krx_openapi.py")
+        spec = _ilu.spec_from_file_location("krx_openapi", krx_path)
+        krx = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(krx)
+
+        def fake_bydd(market, bas_dd, **kwargs):
+            return bydd_by_market.get(market, [])
+
+        def fake_base(market, bas_dd, **kwargs):
+            rows = base_rows_by_market.get(market, [])
+            return {r["ISU_SRT_CD"]: r for r in rows if r.get("ISU_SRT_CD")}
+
+        krx.fetch_bydd_trd = fake_bydd
+        krx.fetch_isu_base = fake_base
+        return krx
+
+    def test_fetch_universe_krx_common_filter(self):
+        import sys as _sys
+        # 시총: 보통주 1조, 우선주 5천억, ETF 2조, 저시총 보통주 100억(컷오프 300억 미만)
+        bydd = {
+            "KOSPI": [
+                {"ISU_CD": "005930", "ISU_NM": "삼성전자", "MKT_NM": "KOSPI", "MKTCAP": "1000000000000"},
+                {"ISU_CD": "005935", "ISU_NM": "삼성전자우", "MKT_NM": "KOSPI", "MKTCAP": "500000000000"},
+                {"ISU_CD": "069500", "ISU_NM": "KODEX 200", "MKT_NM": "KOSPI", "MKTCAP": "2000000000000"},
+                {"ISU_CD": "111111", "ISU_NM": "저시총주", "MKT_NM": "KOSPI", "MKTCAP": "10000000000"},
+                {"ISU_CD": "123456", "ISU_NM": "미래에셋비전스팩1호", "MKT_NM": "KOSPI", "MKTCAP": "900000000000"},
+                {"ISU_CD": "222222", "ISU_NM": "맥쿼리인프라", "MKT_NM": "KOSPI", "MKTCAP": "800000000000"},
+                {"ISU_CD": "333333", "ISU_NM": "누락기본정보", "MKT_NM": "KOSPI", "MKTCAP": "700000000000"},
+                {"ISU_NM": "부분응답", "MKT_NM": "KOSPI", "MKTCAP": "600000000000"},
+            ],
+            "KOSDAQ": [
+                {"ISU_CD": "035720", "ISU_NM": "카카오게임", "MKT_NM": "KOSDAQ", "MKTCAP": "800000000000"},
+            ],
+        }
+        base = {
+            "KOSPI": [
+                {"ISU_SRT_CD": "005930", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "주권"},
+                {"ISU_SRT_CD": "005935", "KIND_STKCERT_TP_NM": "우선주", "SECUGRP_NM": "주권"},
+                {"ISU_SRT_CD": "069500", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "수익증권"},
+                {"ISU_SRT_CD": "111111", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "주권"},
+                {"ISU_SRT_CD": "123456", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "주권"},
+                {"ISU_SRT_CD": "222222", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "주권"},
+            ],
+            "KOSDAQ": [
+                {"ISU_SRT_CD": "035720", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "주권"},
+            ],
+        }
+        krx = self._patch_krx(bydd, base)
+        saved = _sys.modules.get("krx_openapi")
+        _sys.modules["krx_openapi"] = krx
+        try:
+            result = MODULE.fetch_universe(MODULE.date(2026, 5, 11))
+        finally:
+            if saved is not None:
+                _sys.modules["krx_openapi"] = saved
+            else:
+                _sys.modules.pop("krx_openapi", None)
+
+        tickers = {r["ticker"] for r in result}
+        # 보통주+주권+시총통과: 삼성전자(005930), 카카오게임(035720)
+        self.assertIn("005930", tickers)
+        self.assertIn("035720", tickers)
+        # 우선주(005935), ETF/수익증권(069500), 저시총(111111) 배제
+        self.assertNotIn("005935", tickers)
+        self.assertNotIn("069500", tickers)
+        self.assertNotIn("111111", tickers)
+        # 보통주+주권이어도 스팩/인프라펀드 안전망과 base 누락 보수배제 적용
+        self.assertNotIn("123456", tickers)
+        self.assertNotIn("222222", tickers)
+        self.assertNotIn("333333", tickers)
+        # sector 미설정
+        for r in result:
+            self.assertNotIn("sector", r)
+        # 시총 desc 정렬 (카카오게임 8천억 < 삼성전자 1조)
+        self.assertEqual([r["ticker"] for r in result], ["005930", "035720"])
+
+    def test_fetch_universe_returns_4key_contract(self):
+        import sys as _sys
+        bydd = {
+            "KOSPI": [
+                {"ISU_CD": "005930", "ISU_NM": "삼성전자", "MKT_NM": "KOSPI", "MKTCAP": "1000000000000"},
+            ],
+            "KOSDAQ": [],
+        }
+        base = {
+            "KOSPI": [
+                {"ISU_SRT_CD": "005930", "KIND_STKCERT_TP_NM": "보통주", "SECUGRP_NM": "주권"},
+            ],
+            "KOSDAQ": [],
+        }
+        krx = self._patch_krx(bydd, base)
+        saved = _sys.modules.get("krx_openapi")
+        _sys.modules["krx_openapi"] = krx
+        try:
+            result = MODULE.fetch_universe(MODULE.date(2026, 5, 11))
+        finally:
+            if saved is not None:
+                _sys.modules["krx_openapi"] = saved
+            else:
+                _sys.modules.pop("krx_openapi", None)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(set(result[0].keys()), {"ticker", "name", "market", "market_cap_won"})
+        self.assertNotIn("sector", result[0])
+        self.assertEqual(result[0]["market"], "KOSPI")
+        self.assertEqual(result[0]["market_cap_won"], 1_000_000_000_000.0)
+
+
+class PrefetchPriceSeriesTest(unittest.TestCase):
+    """§5.3 — prefetch_price_series 빈 응답일 스킵 + ticker별 시계열 축적."""
+
+    def test_prefetch_price_series_skips_empty_days(self):
+        import sys as _sys
+        import importlib.util as _ilu
+        krx_path = SCRIPT_PATH.with_name("krx_openapi.py")
+        spec = _ilu.spec_from_file_location("krx_openapi", krx_path)
+        krx = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(krx)
+
+        call_log = []
+
+        def fake_bydd(market, bas_dd, **kwargs):
+            call_log.append((market, bas_dd))
+            # 모든 호출 중 절반은 빈 응답(휴장) → 스킵돼야 함.
+            if int(bas_dd) % 2 == 0:
+                return []
+            return [
+                {"ISU_CD": "005930", "TDD_CLSPRC": "70000", "ACC_TRDVOL": "1000000"},
+                {"ISU_CD": "000000", "TDD_CLSPRC": "0", "ACC_TRDVOL": "1000000"},
+                {"TDD_CLSPRC": "12345", "ACC_TRDVOL": "1000000"},
+            ]
+
+        krx.fetch_bydd_trd = fake_bydd
+        saved = _sys.modules.get("krx_openapi")
+        _sys.modules["krx_openapi"] = krx
+        try:
+            series = MODULE.prefetch_price_series(MODULE.date(2026, 5, 11), markets=("KOSPI",))
+        finally:
+            if saved is not None:
+                _sys.modules["krx_openapi"] = saved
+            else:
+                _sys.modules.pop("krx_openapi", None)
+
+        # 빈 응답일은 series에 안 들어감 → 005930 시계열 길이 = 홀수일 수만큼.
+        self.assertIn("005930", series)
+        odd_days = sum(1 for (_m, d) in call_log if int(d) % 2 == 1)
+        self.assertEqual(len(series["005930"]["closes"]), odd_days)
+        self.assertEqual(len(series["005930"]["volumes"]), odd_days)
+        self.assertNotIn("000000", series)
+        # 빈 응답이 실제로 발생했는지 (스킵 경로 검증)
+        self.assertTrue(any(int(d) % 2 == 0 for (_m, d) in call_log))
+
+
+class FetchPriceSignalsFromSeriesTest(unittest.TestCase):
+    """§5.3 — fetch_price_signals(price_series=...) 주입 경로."""
+
+    def _series_61(self, base_close=100.0, last_close=110.0, vol=1000.0, last_vol=3000.0):
+        # MOMENTUM_MA_WINDOW(60) + 1 = 61일 시계열. 마지막 5일 거래량 급증.
+        n = MODULE.MOMENTUM_MA_WINDOW + 1
+        closes = [base_close] * (n - 1) + [last_close]
+        volumes = [vol] * (n - MODULE.VOLUME_MA_SHORT) + [last_vol] * MODULE.VOLUME_MA_SHORT
+        return {"closes": closes, "volumes": volumes}
+
+    def test_fetch_price_signals_from_series(self):
+        series = {"005930": self._series_61()}
+        result = MODULE.fetch_price_signals("005930", MODULE.date(2026, 5, 11), price_series=series)
+        self.assertEqual(set(result.keys()), {"momentum_raw", "volume_surge_raw", "volatility_raw"})
+        # momentum: last_close(110) / MA60 계산. MA60 = (59*100 + 110)/60 ≈ 100.1667
+        ma60 = (59 * 100.0 + 110.0) / 60.0
+        self.assertAlmostEqual(result["momentum_raw"], 110.0 / ma60 - 1.0, places=6)
+        # volume_surge: MA5(3000) / MA60 - 1. MA60 = (55*1000 + 5*3000)/60
+        ma_long = (55 * 1000.0 + 5 * 3000.0) / 60.0
+        self.assertAlmostEqual(result["volume_surge_raw"], 3000.0 / ma_long - 1.0, places=6)
+        # 가격 거의 평탄 → 변동성 매우 작음(>=0)
+        self.assertGreaterEqual(result["volatility_raw"], 0.0)
+
+    def test_fetch_price_signals_insufficient_series(self):
+        # MOMENTUM_MA_WINDOW + 1 미만 시계열 → {0,0,0}
+        short = {"closes": [100.0] * 10, "volumes": [1000.0] * 10}
+        result = MODULE.fetch_price_signals("005930", MODULE.date(2026, 5, 11), price_series={"005930": short})
+        self.assertEqual(result, {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0})
+        # ticker 자체가 series에 없을 때도 {0,0,0}
+        missing = MODULE.fetch_price_signals("999999", MODULE.date(2026, 5, 11), price_series={})
+        self.assertEqual(missing, {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0})
+        malformed = MODULE.fetch_price_signals("005930", MODULE.date(2026, 5, 11), price_series={"005930": []})
+        self.assertEqual(malformed, {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0})
+
+    def test_fetch_price_signals_rejects_partial_or_zero_series(self):
+        short_volumes = self._series_61()
+        short_volumes["volumes"] = short_volumes["volumes"][: MODULE.VOLUME_MA_LONG - 1]
+        result = MODULE.fetch_price_signals("005930", MODULE.date(2026, 5, 11), price_series={"005930": short_volumes})
+        self.assertEqual(result, {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0})
+
+        zero_close = self._series_61()
+        zero_close["closes"][-2] = 0.0
+        result = MODULE.fetch_price_signals("005930", MODULE.date(2026, 5, 11), price_series={"005930": zero_close})
+        self.assertEqual(result, {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0})
+
+
 # Source 파일 string for grep-based tests (FetchUniverseSectorTest 전용)
 MODULE_SOURCE = SCRIPT_PATH.read_text(encoding="utf-8")
 
