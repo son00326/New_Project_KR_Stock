@@ -1,16 +1,9 @@
 // tudal/src/lib/cost/__tests__/cost-logger.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { insertCostLog, getMonthlyTotal, preflightHardcap } from '../cost-logger';
-import { HARDCAP_KRW, MAX_COST_PER_CALL_KRW } from '../pricing';
+import { HARDCAP_KRW } from '../pricing';
 
 // Supabase chain mock (feedback_test_mock_typing pattern)
-interface InsertChain {
-  insert: ReturnType<typeof vi.fn>;
-}
-interface SelectChain {
-  select: ReturnType<typeof vi.fn>;
-  eq: ReturnType<typeof vi.fn>;
-}
 interface QueryResult<T> {
   data: T | null;
   error: { message: string; code?: string } | null;

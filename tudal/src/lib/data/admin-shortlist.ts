@@ -202,8 +202,3 @@ export async function getActiveShortList(
     : [];
   return filtered.map((row) => transformShortListRow(row, options?.tickerMeta));
 }
-
-export async function getShortListDelta(): Promise<ShortListDelta> {
-  const items = await getActiveShortList();
-  return aggregateShortListDelta(items);
-}
