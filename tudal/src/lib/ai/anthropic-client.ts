@@ -63,7 +63,7 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
       system: systemBlocks,
       messages: [{ role: 'user', content: userPrompt }],
     });
-  } catch (err) {
+  } catch {
     throw new Error('ai_call_failed');
   }
 

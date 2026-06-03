@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CORE_11_PERSONAS, type PersonaContract } from '../personas';
+import { CORE_11_PERSONAS } from '../personas';
 
 const EXPECTED_IDS = [
   'warren-buffett',
