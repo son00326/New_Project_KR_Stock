@@ -55,7 +55,7 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3) 검증 게이트 (매 세션 1회)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   main 기준 기대 (2026-06-02 비용0+FE-audit+launch-readiness PR #79 후): build 26 routes / lint 0 err 0 warn(pre-existing) / test:ci 1621 PASS / 140 files / tsc clean / Python 95 tests PASS
+#   main 기준 기대 (2026-06-03 launch-readiness 감사 PR #84 후, main `a5ee63e`): build 26 routes / lint 0 err 0 warn / test:ci 1621 PASS / 140 files / tsc clean / Python 95 tests PASS
 #   select count(*) from cost_log; -- 기대 0 (마이그 0030 RPC applied, 실 AI 전이라 cost 0)
 
 # 4) production audit 재확인 (Supabase MCP execute_sql 또는 dashboard) — drift detect
@@ -100,10 +100,10 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync + launch-readiness PR #79 후 `532a0a5` 또는 자손). |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-03 launch-readiness 감사 PR #84 후 `a5ee63e` 또는 자손). |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
 | OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#76 + PR #79 + canonical 5-PR 모두 반영/머지(상세 git log). |
-| 검증 게이트 (main, 2026-06-02 비용0+FE-audit+launch-readiness PR #79 후) | build 26 routes / lint 0 err 0 warn(pre-existing) / **test:ci 1621 PASS / 140 files** / tsc clean / **Python 95 tests PASS**. |
+| 검증 게이트 (main, 2026-06-03 launch-readiness 감사 PR #84 후 `a5ee63e`) | build 26 routes / lint 0 err 0 warn / **test:ci 1621 PASS / 140 files** / tsc clean / **Python 95 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
 | Task 5 B66 | ✅ **PRODUCTION COMPLETE** (60차 §5): 마이그 0026 + induty 백필 2,766/2,766 + short_list_30 30 rows canonical 14(B93 PASS). placeholder/unresolved 영구 0. |
