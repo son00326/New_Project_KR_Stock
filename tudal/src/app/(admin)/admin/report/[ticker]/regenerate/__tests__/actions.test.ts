@@ -5,15 +5,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const supabaseStub = {
     auth: { getUser: vi.fn() },
+    // PR-H scope 3 — is_admin() RPC 게이트 (triggerFullReport 대칭). default true.
+    rpc: vi.fn(),
   };
   return {
     supabaseClient: supabaseStub,
     getUser: supabaseStub.auth.getUser,
+    rpc: supabaseStub.rpc,
     reportExistsForMonth: vi.fn(),
     incrementManualRegenCount: vi.fn(),
     // PR4 Step 2.3 — orchestrate wire 추가 모듈 (default mock으로 기존 success path 보존).
     getActiveShortList: vi.fn(),
     orchestrateFullReport: vi.fn(),
+    // PR-H scope 2 — 입력 enrich (DB-read, cost 0). default 실값 resolve.
+    enrichReportInput: vi.fn(),
     // 58차 Mock cleanup Step 2.3 — cost_log 실 SELECT 통로 (getMonthlyTotal).
     getMonthlyTotal: vi.fn(),
     isCostLoggingEnabled: vi.fn(),
@@ -40,6 +45,10 @@ vi.mock("@/lib/report/full-report-orchestrator", () => ({
   orchestrateFullReport: mocks.orchestrateFullReport,
 }));
 
+vi.mock("@/lib/report/report-input-enricher", () => ({
+  enrichReportInput: mocks.enrichReportInput,
+}));
+
 vi.mock("@/lib/cost/cost-logger", () => ({
   getMonthlyTotal: mocks.getMonthlyTotal,
   isCostLoggingEnabled: mocks.isCostLoggingEnabled,
@@ -50,6 +59,17 @@ beforeEach(() => {
   // PR-B2 (B7/D-8): regenerateReport은 실 AI 전 isCostLoggingEnabled() fail-closed guard. happy-path는 flag ON.
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
   mocks.isCostLoggingEnabled.mockReturnValue(true);
+  // PR-H scope 3 — is_admin() default true (게이트 통과). false/error 시나리오는 별도 테스트.
+  mocks.rpc.mockResolvedValue({ data: true, error: null });
+  // PR-H scope 2 — enrich default 실값 (financials DB-read 격리). cost 0.
+  mocks.enrichReportInput.mockResolvedValue({
+    tier1Verdict: "BUY",
+    consensusBadge: "🟢",
+    financialsSummary: "[005930 2024 연간] 매출 100억",
+    technicalsSummary: "종합 80 · 추세 75 · 모멘텀 70 · 변동성 30 · breakout",
+    macroSummary: "근거 부족",
+    sectorReference: "반도체 섹터 Level A 레퍼런스 적용",
+  });
   mocks.getUser.mockResolvedValue({
     data: { user: { id: "mock-admin-1" } },
   });
@@ -116,6 +136,31 @@ afterEach(() => {
 });
 
 describe("regenerateReport", () => {
+  // PR-H scope 3 — is_admin() 게이트 (triggerFullReport/triggerMonthlyBatch 대칭).
+  it("rejects when is_admin() returns false (admin_required) — counter NOT touched", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: false, error: null });
+    const { regenerateReport } = await import("../actions");
+
+    const result = await regenerateReport({ ticker: "005930", month: "2026-04-01" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("admin_required");
+    expect(mocks.reportExistsForMonth).not.toHaveBeenCalled();
+    expect(mocks.incrementManualRegenCount).not.toHaveBeenCalled();
+    expect(mocks.orchestrateFullReport).not.toHaveBeenCalled();
+  });
+
+  it("rejects when is_admin() RPC errors (admin_required, fail-closed)", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { code: "PGRST301" } });
+    const { regenerateReport } = await import("../actions");
+
+    const result = await regenerateReport({ ticker: "005930", month: "2026-04-01" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("admin_required");
+    expect(mocks.reportExistsForMonth).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed month values before touching the counter", async () => {
     const { regenerateReport } = await import("../actions");
 

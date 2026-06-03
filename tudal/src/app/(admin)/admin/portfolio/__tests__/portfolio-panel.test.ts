@@ -42,14 +42,31 @@ describe("PortfolioPanel dispute bridge", () => {
     expect(source).not.toContain('adminId: "admin-001"');
   });
 
-  it("does not claim Reject starts a live reanalysis queue before the queue is wired", () => {
+  // PR-H scope 1a — reject-trigger wire. 30 재선정(triggerMonthlyBatch)이 명시 버튼으로 배선됨.
+  //   stale "큐 미연결" honesty 문구 제거 + reject 자동 재선정 트리거 금지(silent cost burn 방지) 검증.
+  it("wires an explicit 30-reselect button (triggerMonthlyBatch) without auto-triggering on Reject", () => {
     const source = fs.readFileSync(
       path.resolve(__dirname, "..", "portfolio-panel.tsx"),
       "utf8",
     );
 
-    expect(source).toContain("재분석 큐 미연결");
-    expect(source).toContain("실 재분석 큐 연결 전까지 전월 포트 유지 상태입니다");
-    expect(source).not.toContain("재분석 큐 추가됨");
+    // stale dangling 문구 제거 (queue 미연결 주장 금지 — 이제 배선됨).
+    expect(source).not.toContain("재분석 큐 미연결");
+    expect(source).not.toContain("실 재분석 큐 연결 전까지 전월 포트 유지 상태입니다");
+
+    // 30 재선정 = 명시 버튼 → triggerMonthlyBatch (reject와 분리, silent burn 방지).
+    expect(source).toContain("triggerMonthlyBatch({ month: month.slice(0, 7) })");
+    expect(source).toContain("30 재선정 — 실 AI 재실행");
+    expect(source).toContain("triggerReportWorkerChunk({ month: month.slice(0, 7) })");
+    expect(source).toContain("리포트 배치 생성 (1 chunk)");
+
+    // reject 핸들러는 rejectShortList만 호출 — AI 비용 트리거를 자동 호출하지 않는다.
+    const handleRejectBody = source.slice(
+      source.indexOf("function handleReject()"),
+      source.indexOf("function handleReanalyze()"),
+    );
+    expect(handleRejectBody).toContain("rejectShortList");
+    expect(handleRejectBody).not.toContain("triggerMonthlyBatch");
+    expect(handleRejectBody).not.toContain("triggerReportWorkerChunk");
   });
 });

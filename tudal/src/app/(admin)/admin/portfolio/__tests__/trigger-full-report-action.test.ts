@@ -38,6 +38,40 @@ const adminRpc = async (fn: string) => {
   throw new Error(`unexpected_rpc:${fn}`);
 };
 
+// PR-H scope 2 — enrich source. triggerFullReport은 getActiveShortList({month-01})로 row 조회 후
+// enrichReportInput(row)로 stub 6필드 교체. 아래 fixture/enriched는 success/order 테스트 공용.
+const shortlistRowFixture = {
+  id: 'sl-1',
+  month: '2026-06-01',
+  ticker: '005930',
+  name: '삼성전자',
+  sector: '반도체',
+  bucket: 'short',
+  rank: 1,
+  compositeScore: 80,
+  trendScore: 75,
+  momentumScore: 70,
+  volatilityScore: 30,
+  divergencePct: 1.2,
+  sparkline7d: [],
+  signalLabel: 'breakout',
+  deltaStatus: 'hold',
+  deltaReason: '',
+  summary3Line: '',
+  suggestedWeight: 0.034,
+  createdAt: '2026-06-01T00:00:00Z',
+  consensusBadge: '🟢',
+  aiScore: 82,
+};
+const ENRICHED = {
+  tier1Verdict: 'BUY',
+  consensusBadge: '🟢',
+  financialsSummary: '[005930 2024 연간] 매출 100억 · ROE 12.0%',
+  technicalsSummary: '종합 80 · 추세 75 · 모멘텀 70 · 변동성 30 · breakout',
+  macroSummary: '근거 부족',
+  sectorReference: '반도체 섹터 Level A 레퍼런스 적용',
+};
+
 describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -123,8 +157,16 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid', email: 'admin@example.com' } }, error: null }) },
       rpc: adminRpc,
     };
+    const getActiveShortListMock = vi.fn().mockResolvedValue([shortlistRowFixture]);
+    const enrichMock = vi.fn().mockResolvedValue({ ...ENRICHED });
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: getActiveShortListMock,
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: enrichMock,
     }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
       orchestrateFullReport: orchestrateFullReportMock,
@@ -133,31 +175,141 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       createClient: async () => supabaseClient,
     }));
     const { triggerFullReport } = await import('../actions');
-    const res = await triggerFullReport(validArgs);
+    const res = await triggerFullReport({
+      ...validArgs,
+      name: '클라이언트 입력명',
+      sector: '클라이언트 입력섹터',
+    });
     expect(res).toEqual({ success: true, data: { reportId: 'rpt-1' } });
     // B24 invariant (Task 2 quality path): 4-field args + options {client, callerKind: 'admin'}.
+    // PR-H scope 2: stub 6필드 → enrichReportInput(shortlist row) 실값 swap.
     // silent regression 차단:
     //   - 2nd arg 누락 / { client: undefined, callerKind: 'admin' } → FAIL
     //   - callerKind: 'cron' → FAIL (admin path는 'admin')
     //   - adminUserId 누락/하드코딩 → FAIL
-    //   - prompt-valid stub drift (HOLD / 🟡 / 근거 부족) → FAIL
+    //   - enrich stub 역회귀 (HOLD / 🟡 / 근거 부족 재등장) → FAIL
     //   - orchestrate → commit 역회귀 (fast path 회귀) → mock 미호출 → FAIL
-    expect(orchestrateFullReportMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ticker: '005930',
-        name: '삼성전자',
-        sector: '반도체',
-        month: '2026-06',
-        tier1Verdict: 'HOLD',
-        consensusBadge: '🟡',
-        financialsSummary: '근거 부족',
-        technicalsSummary: '근거 부족',
-        macroSummary: '근거 부족',
-        sectorReference: '근거 부족',
-        adminUserId: 'admin-uid',
-      }),
-      { client: supabaseClient, callerKind: 'admin' },
-    );
+    expect(orchestrateFullReportMock).toHaveBeenCalledTimes(1);
+    const [payloadArg, optionsArg] = orchestrateFullReportMock.mock.calls[0];
+    expect(payloadArg).toStrictEqual({
+      ticker: '005930',
+      name: '삼성전자',
+      sector: '반도체',
+      month: '2026-06',
+      tier1Verdict: ENRICHED.tier1Verdict,
+      consensusBadge: ENRICHED.consensusBadge,
+      financialsSummary: ENRICHED.financialsSummary,
+      technicalsSummary: ENRICHED.technicalsSummary,
+      macroSummary: ENRICHED.macroSummary,
+      sectorReference: ENRICHED.sectorReference,
+      adminUserId: 'admin-uid',
+    });
+    expect(optionsArg).toStrictEqual({ client: supabaseClient, callerKind: 'admin' });
+    // PR-H — enrich/name/sector source invariant: short_list_30 row + same caller client.
+    // Client-supplied name/sector drift must not leak into the LLM prompt.
+    expect(getActiveShortListMock).toHaveBeenCalledWith({
+      month: '2026-06-01',
+      client: supabaseClient,
+    });
+    expect(enrichMock).toHaveBeenCalledTimes(1);
+    const [enrichItemArg, enrichOptArg] = enrichMock.mock.calls[0];
+    expect(enrichItemArg).toMatchObject({ ticker: '005930' });
+    expect(enrichOptArg).toEqual({ client: supabaseClient });
+  });
+
+  // PR-H scope 2 — ticker가 이번 달 shortlist에 없으면 shortlist_item_not_found (enrich/orchestrate NOT called).
+  it('rejects when ticker missing from current month shortlist (shortlist_item_not_found)', async () => {
+    const orchestrateMock = vi.fn();
+    const enrichMock = vi.fn();
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+      rpc: adminRpc,
+    };
+    vi.doMock('@/lib/data/admin-reports', () => ({
+      reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([]), // ticker absent
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({ enrichReportInput: enrichMock }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport(validArgs);
+    expect(res).toEqual({ success: false, error: 'shortlist_item_not_found' });
+    expect(enrichMock).not.toHaveBeenCalled();
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects when matched shortlist row has empty name/sector (row SoT prompt degradation 차단)', async () => {
+    const orchestrateMock = vi.fn();
+    const enrichMock = vi.fn();
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+      rpc: adminRpc,
+    };
+    vi.doMock('@/lib/data/admin-reports', () => ({
+      reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([
+        { ...shortlistRowFixture, name: ' ', sector: '반도체' },
+      ]),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({ enrichReportInput: enrichMock }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport(validArgs);
+    expect(res).toEqual({ success: false, error: 'shortlist_item_not_found' });
+    expect(enrichMock).not.toHaveBeenCalled();
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it('returns shortlist_lookup_failed when short_list_30 lookup throws (raw DB error 노출 차단)', async () => {
+    const orchestrateMock = vi.fn();
+    const enrichMock = vi.fn();
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+      rpc: adminRpc,
+    };
+    vi.doMock('@/lib/data/admin-reports', () => ({
+      reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockRejectedValue(new Error('short_list_30 query failed: rls denied')),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({ enrichReportInput: enrichMock }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport(validArgs);
+    expect(res).toEqual({ success: false, error: 'shortlist_lookup_failed' });
+    expect(enrichMock).not.toHaveBeenCalled();
+    expect(orchestrateMock).not.toHaveBeenCalled();
+  });
+
+  it('propagates enrich financials SELECT code while keeping orchestrate cost 0', async () => {
+    const orchestrateMock = vi.fn();
+    const supabaseClient = {
+      auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
+      rpc: adminRpc,
+    };
+    vi.doMock('@/lib/data/admin-reports', () => ({
+      reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([shortlistRowFixture]),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: vi.fn().mockRejectedValue(new Error('financials_corp_lookup_failed:PGRST301')),
+    }));
+    vi.doMock('@/lib/report/full-report-orchestrator', () => ({ orchestrateFullReport: orchestrateMock }));
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => supabaseClient }));
+    const { triggerFullReport } = await import('../actions');
+    const res = await triggerFullReport(validArgs);
+    expect(res).toEqual({ success: false, error: 'financials_corp_lookup_failed:PGRST301' });
+    expect(orchestrateMock).not.toHaveBeenCalled();
   });
 
   it('PR-B2 (B7/D-8): AI_COST_LOG_REAL_INSERT_ENABLED!==true → cost_logging_disabled + orchestrate NOT called (hardcap fail-open 차단)', async () => {
@@ -196,6 +348,12 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: vi.fn().mockResolvedValue(true),
     }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([shortlistRowFixture]),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: vi.fn().mockResolvedValue({ ...ENRICHED }),
+    }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
       orchestrateFullReport: vi
         .fn()
@@ -219,6 +377,12 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     // 57차 §1 — B65-P1 preflight 통과 위해 reportExistsForMonth: true mock.
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: vi.fn().mockResolvedValue(true),
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([shortlistRowFixture]),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: vi.fn().mockResolvedValue({ ...ENRICHED }),
     }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
       orchestrateFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_40man')),
@@ -296,6 +460,12 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: reportExistsMock,
     }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: vi.fn().mockResolvedValue([shortlistRowFixture]),
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: vi.fn().mockResolvedValue({ ...ENRICHED }),
+    }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
       orchestrateFullReport: orchestrateMock,
     }));
@@ -327,12 +497,26 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       callOrder.push('reportExistsForMonth');
       return true;
     });
+    const getActiveShortListMock = vi.fn(async () => {
+      callOrder.push('getActiveShortList');
+      return [shortlistRowFixture];
+    });
+    const enrichMock = vi.fn(async () => {
+      callOrder.push('enrichReportInput');
+      return { ...ENRICHED };
+    });
     const orchestrateMock = vi.fn(async () => {
       callOrder.push('orchestrateFullReport');
       return { reportId: 'rpt-3', costKrw: 0, revised: false };
     });
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: reportExistsMock,
+    }));
+    vi.doMock('@/lib/data/admin-shortlist', () => ({
+      getActiveShortList: getActiveShortListMock,
+    }));
+    vi.doMock('@/lib/report/report-input-enricher', () => ({
+      enrichReportInput: enrichMock,
     }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
       orchestrateFullReport: orchestrateMock,
@@ -345,9 +529,12 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     const { triggerFullReport } = await import('../actions');
     await triggerFullReport(validArgs);
+    // PR-H scope 2: enrich(getActiveShortList → enrichReportInput)는 preflight 후, orchestrate 직전.
     expect(callOrder).toEqual([
       'auth.getUser',
       'reportExistsForMonth',
+      'getActiveShortList',
+      'enrichReportInput',
       'orchestrateFullReport',
     ]);
   });

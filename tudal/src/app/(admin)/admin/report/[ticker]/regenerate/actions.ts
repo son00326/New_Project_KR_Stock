@@ -7,6 +7,7 @@ import { incrementManualRegenCount } from "@/lib/data/admin-regen-counters";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { MANUAL_REGEN_CAP } from "@/lib/performance/regen-cap";
 import { createClient } from "@/lib/supabase/server";
+import type { ShortListItem } from "@/types/admin";
 
 // ---------------------------------------------------------------------------
 // regenerateReport — 수동 재생성 요청 (S4 M9 cap + S6 M17 hardcap + PR4 Step 2.3 orchestrate wire)
@@ -72,18 +73,6 @@ export async function regenerateReport(input: {
     return { success: false, error: "invalid_ticker" };
   }
 
-  // T7e.3 — stock_reports 존재성 실 SELECT (Supabase). 키 미시드 상태에서는
-  // 항상 false → "report_not_found" 반환 (S7a/T7e.8 시드 전 일관 동작).
-  let exists: boolean;
-  try {
-    exists = await reportExistsForMonth(normalizedTicker, month);
-  } catch {
-    return { success: false, error: "report_lookup_failed" };
-  }
-  if (!exists) {
-    return { success: false, error: "report_not_found" };
-  }
-
   // PR4 Step 2.3: createClient 1회 — auth + orchestrate DI 공유 (caller-flow 단일).
   const supabase = await createClient();
   let adminUserId: string | null;
@@ -97,6 +86,27 @@ export async function regenerateReport(input: {
   }
   if (!adminUserId) {
     return { success: false, error: "auth_unavailable" };
+  }
+
+  // PR-H scope 3: triggerFullReport/triggerMonthlyBatch와 대칭 — server-side admin 단언.
+  // 미들웨어만 신뢰 X. is_admin()은 SECURITY DEFINER(0015a) — RPC error/false 모두 fail-closed.
+  // (admin_emails 직접 SELECT는 RESTRICTIVE RLS using(false)라 real admin 전원 오차단 → 금지.)
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  if (adminErr || !isAdmin) {
+    return { success: false, error: "admin_required" };
+  }
+
+  // T7e.3 — stock_reports 존재성 실 SELECT (Supabase). 키 미시드 상태에서는
+  // 항상 false → "report_not_found" 반환 (S7a/T7e.8 시드 전 일관 동작).
+  // PR-H review: is_admin() 후 실행해 비admin이 report existence SELECT를 프리패스하지 못하게 한다.
+  let exists: boolean;
+  try {
+    exists = await reportExistsForMonth(normalizedTicker, month);
+  } catch {
+    return { success: false, error: "report_lookup_failed" };
+  }
+  if (!exists) {
+    return { success: false, error: "report_not_found" };
   }
 
   // PR-B2 (B7/D-8): cost-logging fail-closed — flag off면 getMonthlyTotal=0 fail-open(hardcap 무력화).
@@ -122,12 +132,13 @@ export async function regenerateReport(input: {
   // PR4 Step 2.3: name/sector SoT = short_list_30 (마이그 0012, 마이그 0건 유지).
   // PR4 Task 9 Track 3 W3 fix: 주석 정정 — 실제 코드 순서는 shortlist → counter (이 순서 의도된 invariant).
   // shortlist lookup BEFORE counter — cheap fail-fast (RLS deny / month mismatch) → counter 보존.
-  let shortlistItem: { name: string; sector: string } | undefined;
+  // PR-H scope 2: full ShortListItem 보존 (name/sector만 추출 → enrich source로 row 전체 필요).
+  let shortlistItem: ShortListItem | undefined;
   try {
-    const items = await getActiveShortList({ month });
+    const items = await getActiveShortList({ month, client: supabase });
     const match = items.find((item) => item.ticker === normalizedTicker);
     if (match) {
-      shortlistItem = { name: match.name, sector: match.sector };
+      shortlistItem = match;
     }
   } catch {
     return { success: false, error: "shortlist_lookup_failed" };
@@ -140,6 +151,31 @@ export async function regenerateReport(input: {
   // name=ticker / sector="미분류" placeholder가 들어오지만 빈 string 또는 whitespace는 막아야 함.
   if (shortlistItem.name.trim() === "" || shortlistItem.sector.trim() === "") {
     return { success: false, error: "shortlist_item_not_found" };
+  }
+
+  // PR-H scope 2: 입력 enrich (placeholder → 실 DART/배지/Tier0). DB-read만 = cost 0.
+  // counter 증가 전 수행 — cheap fail-fast (financials SELECT 에러는 throw 전파 → counter 보존).
+  // 미캐시 ticker는 fetchFinancialsSummary가 graceful, SELECT 에러만 throw (silent degrade 방지).
+  let enrich: Awaited<
+    ReturnType<typeof import("@/lib/report/report-input-enricher").enrichReportInput>
+  >;
+  try {
+    const { enrichReportInput } = await import(
+      "@/lib/report/report-input-enricher"
+    );
+    enrich = await enrichReportInput(shortlistItem, { client: supabase });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (
+      message.startsWith("financials_corp_lookup_failed:") ||
+      message.startsWith("financials_fetch_failed:")
+    ) {
+      return { success: false, error: message };
+    }
+    return {
+      success: false,
+      error: "enrich_failed",
+    };
   }
 
   // T7e.5 — regen_counter Supabase 실 I/O. CAS + DB CHECK가 race를 차단.
@@ -170,13 +206,14 @@ export async function regenerateReport(input: {
         name: shortlistItem.name,
         sector: shortlistItem.sector,
         month: orchestrateMonth,
-        // Step 1.2 trigger 패턴 동일 — prompt-valid stub. enriched input은 후속 Tier 1·Tier 2 결과 활용.
-        tier1Verdict: "HOLD",
-        consensusBadge: "🟡",
-        financialsSummary: "근거 부족",
-        technicalsSummary: "근거 부족",
-        macroSummary: "근거 부족",
-        sectorReference: "근거 부족",
+        // PR-H scope 2: stub → 실 source (short_list_30 배지/점수 + DART 재무, cost 0).
+        // macroSummary는 S7b 전까지 "근거 부족"(enrich 내부 고정).
+        tier1Verdict: enrich.tier1Verdict,
+        consensusBadge: enrich.consensusBadge,
+        financialsSummary: enrich.financialsSummary,
+        technicalsSummary: enrich.technicalsSummary,
+        macroSummary: enrich.macroSummary,
+        sectorReference: enrich.sectorReference,
         adminUserId,
       },
       {

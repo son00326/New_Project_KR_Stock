@@ -13,9 +13,11 @@
 //   - retry N=2 transient만 (full_report/critic/revise_llm_failed/429/529/network).
 //   - alert enum CLOSED 12종: scheduler_fail / cost_warning / cost_hardcap만 사용 (enum 밖 신규 type 발행 금지).
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ShortListItem } from "@/types/admin";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { reportExistsAndCompleteForMonth } from "@/lib/data/admin-reports";
 import { orchestrateFullReport } from "@/lib/report/full-report-orchestrator";
+import { enrichReportInput } from "@/lib/report/report-input-enricher";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
 import { ORCHESTRATE_TOTAL_COST_BUDGET_KRW } from "@/lib/cost/pricing";
@@ -44,12 +46,8 @@ export interface ReportBatchWorkerResult {
   aborted: "cost_hardcap" | null;
 }
 
-interface ShortListLite {
-  ticker: string;
-  name: string;
-  sector: string;
-}
-
+// PR-H scope 2: enqueue는 ticker만 사용하지만, chunk enrich(consensusBadge/aiScore/Tier0)를 위해
+//   full ShortListItem row를 metaByTicker에 보존한다 (getActiveShortList가 이미 full row 반환).
 interface BatchJobRow {
   id: string;
   ticker: string;
@@ -209,7 +207,7 @@ export async function runReportBatchChunk(
   const shortList = (await getActiveShortList({
     month: monthDate,
     client,
-  })) as ShortListLite[];
+  })) as ShortListItem[];
   if (shortList.length === 0) {
     console.info(
       JSON.stringify({
@@ -250,7 +248,7 @@ export async function runReportBatchChunk(
     }
   }
 
-  const metaByTicker = new Map<string, ShortListLite>(
+  const metaByTicker = new Map<string, ShortListItem>(
     shortList.map((s) => [s.ticker, s]),
   );
 
@@ -373,6 +371,10 @@ export async function runReportBatchChunk(
     }
 
     try {
+      // PR-H scope 2: stub("HOLD"/"🟡"/"") → enrichReportInput(row) 실값 (short_list_30 배지/점수 +
+      //   DART 재무, cost 0 SELECT). financials SELECT 에러는 throw → per-ticker isolation(아래 catch).
+      //   미캐시 ticker는 graceful. macroSummary는 S7b 전까지 "근거 부족"(enrich 내부 고정).
+      const enrich = await enrichReportInput(meta, { client });
       const result = await retryWithBackoff(() =>
         orchestrateFullReport(
           {
@@ -380,14 +382,12 @@ export async function runReportBatchChunk(
             name: meta.name,
             sector: meta.sector,
             month,
-            tier1Verdict: "HOLD",
-            // report 생성 시 badge는 ⚪('AI 분석 대기') 불가 — reference caller(triggerFullReport)와 동일 '🟡'(관망/신규) stub.
-            // 실 Tier 1 badge는 PR5b(committee votes) 연계 시 short_list_30/committee에서 source.
-            consensusBadge: "🟡",
-            financialsSummary: "",
-            technicalsSummary: "",
-            macroSummary: "",
-            sectorReference: "",
+            tier1Verdict: enrich.tier1Verdict,
+            consensusBadge: enrich.consensusBadge,
+            financialsSummary: enrich.financialsSummary,
+            technicalsSummary: enrich.technicalsSummary,
+            macroSummary: enrich.macroSummary,
+            sectorReference: enrich.sectorReference,
             adminUserId: cronSystemUserId,
           },
           { client, callerKind: "cron" },
