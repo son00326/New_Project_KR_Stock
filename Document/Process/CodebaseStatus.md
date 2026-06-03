@@ -14,6 +14,15 @@
 
 ## 최근 갱신
 
+**2026-06-03** (출시前 launch-readiness 역추적 감사 + 5-finding fix — PR #84 MERGED in main `a5ee63e`):
+- **Workflow 17-surface 역추적 감사** (FE→server action→data-lib→Supabase→migration, 28 agents, 의도-인지 적대 검증) + **omxy 교차검증 3 rounds** (code-reviewer + architect subagent + code-review-graph MCP). CONFIRMED real-broken 5건 (P0/P1 배선/계약/보안/크래시 결함 0 = 배선 건전), intended-deferred 19건 재flag 0.
+- **SHORTLIST-PERSIST-METADATA-1 (P1)**: `tudal/src/lib/data/admin-shortlist-persist.ts::upsertShortList30`이 실 AI 30선정 persist 시 `short_list_30`에 `name/sector/composite_score/signal_label`을 기록하지 않아 AI 신규 선정 ticker가 홈 카드·리포트 헤더·포트폴리오에서 빈 카드로 렌더되던 결함(PR-G ⓑ 첫 실 선정 시 발현). `tier0_candidates_150`(동일 month, AI 선정 입력 원천)에서 best-effort lookup으로 carry — sector=aggregate 직접 / name·composite(=tier0_score)·signal_label=lookup / lookup 실패·rejection은 null 유지(try/catch fail-open, persist 절대 차단 안 함). 마이그 0(컬럼 기존 nullable).
+- **format-error +4 codes**: `tier1_panel_incomplete`(AI-ENGINE-CONTRACT-1, orchestrator throw) / `orchestrator_failed`(TRACK-RECORD-1, non-Error catch-all, `orchestrate_failed`와 별개) / `short_list_30_invalid_count` + `report_batch_worker_failed`(CRON-REPORT-1, report-worker 인프라 9종) 매핑 + prefix handlers + inventory test.
+- **dead-code 정리**: `getShortListDelta()`(importer 0) 제거 + lint 미사용 5종(anthropic-client `catch(err)` / registry.test `PersonaContract` / cost-logger.test `MAX_COST_PER_CALL_KRW`·`InsertChain`·`SelectChain`) → **lint 5 warn → 0**. `aggregateShortListDelta`/`ShortListDelta`는 test+상호참조로 보존(orphan 미생성).
+- **현 `admin-shortlist.ts` (204 lines)** = `getActiveShortList({month?, tickerMeta?, client?})` Supabase SELECT + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)` (getShortListDelta 제거됨).
+- **§2.0a 워크플로우**: Claude① `0821aa1`(P1 persist + P2×3 i18n) → omxy②③ `11870df`(metadata lookup Promise rejection fail-open edge → try/catch + 회귀테스트) → Claude④ → Phase D `a5ee63e`(dead-code + lint). omxy ROUND 3 catch-only: 2 subagent lane + parent 0 launch blocker.
+- **게이트**: build 26 routes / lint 0 err **0 warn**(5→0) / **test:ci 1621**(1602→+19) / tsc clean / 마이그 0 / AI cost 0. PR #84 rebase FF + delete-branch.
+
 **2026-05-22** (54차 §3 — PR #12 (PR3a Group H schema drift fix Critical Hard gate) MERGED + post-merge docs refresh):
 - **PR3a MERGED in main `0813a41`** (11 commits FF / 7 files / +3300 lines / 56 TDD tests, baseline 746 → 802, 회귀 0). omxy R1~R12 CONVERGED + R7 Codex structured `/review` GATE PASS + gsd-code-reviewer + gstack testing + red-team 다중 review (42 findings + 11 BLOCKERS, 17 Fix-First, 24 OOS).
 - **Group H Critical ✅ 해소** — `stock_reports` schema drift + report page crash 차단:
@@ -209,7 +218,7 @@
 - **부분 마이그레이션 boundary 정리**: shortlist→reports/committee 2번째 해제로 `/admin/report/[ticker]` 클릭 활성. 단, Delta REMOVED 행은 report-backed 대상이 아니므로 계속 `리포트 대기`로 유지. 시드 부재 상태에서는 `/admin` 빈 UI · `/report` 도달 불가 일관 동작. 다음 boundary는 T7e.4(approvals/snapshots) — 현재는 `/portfolio` Accept/Reject만 disabled 유지.
 
 **2026-05-08** (36차): **자율 트랙 §A 진입 — T7e.1 마이그 0010 검증 + T7e.2 shortlist Supabase 전환 ✅**.
-- **신규 모듈**: `tudal/src/lib/data/admin-shortlist.ts` (118 lines) — `getActiveShortList({month?, tickerMeta?})` Supabase SELECT + `getShortListDelta()` aggregate + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)`. Supabase error는 throw (silent swallow 폐기). T7e.8/0012 이후 `name`/`sector` 컬럼을 우선 read하고, 빈 값이면 tickerMeta → ticker/"미분류" fallback.
+- **신규 모듈**: `tudal/src/lib/data/admin-shortlist.ts` (당시 118 lines) — `getActiveShortList({month?, tickerMeta?})` Supabase SELECT + 순수 helper `transformShortListRow(row, meta?)` + `aggregateShortListDelta(items)`. Supabase error는 throw (silent swallow 폐기). T7e.8/0012 이후 `name`/`sector` 컬럼을 우선 read하고, 빈 값이면 tickerMeta → ticker/"미분류" fallback. (**2026-06-03 PR #84**: 미사용 `getShortListDelta()` wrapper dead-code 제거 — 현 상태는 상단 최근 갱신 참조.)
 - **신규 테스트**: `tudal/src/lib/data/__tests__/admin-shortlist.test.ts` — Vitest 8개 (transformer 6 + aggregate 2). null 처리·string·numeric 모두 커버.
 - **page-level importer 5건 갱신** (mock-admin-shortlist → admin-shortlist):
   - `tudal/src/app/(admin)/admin/page.tsx` — `getActiveShortList()` (latest)

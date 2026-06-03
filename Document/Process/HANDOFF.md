@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-03 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)** · **63차 KRX 전환 코드 ✅ MERGED**(PR #80, main `30cb3b4`) + **FE 연결 검증 CONVERGED**(Claude①+omxy②④, 5 surface 실값 렌더, 결함 0) → **150 시드 ✅ DONE** + **선정 청크 워커 ✅ 빌드**(마이그 0031 dormant) + **PR-H ✅ 빌드**(리포트 enrich+manual trigger, 마이그 0, cost0) · 다음 = PR-G ⓑ(실 AI: 마이그 0031 apply + flag + Anthropic 키 + 비용) // 병렬 PR-I/PR-J. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) supersede**: ❶ 실행 = **B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제) — 로컬 러너 폐기 / ❷ 데이터 = **하이브리드 확정**(S1 종가·S2 거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / S3 외국인 = pykrx(공식 API 404) / S4·S5 = DART) — 날짜별 전종목 1콜로 KRX throttle 근본 해결. prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① ✅ DONE — KRX 전환 MERGED(PR #80) + **150 시드 적용**(`tier0_candidates_150` 150 rows · 2026-06 · 50/50/50 · canonical 14 · unresolved/placeholder 0 · `sector_override` +21 §2.0a 검증). 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-03 — **실데이터+실AI e2e 트랙 진행 중 (현재 1순위)** · **64차 출시前 launch-readiness 역추적 감사 5-finding fix ✅ MERGED**(PR #84, main `a5ee63e` — Workflow 17-surface FE→BE→DB 역추적 + omxy 3 rounds: P1 `upsertShortList30` metadata persist[PR-G ⓑ 빈 카드 잠복결함 제거] + P2×3 i18n format-error + P3 dead-code/lint 5→0, 마이그 0·code-only·cost0, test:ci 1621) · **63차 KRX 전환 코드 ✅ MERGED**(PR #80, main `30cb3b4`) + **FE 연결 검증 CONVERGED**(Claude①+omxy②④, 5 surface 실값 렌더, 결함 0) → **150 시드 ✅ DONE** + **선정 청크 워커 ✅ 빌드**(마이그 0031 dormant) + **PR-H ✅ 빌드**(리포트 enrich+manual trigger, 마이그 0, cost0) · 다음 = PR-G ⓑ(실 AI: 마이그 0031 apply + flag + Anthropic 키 + 비용) // 병렬 PR-I/PR-J. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) supersede**: ❶ 실행 = **B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제) — 로컬 러너 폐기 / ❷ 데이터 = **하이브리드 확정**(S1 종가·S2 거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / S3 외국인 = pykrx(공식 API 404) / S4·S5 = DART) — 날짜별 전종목 1콜로 KRX throttle 근본 해결. prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① ✅ DONE — KRX 전환 MERGED(PR #80) + **150 시드 적용**(`tier0_candidates_150` 150 rows · 2026-06 · 50/50/50 · canonical 14 · unresolved/placeholder 0 · `sector_override` +21 §2.0a 검증). 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). 상세 = §다음 액션 큐 1. **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
@@ -10,9 +10,9 @@ Last updated: 2026-06-03 — **실데이터+실AI e2e 트랙 진행 중 (현재 
 
 **지금 어디**: **실데이터+실AI e2e 트랙** 진행 중. **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성** — PR-A~C + PR-D + PR-E + PR-F(카드 AI 렌더) + **PR-G ⓐ(cron 실 AI prep, main `d15da47`, PR #68)** 모두 MERGED, 마이그 0028~0030 applied. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) 결정**: ❶ 실행 = **B 청크 워커 단일화**(Vercel cron, PR5 패턴 — 첫 검증도 수동 트리거, 로컬 러너 폐기) / ❷ 데이터 소스 = **하이브리드**(시세·거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / 외국인 = pykrx / 재무 = DART → throttle 근본 해결). prep: ② cron-system user ✅ · ③ env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① ✅ DONE — KRX 전환 MERGED(PR #80) + **150 시드 적용**(`tier0_candidates_150` 150 rows · 2026-06 · 50/50/50 · canonical 14 · unresolved/placeholder 0 · `sector_override` +21 §2.0a 검증). 실 AI 0회·cost 0(default-off). 현 카드는 AI 컬럼 null → 전부 "AI 대기" 표시(정상).
 
-**main HEAD**: `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync + launch-readiness PR #79 후 = `532a0a5` 또는 자손).
+**main HEAD**: `git rev-parse --short origin/main` (2026-06-03 출시前 launch-readiness 감사 5-finding fix PR #84 MERGED 후 = `a5ee63e` 또는 자손).
 **OPEN PR**: **#2**(format-error, CONFLICTING 보류) only.
-**검증 게이트**: build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1526 PASS / 136 files** / tsc clean / Python 95.
+**검증 게이트**: build 26 routes / lint 0 err 0 warn(pre-existing) / **test:ci 1621 PASS / 140 files** / tsc clean / Python 95.
 **Production**: 마이그 0001~**0030** applied (0028 tier0_candidates_150 + 0029 short_list_30 AI 컬럼 + **0030 get_cost_log_monthly_total_admin cost RPC, 2026-06-02 applied+verify**) · short_list_30 30 rows canonical 14(B93 PASS, AI 컬럼 전부 null = Tier 0 fallback, **AI 선정 아님**) · tier0_candidates_150 **150 rows**(2026-06 · 50/50/50 · canonical 14 · unresolved/placeholder 0 · 63차 `sector_override` +21 §2.0a 적용) · **실 AI 호출 0건**(cost_log=0).
 **⭐ 2026-06-02 비용0 라운드 완료** (PR #69~#76 반영): STEP-1 리포트 UI sweep + STEP-2 cost_log RPC(마이그 0030) + PR-A silent-0 4페이지 diagnostic + FE bridge-gap sweep(notifications nav · archive `?month` deep-link · Section8 partD 렌더 · portfolio dispute/하드코딩/배너 정직화). **추가 cost-0 CLAUDE 작업 0(소진)**. **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정 = 내일 Anthropic 키 발급 후 시작**(= 실 AI 켜기 = 출시 critical path 진입). **🔑 키 구조**: **Anthropic AI 키 = 유일한 공통(shared) 키**(도구 1개, env `ANTHROPIC_API_KEY`, 3인 공용) / **KIS·Binance = per-admin**(각자 발급·암호화 저장, DQ-7). KIS 현황 = **3명 중 1명만 보유**(다른 1명의 모의 키 1행) → **사용자 포함 2명 KIS 발급 필요**(S7c 시세는 1개 충분, S8 자동매매는 3명 each). 남은 외부 키 = Anthropic(공통, 내일) + Naver/Resend(S7b) + Telegram(S7c) + KIS 2명분. FLAGGED 6종 = 각 phase(S7b/c/cron)에 흡수(§3 하단).
 
@@ -47,7 +47,7 @@ git fetch origin
 
 # 1) main state (fixed SHA 박제 금지 — runtime verify)
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # 2026-06-02 비용0+FE-audit+launch-order docs sync+launch-readiness PR #79 후 `532a0a5` 또는 자손
+git rev-parse --short HEAD          # 2026-06-03 launch-readiness 감사 PR #84 후 `a5ee63e` 또는 자손
 git status --short                  # clean
 
 # 2) OPEN PRs — #2(format-error CONFLICTING) only 기대
@@ -55,7 +55,7 @@ gh pr list --state open --json number,title,headRefName,mergeable
 
 # 3) 검증 게이트 (매 세션 1회)
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   main 기준 기대 (2026-06-02 비용0+FE-audit+launch-readiness PR #79 후): build 26 routes / lint 0 err 5 warn(pre-existing) / test:ci 1526 PASS / 136 files / tsc clean / Python 95 tests PASS
+#   main 기준 기대 (2026-06-02 비용0+FE-audit+launch-readiness PR #79 후): build 26 routes / lint 0 err 0 warn(pre-existing) / test:ci 1621 PASS / 140 files / tsc clean / Python 95 tests PASS
 #   select count(*) from cost_log; -- 기대 0 (마이그 0030 RPC applied, 실 AI 전이라 cost 0)
 
 # 4) production audit 재확인 (Supabase MCP execute_sql 또는 dashboard) — drift detect
@@ -71,7 +71,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §0.A — PR5 go-live 활성화 진입 (⚠️ **별도 트랙** — 1순위 아님)
 
-> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G ⓑ**(실 AI 첫 30선정). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). ⓑ 잔여 = **① `screen_shortlist_tier0.py` KRX 공식 API 전환 + 150 시드 + ④ 선정 청크 워커 PR(B, Vercel cron) 빌드·수동 트리거** — 동기 단발(로컬 러너 포함)은 NON-VIABLE(타임아웃)이라 "USER 비용 게이트만"이 아니다(CLAUDE 주도 작업 + 비용 승인). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
+> **다음 세션 1순위 진입은 §다음 액션 큐 1번 = PR-G ⓑ**(실 AI 첫 30선정). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). **KRX 공식 API 전환(PR #80) + 150 시드(`tier0_candidates_150` 150 rows) + 선정 청크 워커(PR #82, 마이그 0031 written-not-applied dormant)는 63차 ✅ 빌드 완료.** ⓑ 잔여 = **[USER] 마이그 0031 apply + `SELECTION_CRON_AUTO_ENABLED=true` + Anthropic 키 + 실 30선정 1회 비용 승인(~6.5–8만원) → 워커 수동 트리거 ~55분 → 배지/cost_log/카드 검증** (동기 단발은 NON-VIABLE이라 청크 워커 단일화). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
 
 **PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` ✅ **DONE**(62차, PR5+PR-G 공용) / (d) Vercel PR5 env(`PR5_CRON_AUTO_ENABLED=true`) / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
@@ -80,7 +80,7 @@ cd /Users/yong/New_Project_KR_Stock
 git checkout main && git pull origin main
 git rev-parse --short HEAD          # PR5 머지 후 c2f7504 또는 자손
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   기대: build 26 routes / lint 0 err 5 warn / test:ci 1526 PASS / 136 files / tsc clean
+#   기대: build 26 routes / lint 0 err 0 warn / test:ci 1621 PASS / 140 files / tsc clean
 ```
 - PR5 plan SoT(main 머지됨): `docs/superpowers/plans/2026-05-29-pr5-cron-monthly-batch-auto.md`. go-live 상세 = `audit-catalog.md §9.4` + W-pr5-cron-persist-canary.
 - **go-live 후 [CLAUDE]**: cron 가동 모니터링 + Task 8 audit + **PR5b/PR-I**(committee_votes + Section 8 full path, **D11 운용 검증 전 land 강제 hard gate**, plan §3.2/§9 G2). **Step 4 Reflection/PR-K는 출시 게이트 아님** — S9/go-live 후 실 운용 결과 누적 시 defer.
@@ -103,7 +103,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 | main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-02 비용0 + FE-audit + launch-order docs sync + launch-readiness PR #79 후 `532a0a5` 또는 자손). |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
 | OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#76 + PR #79 + canonical 5-PR 모두 반영/머지(상세 git log). |
-| 검증 게이트 (main, 2026-06-02 비용0+FE-audit+launch-readiness PR #79 후) | build 26 routes / lint 0 err 5 warn(pre-existing) / **test:ci 1526 PASS / 136 files** / tsc clean / **Python 95 tests PASS**. |
+| 검증 게이트 (main, 2026-06-02 비용0+FE-audit+launch-readiness PR #79 후) | build 26 routes / lint 0 err 0 warn(pre-existing) / **test:ci 1621 PASS / 140 files** / tsc clean / **Python 95 tests PASS**. |
 | canonical 5-PR | ✅ 전체 MERGED: PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`. |
 | B65 3-phase | ✅ P1 `5b99e03` + P2 spec(옵션 A lock-in) + P3 impl `3c09d6e` + 마이그 0025 applied + Vercel env=true → production functional 가능. |
 | Task 5 B66 | ✅ **PRODUCTION COMPLETE** (60차 §5): 마이그 0026 + induty 백필 2,766/2,766 + short_list_30 30 rows canonical 14(B93 PASS). placeholder/unresolved 영구 0. |
@@ -186,7 +186,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 우선 | 작업 | 필요 액션 |
 |---|---|---|
-| ⭐ PR-G ⓑ (실 AI 첫 30선정, 다음 1순위) | ⓐ ✅ MERGED. **63차 결정: ❶ B 청크 워커**(로컬 러너 폐기) **/ ❷ 하이브리드 데이터**(KRX 공식 API[시세·거래량·universe] + pykrx[S3 외국인] + DART[S4·S5]). 잔여 = `screen_shortlist_tier0.py` KRX 공식 API 전환(cost 0) + 150 시드 + 선정 청크 워커 PR + 수동 트리거(~55분, ~6.5-8만원). CLAUDE 주도 | 한눈에 §다음 액션 큐 1번 참조 |
+| ⭐ PR-G ⓑ (실 AI 첫 30선정, 다음 1순위) | ⓐ ✅ MERGED. **63차 결정: ❶ B 청크 워커**(로컬 러너 폐기) **/ ❷ 하이브리드 데이터**(KRX 공식 API[시세·거래량·universe] + pykrx[S3 외국인] + DART[S4·S5]). **KRX 전환(PR #80)·150 시드·선정 청크 워커(PR #82, 마이그 0031 dormant) 빌드 ✅ 완료.** 잔여 = **마이그 0031 apply + `SELECTION_CRON_AUTO_ENABLED=true` + Anthropic 키 + 실 30선정 1회 비용 승인(~6.5-8만원)** → 워커 수동 트리거. **(PR #84 launch-readiness 감사: AI 선정 persist가 이제 name/sector/composite/signal carry — 첫 실 선정 시 빈 카드 잠복결함 제거)** | 한눈에 §다음 액션 큐 1번 참조 |
 | PR5 gates a~e (별도 트랙) | Task 7 비용 승인 / ~~cron-system seed~~ ✅(62차 done, `CRON_SYSTEM_USER_ID` prod set) / Vercel `PR5_CRON_AUTO_ENABLED=true` / plan tier(OPS-1). 마이그 0027 ✅ applied | 한눈에 §[별도 트랙] PR5 + §0.A 참조 |
 | ~~마이그 0030 apply~~ ✅ DONE (2026-06-02) | `0030_get_cost_log_monthly_total_admin` production applied + verify PASS: grant matrix(authenticated만/anon·service_role·PUBLIC 제외) + fail-closed 가드 production 확인(무세션→auth_unavailable raise) + advisor baseline + cost_log drift 0. STEP-2 cost_log 하드닝 production 활성 | §6 비용 0 라운드 entry |
 | B-1 ~ B-5 (DQ-7) | 친구 비번 + KIS row 정리 + Smoke #4/#5 RLS + Session 4 QA | DQ-7 close 잔여 |
@@ -255,6 +255,17 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 ---
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
+
+### 출시前 launch-readiness 역추적 감사 + 5-finding fix (64차, 2026-06-03, PR #84 MERGED main `a5ee63e`)
+
+- **계기**: 사용자 "출시 가능 기준으로 프론트 기능을 역추적해 FE→BE→DB 배선 검증 + omxy 교차검증·수정 + 불필요 코드 정리 + 문서 동기화". **Workflow 17-surface 역추적 감사**(28 agents, FE→server action→data-lib→Supabase→migration, 의도-인지 적대 검증) + **omxy 교차검증 3 rounds**(code-reviewer + architect subagent + code-review-graph MCP).
+- **감사 결과**: CONFIRMED real-broken **5건** (**P0/P1 배선/계약/보안/크래시 결함 0 = 배선 건전 확인**), intended-deferred 19건 재flag 0. omxy code-reviewer가 Claude 워크플로우 miss한 P1 1건 catch (교차검증 가치 실증).
+- **SHORTLIST-PERSIST-METADATA-1 (P1, omxy catch)**: `upsertShortList30`이 실 AI 30선정 persist 시 `short_list_30`에 `name/sector/composite_score/signal_label` 미기록 → AI 신규 선정 ticker가 홈 카드·리포트 헤더·포트폴리오에서 빈 카드(PR-G ⓑ 첫 실 선정 시 발현). `tier0_candidates_150`(동일 month) best-effort lookup carry(sector=aggregate / name·composite·signal=lookup / try/catch fail-open). 마이그 0(컬럼 기존 nullable).
+- **P2×3 i18n format-error**: `tier1_panel_incomplete`(AI-ENGINE-CONTRACT-1) / `orchestrator_failed`(TRACK-RECORD-1, `orchestrate_failed`와 별개) / report-worker 9종(`short_list_30_invalid_count` + DB-fault 8 = CRON-REPORT-1) 매핑 + prefix handler + inventory test.
+- **P3 dead-code**: `getShortListDelta`(importer 0) 제거 + lint 미사용 5종 → lint 5 warn→0. `aggregateShortListDelta`/`ShortListDelta` 보존.
+- **§2.0a 워크플로우**: Claude① `0821aa1`(P1+P2×3) → omxy②③ `11870df`(metadata lookup Promise rejection fail-open edge catch → try/catch + 회귀테스트) → Claude④ 재검증 → Phase D `a5ee63e`(dead-code+lint). omxy ROUND 3 catch-only: 2 subagent lane + parent **0 launch blocker** CONVERGED.
+- **게이트**: build 26 routes / lint 0err **0warn**(5→0) / **test:ci 1621**(1602→+19) / tsc clean / 마이그 0 / AI cost 0. PR #84 rebase FF + delete-branch.
+- **다음 1순위 불변 = PR-G ⓑ** (병렬 launch-hardening이라 로드맵 단계 무변경 — PR #79와 동일 성격). **⭐ PR #84 metadata carry로 PR-G ⓑ 첫 실 선정 시 빈 카드 잠복결함 사전 제거** (단, PR-G ⓑ 게이트[마이그 0031 apply + flag + 키 + 비용]는 불변).
 
 ### PR-H 빌드 (63차, 2026-06-03) — 리포트 enrich + manual trigger 2종 + report-worker admin trigger
 
