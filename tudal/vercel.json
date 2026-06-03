@@ -3,6 +3,9 @@
   "functions": {
     "src/app/api/cron/monthly-batch/report-worker/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/monthly-batch/selection-worker/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -13,6 +16,10 @@
     {
       "path": "/api/cron/monthly-batch/report-worker",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/monthly-batch/selection-worker",
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/morning-briefing",
