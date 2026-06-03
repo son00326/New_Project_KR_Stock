@@ -1,7 +1,7 @@
 {
   "override_version": "v1",
-  "override_date": "2026-05-28",
-  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed.",
+  "override_date": "2026-06-03",
+  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed. | 63차(2026-06-03): 150 seed(--emit-candidates) dry-run unresolved-selected 21 추가 (Claude① WebSearch 리서치 + omxy② WebSearch 적대 검증 CONVERGED, 명백 오분류 0).",
   "schema_note": "tickers[<6-digit>] = {canonical: <one of CANONICAL_SECTORS 14>, reason: <non-empty>}. canonical_sector_mapper.OverrideSchemaError가 schema 위반을 fail-fast 한다.",
   "tickers": {
     "254490": {
@@ -31,6 +31,90 @@
     "950210": {
       "canonical": "바이오",
       "reason": "프레스티지바이오파마 — DART induty_code=70113 (자연과학 R&D)이나 사업 실질은 항체 바이오시밀러/오리지널 신약 개발. mapper '70113→unresolved'를 override. 60차 §5 production dry-run catch."
+    },
+    "320000": {
+      "canonical": "반도체",
+      "reason": "MLCC/전자부품 외관·측정 검사장비(induty 292) → 반도체. 63차 150 seed unresolved catch + omxy WebSearch 검증"
+    },
+    "066980": {
+      "canonical": "건설",
+      "reason": "초순수/수처리 플랜트 EPC(설계·조달·시공, 매출 63%, induty 721) → canonical 14 내 건설 proxy. 63차 omxy 검증"
+    },
+    "347850": {
+      "canonical": "바이오",
+      "reason": "GLP-1/펩타이드 비만·MASH 신약 R&D(induty 70113) → 바이오. 63차 omxy 검증"
+    },
+    "232680": {
+      "canonical": "반도체",
+      "reason": "매출 94% 반도체 웨이퍼 이송 진공로봇(induty 29280) → 반도체 공정용 로봇. 63차 omxy 검증"
+    },
+    "065130": {
+      "canonical": "반도체",
+      "reason": "LCD/OLED 디스플레이 공정장비 주력 60%(induty 29272) → 디스플레이 장비=반도체. 63차 omxy 검증"
+    },
+    "196490": {
+      "canonical": "2차전지",
+      "reason": "2차전지 조립·활성화 장비(노칭/스태킹, induty 29271) → 2차전지. 63차 omxy 검증"
+    },
+    "064290": {
+      "canonical": "반도체",
+      "reason": "반도체 후공정 패키지/기판 3D 외관검사(induty 292) → 반도체. 63차 omxy 검증"
+    },
+    "089140": {
+      "canonical": "철강/소재",
+      "reason": "CNC 자동선반(범용 공작기계, induty 292) — canonical 산업기계 부재 → 철강/소재 least-bad proxy(low). 63차 omxy 검증"
+    },
+    "382840": {
+      "canonical": "2차전지",
+      "reason": "2차전지 양극재 소성로 매출 85~90%(induty 292) → 2차전지(반도체 아님). 63차 omxy 검증"
+    },
+    "090360": {
+      "canonical": "IT/SW",
+      "reason": "범용 산업용 로봇/제조·물류 자동화 주력(induty 29280) → IT/SW(반도체 이송은 하위). 63차 omxy 검증"
+    },
+    "420770": {
+      "canonical": "반도체",
+      "reason": "반도체 패키지 기판 AOI 검사+AOR 수리(induty 292) → 반도체. 63차 omxy 검증"
+    },
+    "187870": {
+      "canonical": "반도체",
+      "reason": "디스플레이(OLED) 세정+반도체 FOUP 오염제거 장비(induty 29271) → 반도체. 63차 omxy 검증"
+    },
+    "036930": {
+      "canonical": "반도체",
+      "reason": "반도체/디스플레이 ALD·CVD 증착장비(induty 29229) → 반도체. 63차 omxy 검증"
+    },
+    "358570": {
+      "canonical": "바이오",
+      "reason": "면역항암 이중융합단백질 신약 R&D(induty 70113) → 바이오. 63차 omxy 검증"
+    },
+    "317850": {
+      "canonical": "건설",
+      "reason": "굴착기용 건설중장비 어태치먼트(유압 브레이커/크러셔, induty 29242) → 건설기계=건설. 63차 omxy 검증"
+    },
+    "171090": {
+      "canonical": "반도체",
+      "reason": "OLED/Micro-OLED 증착장비(induty 292) → 디스플레이 장비=반도체. 63차 omxy 검증"
+    },
+    "036090": {
+      "canonical": "반도체",
+      "reason": "반도체/디스플레이 CVD 핵심 소모성 부품(Shower Head, induty 29272) → 반도체. 63차 omxy 검증"
+    },
+    "417840": {
+      "canonical": "반도체",
+      "reason": "반도체 FOUP 습도·오염제어 장비 글로벌 80%(induty 29271) → 반도체. 63차 omxy 검증"
+    },
+    "095610": {
+      "canonical": "반도체",
+      "reason": "반도체 PECVD 증착·건식식각 장비(induty 29272) → 반도체. 63차 omxy 검증"
+    },
+    "196170": {
+      "canonical": "바이오",
+      "reason": "항체 SC제형 플랫폼(ALT-B4)+바이오시밀러(induty 70113) → 바이오. 63차 omxy 검증"
+    },
+    "443060": {
+      "canonical": "운송/물류",
+      "reason": "선박 애프터마켓 MRO/엔진 유지보수(induty 7212) → 조선/선박=운송/물류. 63차 omxy 검증"
     }
   }
 }
