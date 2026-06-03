@@ -142,6 +142,16 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   pr5_cron_auto_disabled: "리포트 배치 자동 실행이 비활성화되어 있습니다",
   cron_system_user_id_invalid: "Cron 시스템 사용자 ID 설정이 올바르지 않습니다",
   cron_system_user_not_found: "Cron 시스템 사용자를 찾을 수 없습니다",
+  // 출시前 launch-readiness 감사 (omxy 교차검증 ROUND 1, 2026-06-03) — 미매핑 server-action error code 보강.
+  // AI-ENGINE-CONTRACT-1 — monthly-batch-orchestrator가 throw하는 `tier1_panel_incomplete:<done>/<total>`
+  //   (PR-G 실 AI 재선정 시 150 중 일부 패널 degraded). triggerMonthlyBatch raw 반환 → portfolio-panel 노출.
+  tier1_panel_incomplete: "Tier 1 AI 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
+  // TRACK-RECORD-1 — triggerMonthlyBatch(portfolio/actions.ts)의 non-Error catch-all fallback 코드.
+  //   (format-error엔 'orchestrate_failed'만 있었음 — 'orchestrator_failed'는 별개 미매핑.)
+  orchestrator_failed: "월간 배치 실행에 실패했습니다 — 잠시 후 다시 시도하세요",
+  // CRON-REPORT-1 — full-report-batch-worker 인프라 throw codes (admin report-worker 트리거 노출 경로).
+  short_list_30_invalid_count: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
+  report_batch_worker_failed: "리포트 배치 처리에 실패했습니다 — 잠시 후 다시 시도하세요",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -273,6 +283,31 @@ export function formatErrorMessage(code: string): string {
   }
   if (code.startsWith("report_critic_findings_list_failed:")) {
     return KOREAN_MAPPINGS["report_critic_findings_list_failed"];
+  }
+  // 출시前 감사 (omxy 교차검증 ROUND 1) — suffix throw 호환 prefix handlers.
+  // AI-ENGINE-CONTRACT-1: `tier1_panel_incomplete:<done>/<total>` (orchestrator throw).
+  if (
+    code.startsWith("tier1_panel_incomplete:") ||
+    code.startsWith("tier1_panel_incomplete ")
+  ) {
+    return KOREAN_MAPPINGS["tier1_panel_incomplete"];
+  }
+  // CRON-REPORT-1: `short_list_30_invalid_count:<n>` (worker abortBeforeSpend throw).
+  if (code.startsWith("short_list_30_invalid_count:")) {
+    return KOREAN_MAPPINGS["short_list_30_invalid_count"];
+  }
+  // CRON-REPORT-1: report-worker DB-fault codes (각 `:<pg-code>` suffix) → 단일 generic 운영자 메시지.
+  if (
+    code.startsWith("acquire_lock_failed:") ||
+    code.startsWith("release_report_worker_lock_failed:") ||
+    code.startsWith("mark_report_job_failed:") ||
+    code.startsWith("claim_next_report_jobs_failed:") ||
+    code.startsWith("report_batch_enqueue_failed:") ||
+    code.startsWith("report_batch_count_failed:") ||
+    code.startsWith("report_batch_defer_failed:") ||
+    code.startsWith("report_job_reset_failed:")
+  ) {
+    return KOREAN_MAPPINGS["report_batch_worker_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
