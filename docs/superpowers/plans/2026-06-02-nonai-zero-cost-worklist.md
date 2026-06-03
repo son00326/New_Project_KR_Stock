@@ -119,21 +119,18 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 - **게이트**: build / lint / test:ci(claim/mutex/self-continue + flag-off→spend 0 + forward-progress, PR5 TC 패턴) / tsc / grep step-0 fail-closed flag default-off. 마이그 apply = USER.
 - **PR**: 대형 신규 + 마이그 0032+ dormant. PR5 0027 패턴 참조 강제. 실 가동 = USER.
 
-### STEP-10 · PR-G ⓑ 로컬 러너 A′+B 코드 빌드 (실행 제외, 마이그 불필요)
-- **scope**: 로컬 러너 스크립트 코드(빌드 한정). (A′) Node/tsx 독립 프로세스 + JSON 체크포인트(150 패널 저장/로드, 실패 ticker만 재시도, 150/150 완성 시 `upsertShortList30` persist 배선). (B) `callPersona` transient 재시도 래퍼(messages.create 429/5xx/APIConnection/timeout 1-2회 — parse/validation/cost insert 재시도 금지, admin path 공유라 비파괴). mock callPersona 단위 테스트. **실 1회 실행(~55분, 1650 Opus콜, ≈6.5-8만원, cap 135,680원) = PRG-B-RUN 분리(제외)**.
-- **SoT**: HANDOFF 다음 액션 큐 ④ + 다음 세션 절차 (b) "로컬 러너 A′+B 빌드".
-- **depends_on**: 코드 빌드는 mock 입력으로 선행 가능. **실행만 STEP-11 150 시드 + USER 비용(PRG-B-RUN) 게이트**(러너 입력 = 150 후보).
-- **DoD**: A′ 러너 + 체크포인트 + 실패-ticker 재시도 + persist 배선. transient 재시도 래퍼. mock 단위 테스트. 실 실행 미포함.
-- **게이트**: build / lint / test:ci(체크포인트 save/load + 재시도 + 150-invariant + transient/parse·cost 비재시도 assertion) / tsc. 실 burn = USER.
-- **PR**: 별 branch (러너 코드 only).
+### STEP-10 · [63차 SUPERSEDED] 로컬 러너 A′+B 코드 빌드 — 폐기
+- **scope**: 이 STEP은 63차 D-11로 **폐기**. 로컬 one-off 러너는 컴퓨터-off 시 매달 자동 불가 + 첫검증/월자동 이중화 때문에 current guidance가 아니다.
+- **current SoT**: ADR D-11 + HANDOFF §다음 액션 큐 = **Vercel cron 청크 워커**(PR5 report-worker 패턴: `tier1_selection_job` 큐 + claim + run-mutex + self-continue). `callPersona` transient 재시도는 로컬 러너가 아니라 선정 청크 워커 PR 안에 포함한다.
+- **depends_on/DoD/게이트/PR**: 없음. STEP-9 선정 청크 워커 PR로 흡수.
 
 ### STEP-11 · ① Tier0 150 재시드 (마이그 0028 기적용, SHARED)
-- **scope**: 5-Signal Composite × 시간대별 가중치 비-AI 스크리닝(`scripts/screen_shortlist_tier0.py --emit-candidates` → `tier0_candidates_150` disjoint 50×3 write). KRX/pykrx + DART standalone/quality 지표만, **LLM 0**. 현 0 rows(KRX throttle: ~2000/2269 실패). KRX backoff/off-peak 재실행. CLAUDE = 스크립트 backoff 보강 + 명령/가이드, 실 실행 = USER 환경(KRX 키 + venv/pykrx).
-- **SoT**: HANDOFF prep ① + ADR §6 + D-3. 마이그 0028 ✅ applied.
-- **depends_on**: 마이그 0028 ✅. KRX API 안정. STEP-10 코드와 병렬 가능.
-- **DoD**: tier0_candidates_150 = 150 rows(disjoint 50×3, canonical CHECK + unique 정합). throttle backoff로 완주.
-- **게이트**: Python 95 tests PASS / `select bucket,count(*) from tier0_candidates_150 group by bucket`(50/50/50) + canonical 정합 + placeholder 0. DB write = USER 환경, CLAUDE backoff 코드 + verify 명령.
-- **PR**: scripts/ backoff = CLAUDE branch. 실 시드 = USER 환경(외부 API).
+- **scope**: 5-Signal Composite × 시간대별 가중치 비-AI 스크리닝(`scripts/screen_shortlist_tier0.py --emit-candidates` → `tier0_candidates_150` disjoint 50×3 write). **63차 D-10 current source** = KRX 공식 Open API(S1 종가·S2 거래량·universe, env `KRX_OPENAPI_KEY`, 날짜별 전종목 1콜) + pykrx(S3 외국인) + DART(S4·S5), **LLM 0**. 현 0 rows는 **[HISTORICAL] 구 pykrx per-ticker throttle 실패(~2000/2269)** 결과이며, 재시드는 KRX 공식 API 전환 후 수행한다. CLAUDE = 스크립트 데이터소스 전환 + S3 기간일괄 최적화 + 명령/가이드, 실 DB write = USER/SHARED 환경.
+- **SoT**: HANDOFF prep ① + ADR D-10/D-11 + D-3 정밀화. 마이그 0028 ✅ applied.
+- **depends_on**: 마이그 0028 ✅. `KRX_OPENAPI_KEY`(8서비스 승인 완료) + DART/pykrx 실행 환경. STEP-10 로컬 러너는 63차에서 DROP.
+- **DoD**: tier0_candidates_150 = 150 rows(disjoint 50×3, canonical CHECK + unique 정합). S1/S2/universe는 KRX 공식 API 경로로 수집되고, S3만 pykrx 기간일괄 호출.
+- **게이트**: Python 95 tests PASS / KRX 공식 API dry-run sanity / `select bucket,count(*) from tier0_candidates_150 group by bucket`(50/50/50) + canonical 정합 + placeholder 0. DB write = USER/SHARED 환경, CLAUDE는 코드/명령/후속 verify.
+- **PR**: scripts/ KRX 공식 API 전환 = CLAUDE branch. 실 시드 = USER/SHARED 환경(외부 API+DB write).
 
 ### STEP-12 · T7e.7 RLS 브라우저 수동 QA (PR 아님, SHARED)
 - **scope**: RLS 정책을 3 계정(kevin/son00326/shjang1001)으로 라우트별 접근 통과/거부 + cron 인증(CRON_SECRET) + RPC 가드(is_admin/SECURITY DEFINER) 브라우저 수동 검증. LLM 0. STEP-2/3 신규 RPC grant matrix도 함께 functional canary. stock_reports/committee_votes는 후속 seed 전까지 boundary/empty 감안.
@@ -189,13 +186,13 @@ Base: main `6394fc8` (d15da47 자손) / branch `plan/nonai-zero-cost-worklist`
 | STEP-6 | 🟡 DEFER | manual trigger — 노출 트리거(stock_reports seed)가 실 AI 전 없음. report go-live 직전 prep. ★prod AI_COST_LOG flag 이미 true라 seed 시점 latent exposure. |
 | STEP-8 | 🟡 DEFER | mock 제거 — committee_votes=0 + legacy id(`sector-반도체-1`) vs canonical id 불일치 → PR-I 재배선 필요. PR-I 후. |
 | STEP-9 | 🟡 DEFER | 선정 청크워커 — 매달자동화 정답이나 실 AI 전 no-op. HANDOFF "PR-G ⓑ 검증 후" 순서. |
-| STEP-10 | 🟡 DEFER | 로컬 러너 — throwaway one-off, 실행 게이트(150시드+USER 비용) 전 빌드 이득 0 + 중간위험(이중과금 경계). |
-| STEP-11 | 🟡 DEFER | 150 재시드 — backoff는 docstring "월1회라 불필요" 명시 제외 + 실 시드 USER 환경(KRX 키). |
+| STEP-10 | ⬜ **DROP (63차 D-11 supersede)** | 로컬 러너/one-off는 폐기. transient 재시도는 STEP-9 선정 청크 워커 PR에 흡수. |
+| STEP-11 | 🟡 DEFER | 150 재시드 — 63차 D-10에 따라 KRX 공식 API 전환 후 실행(S1/S2/universe=KRX, S3=pykrx, S4/S5=DART). |
 | STEP-12 | 🔵 USER | RLS 수동 QA — 3계정 실 JWT 필수, CLAUDE 코딩 불가. D11 직전. |
 | STEP-5 | ⬜ **DROP** | "증분"이 실은 **이미 7 test files/100 tests로 충족**. insertCostLog 0도 transitive 보장. |
 
 **완성도 비평**: STEP 목록 밖 신규 cost-0 누락 = 없음. PR #2(format-error OPEN) + ProgressDashboard docs-sync는 STEP-12 docs 묶음 합류.
-**DEFER 6 트리거**: PR5 cron go-live / 실 AI 켜기 시점에 클러스터(cost-hardening: STEP-4+0030 apply / 매달자동화: STEP-9 / 러너+시드: STEP-10+11 / report prep: STEP-6 / mock: STEP-8 after PR-I).
+**DEFER 5 트리거**: PR5 cron go-live / 실 AI 켜기 시점에 클러스터(cost-hardening: STEP-4+0030 apply / 매달자동화: STEP-9 / 시드: STEP-11 / report prep: STEP-6 / mock: STEP-8 after PR-I). STEP-10 로컬 러너는 63차 D-11로 DROP.
 
 ### 실행 현황 (2026-06-02 — 비용 0 작업 라운드 완료)
 - ✅ STEP-1 UI sweep MERGED `d00bd53` (PR #69)
