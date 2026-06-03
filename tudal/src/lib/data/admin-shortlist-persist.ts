@@ -32,6 +32,14 @@ interface ShortListRow {
   winning_timeframe: TickerAggregate['primary_timeframe'];
   conviction: number | null;
   ai_comment_kr: string | null;
+  // SHORTLIST-PERSIST-METADATA-1 fix (omxy 교차검증 ROUND 1 P1) — Tier0/display 메타데이터 carry.
+  // 기존엔 AI 컬럼만 persist → AI가 새로 선정한 ticker가 short_list_30에 name/sector/composite/signal
+  // 없이 INSERT되어 홈 카드·리포트 헤더·포트폴리오에서 빈 카드로 렌더되던 결함. sector는 agg에서 직접,
+  // name/composite_score/signal_label은 tier0_candidates_150(동일 month) best-effort lookup으로 채움.
+  name: string | null;
+  sector: string | null;
+  composite_score: number | null;
+  signal_label: string | null;
 }
 
 // PR-E — runTier1Screening.commentsByTicker carry (성공 panel ticker만, degraded는 부재).
@@ -108,12 +116,57 @@ export async function upsertShortList30(
         // degraded(⚪) ticker는 commentsByTicker 부재 → null (마이그 0029 nullable).
         conviction: comment?.conviction ?? null,
         ai_comment_kr: comment?.comment_kr ?? null,
+        // SHORTLIST-PERSIST-METADATA-1 fix — sector는 aggregate에서 직접 carry (canonical 14|null).
+        // name/composite_score/signal_label은 아래 tier0_candidates_150 lookup으로 patch (placeholder null).
+        name: null,
+        sector: agg.sector ?? null,
+        composite_score: null,
+        signal_label: null,
       });
       newTickers.push(agg.ticker);
     });
   }
 
   const supabase = options.client ?? (await createClient());
+
+  // SHORTLIST-PERSIST-METADATA-1 fix (omxy 교차검증 ROUND 1 P1) — 선정 30 ticker의 display 메타데이터
+  // (name / composite_score=tier0_score / signal_label)를 tier0_candidates_150(동일 month, AI 선정 입력
+  // 원천)에서 best-effort lookup해 row에 patch. tier0_candidates_150엔 trend/momentum/volatility/
+  // summary_3line/suggested_weight가 없으므로 그 컬럼은 null 유지(카드 transform이 0/""로 표시).
+  // ⚠ persist 자체는 절대 이 lookup 때문에 실패하지 않는다 — error/부재 시 placeholder null 유지.
+  const { data: metaRows } = await supabase
+    .from('tier0_candidates_150')
+    .select('ticker, name, tier0_score, signal_label')
+    .eq('month', monthDate)
+    .in('ticker', newTickers);
+  if (metaRows) {
+    const metaByTicker = new Map<
+      string,
+      { name: string | null; composite_score: number | null; signal_label: string | null }
+    >();
+    for (const m of metaRows as Array<{
+      ticker: string;
+      name: string | null;
+      tier0_score: string | number | null;
+      signal_label: string | null;
+    }>) {
+      const raw = m.tier0_score;
+      const cs = raw == null ? null : typeof raw === 'number' ? raw : parseFloat(raw);
+      metaByTicker.set(m.ticker, {
+        name: m.name ?? null,
+        composite_score: cs != null && Number.isFinite(cs) ? cs : null,
+        signal_label: m.signal_label ?? null,
+      });
+    }
+    for (const row of rows) {
+      const meta = metaByTicker.get(row.ticker);
+      if (meta) {
+        row.name = meta.name;
+        row.composite_score = meta.composite_score;
+        row.signal_label = meta.signal_label;
+      }
+    }
+  }
 
   // MF2 fix — 신규 30 외 기존 row DELETE (prior failed run의 stale ticker 차단).
   // 동일 month + ticker NOT IN new set.

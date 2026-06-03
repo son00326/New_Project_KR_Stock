@@ -82,6 +82,11 @@ const KNOWN_ACTION_CODES = [
   "pr5_cron_auto_disabled",
   "cron_system_user_id_invalid",
   "cron_system_user_not_found",
+  // 출시前 launch-readiness 감사 (omxy 교차검증 ROUND 1) — 미매핑 보강
+  "tier1_panel_incomplete",
+  "orchestrator_failed",
+  "short_list_30_invalid_count",
+  "report_batch_worker_failed",
 ];
 
 describe("formatErrorMessage", () => {
@@ -499,5 +504,57 @@ describe("formatErrorMessage", () => {
       expect(msg).toContain("admin UPSERT");
       expect(msg).toContain("42501");
     });
+  });
+
+  // 출시前 launch-readiness 감사 (omxy 교차검증 ROUND 1, 2026-06-03) — 미매핑 server-action 코드 보강
+  describe("launch-readiness audit codes (omxy ROUND 1)", () => {
+    // AI-ENGINE-CONTRACT-1 — orchestrator throws `tier1_panel_incomplete:<done>/<total>` (PR-G 재선정).
+    it("exact: tier1_panel_incomplete → Tier 1 AI 미완료 안내", () => {
+      expect(formatErrorMessage("tier1_panel_incomplete")).toBe(
+        "Tier 1 AI 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
+      );
+    });
+    it("prefix: tier1_panel_incomplete:149/150 → 동일 메시지 (raw code 미노출)", () => {
+      const msg = formatErrorMessage("tier1_panel_incomplete:149/150");
+      expect(msg).toContain("Tier 1 AI 평가");
+      expect(msg).not.toContain("149/150");
+    });
+
+    // TRACK-RECORD-1 — triggerMonthlyBatch non-Error catch-all `orchestrator_failed` (≠ orchestrate_failed).
+    it("exact: orchestrator_failed → 월간 배치 실행 실패 (orchestrate_failed와 구분)", () => {
+      expect(formatErrorMessage("orchestrator_failed")).toBe(
+        "월간 배치 실행에 실패했습니다 — 잠시 후 다시 시도하세요",
+      );
+    });
+
+    // CRON-REPORT-1 — report-worker 인프라 throw codes.
+    it("exact + prefix: short_list_30_invalid_count(:N) → 30선정 미완료 안내", () => {
+      expect(formatErrorMessage("short_list_30_invalid_count")).toBe(
+        "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
+      );
+      const pfx = formatErrorMessage("short_list_30_invalid_count:29");
+      expect(pfx).toContain("30종목이 아닙니다");
+      expect(pfx).not.toContain(":29");
+    });
+    it.each([
+      "acquire_lock_failed:23505",
+      "release_report_worker_lock_failed:42501",
+      "mark_report_job_failed:PGRST116",
+      "claim_next_report_jobs_failed:XX001",
+      "report_batch_enqueue_failed:23505",
+      "report_batch_count_failed:42P01",
+      "report_batch_defer_failed:unknown",
+      "report_job_reset_failed:42501",
+    ])(
+      "prefix: report-worker DB-fault %s → generic 리포트 배치 처리 실패 (raw pg-code 미노출)",
+      (code) => {
+        const msg = formatErrorMessage(code);
+        expect(msg).toBe(
+          "리포트 배치 처리에 실패했습니다 — 잠시 후 다시 시도하세요",
+        );
+        // raw pg-code suffix가 운영자에게 노출되지 않음
+        expect(msg).not.toContain(":");
+      },
+    );
   });
 });

@@ -1,12 +1,39 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const { upsertMock, deleteEqNotMock, deleteEqMock, deleteMock, fromMock } = vi.hoisted(() => {
+const {
+  upsertMock,
+  deleteEqNotMock,
+  deleteEqMock,
+  deleteMock,
+  tier0InMock,
+  tier0EqMock,
+  tier0SelectMock,
+  fromMock,
+} = vi.hoisted(() => {
   const upsertMock = vi.fn();
   const deleteEqNotMock = vi.fn();
   const deleteEqMock = vi.fn(() => ({ not: deleteEqNotMock }));
   const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
-  const fromMock = vi.fn(() => ({ upsert: upsertMock, delete: deleteMock }));
-  return { upsertMock, deleteEqNotMock, deleteEqMock, deleteMock, fromMock };
+  // SHORTLIST-PERSIST-METADATA-1 — tier0_candidates_150 display-meta best-effort lookup
+  // chain: .select('ticker, name, tier0_score, signal_label').eq('month', ...).in('ticker', [...]).
+  const tier0InMock = vi.fn();
+  const tier0EqMock = vi.fn(() => ({ in: tier0InMock }));
+  const tier0SelectMock = vi.fn(() => ({ eq: tier0EqMock }));
+  const fromMock = vi.fn((table: string) =>
+    table === 'tier0_candidates_150'
+      ? { select: tier0SelectMock }
+      : { upsert: upsertMock, delete: deleteMock },
+  );
+  return {
+    upsertMock,
+    deleteEqNotMock,
+    deleteEqMock,
+    deleteMock,
+    tier0InMock,
+    tier0EqMock,
+    tier0SelectMock,
+    fromMock,
+  };
 });
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -45,8 +72,13 @@ beforeEach(() => {
   deleteEqMock.mockClear();
   deleteMock.mockClear();
   fromMock.mockClear();
+  tier0InMock.mockReset();
+  tier0EqMock.mockClear();
+  tier0SelectMock.mockClear();
   // 기본 delete 성공 (DI 없는 test에서는 stale delete가 먼저 실행됨)
   deleteEqNotMock.mockResolvedValue({ error: null });
+  // SHORTLIST-PERSIST-METADATA-1 — 기본 tier0 lookup은 빈 결과 (메타 없음 → name/composite/signal null).
+  tier0InMock.mockResolvedValue({ data: [], error: null });
 });
 
 describe('upsertShortList30', () => {
@@ -105,10 +137,15 @@ describe('upsertShortList30', () => {
     const customDeleteEqNot = vi.fn().mockResolvedValue({ error: null });
     const customDeleteEq = vi.fn(() => ({ not: customDeleteEqNot }));
     const customDelete = vi.fn(() => ({ eq: customDeleteEq }));
-    const customFrom = vi.fn(() => ({
-      upsert: customUpsert,
-      delete: customDelete,
-    }));
+    // SHORTLIST-PERSIST-METADATA-1 — 주입 client도 tier0 lookup chain 제공 (빈 결과).
+    const customTier0In = vi.fn().mockResolvedValue({ data: [], error: null });
+    const customTier0Eq = vi.fn(() => ({ in: customTier0In }));
+    const customTier0Select = vi.fn(() => ({ eq: customTier0Eq }));
+    const customFrom = vi.fn((table: string) =>
+      table === 'tier0_candidates_150'
+        ? { select: customTier0Select }
+        : { upsert: customUpsert, delete: customDelete },
+    );
     const injectedClient = { from: customFrom } as unknown as NonNullable<
       Parameters<typeof upsertShortList30>[2]
     >['client'];
@@ -196,5 +233,68 @@ describe('upsertShortList30', () => {
     expect(rOther.conviction).toBeNull();
     expect(rOther.ai_comment_kr).toBeNull();
     expect(rOther.consensus_badge).toBe('🟢');
+  });
+
+  // SHORTLIST-PERSIST-METADATA-1 fix (omxy 교차검증 ROUND 1 P1) — Tier0/display 메타 carry.
+  it('SHORTLIST-PERSIST-METADATA-1: patches name/composite_score/signal_label from tier0_candidates_150 + sector from aggregate', async () => {
+    upsertMock.mockResolvedValue({ error: null });
+    const selected = buildSelected30();
+    selected[0] = {
+      ...selected[0],
+      sector: '반도체' as TickerAggregate['sector'],
+    };
+    const ticker0 = selected[0].ticker; // '000000'
+    tier0InMock.mockResolvedValue({
+      data: [
+        // PostgREST는 numeric을 string으로 반환할 수 있다 — parseFloat 검증.
+        { ticker: ticker0, name: '삼성전자', tier0_score: '87.5', signal_label: '강한 모멘텀' },
+      ],
+      error: null,
+    });
+
+    await upsertShortList30('2026-06', selected);
+
+    // tier0 lookup이 올바른 table/컬럼/필터로 호출됨
+    expect(fromMock).toHaveBeenCalledWith('tier0_candidates_150');
+    expect(tier0SelectMock).toHaveBeenCalledWith(
+      'ticker, name, tier0_score, signal_label',
+    );
+    expect(tier0EqMock).toHaveBeenCalledWith('month', '2026-06-01');
+    const inArgs = tier0InMock.mock.calls[0];
+    expect(inArgs[0]).toBe('ticker');
+    expect(inArgs[1]).toContain(ticker0);
+
+    const rows = upsertMock.mock.calls[0][0] as Array<Record<string, unknown>>;
+    const r0 = rows.find((r) => r.ticker === ticker0)!;
+    expect(r0.name).toBe('삼성전자');
+    expect(r0.composite_score).toBe(87.5); // string tier0_score → number
+    expect(r0.signal_label).toBe('강한 모멘텀');
+    expect(r0.sector).toBe('반도체'); // agg.sector 직접 carry (lookup 아님)
+
+    // lookup 결과에 없는 ticker → name/composite/signal null (graceful), sector는 agg(null)
+    const rOther = rows.find((r) => r.ticker !== ticker0)!;
+    expect(rOther.name).toBeNull();
+    expect(rOther.composite_score).toBeNull();
+    expect(rOther.signal_label).toBeNull();
+    expect(rOther.sector).toBeNull();
+  });
+
+  it('SHORTLIST-PERSIST-METADATA-1: tier0 lookup error does NOT fail persist (best-effort, rows still upserted with null meta)', async () => {
+    upsertMock.mockResolvedValue({ error: null });
+    // lookup이 error + data:null → patch skip, persist는 정상 진행 (fail-open on display meta).
+    tier0InMock.mockResolvedValue({ data: null, error: { code: '42501' } });
+
+    await expect(
+      upsertShortList30('2026-06', buildSelected30()),
+    ).resolves.toBeUndefined();
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    const rows = upsertMock.mock.calls[0][0] as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(30);
+    for (const row of rows) {
+      expect(row.name).toBeNull();
+      expect(row.composite_score).toBeNull();
+      expect(row.signal_label).toBeNull();
+    }
   });
 });
