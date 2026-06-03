@@ -134,38 +134,42 @@ export async function upsertShortList30(
   // 원천)에서 best-effort lookup해 row에 patch. tier0_candidates_150엔 trend/momentum/volatility/
   // summary_3line/suggested_weight가 없으므로 그 컬럼은 null 유지(카드 transform이 0/""로 표시).
   // ⚠ persist 자체는 절대 이 lookup 때문에 실패하지 않는다 — error/부재 시 placeholder null 유지.
-  const { data: metaRows } = await supabase
-    .from('tier0_candidates_150')
-    .select('ticker, name, tier0_score, signal_label')
-    .eq('month', monthDate)
-    .in('ticker', newTickers);
-  if (metaRows) {
-    const metaByTicker = new Map<
-      string,
-      { name: string | null; composite_score: number | null; signal_label: string | null }
-    >();
-    for (const m of metaRows as Array<{
-      ticker: string;
-      name: string | null;
-      tier0_score: string | number | null;
-      signal_label: string | null;
-    }>) {
-      const raw = m.tier0_score;
-      const cs = raw == null ? null : typeof raw === 'number' ? raw : parseFloat(raw);
-      metaByTicker.set(m.ticker, {
-        name: m.name ?? null,
-        composite_score: cs != null && Number.isFinite(cs) ? cs : null,
-        signal_label: m.signal_label ?? null,
-      });
-    }
-    for (const row of rows) {
-      const meta = metaByTicker.get(row.ticker);
-      if (meta) {
-        row.name = meta.name;
-        row.composite_score = meta.composite_score;
-        row.signal_label = meta.signal_label;
+  try {
+    const { data: metaRows } = await supabase
+      .from('tier0_candidates_150')
+      .select('ticker, name, tier0_score, signal_label')
+      .eq('month', monthDate)
+      .in('ticker', newTickers);
+    if (metaRows) {
+      const metaByTicker = new Map<
+        string,
+        { name: string | null; composite_score: number | null; signal_label: string | null }
+      >();
+      for (const m of metaRows as Array<{
+        ticker: string;
+        name: string | null;
+        tier0_score: string | number | null;
+        signal_label: string | null;
+      }>) {
+        const raw = m.tier0_score;
+        const cs = raw == null ? null : typeof raw === 'number' ? raw : parseFloat(raw);
+        metaByTicker.set(m.ticker, {
+          name: m.name ?? null,
+          composite_score: cs != null && Number.isFinite(cs) ? cs : null,
+          signal_label: m.signal_label ?? null,
+        });
+      }
+      for (const row of rows) {
+        const meta = metaByTicker.get(row.ticker);
+        if (meta) {
+          row.name = meta.name;
+          row.composite_score = meta.composite_score;
+          row.signal_label = meta.signal_label;
+        }
       }
     }
+  } catch {
+    // best-effort display-meta lookup only; short_list_30 persist must not be blocked here.
   }
 
   // MF2 fix — 신규 30 외 기존 row DELETE (prior failed run의 stale ticker 차단).
