@@ -14,7 +14,7 @@
 
 ## 최근 갱신
 
-> **[65차 supersede 2026-06-04]**: AI 엔진 스택은 W0~W3로 재정의됨 — 멀티프로바이더(Claude+GPT, provider auto-detect)/역할별 모델 차등/hardcap **50만**/주간(short)·월간(mid·long) 선정 split/실시간 반박 토론 loop/AI 자율 포트. 본 스냅샷의 Anthropic-단일·40만 hardcap·Core 11 단발 채점·monthly-batch 단일 선정 표기는 **W0 구현 시 갱신 예정**(과거 timeline·완료 로그는 역사로 보존). 활성 SoT = `HANDOFF.md §2` + `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + CLAUDE.md.
+> **[65차 supersede 2026-06-04]**: AI 엔진 스택은 W0~W3로 재정의됨 — 멀티프로바이더(Claude+GPT, provider auto-detect)/역할별 모델 차등/hardcap **50만**/주간(short)·월간(mid·long) 선정 split/실시간 반박 토론 loop/AI 자율 포트/**D27 Q5 incumbent thesis 재점검**(재선정 후보풀 = fresh Tier0 ∪ incumbents, 직전 리포트·논거 주입 재평가 — W2 union + W1 주입). 본 스냅샷의 Anthropic-단일·40만 hardcap·Core 11 단발 채점·monthly-batch 단일 선정·stateless 재선정(reflectionContext='') 표기는 **W0 구현 시 갱신 예정**(과거 timeline·완료 로그는 역사로 보존). 활성 SoT = `HANDOFF.md §2` + `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + CLAUDE.md.
 
 **2026-06-03** (출시前 launch-readiness 역추적 감사 + 5-finding fix — PR #84 MERGED in main `a5ee63e`):
 - **Workflow 17-surface 역추적 감사** (FE→server action→data-lib→Supabase→migration, 28 agents, 의도-인지 적대 검증) + **omxy 교차검증 3 rounds** (code-reviewer + architect subagent + code-review-graph MCP). CONFIRMED real-broken 5건 (P0/P1 배선/계약/보안/크래시 결함 0 = 배선 건전), intended-deferred 19건 재flag 0.

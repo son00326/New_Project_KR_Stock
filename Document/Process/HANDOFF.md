@@ -1,16 +1,16 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-04 — **⭐ 65차 MVP 엔진 재정의 (Q1~Q4 LOCKED · omxy R1~R4 CONVERGED) — 다음 세션 1순위 = W0(상단 ⭐ 섹션). MVP = 30 리스트+포트폴리오+30 리포트가 올바르게 나옴. 기존 PR-G ⓑ는 W0~W3로 superseded(코드 자산 재사용).** · (이전) **실데이터+실AI e2e 트랙** · **64차 출시前 launch-readiness 역추적 감사 5-finding fix ✅ MERGED**(PR #84, main `a5ee63e` — Workflow 17-surface FE→BE→DB 역추적 + omxy 3 rounds: P1 `upsertShortList30` metadata persist[PR-G ⓑ 빈 카드 잠복결함 제거] + P2×3 i18n format-error + P3 dead-code/lint 5→0, 마이그 0·code-only·cost0, test:ci 1621) · **63차 KRX 전환 코드 ✅ MERGED**(PR #80, main `30cb3b4`) + **FE 연결 검증 CONVERGED**(Claude①+omxy②④, 5 surface 실값 렌더, 결함 0) → **150 시드 ✅ DONE** + **선정 청크 워커 ✅ 빌드**(마이그 0031 dormant) + **PR-H ✅ 빌드**(리포트 enrich+manual trigger, 마이그 0, cost0) · 다음 = PR-G ⓑ(실 AI: 마이그 0031 apply + flag + Anthropic 키 + 비용) // 병렬 PR-I/PR-J. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) supersede**: ❶ 실행 = **B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제) — 로컬 러너 폐기 / ❷ 데이터 = **하이브리드 확정**(S1 종가·S2 거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / S3 외국인 = pykrx(공식 API 404) / S4·S5 = DART) — 날짜별 전종목 1콜로 KRX throttle 근본 해결. prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① ✅ DONE — KRX 전환 MERGED(PR #80) + **150 시드 적용**(`tier0_candidates_150` 150 rows · 2026-06 · 50/50/50 · canonical 14 · unresolved/placeholder 0 · `sector_override` +21 §2.0a 검증). 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). [위 "다음 = PR-G ⓑ" 표현은 모두 65차에서 상단 ⭐ MVP 엔진 W0→W2→W1→W3로 superseded — 코드 자산은 토대 재사용.] **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
+Last updated: 2026-06-04 — **⭐ 65차 MVP 엔진 재정의 (Q1~Q5 LOCKED — D26 7결정 + D27 Q5 펀드식 incumbent 재점검 · omxy CONVERGED) — 다음 세션 1순위 = W0(상단 ⭐ 섹션). MVP = 30 리스트+포트폴리오+30 리포트가 올바르게 나옴. 기존 PR-G ⓑ는 W0~W3로 superseded(코드 자산 재사용).** · (이전) **실데이터+실AI e2e 트랙** · **64차 출시前 launch-readiness 역추적 감사 5-finding fix ✅ MERGED**(PR #84, main `a5ee63e` — Workflow 17-surface FE→BE→DB 역추적 + omxy 3 rounds: P1 `upsertShortList30` metadata persist[PR-G ⓑ 빈 카드 잠복결함 제거] + P2×3 i18n format-error + P3 dead-code/lint 5→0, 마이그 0·code-only·cost0, test:ci 1621) · **63차 KRX 전환 코드 ✅ MERGED**(PR #80, main `30cb3b4`) + **FE 연결 검증 CONVERGED**(Claude①+omxy②④, 5 surface 실값 렌더, 결함 0) → **150 시드 ✅ DONE** + **선정 청크 워커 ✅ 빌드**(마이그 0031 dormant) + **PR-H ✅ 빌드**(리포트 enrich+manual trigger, 마이그 0, cost0) · 다음 = PR-G ⓑ(실 AI: 마이그 0031 apply + flag + Anthropic 키 + 비용) // 병렬 PR-I/PR-J. ADR SoT = `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` (11-PR 로드맵 A~K). **AI 30선정 코드 엔진 + 프론트 + cron 실경로 prep 완성**: PR-A~C + PR-D(tier0_candidates_150) + PR-E(short_list_30 AI 스키마+실 선정 배선+비용가드) + PR-F(카드 AI 렌더 🤖, PR #67) + **PR-G ⓐ(cron 실 AI prep — cost-log service-role DI + 4-gate preflight, main `d15da47`, PR #68)** 모두 MERGED (omxy §2.0a + Workflow 6-dim 교차검증 CONVERGED). 마이그 **0028~0030 applied**. 다음 = **PR-G ⓑ (실 AI 첫 30선정)**. **63차(2026-06-02) supersede**: ❶ 실행 = **B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제) — 로컬 러너 폐기 / ❷ 데이터 = **하이브리드 확정**(S1 종가·S2 거래량·universe = KRX 공식 Open API 승인완료·라이브 200 검증 / S3 외국인 = pykrx(공식 API 404) / S4·S5 = DART) — 날짜별 전종목 1콜로 KRX throttle 근본 해결. prep: ② cron-system user ✅`39202d8b-…` · ③ Vercel env(`CRON_SYSTEM_USER_ID` set, `MONTHLY_BATCH_CRON_AI_ENABLED` false 복원) ✅ · ① ✅ DONE — KRX 전환 MERGED(PR #80) + **150 시드 적용**(`tier0_candidates_150` 150 rows · 2026-06 · 50/50/50 · canonical 14 · unresolved/placeholder 0 · `sector_override` +21 §2.0a 검증). 실 AI 호출 0회·cost 0(드리프트 0). 실비용 정정: ~6.5-8만원(구 "~5-6천원" 오기). [위 "다음 = PR-G ⓑ" 표현은 모두 65차에서 상단 ⭐ MVP 엔진 W0→W2→W1→W3로 superseded — 코드 자산은 토대 재사용.] **별도 트랙**: PR5(cron 리포트) MERGED-dormant.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify.
 
 ---
 
-## ⭐ 65차 MVP 엔진 재정의 (2026-06-04) — 다음 세션 1순위 (사용자 확정 7결정 LOCKED · omxy R1~R4 CONVERGED)
+## ⭐ 65차 MVP 엔진 재정의 (2026-06-04) — 다음 세션 1순위 (사용자 확정 7결정(D26) + D27 Q5 LOCKED · omxy CONVERGED)
 
 > **이게 다음 세션 진입점.** 사용자 결정: 아래 Q1~Q4는 **고도화가 아니라 원래 MVP**다. **MVP = ① 30 리스트가 올바르게 나옴 + ② 포트폴리오가 올바르게 짜여짐 + ③ 30 리포트가 올바르게 나옴.** 결정 자체는 **변경 금지** (SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + 본 섹션). omxy 토론은 **순서·수정방법·문서구성만** 다뤘고 **R1~R4 CONVERGED**. file:line은 omxy 검증 포인터 — 착수 시 drift 재확인.
 
-### LOCKED 결정 7 (변경 금지)
+### LOCKED 결정 8 — D26 7결정 + D27 Q5 (변경 금지)
 1. **Q1 선정주기 분리**: 단기 10 = **주 1회**(ⓐ Tier 0 단기 후보 50 매주 새로 뽑아 단기 Core 11 패널 재실행 = 주간 AI 비용), 중기·장기 20 = **월 1회**. 21일 고정 리밸런스 폐기 → 중복/교체/리밸런스는 AI 포트 판단(Q2) 위임. 데이터 = 정확도 기준(예비: KRX 종가/거래량+외국인+모멘텀, DART는 분기성=느린 품질필터).
 2. **Q2 AI 자율 포트 구성**: 선정 30 중 (a)운용 여부 (b)총 개수 (c)종목 (d)단/중/장 분배 (e)종목별 비중 (f)현금 0~30% **전부 AI 자율**. 30 최선이면 30, 일부면 일부. 어드민은 Accept/Reject만.
 3. **Q3 모델/프로바이더 추상화**: 모델 하드코딩 제거(설정값화), 역할별 모델 차등, **Claude + GPT 멀티프로바이더** + GPT 모델 매핑, 모델 업데이트 대비(레지스트리 — 신모델 추가=1곳). Core 11 = 모델 무관(시스템 프롬프트일 뿐, Claude 전용 아님).
@@ -18,6 +18,7 @@ Last updated: 2026-06-04 — **⭐ 65차 MVP 엔진 재정의 (Q1~Q4 LOCKED · o
 5. **hardcap 40만 → 50만원**.
 6. **역할별 모델 차등**: 토론 참가 = 저가(Haiku/GPT-mini류), 최종 judge·리포트 = 고가(Opus 4.8+).
 7. **MVP 재정의**(위 박스).
+8. **Q5 펀드식 incumbent thesis 재점검 (D27, 2026-06-04 같은 65차 후속 — MVP 포함)**: **모든 트랙(단기 주1회 포함)** 재선정 시, **기존 리스트 종목(incumbent)은 직전 리포트·논거·합의배지·점수 + 그 이후 실현 성과를 "incumbent thesis context"로 주입받아 논거 유효성을 재점검** → 유효=유지 후보 / 깨짐("더 이상 상승 안 할 것")=제외. **유지는 자동 아님** — 신규 후보와 **동일 랭킹 경쟁, 각 트랙 top10 안에 들어야 유지**. 신규 후보는 기존대로 신규 발굴. 서비스 = **펀드 운용 관점**(매번 백지 재발굴 X). cold start(직전 데이터 없음)=신규 취급. **PR-K Reflection(월말 전체 회고, defer)과 별개** — Q5는 선정 시점 per-incumbent review(MVP). 구현: `reflectionContext` seam 재사용(명칭은 incumbent thesis context로 표기).
 
 ### 빌드 순서 = W0 → W2 → W1 → W3  (omxy R1~R4 CONVERGED)
 > **W2(주간/월간 split)를 W1(토론)보다 먼저.** 현 worker/DB/selection invariant가 월단일키·150고정이라, split을 먼저 해야 job key/finalize/expected_total을 두 번 안 뜯음.
@@ -36,11 +37,13 @@ Last updated: 2026-06-04 — **⭐ 65차 MVP 엔진 재정의 (Q1~Q4 LOCKED · o
 - 마이그(W2 DB 범위): tier0_candidates_150(0028:1-9,19-28,51-57) 150/month 계약 → **week/track key 추가**. selection job(마이그 0031) key/expected_total/finalize 트랙별 재구성.
 - 코드: tier1-selection-batch-worker.ts:39-42 + persona-eval.ts:414-415 `runTier1Screening` 150-invariant → **트랙별 invariant**. selection-worker/route.ts:46-65 current-month 단일 → 트랙별. vercel.json:20-22 에 단기-주간 cron 추가.
 - **rolling composite writer 신설** (⚠️ `upsertShortList30` 재사용 금지 — admin-shortlist-persist.ts:62-71 `length!==30` 차단 + :175-181 비-30 행 DELETE가 주간 short 갱신 시 mid/long 삭제). DoD = short 주간 갱신 시 **mid/long 20 보존**. short_list_30 = rolling composite(short 주간 / mid·long 월간).
+- **(D27 Q5) 트랙별 후보 풀 = fresh Tier 0 ∪ incumbents** (union + dedupe + expected_total 재계산 — 단기 50+incumbent≤10 / 중장기 100+incumbent≤20). incumbent가 fresh Tier 0 풀 밖이어도 **반드시 평가에 포함**(무심사 탈락 금지). **탈락은 W1 랭킹 후에만** — persist "새 set 밖 기존행 삭제"(:175-181)로 인한 심사 전 탈락 금지 = DoD. + **incumbent 식별 + prior-context builder**(직전 short_list_30 row + stock_reports 요약 + 선정 후 실현 성과 계산).
 
 **W1 — Q4 실시간 반박 토론 loop**
 - 각 트랙 per-ticker 단발채점(persona-eval.ts:486-540) → **멀티라운드 반박 ≤2라운드**(R2에서 타 위원 R1 주장 컨텍스트 주입 → 반박/수정).
 - Claude-only 기본 + GPT 키 시 혼합(W0 auto-detect). **역할별 모델: 토론 참가=저가 / 최종 judge=고가**.
 - consensus(결정론 computeWeightedScores+assignBadge)는 토론 후 최종 점수 집계로 유지/대체(합의 점수 자체는 선택).
+- **(D27 Q5) incumbent thesis context 주입**: W2 prior-context builder 산출물(직전 논거·배지·점수 + 그 후 실현 성과)을 토론 프롬프트에 주입(`reflectionContext` seam 재사용 — persona-panel-adapter.ts:141,175 + cron/admin callers) → 토론 R1에서 incumbent는 직전 논거를 보고 반박/재평가("논거 아직 유효한가"). 신규 후보는 기존 발굴 프롬프트.
 
 **W3 — Q2 AI 자율 포트 구성**
 - 선정·토론 결과 → `portfolio_proposal`(편입 여부 / 총 개수 / 단·중·장 분배 / 종목별 비중 / 현금 0~30%) **AI 판단**.
@@ -49,6 +52,7 @@ Last updated: 2026-06-04 — **⭐ 65차 MVP 엔진 재정의 (Q1~Q4 LOCKED · o
 ### 비용 가드 (reservation ≤ 50만)
 - cap: **short 50/week + mid·long 100/month, debate ≤2라운드, 토론 참가=저가, 최종 judge/report만 고가**.
 - 근거(omxy): Opus reservation ≈82원/call(pricing.ts `MAX_COST_PER_CALL_KRW`) → 주간 short 50×11×4.3 ≈ 19.5만 + mid·long 100×11 ≈ 9만 = 단일라운드 ~28.5만. **all-Opus 2라운드 ~57만 > 50만 → 역할별 차등 필수**(저가 토론참가로 50만 내 유지).
+- **(D27 Q5) incumbent union overhead**: 추가 패널콜 최대 단기 +10×11/주 + 중장기 +20×11/월 + incumbent당 직전 리포트 요약 주입(~1-2k tok). **W0 reservation 산식에 포함해 50만 내 재검증**.
 
 ### PR-G ⓑ 처리 (superseded)
 - old **"150×11 Opus 단발 실선정"**(선정 청크워커 PR #82 + 마이그 0031 dormant)은 **W0~W3 엔진으로 superseded/흡수**. 코드 자산(청크워커 큐/run-mutex/self-continue 패턴)은 **W2/W1 토대로 재사용**. **별도 잔존 = W0 cheap smoke뿐**.

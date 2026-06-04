@@ -5,11 +5,12 @@ Date: 2026-05-31
 Base: main `5385512`
 SoT 산출: Workflow `wf_69256ccc-149` (7차원 매핑 + 완성도 검증 + 로드맵) + omxy §2.0a R1 (HIGH×2 / MED×2 / LOW×1).
 
-> ⚠️ **65차(2026-06-04) supersede 안내**: 본 ADR의 11-PR 로드맵(A~K)과 D-1~D-11 사전결정 중 **PR-G ⓑ 이후 미머지 분량(PR-G ⓑ / H / I / J / K)** 은 65차 7결정으로 **MVP 엔진 빌드 순서 W0→W2→W1→W3로 재편**되었다(기존 코드자산 재사용, 폐기 아님). 특히:
+> ⚠️ **65차(2026-06-04) supersede 안내**: 본 ADR의 11-PR 로드맵(A~K)과 D-1~D-11 사전결정 중 **PR-G ⓑ 이후 미머지 분량(PR-G ⓑ / H / I / J / K)** 은 65차 7결정(D26) + D27 Q5로 **MVP 엔진 빌드 순서 W0→W2→W1→W3로 재편**되었다(기존 코드자산 재사용, 폐기 아님). 특히:
 > - **(Q1)** 선정주기 = 단기 주1회 / 중장기 월1회 split — D-3·D-5·D-9·D-11의 "월1회 단일 배치 150 동시 선정" 가정을 supersede.
 > - **(Q2)** AI 자율 포트구성(운용여부·개수·종목·단중장분배·비중·현금0~30% 전부 AI) — "항상 30 전체 + Accept/Reject" 전제를 supersede.
 > - **(Q3)** 모델 하드코딩 제거 + 설정값화 → 모델 레지스트리 + 멀티프로바이더(Claude+GPT, GPT키 없으면 Claude-only provider auto-detect) — §6 line의 `claude-opus-4-7` 하드코딩 + "Anthropic 유일 공통 키" 전제를 supersede.
 > - **(Q4)** 실시간 멀티라운드 반박 토론 loop(합의점수 선택) — §0 GOAL·D-2·§5의 "Core 11 병렬 독립 채점 → 결정론 top 10" 전제를 확장.
+> - **(Q5/D27, 2026-06-04 후속)** 펀드식 incumbent thesis 재점검 — 재선정 후보풀 = **fresh Tier 0 ∪ incumbents**(직전 리포트·논거+실현 성과 주입 재평가, 무심사 탈락 금지, 유지=top10 랭킹 경쟁). D-3 "150 후보 전체 호출"의 fresh-only 고정 가정을 supersede(W2 union + W1 주입).
 > - **hardcap 40만 → 50만**, **역할별 모델 차등**(토론=저가/최종=고가), **MVP 재정의**(고도화 아님 = ①30리스트 ②포트폴리오 ③30리포트 정확).
 > - **PR-G ⓑ(150×11 opus 단발선정)은 superseded** — 코드자산 재사용으로 W0~W3에 흡수.
 > - 상세 = `Document/Process/HANDOFF.md` ⭐ 65차 MVP 엔진 섹션 + memory `project_mvp_engine_4workstreams_2026_06_04`. 아래 본문은 65차 이전 결정의 역사 기록으로 보존한다.
