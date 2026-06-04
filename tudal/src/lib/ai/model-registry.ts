@@ -149,6 +149,48 @@ export const W2_TRACK_VOLUME = {
   incumbentContextExtraInputTokens: 2000,
 } as const;
 
+// ---------------------------------------------------------------------------
+// W1a (D28 ①) — Core 11 혼합 슬롯. CORE_11 배열 index 기준 interleave(가설 기본값 —
+// track-record 적중률 측정 후 여기 1곳 조정):
+//   짝수 idx = Claude Sonnet 4.6 (6 슬롯: 0,2,4,6,8,10) / 홀수 idx = GPT mid (5 슬롯: 1,3,5,7,9).
+//   GPT 미가용(auto-detect) → 해당 슬롯 Sonnet = 전원 Claude (D28 C fallback, GPT-only 미지원).
+//   calibration/maxTokens는 tier1_panel 역할 공유. preferred(opus-4-7)는 비패널 fallback 경로 보존.
+// ---------------------------------------------------------------------------
+export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
+  if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 10) {
+    throw new Error(`tier1_panel_slot_out_of_range:${slotIndex}`);
+  }
+  const entry = MODEL_REGISTRY.tier1_panel;
+  const useGpt = slotIndex % 2 === 1 && isOpenAiAvailable();
+  const binding: ModelBinding = useGpt
+    ? O(D28_DEBATE_CONFIG.gptMidModel)
+    : A(D28_DEBATE_CONFIG.claudeSonnetModel);
+  const provider = binding.provider === 'openai' ? openaiProvider : anthropicProvider;
+  return {
+    role: 'tier1_panel',
+    provider,
+    model: binding.model,
+    pricingKey: binding.pricingKey,
+    maxTokens: entry.maxTokens,
+  };
+}
+
+// W1a (D8) — reservation 보수 단가: mix 슬롯(Sonnet/GPT mid) 중 최고가, env 무관
+//   (GPT-off 시 전원 Sonnet ≤ max → undercount 금지 보존).
+export function getTier1PanelWorstSlotCostKrw(): number {
+  const cal = MODEL_REGISTRY.tier1_panel.calibration;
+  const usage: TokenUsage = {
+    input_tokens: cal.inputTokens,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    output_tokens: cal.outputTokens,
+  };
+  return Math.max(
+    calculateCostKrw(usage, D28_DEBATE_CONFIG.claudeSonnetModel),
+    calculateCostKrw(usage, D28_DEBATE_CONFIG.gptMidModel),
+  );
+}
+
 export interface D28ProjectionLine { label: string; krw: number }
 export interface D28Projection { lines: D28ProjectionLine[]; totalKrw: number }
 

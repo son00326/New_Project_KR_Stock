@@ -5,10 +5,12 @@ import {
   MODEL_REGISTRY,
   resolveRole,
   getRoleMaxCostPerCallKrw,
+  resolveTier1PanelSlot,
+  getTier1PanelWorstSlotCostKrw,
   type AiRole,
 } from '../model-registry';
 import { MODEL_PRICING } from '@/lib/cost/anthropic-pricing';
-import { MAX_COST_PER_CALL_KRW } from '@/lib/cost/pricing';
+import { MAX_COST_PER_CALL_KRW, calculateCostKrw } from '@/lib/cost/pricing';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -77,5 +79,55 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final)', () => {
       const source = readFileSync(path.resolve(__dirname, sdkModulePath), 'utf8');
       expect(source).toMatch(/^import ['"]server-only['"];/);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// W1a (D28 ①) — tier1 panel slot 배분 + worst-slot reservation 단가
+// ---------------------------------------------------------------------------
+describe('W1a resolveTier1PanelSlot — Core 11 혼합 (D28 ①)', () => {
+  it('interleave: 짝수 idx=Sonnet 4.6 ×6 / 홀수 idx=gpt-5.4 ×5 (OPENAI 가용 시)', () => {
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test-openai');
+    const slots = Array.from({ length: 11 }, (_, i) => resolveTier1PanelSlot(i));
+    expect(slots.filter((s) => s.model === 'claude-sonnet-4-6')).toHaveLength(6);
+    expect(slots.filter((s) => s.model === 'gpt-5.4')).toHaveLength(5);
+    expect(slots[0].model).toBe('claude-sonnet-4-6');
+    expect(slots[1].model).toBe('gpt-5.4');
+    expect(slots[1].provider.id).toBe('openai');
+    expect(slots[0].provider.id).toBe('anthropic');
+    expect(slots.every((s) => s.role === 'tier1_panel')).toBe(true);
+  });
+
+  it('GPT 미가용 → 전 슬롯 Sonnet (Claude-only fallback, D28 C)', () => {
+    vi.stubEnv('OPENAI_API_KEY', '');
+    const slots = Array.from({ length: 11 }, (_, i) => resolveTier1PanelSlot(i));
+    expect(slots.every((s) => s.model === 'claude-sonnet-4-6')).toBe(true);
+    expect(slots.every((s) => s.provider.id === 'anthropic')).toBe(true);
+  });
+
+  it('slotIndex 범위 밖(11/-1/소수) → throw tier1_panel_slot_out_of_range', () => {
+    expect(() => resolveTier1PanelSlot(11)).toThrow('tier1_panel_slot_out_of_range:11');
+    expect(() => resolveTier1PanelSlot(-1)).toThrow('tier1_panel_slot_out_of_range:-1');
+    expect(() => resolveTier1PanelSlot(1.5)).toThrow('tier1_panel_slot_out_of_range:1.5');
+  });
+});
+
+describe('W1a getTier1PanelWorstSlotCostKrw (D8)', () => {
+  it('= max(Sonnet, GPT mid) calibration 단가 — env 무관 (reservation undercount 금지)', () => {
+    const cal = {
+      input_tokens: 1500,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+      output_tokens: 2000,
+    };
+    const expected = Math.max(
+      calculateCostKrw(cal, 'claude-sonnet-4-6'),
+      calculateCostKrw(cal, 'gpt-5.4'),
+    );
+    vi.stubEnv('OPENAI_API_KEY', '');
+    expect(getTier1PanelWorstSlotCostKrw()).toBe(expected);
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test-openai');
+    expect(getTier1PanelWorstSlotCostKrw()).toBe(expected);
+    expect(expected).toBeGreaterThan(0);
   });
 });
