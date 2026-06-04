@@ -24,8 +24,8 @@ export type AlertType =
   | "briefing_failed" // S5a M11: 브리핑 생성 실패 시 어드민 대시보드 배지
   | "scheduler_fail"
   | "gating_auto_relief" // S3 BL-20 A: 7일 연속 단일 접속 감지 시 자동 바이패스 로그
-  | "cost_warning" // S6 M17: 35만 경보 (40만 hardcap 직전)
-  | "cost_hardcap" // S6 M17: 40만 hardcap 도달 시 재생성 차단 로그
+  | "cost_warning" // S6 M17 · 65차 LOCKED #5: 45만 경보 (50만 hardcap 직전)
+  | "cost_hardcap" // S6 M17 · 65차 LOCKED #5: 50만 hardcap 도달 시 재생성 차단 로그
   | "heartbeat_missing"; // S6 M19: 일간 하트비트 2채널 모두 발송 실패 (D10 catch-up 후)
 export type Severity = "critical" | "warning" | "info";
 export type ExitDecision = "sell_all" | "partial_sell" | "hold";
@@ -347,10 +347,10 @@ export interface CostLog {
 export interface CostMonthlySummary {
   month: string;
   totalKrw: number;
-  warningThresholdKrw: number; // 350,000
-  hardcapKrw: number; // 400,000
-  warningTriggered: boolean; // total >= 350,000
-  hardcapTriggered: boolean; // total >= 400,000
+  warningThresholdKrw: number; // 450,000
+  hardcapKrw: number; // 500,000
+  warningTriggered: boolean; // total >= 450,000
+  hardcapTriggered: boolean; // total >= 500,000
   remainingKrw: number; // hardcap - total (음수 가능)
   byPurpose: Array<{ purpose: CostPurpose; costKrw: number; share: number }>; // share 0~1
   topContributors: Array<{
@@ -360,9 +360,9 @@ export interface CostMonthlySummary {
   }>;
 }
 
-// M17 임계치 상수 (R3.12-1·R3.12-2)
-export const COST_WARNING_THRESHOLD_KRW = 350_000;
-export const COST_HARDCAP_KRW = 400_000;
+// M17 임계치 상수 (R3.12-1·R3.12-2) — 65차 LOCKED #5 (2026-06-04): hardcap 40만 → 50만, 경보 35만 → 45만(90% 파생)
+export const COST_WARNING_THRESHOLD_KRW = 450_000;
+export const COST_HARDCAP_KRW = 500_000;
 export const COST_USD_TO_KRW = 1430; // BL-18 견적 환율 (보수적)
 
 // HeartbeatLog (M19 R3.12-7~8)

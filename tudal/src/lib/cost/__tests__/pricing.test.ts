@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCostKrw, MAX_COST_PER_CALL_KRW, HARDCAP_KRW, S7A_MODEL } from '../pricing';
-import { ANTHROPIC_PRICING } from '../anthropic-pricing';
+import {
+  calculateCostKrw,
+  MAX_COST_PER_CALL_KRW,
+  HARDCAP_KRW,
+  COST_WARNING_THRESHOLD_KRW,
+  S7A_MODEL,
+} from '../pricing';
+import { ANTHROPIC_PRICING, MODEL_PRICING, getPricing } from '../anthropic-pricing';
 import { COST_USD_TO_KRW } from '@/types/admin';
 
 describe('pricing (Q6 + R5 wrapper)', () => {
@@ -45,8 +51,9 @@ describe('pricing (Q6 + R5 wrapper)', () => {
     expect(cost).toBeGreaterThan(0);
   });
 
-  it('HARDCAP_KRW = 400_000', () => {
-    expect(HARDCAP_KRW).toBe(400_000);
+  it('HARDCAP_KRW = 500_000 (65차 LOCKED #5)', () => {
+    expect(HARDCAP_KRW).toBe(500_000);
+    expect(COST_WARNING_THRESHOLD_KRW).toBe(450_000);
   });
 
   it('uses anthropic-pricing.ts SoT (S7A_MODEL = claude-opus-4-7) + COST_USD_TO_KRW (R5 wrapper)', () => {
@@ -63,5 +70,31 @@ describe('pricing (Q6 + R5 wrapper)', () => {
       output_tokens: 500,
     });
     expect(actual).toBeCloseTo(expectedKrw, 2);
+  });
+
+  it('calculateCostKrw는 openai 모델에서 cacheWrite 0 / cacheRead 0.1 적용', () => {
+    // gpt-5.4: input $2.5/M. cached 1M tok → 2.5 × 0.1 = $0.25 → ×1430 = 357.5
+    const krw = calculateCostKrw(
+      { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 },
+      'gpt-5.4',
+    );
+    expect(krw).toBe(357.5);
+  });
+});
+
+describe('W0 multi-provider pricing registry (D28)', () => {
+  it('registers claude-opus-4-8 at $5/$25', () => {
+    expect(MODEL_PRICING['claude-opus-4-8']).toMatchObject({
+      provider: 'anthropic', inputPerMTokUsd: 5, outputPerMTokUsd: 25,
+      cacheWriteMult: 1.25, cacheReadMult: 0.1,
+    });
+  });
+  it('registers gpt-5.5 / gpt-5.4 / gpt-5.4-mini with openai provider', () => {
+    expect(MODEL_PRICING['gpt-5.5']).toMatchObject({ provider: 'openai', inputPerMTokUsd: 5, outputPerMTokUsd: 30, cacheWriteMult: 0, cacheReadMult: 0.1 });
+    expect(MODEL_PRICING['gpt-5.4']).toMatchObject({ provider: 'openai', inputPerMTokUsd: 2.5, outputPerMTokUsd: 15 });
+    expect(MODEL_PRICING['gpt-5.4-mini']).toMatchObject({ provider: 'openai', inputPerMTokUsd: 0.75, outputPerMTokUsd: 4.5 });
+  });
+  it('getPricing throws pricing_unknown_model on unregistered model (D28 ② fail-closed)', () => {
+    expect(() => getPricing('not-a-model')).toThrow('pricing_unknown_model:not-a-model');
   });
 });
