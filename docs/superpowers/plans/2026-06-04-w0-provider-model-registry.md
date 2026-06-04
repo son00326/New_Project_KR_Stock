@@ -43,8 +43,8 @@
 
 ## 0.2 Plan 결정 사항 (omxy ② 검토 대상)
 
-1. **registry 기본값 = D28 B-final 그대로 박제하되, 현 runtime 배선 role만 즉시 소비**: `full_report`/`revise` → `claude-opus-4-8`(D28 ④ — opus-4-7과 동일 단가라 비용 가드 영향 0), `critic` → `gpt-5.4` preferred + `claude-haiku-4-5` fallback(D28 ⑤ — GPT 키 없으면 현행 Haiku 그대로 = 무회귀), `tier1_panel` → `claude-opus-4-7` **현행 유지**(D28 ① 토론 mix는 W1 멀티라운드 구조에서 배선 — HANDOFF W1 명시). `debate_judge`/`dual_judge_gpt`/`portfolio` = W1/W3 소비용 정의만.
-2. **hardcap throw 키 rename**: `cost_hardcap_40man` → **`cost_hardcap_exceeded`** (cap-agnostic — 향후 cap 변경 시 키 churn 재발 방지). production DB에 해당 문자열 row 0 (cost_log=0, job 테이블 빈 상태) → rename 안전. 18개 파일 일괄 (workers 문자열 매칭 포함).
+1. **registry 기본값 = D28 B-final 그대로 박제하되, 현 runtime 배선 role만 즉시 소비**: `full_report`/`revise` → `claude-opus-4-8`(D28 ④ — opus-4-7과 동일 단가라 비용 가드 영향 0), `critic` → `gpt-5.4` preferred + `claude-haiku-4-5` fallback(D28 ⑤ — GPT 키 없으면 현행 Haiku 그대로 = 무회귀), `tier1_panel` → `claude-opus-4-7` **현행 유지**(D28 ① 토론 mix는 W1 멀티라운드 구조에서 배선 — HANDOFF W1 명시). `debate_judge`/`dual_judge_gpt`/`portfolio` = W1/W3 소비용 정의만. **명시 (omxy R1)**: W0 runtime에서 GPT를 실제 소비할 수 있는 경로는 critic뿐 — D28 C "두 키 동시 사용"의 본격 소비(Core 11 mix)는 W1이며, W0은 registry/projection/smoke 수준에서만 두 키를 다룬다.
+2. **hardcap throw 키 rename**: `cost_hardcap_40man` → **`cost_hardcap_exceeded`** (HANDOFF가 허용한 두 선택지 중 rename 채택 — 근거: cap-agnostic으로 향후 cap 변경 시 키 churn 재발 방지 + 50만 메시지에 "40man" 키 잔존하는 어휘 부정합 제거). 안전 주장(production DB row 0)은 **구현 시점 Supabase 실측 verify가 게이트** (Step 6.4c — report_batch_job count=0 확인, tier1_selection_job은 0031 미적용=부재). 18+개 파일 일괄 (workers 문자열 매칭 + portfolio/actions.ts 포함).
 3. **OpenAI usage 정규화**: `input_tokens = total - cached` (uncached), `cache_read_input_tokens = cached`, `cache_creation_input_tokens = 0` → 기존 `calculateCostKrw` 산식(uncached×1.0 + read×readMult) 그대로 재사용.
 4. **cache multiplier를 per-model 단가표 필드로 이동**: Anthropic write ×1.25/read ×0.1, OpenAI write 0(개념 없음)/read ×0.1.
 5. **COST_WARNING_THRESHOLD_KRW = 450,000** (hardcap 90%, 구 87.5%에서 라운딩 — **가정**: 50만 LOCKED의 파생값, 사용자 veto 가능).
@@ -562,14 +562,19 @@ export const D28_DEBATE_CONFIG = {
 } as const;
 
 // Q1/W2 트랙 볼륨 + D27 Q5 incumbent 상한 (projection 입력)
+// ⚠️ omxy R1 MEDIUM fix: R2 trigger "트랙별 top10 경계 ±5"는 per-track — mid/long을 120 단일
+//    풀로 계산하면 10 ticker undercount. 3트랙(short/mid/long 각 pool 60 = 후보 50 + incumbent 10)
+//    × 트랙별 빈도(short 4.345/월, mid·long 각 1/월)로 모델링.
 export const W2_TRACK_VOLUME = {
-  shortWeeklyCandidates: 50,
-  shortIncumbentMax: 10,
-  midLongMonthlyCandidates: 100,
-  midLongIncumbentMax: 20,
-  weeksPerMonth: 4.345,
+  tracks: [
+    { key: 'short', candidates: 50, incumbentMax: 10, runsPerMonth: 4.345 },
+    { key: 'mid',   candidates: 50, incumbentMax: 10, runsPerMonth: 1 },
+    { key: 'long',  candidates: 50, incumbentMax: 10, runsPerMonth: 1 },
+  ],
   reportCount: 30,
   portfolioRunsPerMonth: 5, // 주1 + 월1 + 여유 (보수)
+  // D27 Q5: incumbent당 직전 리포트 요약 주입 ~1-2k tok → 보수 2k input/콜 (omxy R1 MEDIUM fix)
+  incumbentContextExtraInputTokens: 2000,
 } as const;
 
 export interface D28ProjectionLine { label: string; krw: number }
@@ -577,6 +582,9 @@ export interface D28Projection { lines: D28ProjectionLine[]; totalKrw: number }
 
 // D28 B-final 배분 기준 월간 reservation projection (보수적 worst-case, 닫힌 산식).
 // HANDOFF W0 DoD: "실 단가 등록 후 reservation ≤50만 재검증".
+// ⚠️ omxy R1 HIGH fix: env-dependent resolveRole 금지 — CI(OPENAI_API_KEY unset)에서 critic=Haiku/
+//    dual_judge=Opus fallback 단가로 계산되어 D28 기본(두 키 동시) 대비 undercount. 전 라인
+//    worst-case(getRoleWorstCaseMaxCostPerCallKrw — preferred/fallback 중 최고가) 고정.
 export function projectD28MonthlyReservationKrw(): D28Projection {
   const perCall = (pricingKey: string, inputTokens: number, outputTokens: number) =>
     calculateCostKrw(
@@ -587,29 +595,39 @@ export function projectD28MonthlyReservationKrw(): D28Projection {
   const mixPerTicker =
     D28_DEBATE_CONFIG.claudeSonnetSlots * perCall(D28_DEBATE_CONFIG.claudeSonnetModel, cal.inputTokens, cal.outputTokens) +
     D28_DEBATE_CONFIG.gptMidSlots * perCall(D28_DEBATE_CONFIG.gptMidModel, cal.inputTokens, cal.outputTokens);
+  // D27 Q5 incumbent 추가 input 토큰의 mix 1콜 평균 증분 (11콜 = Sonnet 6 + GPT mid 5)
+  const extraIn = W2_TRACK_VOLUME.incumbentContextExtraInputTokens;
+  const incumbentExtraPerTicker =
+    D28_DEBATE_CONFIG.claudeSonnetSlots * perCall(D28_DEBATE_CONFIG.claudeSonnetModel, extraIn, 0) +
+    D28_DEBATE_CONFIG.gptMidSlots * perCall(D28_DEBATE_CONFIG.gptMidModel, extraIn, 0);
 
-  const v = W2_TRACK_VOLUME;
-  const shortPool = v.shortWeeklyCandidates + v.shortIncumbentMax;     // 60 (D27 Q5 union)
-  const midLongPool = v.midLongMonthlyCandidates + v.midLongIncumbentMax; // 120
-
-  // R2 worst-case 대상 수 (경계 ±5 = 10 + 분산 상위 20% — 겹침 없다고 가정한 상한)
+  // R2 worst-case 대상 수 per-track (경계 ±5 = 10 + 분산 상위 20% — 겹침 없다고 가정한 상한)
   const r2Count = (pool: number) =>
     Math.min(pool, 2 * D28_DEBATE_CONFIG.r2BoundaryWindow + Math.ceil(pool * D28_DEBATE_CONFIG.r2VarianceTopFraction));
 
-  const judgeKrw = getRoleMaxCostPerCallKrw('debate_judge');
-  const dualJudgeKrw = getRoleMaxCostPerCallKrw('dual_judge_gpt');
-  const reportKrw =
-    getRoleMaxCostPerCallKrw('full_report') + getRoleMaxCostPerCallKrw('critic') + getRoleMaxCostPerCallKrw('revise');
+  const judgeKrw = getRoleWorstCaseMaxCostPerCallKrw('debate_judge');
+  const dualJudgeKrw = getRoleWorstCaseMaxCostPerCallKrw('dual_judge_gpt');
+  const reportKrw = getOrchestrateBudgetKrw(); // worst-case writer+critic+revise
+
+  let r1Krw = 0, r2Krw = 0, judgeTotalKrw = 0, dualJudgeTotalKrw = 0, incumbentKrw = 0;
+  for (const t of W2_TRACK_VOLUME.tracks) {
+    const pool = t.candidates + t.incumbentMax; // D27 Q5 union
+    r1Krw += pool * mixPerTicker * t.runsPerMonth;
+    r2Krw += r2Count(pool) * mixPerTicker * t.runsPerMonth;
+    judgeTotalKrw += pool * judgeKrw * t.runsPerMonth;
+    dualJudgeTotalKrw += 2 * D28_DEBATE_CONFIG.dualJudgeBoundaryWindow * dualJudgeKrw * t.runsPerMonth;
+    // incumbent context overhead: R1 + (worst) R2 동반 = ×2
+    incumbentKrw += t.incumbentMax * incumbentExtraPerTicker * 2 * t.runsPerMonth;
+  }
 
   const lines: D28ProjectionLine[] = [
-    { label: 'short R1 (주간 60×mix×4.345)', krw: shortPool * mixPerTicker * v.weeksPerMonth },
-    { label: 'mid/long R1 (월간 120×mix)', krw: midLongPool * mixPerTicker },
-    { label: 'short R2 worst (선택적)', krw: r2Count(shortPool) * mixPerTicker * v.weeksPerMonth },
-    { label: 'mid/long R2 worst (선택적)', krw: r2Count(midLongPool) * mixPerTicker },
-    { label: 'judge (Opus 4.8, per-ticker)', krw: (shortPool * v.weeksPerMonth + midLongPool) * judgeKrw },
-    { label: 'dual-judge (경계 ±2×3트랙)', krw: (2 * D28_DEBATE_CONFIG.dualJudgeBoundaryWindow) * (v.weeksPerMonth + 2) * dualJudgeKrw },
-    { label: '풀 리포트 30 (writer+critic+revise worst)', krw: v.reportCount * reportKrw },
-    { label: 'W3 포트 판단 (Opus 4.8)', krw: v.portfolioRunsPerMonth * getRoleMaxCostPerCallKrw('portfolio') },
+    { label: 'R1 (3트랙 pool 60 × mix)', krw: r1Krw },
+    { label: 'R2 worst (선택적, 트랙별 22)', krw: r2Krw },
+    { label: 'judge (Opus 4.8, per-ticker)', krw: judgeTotalKrw },
+    { label: 'dual-judge (경계 ±2/트랙, GPT top worst)', krw: dualJudgeTotalKrw },
+    { label: 'D27 Q5 incumbent context (+2k tok, R1+R2)', krw: incumbentKrw },
+    { label: '풀 리포트 30 (writer+critic+revise worst)', krw: W2_TRACK_VOLUME.reportCount * reportKrw },
+    { label: 'W3 포트 판단 (Opus 4.8)', krw: W2_TRACK_VOLUME.portfolioRunsPerMonth * getRoleWorstCaseMaxCostPerCallKrw('portfolio') },
   ];
   const totalKrw = Math.round(lines.reduce((s, l) => s + l.krw, 0));
   return { lines, totalKrw };
@@ -685,9 +703,26 @@ export async function preflightHardcap(
   },
   options: CostHelperOptions = {},
 ): Promise<{ currentTotal: number; reservation: number; remaining: number }> {
-  // fail-open 차단: lines/callCount 둘 다 부재 = reservation 0으로 hardcap 무력화 → throw.
+  // fail-open 차단 (omxy R1 HIGH fix): lines/callCount 둘 다 부재, lines: [], 음수/비유한 값
+  // 전부 reservation 0/오염으로 hardcap 무력화 가능 → 명시 throw.
   if (!opts.lines && opts.callCount == null) {
     throw new Error('preflight_reservation_missing');
+  }
+  if (opts.lines) {
+    if (opts.lines.length === 0) throw new Error('preflight_reservation_missing');
+    for (const l of opts.lines) {
+      if (
+        !Number.isFinite(l.callCount) || l.callCount < 0 ||
+        !Number.isFinite(l.maxCostPerCallKrw) || l.maxCostPerCallKrw < 0
+      ) {
+        throw new Error('preflight_reservation_invalid');
+      }
+    }
+  } else if (
+    !Number.isFinite(opts.callCount!) || opts.callCount! < 0 ||
+    (opts.maxCostPerCallKrw != null && (!Number.isFinite(opts.maxCostPerCallKrw) || opts.maxCostPerCallKrw < 0))
+  ) {
+    throw new Error('preflight_reservation_invalid');
   }
   const currentTotal = await getMonthlyTotal(opts.month, options);
   const reservation = opts.lines
@@ -712,7 +747,9 @@ cost_hardcap_exceeded: "월 AI 비용 한도(50만원)를 초과했습니다",
 pricing_unknown_model: "미등록 AI 모델 단가입니다 — 모델 레지스트리 등록이 필요합니다",
 ```
 
-- [ ] **Step 6.5: 테스트 일괄 갱신** — `rg -l "cost_hardcap_40man" src`로 잔존 0 확인하며 테스트 12파일 교체 + 400_000 리터럴 mock → 500_000. persona-eval.test의 reservation 기대값 무회귀 확인.
+- [ ] **Step 6.4b: `portfolio/actions.ts` 포함** (omxy R1 MEDIUM catch — sweep 누락): `tudal/src/app/(admin)/admin/portfolio/actions.ts` 주석 "40만원" + 관련 키 사용처 rename. 그 테스트(trigger-full-report-action.test / monthly-batch-action.test)도 Step 6.5에 포함.
+- [ ] **Step 6.4c: rename 안전성 production verify** (omxy R1 MEDIUM — 주장만으로 rename 금지): 구현 시점에 Supabase MCP로 `select count(*) from report_batch_job;` = 0 확인 (tier1_selection_job은 마이그 0031 미적용 = 테이블 부재 → 해당 없음). 0이 아니면 rename 중단 + 보고.
+- [ ] **Step 6.5: 테스트 일괄 갱신** — `rg -l "cost_hardcap_40man" src`로 잔존 0 확인하며 테스트 12파일 교체 + 400_000 리터럴 mock → 500_000. persona-eval.test의 reservation 기대값 무회귀 확인. **preflight 검증 테스트 추가**: lines `[]` → throw / 음수 callCount → throw / NaN maxCost → throw / callCount 0 (단일) → throw 아님(예약 0 정상 의미 없음 — `lines` 경로와 달리 기존 호환: 단일 경로 callCount 0은 reservation 0 통과 유지 여부를 omxy와 확정 — 기본은 0 허용·음수만 차단).
 - [ ] **Step 6.6: 게이트 + Commit** — `feat(w0): model-aware reservation lines + cost_hardcap_exceeded rename (D28 ③)`
 
 ---
@@ -736,7 +773,10 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx
 
 ---
 
-## Task 8: W0 live smoke (env-gated) + 최종 게이트
+## Task 8: W0 live smoke **구현만** (실행 = 별도 USER 비용 승인 게이트 — W0 완료 게이트에 미포함) + 최종 게이트
+
+> ⚠️ omxy R1 catch 명확화: 본 Task의 산출물은 **smoke 테스트 파일 + 실행 가이드**다. 실 API 호출은
+> W0 머지/완료 판정에 포함되지 않으며(DoD #6 "실 AI 호출 0" 유지), USER가 비용 승인 후 별도 실행한다.
 
 **Files:**
 - Create: `__tests__/w0-provider-smoke.live.test.ts`
@@ -781,11 +821,11 @@ npx vitest run src/lib/ai/__tests__/d28-reservation-projection.test.ts        # 
 3. GPT 키 없을 때 auto Claude-only 검증 (registry fallback 테스트).
 4. D28 3종: GPT/Opus4.8 단가 등록 + unknown model fail-closed + model-aware reservation.
 5. D28 B-final 배분 기준 reservation ≤50만 projection 테스트 PASS.
-6. 실 AI 호출 0 (smoke는 USER 게이트 — CI에서 skip).
+6. 실 AI 호출 0 — **W0 완료/머지 판정은 smoke "구현"까지** (smoke "실행"은 별도 USER 비용 승인 게이트, CI에서 skip — DoD와 충돌 없음).
 
 ## 리스크 / 비고
 
-- **Opus 4.7+ tokenizer +35%**: calibration 토큰 수는 텍스트→토큰 환산 가정 — projection에 안전여유 ~32% 존재(총 ~34만 vs 50만). W1 실측 후 calibration 보정.
+- **Opus 4.7+ tokenizer +35%**: calibration 토큰 수는 텍스트→토큰 환산 가정 — projection에 안전여유 ~30% 존재(omxy R1 fix 반영 3트랙+worst-case+incumbent 산식 기준 총 ≈35만 vs 50만 — 정확값은 테스트 출력 박제). W1 실측 후 calibration 보정.
 - **OpenAI Responses API 응답 변형**(reasoning 모델의 output_tokens에 reasoning 포함): cost는 output 전체 과금이라 정규화 무영향. output_text 빈 응답 가드.
 - **critic GPT 전환은 W0에서 호출 경로 없음**(실 AI 0회) — 첫 실 critic 호출은 Task 7 Smoke Stage 2(별도 트랙)에서 검증되며, 그 전 W0 smoke가 provider 계층을 선검증.
 - **B85 hardcode 모델 verify 문서**(audit-catalog §9.4)의 `claude-opus-4-7` 표기는 W0 머지 후 registry 파생으로 stale → 문서 동기화에 포함.
