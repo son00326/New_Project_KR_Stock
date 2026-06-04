@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   // W3a: KRX EOD 모듈 mock.
   resolveLatestCompletedTradingDay: vi.fn(),
   resolveEntryPricesKrw: vi.fn(),
+  loadKrBusinessDays: vi.fn(),
   acceptShortlistRpc: vi.fn(),
 }));
 
@@ -57,6 +58,16 @@ vi.mock("@/lib/data/krx-eod", () => ({
     mocks.resolveLatestCompletedTradingDay(...a),
   resolveEntryPricesKrw: (...a: unknown[]) => mocks.resolveEntryPricesKrw(...a),
 }));
+
+vi.mock("@/lib/portfolio/calendar", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/portfolio/calendar")>(
+    "@/lib/portfolio/calendar",
+  );
+  return {
+    ...actual,
+    loadKrBusinessDays: (...a: unknown[]) => mocks.loadKrBusinessDays(...a),
+  };
+});
 
 const finalApproval: PortfolioApproval = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -103,6 +114,8 @@ beforeEach(async () => {
   mocks.insertPortfolioSnapshots.mockResolvedValue(undefined);
   // W3a 기본: 거래일 stub + acceptShortlistRpc 성공. resolveEntryPricesKrw는 per-test override
   //   (기본 빈 Map — flag-off 테스트는 도달 안 함).
+  const { MOCK_KR_BUSINESS_DAYS_2026 } = await import("@/lib/portfolio/calendar");
+  mocks.loadKrBusinessDays.mockResolvedValue(MOCK_KR_BUSINESS_DAYS_2026);
   mocks.resolveLatestCompletedTradingDay.mockReturnValue("20260417");
   mocks.resolveEntryPricesKrw.mockResolvedValue(new Map());
   mocks.acceptShortlistRpc.mockResolvedValue({
@@ -254,6 +267,7 @@ describe("acceptShortList", () => {
   it("fails closed before mutating approvals when real entry prices are unavailable", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("KRX_OPENAPI_KEY", "krx-existing-prod-key");
     const { acceptShortList } = await import("../actions");
 
     const result = await acceptShortList({
@@ -263,6 +277,9 @@ describe("acceptShortList", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.loadKrBusinessDays).not.toHaveBeenCalled();
+    expect(mocks.resolveLatestCompletedTradingDay).not.toHaveBeenCalled();
+    expect(mocks.resolveEntryPricesKrw).not.toHaveBeenCalled();
     expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
     expect(mocks.insertPortfolioSnapshots).not.toHaveBeenCalled();
   });
@@ -280,6 +297,25 @@ describe("acceptShortList", () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.loadKrBusinessDays).not.toHaveBeenCalled();
+    expect(mocks.resolveLatestCompletedTradingDay).not.toHaveBeenCalled();
+    expect(mocks.resolveEntryPricesKrw).not.toHaveBeenCalled();
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
+  it("flag on + blank KRX_OPENAPI_KEY → entry_price_unavailable (KRX 미호출)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    vi.stubEnv("KRX_OPENAPI_KEY", "   ");
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.loadKrBusinessDays).not.toHaveBeenCalled();
     expect(mocks.resolveEntryPricesKrw).not.toHaveBeenCalled();
     expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
   });
@@ -299,6 +335,8 @@ describe("acceptShortList", () => {
       shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
     });
     expect(result.success).toBe(true);
+    expect(mocks.loadKrBusinessDays).toHaveBeenCalledTimes(1);
+    expect(mocks.resolveLatestCompletedTradingDay).toHaveBeenCalledTimes(1);
     expect(mocks.resolveEntryPricesKrw).toHaveBeenCalledTimes(1);
     // resolveEntryPricesKrw 2번째 인자에 authKey/basDd 전달
     const callArgs = mocks.resolveEntryPricesKrw.mock.calls[0];

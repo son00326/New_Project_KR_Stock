@@ -14,7 +14,10 @@ import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
-import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
+import {
+  loadKrBusinessDays,
+  MOCK_KR_BUSINESS_DAYS_2026,
+} from "@/lib/portfolio/calendar";
 import {
   resolveEntryPricesKrw,
   resolveLatestCompletedTradingDay,
@@ -179,7 +182,7 @@ async function buildInitialSnapshots(input: {
   if (process.env.PORTFOLIO_REAL_ENTRY_PRICE_ENABLED !== "true") {
     return { success: false, error: "entry_price_unavailable" };
   }
-  const authKey = process.env.KRX_OPENAPI_KEY;
+  const authKey = process.env.KRX_OPENAPI_KEY?.trim();
   if (!authKey) {
     return { success: false, error: "entry_price_unavailable" };
   }
@@ -188,9 +191,14 @@ async function buildInitialSnapshots(input: {
   //   (snapshot build는 RPC 前이라 accept 트랜잭션 미시작 — money-path 안전).
   let priceMap: Map<string, number>;
   try {
+    const now = new Date();
+    const businessDays = await loadKrBusinessDays(
+      new Date(now.getTime() - 14 * 86_400_000),
+      now,
+    );
     const basDd = resolveLatestCompletedTradingDay(
-      new Date(),
-      MOCK_KR_BUSINESS_DAYS_2026,
+      now,
+      businessDays,
     );
     if (!basDd) {
       return { success: false, error: "entry_price_unavailable" };
