@@ -141,6 +141,7 @@ function makeFakeClient(opts: {
   acquireRunId?: string | null;
   acquireError?: { code?: string } | null;
   releaseErrors?: Array<{ code?: string }>;
+  roundCountSchemaMissing?: boolean;
 }) {
   const rpcCalls: RpcCall[] = [];
   const updatePayloads: unknown[] = [];
@@ -205,7 +206,12 @@ function makeFakeClient(opts: {
                 in: vi.fn((_col: string, statuses: string[]) => ({
                   in: vi.fn(async (_col2: string, rounds: number[]) => ({
                     count: countFor(statuses, rounds),
-                    error: null,
+                    error: opts.roundCountSchemaMissing
+                      ? {
+                          code: "PGRST204",
+                          message: "Could not find the 'round' column",
+                        }
+                      : null,
                   })),
                   then: (
                     resolve: (v: { count: number; error: null }) => unknown,
@@ -1365,6 +1371,22 @@ describe("W1a 멀티라운드 R2 반박", () => {
     expect(deps.callPersonaPanel).not.toHaveBeenCalled();
   });
 
+  it("round-aware preflight count에서 0032 schema가 없으면 selection_round_schema_missing으로 fail-closed", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 100,
+      nonTerminalCount: 100,
+      terminalCount: 0,
+      roundCountSchemaMissing: true,
+    });
+    const deps = makeDeps("midlong");
+    await expect(runChunk(client, deps)).rejects.toThrow(
+      "selection_round_schema_missing",
+    );
+    expect(deps.preflightHardcap).not.toHaveBeenCalled();
+    expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+  });
+
   it("round-aware SELECT에서 0032 schema가 없으면 selection_round_schema_missing으로 fail-closed", async () => {
     const { client } = makeFakeClient({
       claimedJobs: [],
@@ -1672,10 +1694,14 @@ describe("W1b judge 라운드 + dual-judge", () => {
     const arg = (deps.callJudgePanel as ReturnType<typeof vi.fn>).mock
       .calls[0][0] as {
       ticker: string;
+      month: string;
       finalPanel: PersonaScore[];
+      track: SelectionTrack;
       reflectionContext?: string;
     };
     expect(arg.ticker).toBe(candidates[0].ticker);
+    expect(arg.month).toBe("2026-06");
+    expect(arg.track).toBe("midlong");
     expect(arg.finalPanel).toHaveLength(11);
     expect(arg.reflectionContext).toBe("[재점검] judge ctx");
     expect(res.failed).toBe(1); // 099999
@@ -1704,7 +1730,12 @@ describe("W1b judge 라운드 + dual-judge", () => {
       allRows: [...rows, ...judgeRows],
     });
     // GPT verdict: 항상 winning_timeframe 'long' → opus('short')와 불일치
+    const incumbentTicker = candidates[8].ticker;
     const deps = makeDeps("midlong", {
+      incumbentsSource: vi.fn(async () => [makeIncumbentInfo(incumbentTicker, "mid")]),
+      buildIncumbentContexts: vi.fn(async () => ({
+        [incumbentTicker]: "[재점검] dual ctx",
+      })),
       callDualJudge: vi.fn(async () => ({
         scores: { short: 1, mid: 1, long: 99 },
         winning_timeframe: "long" as const,
@@ -1726,6 +1757,20 @@ describe("W1b judge 라운드 + dual-judge", () => {
       const dualCalls = (deps.callDualJudge as ReturnType<typeof vi.fn>).mock.calls.length;
       expect(dualCalls).toBeGreaterThan(0);
       expect(dualCalls).toBeLessThanOrEqual(8);
+      const dualArgs = (deps.callDualJudge as ReturnType<typeof vi.fn>).mock.calls.map(
+        (c) =>
+          c[0] as {
+            ticker: string;
+            month?: string;
+            track?: SelectionTrack;
+            reflectionContext?: string;
+          },
+      );
+      expect(dualArgs.every((a) => a.track === "midlong")).toBe(true);
+      expect(dualArgs.every((a) => a.month === "2026-06")).toBe(true);
+      expect(dualArgs.find((a) => a.ticker === incumbentTicker)?.reflectionContext).toBe(
+        "[재점검] dual ctx",
+      );
       // 불일치 로그
       const disagreeLog = infoSpy.mock.calls
         .map((c) => String(c[0]))

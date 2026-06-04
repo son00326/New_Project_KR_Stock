@@ -1,4 +1,4 @@
-// PR1 Task 3 → W1b 정리: 구 단발 writer(upsertShortList30)는 제거(67차 follow-up ②, live caller 0).
+// PR1 Task 3 → W1b 정리: 구 단발 30-row writer는 제거(67차 follow-up ②, live caller 0).
 // 현 SoT writer = upsertShortListTrack(원자 RPC).
 // runTier1Screening 산출 30 selected를 short_list_30 (month, ticker) 유니크 키로 UPSERT.
 // B4 fix (omxy R1): delta_status NOT NULL constraint 통과 — 모든 row 'new' (전월 diff는 후속 PR scope).

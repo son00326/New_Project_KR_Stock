@@ -164,7 +164,7 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   cron_system_user_id_invalid: "Cron 시스템 사용자 ID 설정이 올바르지 않습니다",
   cron_system_user_not_found: "Cron 시스템 사용자를 찾을 수 없습니다",
   // 출시前 launch-readiness 감사 (omxy 교차검증 ROUND 1, 2026-06-03) — 미매핑 server-action error code 보강.
-  // AI-ENGINE-CONTRACT-1 — monthly-batch-orchestrator가 throw하는 `tier1_panel_incomplete:<done>/<total>`
+  // AI-ENGINE-CONTRACT-1 — legacy monthly-batch path가 throw하는 `tier1_panel_incomplete:<done>/<total>`
   //   (PR-G 실 AI 재선정 시 150 중 일부 패널 degraded). triggerMonthlyBatch raw 반환 → portfolio-panel 노출.
   tier1_panel_incomplete: "Tier 1 AI 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
   // TRACK-RECORD-1 — triggerMonthlyBatch(portfolio/actions.ts)의 non-Error catch-all fallback 코드.

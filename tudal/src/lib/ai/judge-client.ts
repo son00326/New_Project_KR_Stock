@@ -7,6 +7,7 @@ import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { resolveRole, type AiRole } from './model-registry';
 import { extractJsonObject } from '@/lib/screening/persona-panel-adapter';
+import type { SelectionTrack } from '@/lib/screening/tier1-schema';
 
 const score0to100 = z.number().min(0).max(100).finite();
 
@@ -31,15 +32,18 @@ export function parseJudgeVerdict(content: string): JudgeVerdict {
   let raw: unknown;
   try {
     raw = extractJsonObject(content);
-  } catch {
-    throw new Error('judge_verdict_parse_failed:no_json_object');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
+    const suffix = msg.startsWith('persona_score_parse_failed:')
+      ? msg.slice('persona_score_parse_failed:'.length)
+      : 'invalid_json';
+    throw new Error(`judge_verdict_parse_failed:${suffix}`);
   }
   const obj = (raw ?? {}) as Record<string, unknown>;
   const candidate = {
     scores: obj.scores,
     winning_timeframe: obj.winning_timeframe,
-    rationale_kr:
-      typeof obj.rationale_kr === 'string' ? obj.rationale_kr.slice(0, 120) : '',
+    rationale_kr: String(obj.rationale_kr ?? '').slice(0, 120),
     conviction: obj.conviction,
   };
   const result = JudgeVerdictSchema.safeParse(candidate);
@@ -56,6 +60,7 @@ export const JUDGE_SYSTEM_PROMPT =
 export const JUDGE_USER_PROMPT = `다음 종목에 대한 투자위원회 토론(1차 평가 + 반박 라운드 반영 최종 패널)을 종합해 최종 판정하세요.
 
 티커: {{TICKER}}
+트랙: {{TRACK}}
 
 지난달 성과 컨텍스트:
 {{REFLECTION_CONTEXT}}
@@ -75,6 +80,8 @@ export const JUDGE_USER_PROMPT = `다음 종목에 대한 투자위원회 토론
 
 export interface CallJudgeInput {
   ticker: string;
+  month: string;
+  track: SelectionTrack;
   /** 최종 panel 11명 요약 (renderPeerArguments 재사용 — caller가 생성). */
   panelSummary: string;
   /** incumbent thesis context (W2b) — 비-incumbent는 미지정 → '' 치환. */
@@ -94,6 +101,7 @@ async function callJudgeRole(
   }
   const resolved = resolveRole(role);
   const userPrompt = JUDGE_USER_PROMPT.replaceAll('{{TICKER}}', input.ticker)
+    .replaceAll('{{TRACK}}', input.track)
     .replaceAll('{{REFLECTION_CONTEXT}}', input.reflectionContext ?? '')
     .replaceAll('{{PEER_ARGUMENTS}}', input.panelSummary);
 
@@ -122,11 +130,9 @@ async function callJudgeRole(
 
   const usage: TokenUsage = result.usage;
   const costKrw = calculateCostKrw(usage, resolved.pricingKey);
-  const now = new Date();
-  const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
   await insertCostLog(
     {
-      month,
+      month: input.month,
       ticker: input.ticker,
       persona_id: personaIdForLog,
       prompt_version: 'judge@v1',

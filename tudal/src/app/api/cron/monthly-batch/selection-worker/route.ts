@@ -176,17 +176,21 @@ export async function GET(request: NextRequest) {
         }),
         // W1b (D28 ③) — per-ticker 최종 judge(Opus) + 경계 dual-judge(GPT↔Opus auto-detect).
         //   패널 요약 = renderPeerArguments(11명 전원, persona label — slot 모델 비노출).
-        callJudgePanel: ({ ticker, finalPanel, reflectionContext }) =>
+        callJudgePanel: ({ ticker, month, track, finalPanel, reflectionContext }) =>
           callJudge({
             ticker,
+            month,
+            track,
             panelSummary: renderJudgePanelSummary(finalPanel),
             reflectionContext,
             adminUserId: cronSystemUserId,
             costClient: supabase,
           }),
-        callDualJudge: ({ ticker, finalPanel, reflectionContext }) =>
+        callDualJudge: ({ ticker, month, track, finalPanel, reflectionContext }) =>
           callDualJudge({
             ticker,
+            month,
+            track,
             panelSummary: renderJudgePanelSummary(finalPanel),
             reflectionContext,
             adminUserId: cronSystemUserId,

@@ -13,6 +13,7 @@ describe('W0 D28 reservation projection (≤50만 hardcap DoD 게이트)', () =>
     for (const l of p.lines) {
       console.log(`  - ${l.label}: ${Math.round(l.krw)}원`);
     }
+    expect(p.totalKrw).toBe(350_167);
     expect(p.totalKrw).toBeLessThanOrEqual(HARDCAP_KRW);
     expect(p.totalKrw).toBeGreaterThan(100_000); // 산식 공동(空) 방지 sanity
   });

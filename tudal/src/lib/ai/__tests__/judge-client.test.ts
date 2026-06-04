@@ -80,11 +80,18 @@ describe('parseJudgeVerdict', () => {
     expect(() => parseJudgeVerdict(bad)).toThrow(/judge_verdict_parse_failed/);
     expect(() => parseJudgeVerdict('JSON 없음')).toThrow(/judge_verdict_parse_failed/);
   });
+  it('balanced braces malformed JSON → invalid_json suffix 보존', () => {
+    expect(() => parseJudgeVerdict('```json\n{"scores": }\n```')).toThrow(
+      'judge_verdict_parse_failed:invalid_json',
+    );
+  });
 });
 
 describe('callJudge / callDualJudge', () => {
   const baseInput = {
     ticker: '005930',
+    month: '2026-06',
+    track: 'short' as const,
     panelSummary: '- 워렌 버핏: 단70/중60/장50 — 해자',
     reflectionContext: '[재점검] 직전 논거',
     adminUserId: 'admin-uuid',
@@ -100,6 +107,7 @@ describe('callJudge / callDualJudge', () => {
     };
     expect(callArg.model).toBe('claude-opus-4-8');
     expect(callArg.userPrompt).toContain('005930');
+    expect(callArg.userPrompt).toContain('트랙: short');
     expect(callArg.userPrompt).toContain('워렌 버핏');
     expect(callArg.userPrompt).toContain('[재점검] 직전 논거');
     expect(callArg.userPrompt).not.toContain('{{');
@@ -108,6 +116,7 @@ describe('callJudge / callDualJudge', () => {
         persona_id: 'debate-judge',
         prompt_version: 'judge@v1',
         model: 'claude-opus-4-8',
+        month: '2026-06',
         ticker: '005930',
         called_by: 'admin-uuid',
       }),
@@ -137,8 +146,8 @@ describe('callJudge / callDualJudge', () => {
     await expect(callJudge(baseInput)).rejects.toThrow(/^ai_call_failed$/);
   });
 
-  it('JUDGE_USER_PROMPT placeholder 3종 존재', () => {
-    for (const ph of ['{{TICKER}}', '{{REFLECTION_CONTEXT}}', '{{PEER_ARGUMENTS}}']) {
+  it('JUDGE_USER_PROMPT placeholder 4종 존재', () => {
+    for (const ph of ['{{TICKER}}', '{{TRACK}}', '{{REFLECTION_CONTEXT}}', '{{PEER_ARGUMENTS}}']) {
       expect(JUDGE_USER_PROMPT).toContain(ph);
     }
   });
