@@ -64,6 +64,7 @@ S8은 "어드민 내부 도구 완성"의 마지막 단계 — **🎉 출시(자
 - BL-KRIT: **BL-KRIT-2** (KIS 자동매매 권한 — 본인 + 친구 2명 각자 계정 또는 본인 1명 단독 운영) · **BL-KRIT-8** (마이그레이션 **0011** 신규 5 엔티티 E13~E17 · E12는 DQ-7 0009 선행 생성) · **BL-KRIT-9** ✅
 - 이벤트: `portfolio.approved` (E4 `is_final=true`) 수신 파이프가 실동작 (S7e 후) — 자동 주문 트리거용. D11 AI 가상 포트 Accept = 자동매매 트리거 (대표 1인 모드일 경우만 자동, 친구 2명은 모의 또는 본인 계좌로 매뉴얼).
 - KIS 발급 정책 (D18 박제): son00326·Kevin KIS 발급 지연 = **S7c까지 비블로커**. S7c는 본인 1개로 시세 WS 충분. S8 진입 시점에 (a) 3명 동시 또는 (b) 본인 단독 결정.
+- **65차 Q3 supersede (2026-06-04)**: T8.17·Phase S8-Live DoD의 "Anthropic SDK wrapper" 표현은 65차 Q3로 supersede — W0 이후 provider 추상화(provider 인터페이스 뒤) + 모델 레지스트리를 호출(단발 Anthropic 하드코딩 금지). 라인 자체 텍스트는 W0 완료 후 S8 킥오프 시점에 정합. SoT = HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 ---
 
@@ -77,7 +78,7 @@ S8은 "어드민 내부 도구 완성"의 마지막 단계 — **🎉 출시(자
 | **Binance USDT-M Futures REST** | 코인 주문·포지션·청산 | 스캐폴드 mock · 실 체결 단계 연결 |
 | **Binance Futures WebSocket** | 선물 시세·펀딩비·포지션 스트림 | 실 체결 단계 |
 | **Vault / Supabase Vault 대안** | API 키 평문 금지 저장 | BL-10 솔루션 선택 (Supabase Vault 기본, 외부 KMS 옵션) |
-| **Anthropic SDK** | AI 어댑터 embed 기본 경로 (S7a wrapper 재사용) | 어댑터 인터페이스만 S8에서, 본체 구현은 어드민 drop-in |
+| **AI provider (Claude+GPT 멀티프로바이더)** | AI 어댑터 embed 기본 경로 — **65차 Q3 supersede: "Anthropic SDK 단독"은 W0 provider 추상화로 폐기. AI 어댑터는 W0 모델 레지스트리·provider 인터페이스(역할별 모델 차등 + GPT 키 미등록 시 auto Claude-only)를 재사용한다. SoT = HANDOFF.md ⭐ 65차 MVP 엔진 섹션** | 어댑터 인터페이스만 S8에서, 본체 구현은 어드민 drop-in |
 
 ---
 
@@ -187,6 +188,7 @@ S8은 "어드민 내부 도구 완성"의 마지막 단계 — **🎉 출시(자
 - 2026-04-21: 리스크 가드레일 기본값 (≤5x / -3% / ≤20회) — Claude 판단 보수값 박제. 사용자 추후 `/admin/settings/risk`에서 조정.
 - 2026-04-21: 모의↔실 토글 권한 = 대표 1인. 친구 2명은 모의까지만. (Q2 답변 — 친구 추가는 나중)
 - **2026-05-08 (34차, D18)**: S8 진입 시점 재조정 — "S7a·S7e 후 병행" → "**S7d 후 단독 진입**". 근거: (1) KIS는 자동매매 전용. S7c WS read-only는 본인 1개로 충분, 일간 데이터·AI 가상 포트는 KIS 0개로 작동. (2) D11 AI 가상 포트 운용 검증을 S8 선행 조건으로 명시 — 가상 포트 의사결정 품질을 어드민 3인이 며칠~1주 사용해 본 후 자동매매 도입. (3) son00326·Kevin KIS 발급 지연을 S8 시점까지 비블로커화. (4) v2 "S7c·S7d 강등 큐" 폐기, 정규 시퀀스 복귀.
+- **2026-06-04 (65차)**: S8 AI 어댑터의 "Anthropic SDK 단독/고정" 전제는 65차 Q3(모델/프로바이더 추상화 — Claude+GPT 멀티프로바이더 + 모델 레지스트리 + provider auto-detect)로 supersede. S8은 출시 후 단독 진입(⚪ 대기)이므로 본문 전면 수정은 W0 완료 후 킥오프 시점에 정합. SoT = HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 ---
 
@@ -205,3 +207,4 @@ S8은 "어드민 내부 도구 완성"의 마지막 단계 — **🎉 출시(자
 | 2026-04-21 | 초기 생성. D16 박제(BusinessPlan §12 2026-04-21 · ServicePlan-Admin §1A.5 D16). Deferred-X 승격 + Deferred-Y 흡수 경로 확정. 주식 KIS + 코인 바이낸스 USDT-M 선물 2축 범위 + Strategy drop-in + AI 어댑터 embed 이중 경로 박제. 리스크 기본값 보수(5x / -3% / 20회) 박제. |
 | 2026-04-22 | 문서 정합 cleanup (28차): DQ-7 Session 2 완료 후속. T8.1 마이그 번호 **0010→0011** 정정 (DQ-7=0009 · BL-KRIT-7=0010 선점 정합). §엔티티 신규 **E12 항목을 "DQ-7 선행 생성" 주석으로 축소** (S8 신규는 E13~E17만). **선행 문서 경로** AutoTrading·AutoTrading-AI구조설계 → Archive/ 이관 반영. 구조·Tasks·DoD·리스크는 변경 없음 (로드맵 재조정은 Step 2로 유예). |
 | **2026-05-08** | **34차 — D18 진입 시점 재조정**. 선행 조건 "S7a·S7e 후 병행" → "**S7d 후 단독 진입**" + D11 AI 가상 포트 운용 검증 후. status 필드에 D18 박제. KIS 발급 정책(son00326·Kevin 발급 지연 = S7c까지 비블로커, S8 진입 시 (a) 3명 동시 또는 (b) 본인 단독 결정) 박제. `Phase S8-Scaffold` 헤더 + `Phase S8-Live` 헤더 정정. Tasks·DoD·리스크·외부 의존 표는 변경 없음 (시점만 변경). 박제 ServicePlan-Admin §1A.5 D18 + ProgressDashboard §2 v3 다이어그램 + HANDOFF §2.C + CLAUDE.md 상단. 코드 변경 0건. |
+| **2026-06-04** | **65차 Q3 supersede (pointer-only)**. AI 어댑터의 "Anthropic SDK 단독/고정" 전제를 65차 Q3(Claude+GPT 멀티프로바이더 + 모델 레지스트리 + provider auto-detect)로 supersede. 외부 의존 표 셀(Anthropic SDK 행) + 선행 조건 + 의사결정 로그에 supersede 포인터만 추가. S8은 출시 후 단독 진입(⚪ 대기)이므로 본문 Task/DoD 전면 수정은 W0 완료 후 킥오프 시점 정합. 가드레일(5x/-3%/20회)·구조·코드 변경 0건. SoT = HANDOFF.md ⭐ 65차 MVP 엔진 섹션. |

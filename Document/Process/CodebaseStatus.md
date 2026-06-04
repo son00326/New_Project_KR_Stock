@@ -14,6 +14,8 @@
 
 ## 최근 갱신
 
+> **[65차 supersede 2026-06-04]**: AI 엔진 스택은 W0~W3로 재정의됨 — 멀티프로바이더(Claude+GPT, provider auto-detect)/역할별 모델 차등/hardcap **50만**/주간(short)·월간(mid·long) 선정 split/실시간 반박 토론 loop/AI 자율 포트. 본 스냅샷의 Anthropic-단일·40만 hardcap·Core 11 단발 채점·monthly-batch 단일 선정 표기는 **W0 구현 시 갱신 예정**(과거 timeline·완료 로그는 역사로 보존). 활성 SoT = `HANDOFF.md §2` + `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + CLAUDE.md.
+
 **2026-06-03** (출시前 launch-readiness 역추적 감사 + 5-finding fix — PR #84 MERGED in main `a5ee63e`):
 - **Workflow 17-surface 역추적 감사** (FE→server action→data-lib→Supabase→migration, 28 agents, 의도-인지 적대 검증) + **omxy 교차검증 3 rounds** (code-reviewer + architect subagent + code-review-graph MCP). CONFIRMED real-broken 5건 (P0/P1 배선/계약/보안/크래시 결함 0 = 배선 건전), intended-deferred 19건 재flag 0.
 - **SHORTLIST-PERSIST-METADATA-1 (P1)**: `tudal/src/lib/data/admin-shortlist-persist.ts::upsertShortList30`이 실 AI 30선정 persist 시 `short_list_30`에 `name/sector/composite_score/signal_label`을 기록하지 않아 AI 신규 선정 ticker가 홈 카드·리포트 헤더·포트폴리오에서 빈 카드로 렌더되던 결함(PR-G ⓑ 첫 실 선정 시 발현). `tier0_candidates_150`(동일 month, AI 선정 입력 원천)에서 best-effort lookup으로 carry — sector=aggregate 직접 / name·composite(=tier0_score)·signal_label=lookup / lookup 실패·rejection은 null 유지(try/catch fail-open, persist 절대 차단 안 함). 마이그 0(컬럼 기존 nullable).
@@ -479,11 +481,14 @@
 ---
 
 ## Must 19 진행 상황 (S6 Mock 완료 기준)
+
+> **[65차 supersede 2026-06-04]**: 출시 MVP 기준 = ①30 리스트 정확 ②포트폴리오 정확 ③30 리포트 정확(고도화 아님). Must 19 카운트는 보조 지표로만 해석 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조).
+
 - **Mock 동작**: 19/19 (100% mock fixture)
 - **실데이터 연결**: **0/19** — 전 Must가 mock 의존
-- **실 AI 호출**: **0** — Anthropic wrapper 미구현
+- **실 AI 호출**: **0** — Anthropic wrapper 미구현 (65차 Q3 supersede: AI 프로바이더 추상화 wrapper[Claude+GPT 멀티프로바이더, provider auto-detect] = W0 구현 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **2채널 알림 실 발송**: **0** — Resend·Telegram 미연결
-- **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·Anthropic·DART UI 표시는 아직 미연결. T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
+- **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·AI(Claude/GPT)·DART UI 표시는 아직 미연결 (65차 Q3 supersede: AI 키 = Anthropic 단일 아님, Claude 필수 + GPT 선택 멀티프로바이더 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션). T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
 - **실 운용 검증**: **0일**
 
 **🎉 출시(launch) 기준** = Mock + 실데이터(S7) + 운용 검증(S9) — **자동매매 제외**, "AI 추천 + 가상 포트 + 알림" 도구 (사용자 결정 2026-06-01). **어드민 내부 도구 완성 기준**(출시 후 도달) = 출시 + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물, 실운용하며 개발) → 둘 다 **미달성**. 진행 경로 = HANDOFF.md §2 Runbook(S7b~S9 후속 PR + 운영).
@@ -503,7 +508,7 @@
 - [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 
 ### 실데이터 전환 (S7, 진행 중 — S7e T7e.8 + 46차 P0·P1 완료, S7a 진입 대기)
-- [ ] **Anthropic API 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — S7a 진입 트리거
+- [ ] **AI 프로바이더 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — W0(모델/프로바이더 추상화) 진입 트리거. 65차 Q3 supersede: Claude(Anthropic) 키는 필수, GPT(OpenAI) 키는 선택(provider availability auto-detect — 없으면 Claude-only). HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] **KIS API 계정 발급** (BL-KRIT-2, 사용자 액션 B-10) — S7c WS read-only 본인 1개로 충분 (D18)
 - [x] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전 · B-8)
 - [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4, 사용자 액션 B-7) — S7b 선결
@@ -512,7 +517,7 @@
 - [x] **마이그레이션 0010 alert RLS hardening** (BL-KRIT-7) — 적용 완료 (36차)
 - [x] **마이그레이션 0009 DQ-7 credential** (E9 확장 + E12 신설 + RLS) — 적용 완료 (DQ-7 Session 3, production brokerage_connection 1 row 존재)
 - [🟢] **Supabase 실 SELECT/INSERT 전환** (S7e · 8 Must) — T7e.1~T7e.6 + T7e.8 완료 (7/8) · T7e.7 RLS 수동 QA 잔여
-- [ ] Anthropic wrapper + cost_log 실 INSERT (S7a · M17·M2·M3·M6·M9·M10·M11·M12) — B-6 발급 후 진입
+- [ ] AI 프로바이더 추상화 wrapper + cost_log 실 INSERT (W0 · M17·M2·M3·M6·M9·M10·M11·M12) — B-6 키 발급 후 진입. 65차 Q3 supersede: Claude+GPT 멀티프로바이더 + 모델 레지스트리 + 역할별 모델 차등(토론=저가/최종=고가) — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)
 - [ ] 장중·Exit 실 연결 (S7c · M13·M15)
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)

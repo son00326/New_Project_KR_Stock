@@ -1,7 +1,7 @@
 # ServicePlan.md — 주픽 서비스 기획 인덱스
 
-Last updated: 2026-04-21
-Status: 인덱스 전환 — 어드민/멤버 기획 분리 구조 · 2026-04-21 D16 반영(Stage 어휘 폐기 + 자동매매 S8 승격)
+Last updated: 2026-06-04
+Status: 인덱스 전환 — 어드민/멤버 기획 분리 구조 · 2026-04-21 D16 반영(Stage 어휘 폐기 + 자동매매 S8 승격) · **65차(2026-06-04) 7결정 supersede 포인터 반영** (상세 SoT → HANDOFF.md ⭐ 65차 MVP 엔진 섹션 / ServicePlan-Admin)
 
 ---
 
@@ -34,9 +34,9 @@ Status: 인덱스 전환 — 어드민/멤버 기획 분리 구조 · 2026-04-21
 |---|---|---|
 | 가격 | 월 19,900원 | → BusinessPlan §Q11 |
 | 사용자 규모·법·언어 | 500명 cap · 초대 전용 · 매수/매도 추천 금지 · Footer 면책 · Korean-first | → BusinessPlan §7 |
-| 핵심 시스템 1 — AI 투심위 | 2-Layer(Core 11명 + Sector Board canonical 14 sectors × 14 personas/sector overlay — D21 52차 박제), Section 0~8 + Appendix | → BusinessPlan §8 / ReportFramework.md §1·§5~§7·§7.2/§7.3 v2.5 |
-| 핵심 시스템 2 — Quant 분석 엔진 | 3축(스코어링·위기감지·리밸런싱), EW + Crisis Layer, 단기30%/중기40%/장기30% | → BusinessPlan §9 (분석 엔진은 전 Stage 공통, 자동매매 실행은 Stage 2~3) |
-| 핵심 시스템 3 — 매뉴얼 트레이딩 (어드민 전용) | Short List 30개(10+10+10), 월 1회 재선정 | → BusinessPlan §10 |
+| 핵심 시스템 1 — AI 투심위 | 2-Layer(Core 11명 + Sector Board canonical 14 sectors × 14 personas/sector overlay — D21 52차 박제), Section 0~8 + Appendix. ※ **65차 Q4 supersede (2026-06-04)**: 합의 메커니즘 = Core 11 병렬 독립 채점 + 결정론 합의 에이전트 → **실시간 멀티라운드 AI 반박 토론 loop**로 확장(합의 점수로 최종 선택). 토론 loop schema는 W0~W3 구현 위임 — SoT → HANDOFF.md ⭐ 65차 MVP 엔진 섹션 / ReportFramework §5~§7 / ServicePlan-Admin | → BusinessPlan §8 / ReportFramework.md §1·§5~§7·§7.2/§7.3 v2.5 |
+| 핵심 시스템 2 — Quant 분석 엔진 | 3축(스코어링·위기감지·리밸런싱), EW + Crisis Layer, 단기30%/중기40%/장기30%. ※ **65차 Q2 supersede (2026-06-04)**: 단/중/장 고정 분배(30/40/30) 및 '항상 30 전체 운용' 폐기 → **AI 자율 포트구성**(운용여부·총개수·종목·단중장분배·비중·현금 0~30% 전부 AI 자율). 어드민 Accept/Reject만 유지. 포트 proposal schema는 W0~W3 구현 위임 — SoT → HANDOFF.md ⭐ 65차 MVP 엔진 섹션 / BusinessPlan §9 / ServicePlan-Admin | → BusinessPlan §9 (분석 엔진은 전 Stage 공통, 자동매매 실행은 Stage 2~3) |
+| 핵심 시스템 3 — 매뉴얼 트레이딩 (어드민 전용) | Short List 30개(10+10+10). ※ **65차 Q1 supersede (2026-06-04)**: '월 1회 단일 재선정' 폐기 → **선정주기 분리 = 단기 주 1회 / 중장기 월 1회**. SoT → HANDOFF.md ⭐ 65차 MVP 엔진 섹션 / ServicePlan-Admin §1A.5 / ReportFramework §8 | → BusinessPlan §10 |
 | ~~트레이딩 실행 3-Stage 로드맵~~ | **폐기 (2026-04-21 D16)**. 자동매매 = S8 단일 슬라이스로 통합. 내부 단계: 모의↔실 체결 토글 + Strategy drop-in↔AI 어댑터 embed | → BusinessPlan §12 (2026-04-21 정정) / `Slices/S8-AutoTrading.md` |
 | **어드민 실행 모델 (D11, v1.0 · 2026-04-21 보강)** | AI 가상 포트 본체(선착순 Accept=측정용) + 3경로 집행: (1) 주픽 매뉴얼 트레이딩 (2) **주픽 자동매매 (S8, 주식 KIS + 바이낸스 선물)** (3) 외부 증권사/거래소 앱 바이패스 | → BusinessPlan §12 D11 / ServicePlan-Admin.md §1A.0 / `Slices/S8-AutoTrading.md` |
 | **어드민 증권사/거래소 API 다중 연결 (D12)** | 동일 증권사라도 전략별 복수 앱키·계좌 허용, 1:N 다대다. **2026-04-21**: 코인 거래소(바이낸스)도 동일 패턴으로 E12 ExchangeConnection 추가. | → BusinessPlan §12 D12 / ServicePlan-Admin.md §4.2 E9 + §3.13 E12 |
@@ -62,6 +62,7 @@ Status: 인덱스 전환 — 어드민/멤버 기획 분리 구조 · 2026-04-21
 - **한국어 우선**: `<html lang="ko">` 고정.
 - **Next.js 16 Breaking**: 코드 작성 전 `node_modules/next/dist/docs/` 또는 context7 MCP 참조 (tudal/AGENTS.md 규약).
 - **API 시크릿 관리** (D12, v1.0): 증권사·거래소 API 키는 평문 저장 금지. Vault/Secrets 참조 방식(`api_key_ref`). 본인 키는 본인만 접근(Supabase RLS로 강제). 상세 `ServicePlan-Admin.md §4.2 E9 / §4.5`.
+- **AI 모델/프로바이더 추상화** (65차 Q3, 2026-06-04): AI 모델 ID 하드코딩 금지 → 설정값(모델 레지스트리)화. 역할별 모델 차등(토론 참가 = 저가 모델 / 최종 judge·리포트 = 고가 모델). **Claude + GPT 멀티프로바이더** — provider availability auto-detect(GPT 키 없으면 Claude-only fallback). 구 'AI 키 = Anthropic 유일 공통 키' 전제 폐기. 레지스트리·provider 어댑터 구현은 W0~W3 위임. SoT → HANDOFF.md ⭐ 65차 MVP 엔진 섹션 / ServicePlan-Admin.
 - **멤버 스코프** (D13, v1.0): 멤버 페이지는 법적 문제 없는 선의 리서치 웹페이지 수준. 매수/매도 추천 금지 유지. Short List·풀 리포트·포트폴리오·Exit 시그널 등 어드민 전용 데이터 노출 금지.
 
 ---
@@ -84,3 +85,4 @@ Status: 인덱스 전환 — 어드민/멤버 기획 분리 구조 · 2026-04-21
 | 2026-04-15 | **Q-OP1·Q-OP2 해소 → 어드민 v1.1 (13차 후속2)** — §1 SoT 포인터 표를 v1.1·Must 19로 갱신. 공통 원칙 변경은 없음(어드민 내부 결정 D14·D15). 멤버 상태 표기에 Q-OP3 재질문 금지 명시. | ServicePlan-Admin v1.1 반영 |
 | **2026-04-21** | **D16 어드민 내부 도구 재정의 + 자동매매 S8 승격** — §1 표를 v1.2로 갱신 + 어드민 범위를 "본인+친구 3명 내부 투자 도구"로 명시. §2 "트레이딩 실행 3-Stage 로드맵" 행을 **폐기 상태**로 표기, D11·D12 행에 S8·바이낸스 선물·Strategy drop-in·AI 어댑터 반영. §2 하단 Stage 구분 주석도 폐기 선언으로 교체. | ServicePlan-Admin v1.2 반영 + 사용자 Q1~Q3 답 |
 | **2026-04-22** | **D17 DQ-7 Admin Credential System 재설계 반영** — §1 표를 v1.3으로 갱신. ServicePlan-Admin v1.3 (D17) 반영 트리거: (a) per-admin API 키 UI + AES-256-GCM 암호화, (b) DB 분리 2 테이블 (E9 확장 + E12 신설), (c) Vercel 첫 배포 DQ-7 선행, (d) 실계좌/메인넷 권한 = 대표 1인(`ADMIN_REP_EMAIL`), (e) 마이그레이션 번호 재배정(0009=DQ-7·0010=BL-KRIT-7). §3 "API 시크릿 관리" 원칙은 변경 없음 — Vault/Secrets 참조 원칙이 AES-256-GCM 암호화 컬럼으로 구현됨(DQ-7 spec §3.1). | ServicePlan-Admin v1.3 반영 + 28차 docs cleanup |
+| **2026-06-04** | **65차 7결정 supersede 포인터 반영** — §2 매뉴얼 트레이딩 행에 선정주기 단기 주1회/중장기 월1회 분리(Q1), AI 투심위 행에 실시간 멀티라운드 토론 loop supersede 포인터(Q4), Quant 분석 엔진 행에 AI 자율 포트구성 supersede 포인터(Q2), §3 공통원칙에 'AI 모델/프로바이더 추상화' 항목 신설(Q3 — 역할별 모델 차등·멀티프로바이더 auto-detect). hardcap 40만→50만·MVP 재정의·빌드순서 W0→W2→W1→W3·역할별 모델 차등 비용은 본 인덱스 문서에 직접 텍스트 없음 → ServicePlan-Admin / HANDOFF SoT 참조. 깊은 spec/schema 재작성은 W0~W3 구현 위임. | 65차 사용자 확정 7결정 (omxy CONVERGED) |

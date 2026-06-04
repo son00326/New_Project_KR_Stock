@@ -3,6 +3,8 @@
 > **출처**: 이전 `Document/Process/HANDOFF.md §9`에서 분리 (docs/handoff-consolidation, 62차+ HANDOFF 단일화·정리).
 > **목적**: PR4 + B65-P1/P3 + 마이그 0025 + Vercel env=true + Task 5 B66 PRODUCTION COMPLETE 이후 잔여 audit 항목(B67~B98)·W-ticket·Smoke 2-stage 기준의 full catalog.
 > HANDOFF `§9` stub은 **ACTIVE blocker만** 요약하고 본 문서를 포인터로 가리킨다 (§ 번호 보존). 세부 항목별 priority 재할당·신규 catch 추가는 Task 8 audit phase에서 본 문서에 직접 갱신.
+>
+> **65차(2026-06-04) supersede 노트**: 본 catalog의 model hardcode(B73/B85), hardcap 수치(B76/W-pr5-readiness), 선정주기 단일 배치(B71/W-pr5-readiness), 30 전체 운용(W-pr5-readiness) 가정은 65차 7결정(Q1 주간/월간 split · Q2 AI 자율 포트 · Q3 모델/프로바이더 추상화 · 결정5 hardcap 50만)으로 supersede됨. 빌드 순서 W0→W2→W1→W3. PR-G ⓑ는 W0~W3로 superseded. 개별 B-ticket의 과거 omxy lifecycle/timeline(§9.6/§9.7)은 history-leave (수정 금지). 상세: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 ---
 
@@ -70,6 +72,7 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 **Stage 2 — single real AI smoke** (USER 승인 후 1회):
 - production env에서 admin UI click OR server action 직접 호출
 - **B85 model id verify 선행**: 존재하지 않는 model env var(`ANTHROPIC_OPUS_MODEL_ID` 등)가 아니라 코드 hardcode 모델을 1-token API로 직접 확인한다 — writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001`.
+  > **65차 supersede**: Q3 모델/프로바이더 추상화 LOCKED — 모델 하드코딩(`claude-opus-4-7`/`claude-haiku-4-5`) 제거 + 모델 레지스트리·역할별 모델 차등(토론=저가 Haiku/GPT-mini, judge·리포트=고가 Opus 4.8+)·멀티프로바이더(Claude+GPT, availability auto-detect)로 대체 예정(W0). 본 B85 hardcode verify는 W0 전 잠정 기준이며, W0 구현 후 레지스트리 기반 model id verify로 재정의된다. (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **B87 PASS criteria 5종**:
   - **Core (필수, 모든 옵션)**: 1 `cost_log` row exists / 2 `stock_reports` row + section_0~7 + appendix all non-null + zod schema valid / 3 `report_critic_findings` row (critic 6-axis verdict) / 5 `/admin/report/[ticker]` UI **정상 본문 또는 의도된 SectionFallback 렌더** — raw/technical/`format-error.ts` 매핑된 에러 메시지 노출 시 모두 FAIL (B107 정정 — 매핑된 에러 메시지도 upstream issue 신호이므로 PASS 아님)
   - **Full-path (옵션 B만)**: 4 `committee_votes` row(s) — 11 core + 0~14 sector
@@ -85,12 +88,12 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 - **B68** — AI key 발급/충전 완료에도 `cost_log` = 0건 (성공/기록된 호출 없음). B65 RPC 의존 + cron path mockTier0Source throw 양쪽 영향.
 - **B69** — `committee_votes` = 0건. B79 RPC 책임 boundary 결정 + B65-P2 옵션 A/B 선택 결과로 결정.
 - **B70** — Regen UX (`/admin/report/[ticker]/regenerate`) admin path swap 후 첫 실 호출 검증 필요. PR4 Task 2.3 Regen orchestrate wire commit `8b63e1f` MERGED.
-- **B71** — `short_list_30` stale data (2026-05-12 legacy mechanical seed 1회, B66 placeholder + ~14일 stale). C 하이브리드 적용 후 PR5 cron 가동 시 신규 row INSERT도 canonical 14로 생성되는지 확인.
+- **B71** — `short_list_30` stale data (2026-05-12 legacy mechanical seed 1회, B66 placeholder + ~14일 stale). C 하이브리드 적용 후 **(65차 Q1 supersede)** PR5 cron은 선정주기 분리 — 단기 주1회 / 중장기 월1회 신규 row INSERT가 모두 canonical 14로 생성되는지 확인 (기존 월1회 단일 배치 30 동시 선정 가정은 stale). sector 정합 verify 로직은 주기 무관 동일. (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **B72** — row-missing preflight 통합 (B65-P1 `reportExistsForMonth` + 향후 cron path 호환). B86 month format 박제 적용 후 helper 통일.
-- **B73** — model id verify timing (B85 1-token test 시점 = Stage 2 진입 직전). 검증 대상은 model env vars가 아니라 hardcode API model 3경로(writer/revise Opus, critic Haiku) + `ANTHROPIC_API_KEY`.
+- **B73** — model id verify timing (B85 1-token test 시점 = Stage 2 진입 직전). 검증 대상은 (65차 Q3 supersede·W0 후) 모델 레지스트리/설정값 + 멀티프로바이더(Claude+GPT, availability auto-detect) + 역할별 모델 차등(토론=저가, judge·리포트=고가). **W0 전 잠정 hardcode**(historical): writer/revise Opus, critic Haiku + `ANTHROPIC_API_KEY`. (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **B74** — `cost_log` accounting (writer + critic + 조건부 revise 토큰 사용량 정확 적재). persist fail 시 적재 보장 + alert.
 - **B75** — RPC responsibility boundary (Section 8 partA/partC/partD + committee_votes의 admin/cron path 동일 RPC 사용 여부 결정 — B79와 연계).
-- **B76** — hardcap mock vs real 일관성 (16,050원/월 박제가 production cost_log 적재 시 enforce 트리거 및 alert 발송).
+- **B76** — hardcap mock vs real 일관성. **65차 결정5 LOCKED**: hardcap = **50만원**(기존 40만에서 상향). 본 audit이 참조하던 16,050원/월 수치는 stale — active hardcap SoT는 50만원으로 정합. enforce 트리거 및 alert 발송은 50만원 기준 (35만원 경보/COST_WARNING_THRESHOLD는 값 유지·65차 W0에서 재산정). (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **B77** — main HEAD fixed SHA 박제 금지 (R2 시점 박제 — §0 verify에 `git rev-parse --short origin/main` 동적 확인 의무화, commit `dff1cbe` §0 적용 완료).
 - **B78** — silent null drop metric/log 격상 (PR3a P2 / red-team RT#2 / gsd CR-01 박제 — §4 잔여 reference). 현재 console.warn → metric/structured log.
 - **B79** — Section 8 partA/partC/partD + `committee_votes` RPC 책임 boundary 결정. **57차 §2 R8 lock-in: 옵션 A 채택 ✓ → B79 deferred to PR5 plan** (commit_persona_eval + service-role caller wire + B79 RPC 통합을 PR5 plan R-debate에서 동시 결정).
@@ -102,7 +105,7 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 - **W-grant-smoke ✅ RESOLVED in 58차 (마이그 0025 production apply + verify)** — Layer 1 has_function_privilege 4-grant matrix verified (service_role=false / authenticated=true / public/anon=false) + Layer 2 (PostgREST permission_denied) = Smoke Stage 2 진입 시 functional canary로 검증 예정. exact 11-arg regprocedure signature 적용 + pg_get_functiondef로 body 1:1 정합 확인. omxy R1+R2 CONVERGED. **Layer 2 PostgREST smoke만 Task 7 USER 게이트로 잔여**.
 - **W-sectionfallback-text** — SectionFallback 문구 "후속 PR3b (writer Section 0~7 본문 구현)에서 채워집니다"는 stale (PR3b 이미 MERGED `cf68731`). Tier 1 평가 대기 pill 도입 시 함께 정정. page.tsx line 336~346.
 - ✅ **W-cost-log-env-gate** — Vercel production env `AI_COST_LOG_REAL_INSERT_ENABLED=true` 설정 완료(2026-05-28 기준 24h ago 확인). Task 7 sequence는 env값 재확인만 수행; gate 자체는 fully resolved.
-- **W-pr5-readiness** — PR5 cron path quality는 **B65-P2 옵션 A와 독립**. PR5 readiness = (a) commit_persona_eval에 service_role grant 추가 (B79와 동시) + (b) service-role caller DI wire + (c) cron 30 자동 (16,050원/월 hardcap) + (d) 큐 인프라 (Vercel Queues OR 자체 DB job queue) 모두 PR5 plan에서 별도 해결.
+- **W-pr5-readiness** — PR5 cron path quality는 **B65-P2 옵션 A와 독립**. PR5 readiness = (a) commit_persona_eval에 service_role grant 추가 (B79와 동시) + (b) service-role caller DI wire + (c) **(65차 supersede·Q1+Q2+결정5)** 선정주기 분리(단기 주1회 / 중장기 월1회 — 기존 월1회 단일 cron 30 자동은 stale) + AI 자율 포트구성(30 중 운용여부·총개수·종목·단중장분배·비중·현금0~30% 전부 AI 자율 — 기존 항상 30 전체 운용 가정은 변경) + hardcap **50만원**(기존 16,050원/월 stale) · 토론 loop(W1)·자율 포트(W3) 빌드 순서 W0→W2→W1→W3 (PR-G ⓑ 150×11 opus 단발선정은 W0~W3로 superseded — 코드자산 재사용) + (d) 큐 인프라 (Vercel Queues OR 자체 DB job queue) 모두 PR5 plan에서 별도 해결. (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **W-mock2-rls-drift** (58차 Step 2.1 omxy R1 WATCH defer) — `/admin/alerts` empty state ("0건 = 실제 미발생") 문구는 env `ADMIN_EMAILS` ↔ DB `admin_emails` allowlist sync 전제. drift 시 RLS deny로 0 rows처럼 보일 가능성 있음 (blocking 아님). admin read assertion / diagnostic 검토 — 별도 hardening 트랙. Step 2.2+ (settings/health/cost/regenerate)에도 동일 패턴 잠재 → 통합 follow-up.
 - **W-cost-log-admin-assertion** (58차 Step 2.3 omxy R1 HIGH-2 + R2 MEDIUM-3 defer) — `cost_log` SELECT RLS `using (is_admin())`는 non-admin 호출자에게 0 rows silent return (throw 안 함). regenerate `getMonthlyTotal`은 mock과 동일하게 silent-0 → hardcap=0 unblocked로 처리. admin path는 회귀 0이지만, audit invariant 측면에서 fail-closed 보증 부재. hardening = (a) `triggerFullReport`/`regenerateReport` 진입 시 `rpc('is_admin')` 명시 assertion (B-trackrecord-rls 58차 PR #31 패턴) 또는 (b) `get_cost_log_monthly_total_admin` SECURITY DEFINER RPC + `not is_admin() → raise` 내부. Step 2.3 mock parity 유지 → 별도 트랙. W-mock2-rls-drift / W-s5b-admin-assertion 통합 sweep 후보.
 - ✅ **W-news-cron-service-role-read** (59차 Step 2.6 PR #46 omxy R1 HIGH defer → Step 2.7a PR #48 half-resolved → **Step 2.7b.1 PR #50 fully resolved**) — 3-step chain 완성: Step 2.6 helper 마이그 + Step 2.7a DI seam (`options.client?`) + Step 2.7b.1 route wiring (`createServiceRoleClient()` 주입 in news-sweep + morning-briefing). cron context RLS using(is_admin()) 우회 완료. monthly-batch (PR #30) + silent-health (PR #48) + news cron (PR #50) 모두 service-role 일관 사용. **historical 박제** (잔여 hardening 없음, INSERT path는 Step 2.7b.2 별도 scope).
@@ -117,7 +120,7 @@ Stage 2는 USER 비용 승인 후만 진입. Stage 1 dry-run/TDD는 cost=0 optio
 - **B81** — 단일 실 AI smoke 비용 분석 (per-call low / batch large). Stage 2 cost 추정 reference.
 - **B82** — B65 docs-only 박제 strict (본 세션 내 코드 변경 금지). 다음 세션에서 해제.
 - **B83 / B84** — `short_list_30` C 하이브리드 backfill verify command (seed pipeline DART induty mapper + override fallback 실행 후 `select sector, count(*) from short_list_30 group by sector` cross-check). B66 Task 5 PASS criteria 1~3.
-- **B85** — 다음 세션 Stage 2 진입 직전 1-token model id verify. `ANTHROPIC_OPUS_MODEL_ID`/`ANTHROPIC_HAIKU_MODEL_ID` 같은 env var는 존재하지 않는다. 코드 hardcode 모델을 직접 확인: writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001`, 공통 `ANTHROPIC_API_KEY`.
+- **B85** — 다음 세션 Stage 2 진입 직전 1-token model id verify. **65차 Q3 supersede (W0 이후)**: 모델은 설정값화·레지스트리 기반으로 verify한다. 역할별 차등(토론 참가=저가 Haiku/GPT-mini / 최종 judge·리포트=고가 Opus 4.8+) + 멀티프로바이더(Claude+GPT, GPT키 미발급 시 Claude-only auto-detect). env var/model id 실 검증은 W0 코드 구현 scope. **W0 전 잠정 hardcode**(historical): writer/revise `claude-opus-4-7`, critic `claude-haiku-4-5-20251001`, 공통 `ANTHROPIC_API_KEY` — W0 추상화 구현으로 폐기 예정. (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
 - **W-cost-atomic-reservation** — PR5 go-live deep review MED follow-up. 현재 cost gate는 sequential+chunk=3+per-attempt `getMonthlyTotal` 재읽기+400k headroom으로 hardcap 초과 가능성이 낮고 alert가 있으나, LLM 호출 후 `insertCostLog` 실패 시 spend-before-log gap으로 월 누적 undercount 가능. go-live blocker는 아니며 후속 hardening: 선차감 reservation/atomic ledger 또는 `insertCostLog` 실패 시 batch stop + explicit reconciliation alert.
 - **W-pr5-cron-persist-canary** — admin Task 7 smoke(`upsert_report_sections_0_7_admin`)와 cron persist(`upsert_report_sections_0_7_cron`)는 다른 RPC/권한 경로. 마이그 0027 apply 후 PR5 flag-on 전후로 service-role cron UPSERT 1회 canary를 별도 수행해 `stock_reports` row 생성/갱신을 확인.
 

@@ -4,6 +4,8 @@ Last updated: 2026-04-15 (초기 작성)
 Parent: → `HANDOFF.md` (세션 진입) / `ServicePlan-Admin.md` v1.1 (기획 SoT)
 Status: **Week 1 스프린트 착수 대기** (2026-04-16 ~ 2026-04-23)
 
+> **65차 supersede (2026-06-04)**: MVP 엔진(W0~W3) 재정의 — 현 1순위는 `HANDOFF.md` ⭐ 65차 MVP 엔진 섹션 참조. 아래 Week 1 작업표는 과거 기록(불변).
+
 ---
 
 ## 0. 이 문서의 정체성

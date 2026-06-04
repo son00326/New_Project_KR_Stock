@@ -86,6 +86,8 @@ current_progress: 100%
 
 ## 의사결정 로그
 
+> **(65차 supersede 포인터)** Q1: 선정주기 단기 주1회 + 중장기 월1회로 분리 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조). 본 슬라이스의 '단10/중10/장10 동시 30' 가정은 주간 lane(단기) / 월간 lane(중장기)로 재해석. 과거 본문은 history-leave.
+
 - 2026-04-17 (T1.3~T1.6 실행, 17차): **S1 ✅ 완료**.
   - **T1.3/T1.5 통합**: 별도 팝오버 컴포넌트 대신 `shortlist-row.tsx`의 `<details>` 펼침 패널로 3줄 근거를 내장. 이유: (a) popover 의존성 추가 회피 (shadcn popover 미설치), (b) no-JS·키보드 접근성 기본 보장, (c) 스펙상 요구 표시 요소 전원 포함.
   - **hover vs click**: DoD는 "hover/클릭" 명시였으나 실제로는 click-only (`<details>`). hover는 row 배경색 힌트만. 이유: touch device 일관성 + a11y + popup 충돌 방지. UX 반복 필요 시 S6 Hardening에서 HoverCard 도입 검토.

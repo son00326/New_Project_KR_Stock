@@ -74,7 +74,7 @@ Vercel Env (Settings → Environment Variables)
   ├─ ADMIN_REP_EMAIL       ← 신규
   ├─ API_CRED_MASTER_KEY   ← 신규 (32-byte hex, MEK)
   ├─ CRON_SECRET           ← 신규
-  └─ (Phase별 추가) ANTHROPIC · NAVER · RESEND · TELEGRAM
+  └─ (Phase별 추가) ANTHROPIC · OPENAI(GPT, 65차 Q3 멀티프로바이더) · NAVER · RESEND · TELEGRAM
 ```
 
 ### 핵심 흐름
@@ -468,6 +468,7 @@ openssl rand -hex 32
 | `CRON_SECRET` | Prod+Preview | ✨ 신규 |
 
 **Phase별 점진 추가 (DQ-7 밖)**: S7a → ANTHROPIC / S7b → NAVER·RESEND / S7c·d → TELEGRAM.
+> **65차(2026-06-04) supersede (Q3)**: AI 키는 더 이상 Anthropic 단일 공통키가 아니다 — Q3 멀티프로바이더 추상화로 `ANTHROPIC_API_KEY` + `OPENAI_API_KEY`(GPT, provider availability auto-detect: GPT 키 없으면 Claude-only)가 shared Vercel env에 공존(추가 예정). **이 두 AI 키는 per-admin 암호화 저장 스코프(brokerage/exchange, §3·§4) 밖의 shared env이며, DQ-7 per-admin 스키마·암호화 로직은 영향 없음.** SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션 + ServicePlan-Admin §1A.5.
 **영구 미추가**: ~~KIS_*~~·~~BINANCE_*~~ (per-admin DB로 이관).
 
 ### §6.4 `.env.example` 갱신

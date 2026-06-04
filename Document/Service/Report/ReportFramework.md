@@ -684,7 +684,13 @@ Part A: 섹터 보드 (canonical 14인 overlay — D21 52차)
 | (b) **reject 후 사용자 trigger 버튼** | 새 30 선정 + 새 풀 리포트 | 수동 종목당 월 2회 (D8 박제) | **dangling server action** (`triggerMonthlyPersonaEvalAction` export 존재 / page import·render 0 / UI caller 0) | **PR4** (UI trigger 버튼 wire) |
 | (c) **종목별 'Regen' 버튼** | 단일 종목 풀 리포트 재생성 | 종목당 월 2회 quota 공유 | **UI + quota counter 박제만, 실 AI 재생성 호출 0** (OMXY R1 BLOCKER 6 정정) | **PR4** (Regen 실 호출 wire) |
 
+> **65차 Q1 supersede (2026-06-04)**: path (a) 'cron 매월 자동 / 매월 1회'는 65차 Q1으로 분리됨 — 단기 cron 주1회 + 중·장기 cron 월1회 2-track. 구 단일 `monthly-batch`는 W2(주간/월간 split + rolling composite writer) 구현 시 split. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
+
 > **Hard gate (Group H) ✅ 해소** (54차 §3 PR3a MERGED `0813a41`): 위 3 path 어느 것이든 실 AI 호출 시 `commit_persona_eval` RPC → `stock_reports.section_8` 신규 partA/partB/partC/partD jsonb INSERT 발생. `/admin/report/[ticker]/page.tsx` = `as` 어서션 전면 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer (modern + legacy 호환) + `partCToCommitteeAgg` helper로 crash 차단. canonical 순서: PR2 ✅ → PR3a ✅ → PR1 → PR3b → PR4.
+
+> **65차 Q1 supersede (2026-06-04)**: 본 Step 0 흐름은 '단/중/장 30 동시 선정' 단일 배치 가정 기반. 65차 Q1으로 선정주기가 분리됨 — 단기=주1회 / 중·장기=월1회. 상세 흐름·writer 갱신은 W2(주간/월간 split + rolling composite writer) 구현 시 정합. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
+
+> **65차 Q4 supersede (2026-06-04)**: 아래 Step 0c '🔢 숫자 점수 vs 🤖 AI 점수 결정론 비교 → 합의 배지' 모델은 65차 Q4로 확장됨 — 실시간 멀티라운드 AI 반박 토론 loop 필수, 합의 점수로 최종안 선택. 구 'Core 11 병렬 독립 채점 + 결정론 합의 에이전트'는 토론 loop로 supersede(빌드 순서 W1). 합의 배지 5종은 토론 결과 요약 보조로 유지 가능. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 ```
 Step 0a — Tier 0: 인디케이터 자동 스크리닝 (AI 키 불필요)
@@ -720,7 +726,9 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 
 ### Step 1~4: 풀 리포트 작성 (선정된 30종목만)
 
-> **Tier 2 Sector Board 활성화**: 30종목 각자의 섹터 14명만 호출 (전체 140명 X). 종목당 Core 11 + Sector 14 = 25명 × 30종 ≈ 750 LLM call/월 (M17 hardcap 40만원 내 통제).
+> **65차 Q3 supersede (2026-06-04)**: 아래 Step 1~3의 에이전트 `(opus)` 모델 하드코딩은 65차 Q3로 폐기 — 모델 하드코딩 제거 + 설정값화, Claude+GPT 멀티프로바이더(provider auto-detect: GPT키 없으면 Claude-only), 모델 레지스트리. 65차 Q6(역할별 모델 차등: 토론=저가 / 최종 writer·critic=고가 tier)로 정합. 구 'Anthropic opus 고정' 어휘는 W0(모델 설정화) 구현 시 정합. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
+
+> **Tier 2 Sector Board 활성화**: 30종목 각자의 섹터 14명만 호출 (전체 140명 X). 종목당 Core 11 + Sector 14 = 25명 × 30종 ≈ 750 LLM call/월 (M17 hardcap 50만원 내 통제 · 65차 상향).
 
 > **(v2.6, 53차 §5 — Group E) writer Section 0~7 본문 작성 path 미구현 박제**:
 > 현재 `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 두 함수만 존재하며, **`stock_reports.section_8` jsonb commit만 가능**. Section 0~7 본문(투자 서사·산업 기초·회사 개요·이익 모델·밸류에이션·거시 민감도·시나리오·촉매&리스크) 작성 path = **미구현**. `parseSectorContentStrict`도 Section 8 parser only.
@@ -772,6 +780,8 @@ Step 4: 수정 반영 → 최종본 확정
 ### Step 4 후속 (D19, 신규): Reflection — 자가학습
 
 > 외부 레퍼런스 TradingAgents `trading_memory.md` 패턴 차용 + JooPick Track Record와 결합.
+
+> **65차 Q1 supersede (2026-06-04)**: 아래 '매월 말' 단일 주기는 65차 Q1 선정주기 분리(단기 주1회 / 중·장기 월1회) 반영 필요 — Reflection 주기도 track별 분리 검토. (Reflection/PR-K은 출시 게이트 아님 — S9/go-live 후 defer). SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 ```
 매월 말 (또는 가상 포트 종료 시점):
@@ -882,6 +892,7 @@ Step 4: 수정 반영 → 최종본 확정
 | 2026-05-20 | **v2.5** | **52차 — D21 Tier 2 Sector Board slot 모델 정정 + sub_tag crosswalk 박제.** §7.2 14-slot 재작성 (10 base + 2 primary overlay + 2 sub_tag overlay = canonical 14 personas/sector fixed). canonical 14 sectors × 14 = 196 roster total. per-stock 활성화 = 해당 섹터 14인. **partA contract (`length ∈ {0,14}`, ServicePlan-Admin §4.2.1) 사전 정합 확보** — 구 §7.2 10-slot 템플릿과 §4.2.1 14 충돌이 D21에서 해소. **§7.3 sub_tag crosswalk 7개 신설** (조선→운송/물류 · 방산→철강/소재 · 화학→철강/소재 · 게임→IT/SW + 엔터/미디어 secondary · 가전→유통/소비재 · 제약→바이오 · 부동산→건설). **운영 UI taxonomy proxy** (개념 정합 아님 — canonical 14 유지 목적). 본 PR 시점 production code import 0 (tests/만). **`commit_sector_personas` RPC + Section 8 partA render + mock fixture migration = Tier 2 implementation 후속 PR OOS**. SoT: `ServicePlan-Admin.md §1A.5 D21` + `§4.2.1` + 코드 SoT `tudal/src/lib/screening/canonical-sectors.ts` + 마이그 `tudal/supabase/migrations/0018_short_list_30_sub_tags.sql`. |
 | 2026-05-21 | **v2.6** | **53차 §5 — shortlist 30 + 풀 리포트 흐름 정정 박제.** OMXY 적대적 검토 5 rounds CONVERGED (R1 6 + R2 4 + R3 6 = 16 BLOCKERS catch & fix). v2.5 (52차 D21·D22) 충돌 없음. (a) **§8 Step 0 AI 호출 trigger 3 path 박제** — (a) cron 매월 자동 (현 mock dry-run, PR1 후 real) (b) reject 후 사용자 trigger 버튼 (현 dangling server action, PR4 후 real) (c) 종목별 'Regen' 버튼 (현 UI+quota만, PR4 후 실 호출). (b) **§8 Step 1~4 — Group E writer Section 0~7 본문 미구현 박제** (`writer.ts` = `section_8` jsonb commit만, PR3b 분리). (c) **§8 Step 1~4 — Group H Critical schema drift 박제** (writer 신규 partA/partB/partC/partD shape vs page render old conclusion/recommendation/keyQuotes shape mismatch + section0.conviction early deref + admin-reports validation 0 → page crash 위험). **Hard gate: PR1 cron 가동 ⊥ PR3a 미선행 = page crash inevitable**. canonical PR 순서 = **PR2 → PR3a → PR1 → PR3b → PR4**. (d) **§9.2 Sector reference 3-level 분류 박제** (Level A 본문 reference 2/12 · Level B §9.2 체크리스트 4/10 · Level C `SECTOR_PHILOSOPHIES` 14/0). 운용 방향 = Level A·B lazy 추가, Level C 완전 박제. spec doc: `docs/superpowers/specs/2026-05-21-shortlist-report-flow-correction.md`. 사용자 lock-in 8 항목 절대 보존. |
 | 2026-05-24 | **v2.7** | **55차 §4 — PR3c 3-step orchestration + sector_reference_backlog 마이그 박제. Group G ✅ 해소.** omxy R1~R6 6 rounds CONVERGED · 누적 21 BLOCKERS catch & fix. (a) Level A 12 sector body reference 부족 → `sector_reference_backlog` table (마이그 0023) + atomic RPC `insert_or_bump_sector_backlog` lazy 추적. 보유 sector (바이오·반도체)는 helper-level `hasLevelABodyReference` early return (B20 fix — backlog 오염 차단). (b) Level B 10 sector 체크리스트 = 첫 보고서 시 docs 추가 (본 §9.2.1). (c) Level C `SECTOR_PHILOSOPHIES` 14/14 완료 유지. (d) Critic 6축 verdict persistence = `report_critic_findings` table (마이그 0024) + atomic RPC `insert_critic_findings_run` (매 호출 new run_id + 6 row atomic INSERT + target_stage='writer_draft' 박제, B6+B19 fix). reason 500자 cap (한국어 trunc 방지, zod max(500) + DB CHECK 양쪽, B7 fix). (e) Orchestrator entrypoint = `orchestrateFullReport` (commitFullReport와 coexist) — PR4 caller에서 path 선택 (cron=commitFullReport fast path / admin manual=orchestrateFullReport quality path, B8 fix). 1회 hard cap (recursive revise 차단, critic call 1회). backlog INSERT는 non-blocking warn / critic findings는 blocking throw (B21 fix). cost calibration calculateCostKrw 통과 (critic ≈ 27.5원 / revise ≈ 272원 / total ≈ 535원 worst case, B1+B11+B14+B22+C-1 fix · 30 stocks 월간 worst 16,050원 ≈ M17 hardcap 4.0%). |
+| 2026-06-04 | **v2.8** | **65차 D26 — MVP 엔진 7결정 supersede 노트 반영.** §8 Step 0/0c/1~4에 Q1(선정주기 단기 주1회/중장기 월1회 split) · Q3(모델 하드코딩 제거 + 멀티프로바이더 Claude+GPT + provider auto-detect + 레지스트리 + 역할별 차등) · Q4(실시간 멀티라운드 반박 토론 loop, 합의점수 선택) supersede 포인터 추가 + hardcap 40만→50만 **active 정합**(과거 v2.2~v2.7 changelog history 수치는 verbatim 보존). 깊은 schema/알고리즘 재작성은 W0~W3 구현 위임. 상세 SoT = `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + `ServicePlan-Admin §1A.5 D26`. |
 
 ---
 
