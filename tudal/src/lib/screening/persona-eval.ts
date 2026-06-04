@@ -11,10 +11,13 @@ import { assignBadge, isTopTier, type ConsensusBadge } from '@/lib/screening/con
 import {
   TIMEFRAMES,
   type Timeframe,
+  type SelectionTrack,
   type PersonaScore,
   type TickerAggregate,
   type Tier1ScreeningResult,
-  Tier1ScreeningResultSchema,
+  TRACK_TIMEFRAMES,
+  TRACK_FRESH_POOL,
+  makeTier1ScreeningResultSchema,
   PersonaPanelSchema,
   assertPanelMatchesCore11,
   personaWeightFor,
@@ -285,9 +288,14 @@ export interface Tier1Candidate {
 
 export interface RunTier1ScreeningInput {
   /**
-   * 150 candidates = Tier 0 short top 50 + mid top 50 + long top 50.
+   * W2a — 선정 트랙. short = 단기(주간, 활성 timeframe ['short'], 후보 50 → 10 selected) /
+   * midlong = 중장기(월간, 활성 timeframe ['mid','long'], 후보 100 → 20 selected).
+   */
+  track: SelectionTrack;
+  /**
+   * 트랙별 fresh 후보 풀. short=50(전부 bucket short) / midlong=100(mid 50 + long 50).
    * 53차 §5 reviewer CR-02 정정 박제: ticker 중복 시 함수가 entry에서 throw —
-   * caller (PR1) Tier 0 union 시 dedup 책임. tier0_buckets 다중 true는 dedup 후 단일 row로 표현.
+   * caller (W2a worker) Tier 0 union 시 dedup 책임. tier0_buckets 다중 true는 dedup 후 단일 row로 표현.
    */
   candidates: Tier1Candidate[];
   /**
@@ -391,18 +399,19 @@ function compareForTimeframe(a: TickerAggregate, b: TickerAggregate, tf: Timefra
 }
 
 /**
- * Tier 1 AI 30 선정 screening (PR2 deliverable).
+ * Tier 1 AI 트랙별 선정 screening (W2a Task 3 — track 파라미터화).
  *
- * 알고리즘 (5-step, omxy R4 lock-in):
- *   1. 150 candidates × callPersonaPanel = 150 panel calls (Core 11 페르소나 score matrix).
+ * 알고리즘 (5-step, omxy R4 lock-in, 트랙 활성 timeframe subset에 일반화):
+ *   1. N candidates × callPersonaPanel = N panel calls (Core 11 페르소나 score matrix).
+ *      short: N=50 / midlong: N=100. (count는 caller가 enqueue 수로 보장; 여기선 distinct + 트랙 pool 길이만 강하게 검증, 최종 정합은 schema가 검증.)
  *   2. server-side aggregate: timeframe별 페르소나 가중치 적용 (단 Druckenmiller/Burry 1.5x · 중 Lynch 1.5x · 장 Buffett/Munger/Fisher/Pabrai 1.5x).
- *   3. primary_timeframe = argmax(weighted_scores).
- *   4. timeframe별 primary 후보를 (weighted_score, badge, ticker) 순으로 정렬해 최대 10개 선발.
- *   5. <10 timeframe은 global unselected pool에서 해당 timeframe score 내림차순으로 backfill (short → mid → long 순).
+ *   3. primary_timeframe = argmax(weighted_scores) (전 timeframe 대상 — ticker 본질적 timeframe).
+ *   4. **트랙 활성 timeframe**(TRACK_TIMEFRAMES[track])별 primary 후보를 (weighted_score, badge, ticker) 순으로 정렬해 최대 10개 선발.
+ *   5. <10 활성 timeframe은 **트랙 활성 tf의 global unselected pool 내에서만** 해당 timeframe score 내림차순으로 backfill (cross-track 차용 금지).
  *
- * 반환: 30 selected + 120 notSelected + selectionMeta (counts + version id + generatedAt).
+ * 반환: short=10 selected + 40 notSelected / midlong=20 selected + 80 notSelected + selectionMeta (counts + version id + generatedAt).
  *
- * scope purity: in-memory only. DB write 0. caller responsibility (PR1):
+ * scope purity: in-memory only. DB write 0. caller responsibility (W2a worker):
  *   - cost_log INSERT
  *   - short_list_30 row persist (assigned_by/version_id 컬럼 마이그)
  *   - acquireBatchLock / releaseBatchLock
@@ -411,8 +420,12 @@ function compareForTimeframe(a: TickerAggregate, b: TickerAggregate, tf: Timefra
 export async function runTier1Screening(
   input: RunTier1ScreeningInput
 ): Promise<Tier1ScreeningResult> {
-  if (input.candidates.length !== 150) {
-    throw new Error(`tier1_candidates_must_be_150 (got ${input.candidates.length})`);
+  const { track } = input;
+  // W2a — 트랙 fresh pool 길이 검증. expected는 caller가 enqueue 수로 보장하나,
+  // 여기서는 distinct + 비음수 + 트랙 pool count를 강하게 검증 (count 최종 정합은 schema).
+  const expectedPool = TRACK_FRESH_POOL[track];
+  if (input.candidates.length !== expectedPool) {
+    throw new Error(`tier1_candidates_must_be_${expectedPool} (got ${input.candidates.length})`);
   }
   // 53차 §5 reviewer CR-02 정정 박제 — duplicate ticker silent corruption 차단.
   const distinctTickers = new Set(input.candidates.map((c) => c.ticker));
@@ -553,7 +566,13 @@ export async function runTier1Screening(
     };
   });
 
-  // 4. Group by primary_timeframe + select top 10 per timeframe
+  // W2a — 트랙 활성 timeframe subset. short=['short'] / midlong=['mid','long'].
+  // step 4~6은 전 TIMEFRAMES가 아닌 활성 tf만 순회 (cross-track 차용 금지).
+  const activeTfs = TRACK_TIMEFRAMES[track];
+
+  // 4. Group by primary_timeframe + select top 10 per **active** timeframe.
+  // primary_timeframe은 전 timeframe argmax (ticker 본질). 활성 tf가 primary가 아니면
+  // 해당 ticker는 unselected pool로 흘러가 backfill 후보가 된다.
   const byPrimary: Record<Timeframe, TickerAggregate[]> = { short: [], mid: [], long: [] };
   for (const agg of aggregates) byPrimary[agg.primary_timeframe].push(agg);
 
@@ -562,25 +581,21 @@ export async function runTier1Screening(
     mid: [],
     long: [],
   };
-  for (const tf of TIMEFRAMES) {
+  for (const tf of activeTfs) {
     byPrimary[tf].sort((a, b) => compareForTimeframe(a, b, tf));
     primarySelected[tf] = byPrimary[tf].slice(0, 10);
   }
 
-  // 5. Backfill timeframes with <10 from global unselected pool.
-  // pool 정렬은 timeframe별 재정렬 + splice 누적 — short→mid→long 순서 박제 (TIMEFRAMES 선언 순).
+  // 5. Backfill active timeframes with <10 from global unselected pool (활성 tf 내에서만).
+  // pool 정렬은 활성 timeframe별 재정렬 + splice 누적 — activeTfs 선언 순서(short / mid→long) 박제.
   const primaryTickers = new Set(
-    [
-      ...primarySelected.short,
-      ...primarySelected.mid,
-      ...primarySelected.long,
-    ].map((a) => a.ticker)
+    activeTfs.flatMap((tf) => primarySelected[tf]).map((a) => a.ticker)
   );
   const pool: TickerAggregate[] = aggregates.filter((a) => !primaryTickers.has(a.ticker));
 
   const backfillCounts: Record<Timeframe, number> = { short: 0, mid: 0, long: 0 };
   const backfilled: Record<Timeframe, TickerAggregate[]> = { short: [], mid: [], long: [] };
-  for (const tf of TIMEFRAMES) {
+  for (const tf of activeTfs) {
     const needed = 10 - primarySelected[tf].length;
     if (needed <= 0) continue;
     pool.sort((a, b) => compareForTimeframe(a, b, tf));
@@ -589,11 +604,11 @@ export async function runTier1Screening(
     backfillCounts[tf] = taken.length;
   }
 
-  // 6. Assemble selected[] ordered [short top10, mid top10, long top10].
+  // 6. Assemble selected[] ordered by active timeframe (short / mid→long).
   // selected items: assigned_by + assigned_timeframe 모두 non-null로 set.
-  // assigned_timeframe = primary면 primary_timeframe, backfill이면 채워진 timeframe (tf).
+  // assigned_timeframe = primary면 primary_timeframe, backfill이면 채워진 (활성) timeframe (tf).
   const selected: TickerAggregate[] = [];
-  for (const tf of TIMEFRAMES) {
+  for (const tf of activeTfs) {
     for (const a of primarySelected[tf]) {
       selected.push({ ...a, assigned_by: 'primary', assigned_timeframe: tf });
     }
@@ -621,5 +636,6 @@ export async function runTier1Screening(
     commentsByTicker,
   };
 
-  return Tier1ScreeningResultSchema.parse(result);
+  // W2a — 트랙별 schema factory로 최종 검증 (count/disjoint/active-tf purity 등 트랙별 동등 강도).
+  return makeTier1ScreeningResultSchema(track, input.candidates.length).parse(result);
 }
