@@ -355,52 +355,55 @@ export async function runTier1SelectionChunk(
 
   // ── batch preflight (남은 pending+running × 11콜) ──
   const pendingCount = await countOpenJobs(client, month);
-  const callCount = pendingCount * CORE_11_CALLS_PER_TICKER;
-  const currentTotal = await input.getMonthlyTotal(month, {
-    client,
-    callerKind: "service-role",
-  });
+  const reservationJobCount = Math.max(pendingCount, jobs.length);
+  const callCount = reservationJobCount * CORE_11_CALLS_PER_TICKER;
   // W0 D28 ③ model-aware reservation: tier1_panel 역할 단가 (W1 토론 mix로 진화할 단일 지점).
   const tier1MaxCostPerCallKrw = getRoleMaxCostPerCallKrw("tier1_panel");
-  const projectedKrw = callCount * tier1MaxCostPerCallKrw;
-  try {
-    await input.preflightHardcap(
-      {
-        month,
-        lines: [{ callCount, maxCostPerCallKrw: tier1MaxCostPerCallKrw }],
-      },
-      { client, callerKind: "service-role" },
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("cost_hardcap_exceeded")) {
-      // 남은 pending/running을 먼저 deferred 표시해야 alert insert 장애가 month-stop을 막지 않는다.
-      await deferOpenJobs(client, month, "cost_hardcap_exceeded");
-      await emitCostAlertBestEffort(input, {
-        month,
-        currentTotalKrw: currentTotal,
-        projectedKrw,
-      });
-      await summarize(input, 0, 0, 1, [], "systemic_abort:cost_hardcap_exceeded");
-      return {
-        month,
-        claimed: 0,
-        done: 0,
-        skipped: 0,
-        failed: 0,
-        deferred: pendingCount,
-        remaining: 0,
-        finalized: false,
-        aborted: "cost_hardcap",
-      };
+  if (callCount > 0) {
+    const currentTotal = await input.getMonthlyTotal(month, {
+      client,
+      callerKind: "service-role",
+    });
+    const projectedKrw = callCount * tier1MaxCostPerCallKrw;
+    try {
+      await input.preflightHardcap(
+        {
+          month,
+          lines: [{ callCount, maxCostPerCallKrw: tier1MaxCostPerCallKrw }],
+        },
+        { client, callerKind: "service-role" },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("cost_hardcap_exceeded")) {
+        // 남은 pending/running을 먼저 deferred 표시해야 alert insert 장애가 month-stop을 막지 않는다.
+        await deferOpenJobs(client, month, "cost_hardcap_exceeded");
+        await emitCostAlertBestEffort(input, {
+          month,
+          currentTotalKrw: currentTotal,
+          projectedKrw,
+        });
+        await summarize(input, 0, 0, 1, [], "systemic_abort:cost_hardcap_exceeded");
+        return {
+          month,
+          claimed: 0,
+          done: 0,
+          skipped: 0,
+          failed: 0,
+          deferred: reservationJobCount,
+          remaining: 0,
+          finalized: false,
+          aborted: "cost_hardcap",
+        };
+      }
+      throw err;
     }
-    throw err;
+    await emitCostAlertBestEffort(input, {
+      month,
+      currentTotalKrw: currentTotal,
+      projectedKrw,
+    });
   }
-  await emitCostAlertBestEffort(input, {
-    month,
-    currentTotalKrw: currentTotal,
-    projectedKrw,
-  });
 
   let done = 0;
   let failed = 0;

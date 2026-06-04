@@ -474,6 +474,30 @@ describe("runTier1SelectionChunk cost_hardcap abort", () => {
     );
   });
 
+  it("open job 0개면 lines callCount=0 preflight를 호출하지 않고 finalize 경로로 진행한다", async () => {
+    const preflightHardcap = vi.fn(async () => {
+      throw new Error("should_not_call_preflight");
+    });
+    const allRows = make150Candidates().map((c) => ({
+      ticker: c.ticker,
+      status: "done",
+      panel_result: makePanel(),
+    }));
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      remainingCount: 0,
+      allRows,
+    });
+    const deps = makeDeps({ preflightHardcap });
+    const res = await runChunk(client, deps);
+
+    expect(preflightHardcap).not.toHaveBeenCalled();
+    expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+    expect(deps.runScreening).toHaveBeenCalled();
+    expect(deps.persist).toHaveBeenCalled();
+    expect(res.finalized).toBe(true);
+  });
+
   it("preflight lines callCount = pendingTickerCount × 11 (Core 11, W0 D28 ③ model-aware)", async () => {
     const preflightHardcap = vi.fn(async () => {});
     const { client } = makeFakeClient({

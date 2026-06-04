@@ -23,7 +23,7 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   ticker_required: "종목코드가 필요합니다",
   reason_too_short: "사유는 10자 이상 입력해주세요",
   // regenerate
-  // W0 D28 ③ rename: cost_hardcap_40man → cost_hardcap_exceeded (65차 LOCKED #5 50만 + cap-agnostic).
+  // W0 D28 ③ rename: legacy hardcap error key → cost_hardcap_exceeded (65차 LOCKED #5 50만 + cap-agnostic).
   cost_hardcap_exceeded: "월 AI 비용 한도(50만원)를 초과했습니다",
   // W0 D28 비용가드: 모델 레지스트리/preflight 신규 throw 코드 한국어 매핑.
   pricing_unknown_model: "미등록 AI 모델 단가입니다 — 모델 레지스트리 등록이 필요합니다",

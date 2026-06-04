@@ -360,7 +360,7 @@ export interface CostMonthlySummary {
   }>;
 }
 
-// M17 임계치 상수 (R3.12-1·R3.12-2) — 65차 LOCKED #5 (2026-06-04): hardcap 40만 → 50만, 경보 35만 → 45만(90% 파생)
+// M17 임계치 상수 (R3.12-1·R3.12-2) — 65차 LOCKED #5 (2026-06-04): hardcap 50만, 경보 45만(90% 파생)
 export const COST_WARNING_THRESHOLD_KRW = 450_000;
 export const COST_HARDCAP_KRW = 500_000;
 export const COST_USD_TO_KRW = 1430; // BL-18 견적 환율 (보수적)
