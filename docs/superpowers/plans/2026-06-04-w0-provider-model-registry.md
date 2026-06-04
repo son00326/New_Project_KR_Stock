@@ -711,16 +711,21 @@ export async function preflightHardcap(
   if (opts.lines) {
     if (opts.lines.length === 0) throw new Error('preflight_reservation_missing');
     for (const l of opts.lines) {
+      // 신규 lines 경로는 legacy 호환 부담 없음 (omxy R2): 0도 fail-open 벡터 → 양수 강제.
       if (
-        !Number.isFinite(l.callCount) || l.callCount < 0 ||
-        !Number.isFinite(l.maxCostPerCallKrw) || l.maxCostPerCallKrw < 0
+        !Number.isFinite(l.callCount) || l.callCount <= 0 ||
+        !Number.isFinite(l.maxCostPerCallKrw) || l.maxCostPerCallKrw <= 0
       ) {
         throw new Error('preflight_reservation_invalid');
       }
     }
   } else if (
+    // 단일(legacy) 경로: callCount=0 + default maxCost = 무해 no-op 호환 허용 (omxy R2 합의).
+    // 단 callCount>0이면 명시된 maxCostPerCallKrw는 반드시 >0.
     !Number.isFinite(opts.callCount!) || opts.callCount! < 0 ||
-    (opts.maxCostPerCallKrw != null && (!Number.isFinite(opts.maxCostPerCallKrw) || opts.maxCostPerCallKrw < 0))
+    (opts.maxCostPerCallKrw != null &&
+      (!Number.isFinite(opts.maxCostPerCallKrw) ||
+        (opts.callCount! > 0 ? opts.maxCostPerCallKrw <= 0 : opts.maxCostPerCallKrw < 0)))
   ) {
     throw new Error('preflight_reservation_invalid');
   }
@@ -798,7 +803,8 @@ W0_LIVE_SMOKE=true npx vitest run src/lib/ai/__tests__/w0-provider-smoke.live.te
 - [ ] **Step 8.4: DoD 검증 명령 일괄**:
 
 ```bash
-rg -n "40만|400_000|40man" tudal/src tudal/package.json tudal/.env.example   # 잔존 0
+# omxy R2 LOW fix: 최종 게이트 grep = Step 7.3과 동일 superset 패턴 (sweep 회귀 방지)
+rg -n "40만|400_000|400000|40man|35만|350_000" tudal/src tudal/package.json tudal/.env.example  # 잔존 0 (mock 재무 fixture 우연 일치 allowlist 제외)
 rg -n "cost_hardcap_40man" tudal/src                                          # 잔존 0
 rg -n "claude-opus-4-7" tudal/src -g '!__tests__' | grep -v "tier1_panel\|registry\|pricing"  # 하드코딩 잔존 = registry/pricing만
 npx vitest run src/lib/ai/__tests__/d28-reservation-projection.test.ts        # ≤50만 PASS
