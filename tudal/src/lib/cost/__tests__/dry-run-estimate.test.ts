@@ -28,9 +28,10 @@ describe("anthropic-pricing", () => {
     expect(krw).toBe(8_580);
   });
 
-  it("알 수 없는 모델은 Sonnet 가격으로 fallback", () => {
-    const krw = computeCostKrw("unknown-model", 1_000_000, 1_000_000);
-    expect(krw).toBe(25_740);
+  it("미등록 모델은 throw (D28 ② fail-closed — 구 Sonnet fallback 제거)", () => {
+    expect(() => computeCostKrw("unknown-model", 1_000_000, 1_000_000)).toThrow(
+      "pricing_unknown_model:unknown-model",
+    );
   });
 });
 
