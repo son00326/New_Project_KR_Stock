@@ -35,13 +35,15 @@
   - **(R2 HIGH-1)** 첫줄 내부 authz guard: `if auth.role()='service_role' then null; elsif public.is_admin() then null; else raise exception 'not_authorized'; end if;` (grant만으론 RLS 우회 미방지 — [[feedback_rls_cost_select_isadmin_gate]]).
   - **(R2 MED-4)** p_rows 내부 검증(직접호출 우회 방어): jsonb_array_length = `TRACK_SELECT_COUNT[track]`(short10/midlong20) / 모든 row bucket ∈ 트랙 buckets / ticker `~ '^\d{6}$'` / distinct ticker / rank 범위 — 위반 시 raise.
   - (R1 MED-4) cross-bucket overlap fail-closed: 신규 ticker가 **동일 month의 다른 bucket**에 존재(`s.month=p_month AND s.bucket <> 트랙 buckets`) → `shortlist_track_cross_bucket_overlap` raise.
-  - (R1 HIGH-1) bucket-scoped atomic: `delete ... where month=p_month AND bucket = any(트랙 buckets) AND ticker <> all(new)` + `insert ... on conflict(month,ticker) do update`.
+  - **(R3 HIGH-3 — stale created_at 방지)** atomic = **DELETE-all-track + INSERT(fresh `created_at=now()`)**: `delete from short_list_30 where month=p_month AND bucket=any(트랙 buckets)`(트랙 전행 삭제) + `insert ...`(on-conflict-do-update 폐기 — 트랙 전행을 매 write마다 새로 INSERT하여 생존 ticker도 created_at 갱신). 단일 트랜잭션이라 부분상태 미관측. ⇒ 주간 short refresh 시 생존 ticker의 stale created_at이 portfolio accept 쿨다운(gating.ts createdAt)을 우회하던 결함 제거.
   - **(R2 HIGH-2)** p_track='midlong'이면 **동일 트랜잭션 내부**에서 carry 수행(아래 D8) — 별도 RPC 2회 호출 금지(사이 crash 시 20행 잔존 방지).
+  - **(R3 MED-4)** INSERT 컬럼 매핑 = short_list_30 전 컬럼 **0002+0012+0020+0029** (0020 = `assigned_by`/`prompt_version_id`/`personas_version_id` NOT NULL 포함 — 누락 금지).
   count gate는 RPC가 SoT(TS writer는 보조 선검증). `upsertShortList30`(단발 경로용) 보존, W2a 청크 finalize는 신규 RPC writer 사용.
 - **D5 cron due-gate(Hobby-safe):** selection-worker daily route 유지(schedule 추가 0). route가 KST 기준 `isShortDue`(월요일)·`isMidlongDue`(1일) 판정 → due 트랙마다 period_key로 `runGuardedSelectionChunk` 호출. 둘 다 due(1일=월요일)면 순차 2회(각 독립 mutex).
-- **D6 finalize 게이트 = job count 기반 + deferred 차단(저장 expected_total 폐기).** (R1 HIGH-3 순서 모순) acquire→enqueue→process 순서상 acquire 시점엔 enqueue 수를 모름 → `run.expected_total` 컬럼/acquire 인자 **신설 안 함**. **(R2 MED-6)** finalize 트리거 = `count(status NOT IN ('done','failed')) === 0 AND count(status IN ('done','failed')) > 0` — 즉 **deferred(systemic abort/cost-hardcap)는 non-terminal로 finalize 차단**(degraded 조기 finalize 방지; deferred는 cost reset 후 pending 재개되어야 finalize). per-ticker 실패='failed'(terminal)→replay에서 ⚪. **(원 worker가 deferred를 terminal로 보던 것 대비 의도적 강화.)** 최종 count 정합은 트랙별 schema(D7)가 검증.
+- **D6 finalize 게이트 = job count + deferred 차단 + deferred 재개(deadlock 해소).** (R1 HIGH-3) acquire 시점엔 enqueue 수 미상 → `run.expected_total`/acquire 인자 **신설 안 함**. (R2 MED-6) finalize 트리거 = `countNonTerminal(pending+running+deferred)===0 AND countTerminal(done+failed)>0` — deferred는 finalize 차단(degraded 조기 finalize 방지). **(R3 HIGH-1 — deadlock 해소)** deferred는 claim이 재개 안 해 영구 stuck 가능 → **runTier1SelectionChunk 시작(acquire 후, enqueue/preflight 전)에 현 period_key의 `deferred → pending` 리셋 step 추가**(`attempts` 보존). 그 직후 preflightHardcap이 예산 게이트 — 예산 여전 초과면 즉시 재-defer(spend 0, 무한루프 없음), 예산 회복(월 reset)되면 pending→처리→finalize. **budget-exhausted period가 그 주/달 finalize 안 되는 것은 cost guard 의도된 동작**(트랙별 독립 mutex라 타 period 미차단; stale period_key는 다음 주기에서 새 period로 진행 — MVP 허용). per-ticker 실패='failed'(terminal)→⚪. 최종 count 정합은 schema(D7).
 - **D7 Tier1ScreeningResultSchema 트랙별 factory.** `makeTier1ScreeningResultSchema(track, poolSize)` — short: selected=10·shortCount=10·mid/long=0·notSelected=poolSize-10 / midlong: selected=20·mid=10·long=10·short=0·notSelected=poolSize-20. 11개 cross-field refine을 트랙별로 동등 강도 유지(53차 §5 corruption 방어 회귀 금지).
-- **D8 월초 carry-forward (R1 HIGH-2 + R2 HIGH-2/MED-5).** 월초(1일≠월요일)에 midlong이 새 월 `m:M`을 쓰면 그 주 short period는 직전 월이라 month M에 short 0 → 30 미달. **fix:** carry를 `replace_shortlist_track`의 **midlong 트랜잭션 내부 헬퍼**(`carry_short_into_month(p_month)` 함수를 같은 txn에서 호출 — 함수 합성은 동일 트랜잭션 공유)로 수행: **month M에 short 부재 시, 직전(`max(month<M) where bucket='short'`)의 short 중 month M에 (어떤 bucket으로도) 미존재인 ticker만 short로 INSERT(`delta_status='hold'`, rank 보존)**. 다음 월요일 short run이 in-place refresh. **(R2 HIGH-3/MED-5 경계):** carry는 **best-effort bridge** — 직전 short ticker가 month M에 mid/long로 졸업했으면 그 ticker는 carry 제외(short<10 일시 가능). carry RPC는 short row 자체의 정합만 보장하고 **cross-track total=30을 hard-raise하지 않음**(이유: ① cold-start 첫 달은 직전 short 없음=carry no-op이 정당 ② short→mid 졸업은 정상 ③ 소비자 `full-report-batch-worker.ts:228`이 `!==30` 시 **clean abort(spend 0)** — crash 아님, 30 충족 시 자동 재개). cold-start 부트스트랩 = go-live 시 USER가 short+midlong 양 트랙 1회 가동(같은 period) → 즉시 30. **이 부분만 R2 HIGH-3 hard-assert 거부**(근거 명시).
+- **D8 월초 carry-forward + "always 30" 확정 (R1 HIGH-2 + R2 H2/M5 + R3 H2).** 월초(1일≠월요일)에 midlong이 새 월 `m:M`을 쓰면 그 주 short period는 직전 월이라 month M에 short 0 → 30 미달. **fix:** carry를 `replace_shortlist_track`의 **midlong 트랜잭션 내부**(`perform carry_short_into_month(p_month)`)에서 수행: month M에 short 부재 시 직전(`max(month<M) where bucket='short'`)의 short 중 month M에 미존재인 ticker만 short로 INSERT(`delta_status='hold'`, `created_at=now()`, rank 보존). 다음 월요일 short run이 in-place refresh.
+  - **(R3 HIGH-2 — R2 push-back 철회)** 이전 "<30은 harmless(소비자 clean-abort)" 근거는 **unsound**(omxy 반박): report-worker route는 `!==30` 시 **502 반환**(clean success 아님) + portfolio accept는 빈 리스트만 거부해 **<30이 snapshot에 진입**. ∴ **"always 30"을 invariant로 확정**: ① steady-state = midlong write가 carry로 short 보장 → 항상 30 ② cold-start = **부트스트랩 순서 = short 먼저 → midlong**(go-live USER 1회, 문서화)로 30 보장 ③ 그래도 남는 일시 <30(운영자 순서 오류 등)은 **소비자 가드(Task 9.5)**로 안전: portfolio accept가 `shortlist.length<30` 거부(빈 리스트만 X) + report-worker route가 `!==30`을 **clean skip(200 not-ready)** 로(502 false-alarm 제거). carry는 best-effort(졸업 ticker 제외) + per-track 정합만 RPC가 보장(cross-track total은 소비자 가드가 최종 방어).
 
 ---
 
@@ -53,7 +55,8 @@
 - `tudal/src/lib/data/__tests__/admin-shortlist-track-persist.test.ts` (rolling writer DoD)
 
 **수정 (트랙 파라미터화):**
-- `tudal/supabase/migrations/0031_tier1_selection_worker.sql` + `.rollback.sql` — period_key/track/expected_total.
+- `tudal/supabase/migrations/0031_tier1_selection_worker.sql` + `.rollback.sql` — period_key/track + 원자적 `replace_shortlist_track`/`carry_short_into_month` RPC.
+- `tudal/src/app/api/cron/monthly-batch/report-worker/route.ts` + `tudal/src/app/(admin)/admin/portfolio/actions.ts` — <30 소비자 가드(Task 9.5).
 - `tudal/src/lib/screening/tier1-schema.ts` — `Track` 타입 + `makeTier1ScreeningResultSchema(track)`.
 - `tudal/src/lib/screening/persona-eval.ts` — `runTier1Screening` track 파라미터 + 활성 timeframe subset + 트랙 backfill.
 - `tudal/src/lib/screening/monthly-batch-orchestrator.ts` — track 전파(단발, 동기 유지).
@@ -393,13 +396,23 @@ begin
   if exists (select 1 from short_list_30 s
              where s.month=p_month and s.ticker=any(v_new_tickers) and not (s.bucket=any(v_buckets))) then
     raise exception 'shortlist_track_cross_bucket_overlap'; end if;
-  -- (R1 HIGH-1) atomic bucket-scoped DELETE + UPSERT
-  delete from short_list_30 s
-   where s.month=p_month and s.bucket=any(v_buckets) and not (s.ticker=any(v_new_tickers));
-  insert into short_list_30 (month, ticker, bucket, rank, /* …전 컬럼 0002+0012+0029 */)
-  select p_month, e->>'ticker', e->>'bucket', (e->>'rank')::int, /* … */
-    from jsonb_array_elements(p_rows) e
-  on conflict (month, ticker) do update set bucket=excluded.bucket, rank=excluded.rank /* … */;
+  -- (R3 HIGH-3) atomic: 트랙 전행 DELETE + INSERT(fresh created_at) — 생존 ticker도 created_at 갱신(쿨다운 우회 차단)
+  delete from short_list_30 s where s.month=p_month and s.bucket=any(v_buckets);
+  -- (R3 MED-4) 컬럼 매핑 = 0002+0012+0020+0029 전부 (assigned_by/prompt_version_id/personas_version_id NOT NULL 포함)
+  insert into short_list_30
+    (month, ticker, bucket, rank, assigned_by, prompt_version_id, personas_version_id,
+     delta_status, delta_reason, name, sector, composite_score, signal_label,
+     consensus_badge, ai_score, weighted_score_short, weighted_score_mid, weighted_score_long,
+     winning_timeframe, conviction, ai_comment_kr, created_at /* + 잔여 0002 numeric 컬럼 */)
+  select p_month, e->>'ticker', e->>'bucket', (e->>'rank')::int,
+         e->>'assigned_by', e->>'prompt_version_id', e->>'personas_version_id',
+         coalesce(e->>'delta_status','new'), e->>'delta_reason', e->>'name', e->>'sector',
+         (e->>'composite_score')::numeric, e->>'signal_label',
+         e->>'consensus_badge', (e->>'ai_score')::numeric,
+         (e->>'weighted_score_short')::numeric, (e->>'weighted_score_mid')::numeric,
+         (e->>'weighted_score_long')::numeric, e->>'winning_timeframe',
+         (e->>'conviction')::numeric, e->>'ai_comment_kr', now()
+    from jsonb_array_elements(p_rows) e;
   -- (R2 HIGH-2) midlong은 동일 트랜잭션에서 carry (별도 RPC 2회 호출 금지)
   if p_track = 'midlong' then perform carry_short_into_month(p_month); end if;
 end; $$;
@@ -417,8 +430,16 @@ begin
   if exists (select 1 from short_list_30 where month=p_month and bucket='short') then return; end if;
   select max(month) into v_src from short_list_30 where month < p_month and bucket='short';
   if v_src is null then return; end if;                       -- (R2 MED-5) cold-start no-op (정당)
-  insert into short_list_30 (month, ticker, bucket, rank, delta_status, /* … */)
-  select p_month, c.ticker, 'short', c.rank, 'hold', /* … */
+  -- 직전 short 전 컬럼 복사, month/created_at/delta_status만 교체 (0020 컬럼 포함, NOT NULL 보존)
+  insert into short_list_30
+    (month, ticker, bucket, rank, assigned_by, prompt_version_id, personas_version_id,
+     delta_status, delta_reason, name, sector, composite_score, signal_label,
+     consensus_badge, ai_score, weighted_score_short, weighted_score_mid, weighted_score_long,
+     winning_timeframe, conviction, ai_comment_kr, created_at /* + 잔여 0002 numeric */)
+  select p_month, c.ticker, 'short', c.rank, c.assigned_by, c.prompt_version_id, c.personas_version_id,
+         'hold', c.delta_reason, c.name, c.sector, c.composite_score, c.signal_label,
+         c.consensus_badge, c.ai_score, c.weighted_score_short, c.weighted_score_mid,
+         c.weighted_score_long, c.winning_timeframe, c.conviction, c.ai_comment_kr, now()
     from short_list_30 c
    where c.month=v_src and c.bucket='short'
      and not exists (select 1 from short_list_30 x where x.month=p_month and x.ticker=c.ticker) -- (R2 HIGH-3) 졸업 ticker 제외
@@ -552,10 +573,11 @@ git commit -am "feat(w2a): getTier0Candidates track 파라미터 + 트랙별 ass
 
 가장 큰 변경면. step-0 fail-closed / run-mutex / 순차 for-loop / preflight 비용가드는 **무회귀 유지**.
 
-- [ ] **Step 1: 실패 테스트** — 워커 input에 `{track, periodKey, month}` 추가. enqueue가 period_key/track 기록. claim이 p_period_key 사용. count 헬퍼가 period_key 필터. **(D6/R1 HIGH-3 + R2 MED-6)** finalize 트리거 = `nonTerminalJobs(periodKey)===0 AND terminalJobs(periodKey)>0`, 여기서 **nonTerminal = pending|running|deferred**(deferred 포함=finalize 차단), terminal = done|failed. **deferred(systemic/cost-hardcap) 잔존 시 finalize 미발동** 검증(테스트 케이스 필수). finalize가 `runScreening({track})` 후 `upsertShortListTrack(month, track, selected)`. short 트랙: 50 enqueue → 10 selected → short persist. preflight callCount = openJobs(periodKey)×11. 빈 풀에서 finalize 미발동.
+- [ ] **Step 1: 실패 테스트** — 워커 input에 `{track, periodKey, month}` 추가. enqueue가 period_key/track 기록. claim이 p_period_key 사용. count 헬퍼가 period_key 필터. **(D6/R1 HIGH-3 + R2 MED-6 + R3 HIGH-1)** finalize 트리거 = `nonTerminalJobs(periodKey)===0 AND terminalJobs(periodKey)>0`(nonTerminal=pending|running|deferred=finalize 차단, terminal=done|failed). **deferred 잔존 시 finalize 미발동** + **run-start에서 deferred→pending 재개 후 preflight 통과 시 처리 재개**(deadlock 해소) 두 케이스 모두 테스트. finalize가 `runScreening({track})` 후 `upsertShortListTrack(month, track, selected)`. short: 50 enqueue → 10 selected. preflight callCount = openJobs(periodKey)×11. 빈 풀 finalize 미발동.
 - [ ] **Step 2: 실패 확인.**
 - [ ] **Step 3: 구현**
 - `:41 EXPECTED_TOTAL=150` 제거 → **저장 expected_total 없음(D6)**. `:322-327` candidates count abort → `getTier0Candidates(track)` 반환 길이 = `TRACK_FRESH_POOL[track]` 검증(W2a fresh-only).
+- **(R3 HIGH-1 deadlock 해소)** runTier1SelectionChunk **시작(acquire 후, enqueue/preflight 전)**: 현 periodKey의 `deferred → pending` 리셋(`update tier1_selection_job set status='pending' where period_key=$ and status='deferred'`, attempts 보존). 직후 preflight가 예산 게이트 — 초과면 재-defer(spend 0), 회복 시 처리 재개.
 - enqueue(:329-342): rows에 `period_key, track` 추가, onConflict `period_key,ticker`.
 - claim(:345): `claim_next_selection_jobs(periodKey, chunkSize)`.
 - count 헬퍼(:258-271): `countOpenJobs(periodKey)`=pending+running(`.eq('period_key', periodKey)`, preflight용 무회귀) + **신규 `countNonTerminalJobs(periodKey)`=pending+running+deferred** + `countTerminalJobs(periodKey)`=done+failed.
@@ -581,6 +603,7 @@ git commit -am "feat(w2a): selection-batch-worker period_key/track + expected_to
 - 월요일(KST) → short 트랙 runGuardedSelectionChunk(periodKey=`s:...`) 호출.
 - 1일(KST) → midlong 트랙 호출.
 - 1일이면서 월요일 → 둘 다 순차 호출(독립 period_key).
+- **(R3 MED-5) per-track 실패 격리** — short 호출이 throw해도 midlong은 실행(둘 다 due 시). short throw 주입 → midlong 호출 1회 확인 + route는 부분실패 보고(둘 중 하나 실패해도 502 단일화 금지).
 - 둘 다 not due → 200 no-op(claimed 0).
 - `SELECTION_CRON_AUTO_ENABLED!=='true'` → 200 skip(기존 게이트 무회귀).
 - 인증(CRON_SECRET) 무회귀.
@@ -593,13 +616,47 @@ const dueTracks: { track: SelectionTrack; periodKey: string; month: string }[] =
 if (isShortDue(now))   dueTracks.push({ track:'short',   periodKey: currentShortPeriodKey(now),   month: monthYMOfPeriod(currentShortPeriodKey(now)) });
 if (isMidlongDue(now)) dueTracks.push({ track:'midlong', periodKey: currentMidlongPeriodKey(now), month: monthYMOfPeriod(currentMidlongPeriodKey(now)) });
 ```
-- 각 due 트랙에 대해 `runGuardedSelectionChunk({ periodKey, track, month, tier0Source: (o)=>getTier0Candidates({track, month: o.month, client}), persist: upsertShortListTrack, runScreening: runTier1Screening, reflectionContext:'' /* W2b */, ... })` 순차 호출.
-- self-continue(:119)는 due 트랙 중 forward-progress 있으면 유지.
+- **(R3 MED-5)** 각 due 트랙을 **per-track try/catch/continue**로 순차 호출(한 트랙 throw가 다른 트랙을 막지 않음):
+```typescript
+const results: Array<{track: SelectionTrack; ok: boolean; error?: string; claimed?: number}> = [];
+for (const t of dueTracks) {
+  try {
+    const r = await runGuardedSelectionChunk({ periodKey: t.periodKey, track: t.track, month: t.month,
+      tier0Source: (o)=>getTier0Candidates({ track: t.track, month: o.month, client }),
+      persist: upsertShortListTrack, runScreening: runTier1Screening, reflectionContext: '' /* W2b */, ... });
+    results.push({ track: t.track, ok: true, claimed: r.claimed });
+  } catch (e) { results.push({ track: t.track, ok: false, error: String(e) }); }
+}
+// 응답: 전부 성공/skip → 200; 일부 실패 → 부분실패 보고(트랙별 status), 전체 502 단일화 금지.
+```
+- self-continue(:119)는 due 트랙 중 forward-progress(claimed>0) 있으면 유지.
 - flag-off/인증/dormant 무회귀.
 - [ ] **Step 4: 통과 확인.**
 - [ ] **Step 5: commit**
 ```bash
-git commit -am "feat(w2a): selection-worker route KST due-gate(월=short/1일=midlong) + 트랙별 청크 호출 (TDD)"
+git commit -am "feat(w2a): selection-worker route KST due-gate + per-track 실패격리 (TDD, R3 MED-5)"
+```
+
+---
+
+## Task 9.5: 소비자 <30 안전 가드 (R3 HIGH-2)
+
+**Files:**
+- Modify: `tudal/src/app/api/cron/monthly-batch/report-worker/route.ts:61-63` (또는 full-report-batch-worker abort 래핑부) — `short_list_30_invalid_count`(<30) 시 **502가 아니라 200 clean "not-ready" skip**.
+- Modify: `tudal/src/app/(admin)/admin/portfolio/actions.ts` (accept 경로) — shortlist **빈 리스트만** 거부 → **`length<30` 거부**(부분 리스트가 snapshot 진입 차단).
+- Test: 각 변경부 단위테스트.
+
+> **근거:** W2a가 트랙 split로 일시적 <30 가능성을 도입(이전엔 단일 배치가 원자적 30). steady-state는 D8 carry로 always-30이지만, cold-start/운영자 순서 오류 시 일시 <30 → (a) report-worker route 502 false-alarm (b) portfolio accept가 <30 진행해 snapshot 오염. 두 소비자를 fail-safe로.
+
+- [ ] **Step 1: 실패 테스트**
+- report-worker route: shortlist 20행 mock → 응답 **200 + skipped reason='shortlist_not_ready'**(502 아님), spend 0.
+- portfolio accept: shortlist 20행 → accept **거부**(에러 `shortlist_incomplete` 또는 기존 빈-거부 메시지 확장), snapshot 미생성.
+- [ ] **Step 2: 실패 확인.**
+- [ ] **Step 3: 구현** — report-worker route의 abort→502 분기에서 `short_list_30_invalid_count`(또는 length<30)만 200 skip으로 분기. portfolio accept 가드의 `length===0` → `length<30`(또는 `!== SHORTLIST_TARGET_COUNT(30)`)로 확장. 기존 정상(30) 경로 무회귀.
+- [ ] **Step 4: 통과 확인.**
+- [ ] **Step 5: commit**
+```bash
+git commit -am "feat(w2a): <30 소비자 가드 — report-worker route 200 not-ready skip + portfolio accept <30 거부 (R3 HIGH-2)"
 ```
 
 ---
