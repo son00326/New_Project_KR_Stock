@@ -37,18 +37,18 @@ describe("aggregateMonthlyCost", () => {
     expect(summary.totalKrw).toBe(180_000);
     expect(summary.warningTriggered).toBe(false);
     expect(summary.hardcapTriggered).toBe(false);
-    expect(summary.remainingKrw).toBe(220_000);
+    expect(summary.remainingKrw).toBe(320_000); // 65차 LOCKED #5: 50만 hardcap - 18만
   });
 
-  it("35만 경보 — warning 트리거 + hardcap 미도달", () => {
-    const logs = [log("a", "2026-04-01", 360_000, "report")];
+  it("45만 경보 — warning 트리거 + hardcap 미도달 (65차 LOCKED #5)", () => {
+    const logs = [log("a", "2026-04-01", 460_000, "report")];
     const summary = aggregateMonthlyCost(logs, "2026-04-01");
     expect(summary.warningTriggered).toBe(true);
     expect(summary.hardcapTriggered).toBe(false);
   });
 
-  it("40만 hardcap — 양쪽 트리거 + remaining 음수", () => {
-    const logs = [log("a", "2026-04-01", 450_000, "report")];
+  it("50만 hardcap — 양쪽 트리거 + remaining 음수 (65차 LOCKED #5)", () => {
+    const logs = [log("a", "2026-04-01", 550_000, "report")];
     const summary = aggregateMonthlyCost(logs, "2026-04-01");
     expect(summary.warningTriggered).toBe(true);
     expect(summary.hardcapTriggered).toBe(true);
@@ -99,13 +99,13 @@ describe("aggregateMonthlyCost", () => {
 });
 
 describe("isHardcapBlocked", () => {
-  it("40만 미만이면 false", () => {
-    const logs = [log("a", "2026-04-01", 399_999, "report")];
+  it("50만 미만이면 false (65차 LOCKED #5)", () => {
+    const logs = [log("a", "2026-04-01", 499_999, "report")];
     expect(isHardcapBlocked(logs, "2026-04-01")).toBe(false);
   });
 
-  it("정확히 40만이면 true (경계 포함)", () => {
-    const logs = [log("a", "2026-04-01", 400_000, "report")];
+  it("정확히 50만이면 true (경계 포함 · 65차 LOCKED #5)", () => {
+    const logs = [log("a", "2026-04-01", 500_000, "report")];
     expect(isHardcapBlocked(logs, "2026-04-01")).toBe(true);
   });
 
