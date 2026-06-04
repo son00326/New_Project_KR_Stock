@@ -131,6 +131,8 @@ export const D28_DEBATE_CONFIG = {
   maxRounds: 2,
   /** D28 ③ dual-judge: 트랙별 top10 경계 ± N (≈4종목) */
   dualJudgeBoundaryWindow: 2,
+  /** W1b (D3) — dual-judge 불일치 판정: argmax-tf 점수 차 임계 (가설 기본값, projection 비영향) */
+  dualJudgeDisagreeDelta: 15,
 } as const;
 
 // Q1/W2 트랙 볼륨 + D27 Q5 incumbent 상한 (projection 입력)
