@@ -161,6 +161,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
 
 export function formatErrorMessage(code: string): string {
   if (code in KOREAN_MAPPINGS) return KOREAN_MAPPINGS[code];
+  if (
+    code.startsWith("pricing_unknown_model:") ||
+    code.startsWith("pricing_unknown_model ")
+  ) {
+    return KOREAN_MAPPINGS["pricing_unknown_model"];
+  }
   // accept_gate_blocked:* prefix → 게이트 종류는 숨김 (P1.1 hotfix scope).
   // 후속에서 hold_24h / viewers_insufficient 별 안내로 분기 가능.
   if (code.startsWith("accept_gate_blocked:")) {
