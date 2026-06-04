@@ -1,10 +1,10 @@
 // Tier1 selection chunk worker — cron monthly-batch 자동 30선정 (chunk driver).
 // PR5 full-report-batch-worker.ts 패턴 1:1 복제 + finalize(replay) 단계 신규.
 //
-// WHY: tier0_candidates_150(150 후보)을 Core 11 AI panel(종목당 11콜 = 1650)로 평가 → 단/중/장 top10 = 30 선정.
-//   단발 runMonthlyBatchOrchestrator는 1650콜이 한 invocation에 발생해 Vercel 300s 초과(NON-VIABLE).
-//   → (A) fan-out 단계(청크별 종목당 11콜 → panel_result jsonb 큐 저장) ↔ (B) finalize 단계(150/150 terminal 시
-//   runTier1Screening 1회 replay 호출 → 글로벌 rank/select/badge + upsertShortList30)로 2단계 분리.
+// WHY: 트랙별 fresh 후보(short 50 / midlong 100)를 Core 11 AI panel(종목당 11콜)로 평가 → 트랙 top(short 10 / midlong 20) 선정.
+//   단발 runMonthlyBatchOrchestrator는 전 콜이 한 invocation에 발생해 Vercel 300s 초과(NON-VIABLE).
+//   → (A) fan-out 단계(청크별 종목당 11콜 → panel_result jsonb 큐 저장) ↔ (B) finalize 단계(nonTerminal===0 && terminal>0 시
+//   runTier1Screening 1회 replay 호출 → 글로벌 rank/select/badge + upsertShortListTrack)로 2단계 분리. (W2a period_key/track)
 //
 // 한 invocation = 1 chunk (chunkSize 종목 sequential). chunk-advance primary = daily cron 재호출(idempotent),
 // self-continuation은 route의 optional accelerator. run-mutex는 route(guarded)가 보유(단일 worker 보장 → cost 직렬화, 0027 R2 HIGH-1).
@@ -17,8 +17,11 @@
 //   - run-mutex 전용 (acquire/release_selection_worker_lock) — selection의 monthly_batch_runs / acquire_batch_lock_v2 미공유 (0027 R2 HIGH-1).
 //   - retry N=2 transient만 (retryWithBackoff). systemic abort(ai_key_unavailable/cost_hardcap) throw.
 //   - per-ticker fail = mark failed + console.error (alert_event 발행 금지 — enum CLOSED 12종, 0027 B78).
-//   - finalize at remaining==0 & terminal==150: panel_result 모아 runTier1Screening replay 1회(LLM 0콜)
-//     → upsertShortList30. degraded(failed/deferred) ticker는 replay 콜백 reject → runTier1Screening allSettled → ⚪ 자동.
+//   - finalize 게이트 = nonTerminal(pending+running+deferred)===0 && terminal(done+failed)>0 (period_key 필터): panel_result 모아
+//     runTier1Screening({track}) replay 1회(LLM 0콜) → upsertShortListTrack + mark_selection_finalized(run_id fencing).
+//     deferred는 nonTerminal로 finalize 차단(R2 MED-6). degraded(failed/panel null) ticker는 replay 콜백 reject → allSettled → ⚪ 자동.
+//   - (R4 HIGH-2) preflightHardcap을 claim/reset 前에 먼저: fail 시 claim·reset 안 함(attempts 미소진, deferred 유지).
+//     pass 시에만 deferred→pending 재개(attempts 보존) → claim (deadlock 해소).
 //
 // flag 계층: 단발 cron 경로의 MONTHLY_BATCH_CRON_AI_ENABLED(+preflightCronRealAi 4-gate)는 monthly-batch/route.ts
 //   단발 경로 전용. 본 청크 워커는 별 경로이므로 신규 SELECTION_CRON_AUTO_ENABLED로 게이트 (step-0가 동일 4검증 수행 —
@@ -27,7 +30,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
 import { getRoleMaxCostPerCallKrw } from "@/lib/ai/model-registry";
-import type { PersonaScore, Tier1ScreeningResult } from "@/lib/screening/tier1-schema";
+import type {
+  PersonaScore,
+  SelectionTrack,
+  Tier1ScreeningResult,
+} from "@/lib/screening/tier1-schema";
+import { TRACK_FRESH_POOL } from "@/lib/screening/tier1-schema";
 import type { Tier1Candidate, RunTier1ScreeningInput } from "@/lib/screening/persona-eval";
 import type { TickerCommentMap } from "@/lib/data/admin-shortlist-persist";
 import type { PipelineHealthInsert } from "@/lib/data/admin-pipeline-health-insert";
@@ -38,7 +46,6 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_CHUNK_SIZE = 3; // 3 ticker × 11콜 = 33콜/invocation
 const CORE_11_CALLS_PER_TICKER = 11;
-const EXPECTED_TOTAL = 150;
 
 // DI 시그니처 (cron route가 실 구현 주입, 테스트가 mock 주입).
 type Tier0Source = (opts: {
@@ -66,8 +73,11 @@ type GetMonthlyTotal = (
 type RunScreening = (
   input: RunTier1ScreeningInput,
 ) => Promise<Tier1ScreeningResult>;
+// W2a Task 8 — upsertShortListTrack 시그니처 (monthYM, track, selected, options).
+//   rolling writer: short bucket만 주간 in-place 교체, midlong은 carry RPC 내부 처리.
 type Persist = (
-  month: string,
+  monthYM: string,
+  track: SelectionTrack,
   selected: Tier1ScreeningResult["selected"],
   options: { client: SupabaseClient; commentsByTicker?: TickerCommentMap },
 ) => Promise<void>;
@@ -85,8 +95,12 @@ type EmitCostAlert = (
 ) => Promise<void>;
 
 export interface RunTier1SelectionChunkInput {
-  month: string; // YYYY-MM
+  month: string; // YYYY-MM (short_list_30.month 파생)
+  track: SelectionTrack; // 'short' | 'midlong' (W2a 주간/월간 split)
+  periodKey: string; // 's:YYYY-MM-DD'(주) | 'm:YYYY-MM'(월) — job/run 큐 독립 mutex 키
   client: SupabaseClient; // service-role (route가 생성)
+  // 내부 — runGuardedSelectionChunk가 acquire 후 주입. finalize의 mark_selection_finalized run_id fencing용.
+  runId?: string;
   chunkSize?: number;
   promptVersionId: string;
   personasVersionId: string;
@@ -168,7 +182,7 @@ async function markJob(
 
 async function deferOpenJobs(
   client: SupabaseClient,
-  month: string,
+  periodKey: string,
   reason: string,
 ): Promise<void> {
   const { error } = await client
@@ -178,10 +192,26 @@ async function deferOpenJobs(
       last_error: reason,
       finished_at: new Date().toISOString(),
     })
-    .eq("month", month)
+    .eq("period_key", periodKey)
     .in("status", ["pending", "running"]);
   if (error) {
     throw new Error(`selection_defer_failed:${error.code ?? "unknown"}`);
+  }
+}
+
+// (R4 HIGH-2 / R3 HIGH-1) preflight pass 시 deferred → pending 재개 (attempts 보존 — reset 아님).
+//   예산 회복 사이클에서 deferred stuck job을 다시 claim 가능하게 만든다.
+async function resumeDeferredJobs(
+  client: SupabaseClient,
+  periodKey: string,
+): Promise<void> {
+  const { error } = await client
+    .from("tier1_selection_job")
+    .update({ status: "pending" })
+    .eq("period_key", periodKey)
+    .eq("status", "deferred");
+  if (error) {
+    throw new Error(`selection_resume_failed:${error.code ?? "unknown"}`);
   }
 }
 
@@ -225,12 +255,12 @@ async function resetJobForSystemicAbort(
 
 async function releaseSelectionLock(
   client: SupabaseClient,
-  month: string,
+  periodKey: string,
   runId: string,
   status: "succeeded" | "failed",
 ): Promise<void> {
   const { error } = await client.rpc("release_selection_worker_lock", {
-    p_month: month,
+    p_period_key: periodKey,
     p_run_id: runId,
     p_status: status,
   });
@@ -241,34 +271,46 @@ async function releaseSelectionLock(
   }
 }
 
+// finalize 완료 마킹 — run_id fencing RPC (마이그 0031). 후속 acquire는 finalized_at null 가드로 null 반환.
 async function markSelectionFinalized(
   client: SupabaseClient,
-  month: string,
+  periodKey: string,
+  runId: string,
 ): Promise<void> {
-  const { error } = await client
-    .from("tier1_selection_run")
-    .update({ finalized_at: new Date().toISOString() })
-    .eq("month", month)
-    .is("finalized_at", null);
+  const { error } = await client.rpc("mark_selection_finalized", {
+    p_period_key: periodKey,
+    p_run_id: runId,
+  });
   if (error) {
     throw new Error(`selection_finalize_mark_failed:${error.code ?? "unknown"}`);
   }
 }
 
-async function countOpenJobs(
+// period_key 필터 count 헬퍼 4종 (D6 finalize 게이트 + preflight reservation).
+async function countByStatus(
   client: SupabaseClient,
-  month: string,
+  periodKey: string,
+  statuses: string[],
 ): Promise<number> {
   const { count, error } = await client
     .from("tier1_selection_job")
     .select("id", { count: "exact", head: true })
-    .eq("month", month)
-    .in("status", ["pending", "running"]);
+    .eq("period_key", periodKey)
+    .in("status", statuses);
   if (error) {
     throw new Error(`selection_count_failed:${error.code ?? "unknown"}`);
   }
   return count ?? 0;
 }
+
+const countOpenJobs = (client: SupabaseClient, periodKey: string) =>
+  countByStatus(client, periodKey, ["pending", "running"]);
+const countDeferredJobs = (client: SupabaseClient, periodKey: string) =>
+  countByStatus(client, periodKey, ["deferred"]);
+const countNonTerminalJobs = (client: SupabaseClient, periodKey: string) =>
+  countByStatus(client, periodKey, ["pending", "running", "deferred"]);
+const countTerminalJobs = (client: SupabaseClient, periodKey: string) =>
+  countByStatus(client, periodKey, ["done", "failed"]);
 
 /**
  * 1 chunk 처리. route가 run-mutex 보유 상태에서 호출 (단일 worker 보장).
@@ -277,7 +319,7 @@ async function countOpenJobs(
 export async function runTier1SelectionChunk(
   input: RunTier1SelectionChunkInput,
 ): Promise<Tier1SelectionChunkResult> {
-  const { month, client } = input;
+  const { month, track, periodKey, client } = input;
   const chunkSize = input.chunkSize ?? DEFAULT_CHUNK_SIZE;
 
   // ── step 0: fail-closed 선행 검증 (첫 LLM 호출 전, spend 0) ──────────────
@@ -301,11 +343,11 @@ export async function runTier1SelectionChunk(
     return await abortBeforeSpend(input, "cron_system_user_not_found");
   }
 
-  // ── enqueue idempotent: tier0_candidates_150 150 → tier1_selection_job (ON CONFLICT DO NOTHING) ──
+  // ── enqueue idempotent: 트랙 fresh 후보 → tier1_selection_job (period_key/track, ON CONFLICT DO NOTHING) ──
   const candidates = await input.tier0Source({ month, client });
   if (candidates.length === 0) {
     console.info(
-      JSON.stringify({ event: "tier0_candidates_not_seeded", month }),
+      JSON.stringify({ event: "tier0_candidates_not_seeded", month, track, periodKey }),
     );
     return {
       month,
@@ -319,46 +361,38 @@ export async function runTier1SelectionChunk(
       aborted: null,
     };
   }
-  if (candidates.length !== EXPECTED_TOTAL) {
+  // W2a — 저장 expected_total 없음(D6). 후보 수 = 트랙 fresh pool (short 50 / midlong 100).
+  if (candidates.length !== TRACK_FRESH_POOL[track]) {
     return await abortBeforeSpend(
       input,
       `tier0_candidates_invalid_count:${candidates.length}`,
     );
   }
-  // tier0_candidates_150.month는 date(YYYY-MM-01), tier1_selection_job.month는 YYYY-MM.
+  // tier0_candidates.month는 date(YYYY-MM-01), tier1_selection_job.month는 YYYY-MM. period_key/track 명시.
   const enqueueRows = candidates.map((c) => ({
     month,
+    period_key: periodKey,
+    track,
     ticker: c.ticker,
     bucket: bucketOf(c),
   }));
   const { error: enqErr } = await client
     .from("tier1_selection_job")
     .upsert(enqueueRows, {
-      onConflict: "month,ticker",
+      onConflict: "period_key,ticker",
       ignoreDuplicates: true,
     });
   if (enqErr) {
     throw new Error(`selection_enqueue_failed:${enqErr.code ?? "unknown"}`);
   }
 
-  // ── claim 1 chunk (atomic, SKIP LOCKED, attempts<3, stale sweep) ──
-  const { data: claimed, error: claimErr } = await client.rpc(
-    "claim_next_selection_jobs",
-    { p_month: month, p_limit: chunkSize },
-  );
-  if (claimErr) {
-    throw new Error(
-      `claim_next_selection_jobs_failed:${claimErr.code ?? "unknown"}`,
-    );
-  }
-  const jobs = (claimed ?? []) as SelectionJobRow[];
-
-  // ── batch preflight (남은 pending+running × 11콜) ──
-  const pendingCount = await countOpenJobs(client, month);
-  const reservationJobCount = Math.max(pendingCount, jobs.length);
-  const callCount = reservationJobCount * CORE_11_CALLS_PER_TICKER;
-  // W0 D28 ③ model-aware reservation: tier1_panel 역할 단가 (W1 토론 mix로 진화할 단일 지점).
+  // ── (R4 HIGH-2) preflight를 claim/reset 前으로 — budget 초과 사이클에서 attempts 미소진 ──
+  // reservation = (openJobs + deferredJobs)(periodKey) × 11콜 × 역할 단가(W0 model-aware).
   const tier1MaxCostPerCallKrw = getRoleMaxCostPerCallKrw("tier1_panel");
+  const reservationJobCount =
+    (await countOpenJobs(client, periodKey)) +
+    (await countDeferredJobs(client, periodKey));
+  const callCount = reservationJobCount * CORE_11_CALLS_PER_TICKER;
   if (callCount > 0) {
     const currentTotal = await input.getMonthlyTotal(month, {
       client,
@@ -376,8 +410,9 @@ export async function runTier1SelectionChunk(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("cost_hardcap_exceeded")) {
-        // 남은 pending/running을 먼저 deferred 표시해야 alert insert 장애가 month-stop을 막지 않는다.
-        await deferOpenJobs(client, month, "cost_hardcap_exceeded");
+        // preflight fail → claim·reset 안 함(attempts 미소진). 남은 open만 deferred 표시.
+        //   deferred는 그대로 유지(예산 회복 시 재개). alert insert 장애가 stop을 막지 않도록 defer 먼저.
+        await deferOpenJobs(client, periodKey, "cost_hardcap_exceeded");
         await emitCostAlertBestEffort(input, {
           month,
           currentTotalKrw: currentTotal,
@@ -403,7 +438,21 @@ export async function runTier1SelectionChunk(
       currentTotalKrw: currentTotal,
       projectedKrw,
     });
+    // preflight pass 시에만 deferred → pending 재개(attempts 보존) → claim 진입 (deadlock 해소).
+    await resumeDeferredJobs(client, periodKey);
   }
+
+  // ── claim 1 chunk (atomic, SKIP LOCKED, attempts<3, stale sweep) — preflight pass 후 ──
+  const { data: claimed, error: claimErr } = await client.rpc(
+    "claim_next_selection_jobs",
+    { p_period_key: periodKey, p_limit: chunkSize },
+  );
+  if (claimErr) {
+    throw new Error(
+      `claim_next_selection_jobs_failed:${claimErr.code ?? "unknown"}`,
+    );
+  }
+  const jobs = (claimed ?? []) as SelectionJobRow[];
 
   let done = 0;
   let failed = 0;
@@ -431,7 +480,7 @@ export async function runTier1SelectionChunk(
         msg.includes("cost_hardcap_exceeded")
       ) {
         if (msg.includes("cost_hardcap_exceeded")) {
-          await deferOpenJobs(client, month, "cost_hardcap_exceeded");
+          await deferOpenJobs(client, periodKey, "cost_hardcap_exceeded");
           const currentTotalAfter = await input.getMonthlyTotal(month, {
             client,
             callerKind: "service-role",
@@ -460,6 +509,7 @@ export async function runTier1SelectionChunk(
           event: "ticker_persona_panel_failed",
           ticker: job.ticker,
           month,
+          periodKey,
           message: msg,
         }),
       );
@@ -475,12 +525,18 @@ export async function runTier1SelectionChunk(
   }
 
   // ── 남은 작업 수 (forward-progress / finalize 판정) ──
-  const remaining = await countOpenJobs(client, month);
+  //   remaining = open(pending+running) — self-continue accelerator gate용.
+  const remaining = await countOpenJobs(client, periodKey);
 
-  // ── finalize 판정: remaining==0 & terminal==150 → replay 30선정 + persist ──
+  // ── finalize 게이트: nonTerminal(pending+running+deferred)===0 && terminal(done+failed)>0 ──
+  //   (R2 MED-6) deferred는 nonTerminal로 finalize 차단(degraded 조기 finalize 방지). 빈 풀(terminal 0) 미발동.
   let finalized = false;
-  if (remaining === 0) {
-    finalized = await finalizeSelection(input, candidates);
+  const nonTerminal = await countNonTerminalJobs(client, periodKey);
+  if (nonTerminal === 0) {
+    const terminal = await countTerminalJobs(client, periodKey);
+    if (terminal > 0) {
+      finalized = await finalizeSelection(input, candidates);
+    }
   }
 
   // ── 관측: pipeline_health 1 row + 조건부 summary alert ──
@@ -507,32 +563,26 @@ function bucketOf(c: Tier1Candidate): "short" | "mid" | "long" {
 }
 
 /**
- * 150/150 terminal 도달 시 finalize: 저장된 panel_result를 replay 콜백으로 runTier1Screening에 주입해
- * 글로벌 rank/select/badge 1회 실행(LLM 0콜) → upsertShortList30(30 selected).
- * degraded(failed/deferred/panel null) ticker는 replay 콜백 reject → runTier1Screening allSettled → ⚪ 자동.
- * @returns true = finalize+persist 수행 / false = terminal!=150 (아직 미완성, 다음 chunk 대기)
+ * finalize 게이트(nonTerminal===0 && terminal>0)는 caller가 판정. 여기서는 저장된 panel_result를
+ * replay 콜백으로 runTier1Screening({track})에 주입해 글로벌 rank/select/badge 1회 실행(LLM 0콜)
+ * → upsertShortListTrack(month, track, selected). degraded(failed/deferred/panel null)는 콜백 reject → ⚪ 자동.
+ * → mark_selection_finalized(periodKey, runId) run_id fencing 마킹.
+ * @returns true = finalize+persist 수행.
  */
 async function finalizeSelection(
   input: RunTier1SelectionChunkInput,
   candidates: Tier1Candidate[],
 ): Promise<boolean> {
-  const { month, client } = input;
-  // 전체 rows 1회 SELECT (ticker, status, panel_result).
+  const { month, track, periodKey, client } = input;
+  // 전체 rows 1회 SELECT (ticker, status, panel_result) — period_key 필터.
   const { data, error } = await client
     .from("tier1_selection_job")
     .select("ticker, status, panel_result")
-    .eq("month", month);
+    .eq("period_key", periodKey);
   if (error) {
     throw new Error(`selection_finalize_select_failed:${error.code ?? "unknown"}`);
   }
   const rows = (data ?? []) as SelectionFullRow[];
-  const terminal = rows.filter((r) =>
-    r.status === "done" || r.status === "failed" || r.status === "deferred",
-  );
-  // 150/150 terminal 게이트 (단발 orchestrator의 completedPanels!==150 throw를 staging-count 게이트로 이전).
-  if (terminal.length !== EXPECTED_TOTAL) {
-    return false;
-  }
 
   // replay map: status='done' & panel_result 존재만. degraded는 부재 → 콜백 reject → ⚪.
   const storedPanels = new Map<string, PersonaScore[]>();
@@ -542,11 +592,9 @@ async function finalizeSelection(
     }
   }
 
-  // candidates 재공급 (computeTier0Ranks가 원본 candidates 필요 — persona-eval.ts).
-  // W2a Task 3 — runScreening(runTier1Screening)이 track 필수화. period_key/track 재구성은
-  //   Task 8 scope로 input에서 track 전파 예정. 여기서는 signature compat만 (legacy midlong).
+  // candidates 재공급 (computeTier0Ranks가 원본 candidates 필요 — persona-eval.ts). 트랙 전파.
   const result = await input.runScreening({
-    track: "midlong",
+    track,
     candidates,
     promptVersionId: input.promptVersionId,
     personasVersionId: input.personasVersionId,
@@ -560,11 +608,12 @@ async function finalizeSelection(
     },
   });
 
-  await input.persist(month, result.selected, {
+  // rolling writer: short bucket만 주간 in-place 교체, midlong carry는 RPC 내부 (R2 HIGH-2).
+  await input.persist(month, track, result.selected, {
     client,
     commentsByTicker: result.commentsByTicker,
   });
-  await markSelectionFinalized(client, month);
+  await markSelectionFinalized(client, periodKey, input.runId ?? "");
   return true;
 }
 
@@ -578,10 +627,10 @@ export interface GuardedSelectionChunkOutput {
 export async function runGuardedSelectionChunk(
   input: RunTier1SelectionChunkInput,
 ): Promise<GuardedSelectionChunkOutput> {
-  const { month, client } = input;
+  const { month, track, periodKey, client } = input;
   const { data: runId, error: lockErr } = await client.rpc(
     "acquire_selection_worker_lock",
-    { p_month: month },
+    { p_period_key: periodKey, p_track: track, p_month: month },
   );
   if (lockErr) {
     throw new Error(`acquire_lock_failed:${lockErr.code ?? "unknown"}`);
@@ -591,20 +640,22 @@ export async function runGuardedSelectionChunk(
   }
   let chunkSucceeded = false;
   try {
-    const result = await runTier1SelectionChunk(input);
-    await releaseSelectionLock(client, month, runId as string, "succeeded");
+    // runId 주입 — finalize의 mark_selection_finalized run_id fencing.
+    const result = await runTier1SelectionChunk({ ...input, runId: runId as string });
+    await releaseSelectionLock(client, periodKey, runId as string, "succeeded");
     chunkSucceeded = true;
     return { result };
   } catch (err) {
     if (!chunkSucceeded) {
       // run_id fencing: stale reclaim 후 늦게 깨어난 old worker는 p_run_id 불일치로 no-op.
       try {
-        await releaseSelectionLock(client, month, runId as string, "failed");
+        await releaseSelectionLock(client, periodKey, runId as string, "failed");
       } catch (releaseErr) {
         console.error(
           JSON.stringify({
             event: "selection_worker_lock_release_failed",
             month,
+            periodKey,
             message:
               releaseErr instanceof Error
                 ? releaseErr.message
