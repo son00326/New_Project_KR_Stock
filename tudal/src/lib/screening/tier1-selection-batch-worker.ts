@@ -383,6 +383,9 @@ async function selectPeriodRows(
     .select("ticker, status, panel_result, round")
     .eq("period_key", periodKey);
   if (error) {
+    if (isRoundSchemaMissingError(error)) {
+      throw new Error("selection_round_schema_missing");
+    }
     throw new Error(`selection_finalize_select_failed:${error.code ?? "unknown"}`);
   }
   return (data ?? []) as SelectionFullRow[];
