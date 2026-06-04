@@ -15,6 +15,10 @@ import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
+import {
+  resolveEntryPricesKrw,
+  resolveLatestCompletedTradingDay,
+} from "@/lib/data/krx-eod";
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
 import {
@@ -162,20 +166,49 @@ function countRejects(approvals: PortfolioApproval[]): number {
   return approvals.filter((a) => a.approvalType === "reject").length;
 }
 
-function buildInitialSnapshots(input: {
+async function buildInitialSnapshots(input: {
   month: string;
   acceptDate: string;
   shortlist: ShortListItem[];
-}):
+}): Promise<
   | { success: true; snapshots: NewPortfolioSnapshot[] }
-  | { success: false; error: "entry_price_unavailable" } {
+  | { success: false; error: "entry_price_unavailable" }
+> {
+  // W3a — entry_price 이중 게이트(behavior-neutral): flag off 또는 KRX 키 부재 → 현 동작 1:1.
+  //   USER가 PORTFOLIO_REAL_ENTRY_PRICE_ENABLED=true + KRX_OPENAPI_KEY 둘 다 설정 시에만 실 EOD 종가.
+  if (process.env.PORTFOLIO_REAL_ENTRY_PRICE_ENABLED !== "true") {
+    return { success: false, error: "entry_price_unavailable" };
+  }
+  const authKey = process.env.KRX_OPENAPI_KEY;
+  if (!authKey) {
+    return { success: false, error: "entry_price_unavailable" };
+  }
+
+  // 최신 완료 거래일 KOSPI+KOSDAQ 종가 1배치. fetch throw는 catch → entry_price_unavailable
+  //   (snapshot build는 RPC 前이라 accept 트랜잭션 미시작 — money-path 안전).
+  let priceMap: Map<string, number>;
+  try {
+    const basDd = resolveLatestCompletedTradingDay(
+      new Date(),
+      MOCK_KR_BUSINESS_DAYS_2026,
+    );
+    if (!basDd) {
+      return { success: false, error: "entry_price_unavailable" };
+    }
+    priceMap = await resolveEntryPricesKrw(
+      input.shortlist.map((s) => s.ticker),
+      { authKey, basDd },
+    );
+  } catch {
+    return { success: false, error: "entry_price_unavailable" };
+  }
+
   const snapshots: NewPortfolioSnapshot[] = [];
 
   for (const item of input.shortlist) {
-    // T7e.4 safety: never persist synthetic prices to production DB.
-    // Real entry prices must be wired by T7e.8/T7e.6 from a KRX/pykrx/EOD source.
-    const entryPrice = resolveRealEntryPrice();
-    if (entryPrice === null) {
+    // W3a — 실 EOD 종가. 누락(한쪽에도 없음) 또는 ≤0 → 전체 거부(부분 snapshot 금지, money-path 안전).
+    const entryPrice = priceMap.get(item.ticker);
+    if (entryPrice == null || entryPrice <= 0) {
       return { success: false, error: "entry_price_unavailable" };
     }
     snapshots.push({
@@ -213,11 +246,6 @@ function buildInitialSnapshots(input: {
   });
 
   return { success: true, snapshots };
-}
-
-function resolveRealEntryPrice(): number | null {
-  // TODO(T7e.6/T7e.8): wire KRX/pykrx EOD source before enabling real Accept snapshots.
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +316,7 @@ export async function acceptShortList(params: {
   // re-raise on the snapshot side) auto-rollbacks. This removes the orphan
   // approval risk (G-1) that existed when the two writes ran sequentially.
   const acceptDate = new Date().toISOString().slice(0, 10);
-  const snapshotPlan = buildInitialSnapshots({
+  const snapshotPlan = await buildInitialSnapshots({
     month,
     acceptDate,
     shortlist: filterActiveShortlist(shortlist),
