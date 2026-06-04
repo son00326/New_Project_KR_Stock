@@ -22,6 +22,25 @@ import { CANONICAL_SECTORS } from './canonical-sectors';
 export const TIMEFRAMES = ['short', 'mid', 'long'] as const;
 export type Timeframe = (typeof TIMEFRAMES)[number];
 
+// W2a — 선정 트랙. short = 단기(주간) / midlong = 중장기(월간, mid+long).
+export const SELECTION_TRACKS = ['short', 'midlong'] as const;
+export type SelectionTrack = (typeof SELECTION_TRACKS)[number];
+// 트랙별 활성 timeframe (bucket) subset.
+export const TRACK_TIMEFRAMES: Record<SelectionTrack, readonly Timeframe[]> = {
+  short: ['short'],
+  midlong: ['mid', 'long'],
+};
+// 트랙별 selected 목표 수.
+export const TRACK_SELECT_COUNT: Record<SelectionTrack, number> = {
+  short: 10,
+  midlong: 20,
+};
+// 트랙별 fresh 후보 풀 크기 (W2a fresh-only; W2b는 +incumbent로 가변).
+export const TRACK_FRESH_POOL: Record<SelectionTrack, number> = {
+  short: 50,
+  midlong: 100,
+};
+
 /**
  * 5종 consensus 배지 (D19 Q5b 박제, consensus.ts assignBadge 산출).
  */
