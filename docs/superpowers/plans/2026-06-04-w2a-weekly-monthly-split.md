@@ -716,4 +716,6 @@ git commit -am "test(w2a): 통합 게이트 GREEN + 월단일 잔재 grep 0 + ge
 
 ## Execution Handoff
 
-§2.0a 적용: 본 plan = ① Claude 작성 완료 → ② omxy catch-only 검토 → ③ Claude fix → impl 단계(①Claude Workflow/TDD ②omxy 검토 ③omxy 수정 ④Claude 검증 ⑤Claude 수정).
+§2.0a 적용: 본 plan = ① Claude 작성 → ② omxy catch-only 검토 → ③ Claude fix.
+**Plan 단계 omxy R1~R5 CONVERGED** (HEAD acd5de7, 누적 22 catch 반영: R1 6 / R2 6 / R3 5 / R4 5 → R5 CONVERGED "no remaining W2a design defects"). 잔여 = impl-time TDD 노트(per-ticker 쿨다운 + shortlist_not_ready를 manual trigger까지 배선).
+→ impl 단계(①Claude Workflow/TDD ②omxy 검토 ③omxy 수정 ④Claude 검증 ⑤Claude 수정).
