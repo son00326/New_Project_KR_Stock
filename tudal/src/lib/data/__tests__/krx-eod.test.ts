@@ -12,7 +12,7 @@ describe('parseKrxClose', () => {
   it('콤마 종가 → positive number / invalid·zero·negative → null', () => {
     expect(parseKrxClose('71,200')).toBe(71200);
     expect(parseKrxClose('1500')).toBe(1500);
-    for (const v of ['-', '', 'N/A', null, '0', '-10']) {
+    for (const v of ['-', '', 'N/A', 'n/a', null, '0', '-10']) {
       expect(parseKrxClose(v)).toBeNull();
     }
   });
@@ -100,6 +100,14 @@ describe('fetchEodCloseMap', () => {
         authKey: 'k',
       }),
     ).rejects.toThrow('krx_eod_payload_invalid:root');
+    await expect(
+      fetchEodCloseMap({
+        basDd: '20260605',
+        market: 'KOSPI',
+        fetchImpl: async () => okJson([null]),
+        authKey: 'k',
+      }),
+    ).rejects.toThrow('krx_eod_payload_invalid:OutBlock_1_row');
   });
 
   it('4xx 즉시 throw(키 미노출) / 429 backoff 후 성공', async () => {

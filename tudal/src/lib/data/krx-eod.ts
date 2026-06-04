@@ -20,9 +20,13 @@ export type KrxFetchImpl = (
 export function parseKrxClose(v: unknown): number | null {
   if (v == null) return null;
   const s = String(v).trim().replace(/,/g, '');
-  if (s === '' || s === '-' || s === 'N/A') return null;
+  if (s === '' || s === '-' || s.toUpperCase() === 'N/A') return null;
   const n = Number(s);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
@@ -37,7 +41,8 @@ export async function fetchEodCloseMap(opts: {
   fetchImpl?: KrxFetchImpl;
   sleepImpl?: (ms: number) => Promise<void>;
 }): Promise<Map<string, number>> {
-  if (!opts.authKey.trim()) throw new Error('krx_auth_key_missing');
+  const authKey = opts.authKey.trim();
+  if (!authKey) throw new Error('krx_auth_key_missing');
   const fetchImpl =
     opts.fetchImpl ??
     (async (url, init) => {
@@ -51,7 +56,7 @@ export async function fetchEodCloseMap(opts: {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let res: KrxFetchResult;
     try {
-      res = await fetchImpl(url, { headers: { AUTH_KEY: opts.authKey } });
+      res = await fetchImpl(url, { headers: { AUTH_KEY: authKey } });
     } catch {
       // 네트워크/타임아웃 등 일시 오류 → backoff 재시도.
       if (attempt < MAX_RETRIES - 1) await sleep(1500 * 2 ** attempt);
@@ -59,15 +64,16 @@ export async function fetchEodCloseMap(opts: {
     }
     if (res.status === 200) {
       const payload = await res.json();
-      if (payload == null || typeof payload !== 'object' || Array.isArray(payload)) {
+      if (!isRecord(payload)) {
         throw new Error('krx_eod_payload_invalid:root');
       }
-      const rows = (payload as { OutBlock_1?: unknown }).OutBlock_1 ?? [];
+      const rows = payload["OutBlock_1"] ?? [];
       if (!Array.isArray(rows)) throw new Error('krx_eod_payload_invalid:OutBlock_1');
       const map = new Map<string, number>();
-      for (const row of rows as Array<Record<string, unknown>>) {
-        const code = String(row.ISU_CD ?? '').trim();
-        const close = parseKrxClose(row.TDD_CLSPRC);
+      for (const row of rows) {
+        if (!isRecord(row)) throw new Error('krx_eod_payload_invalid:OutBlock_1_row');
+        const code = String(row["ISU_CD"] ?? '').trim();
+        const close = parseKrxClose(row["TDD_CLSPRC"]);
         if (/^\d{6}$/.test(code) && close !== null) map.set(code, close);
       }
       return map;
