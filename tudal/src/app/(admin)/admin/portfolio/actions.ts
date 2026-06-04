@@ -557,6 +557,9 @@ export async function triggerMonthlyBatch(input: {
   try {
     const outcome = await runMonthlyBatchOrchestrator({
       month: input.month,
+      // W2a Task 4 — 단발 orchestrator track 필수화. 단발 경로는 NON-VIABLE(W2a chunk worker로 대체 예정);
+      //   기존 내부 하드코드값('midlong') 보존으로 동기 유지.
+      track: 'midlong',
       adminUserId: user.id,
       promptVersionId:
         process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",

@@ -179,6 +179,9 @@ export async function GET(request: NextRequest) {
     const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? '';
     const outcome = await runMonthlyBatchOrchestrator({
       month,
+      // W2a Task 4 — 단발 orchestrator track 필수화. 단발 경로는 NON-VIABLE(W2a chunk worker로 대체 예정);
+      //   기존 내부 하드코드값('midlong') 보존으로 동기 유지.
+      track: 'midlong',
       // adminUserId는 orchestrator 미사용(vestigial). 실 cost_log.called_by는 makeCallPersonaPanel의 adminUserId.
       adminUserId: 'cron-system',
       promptVersionId:

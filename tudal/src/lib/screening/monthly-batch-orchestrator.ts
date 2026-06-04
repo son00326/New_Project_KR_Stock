@@ -15,7 +15,12 @@ import {
   runTier1Screening,
   type Tier1Candidate,
 } from './persona-eval';
-import type { PersonaScore, Tier1ScreeningResult } from './tier1-schema';
+import type {
+  PersonaScore,
+  SelectionTrack,
+  Tier1ScreeningResult,
+} from './tier1-schema';
+import { TRACK_FRESH_POOL } from './tier1-schema';
 
 export interface OrchestratorLock {
   acquire: (month: string) => Promise<{ acquired: boolean; resumed: boolean }>;
@@ -29,6 +34,12 @@ export interface OrchestratorLock {
 
 export interface RunMonthlyBatchOrchestratorInput {
   month: string; // YYYY-MM
+  /**
+   * W2a Task 4 — 선정 트랙. short = 단기(주간, 후보 50 → 10 selected) /
+   * midlong = 중장기(월간, 후보 100 → 20 selected). 단발 orchestrator는 NON-VIABLE 경로지만
+   * runTier1Screening track 필수화에 맞춰 caller가 명시 전파 (chunk worker는 Task 8 경로 사용).
+   */
+  track: SelectionTrack;
   adminUserId: string;
   promptVersionId: string;
   personasVersionId: string;
@@ -86,9 +97,11 @@ export async function runMonthlyBatchOrchestrator(
   let callCountDone = 0;
   try {
     const candidates = await input.tier0Source();
-    if (candidates.length !== 150) {
+    // W2a Task 4 — 150 단일 리터럴 → 트랙별 fresh 후보 풀 (short 50 / midlong 100).
+    const expectedPool = TRACK_FRESH_POOL[input.track];
+    if (candidates.length !== expectedPool) {
       throw new Error(
-        `tier1_candidates_must_be_150 (got ${candidates.length})`,
+        `tier1_candidates_must_be_${expectedPool} (got ${candidates.length})`,
       );
     }
 
@@ -96,14 +109,13 @@ export async function runMonthlyBatchOrchestrator(
     //   (callPersonaPanel 0회 → cost 0). cron(PR-G)은 MONTHLY_BATCH_CRON_AI_ENABLED off(default) 시 차단.
     await input.preflight({
       month: input.month,
-      callCount: candidates.length * 11, // Core 11 panel = 150*11 = 1650 실 Anthropic 호출 예상.
+      callCount: candidates.length * 11, // Core 11 panel = pool×11 실 Anthropic 호출 예상.
     });
 
     // B3 lesson — runTier1Screening은 allSettled 패턴. throw는 invariant 한정.
-    // W2a Task 3 — runTier1Screening이 track 필수화. 단발 orchestrator는 NON-VIABLE 경로로
-    //   Task 4에서 input.track 전파/150→트랙 게이트 재작성 예정. 여기서는 signature compat만 (legacy midlong).
+    // W2a Task 4 — 단발 orchestrator는 NON-VIABLE 경로지만 input.track를 그대로 전파 (동기 유지).
     const result = await runTier1Screening({
-      track: 'midlong',
+      track: input.track,
       candidates,
       callPersonaPanel: input.callPersonaPanel,
       fetchFinancials: input.fetchFinancials,
