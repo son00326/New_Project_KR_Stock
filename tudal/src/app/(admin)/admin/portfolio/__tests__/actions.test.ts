@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   getDistinctViewerCountsByTicker: vi.fn(),
   // W2a Task 9.5: getActiveShortList를 override 가능한 vi.fn으로 — <30 거부 시나리오 구성.
   getActiveShortList: vi.fn(),
+  // W3a: KRX EOD 모듈 mock.
+  resolveLatestCompletedTradingDay: vi.fn(),
+  resolveEntryPricesKrw: vi.fn(),
+  acceptShortlistRpc: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -28,6 +32,7 @@ vi.mock("@/lib/data/admin-approvals", () => ({
   getApprovalById: mocks.getApprovalById,
   raisePortfolioDispute: mocks.raisePortfolioDispute,
   resolvePortfolioDispute: mocks.resolvePortfolioDispute,
+  acceptShortlistRpc: mocks.acceptShortlistRpc,
 }));
 
 vi.mock("@/lib/data/admin-snapshots", () => ({
@@ -43,6 +48,14 @@ vi.mock("@/lib/data/admin-report-view-log", () => ({
 // W2a Task 9.5: per-test override 가능한 hoisted vi.fn (기본 구현은 beforeEach에서 month 필터 적용).
 vi.mock("@/lib/data/admin-shortlist", () => ({
   getActiveShortList: (...a: unknown[]) => mocks.getActiveShortList(...a),
+}));
+
+// W3a — KRX EOD module mock (실 외부 호출 0). resolveLatestCompletedTradingDay는 결정적 거래일 stub,
+//   resolveEntryPricesKrw는 per-test 가격 Map override.
+vi.mock("@/lib/data/krx-eod", () => ({
+  resolveLatestCompletedTradingDay: (...a: unknown[]) =>
+    mocks.resolveLatestCompletedTradingDay(...a),
+  resolveEntryPricesKrw: (...a: unknown[]) => mocks.resolveEntryPricesKrw(...a),
 }));
 
 const finalApproval: PortfolioApproval = {
@@ -88,6 +101,14 @@ beforeEach(async () => {
   mocks.raisePortfolioDispute.mockResolvedValue("2026-04-04T00:00:00.000Z");
   mocks.resolvePortfolioDispute.mockResolvedValue("2026-04-05T00:00:00.000Z");
   mocks.insertPortfolioSnapshots.mockResolvedValue(undefined);
+  // W3a 기본: 거래일 stub + acceptShortlistRpc 성공. resolveEntryPricesKrw는 per-test override
+  //   (기본 빈 Map — flag-off 테스트는 도달 안 함).
+  mocks.resolveLatestCompletedTradingDay.mockReturnValue("20260417");
+  mocks.resolveEntryPricesKrw.mockResolvedValue(new Map());
+  mocks.acceptShortlistRpc.mockResolvedValue({
+    approvalId: "33333333-3333-3333-3333-333333333333",
+    isFinal: true,
+  });
   // Mock cleanup Step 1.3: 기본 = 게이트 통과 (대표 5종 모두 2인 열람 충족) — 기존 mock seed 동등.
   // 게이트 차단 케이스는 per-test override.
   mocks.getDistinctViewerCountsByTicker.mockResolvedValue(
@@ -244,6 +265,100 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("entry_price_unavailable");
     expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
     expect(mocks.insertPortfolioSnapshots).not.toHaveBeenCalled();
+  });
+
+  // W3a — entry_price 실배선 (KRX EOD). 기본 flag-off는 위 "unavailable" 테스트가 커버(무회귀).
+  it("flag on + KRX_OPENAPI_KEY 부재 → entry_price_unavailable (KRX 미호출)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    // KRX_OPENAPI_KEY 미설정
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.resolveEntryPricesKrw).not.toHaveBeenCalled();
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
+  it("flag on + key + 전 ticker 종가 → 실 entryPrice로 snapshot 영속 (acceptShortlistRpc 호출)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    vi.stubEnv("KRX_OPENAPI_KEY", "krx-test-key");
+    // 모든 요청 ticker에 종가 71200 반환.
+    mocks.resolveEntryPricesKrw.mockImplementation(async (tickers: string[]) =>
+      new Map(tickers.map((t) => [t, 71200])),
+    );
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+    expect(mocks.resolveEntryPricesKrw).toHaveBeenCalledTimes(1);
+    // resolveEntryPricesKrw 2번째 인자에 authKey/basDd 전달
+    const callArgs = mocks.resolveEntryPricesKrw.mock.calls[0];
+    expect(callArgs[1]).toMatchObject({ authKey: "krx-test-key", basDd: "20260417" });
+    // acceptShortlistRpc snapshots에 실 entryPrice (집계행 ticker=null 제외 전부 71200)
+    const rpcArg = mocks.acceptShortlistRpc.mock.calls[0][0];
+    const equitySnaps = rpcArg.snapshots.filter((s: { ticker: string | null }) => s.ticker !== null);
+    expect(equitySnaps.length).toBeGreaterThan(0);
+    expect(equitySnaps.every((s: { entryPrice: number; currentPrice: number }) => s.entryPrice === 71200 && s.currentPrice === 71200)).toBe(true);
+  });
+
+  it("flag on + key + 1 ticker 누락 → 전체 entry_price_unavailable (부분 snapshot 금지)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    vi.stubEnv("KRX_OPENAPI_KEY", "krx-test-key");
+    // 첫 ticker만 누락(Map에서 제외).
+    mocks.resolveEntryPricesKrw.mockImplementation(async (tickers: string[]) =>
+      new Map(tickers.slice(1).map((t) => [t, 50000])),
+    );
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
+  it("flag on + key + KRX fetch throw → entry_price_unavailable (accept 트랜잭션 미시작)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    vi.stubEnv("KRX_OPENAPI_KEY", "krx-test-key");
+    mocks.resolveEntryPricesKrw.mockRejectedValue(new Error("krx_eod_fetch_failed:503"));
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
+  it("flag on + key + 거래일 stale(null) → entry_price_unavailable", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    vi.stubEnv("KRX_OPENAPI_KEY", "krx-test-key");
+    mocks.resolveLatestCompletedTradingDay.mockReturnValue(null);
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.resolveEntryPricesKrw).not.toHaveBeenCalled();
   });
 
   // W2a Task 9.5 (R4 HIGH-3): mixed-cadence(오래된 mid + now() refresh short)에서 쿨다운 anchor가
