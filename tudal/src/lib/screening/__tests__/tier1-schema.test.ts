@@ -7,10 +7,11 @@ import {
   PersonaScoreSchema,
   TickerAggregateSchema,
   Tier1ScreeningResultSchema,
+  makeTier1ScreeningResultSchema,
   TIMEFRAMES,
   TIMEFRAME_HEAVY_PERSONAS,
 } from '../tier1-schema';
-import type { TickerAggregate } from '../tier1-schema';
+import type { TickerAggregate, Timeframe } from '../tier1-schema';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 
 function makePersonaScore(overrides: Partial<Record<string, unknown>> = {}) {
@@ -395,6 +396,210 @@ describe('tier1-schema (PR2 lock-in)', () => {
       expect(() => Tier1ScreeningResultSchema.parse(bad)).toThrow(
         /backfill_assigned_timeframe_must_differ_from_primary/
       );
+    });
+  });
+
+  // W2a — Task 2: makeTier1ScreeningResultSchema(track, poolSize) factory.
+  // 트랙별 count refine 동등 강도 (short: 10, midlong: mid10+long10).
+  describe('makeTier1ScreeningResultSchema (W2a track factory)', () => {
+    /** track별 selected aggregate 빌더 (primary assignment). */
+    function makeSelected(tfs: readonly Timeframe[], perTf: number) {
+      let i = 0;
+      const out: TickerAggregate[] = [];
+      for (const tf of tfs) {
+        for (let k = 0; k < perTf; k++) {
+          out.push(
+            makeTickerAggregate(`S${String(i++).padStart(3, '0')}`, {
+              primary_timeframe: tf,
+              assigned_by: 'primary',
+              assigned_timeframe: tf,
+            })
+          );
+        }
+      }
+      return out;
+    }
+    function makeNotSelected(count: number) {
+      return Array.from({ length: count }, (_, idx) =>
+        makeTickerAggregate(`N${String(idx).padStart(3, '0')}`, {
+          assigned_by: null,
+          assigned_timeframe: null,
+        })
+      );
+    }
+    function buildShortResult(selectedCount: number, poolSize: number) {
+      const selected = makeSelected(['short'], selectedCount);
+      const notSelected = makeNotSelected(poolSize - selectedCount);
+      return {
+        selected,
+        notSelected,
+        selectionMeta: {
+          shortCount: selected.filter((a) => a.assigned_timeframe === 'short').length,
+          midCount: 0,
+          longCount: 0,
+          backfillCounts: { short: 0, mid: 0, long: 0 },
+          promptVersionId: 'tier1-v1.0.0',
+          personasVersionId: 'core11-v1.0.0',
+          generatedAt: '2026-06-04T15:00:00.000Z',
+        },
+      };
+    }
+    function buildMidlongResult(midCount: number, longCount: number, poolSize: number) {
+      // mid 슬롯 + long 슬롯을 하나의 증가 인덱스로 빌드 (티커 유일성 보장).
+      let i = 0;
+      const tfArr: Timeframe[] = [
+        ...Array<Timeframe>(midCount).fill('mid'),
+        ...Array<Timeframe>(longCount).fill('long'),
+      ];
+      const selected = tfArr.map((tf) =>
+        makeTickerAggregate(`S${String(i++).padStart(3, '0')}`, {
+          primary_timeframe: tf,
+          assigned_by: 'primary',
+          assigned_timeframe: tf,
+        })
+      );
+      const notSelected = makeNotSelected(poolSize - selected.length);
+      return {
+        selected,
+        notSelected,
+        selectionMeta: {
+          shortCount: 0,
+          midCount: selected.filter((a) => a.assigned_timeframe === 'mid').length,
+          longCount: selected.filter((a) => a.assigned_timeframe === 'long').length,
+          backfillCounts: { short: 0, mid: 0, long: 0 },
+          promptVersionId: 'tier1-v1.0.0',
+          personasVersionId: 'core11-v1.0.0',
+          generatedAt: '2026-06-04T15:00:00.000Z',
+        },
+      };
+    }
+
+    describe('short track', () => {
+      it('selected 10 (all short) + notSelected poolSize-10 parses', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 50);
+        const ok = schema.parse(buildShortResult(10, 50));
+        expect(ok.selected).toHaveLength(10);
+        expect(ok.notSelected).toHaveLength(40);
+      });
+
+      it('selected 9 → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 50);
+        expect(schema.safeParse(buildShortResult(9, 50)).success).toBe(false);
+      });
+
+      it('notSelected count mismatch (poolSize-10 위반) → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 50);
+        const bad = buildShortResult(10, 50);
+        bad.notSelected = makeNotSelected(39); // should be 40
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('selected에 mid bucket 섞이면 fail (inactive timeframe)', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 50);
+        const bad = buildShortResult(10, 50);
+        bad.selected[0] = makeTickerAggregate('S000', {
+          primary_timeframe: 'mid',
+          assigned_by: 'primary',
+          assigned_timeframe: 'mid',
+        });
+        // selectionMeta still says short=10; assigned actual short=9 → also fails — both refines reject impurity
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('poolSize 가변(80) — notSelected 70 parses', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 80);
+        const ok = schema.parse(buildShortResult(10, 80));
+        expect(ok.notSelected).toHaveLength(70);
+      });
+    });
+
+    describe('midlong track', () => {
+      it('mid10 + long10 = 20 + notSelected poolSize-20 parses', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        const ok = schema.parse(buildMidlongResult(10, 10, 100));
+        expect(ok.selected).toHaveLength(20);
+        expect(ok.notSelected).toHaveLength(80);
+      });
+
+      it('mid11 (long9) → fail (per active timeframe must be 10)', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        expect(schema.safeParse(buildMidlongResult(11, 9, 100)).success).toBe(false);
+      });
+
+      it('selected 19 → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        expect(schema.safeParse(buildMidlongResult(10, 9, 100)).success).toBe(false);
+      });
+
+      it('selected에 short bucket 섞이면 fail (inactive timeframe)', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        const bad = buildMidlongResult(10, 10, 100);
+        bad.selected[0] = makeTickerAggregate('S000', {
+          primary_timeframe: 'short',
+          assigned_by: 'primary',
+          assigned_timeframe: 'short',
+        });
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+    });
+
+    describe('shared cross-field refines (53차 §5 회귀 방어, 트랙별 동등)', () => {
+      it('short: duplicate ticker in selected → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 50);
+        const bad = buildShortResult(10, 50);
+        bad.selected[1] = { ...bad.selected[0] };
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('midlong: selected ∩ notSelected disjoint 위반 → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        const bad = buildMidlongResult(10, 10, 100);
+        bad.notSelected[0] = {
+          ...bad.selected[0],
+          assigned_by: null,
+          assigned_timeframe: null,
+        };
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('short: notSelected with non-null assigned metadata → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('short', 50);
+        const bad = buildShortResult(10, 50);
+        bad.notSelected[0] = {
+          ...bad.notSelected[0],
+          assigned_by: 'primary',
+          assigned_timeframe: 'short',
+        };
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('midlong: backfillCounts mismatch → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        const bad = buildMidlongResult(10, 10, 100);
+        bad.selectionMeta.backfillCounts = { short: 0, mid: 5, long: 0 };
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('midlong: primary assigned_timeframe ≠ primary_timeframe → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        const bad = buildMidlongResult(10, 10, 100);
+        bad.selected[0] = {
+          ...bad.selected[0],
+          primary_timeframe: 'long',
+          assigned_by: 'primary',
+          assigned_timeframe: 'mid',
+        };
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
+
+      it('midlong: backfill with assigned_timeframe === primary_timeframe → fail', () => {
+        const schema = makeTier1ScreeningResultSchema('midlong', 100);
+        const bad = buildMidlongResult(10, 10, 100);
+        // mid slot에 backfill로 바꾸되 primary_timeframe도 mid → backfill semantic 위반
+        bad.selected[0] = { ...bad.selected[0], assigned_by: 'backfill' };
+        bad.selectionMeta.backfillCounts = { short: 0, mid: 1, long: 0 };
+        expect(schema.safeParse(bad).success).toBe(false);
+      });
     });
   });
 });

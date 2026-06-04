@@ -225,20 +225,169 @@ export const TickerCommentSchema = z.object({
 export type TickerComment = z.infer<typeof TickerCommentSchema>;
 
 /**
- * Tier1ScreeningResult — PR2 deliverable.
- *
- * 30 selected (10/timeframe) + 120 notSelected = 150 total.
- * refine: counts 일관성 검증.
+ * Tier1ScreeningResult base shape (refine 미적용).
  *
  * PR-E: commentsByTicker (optional) — 성공 panel ticker별 AI 코멘트/conviction. 기존 refine 무영향.
  */
-export const Tier1ScreeningResultSchema = z
-  .object({
-    selected: z.array(TickerAggregateSchema),
-    notSelected: z.array(TickerAggregateSchema),
-    selectionMeta: SelectionMetaSchema,
-    commentsByTicker: z.record(z.string(), TickerCommentSchema).optional(),
-  })
+const tier1ScreeningResultBaseSchema = z.object({
+  selected: z.array(TickerAggregateSchema),
+  notSelected: z.array(TickerAggregateSchema),
+  selectionMeta: SelectionMetaSchema,
+  commentsByTicker: z.record(z.string(), TickerCommentSchema).optional(),
+});
+
+/**
+ * W2a — 트랙별 Tier1ScreeningResult 스키마 factory.
+ *
+ * - short: selected=10 (전부 bucket='short') · mid/long count=0 · notSelected=poolSize-10.
+ * - midlong: selected=20 (mid 10 + long 10) · short count=0 · notSelected=poolSize-20.
+ *
+ * 53차 §5 PR2 11개 cross-field refine을 **트랙별로 동등 강도** 유지(corruption 방어 회귀 금지):
+ *   count·disjoint·unique·assigned-metadata·selectionMeta 실분포 정합·backfill 정합·
+ *   primary↔primary_timeframe·active-tf-perTf(10)·inactive-tf 0·backfill≠primary.
+ *
+ * @param track     'short' | 'midlong'
+ * @param poolSize  후보 풀 크기 (W2a fresh-only; W2b는 +incumbent로 가변). notSelected = poolSize - selectCount.
+ */
+export function makeTier1ScreeningResultSchema(track: SelectionTrack, poolSize: number) {
+  const selectCount = TRACK_SELECT_COUNT[track]; // short 10 / midlong 20
+  const activeTfs = TRACK_TIMEFRAMES[track]; // ['short'] / ['mid','long']
+  const activeSet = new Set<Timeframe>(activeTfs);
+  const inactiveTfs = TIMEFRAMES.filter((tf) => !activeSet.has(tf));
+  const perTf = 10; // 활성 timeframe당 목표 수
+
+  return (
+    tier1ScreeningResultBaseSchema
+      .refine((v) => v.selected.length === selectCount, {
+        message: `selected_must_be_${selectCount}`,
+      })
+      .refine((v) => v.notSelected.length === poolSize - selectCount, {
+        message: 'notSelected_count_mismatch',
+      })
+      .refine(
+        (v) =>
+          v.selectionMeta.shortCount +
+            v.selectionMeta.midCount +
+            v.selectionMeta.longCount ===
+          v.selected.length,
+        { message: 'selectionMeta_count_mismatch' }
+      )
+      // 53차 §5 reviewer CR-02 정정 박제 — duplicate ticker silent corruption 차단.
+      .refine(
+        (v) => new Set(v.selected.map((a) => a.ticker)).size === v.selected.length,
+        { message: 'selected_tickers_must_be_unique' }
+      )
+      .refine(
+        (v) => new Set(v.notSelected.map((a) => a.ticker)).size === v.notSelected.length,
+        { message: 'notSelected_tickers_must_be_unique' }
+      )
+      // 53차 §5 reviewer omxy R5 BLOCKER 3 정정 박제 — selected ∩ notSelected = ∅ 보장.
+      .refine(
+        (v) => {
+          const selSet = new Set(v.selected.map((a) => a.ticker));
+          return v.notSelected.every((a) => !selSet.has(a.ticker));
+        },
+        { message: 'selected_and_notSelected_must_be_disjoint' }
+      )
+      // selected items는 assigned_by + assigned_timeframe 모두 non-null.
+      .refine(
+        (v) =>
+          v.selected.every(
+            (a) => a.assigned_by !== null && a.assigned_timeframe !== null
+          ),
+        { message: 'selected_must_have_assigned_metadata' }
+      )
+      // notSelected items는 assigned_by + assigned_timeframe 모두 null (선정 안 됨).
+      .refine(
+        (v) =>
+          v.notSelected.every(
+            (a) => a.assigned_by === null && a.assigned_timeframe === null
+          ),
+        { message: 'notSelected_must_have_null_assigned_metadata' }
+      )
+      // 53차 §5 reviewer omxy R6 BLOCKER 2 정정 박제 — selectionMeta count가 selected.assigned_timeframe 실 분포와 일치.
+      .refine(
+        (v) => {
+          const shortActual = v.selected.filter((a) => a.assigned_timeframe === 'short').length;
+          const midActual = v.selected.filter((a) => a.assigned_timeframe === 'mid').length;
+          const longActual = v.selected.filter((a) => a.assigned_timeframe === 'long').length;
+          return (
+            v.selectionMeta.shortCount === shortActual &&
+            v.selectionMeta.midCount === midActual &&
+            v.selectionMeta.longCount === longActual
+          );
+        },
+        { message: 'selectionMeta_counts_must_match_assigned_timeframe' }
+      )
+      // backfillCounts[tf] === selected.filter(backfill && assigned_timeframe===tf).length
+      .refine(
+        (v) => {
+          const backfillByTf = (tf: Timeframe) =>
+            v.selected.filter(
+              (a) => a.assigned_by === 'backfill' && a.assigned_timeframe === tf
+            ).length;
+          return (
+            v.selectionMeta.backfillCounts.short === backfillByTf('short') &&
+            v.selectionMeta.backfillCounts.mid === backfillByTf('mid') &&
+            v.selectionMeta.backfillCounts.long === backfillByTf('long')
+          );
+        },
+        { message: 'selectionMeta_backfillCounts_must_match_assigned' }
+      )
+      // primary 선정은 assigned_timeframe === primary_timeframe.
+      .refine(
+        (v) =>
+          v.selected.every(
+            (a) => a.assigned_by !== 'primary' || a.assigned_timeframe === a.primary_timeframe
+          ),
+        { message: 'primary_assigned_timeframe_must_equal_primary_timeframe' }
+      )
+      // W2a — 활성 timeframe별 각 10개 lock-in (트랙별 동등). 53차 §5 R7 BLOCKER의 트랙 일반화.
+      // short: short=10 / midlong: mid=10 & long=10. corruption bypass(예: short=30) 차단.
+      .refine(
+        (v) =>
+          activeTfs.every(
+            (tf) => v.selected.filter((a) => a.assigned_timeframe === tf).length === perTf
+          ),
+        { message: 'per_active_timeframe_must_be_10' }
+      )
+      // W2a — selected에 비활성 timeframe(bucket) 혼입 차단 (트랙 purity).
+      .refine(
+        (v) =>
+          v.selected.filter(
+            (a) => a.assigned_timeframe !== null && !activeSet.has(a.assigned_timeframe)
+          ).length === 0,
+        { message: 'no_inactive_timeframe_in_selected' }
+      )
+      // W2a — 비활성 timeframe의 selectionMeta count는 0이어야 함.
+      .refine(
+        (v) =>
+          inactiveTfs.every((tf) => {
+            const key = (`${tf}Count`) as 'shortCount' | 'midCount' | 'longCount';
+            return v.selectionMeta[key] === 0;
+          }),
+        { message: 'inactive_timeframe_count_must_be_0' }
+      )
+      // 53차 §5 reviewer omxy R7 optional 박제 — backfill row는 assigned_timeframe !== primary_timeframe 보장.
+      // (생성 로직: ticker가 mid primary면 mid에 primary로 들어가지 backfill 안 됨.)
+      .refine(
+        (v) =>
+          v.selected.every(
+            (a) => a.assigned_by !== 'backfill' || a.assigned_timeframe !== a.primary_timeframe
+          ),
+        { message: 'backfill_assigned_timeframe_must_differ_from_primary' }
+      )
+  );
+}
+
+/**
+ * Tier1ScreeningResult — PR2 deliverable (legacy 3-timeframe 단일 경로).
+ *
+ * 30 selected (short/mid/long 각 10) + 120 notSelected = 150 total.
+ * **하위호환 alias** — 단발 경로(persona-eval.ts runTier1Screening)가 W2a Task 3 트랙화 전까지 무회귀 소비.
+ * 53차 §5 lock-in 11 refine 원본 강도 그대로 보존(10/10/10 hard-lock 포함).
+ */
+export const Tier1ScreeningResultSchema = tier1ScreeningResultBaseSchema
   .refine((v) => v.selected.length === 30, { message: 'selected_must_be_30' })
   .refine((v) => v.notSelected.length === 120, { message: 'notSelected_must_be_120' })
   .refine(
