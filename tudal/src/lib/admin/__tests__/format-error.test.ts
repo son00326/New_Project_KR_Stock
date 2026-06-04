@@ -95,6 +95,11 @@ const KNOWN_ACTION_CODES = [
   "tier1_candidates_pool_out_of_range",
   "incumbents_count_exceeded",
   "incumbents_query_failed",
+  // W1a (D26 Q4) — mix slot + R2 반박 라운드
+  "tier1_panel_slot_out_of_range",
+  "r2_enqueue_failed",
+  "debate_r1_panel_missing",
+  "debate_r1_prior_missing",
 ];
 
 describe("formatErrorMessage", () => {
@@ -139,6 +144,20 @@ describe("formatErrorMessage", () => {
       expect(formatErrorMessage("pending-s8")).toBe(
         "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
       );
+    });
+
+    it("W1a suffix handlers — slot/r2/debate + ai_call_failed:transient (fallback 오류: 노출 금지)", () => {
+      for (const code of [
+        "tier1_panel_slot_out_of_range:11",
+        "r2_enqueue_failed:PGRST000",
+        "debate_r1_panel_missing:005930",
+        "debate_r1_prior_missing:warren-buffett",
+        "ai_call_failed:transient:429",
+      ]) {
+        const msg = formatErrorMessage(code);
+        expect(msg).toMatch(/[가-힣]/);
+        expect(msg).not.toMatch(/^오류:/);
+      }
     });
 
     it("W2b suffix handlers — pool range / incumbents (fallback 오류: 노출 금지)", () => {

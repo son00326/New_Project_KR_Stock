@@ -100,6 +100,11 @@ const KOREAN_MAPPINGS: Record<string, string> = {
     "후보 풀 크기가 트랙 허용 범위를 벗어났습니다 (fresh+incumbent)",
   incumbents_count_exceeded: "직전 리스트(incumbent) 수가 트랙 허용치를 초과했습니다",
   incumbents_query_failed: "직전 리스트(incumbent) 조회에 실패했습니다",
+  // W1a (D26 Q4) — mix slot + R2 반박 라운드
+  tier1_panel_slot_out_of_range: "패널 슬롯 인덱스가 범위를 벗어났습니다 (Core 11)",
+  r2_enqueue_failed: "반박 라운드(R2) 작업 등록에 실패했습니다",
+  debate_r1_panel_missing: "반박 라운드 입력(1차 평가)이 없어 해당 종목을 건너뜁니다",
+  debate_r1_prior_missing: "반박 라운드 입력에 일부 위원의 1차 평가가 없습니다",
   tier1_screening_failed: "Tier 1 평가에 실패했습니다",
   shortlist_persist_failed: "Short List 저장에 실패했습니다",
   commit_badge_only_failed: "배지 commit에 실패했습니다",
@@ -188,6 +193,23 @@ export function formatErrorMessage(code: string): string {
   // W2a 트랙 분리 후 fresh pool 50/100 변형 (`tier1_candidates_must_be_50 (got N)` 등) — 일반화 매핑.
   if (code.startsWith("tier1_candidates_must_be_")) {
     return "Tier 0 후보 수가 트랙 기대치와 다릅니다";
+  }
+  // W1a (D26 Q4) — suffix throw 호환 (`:idx` / `:<pg code>` / `:ticker` / `:persona` / `:status` 숨김).
+  if (code.startsWith("tier1_panel_slot_out_of_range")) {
+    return KOREAN_MAPPINGS["tier1_panel_slot_out_of_range"];
+  }
+  if (code.startsWith("r2_enqueue_failed")) {
+    return KOREAN_MAPPINGS["r2_enqueue_failed"];
+  }
+  if (code.startsWith("debate_r1_panel_missing")) {
+    return KOREAN_MAPPINGS["debate_r1_panel_missing"];
+  }
+  if (code.startsWith("debate_r1_prior_missing")) {
+    return KOREAN_MAPPINGS["debate_r1_prior_missing"];
+  }
+  // W1a (D9) — transient 분류 suffix는 기존 ai_call_failed 메시지 재사용.
+  if (code.startsWith("ai_call_failed:transient")) {
+    return KOREAN_MAPPINGS["ai_call_failed"];
   }
   // W2b (D27 Q5) — suffix throw 호환 (`:track:N` / `:N>M` / `:<pg code>` 숨김).
   if (code.startsWith("tier1_candidates_pool_out_of_range")) {
