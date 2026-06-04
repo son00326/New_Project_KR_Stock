@@ -400,7 +400,13 @@ export async function runTier1SelectionChunk(
   // incumbent를 평가에서 누락시키면 안 됨). cold start []는 fresh-only.
   // 부분 그룹(예: short 9/10)은 carry_short_into_month가 midlong 졸업 ticker를 제외하는 정당 상태이므로
   // 허용 — `> TRACK_SELECT_COUNT`만 corruption 방어 fail-closed.
-  const incumbents = await input.incumbentsSource({ track, month, client });
+  let incumbents: IncumbentInfo[];
+  try {
+    incumbents = await input.incumbentsSource({ track, month, client });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return await abortBeforeSpend(input, message);
+  }
   const expectedIncumbents = TRACK_SELECT_COUNT[track];
   if (incumbents.length > expectedIncumbents) {
     return await abortBeforeSpend(
