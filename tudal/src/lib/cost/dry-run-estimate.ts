@@ -2,7 +2,7 @@
 // BL-18 (B) 견적 임계치 — 실 API 호출 없이 보수적 월간 비용 상한 산정 (S6 진입 게이트)
 // ref: ServicePlan-Admin §1A.0 · §3.12 R3.12-1~3
 //
-// 목적: M17 35만 경보·40만 hardcap이 실측값으로 검증되기 전, 토큰 사용량을 보수적으로
+// 목적: M17 45만 경보·50만 hardcap이 실측값으로 검증되기 전, 토큰 사용량을 보수적으로
 //       추정해 임계치가 합리적인지 확인. 실 API 토큰 dry-run은 KIS·Anthropic 키 확보 후
 //       추후 진행. 본 모듈은 추정 시나리오 3종(low/base/worst) + 산식 박제.
 //
@@ -158,9 +158,9 @@ export function buildDryRunReport(
     `모델: ${model}. 환율: USD 1 = ₩${1430}.`,
     "low = base × 0.6 (캐싱 적용 낙관). worst = base × 1.5 (안전 margin).",
     verdict === "over"
-      ? "⚠️ worst 시나리오가 40만 hardcap을 초과 — 모델 다운그레이드 또는 페르소나 수 축소 검토."
+      ? "⚠️ worst 시나리오가 50만 hardcap을 초과 — 모델 다운그레이드 또는 페르소나 수 축소 검토."
       : verdict === "tight"
-        ? "⚠️ worst 시나리오가 35만 경보를 초과 — base 운용 중에는 안전하나 마진 좁음."
+        ? "⚠️ worst 시나리오가 45만 경보를 초과 — base 운용 중에는 안전하나 마진 좁음."
         : "✅ worst 시나리오가 임계치 이내. 정상 운용 가능.",
   ];
 
