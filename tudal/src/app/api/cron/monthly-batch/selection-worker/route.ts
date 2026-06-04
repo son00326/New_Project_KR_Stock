@@ -8,9 +8,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { runGuardedSelectionChunk } from "@/lib/screening/tier1-selection-batch-worker";
+import {
+  runGuardedSelectionChunk,
+  type GuardedSelectionChunkOutput,
+} from "@/lib/screening/tier1-selection-batch-worker";
 import { getTier0Candidates } from "@/lib/data/admin-tier0-candidates";
-import { currentMidlongPeriodKey } from "@/lib/screening/selection-period";
+import {
+  currentShortPeriodKey,
+  currentMidlongPeriodKey,
+  isShortDue,
+  isMidlongDue,
+  monthYMOfPeriod,
+} from "@/lib/screening/selection-period";
+import type { SelectionTrack } from "@/lib/screening/tier1-schema";
 import { makeCallPersonaPanel } from "@/lib/screening/persona-panel-adapter";
 import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
 import { callPersona } from "@/lib/ai/anthropic-client";
@@ -44,10 +54,22 @@ function isAuthorized(request: NextRequest): boolean {
   return header === `Bearer ${secret}`;
 }
 
-function currentMonthYM(): string {
-  const now = new Date();
-  const m = `${now.getUTCMonth() + 1}`.padStart(2, "0");
-  return `${now.getUTCFullYear()}-${m}`;
+// now seam — 테스트만 `?now=<ISO>` 주입(결정성). 운영은 무인자 → new Date().
+//   유효하지 않은 값이면 무시(현재 시각). due-gate/period_key는 KST=UTC+9로 selection-period가 보정.
+function resolveNow(request: NextRequest): Date {
+  const raw = request.nextUrl.searchParams.get("now");
+  if (!raw) return new Date();
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+// 트랙별 chunk 결과 보고(부분실패 격리 — 한 트랙 throw가 다른 트랙·전체를 막지 않음, R3 MED-5).
+interface TrackOutcome {
+  track: SelectionTrack;
+  ok: boolean;
+  skipped?: GuardedSelectionChunkOutput["skipped"];
+  result?: NonNullable<GuardedSelectionChunkOutput["result"]>;
+  error?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -63,65 +85,95 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const month = currentMonthYM();
-  const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? "";
-
-  // 전용 run-mutex(0027 R2 HIGH-1) + chunk + release(run_id fencing) — 공용 guarded entry.
-  let guarded;
-  try {
-    const supabase = createServiceRoleClient();
-    guarded = await runGuardedSelectionChunk({
-      month,
-      // W2a Task 8 — period_key/track 필수화. 본 route는 dormant(SELECTION_CRON_AUTO_ENABLED off)
-      //   + Task 9에서 KST due-gate(short/midlong 분기 + per-track 실패격리)로 전면 재작성 예정.
-      //   현재는 compile-only 어댑터(midlong 단일). 활성 path 무회귀(dormant).
+  // W2a Task 9 — KST due-gate(Hobby-safe daily 단일 route): 월요일=short / 매월1일=midlong.
+  //   둘 다 due(1일=월요일)면 순차 2회 — 각 독립 period_key라 트랙별 독립 run-mutex.
+  const now = resolveNow(request);
+  const dueTracks: { track: SelectionTrack; periodKey: string; month: string }[] =
+    [];
+  if (isShortDue(now)) {
+    const periodKey = currentShortPeriodKey(now);
+    dueTracks.push({ track: "short", periodKey, month: monthYMOfPeriod(periodKey) });
+  }
+  if (isMidlongDue(now)) {
+    const periodKey = currentMidlongPeriodKey(now);
+    dueTracks.push({
       track: "midlong",
-      periodKey: currentMidlongPeriodKey(new Date()),
-      client: supabase,
-      promptVersionId: process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
-      personasVersionId: process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
-      tier0Source: (opts) => getTier0Candidates({ track: "midlong", ...opts }),
-      // 실 Core 11 panel (PR-C 어댑터). costClient=service-role → callPersona가 cost_log INSERT 가능.
-      //   adminUserId=CRON_SYSTEM_USER_ID(검증된 UUID) → cost_log.called_by FK 통과. step-0 off면 미도달.
-      callPersonaPanel: makeCallPersonaPanel({
-        callPersona,
-        personas: CORE_11_PERSONAS,
-        reflectionContext: "",
-        adminUserId: cronSystemUserId,
-        costClient: supabase,
-      }),
-      fetchFinancials: (ticker) =>
-        fetchFinancialsSummary(ticker, { client: supabase }),
-      preflightHardcap,
-      getMonthlyTotal,
-      // persist는 finalize에서만 도달. rolling writer(트랙별 in-place 교체) + commentsByTicker 라우팅.
-      persist: (m, t, selected, options) =>
-        upsertShortListTrack(m, t, selected, options),
-      // finalize replay seam — 저장된 panel_result로 글로벌 rank/select 1회 (LLM 0콜).
-      runScreening: runTier1Screening,
-      insertPipelineHealth,
-      insertAlertEvents,
-      emitCostAlert,
+      periodKey,
+      month: monthYMOfPeriod(periodKey),
     });
-  } catch (err) {
-    const code = err instanceof Error ? err.message : "unknown";
-    return NextResponse.json({ ok: false, error: code }, { status: 502 });
   }
 
-  if (guarded.skipped) {
+  // 둘 다 not due → 200 no-op (mutex 미취득, spend 0).
+  if (dueTracks.length === 0) {
     return NextResponse.json(
-      { ok: true, skipped: true, reason: guarded.skipped },
+      { ok: true, skipped: true, reason: "no_track_due" },
       { status: 200 },
     );
   }
-  const result = guarded.result!;
+
+  const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? "";
+  const supabase = createServiceRoleClient();
+
+  // per-track try/catch/continue — 한 트랙 실패가 다른 트랙을 막지 않음(부분실패 보고, 전체 502 단일화 금지).
+  const outcomes: TrackOutcome[] = [];
+  for (const t of dueTracks) {
+    try {
+      const guarded = await runGuardedSelectionChunk({
+        month: t.month,
+        track: t.track,
+        periodKey: t.periodKey,
+        client: supabase,
+        promptVersionId:
+          process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
+        personasVersionId: process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
+        tier0Source: (opts) =>
+          getTier0Candidates({ track: t.track, ...opts }),
+        // 실 Core 11 panel (PR-C 어댑터). costClient=service-role → callPersona가 cost_log INSERT 가능.
+        //   adminUserId=CRON_SYSTEM_USER_ID(검증된 UUID) → cost_log.called_by FK 통과. step-0 off면 미도달.
+        callPersonaPanel: makeCallPersonaPanel({
+          callPersona,
+          personas: CORE_11_PERSONAS,
+          reflectionContext: "",
+          adminUserId: cronSystemUserId,
+          costClient: supabase,
+        }),
+        fetchFinancials: (ticker) =>
+          fetchFinancialsSummary(ticker, { client: supabase }),
+        preflightHardcap,
+        getMonthlyTotal,
+        // persist는 finalize에서만 도달. rolling writer(트랙별 in-place 교체) + commentsByTicker 라우팅.
+        persist: (m, tr, selected, options) =>
+          upsertShortListTrack(m, tr, selected, options),
+        // finalize replay seam — 저장된 panel_result로 글로벌 rank/select 1회 (LLM 0콜).
+        runScreening: runTier1Screening,
+        insertPipelineHealth,
+        insertAlertEvents,
+        emitCostAlert,
+      });
+      if (guarded.skipped) {
+        outcomes.push({ track: t.track, ok: true, skipped: guarded.skipped });
+      } else {
+        outcomes.push({ track: t.track, ok: true, result: guarded.result! });
+      }
+    } catch (err) {
+      outcomes.push({
+        track: t.track,
+        ok: false,
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  }
 
   // optional self-continue accelerator (env-gated, load-bearing 아님).
-  // OPS-3: forward-progress gate — claimed>0일 때만 self-continue (zero-progress tight-loop 차단).
-  // remaining=0(finalize 포함)이면 self-continue 안 함.
-  const madeProgress = result.claimed > 0;
-  const hasMore =
-    result.remaining > 0 && result.aborted === null && madeProgress;
+  // OPS-3: forward-progress gate — claimed>0(remaining>0·미abort)일 때만 self-continue.
+  //   per-track 분기 후엔 어느 due 트랙이라도 forward-progress 있으면 1회 self-continue(다음 chunk advance).
+  const hasMore = outcomes.some(
+    (o) =>
+      o.result !== undefined &&
+      o.result.remaining > 0 &&
+      o.result.aborted === null &&
+      o.result.claimed > 0,
+  );
   if (hasMore && process.env.SELECTION_CRON_SELF_CONTINUE === "true") {
     const secret = process.env.CRON_SECRET;
     const selfUrl = new URL(
@@ -138,10 +190,12 @@ export async function GET(request: NextRequest) {
       }
     });
     return NextResponse.json(
-      { ok: true, continued: true, result },
+      { ok: true, continued: true, tracks: outcomes },
       { status: 202 },
     );
   }
 
-  return NextResponse.json({ ok: true, result }, { status: 200 });
+  // 전체 ok = 모든 due 트랙 성공(skip 포함). 일부 실패해도 200 + 트랙별 보고(전체 502 단일화 금지).
+  const ok = outcomes.every((o) => o.ok);
+  return NextResponse.json({ ok, tracks: outcomes }, { status: 200 });
 }
