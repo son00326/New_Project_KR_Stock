@@ -136,6 +136,14 @@ describe("formatErrorMessage", () => {
         "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
       );
     });
+
+    it("pricing_unknown_model:<model> suffix hides raw model id", () => {
+      const msg = formatErrorMessage("pricing_unknown_model:gpt-future");
+      expect(msg).toBe(
+        "미등록 AI 모델 단가입니다 — 모델 레지스트리 등록이 필요합니다",
+      );
+      expect(msg).not.toContain("gpt-future");
+    });
   });
 
   describe("accept_gate_blocked:* prefix handler", () => {

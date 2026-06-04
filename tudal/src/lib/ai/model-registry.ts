@@ -1,3 +1,4 @@
+import 'server-only';
 // W0 (65차 Q3 + D28 B-final) — 역할 → provider+model 매핑 단일 SoT.
 // 신모델 추가 = MODEL_PRICING 1줄 + 본 registry 1줄.
 // 전 배분 = "초기 기본값(가설)" — track-record 적중률 측정 후 여기서만 조정.

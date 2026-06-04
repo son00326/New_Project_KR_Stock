@@ -1,3 +1,4 @@
+import 'server-only';
 import OpenAI from 'openai';
 import type { TokenUsage } from '@/lib/cost/pricing';
 import { isOpenAiAvailable, type LlmCallParams, type LlmCallResult, type LlmProvider } from './provider';

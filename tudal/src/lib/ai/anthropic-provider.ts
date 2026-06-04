@@ -1,3 +1,4 @@
+import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import type { TokenUsage } from '@/lib/cost/pricing';
 import { isAnthropicAvailable, type LlmCallParams, type LlmCallResult, type LlmProvider } from './provider';

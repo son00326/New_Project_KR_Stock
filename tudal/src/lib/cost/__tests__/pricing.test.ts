@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   calculateCostKrw,
@@ -7,7 +9,11 @@ import {
   S7A_MODEL,
 } from '../pricing';
 import { ANTHROPIC_PRICING, MODEL_PRICING, getPricing } from '../anthropic-pricing';
-import { COST_USD_TO_KRW } from '@/types/admin';
+import {
+  COST_HARDCAP_KRW,
+  COST_USD_TO_KRW,
+  COST_WARNING_THRESHOLD_KRW as ADMIN_COST_WARNING_THRESHOLD_KRW,
+} from '@/types/admin';
 
 describe('pricing (Q6 + R5 wrapper)', () => {
   it('cache-off cost = input × pIn + output × pOut', () => {
@@ -54,6 +60,15 @@ describe('pricing (Q6 + R5 wrapper)', () => {
   it('HARDCAP_KRW = 500_000 (65차 LOCKED #5)', () => {
     expect(HARDCAP_KRW).toBe(500_000);
     expect(COST_WARNING_THRESHOLD_KRW).toBe(450_000);
+  });
+
+  it('hardcap constants are re-exported from types/admin SoT', () => {
+    expect(HARDCAP_KRW).toBe(COST_HARDCAP_KRW);
+    expect(COST_WARNING_THRESHOLD_KRW).toBe(ADMIN_COST_WARNING_THRESHOLD_KRW);
+    const source = readFileSync(path.resolve(__dirname, '../pricing.ts'), 'utf8');
+    expect(source).toContain('COST_HARDCAP_KRW as HARDCAP_KRW');
+    expect(source).not.toMatch(/export const HARDCAP_KRW\s*=\s*500_000/);
+    expect(source).not.toMatch(/export const COST_WARNING_THRESHOLD_KRW\s*=\s*450_000/);
   });
 
   it('uses anthropic-pricing.ts SoT (S7A_MODEL = claude-opus-4-7) + COST_USD_TO_KRW (R5 wrapper)', () => {

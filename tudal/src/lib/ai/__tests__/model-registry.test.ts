@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MODEL_REGISTRY,
@@ -62,6 +64,18 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final)', () => {
       for (const b of bindings) {
         expect(b.pricingKey in MODEL_PRICING).toBe(true);
       }
+    }
+  });
+
+  it('SDK-bearing AI modules contain server-only import markers', () => {
+    const sdkModulePaths = [
+      '../anthropic-provider.ts',
+      '../openai-provider.ts',
+      '../model-registry.ts',
+    ] as const;
+    for (const sdkModulePath of sdkModulePaths) {
+      const source = readFileSync(path.resolve(__dirname, sdkModulePath), 'utf8');
+      expect(source).toMatch(/^import ['"]server-only['"];/);
     }
   });
 });
