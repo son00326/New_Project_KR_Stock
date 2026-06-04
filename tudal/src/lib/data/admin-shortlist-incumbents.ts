@@ -93,7 +93,14 @@ export async function getIncumbents(options: {
 }
 
 const THESIS_BULLET_MAX = 3;
+const THESIS_HEADLINE_MAX = 160;
+const THESIS_BULLET_CHAR_MAX = 220;
 const COMMENT_MAX = 120;
+
+function truncateText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}…`;
+}
 
 interface ReportThesisRow {
   ticker: string;
@@ -143,8 +150,10 @@ export async function buildIncumbentThesisContexts(
       const parsed = reportSection0Schema.safeParse(row.section_0);
       if (!parsed.success) continue;
       thesisByTicker.set(row.ticker, {
-        headline: parsed.data.headline,
-        bullets: parsed.data.thesis.slice(0, THESIS_BULLET_MAX),
+        headline: truncateText(parsed.data.headline, THESIS_HEADLINE_MAX),
+        bullets: parsed.data.thesis
+          .slice(0, THESIS_BULLET_MAX)
+          .map((bullet) => truncateText(bullet, THESIS_BULLET_CHAR_MAX)),
       });
     }
   } catch {
@@ -183,7 +192,9 @@ export async function buildIncumbentThesisContexts(
     if (inc.conviction !== null) meta.push(`확신도 ${inc.conviction}`);
     if (meta.length > 0) lines.push(`- 직전 평가: ${meta.join(" / ")}`);
     if (inc.aiCommentKr) {
-      lines.push(`- 직전 한 줄 논거: "${inc.aiCommentKr.slice(0, COMMENT_MAX)}"`);
+      lines.push(
+        `- 직전 한 줄 논거: "${truncateText(inc.aiCommentKr, COMMENT_MAX)}"`,
+      );
     }
     const thesis = thesisByTicker.get(inc.ticker);
     if (thesis) {

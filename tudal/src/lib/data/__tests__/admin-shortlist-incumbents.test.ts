@@ -262,6 +262,41 @@ describe("buildIncumbentThesisContexts", () => {
     expect(ctx).toContain("유지가 자동이 아닙니다");
   });
 
+  it("긴 직전 논거/리포트 thesis는 cap으로 incumbent 토큰 예산을 방어", async () => {
+    const longHeadline = "헤".repeat(190);
+    const longBullet = "불".repeat(320);
+    const longComment = "논".repeat(180);
+    const { client } = buildContextClient({
+      reports: {
+        data: [
+          {
+            ticker: "005930",
+            month: "2026-06-01",
+            section_0: {
+              ...validSection0,
+              headline: longHeadline,
+              thesis: [longBullet, "t2", "t3", "t4"],
+            },
+          },
+        ],
+        error: null,
+      },
+      snapshots: { data: [], error: null },
+    });
+    const map = await buildIncumbentThesisContexts(
+      [makeIncumbent({ aiCommentKr: longComment })],
+      { client },
+    );
+    const ctx = map["005930"];
+    expect(ctx).toContain(`${"논".repeat(120)}…`);
+    expect(ctx).not.toContain("논".repeat(121));
+    expect(ctx).toContain(`${"헤".repeat(160)}…`);
+    expect(ctx).not.toContain("헤".repeat(161));
+    expect(ctx).toContain(`${"불".repeat(220)}…`);
+    expect(ctx).not.toContain("불".repeat(221));
+    expect(ctx).not.toContain("t4");
+  });
+
   it("리포트 부재/section_0 파싱 실패 → thesis 줄 생략 (graceful)", async () => {
     const { client } = buildContextClient({
       reports: {

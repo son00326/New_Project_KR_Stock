@@ -1163,6 +1163,19 @@ describe("W2b incumbent union + thesis context", () => {
     await expect(runChunk(client, deps, { track: "short" })).rejects.toThrow(
       "incumbents_query_failed",
     );
+    expect(deps.preflightHardcap).not.toHaveBeenCalled();
+    expect(deps.insertPipelineHealth).toHaveBeenCalledTimes(1);
+    expect(deps.insertPipelineHealth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pipeline: "ai",
+        status: "failed",
+        error: expect.stringContaining(
+          "preflight_abort:incumbents_query_failed:PGRST000",
+        ),
+      }),
+      expect.anything(),
+    );
+    expect(deps.insertAlertEvents).toHaveBeenCalledTimes(1);
     expect(deps.callPersonaPanel).not.toHaveBeenCalled();
   });
 
