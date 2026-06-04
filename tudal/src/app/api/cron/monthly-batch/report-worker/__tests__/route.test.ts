@@ -94,6 +94,28 @@ describe('report-worker run-mutex + result', () => {
     expect(body.result.done).toBe(2);
   });
 
+  // W2a Task 9.5 (R3 HIGH-2): worker가 <30 not-ready 결과 반환 → 502 false-alarm 대신 200 clean skip.
+  it('worker not-ready(<30) 결과 → 200 skipped shortlist_not_ready (502 아님)', async () => {
+    guardedMock.mockResolvedValue({
+      result: {
+        month: '2026-06',
+        claimed: 0,
+        done: 0,
+        skipped: 0,
+        failed: 0,
+        deferred: 0,
+        remaining: 0,
+        aborted: null,
+        notReady: { reason: 'shortlist_not_ready' },
+      },
+    });
+    const res = await GET(req({ authorization: 'Bearer secret-x' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.skipped).toBe(true);
+    expect(body.reason).toBe('shortlist_not_ready');
+  });
+
   it('worker throw → 502', async () => {
     guardedMock.mockRejectedValue(new Error('cost_logging_disabled'));
     const res = await GET(req({ authorization: 'Bearer secret-x' }));

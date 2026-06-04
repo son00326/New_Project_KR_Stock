@@ -71,6 +71,14 @@ export async function GET(request: NextRequest) {
   }
   const result = guarded.result!;
 
+  // W2a Task 9.5 (R3 HIGH-2): worker가 shortlist<30 not-ready 반환 → 502 false-alarm 대신 200 clean skip.
+  if (result.notReady) {
+    return NextResponse.json(
+      { ok: true, skipped: true, reason: result.notReady.reason },
+      { status: 200 },
+    );
+  }
+
   // optional self-continue accelerator (env-gated, load-bearing 아님 — R1/MEDIUM-3).
   // waitUntil/after 취소 가능 → 정확성은 daily cron + idempotent claim에 의존. 기본 off.
   // OPS-3: forward-progress gate — claimed>0일 때만 self-continue. claimed=0 + remaining>0은

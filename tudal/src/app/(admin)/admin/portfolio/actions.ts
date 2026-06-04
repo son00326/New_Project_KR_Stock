@@ -23,7 +23,11 @@ import {
 } from "@/lib/portfolio/dispute";
 import { isUniqueViolation } from "@/lib/portfolio/approval-logic";
 import { createClient } from "@/lib/supabase/server";
-import type { PortfolioApproval, ShortListItem } from "@/types/admin";
+import {
+  type PortfolioApproval,
+  type ShortListItem,
+  SHORTLIST_TARGET_COUNT,
+} from "@/types/admin";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 const REQUIRED_GATE_TICKERS = new Set([
@@ -76,14 +80,20 @@ function resolveShortlistGeneratedAt(
   _month: string,
   shortlist: ShortListItem[],
 ): Date | null {
-  // T7e.2 — 실 short_list_30.created_at 기반 (Tier 0 batch INSERT 시 동일 createdAt).
-  // 같은 월의 행들은 batch INSERT라 createdAt이 일치한다고 가정.
+  // T7e.2 — 실 short_list_30.created_at 기반.
+  // W2a Task 9.5 (R4 HIGH-3): 트랙 split로 같은 월에 mixed createdAt 공존 가능(오래된 mid/long +
+  //   주간 refresh된 short = now()). '첫 활성 행' anchor면 오래된 mid가 freshly-refreshed short의
+  //   24h/D+4 Hold를 우회시킨다 → anchor를 가장 최근(MAX) createdAt으로 (per-ticker 정확).
   const active = filterActiveShortlist(shortlist);
   if (active.length === 0) return null;
-  const createdAtRaw = active[0]?.createdAt;
-  if (!createdAtRaw) return null;
-  const createdAt = new Date(createdAtRaw);
-  return Number.isNaN(createdAt.getTime()) ? null : createdAt;
+  let latest: number | null = null;
+  for (const item of active) {
+    if (!item.createdAt) continue;
+    const t = new Date(item.createdAt).getTime();
+    if (Number.isNaN(t)) continue;
+    if (latest === null || t > latest) latest = t;
+  }
+  return latest === null ? null : new Date(latest);
 }
 
 // Mock cleanup Step 1.3 (58차, omxy/Spinoza D1 HIGH split-brain fix):
@@ -235,6 +245,11 @@ export async function acceptShortList(params: {
   }
   const monthValidation = validateShortlistMonth(month, shortlist);
   if (!monthValidation.success) return monthValidation;
+  // W2a Task 9.5 (R3 HIGH-2): 트랙 split로 일시 <30 가능 → 부분 리스트가 snapshot에 진입하면 포트 오염.
+  //   빈 리스트만 거부(validateShortlistMonth)하던 가드를 length<30 거부로 강화 (정상 30 경로 무회귀).
+  if (filterActiveShortlist(shortlist).length < SHORTLIST_TARGET_COUNT) {
+    return { success: false, error: "shortlist_incomplete" };
+  }
   const generatedAt = resolveShortlistGeneratedAt(month, shortlist);
   if (!generatedAt) {
     return { success: false, error: "shortlist_month_not_found" };

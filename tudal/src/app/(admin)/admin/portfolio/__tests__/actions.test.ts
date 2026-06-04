@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   // Mock cleanup Step 1.3 (58차): MOCK_ADMIN_REPORT_VIEW_LOG splice 패턴 폐기 →
   // getDistinctViewerCountsByTicker mock DI. 기본은 빈 Map (모든 ticker count=0 → viewers_insufficient).
   getDistinctViewerCountsByTicker: vi.fn(),
+  // W2a Task 9.5: getActiveShortList를 override 가능한 vi.fn으로 — <30 거부 시나리오 구성.
+  getActiveShortList: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -38,19 +40,10 @@ vi.mock("@/lib/data/admin-report-view-log", () => ({
 
 // T7e.2: admin-shortlist는 Supabase 실 SELECT라 테스트에서는 mock fixture로 우회.
 // month 인자에 매칭되는 mock 행만 반환하여 기존 테스트 시나리오를 유지한다.
-vi.mock("@/lib/data/admin-shortlist", async () => {
-  const { MOCK_ADMIN_SHORTLIST } = await import(
-    "@/lib/data/mock-admin-shortlist"
-  );
-  return {
-    getActiveShortList: async (options?: { month?: string }) => {
-      if (!options?.month) return MOCK_ADMIN_SHORTLIST;
-      return MOCK_ADMIN_SHORTLIST.filter(
-        (item) => item.month === options.month,
-      );
-    },
-  };
-});
+// W2a Task 9.5: per-test override 가능한 hoisted vi.fn (기본 구현은 beforeEach에서 month 필터 적용).
+vi.mock("@/lib/data/admin-shortlist", () => ({
+  getActiveShortList: (...a: unknown[]) => mocks.getActiveShortList(...a),
+}));
 
 const finalApproval: PortfolioApproval = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -69,8 +62,20 @@ const finalApproval: PortfolioApproval = {
   reanalysisCount: 0,
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+  // W2a Task 9.5: 기본 getActiveShortList = month 필터 fixture (기존 static mock 동등 — month당 30 active).
+  const { MOCK_ADMIN_SHORTLIST } = await import(
+    "@/lib/data/mock-admin-shortlist"
+  );
+  mocks.getActiveShortList.mockImplementation(
+    async (options?: { month?: string }) => {
+      if (!options?.month) return MOCK_ADMIN_SHORTLIST;
+      return MOCK_ADMIN_SHORTLIST.filter(
+        (item) => item.month === options.month,
+      );
+    },
+  );
   mocks.getUser.mockResolvedValue({
     data: { user: { id: "admin-test-1" } },
   });
@@ -199,6 +204,32 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("auth_unavailable");
   });
 
+  // W2a Task 9.5 (R3 HIGH-2): 트랙 split로 일시 <30 가능 → 부분 리스트가 snapshot에 진입하면 포트 오염.
+  //   빈 리스트만 거부하던 가드를 length<30 거부로 강화 (정상 30 경로는 무회귀).
+  it("blocks accept when the active shortlist has fewer than 30 rows (partial list pollution guard)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    // 20행만 active (mid/long 일부) — short 트랙 미반영 상태 시뮬레이션.
+    const { MOCK_ADMIN_SHORTLIST } = await import(
+      "@/lib/data/mock-admin-shortlist"
+    );
+    const partial = MOCK_ADMIN_SHORTLIST.filter(
+      (item) => item.month === "2026-04-01" && item.deltaStatus !== "removed",
+    ).slice(0, 20);
+    mocks.getActiveShortList.mockResolvedValue(partial);
+    const { acceptShortList } = await import("../actions");
+
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("shortlist_incomplete");
+    expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
+    expect(mocks.insertPortfolioSnapshots).not.toHaveBeenCalled();
+  });
+
   it("fails closed before mutating approvals when real entry prices are unavailable", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
@@ -213,6 +244,39 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("entry_price_unavailable");
     expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
     expect(mocks.insertPortfolioSnapshots).not.toHaveBeenCalled();
+  });
+
+  // W2a Task 9.5 (R4 HIGH-3): mixed-cadence(오래된 mid + now() refresh short)에서 쿨다운 anchor가
+  //   '첫 활성 행' createdAt(오래된 mid)이면 freshly-refreshed short가 24h Hold를 우회한다.
+  //   → anchor를 가장 최근(MAX) createdAt으로 — 주간 refresh된 short가 hold_24h를 정확히 받는다.
+  it("anchors the accept cooldown to the most recent row createdAt, not the first (stale) row", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T01:00:00.000Z"));
+    const { MOCK_ADMIN_SHORTLIST } = await import(
+      "@/lib/data/mock-admin-shortlist"
+    );
+    const active = MOCK_ADMIN_SHORTLIST.filter(
+      (item) => item.month === "2026-04-01" && item.deltaStatus !== "removed",
+    );
+    // 첫 활성 행 = 오래된 mid/long(createdAt 2026-04-01, hold 만료). short 행은 주간 refresh(now() 직전).
+    const mixed = active.map((item) =>
+      item.bucket === "short"
+        ? { ...item, createdAt: "2026-04-20T00:00:00.000Z" } // 1h 전 refresh → 24h 미경과
+        : { ...item, createdAt: "2026-04-01T00:00:00.000Z" },
+    );
+    mocks.getActiveShortList.mockResolvedValue(mixed);
+    const { acceptShortList } = await import("../actions");
+
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+
+    // anchor가 첫 행(오래된 mid)이면 hold 통과 → entry_price_unavailable까지 진행했을 것.
+    // per-ticker(MAX) anchor면 refresh된 short의 24h Hold가 적용되어 hold_24h 차단.
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("accept_gate_blocked:hold_24h");
+    expect(mocks.createPortfolioApproval).not.toHaveBeenCalled();
   });
 });
 
