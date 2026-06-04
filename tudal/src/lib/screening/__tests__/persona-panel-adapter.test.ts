@@ -3,7 +3,10 @@ import { describe, it, expect, vi } from "vitest";
 import {
   parsePersonaScore,
   makeCallPersonaPanel,
+  makeCallDebatePanel,
 } from "@/lib/screening/persona-panel-adapter";
+import type { ResolvedRole } from "@/lib/ai/model-registry";
+import type { PersonaScore } from "@/lib/screening/tier1-schema";
 import type {
   CallPersonaInput,
   CallPersonaResult,
@@ -254,6 +257,126 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     for (const call of callPersona.mock.calls) {
       expect(call[0]).toMatchObject({ reflectionContext: "[재점검] 직전 논거..." });
     }
+  });
+
+  // W1a (D28 ①) — slot binding 주입
+  it("R1: persona idx별 slotResolver binding이 callPersona modelBinding으로 전달", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const fakeSlot = (i: number): ResolvedRole =>
+      ({
+        role: "tier1_panel",
+        provider: { id: i % 2 === 1 ? "openai" : "anthropic", isAvailable: () => true, call: vi.fn() },
+        model: i % 2 === 1 ? "gpt-5.4" : "claude-sonnet-4-6",
+        pricingKey: i % 2 === 1 ? "gpt-5.4" : "claude-sonnet-4-6",
+        maxTokens: 1024,
+      }) as ResolvedRole;
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      slotResolver: fakeSlot,
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    const models = callPersona.mock.calls.map((c) => c[0].modelBinding?.model);
+    expect(models.filter((m) => m === "claude-sonnet-4-6")).toHaveLength(6);
+    expect(models.filter((m) => m === "gpt-5.4")).toHaveLength(5);
+    expect(callPersona.mock.calls[0][0].modelBinding?.model).toBe("claude-sonnet-4-6");
+    expect(callPersona.mock.calls[1][0].modelBinding?.model).toBe("gpt-5.4");
+  });
+
+  it("R1: slotResolver 미주입(legacy deps) → modelBinding undefined 무회귀", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona.mock.calls.every((c) => c[0].modelBinding === undefined)).toBe(true);
+  });
+});
+
+describe("W1a makeCallDebatePanel — R2 반박 라운드", () => {
+  const personas = Array.from({ length: 11 }, (_, i) => ({
+    id: `core-${i + 1}`,
+    label: `위원${i + 1}`,
+  }));
+  function r1Score(personaId: string): PersonaScore {
+    return {
+      persona_id: personaId,
+      scores: { short: 70, mid: 60, long: 50 },
+      winning_timeframe: "short",
+      rationale_kr: `근거-${personaId}`,
+      conviction: 65,
+    };
+  }
+  const r1Panel = personas.map((p) => r1Score(p.id));
+
+  it("R2: 각 persona에 OWN_PRIOR=본인 R1 + PEER_ARGUMENTS=타 위원 10명 R1 요약 + R2 템플릿 주입", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const debate = makeCallDebatePanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    const scores = await debate({ ticker: "005930", financials: "f", r1Panel });
+    expect(scores).toHaveLength(11);
+    expect(callPersona).toHaveBeenCalledTimes(11);
+    const first = callPersona.mock.calls.find((c) => c[0].personaId === "core-1")![0];
+    expect(first.ownPrior).toMatch(/근거-core-1(?!\d)/);
+    expect(first.peerArguments).toMatch(/근거-core-2(?!\d)/);
+    expect(first.peerArguments).not.toMatch(/근거-core-1(?!\d)/); // 본인 제외 (core-10/11과 구분)
+    expect(first.peerArguments!.split("\n")).toHaveLength(10);
+    expect(first.userPromptTemplate).toContain("반박 라운드");
+  });
+
+  it("R2: incumbent reflectionContext 동반 주입 + slotResolver binding 전달", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const fakeSlot = (i: number): ResolvedRole =>
+      ({ role: "tier1_panel", provider: { id: "anthropic", isAvailable: () => true, call: vi.fn() }, model: `m-${i}`, pricingKey: "claude-sonnet-4-6", maxTokens: 1024 }) as ResolvedRole;
+    const debate = makeCallDebatePanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      slotResolver: fakeSlot,
+    });
+    await debate({
+      ticker: "005930",
+      financials: "f",
+      reflectionContext: "[재점검] 직전 논거",
+      r1Panel,
+    });
+    for (const call of callPersona.mock.calls) {
+      expect(call[0].reflectionContext).toBe("[재점검] 직전 논거");
+    }
+    expect(callPersona.mock.calls[3][0].modelBinding?.model).toBe("m-3");
+  });
+
+  it("R2: r1Panel에 본인 R1 부재 → reject (panel 계약 위반)", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const debate = makeCallDebatePanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    await expect(
+      debate({ ticker: "005930", financials: "f", r1Panel: r1Panel.slice(0, 10) }),
+    ).rejects.toThrow("debate_r1_prior_missing");
   });
 
   it("per-call reflectionContext 미지정 시 deps default 사용 (W2a 무회귀)", async () => {

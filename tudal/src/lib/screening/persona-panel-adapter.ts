@@ -11,7 +11,13 @@ import type {
   CallPersonaInput,
   CallPersonaResult,
 } from "@/lib/ai/anthropic-client";
+import type { ResolvedRole } from "@/lib/ai/model-registry";
 import { PERSONA_SCORE_USER_PROMPT_TEMPLATE } from "@/lib/ai/prompts/user-prompt-template";
+import {
+  DEBATE_R2_USER_PROMPT_TEMPLATE,
+  renderOwnPrior,
+  renderPeerArguments,
+} from "@/lib/ai/prompts/debate-round-template";
 import { PersonaScoreSchema, type PersonaScore } from "@/lib/screening/tier1-schema";
 
 const DEFAULT_MAX_CONCURRENT_PERSONA_CALLS = 4;
@@ -137,9 +143,14 @@ export function parsePersonaScore(content: string, personaId: string): PersonaSc
 
 export interface CallPersonaPanelDeps {
   callPersona: (input: CallPersonaInput) => Promise<CallPersonaResult>;
-  personas: readonly { id: string }[]; // CORE_11_PERSONAS
+  personas: readonly { id: string; label?: string }[]; // CORE_11_PERSONAS
   reflectionContext: string; // 첫달은 빈 문자열
   adminUserId: string; // cron-system UUID 등
+  /**
+   * W1a (D28 ①) — persona index → per-slot 모델 binding (resolveTier1PanelSlot 주입).
+   * 미지정 시 modelBinding undefined = 기존 tier1_panel 역할 resolve (무회귀).
+   */
+  slotResolver?: (slotIndex: number) => ResolvedRole;
   userPromptTemplate?: string; // default = PERSONA_SCORE_USER_PROMPT_TEMPLATE
   /**
    * PR-E impl-review fix: runTier1Screening invokes 150 panels concurrently.
@@ -170,7 +181,7 @@ export function makeCallPersonaPanel(
   const runLimited = createLimiter(resolveMaxConcurrentCalls(deps.maxConcurrentCalls));
   return async ({ ticker, financials, reflectionContext }) => {
     return Promise.all(
-      deps.personas.map(async (persona) => {
+      deps.personas.map(async (persona, slotIndex) => {
         const res = await runLimited(() =>
           deps.callPersona({
             personaId: persona.id,
@@ -181,6 +192,57 @@ export function makeCallPersonaPanel(
             adminUserId: deps.adminUserId,
             userPromptTemplate: template,
             costClient: deps.costClient,
+            // W1a (D28 ①): per-slot 모델 binding. 미지정 시 기존 역할 resolve.
+            modelBinding: deps.slotResolver?.(slotIndex),
+          }),
+        );
+        return parsePersonaScore(res.content, persona.id);
+      }),
+    );
+  };
+}
+
+/**
+ * W1a (D5/D26 Q4) — R2 반박 라운드 패널 factory.
+ * 각 persona에 본인 R1(OWN_PRIOR) + 타 위원 10명 R1 요약(PEER_ARGUMENTS)을 주입해 반박/수정 점수를 받는다.
+ * 출력 = R1과 동일 PersonaScore 11 (parsePersonaScore — 한 명 실패 시 panel 전체 reject → ticker는 R1 유지 graceful).
+ * incumbent ticker는 reflectionContext(W2b thesis context)도 동반 주입.
+ */
+export function makeCallDebatePanel(
+  deps: CallPersonaPanelDeps,
+): (input: {
+  ticker: string;
+  financials: string;
+  reflectionContext?: string;
+  r1Panel: readonly PersonaScore[];
+}) => Promise<PersonaScore[]> {
+  const runLimited = createLimiter(resolveMaxConcurrentCalls(deps.maxConcurrentCalls));
+  return async ({ ticker, financials, reflectionContext, r1Panel }) => {
+    const byPersona = new Map(r1Panel.map((s) => [s.persona_id, s]));
+    // 계약: r1Panel은 personas 전원 포함 (R1 done panel — 부재 시 데이터 결손이라 fail-closed).
+    for (const persona of deps.personas) {
+      if (!byPersona.has(persona.id)) {
+        throw new Error(`debate_r1_prior_missing:${persona.id}`);
+      }
+    }
+    return Promise.all(
+      deps.personas.map(async (persona, slotIndex) => {
+        const own = byPersona.get(persona.id)!;
+        const peers = deps.personas
+          .filter((p) => p.id !== persona.id)
+          .map((p) => ({ label: p.label ?? p.id, score: byPersona.get(p.id)! }));
+        const res = await runLimited(() =>
+          deps.callPersona({
+            personaId: persona.id,
+            ticker,
+            financials,
+            reflectionContext: reflectionContext ?? deps.reflectionContext,
+            adminUserId: deps.adminUserId,
+            userPromptTemplate: DEBATE_R2_USER_PROMPT_TEMPLATE,
+            ownPrior: renderOwnPrior(own),
+            peerArguments: renderPeerArguments(peers),
+            costClient: deps.costClient,
+            modelBinding: deps.slotResolver?.(slotIndex),
           }),
         );
         return parsePersonaScore(res.content, persona.id);
