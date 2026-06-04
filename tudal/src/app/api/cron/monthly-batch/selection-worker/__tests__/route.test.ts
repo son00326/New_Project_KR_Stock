@@ -45,6 +45,11 @@ vi.mock("@/lib/data/admin-pipeline-health-insert", () => ({
 }));
 vi.mock("@/lib/data/admin-alerts-insert", () => ({ insertAlertEvents: vi.fn() }));
 vi.mock("@/lib/data/admin-cost-alerts", () => ({ emitCostAlert: vi.fn() }));
+// W2b (D27 Q5) — incumbent DI 배선용 실 모듈 stub.
+vi.mock("@/lib/data/admin-shortlist-incumbents", () => ({
+  getIncumbents: vi.fn(),
+  buildIncumbentThesisContexts: vi.fn(),
+}));
 
 import { GET } from "@/app/api/cron/monthly-batch/selection-worker/route";
 
@@ -204,6 +209,17 @@ describe("selection-worker run-mutex + result", () => {
     const short = body.tracks.find((t: { track: string }) => t.track === "short");
     expect(short.ok).toBe(true);
     expect(short.result.done).toBe(3);
+  });
+
+  it("W2b — guarded 호출 인자에 incumbentsSource/buildIncumbentContexts DI 배선", async () => {
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(guardedMock).toHaveBeenCalledTimes(1);
+    const args = guardedMock.mock.calls[0][0] as {
+      incumbentsSource?: unknown;
+      buildIncumbentContexts?: unknown;
+    };
+    expect(typeof args.incumbentsSource).toBe("function");
+    expect(typeof args.buildIncumbentContexts).toBe("function");
   });
 
   it("단일 트랙 throw + 다른 트랙 없음(short만 due) → 부분실패라도 502 단일화 금지", async () => {
