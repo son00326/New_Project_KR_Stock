@@ -3,7 +3,7 @@ import { getPersonaById } from './prompts/personas';
 import { renderUserPrompt } from './prompts/render-user-prompt';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
-import { resolveRole } from './model-registry';
+import { resolveRole, type ResolvedRole } from './model-registry';
 
 export interface CallPersonaInput {
   personaId: string;
@@ -18,6 +18,12 @@ export interface CallPersonaInput {
   //   admin path는 미지정 → insertCostLog가 session createClient() (auth.uid()=admin → RLS+called_by FK 통과).
   //   cron path는 service-role client 주입 (auth.uid()=null → RLS bypass + called_by=CRON_SYSTEM_USER_ID FK).
   costClient?: SupabaseClient;
+  // W1a (D28 ① / D2): per-slot 모델 binding override — 패널 어댑터가 resolveTier1PanelSlot(i) 주입.
+  //   미지정 시 기존 resolveRole('tier1_panel') 무회귀. cost_log.model = per-slot 실모델 기록.
+  modelBinding?: ResolvedRole;
+  // W1a (D5): R2 반박 라운드 placeholder — DEBATE_R2_USER_PROMPT_TEMPLATE 전용. 미지정 시 no-op.
+  peerArguments?: string;
+  ownPrior?: string;
 }
 
 export interface CallPersonaResult {
@@ -45,11 +51,12 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
     ticker: input.ticker,
     financials: input.financials,
     reflectionContext: input.reflectionContext,
+    peerArguments: input.peerArguments,
+    ownPrior: input.ownPrior,
   });
 
-  // W0 (65차 Q3/D28 ①): 모델 하드코딩 제거 — tier1_panel 역할로 registry resolve.
-  //   현행 claude-opus-4-7 유지 (토론 mix 배선은 W1). provider 경유 호출.
-  const resolved = resolveRole('tier1_panel');
+  // W1a (D28 ① / D2): per-slot binding override 우선. 미지정 시 tier1_panel 역할 resolve(무회귀).
+  const resolved = input.modelBinding ?? resolveRole('tier1_panel');
 
   let result;
   try {
@@ -60,8 +67,17 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
       userPrompt,
       enablePromptCache: promptCacheEnabled,
     });
-  } catch {
-    throw new Error('ai_call_failed');
+  } catch (err) {
+    // W1a (D9) — transient 분류 보존: worker retryWithBackoff가 재시도 판단 가능하게.
+    //   429/5xx/네트워크 hint = transient(suffix 부착) / 그 외 = 기존 ai_call_failed 유지.
+    const msg = err instanceof Error ? err.message : String(err);
+    const status =
+      (err as { status?: number }).status ?? (err as { statusCode?: number }).statusCode;
+    const transient =
+      status === 429 ||
+      (status !== undefined && status >= 500) ||
+      /rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(msg);
+    throw new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
   }
 
   const text = result.text;
