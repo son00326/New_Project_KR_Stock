@@ -54,11 +54,13 @@ describe("PortfolioPanel dispute bridge", () => {
     expect(source).not.toContain("재분석 큐 미연결");
     expect(source).not.toContain("실 재분석 큐 연결 전까지 전월 포트 유지 상태입니다");
 
-    // 30 재선정 = 명시 버튼 → triggerMonthlyBatch (reject와 분리, silent burn 방지).
+    // 30 재선정 단발 버튼은 남아도 서버 액션이 fail-closed한다 (reject와 분리, silent burn 방지).
     expect(source).toContain("triggerMonthlyBatch({ month: month.slice(0, 7) })");
-    expect(source).toContain("30 재선정 — 실 AI 재실행");
+    expect(source).toContain("30 재선정 — 청크 경로 사용 필요");
     expect(source).toContain("triggerReportWorkerChunk({ month: month.slice(0, 7) })");
     expect(source).toContain("리포트 배치 생성 (1 chunk)");
+    expect(source).toContain("report_worker_not_ready");
+    expect(source).toContain("Short List가 아직 30종목이 아닙니다");
 
     // reject 핸들러는 rejectShortList만 호출 — AI 비용 트리거를 자동 호출하지 않는다.
     const handleRejectBody = source.slice(

@@ -120,6 +120,27 @@ describe("triggerReportWorkerChunk", () => {
     expect(res).toEqual({ success: true, skipped: "already_running" });
   });
 
+  it("surfaces worker notReady(shortlist_not_ready) instead of flattening to processed:0", async () => {
+    runGuardedMock.mockResolvedValueOnce({
+      result: {
+        month: "2026-06",
+        claimed: 0,
+        done: 0,
+        skipped: 0,
+        failed: 0,
+        deferred: 0,
+        remaining: 0,
+        aborted: null,
+        notReady: { reason: "shortlist_not_ready" },
+      },
+    });
+    const res = await triggerReportWorkerChunk({ month: "2026-06" });
+    expect(res).toEqual({
+      success: true,
+      notReady: { reason: "shortlist_not_ready" },
+    });
+  });
+
   it("returns processed = done+skipped+failed + aborted passthrough", async () => {
     runGuardedMock.mockResolvedValueOnce({
       result: { month: "2026-06", claimed: 3, done: 2, skipped: 1, failed: 0, deferred: 27, remaining: 0, aborted: "cost_hardcap" },

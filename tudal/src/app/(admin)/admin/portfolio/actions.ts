@@ -510,12 +510,15 @@ export async function resolveDispute(input: {
 }
 
 // ---------------------------------------------------------------------------
-// PR1 — triggerMonthlyBatch admin server action (omxy R1~R8 CONVERGED).
-// admin caller가 cron flow와 동일한 orchestrator를 호출. cron secret 분리 (admin auth.uid() + is_admin()).
-// 본 PR scope: server action까지만. UI 버튼은 PR4 scope.
+// PR1 legacy — triggerMonthlyBatch admin server action.
+// W2a wiring audit: the old synchronous single-shot selector is superseded by
+// selection-worker chunks. It cannot persist W2a midlong(20) output into the old
+// 30-row writer, so fail closed before loading orchestrator/AI code.
 // ---------------------------------------------------------------------------
 
 const TRIGGER_MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const MONTHLY_BATCH_SINGLE_SHOT_DEPRECATED =
+  "monthly_batch_single_shot_deprecated";
 
 export async function triggerMonthlyBatch(input: {
   month: string;
@@ -523,31 +526,6 @@ export async function triggerMonthlyBatch(input: {
   | { success: true; data: { selectedCount: number } }
   | { success: false; error: string }
 > {
-  // Dynamic import — heavy lib (orchestrator + screening + AI) lazy load.
-  const { runMonthlyBatchOrchestrator } = await import(
-    "@/lib/screening/monthly-batch-orchestrator"
-  );
-  const { acquireBatchLock, releaseBatchLock } = await import(
-    "@/lib/data/admin-batch-runs"
-  );
-  // PR-D (ADR D-3): Tier 0 source 실 SELECT — tier0_candidates_150.
-  const { getTier0Candidates } = await import(
-    "@/lib/data/admin-tier0-candidates"
-  );
-  // PR-E (omxy §2.0a 합의) — 실 AI 배선.
-  const { upsertShortList30 } = await import(
-    "@/lib/data/admin-shortlist-persist"
-  );
-  const { makeCallPersonaPanel } = await import(
-    "@/lib/screening/persona-panel-adapter"
-  );
-  const { CORE_11_PERSONAS } = await import("@/lib/ai/prompts/personas");
-  const { callPersona } = await import("@/lib/ai/anthropic-client");
-  const { fetchFinancialsSummary } = await import("@/lib/data/dart-financials");
-  const { isCostLoggingEnabled, preflightHardcap } = await import(
-    "@/lib/cost/cost-logger"
-  );
-
   if (!input || typeof input.month !== "string") {
     return { success: false, error: "invalid_input" };
   }
@@ -561,67 +539,14 @@ export async function triggerMonthlyBatch(input: {
   } = await supabase.auth.getUser();
   if (!user?.id) return { success: false, error: "auth_unavailable" };
 
-  // PR-E review fix: cost_log SELECT RLS alone is not an admin assertion.
-  // Non-admin sessions would see 0 rows (RLS filter) and pass hardcap, then burn AI before
-  // cost_log INSERT fails. Match triggerFullReport's server-side admin gate before real AI.
+  // Keep the admin assertion even though the path is deprecated: non-admin callers
+  // should not learn operational details beyond the normal admin_required code.
   const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
   if (adminErr || !isAdmin) {
     return { success: false, error: "admin_required" };
   }
 
-  try {
-    const outcome = await runMonthlyBatchOrchestrator({
-      month: input.month,
-      // W2a Task 4 — 단발 orchestrator track 필수화. 단발 경로는 NON-VIABLE(W2a chunk worker로 대체 예정);
-      //   기존 내부 하드코드값('midlong') 보존으로 동기 유지.
-      track: 'midlong',
-      adminUserId: user.id,
-      promptVersionId:
-        process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
-      personasVersionId:
-        process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
-      // PR-D: admin은 session client 주입 (is_admin() RLS). input.month=YYYY-MM → consumer가 YYYY-MM-01 변환.
-      // 시드 부재 시 0건 → orchestrator `tier1_candidates_must_be_100 (got 0)` throw → action error 반환.
-      // W2a Task 7 — getTier0Candidates track 필수화. orchestrator track:'midlong' 정합 보존으로 동기 유지.
-      tier0Source: () => getTier0Candidates({ track: 'midlong', month: input.month, client: supabase }),
-      // PR-E (omxy §2.0a) — 실 Anthropic 전 fail-closed 비용 가드: flag off / 키 부재 / hardcap 초과 시
-      //   여기서 throw (callPersonaPanel 0회 → cost 0). cost_log_admin_select RLS로 getMonthlyTotal 정확.
-      preflight: async ({ month, callCount }) => {
-        if (!isCostLoggingEnabled()) {
-          throw new Error("cost_logging_disabled");
-        }
-        if (!process.env.ANTHROPIC_API_KEY) {
-          throw new Error("ai_key_unavailable");
-        }
-        await preflightHardcap({ month, callCount }, { client: supabase });
-      },
-      // PR-E — 실 Core 11 panel (PR-C 어댑터). 키 부재/rate-limit/parse 실패 → ticker reject → 150/150
-      //   게이트가 persist 차단(degraded clobber 방지). adminUserId=user.id → cost_log.called_by FK + RLS 통과.
-      callPersonaPanel: makeCallPersonaPanel({
-        callPersona,
-        personas: CORE_11_PERSONAS,
-        reflectionContext: "",
-        adminUserId: user.id,
-      }),
-      // PR-E — 실 재무 요약 (dart_financial_cache, session client). 미캐시 ticker는 빈/부분 문자열.
-      fetchFinancials: (ticker) =>
-        fetchFinancialsSummary(ticker, { client: supabase }),
-      lock: { acquire: acquireBatchLock, release: releaseBatchLock },
-      // PR-E — persist 복원 (session client + commentsByTicker → short_list_30 AI 컬럼). 150/150 게이트 통과 시만 도달.
-      persist: (month, selected, commentsByTicker) =>
-        upsertShortList30(month, selected, { client: supabase, commentsByTicker }),
-      // PR-E — commitBadgeOnly no-op (배지는 persist의 consensus_badge. 150/150 게이트 후 ⚪ 0 → 호출 0회).
-      commitBadgeOnly: async () => {},
-      // server action path는 alert noop wire (admin trigger fail은 UI toast로 — PR4 scope)
-      recordSchedulerFailAlert: async () => {},
-    });
-    return { success: true, data: { selectedCount: outcome.selectedCount } };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "orchestrator_failed",
-    };
-  }
+  return { success: false, error: MONTHLY_BATCH_SINGLE_SHOT_DEPRECATED };
 }
 
 // ---------------------------------------------------------------------------
@@ -822,6 +747,7 @@ export async function triggerReportWorkerChunk(input: {
       data: { processed: number; remaining: number; aborted: string | null };
     }
   | { success: true; skipped: "already_running" }
+  | { success: true; notReady: { reason: "shortlist_not_ready" } }
   | { success: false; error: string }
 > {
   if (!input || typeof input.month !== "string") {
@@ -859,6 +785,9 @@ export async function triggerReportWorkerChunk(input: {
       return { success: true, skipped: guarded.skipped };
     }
     const result = guarded.result!;
+    if (result.notReady) {
+      return { success: true, notReady: result.notReady };
+    }
     return {
       success: true,
       data: {

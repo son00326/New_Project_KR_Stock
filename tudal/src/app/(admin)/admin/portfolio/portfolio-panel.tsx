@@ -57,6 +57,7 @@ type BannerState =
   // PR-H scope 4 — report-worker chunk 결과 배너.
   | { kind: "report_worker_done"; processed: number; remaining: number; aborted: string | null }
   | { kind: "report_worker_skipped" }
+  | { kind: "report_worker_not_ready"; reason: string }
   | { kind: "error"; message: string }
   | null;
 
@@ -176,6 +177,8 @@ export function PortfolioPanel({
       }
       if ("skipped" in result) {
         setBanner({ kind: "report_worker_skipped" });
+      } else if ("notReady" in result) {
+        setBanner({ kind: "report_worker_not_ready", reason: result.notReady.reason });
       } else {
         setBanner({
           kind: "report_worker_done",
@@ -317,6 +320,13 @@ export function PortfolioPanel({
         </div>
       )}
 
+      {banner?.kind === "report_worker_not_ready" && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+          <span>Short List가 아직 30종목이 아닙니다 — W2a 선정 청크를 먼저 완료하세요.</span>
+        </div>
+      )}
+
       {/* 이의 제기 완료 배너 */}
       {banner?.kind === "dispute_done" && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
@@ -385,21 +395,21 @@ export function PortfolioPanel({
         </div>
       )}
 
-      {/* PR-H scope 1a+4 — admin 배치 트리거 (실 AI / 비용 발생, USER flag·키 게이트 의존).
-          reject와 분리: 30 재선정은 명시 버튼(silent cost burn 방지). report-worker는 30 풀리포트 생성. */}
+      {/* PR-H scope 1a+4 — admin 배치 트리거.
+          30 재선정 단발은 W2a 이후 fail-closed; report-worker는 30 풀리포트 생성. */}
       {!isAlreadyFinalized && (
         <div className="flex flex-wrap items-center gap-3 border-t pt-3">
           <span className="text-xs font-medium text-muted-foreground">
-            관리자 배치 (실 AI · 비용 발생)
+            관리자 배치 (청크 워커 경로)
           </span>
           <Button
             variant="outline"
             size="sm"
             onClick={handleReanalyze}
             disabled={isPending}
-            title="실 AI로 30종목 재선정 (비용 발생 · AI 키/비용 게이트 필요)"
+            title="단발 30 재선정은 W2a 이후 비활성화되었습니다. selection-worker 청크 경로를 사용하세요."
           >
-            30 재선정 — 실 AI 재실행
+            30 재선정 — 청크 경로 사용 필요
           </Button>
           <Button
             variant="outline"
