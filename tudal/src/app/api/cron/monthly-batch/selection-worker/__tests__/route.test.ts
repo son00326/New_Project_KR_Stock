@@ -215,6 +215,20 @@ describe("selection-worker run-mutex + result", () => {
     expect(short.result.done).toBe(3);
   });
 
+  it("W1a — guarded 인자에 callDebatePanel 배선 + 패널 deps에 slotResolver 주입", async () => {
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const args = guardedMock.mock.calls[0][0] as { callDebatePanel?: unknown };
+    expect(typeof args.callDebatePanel).toBe("function");
+    const { makeCallPersonaPanel } = await import("@/lib/screening/persona-panel-adapter");
+    const { makeCallDebatePanel } = await import("@/lib/screening/persona-panel-adapter");
+    const panelDeps = (makeCallPersonaPanel as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { slotResolver?: unknown };
+    const debateDeps = (makeCallDebatePanel as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { slotResolver?: unknown };
+    expect(typeof panelDeps.slotResolver).toBe("function");
+    expect(typeof debateDeps.slotResolver).toBe("function");
+  });
+
   it("W2b — guarded 호출 인자에 incumbentsSource/buildIncumbentContexts DI 배선", async () => {
     await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     expect(guardedMock).toHaveBeenCalledTimes(1);
