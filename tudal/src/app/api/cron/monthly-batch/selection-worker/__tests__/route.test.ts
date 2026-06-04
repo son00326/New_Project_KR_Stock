@@ -31,6 +31,13 @@ vi.mock("@/lib/screening/persona-panel-adapter", () => ({
 vi.mock("@/lib/ai/model-registry", () => ({
   resolveTier1PanelSlot: vi.fn(), // W1a — server-only 모듈 stub
 }));
+vi.mock("@/lib/ai/judge-client", () => ({
+  callJudge: vi.fn(),
+  callDualJudge: vi.fn(),
+}));
+vi.mock("@/lib/ai/prompts/debate-round-template", () => ({
+  renderPeerArguments: vi.fn(() => ""),
+}));
 vi.mock("@/lib/ai/prompts/personas", () => ({ CORE_11_PERSONAS: [] }));
 vi.mock("@/lib/ai/anthropic-client", () => ({ callPersona: vi.fn() }));
 vi.mock("@/lib/data/dart-financials", () => ({
@@ -229,6 +236,25 @@ describe("selection-worker run-mutex + result", () => {
       .calls[0][0] as { slotResolver?: unknown };
     expect(typeof panelDeps.slotResolver).toBe("function");
     expect(typeof debateDeps.slotResolver).toBe("function");
+  });
+
+  it("W1b — judgeEnqueued>0 + remaining>0 → self-continue 202 (forward-progress)", async () => {
+    process.env.SELECTION_CRON_SELF_CONTINUE = "true";
+    guardedMock.mockResolvedValue({
+      result: chunkResult({ claimed: 0, judgeEnqueued: 100, remaining: 100 }),
+    });
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(202);
+  });
+
+  it("W1b — guarded 인자에 callJudgePanel/callDualJudge DI 배선", async () => {
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const args = guardedMock.mock.calls[0][0] as {
+      callJudgePanel?: unknown;
+      callDualJudge?: unknown;
+    };
+    expect(typeof args.callJudgePanel).toBe("function");
+    expect(typeof args.callDualJudge).toBe("function");
   });
 
   it("W2b — guarded 호출 인자에 incumbentsSource/buildIncumbentContexts DI 배선", async () => {
