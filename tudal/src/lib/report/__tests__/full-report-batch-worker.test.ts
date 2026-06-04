@@ -249,16 +249,40 @@ describe("runReportBatchChunk step-0 fail-closed (T9 — R2 HIGH-2 + R3 HIGH-1)"
     }
   });
 
-  it("short_list_30이 1~29개면 fail-closed + alert, LLM 0", async () => {
-    getActiveShortListMock.mockResolvedValue([
-      { ticker: "005930", name: "삼성전자", sector: "반도체" },
-    ]);
-    const { client } = makeFakeClient({ claimedJobs: [] });
-    await expect(
-      runReportBatchChunk({ month: "2026-06", client: workerClient(client) }),
-    ).rejects.toThrow("short_list_30_invalid_count:1");
+  // W2a Task 9.5 (R3 HIGH-2 + R4 MED-5): 트랙 split로 일시 <30 가능 → fail-closed(502 + critical
+  //   alert/pipeline-health 'failed') 대신 not-ready clean skip. 텔레메트리 발행 前 early-return.
+  it("short_list_30이 1~29개면 not-ready clean skip (텔레메트리 前) — alert/pipeline-health 0, LLM 0", async () => {
+    getActiveShortListMock.mockResolvedValue(
+      Array.from({ length: 20 }, (_, i) => ({
+        ticker: `9${String(i).padStart(5, "0")}`,
+        name: `테스트${i}`,
+        sector: "테스트",
+      })),
+    );
+    const { client, rpcCalls } = makeFakeClient({ claimedJobs: [] });
+    const res = await runReportBatchChunk({
+      month: "2026-06",
+      client: workerClient(client),
+    });
+    expect(res).toEqual({
+      month: "2026-06",
+      claimed: 0,
+      done: 0,
+      skipped: 0,
+      failed: 0,
+      deferred: 0,
+      remaining: 0,
+      aborted: null,
+      notReady: { reason: "shortlist_not_ready" },
+    });
     expect(orchestrateMock).not.toHaveBeenCalled();
-    expect(insertAlertEventsMock).toHaveBeenCalled();
+    // 텔레메트리 미발행 (R4 MED-5: critical alert/pipeline-health 'failed' false-alarm 차단), spend 0.
+    expect(insertAlertEventsMock).not.toHaveBeenCalled();
+    expect(insertPipelineHealthMock).not.toHaveBeenCalled();
+    expect(preflightMock).not.toHaveBeenCalled();
+    expect(
+      rpcCalls.find((c) => c.name === "claim_next_report_jobs"),
+    ).toBeUndefined();
   });
 });
 

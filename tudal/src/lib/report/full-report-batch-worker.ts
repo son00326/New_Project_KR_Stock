@@ -44,6 +44,9 @@ export interface ReportBatchWorkerResult {
   deferred: number;
   remaining: number; // 다음 chunk 필요 여부 판단 (pending + reclaimable running)
   aborted: "cost_hardcap" | null;
+  // W2a Task 9.5 (R3 HIGH-2 + R4 MED-5): 트랙 split로 일시 shortlist<30 가능. 502+critical false-alarm
+  //   대신 not-ready clean skip — 텔레메트리(alert/pipeline-health) 발행 前 early-return. route는 200 skip.
+  notReady?: { reason: "shortlist_not_ready" };
 }
 
 // PR-H scope 2: enqueue는 ticker만 사용하지만, chunk enrich(consensusBadge/aiScore/Tier0)를 위해
@@ -227,11 +230,19 @@ export async function runReportBatchChunk(
     };
   }
   if (shortList.length !== 30) {
-    return await abortBeforeSpend(
-      client,
+    // W2a Task 9.5 (R3 HIGH-2 + R4 MED-5): 트랙 split로 일시 1~29행 가능 → fail-closed(502+critical alert)
+    //   대신 not-ready clean skip. summarize/alert/pipeline-health 발행 前 early-return (false-alarm 차단, spend 0).
+    return {
       month,
-      `short_list_30_invalid_count:${shortList.length}`,
-    );
+      claimed: 0,
+      done: 0,
+      skipped: 0,
+      failed: 0,
+      deferred: 0,
+      remaining: 0,
+      aborted: null,
+      notReady: { reason: "shortlist_not_ready" },
+    };
   }
   if (shortList.length > 0) {
     const enqueueRows = shortList.map((s) => ({ month, ticker: s.ticker }));
