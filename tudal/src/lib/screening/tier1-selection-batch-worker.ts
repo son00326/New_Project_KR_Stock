@@ -543,7 +543,10 @@ async function finalizeSelection(
   }
 
   // candidates 재공급 (computeTier0Ranks가 원본 candidates 필요 — persona-eval.ts).
+  // W2a Task 3 — runScreening(runTier1Screening)이 track 필수화. period_key/track 재구성은
+  //   Task 8 scope로 input에서 track 전파 예정. 여기서는 signature compat만 (legacy midlong).
   const result = await input.runScreening({
+    track: "midlong",
     candidates,
     promptVersionId: input.promptVersionId,
     personasVersionId: input.personasVersionId,

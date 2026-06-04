@@ -100,7 +100,10 @@ export async function runMonthlyBatchOrchestrator(
     });
 
     // B3 lesson — runTier1Screening은 allSettled 패턴. throw는 invariant 한정.
+    // W2a Task 3 — runTier1Screening이 track 필수화. 단발 orchestrator는 NON-VIABLE 경로로
+    //   Task 4에서 input.track 전파/150→트랙 게이트 재작성 예정. 여기서는 signature compat만 (legacy midlong).
     const result = await runTier1Screening({
+      track: 'midlong',
       candidates,
       callPersonaPanel: input.callPersonaPanel,
       fetchFinancials: input.fetchFinancials,
