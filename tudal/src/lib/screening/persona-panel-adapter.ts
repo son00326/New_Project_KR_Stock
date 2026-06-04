@@ -61,7 +61,8 @@ function createLimiter(maxConcurrent: number) {
 }
 
 // content에서 첫 parse 가능한 JSON object 추출 (마크다운 펜스 / 앞뒤 텍스트 허용).
-function extractJsonObject(content: string): unknown {
+// W1b — judge-client.parseJudgeVerdict가 재사용 (export 승격, 이동 없음).
+export function extractJsonObject(content: string): unknown {
   const trimmed = content.trim();
   // ```json ... ``` 또는 ``` ... ``` 펜스 제거.
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
