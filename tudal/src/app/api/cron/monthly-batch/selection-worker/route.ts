@@ -25,7 +25,11 @@ import {
   monthYMOfPeriod,
 } from "@/lib/screening/selection-period";
 import type { SelectionTrack } from "@/lib/screening/tier1-schema";
-import { makeCallPersonaPanel } from "@/lib/screening/persona-panel-adapter";
+import {
+  makeCallPersonaPanel,
+  makeCallDebatePanel,
+} from "@/lib/screening/persona-panel-adapter";
+import { resolveTier1PanelSlot } from "@/lib/ai/model-registry";
 import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
 import { callPersona } from "@/lib/ai/anthropic-client";
 import { fetchFinancialsSummary } from "@/lib/data/dart-financials";
@@ -144,6 +148,17 @@ export async function GET(request: NextRequest) {
           reflectionContext: "",
           adminUserId: cronSystemUserId,
           costClient: supabase,
+          // W1a (D28 ①) — per-slot 모델 mix (Sonnet×6 + GPT mid×5, GPT-off 시 전원 Sonnet).
+          slotResolver: resolveTier1PanelSlot,
+        }),
+        // W1a (D26 Q4) — R2 반박 라운드 패널 (R1 panel + peer 컨텍스트 주입).
+        callDebatePanel: makeCallDebatePanel({
+          callPersona,
+          personas: CORE_11_PERSONAS,
+          reflectionContext: "",
+          adminUserId: cronSystemUserId,
+          costClient: supabase,
+          slotResolver: resolveTier1PanelSlot,
         }),
         fetchFinancials: (ticker) =>
           fetchFinancialsSummary(ticker, { client: supabase }),

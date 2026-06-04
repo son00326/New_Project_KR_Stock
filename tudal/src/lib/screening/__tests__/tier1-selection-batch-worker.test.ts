@@ -17,6 +17,7 @@ import type {
   Tier1ScreeningResult,
 } from "@/lib/screening/tier1-schema";
 import { TRACK_FRESH_POOL, TRACK_SELECT_COUNT } from "@/lib/screening/tier1-schema";
+import { getTier1PanelWorstSlotCostKrw } from "@/lib/ai/model-registry";
 
 const VALID_UUID = "11111111-1111-4111-8111-111111111111";
 const MIDLONG_PERIOD_KEY = "m:2026-06";
@@ -266,6 +267,8 @@ function makeDeps(track: SelectionTrack = "midlong", over: Record<string, unknow
   // W2b — incumbent DI 기본값: cold start([]) = W2a fresh-only 무회귀.
   const incumbentsSource = vi.fn(async () => [] as ReturnType<typeof makeIncumbentInfo>[]);
   const buildIncumbentContexts = vi.fn(async () => ({}) as Record<string, string>);
+  // W1a — R2 반박 패널 기본 mock.
+  const callDebatePanel = vi.fn(async () => makePanel());
   const deps = {
     tier0Source,
     callPersonaPanel,
@@ -279,6 +282,7 @@ function makeDeps(track: SelectionTrack = "midlong", over: Record<string, unknow
     emitCostAlert,
     incumbentsSource,
     buildIncumbentContexts,
+    callDebatePanel,
     promptVersionId: "p@v1",
     personasVersionId: "core11@v3.1",
     ...over,
@@ -418,7 +422,7 @@ describe("runTier1SelectionChunk step-0 fail-closed", () => {
 });
 
 describe("runTier1SelectionChunk enqueue period_key/track", () => {
-  it("enqueue rows에 period_key/track 기록 + onConflict period_key,ticker", async () => {
+  it("enqueue rows에 period_key/track 기록 + onConflict period_key,ticker,round (W1a)", async () => {
     const { client } = makeFakeClient({
       claimedJobs: [{ id: "j1", ticker: "000000" }],
       openCount: 5,
@@ -449,7 +453,7 @@ describe("runTier1SelectionChunk enqueue period_key/track", () => {
       period_key: MIDLONG_PERIOD_KEY,
       track: "midlong",
     });
-    expect(upsertOpts).toMatchObject({ onConflict: "period_key,ticker" });
+    expect(upsertOpts).toMatchObject({ onConflict: "period_key,ticker,round" });
   });
 });
 
@@ -658,11 +662,17 @@ describe("runTier1SelectionChunk preflight-first + deferred reset (R4 HIGH-2 / R
     const preflightHardcap = vi.fn(async () => {
       throw new Error("should_not_call_preflight");
     });
-    const allRows = makeTrackCandidates("midlong").map((c) => ({
+    // W1a — R2 게이트 하에서 finalize 도달: targets ⊆ round2 done 보장 위해 R1+R2 풀세트 제공.
+    const r1RowsFull = makeTrackCandidates("midlong").map((c) => ({
       ticker: c.ticker,
       status: "done",
       panel_result: makePanel(),
+      round: 1 as const,
     }));
+    const allRows = [
+      ...r1RowsFull,
+      ...r1RowsFull.map((r) => ({ ...r, round: 2 as const })),
+    ];
     const { client } = makeFakeClient({
       claimedJobs: [],
       openCount: 0,
@@ -772,11 +782,17 @@ describe("runTier1SelectionChunk finalize (nonTerminal===0 && terminal>0 → 30�
   });
 
   it("nonTerminal=0 & terminal>0 → finalized:true, runScreening 1회(replay), persist(month,track,30 rows)", async () => {
-    const allRows = makeTrackCandidates("midlong").map((c) => ({
+    // W1a — R2 게이트 하에서 finalize 도달: targets ⊆ round2 done 보장 위해 R1+R2 풀세트 제공.
+    const r1RowsFull = makeTrackCandidates("midlong").map((c) => ({
       ticker: c.ticker,
       status: "done",
       panel_result: makePanel(),
+      round: 1 as const,
     }));
+    const allRows = [
+      ...r1RowsFull,
+      ...r1RowsFull.map((r) => ({ ...r, round: 2 as const })),
+    ];
     const { client } = makeFakeClient({
       claimedJobs: [{ id: "j1", ticker: "000000" }],
       openCount: 0,
@@ -801,11 +817,17 @@ describe("runTier1SelectionChunk finalize (nonTerminal===0 && terminal>0 → 30�
   });
 
   it("finalize는 mark_selection_finalized(periodKey, runId) RPC 호출", async () => {
-    const allRows = makeTrackCandidates("midlong").map((c) => ({
+    // W1a — R2 게이트 하에서 finalize 도달: targets ⊆ round2 done 보장 위해 R1+R2 풀세트 제공.
+    const r1RowsFull = makeTrackCandidates("midlong").map((c) => ({
       ticker: c.ticker,
       status: "done",
       panel_result: makePanel(),
+      round: 1 as const,
     }));
+    const allRows = [
+      ...r1RowsFull,
+      ...r1RowsFull.map((r) => ({ ...r, round: 2 as const })),
+    ];
     const { client, rpcCalls } = makeFakeClient({
       acquireRunId: "run-9",
       claimedJobs: [{ id: "j1", ticker: "000000" }],
@@ -834,11 +856,17 @@ describe("runTier1SelectionChunk finalize (nonTerminal===0 && terminal>0 → 30�
   });
 
   it("finalize replay 콜백이 stored panel_result 반환 → callPersonaPanel(실 LLM) 추가 0콜 (cost 0)", async () => {
-    const allRows = makeTrackCandidates("midlong").map((c) => ({
+    // W1a — R2 게이트 하에서 finalize 도달: targets ⊆ round2 done 보장 위해 R1+R2 풀세트 제공.
+    const r1RowsFull = makeTrackCandidates("midlong").map((c) => ({
       ticker: c.ticker,
       status: "done",
       panel_result: makePanel(),
+      round: 1 as const,
     }));
+    const allRows = [
+      ...r1RowsFull,
+      ...r1RowsFull.map((r) => ({ ...r, round: 2 as const })),
+    ];
     const { client } = makeFakeClient({
       claimedJobs: [],
       openCount: 0,
@@ -863,11 +891,17 @@ describe("runTier1SelectionChunk finalize (nonTerminal===0 && terminal>0 → 30�
 
   it("degraded(failed) 포함 terminal>0 nonTerminal=0 → finalize 실행", async () => {
     const all = makeTrackCandidates("midlong");
-    const allRows = all.map((c, i) => ({
+    const r1Rows = all.map((c, i) => ({
       ticker: c.ticker,
       status: i < 90 ? "done" : "failed",
       panel_result: i < 90 ? makePanel() : null,
+      round: 1 as const,
     }));
+    // W1a — R2 게이트 통과용: done ticker 전체를 round2 done으로 제공 (targets ⊆ round2).
+    const allRows = [
+      ...r1Rows,
+      ...r1Rows.filter((r) => r.status === "done").map((r) => ({ ...r, round: 2 as const })),
+    ];
     const { client } = makeFakeClient({
       claimedJobs: [],
       openCount: 0,
@@ -1069,11 +1103,17 @@ describe("W2b incumbent union + thesis context", () => {
   });
 
   it("finalize: persist options.incumbentTickers + incumbentMetadataByTicker + removed 구조화 로그", async () => {
-    const allRows = makeTrackCandidates("midlong").map((c) => ({
+    // W1a — R2 게이트 하에서 finalize 도달: targets ⊆ round2 done 보장 위해 R1+R2 풀세트 제공.
+    const r1RowsFull = makeTrackCandidates("midlong").map((c) => ({
       ticker: c.ticker,
       status: "done",
       panel_result: makePanel(),
+      round: 1 as const,
     }));
+    const allRows = [
+      ...r1RowsFull,
+      ...r1RowsFull.map((r) => ({ ...r, round: 2 as const })),
+    ];
     // stubSelected(midlong) tickers: 0000xx/1000xx 형태 — incumbent 1개는 selected에 없음 → removed.
     const incumbents = [
       makeIncumbentInfo("900000", "mid"), // removed 예상
@@ -1196,5 +1236,217 @@ describe("W2b incumbent union + thesis context", () => {
     const preflightArgs = deps.preflightHardcap.mock.calls[0] as unknown[];
     const lines = (preflightArgs[0] as { lines: Array<{ callCount: number }> }).lines;
     expect(lines[0].callCount).toBe(660);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// W1a (D4/D6/D8) — 멀티라운드: R2 enqueue 게이트 + debate chunk + finalize R2-우선
+// ---------------------------------------------------------------------------
+describe("W1a 멀티라운드 R2 반박", () => {
+  it("R1 enqueue rows에 round:1 명시 + onConflict period_key,ticker,round", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 100,
+      nonTerminalCount: 100,
+      terminalCount: 0,
+    });
+    let upsertRows: Array<Record<string, unknown>> = [];
+    let upsertOpts: Record<string, unknown> = {};
+    const origFrom = client.from;
+    client.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>;
+      chain.upsert = vi.fn(
+        async (rows: Array<Record<string, unknown>>, o: Record<string, unknown>) => {
+          if (table === "tier1_selection_job" && upsertRows.length === 0) {
+            upsertRows = rows;
+            upsertOpts = o;
+          }
+          return { error: null };
+        },
+      );
+      return chain;
+    }) as typeof client.from;
+    await runChunk(client, makeDeps("midlong"));
+    expect(upsertRows[0]).toMatchObject({ round: 1 });
+    expect(upsertOpts).toMatchObject({ onConflict: "period_key,ticker,round" });
+  });
+
+  it("R1 전부 terminal + targets>0 + round2 미존재 → round2 enqueue(대상만, round:2) + finalize 안 함", async () => {
+    // 균일 panel(분산 0) → targets = 경계 rank 6..15 (각 tf) — round2 부재라 enqueue 발생.
+    const r1Rows = makeTrackCandidates("midlong").map((c) => ({
+      ticker: c.ticker,
+      status: "done",
+      panel_result: makePanel(),
+      round: 1 as const,
+    }));
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 100,
+      allRows: r1Rows,
+    });
+    const upserts: Array<Array<Record<string, unknown>>> = [];
+    const origFrom = client.from;
+    client.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>;
+      chain.upsert = vi.fn(async (rows: Array<Record<string, unknown>>) => {
+        if (table === "tier1_selection_job") upserts.push(rows);
+        return { error: null };
+      });
+      return chain;
+    }) as typeof client.from;
+    const deps = makeDeps("midlong");
+    const res = await runChunk(client, deps);
+    expect(res.finalized).toBe(false);
+    expect(deps.persist).not.toHaveBeenCalled();
+    // 마지막 upsert = round2 enqueue (첫 upsert는 R1 idempotent enqueue)
+    const r2Rows = upserts[upserts.length - 1];
+    expect(r2Rows.length).toBeGreaterThan(0);
+    expect(r2Rows.every((r) => r.round === 2)).toBe(true);
+    expect(r2Rows.length).toBeLessThan(100); // 대상만 (전체 아님)
+  });
+
+  it("R1 전부 terminal + targets=0(전부 degraded) → 즉시 finalize (무회귀)", async () => {
+    const r1Rows = makeTrackCandidates("midlong").map((c) => ({
+      ticker: c.ticker,
+      status: "failed",
+      panel_result: null,
+      round: 1 as const,
+    }));
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 100,
+      allRows: r1Rows,
+    });
+    const deps = makeDeps("midlong");
+    const res = await runChunk(client, deps);
+    expect(res.finalized).toBe(true);
+    expect(deps.runScreening).toHaveBeenCalledTimes(1);
+  });
+
+  it("round2 전부 terminal → finalize: storedPanels가 R2 done 우선/R1 fallback (R2 failed는 R1 유지)", async () => {
+    const candidates = makeTrackCandidates("midlong");
+    const r1Panel = makePanel(); // scores 50
+    const r2Panel = makePanel().map((p) => ({
+      ...p,
+      scores: { short: 80, mid: 80, long: 80 },
+    }));
+    const r1Rows = candidates.map((c) => ({
+      ticker: c.ticker,
+      status: "done",
+      panel_result: r1Panel,
+      round: 1 as const,
+    }));
+    // 전 ticker round2 존재: 첫 ticker만 failed(panel null) → R1 fallback, 나머지 done(R2 우선)
+    const r2Rows = candidates.map((c, i) => ({
+      ticker: c.ticker,
+      status: i === 0 ? "failed" : "done",
+      panel_result: i === 0 ? null : r2Panel,
+      round: 2 as const,
+    }));
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 200,
+      allRows: [...r1Rows, ...r2Rows],
+    });
+    const deps = makeDeps("midlong");
+    const res = await runChunk(client, deps);
+    expect(res.finalized).toBe(true);
+    const screenInput = (deps.runScreening as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as unknown as {
+      callPersonaPanel: (i: { ticker: string; financials: string }) => Promise<PersonaScore[]>;
+    };
+    const failedTickerPanel = await screenInput.callPersonaPanel({
+      ticker: candidates[0].ticker,
+      financials: "",
+    });
+    expect(failedTickerPanel[0].scores.short).toBe(50); // R1 fallback
+    const okPanel = await screenInput.callPersonaPanel({
+      ticker: candidates[1].ticker,
+      financials: "",
+    });
+    expect(okPanel[0].scores.short).toBe(80); // R2 우선
+  });
+
+  it("R2 chunk: claimed round=2 job은 callDebatePanel 경유(r1Panel 주입) + incumbent ctx 동반, round=1은 callPersonaPanel", async () => {
+    const candidates = makeTrackCandidates("midlong");
+    const r1Rows = candidates.map((c) => ({
+      ticker: c.ticker,
+      status: "done",
+      panel_result: makePanel(),
+      round: 1 as const,
+    }));
+    const { client } = makeFakeClient({
+      claimedJobs: [
+        { id: "j1", ticker: candidates[0].ticker, round: 2 },
+        { id: "j2", ticker: candidates[1].ticker, round: 1 },
+      ] as Array<{ id: string; ticker: string; round?: number }>,
+      openCount: 5,
+      nonTerminalCount: 5,
+      terminalCount: 100,
+      allRows: r1Rows,
+    });
+    const incumbents = [makeIncumbentInfo(candidates[0].ticker, "mid")];
+    const deps = makeDeps("midlong", {
+      incumbentsSource: vi.fn(async () => incumbents),
+      buildIncumbentContexts: vi.fn(async () => ({
+        [candidates[0].ticker]: "[재점검] ctx",
+      })),
+    });
+    await runChunk(client, deps);
+    expect(deps.callDebatePanel).toHaveBeenCalledTimes(1);
+    const debateArg = (deps.callDebatePanel as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { ticker: string; r1Panel: PersonaScore[]; reflectionContext?: string };
+    expect(debateArg.ticker).toBe(candidates[0].ticker);
+    expect(debateArg.r1Panel).toHaveLength(11);
+    expect(debateArg.reflectionContext).toBe("[재점검] ctx");
+    expect(deps.callPersonaPanel).toHaveBeenCalledTimes(1); // round=1 job만
+  });
+
+  it("R2 chunk: round=2인데 R1 done panel 부재 → debate_r1_panel_missing failed 처리 (spend 0)", async () => {
+    const { client, rpcCalls } = makeFakeClient({
+      claimedJobs: [{ id: "j1", ticker: "099999", round: 2 }] as Array<{
+        id: string;
+        ticker: string;
+        round?: number;
+      }>,
+      openCount: 0,
+      nonTerminalCount: 1,
+      terminalCount: 100,
+      allRows: [],
+    });
+    const deps = makeDeps("midlong");
+    const res = await runChunk(client, deps);
+    expect(res.failed).toBe(1);
+    expect(deps.callDebatePanel).not.toHaveBeenCalled();
+    const mark = rpcCalls.find((c) => c.name === "mark_selection_job");
+    expect(mark?.args).toMatchObject({ p_status: "failed" });
+    expect(String(mark?.args.p_error)).toContain("debate_r1_panel_missing");
+  });
+
+  it("reservation: (open+deferred) × 11 × worst-slot 단가 (mix, R2 jobs 자동 포함)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 55,
+      deferredCount: 5,
+      nonTerminalCount: 60,
+      terminalCount: 0,
+    });
+    const deps = makeDeps("midlong");
+    await runChunk(client, deps);
+    const preflightArgs = deps.preflightHardcap.mock.calls[0] as unknown[];
+    const lines = (
+      preflightArgs[0] as { lines: Array<{ callCount: number; maxCostPerCallKrw: number }> }
+    ).lines;
+    expect(lines[0].callCount).toBe(660);
+    expect(lines[0].maxCostPerCallKrw).toBe(getTier1PanelWorstSlotCostKrw());
   });
 });
