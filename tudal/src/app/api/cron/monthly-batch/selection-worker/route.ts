@@ -30,6 +30,9 @@ import {
   makeCallDebatePanel,
 } from "@/lib/screening/persona-panel-adapter";
 import { resolveTier1PanelSlot } from "@/lib/ai/model-registry";
+import { callJudge, callDualJudge } from "@/lib/ai/judge-client";
+import { renderPeerArguments } from "@/lib/ai/prompts/debate-round-template";
+import type { PersonaScore } from "@/lib/screening/tier1-schema";
 import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
 import { callPersona } from "@/lib/ai/anthropic-client";
 import { fetchFinancialsSummary } from "@/lib/data/dart-financials";
@@ -78,6 +81,17 @@ interface TrackOutcome {
   skipped?: GuardedSelectionChunkOutput["skipped"];
   result?: NonNullable<GuardedSelectionChunkOutput["result"]>;
   error?: string;
+}
+
+// W1b — judge 입력 패널 요약: persona_id → Core 11 label 매핑 (미상 id는 id 그대로).
+function renderJudgePanelSummary(finalPanel: readonly PersonaScore[]): string {
+  const labelById = new Map(CORE_11_PERSONAS.map((p) => [p.id, p.label]));
+  return renderPeerArguments(
+    finalPanel.map((score) => ({
+      label: labelById.get(score.persona_id) ?? score.persona_id,
+      score,
+    })),
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -160,6 +174,24 @@ export async function GET(request: NextRequest) {
           costClient: supabase,
           slotResolver: resolveTier1PanelSlot,
         }),
+        // W1b (D28 ③) — per-ticker 최종 judge(Opus) + 경계 dual-judge(GPT↔Opus auto-detect).
+        //   패널 요약 = renderPeerArguments(11명 전원, persona label — slot 모델 비노출).
+        callJudgePanel: ({ ticker, finalPanel, reflectionContext }) =>
+          callJudge({
+            ticker,
+            panelSummary: renderJudgePanelSummary(finalPanel),
+            reflectionContext,
+            adminUserId: cronSystemUserId,
+            costClient: supabase,
+          }),
+        callDualJudge: ({ ticker, finalPanel, reflectionContext }) =>
+          callDualJudge({
+            ticker,
+            panelSummary: renderJudgePanelSummary(finalPanel),
+            reflectionContext,
+            adminUserId: cronSystemUserId,
+            costClient: supabase,
+          }),
         fetchFinancials: (ticker) =>
           fetchFinancialsSummary(ticker, { client: supabase }),
         preflightHardcap,

@@ -29,7 +29,15 @@
 //   둘은 독립 — 동시 활성 금지 운영 가이드(.env.example). default-off라 merge-safe (claim 0, LLM 0, spend 0).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
-import { getTier1PanelWorstSlotCostKrw } from "@/lib/ai/model-registry";
+import {
+  getTier1PanelWorstSlotCostKrw,
+  getRoleWorstCaseMaxCostPerCallKrw,
+} from "@/lib/ai/model-registry";
+import { isJudgeVerdict, type JudgeVerdict } from "@/lib/ai/judge-client";
+import {
+  computeDualJudgeBoundary,
+  isDualJudgeDisagreement,
+} from "@/lib/screening/judge-stage";
 import type {
   PersonaScore,
   SelectionTrack,
@@ -87,6 +95,13 @@ type CallDebatePanel = (input: {
   reflectionContext?: string;
   r1Panel: readonly PersonaScore[];
 }) => Promise<PersonaScore[]>;
+// W1b (D28 ③) — per-ticker 최종 judge + 경계 dual-judge (judge-client 주입).
+type CallJudgePanel = (input: {
+  ticker: string;
+  finalPanel: readonly PersonaScore[];
+  reflectionContext?: string;
+}) => Promise<JudgeVerdict>;
+type CallDualJudge = CallJudgePanel;
 type FetchFinancials = (ticker: string) => Promise<string>;
 type PreflightHardcap = (
   args: {
@@ -157,6 +172,9 @@ export interface RunTier1SelectionChunkInput {
   buildIncumbentContexts: BuildIncumbentContexts;
   // W1a (D26 Q4) — R2 반박 라운드 패널.
   callDebatePanel: CallDebatePanel;
+  // W1b (D28 ③) — judge/dual-judge.
+  callJudgePanel: CallJudgePanel;
+  callDualJudge: CallDualJudge;
 }
 
 export interface Tier1SelectionChunkResult {
@@ -167,6 +185,7 @@ export interface Tier1SelectionChunkResult {
   failed: number;
   deferred: number;
   r2Enqueued: number;
+  judgeEnqueued: number; // W1b — 이번 invocation에서 enqueue한 round=3 judge jobs 수
   remaining: number; // pending + reclaimable running
   finalized: boolean; // 이 invocation에서 finalize+persist 수행 여부
   aborted: "cost_hardcap" | null;
@@ -175,16 +194,17 @@ export interface Tier1SelectionChunkResult {
 interface SelectionJobRow {
   id: string;
   ticker: string;
-  // W1a — claim RPC는 returns setof tier1_selection_job + returning * 라 0032 후 자동 포함.
+  // W1a/W1b — claim RPC는 returns setof tier1_selection_job + returning * 라 0032/0033 후 자동 포함.
   //   미적용(0032 전) 호환: undefined → 1 간주.
-  round?: 1 | 2;
+  round?: 1 | 2 | 3;
 }
 
 interface SelectionFullRow {
   ticker: string;
   status: string;
-  panel_result: PersonaScore[] | null;
-  round?: 1 | 2; // W1a — DB default 1 동형 (미지정 시 1 간주)
+  // W1b (D4) — round 1/2 = PersonaScore[], round 3 = JudgeVerdict (이형 공존 — round별 type guard로만 해석).
+  panel_result: PersonaScore[] | JudgeVerdict | null;
+  round?: 1 | 2 | 3; // DB default 1 동형 (미지정 시 1 간주)
 }
 
 function isRoundSchemaMissingError(error: {
@@ -226,7 +246,7 @@ async function markJob(
   args: {
     id: string;
     status: "pending" | "running" | "done" | "failed" | "deferred";
-    panelResult: PersonaScore[] | null;
+    panelResult: PersonaScore[] | JudgeVerdict | null;
     error: string | null;
   },
 ): Promise<void> {
@@ -352,12 +372,17 @@ async function countByStatus(
   client: SupabaseClient,
   periodKey: string,
   statuses: string[],
+  rounds?: number[], // W1b — round-aware reservation (미지정 = 전 라운드)
 ): Promise<number> {
-  const { count, error } = await client
+  let query = client
     .from("tier1_selection_job")
     .select("id", { count: "exact", head: true })
     .eq("period_key", periodKey)
     .in("status", statuses);
+  if (rounds) {
+    query = query.in("round", rounds);
+  }
+  const { count, error } = await query;
   if (error) {
     throw new Error(`selection_count_failed:${error.code ?? "unknown"}`);
   }
@@ -436,6 +461,7 @@ export async function runTier1SelectionChunk(
       failed: 0,
       deferred: 0,
       r2Enqueued: 0,
+      judgeEnqueued: 0,
       remaining: 0,
       finalized: false,
       aborted: null,
@@ -501,24 +527,44 @@ export async function runTier1SelectionChunk(
   }
 
   // ── (R4 HIGH-2) preflight를 claim/reset 前으로 — budget 초과 사이클에서 attempts 미소진 ──
-  // reservation = (openJobs + deferredJobs)(periodKey) × 11콜 × 역할 단가(W0 model-aware).
-  // W1a (D8) — mix worst-slot 단가 (Sonnet/GPT mid 중 최고가, env 무관 — undercount 금지).
+  // W1b (D6) — round-aware positive-count lines: tier1(r1+r2) jobs × 11 × worst-slot +
+  //   judge(round 3) jobs × 1 × judge 단가. preflightHardcap은 빈/0 라인 reject(fail-open 차단)이라
+  //   positive-count 라인만 구성, 라인 0개면 preflight 자체 skip.
   const tier1MaxCostPerCallKrw = getTier1PanelWorstSlotCostKrw();
-  const reservationJobCount =
-    (await countOpenJobs(client, periodKey)) +
-    (await countDeferredJobs(client, periodKey));
-  const callCount = reservationJobCount * CORE_11_CALLS_PER_TICKER;
-  if (callCount > 0) {
+  const judgeMaxCostPerCallKrw = getRoleWorstCaseMaxCostPerCallKrw("debate_judge");
+  const tier1ReservationJobs =
+    (await countByStatus(client, periodKey, ["pending", "running"], [1, 2])) +
+    (await countByStatus(client, periodKey, ["deferred"], [1, 2]));
+  const judgeReservationJobs =
+    (await countByStatus(client, periodKey, ["pending", "running"], [3])) +
+    (await countByStatus(client, periodKey, ["deferred"], [3]));
+  const reservationLines: Array<{ callCount: number; maxCostPerCallKrw: number }> = [];
+  if (tier1ReservationJobs > 0) {
+    reservationLines.push({
+      callCount: tier1ReservationJobs * CORE_11_CALLS_PER_TICKER,
+      maxCostPerCallKrw: tier1MaxCostPerCallKrw,
+    });
+  }
+  if (judgeReservationJobs > 0) {
+    reservationLines.push({
+      callCount: judgeReservationJobs,
+      maxCostPerCallKrw: judgeMaxCostPerCallKrw,
+    });
+  }
+  if (reservationLines.length > 0) {
     const currentTotal = await input.getMonthlyTotal(month, {
       client,
       callerKind: "service-role",
     });
-    const projectedKrw = callCount * tier1MaxCostPerCallKrw;
+    const projectedKrw = reservationLines.reduce(
+      (s, l) => s + l.callCount * l.maxCostPerCallKrw,
+      0,
+    );
     try {
       await input.preflightHardcap(
         {
           month,
-          lines: [{ callCount, maxCostPerCallKrw: tier1MaxCostPerCallKrw }],
+          lines: reservationLines,
         },
         { client, callerKind: "service-role" },
       );
@@ -540,8 +586,9 @@ export async function runTier1SelectionChunk(
           done: 0,
           skipped: 0,
           failed: 0,
-          deferred: reservationJobCount,
+          deferred: tier1ReservationJobs + judgeReservationJobs,
           r2Enqueued: 0,
+          judgeEnqueued: 0,
           remaining: 0,
           finalized: false,
           aborted: "cost_hardcap",
@@ -579,14 +626,20 @@ export async function runTier1SelectionChunk(
   }
 
   // W1a (D4/D5) — claimed에 R2 job이 있으면 R1 done panel을 1회 로드 (반박 라운드 입력).
+  // W1b — round=3(judge)는 최종 panel(R2-우선/R1 fallback) 입력 필요 → 같은 rows에서 빌드.
   let r1PanelByTicker = new Map<string, PersonaScore[]>();
-  if (jobs.some((j) => (j.round ?? 1) === 2)) {
+  let finalPanelByTicker = new Map<string, PersonaScore[]>();
+  if (jobs.some((j) => (j.round ?? 1) >= 2)) {
     const rows = await selectPeriodRows(client, periodKey);
-    r1PanelByTicker = new Map(
-      rows
-        .filter((r) => (r.round ?? 1) === 1 && r.status === "done" && r.panel_result)
-        .map((r) => [r.ticker, r.panel_result as PersonaScore[]]),
-    );
+    const r2Done = new Map<string, PersonaScore[]>();
+    for (const r of rows) {
+      if (r.status !== "done" || !r.panel_result) continue;
+      const round = r.round ?? 1;
+      if (round === 1) r1PanelByTicker.set(r.ticker, r.panel_result as PersonaScore[]);
+      else if (round === 2) r2Done.set(r.ticker, r.panel_result as PersonaScore[]);
+      // round 3(JudgeVerdict)은 chunk 입력 아님 — finalize에서만 소비 (D4 이형 분리).
+    }
+    finalPanelByTicker = pickFinalPanels(r1PanelByTicker, r2Done);
   }
 
   let done = 0;
@@ -596,9 +649,10 @@ export async function runTier1SelectionChunk(
   // ── 순차 처리 (병렬 fan-out 금지 — cost gate 직렬화, 0027 R2 HIGH-1) ──
   for (const job of jobs) {
     try {
-      // W1a — round=2(반박)는 R1 done panel 필수: 부재 시 spend 0으로 failed 처리.
-      const isDebateRound = (job.round ?? 1) === 2;
-      if (isDebateRound && !r1PanelByTicker.has(job.ticker)) {
+      const jobRound = job.round ?? 1;
+      // W1a — round=2(반박)는 R1 done panel 필수 / W1b — round=3(judge)는 최종 panel 필수.
+      //   부재 시 spend 0으로 failed 처리.
+      if (jobRound === 2 && !r1PanelByTicker.has(job.ticker)) {
         await markJob(client, {
           id: job.id,
           status: "failed",
@@ -609,9 +663,28 @@ export async function runTier1SelectionChunk(
         failedTickers.push(job.ticker);
         continue;
       }
+      if (jobRound === 3 && !finalPanelByTicker.has(job.ticker)) {
+        await markJob(client, {
+          id: job.id,
+          status: "failed",
+          panelResult: null,
+          error: `judge_panel_missing:${job.ticker}`,
+        });
+        failed += 1;
+        failedTickers.push(job.ticker);
+        continue;
+      }
       const panel = await retryWithBackoff(async () => {
+        if (jobRound === 3) {
+          // W1b — judge: financials 불필요(패널 요약 판정), incumbent ctx 동반.
+          return input.callJudgePanel({
+            ticker: job.ticker,
+            finalPanel: finalPanelByTicker.get(job.ticker)!,
+            reflectionContext: incumbentContextByTicker[job.ticker],
+          });
+        }
         const financials = await input.fetchFinancials(job.ticker);
-        if (isDebateRound) {
+        if (jobRound === 2) {
           return input.callDebatePanel({
             ticker: job.ticker,
             financials,
@@ -689,6 +762,7 @@ export async function runTier1SelectionChunk(
   //   remaining = open(pending+running) — self-continue accelerator gate용.
   let remaining = await countOpenJobs(client, periodKey);
   let r2Enqueued = 0;
+  let judgeEnqueued = 0;
 
   // ── finalize 게이트: nonTerminal(pending+running+deferred)===0 && terminal(done+failed)>0 ──
   //   (R2 MED-6) deferred는 nonTerminal로 finalize 차단(degraded 조기 finalize 방지). 빈 풀(terminal 0) 미발동.
@@ -703,7 +777,8 @@ export async function runTier1SelectionChunk(
         .filter((r) => (r.round ?? 1) === 1)
         .map((r) => ({
           ticker: r.ticker,
-          panel: r.status === "done" ? r.panel_result : null,
+          // round=1 rows의 panel_result는 PersonaScore[] (JudgeVerdict는 round=3 전용 — D4).
+          panel: r.status === "done" ? (r.panel_result as PersonaScore[] | null) : null,
         }));
       const targets = computeR2Targets(r1Rows, track);
       const round2Tickers = new Set(
@@ -743,14 +818,142 @@ export async function runTier1SelectionChunk(
           remaining = await countOpenJobs(client, periodKey);
         }
       } else {
-        // R2 불필요(targets 0) 또는 targets 전부 round2 존재 + 전 라운드 terminal → finalize.
-        finalized = await finalizeSelection(
-          input,
-          candidates,
-          incumbentTickers,
-          incumbentMetadataByTicker,
-          rows,
+        // W1b (D1) — R2 단계 충족(targets 0 포함) → judge 단계로 전진.
+        const r1DoneMap = new Map<string, PersonaScore[]>();
+        const r2DoneMap = new Map<string, PersonaScore[]>();
+        for (const r of rows) {
+          if (r.status !== "done" || !r.panel_result) continue;
+          const round = r.round ?? 1;
+          if (round === 1) r1DoneMap.set(r.ticker, r.panel_result as PersonaScore[]);
+          else if (round === 2) r2DoneMap.set(r.ticker, r.panel_result as PersonaScore[]);
+        }
+        const finalPanels = pickFinalPanels(r1DoneMap, r2DoneMap);
+        const round3Tickers = new Set(
+          rows.filter((r) => (r.round ?? 1) === 3).map((r) => r.ticker),
         );
+        const missingJudge = [...finalPanels.keys()].filter(
+          (tk) => !round3Tickers.has(tk),
+        );
+        if (finalPanels.size > 0 && missingJudge.length > 0) {
+          // round=3 judge jobs enqueue (대상 = 최종 panel 보유 ticker, idempotent) — finalize 안 함.
+          const bucketByTicker = new Map(candidates.map((c) => [c.ticker, bucketOf(c)]));
+          const unknownJudge = missingJudge.filter((tk) => !bucketByTicker.has(tk));
+          if (unknownJudge.length > 0) {
+            // 후보 밖 ticker silent skip은 finalize 영구 정지(W1a R7 HIGH 동형) → fail-closed.
+            throw new Error(
+              `judge_enqueue_failed:target_not_in_candidates:${unknownJudge.join(",")}`,
+            );
+          }
+          const judgeRows = missingJudge.map((tk) => ({
+            month,
+            period_key: periodKey,
+            track,
+            ticker: tk,
+            bucket: bucketByTicker.get(tk)!,
+            round: 3,
+          }));
+          const { error: judgeErr } = await client
+            .from("tier1_selection_job")
+            .upsert(judgeRows, {
+              onConflict: "period_key,ticker,round",
+              ignoreDuplicates: true,
+            });
+          if (judgeErr) {
+            if (isRoundSchemaMissingError(judgeErr)) {
+              throw new Error("selection_round_schema_missing");
+            }
+            throw new Error(`judge_enqueue_failed:${judgeErr.code ?? "unknown"}`);
+          }
+          judgeEnqueued = missingJudge.length;
+          remaining = await countOpenJobs(client, periodKey);
+        } else {
+          // judge 전부 terminal(nonTerminal==0) 또는 finalPanels 0 → 최종 finalize.
+          // W1b (D4) — round=3 done verdict만 type guard로 수집 (R1/R2 panel map과 이형 분리).
+          const judgeScoresByTicker: Record<string, Record<"short" | "mid" | "long", number>> = {};
+          const judgeVerdictByTicker = new Map<string, JudgeVerdict>();
+          for (const r of rows) {
+            if ((r.round ?? 1) !== 3 || r.status !== "done") continue;
+            if (isJudgeVerdict(r.panel_result)) {
+              judgeVerdictByTicker.set(r.ticker, r.panel_result);
+              judgeScoresByTicker[r.ticker] = r.panel_result.scores;
+            }
+          }
+          // W1b (D3) — dual-judge: judge 점수 경계(rank 9..12)만, 전용 positive-count preflight,
+          //   실패/hardcap = skip(관측층 — 선정 차단 금지). 최종은 항상 Opus verdict.
+          const judgeScoresMap = new Map(Object.entries(judgeScoresByTicker));
+          const dualTargets = computeDualJudgeBoundary(judgeScoresMap, track);
+          if (dualTargets.length > 0) {
+            try {
+              await input.preflightHardcap(
+                {
+                  month,
+                  lines: [
+                    {
+                      callCount: dualTargets.length,
+                      maxCostPerCallKrw:
+                        getRoleWorstCaseMaxCostPerCallKrw("dual_judge_gpt"),
+                    },
+                  ],
+                },
+                { client, callerKind: "service-role" },
+              );
+              for (const tk of dualTargets) {
+                try {
+                  const gptVerdict = await input.callDualJudge({
+                    ticker: tk,
+                    finalPanel: finalPanels.get(tk) ?? [],
+                  });
+                  const opusVerdict = judgeVerdictByTicker.get(tk);
+                  if (opusVerdict && isDualJudgeDisagreement(opusVerdict, gptVerdict)) {
+                    console.info(
+                      JSON.stringify({
+                        event: "dual_judge_disagreement",
+                        month,
+                        periodKey,
+                        track,
+                        ticker: tk,
+                        opus: opusVerdict.scores,
+                        gpt: gptVerdict.scores,
+                      }),
+                    );
+                  }
+                } catch (dualErr) {
+                  // 개별 dual 콜 실패 = best-effort 관측층 — 선정 진행.
+                  console.error(
+                    JSON.stringify({
+                      event: "dual_judge_call_failed",
+                      month,
+                      periodKey,
+                      ticker: tk,
+                      message:
+                        dualErr instanceof Error ? dualErr.message : String(dualErr),
+                    }),
+                  );
+                }
+              }
+            } catch (preErr) {
+              // hardcap 등 preflight 실패 → dual 전체 skip (Opus 단독 최종).
+              console.info(
+                JSON.stringify({
+                  event: "dual_judge_skipped_hardcap",
+                  month,
+                  periodKey,
+                  track,
+                  count: dualTargets.length,
+                  message: preErr instanceof Error ? preErr.message : String(preErr),
+                }),
+              );
+            }
+          }
+          finalized = await finalizeSelection(
+            input,
+            candidates,
+            incumbentTickers,
+            incumbentMetadataByTicker,
+            rows,
+            judgeScoresByTicker,
+          );
+        }
       }
     }
   }
@@ -766,6 +969,7 @@ export async function runTier1SelectionChunk(
     failed,
     deferred: 0,
     r2Enqueued,
+    judgeEnqueued,
     remaining,
     finalized,
     aborted: null,
@@ -792,6 +996,7 @@ async function finalizeSelection(
   incumbentTickers: ReadonlySet<string>,
   incumbentMetadataByTicker: IncumbentMetadataMap,
   rows: SelectionFullRow[],
+  judgeScoresByTicker: Record<string, Record<"short" | "mid" | "long", number>>,
 ): Promise<boolean> {
   const { month, track, periodKey, client } = input;
   // W1a (D6) — replay map: round=2 done 우선 / round=1 fallback (R2 실패는 R1 유지 graceful).
@@ -800,10 +1005,13 @@ async function finalizeSelection(
   const r2Map = new Map<string, PersonaScore[]>();
   for (const r of rows) {
     if (r.status !== "done" || !r.panel_result) continue;
-    if ((r.round ?? 1) === 2) {
-      r2Map.set(r.ticker, r.panel_result);
+    const round = r.round ?? 1;
+    // W1b (D4) — round=3(JudgeVerdict)은 panel map에 절대 미혼입 (judgeScoresByTicker로만 소비).
+    if (round === 3) continue;
+    if (round === 2) {
+      r2Map.set(r.ticker, r.panel_result as PersonaScore[]);
     } else {
-      r1Map.set(r.ticker, r.panel_result);
+      r1Map.set(r.ticker, r.panel_result as PersonaScore[]);
     }
   }
   const storedPanels = pickFinalPanels(r1Map, r2Map);
@@ -812,6 +1020,8 @@ async function finalizeSelection(
   const result = await input.runScreening({
     track,
     candidates,
+    // W1b (D4) — judge 최종 점수 SoT (부재 ticker는 consensus fallback).
+    judgeScoresByTicker,
     promptVersionId: input.promptVersionId,
     personasVersionId: input.personasVersionId,
     fetchFinancials: async () => "", // replay 미사용
