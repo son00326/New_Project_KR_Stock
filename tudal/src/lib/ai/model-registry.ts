@@ -101,7 +101,7 @@ export function getRoleWorstCaseMaxCostPerCallKrw(role: AiRole): number {
 }
 
 // 풀 리포트 1 ticker worst-case (writer + critic + revise) — 구 pricing.ts
-// ORCHESTRATE_TOTAL_COST_BUDGET_KRW supersede: critic이 GPT mid로 resolve되면 Haiku 고정
+// Legacy fixed orchestration budget supersede: critic이 GPT mid로 resolve되면 Haiku 고정
 // 상수는 undercount(27.5원 vs 76원) → registry worst-case 합산으로 격상.
 export function getOrchestrateBudgetKrw(): number {
   return (

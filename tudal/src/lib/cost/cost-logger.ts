@@ -257,7 +257,7 @@ export async function preflightHardcap(
     ? opts.lines.reduce((s, l) => s + l.callCount * l.maxCostPerCallKrw, 0)
     : (opts.callCount ?? 0) * (opts.maxCostPerCallKrw ?? MAX_COST_PER_CALL_KRW);
   if (currentTotal + reservation > HARDCAP_KRW) {
-    throw new Error('cost_hardcap_exceeded'); // 구 cost_hardcap_40man — 65차 50만 + cap-agnostic rename
+    throw new Error('cost_hardcap_exceeded'); // 65차 50만 + cap-agnostic hardcap key
   }
   return {
     currentTotal,

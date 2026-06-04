@@ -56,30 +56,13 @@ export const FULL_REPORT_MAX_COST_PER_CALL_KRW = calculateCostKrw({
   output_tokens: 6000,
 });
 
-// 65차 LOCKED #5 (2026-06-04) — 40만 → 50만. 구 "M17 Q2 40만"은 supersede.
+// 65차 LOCKED #5 (2026-06-04) — legacy M17 cap superseded by 50만.
 export const HARDCAP_KRW = 500_000;
 
 // ---------------------------------------------------------------------------
 // PR3c (omxy R6 CONVERGED, 누적 21 BLOCKERS) — 3-step orchestration cost calibration.
 // SoT = docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md (v6)
 // ---------------------------------------------------------------------------
-
-// B14 fix (omxy R3): anthropic-pricing.ts ANTHROPIC_PRICING 키 (calculateCostKrw 2nd arg).
-// CRITIC_API_MODEL ('claude-haiku-4-5-20251001')는 critic-client.ts에 별도 declare —
-// API call vs pricing key 분리로 fallback Sonnet 단가 차단.
-export const CRITIC_PRICING_KEY = "claude-haiku-4-5" as const;
-if (!(CRITIC_PRICING_KEY in MODEL_PRICING)) {
-  throw new Error(`${CRITIC_PRICING_KEY} not in MODEL_PRICING — anthropic-pricing.ts SoT 갱신 필요`);
-}
-
-// PR3c — critic call (Haiku 4.5)
-// B22 fix (omxy R7): evaluateReport이 sectionsSummary = JSON.stringify(sections) 전체 inject.
-// hardcap 보수적 calibration = input 9000 (Section 0~7 + Appendix JSON stringify upper-bound) +
-// output 2048 (CRITIC_MAX_TOKENS). 현재 단가 ≈ 27.5원 (Haiku $1 input / $5 output × 1430 KRW/USD).
-export const CRITIC_MAX_COST_PER_CALL_KRW = calculateCostKrw(
-  { input_tokens: 9000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 2048 },
-  CRITIC_PRICING_KEY,
-);
 
 // PR3c — revise call (W0 D28 ④: Opus 4.8, max_tokens 8192 — B3 fix · input 8000 — B11 보수화)
 // Track 3 C-1 fix (5-angle scan cross-confirmed angles 3+5): defense-in-depth — B14 pattern 정합.
@@ -99,11 +82,11 @@ export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw(
   REVISE_PRICING_KEY,
 );
 
-// W0 D28 ③ supersede: 구 ORCHESTRATE_TOTAL_COST_BUDGET_KRW(writer+critic+revise 고정 합산)은
+// W0 D28 ③ supersede: legacy fixed orchestration budget(writer+critic+revise 고정 합산)은
 // critic이 GPT mid로 resolve되면 Haiku 고정 단가로 undercount → model-registry
 // getOrchestrateBudgetKrw()(역할별 worst-case 합산)로 이전. 본 상수는 importer 0이라 제거.
 
 // PR5 — cron batch cost-warning 임계 (HARDCAP_KRW=500k 대비 조기 경고).
-// 65차 LOCKED #5 (2026-06-04): 35만 → 45만 (hardcap 90% 파생).
+// 65차 LOCKED #5 (2026-06-04): warning threshold = 45만 (hardcap 90% 파생).
 // best-effort budget guard (R4 MEDIUM-2): 535는 projection이지 strict token ceiling 아님.
 export const COST_WARNING_THRESHOLD_KRW = 450_000;
