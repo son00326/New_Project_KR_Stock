@@ -330,7 +330,8 @@ const BADGE_PRIORITY: Record<ConsensusBadge, number> = {
   '⚪': 0,
 };
 
-function computeWeightedScores(personas: PersonaScore[]): Record<Timeframe, number> {
+// W1a (D3) — debate-round.computeR2Targets가 소비 (export 승격, 시그니처 무변경).
+export function computeWeightedScores(personas: PersonaScore[]): Record<Timeframe, number> {
   const result: Record<Timeframe, number> = { short: 0, mid: 0, long: 0 };
   for (const tf of TIMEFRAMES) {
     let weightedSum = 0;
