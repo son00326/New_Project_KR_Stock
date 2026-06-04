@@ -320,6 +320,12 @@ export interface RunTier1ScreeningInput {
    * PR1 wire 시 degraded ticker (LLM 키 미발급/billing 소진 등)를 caller가 사전 false로 명시 가능.
    */
   tier1AvailableByTicker?: Readonly<Record<string, boolean>>;
+  /**
+   * W1b (D28 ③ / D4) — per-ticker 최종 judge 점수 (debate_judge verdict).
+   * 주입 ticker는 weighted_scores = judge 점수(최종 SoT), 미주입/degraded는 기존 결정론 consensus fallback.
+   * available=false(⚪)는 judge 있어도 ⚪ 유지 (degraded 우선).
+   */
+  judgeScoresByTicker?: Readonly<Record<string, Record<Timeframe, number>>>;
 }
 
 const BADGE_PRIORITY: Record<ConsensusBadge, number> = {
@@ -517,7 +523,9 @@ export async function runTier1Screening(
         available: false,
       };
     }
-    const weighted = computeWeightedScores(e.personaScores);
+    // W1b (D4) — judge verdict 있으면 최종 점수 SoT로 대체 (consensus는 fallback).
+    const judge = input.judgeScoresByTicker?.[e.candidate.ticker];
+    const weighted = judge ?? computeWeightedScores(e.personaScores);
     const primary_timeframe = argmaxTimeframe(weighted);
     return {
       ticker: e.candidate.ticker,

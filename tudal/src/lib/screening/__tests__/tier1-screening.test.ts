@@ -152,6 +152,47 @@ describe('runTier1Screening (W2a track 파라미터화)', () => {
     });
   });
 
+  // W1b (D4) — judge 최종 점수 seam
+  describe('W1b judgeScoresByTicker seam', () => {
+    it('judge 점수 주입 ticker는 weighted_scores=judge (랭킹/selected 반영), 미주입은 consensus 유지', async () => {
+      // panel 점수는 전부 낮게(10), judge가 T049(최하위 consensus)에 최고점 부여 → selected 진입
+      const input: RunTier1ScreeningInput = {
+        track: 'short',
+        candidates: makeShortCandidates(50),
+        callPersonaPanel: makePanelCallback(() => 10),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+        judgeScoresByTicker: { T049: { short: 99, mid: 0, long: 0 } },
+      };
+      const result = await runTier1Screening(input);
+      const t49 = result.selected.find((a) => a.ticker === 'T049');
+      expect(t49).toBeDefined();
+      expect(t49!.weighted_scores.short).toBe(99); // judge SoT
+      const other = [...result.selected, ...result.notSelected].find((a) => a.ticker === 'T000')!;
+      expect(other.weighted_scores.short).toBe(10); // consensus fallback
+    });
+
+    it('degraded(panel null) ticker는 judge 점수 있어도 ⚪/0 유지 (available=false 우선)', async () => {
+      const input: RunTier1ScreeningInput = {
+        track: 'short',
+        candidates: makeShortCandidates(50),
+        callPersonaPanel: async ({ ticker }) => {
+          if (ticker === 'T010') throw new Error('panel_missing');
+          return makePanelCallback(() => 50)({ ticker, financials: '' });
+        },
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+        judgeScoresByTicker: { T010: { short: 99, mid: 99, long: 99 } },
+      };
+      const result = await runTier1Screening(input);
+      const t10 = [...result.selected, ...result.notSelected].find((a) => a.ticker === 'T010')!;
+      expect(t10.weighted_scores.short).toBe(0); // degraded 우선 — judge 무시
+      expect(t10.consensus_badges_by_timeframe.short).toBe('⚪');
+    });
+  });
+
   describe('Input validation', () => {
     // W2b (D27 Q5) — incumbent 합성 후보 (tier0_scores 전부 null, 직전 bucket만 true).
     function makeIncumbentSynths(
