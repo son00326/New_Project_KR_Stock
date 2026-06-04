@@ -35,9 +35,16 @@ import type {
   SelectionTrack,
   Tier1ScreeningResult,
 } from "@/lib/screening/tier1-schema";
-import { TRACK_FRESH_POOL } from "@/lib/screening/tier1-schema";
+import { TRACK_FRESH_POOL, TRACK_SELECT_COUNT } from "@/lib/screening/tier1-schema";
 import type { Tier1Candidate, RunTier1ScreeningInput } from "@/lib/screening/persona-eval";
-import type { TickerCommentMap } from "@/lib/data/admin-shortlist-persist";
+import {
+  mergeFreshWithIncumbents,
+  type IncumbentInfo,
+} from "@/lib/screening/incumbent-merge";
+import type {
+  IncumbentMetadataMap,
+  TickerCommentMap,
+} from "@/lib/data/admin-shortlist-persist";
 import type { PipelineHealthInsert } from "@/lib/data/admin-pipeline-health-insert";
 import type { AlertEvent } from "@/types/admin";
 import type { CostAlertContext } from "@/lib/data/admin-cost-alerts";
@@ -55,7 +62,19 @@ type Tier0Source = (opts: {
 type CallPersonaPanel = (input: {
   ticker: string;
   financials: string;
+  /** W2b (D27 Q5) — incumbent thesis context per-call 주입. 미지정 = 비-incumbent. */
+  reflectionContext?: string;
 }) => Promise<PersonaScore[]>;
+// W2b (D27 Q5) — incumbent 식별 + per-ticker thesis context builder DI.
+type IncumbentsSource = (opts: {
+  track: SelectionTrack;
+  month: string;
+  client: SupabaseClient;
+}) => Promise<IncumbentInfo[]>;
+type BuildIncumbentContexts = (
+  incumbents: readonly IncumbentInfo[],
+  opts: { client: SupabaseClient },
+) => Promise<Record<string, string>>;
 type FetchFinancials = (ticker: string) => Promise<string>;
 type PreflightHardcap = (
   args: {
@@ -79,7 +98,13 @@ type Persist = (
   monthYM: string,
   track: SelectionTrack,
   selected: Tier1ScreeningResult["selected"],
-  options: { client: SupabaseClient; commentsByTicker?: TickerCommentMap },
+  options: {
+    client: SupabaseClient;
+    commentsByTicker?: TickerCommentMap;
+    // W2b (D27 Q5) — delta_status hold/new 실계산 + incumbent-only display meta 보존.
+    incumbentTickers?: ReadonlySet<string>;
+    incumbentMetadataByTicker?: IncumbentMetadataMap;
+  },
 ) => Promise<void>;
 type InsertPipelineHealth = (
   row: PipelineHealthInsert,
@@ -115,6 +140,9 @@ export interface RunTier1SelectionChunkInput {
   insertPipelineHealth: InsertPipelineHealth;
   insertAlertEvents: InsertAlertEvents;
   emitCostAlert: EmitCostAlert;
+  // W2b (D27 Q5) — incumbent union + per-ticker thesis context.
+  incumbentsSource: IncumbentsSource;
+  buildIncumbentContexts: BuildIncumbentContexts;
 }
 
 export interface Tier1SelectionChunkResult {
@@ -343,9 +371,9 @@ export async function runTier1SelectionChunk(
     return await abortBeforeSpend(input, "cron_system_user_not_found");
   }
 
-  // ── enqueue idempotent: 트랙 fresh 후보 → tier1_selection_job (period_key/track, ON CONFLICT DO NOTHING) ──
-  const candidates = await input.tier0Source({ month, client });
-  if (candidates.length === 0) {
+  // ── enqueue idempotent: fresh ∪ incumbent 후보 → tier1_selection_job (period_key/track, ON CONFLICT DO NOTHING) ──
+  const fresh = await input.tier0Source({ month, client });
+  if (fresh.length === 0) {
     console.info(
       JSON.stringify({ event: "tier0_candidates_not_seeded", month, track, periodKey }),
     );
@@ -361,13 +389,37 @@ export async function runTier1SelectionChunk(
       aborted: null,
     };
   }
-  // W2a — 저장 expected_total 없음(D6). 후보 수 = 트랙 fresh pool (short 50 / midlong 100).
-  if (candidates.length !== TRACK_FRESH_POOL[track]) {
+  // W2a — 저장 expected_total 없음(D6). fresh 후보 수 = 트랙 fresh pool (short 50 / midlong 100).
+  if (fresh.length !== TRACK_FRESH_POOL[track]) {
     return await abortBeforeSpend(
       input,
-      `tier0_candidates_invalid_count:${candidates.length}`,
+      `tier0_candidates_invalid_count:${fresh.length}`,
     );
   }
+  // W2b (D27 Q5) — incumbent union. 조회 실패는 throw 전파(무심사 탈락 금지 — silent drop이
+  // incumbent를 평가에서 누락시키면 안 됨). cold start []는 fresh-only.
+  // 부분 그룹(예: short 9/10)은 carry_short_into_month가 midlong 졸업 ticker를 제외하는 정당 상태이므로
+  // 허용 — `> TRACK_SELECT_COUNT`만 corruption 방어 fail-closed.
+  const incumbents = await input.incumbentsSource({ track, month, client });
+  const expectedIncumbents = TRACK_SELECT_COUNT[track];
+  if (incumbents.length > expectedIncumbents) {
+    return await abortBeforeSpend(
+      input,
+      `incumbents_count_exceeded:${incumbents.length}>${expectedIncumbents}`,
+    );
+  }
+  const candidates = mergeFreshWithIncumbents(fresh, incumbents);
+  const incumbentTickers = new Set(incumbents.map((i) => i.ticker));
+  const incumbentMetadataByTicker: IncumbentMetadataMap = Object.fromEntries(
+    incumbents.map((i) => [
+      i.ticker,
+      {
+        name: i.name,
+        compositeScore: i.compositeScore,
+        signalLabel: i.signalLabel,
+      },
+    ]),
+  );
   // tier0_candidates.month는 date(YYYY-MM-01), tier1_selection_job.month는 YYYY-MM. period_key/track 명시.
   const enqueueRows = candidates.map((c) => ({
     month,
@@ -454,6 +506,14 @@ export async function runTier1SelectionChunk(
   }
   const jobs = (claimed ?? []) as SelectionJobRow[];
 
+  // W2b (D27 Q5) — incumbent thesis context (claimed에 incumbent가 있을 때만 1회 빌드, ≤3 query).
+  let incumbentContextByTicker: Record<string, string> = {};
+  if (jobs.some((j) => incumbentTickers.has(j.ticker))) {
+    incumbentContextByTicker = await input.buildIncumbentContexts(incumbents, {
+      client,
+    });
+  }
+
   let done = 0;
   let failed = 0;
   const failedTickers: string[] = [];
@@ -463,7 +523,12 @@ export async function runTier1SelectionChunk(
     try {
       const panel = await retryWithBackoff(async () => {
         const financials = await input.fetchFinancials(job.ticker);
-        return input.callPersonaPanel({ ticker: job.ticker, financials });
+        return input.callPersonaPanel({
+          ticker: job.ticker,
+          financials,
+          // W2b — incumbent만 직전 thesis 컨텍스트 주입. 비-incumbent는 undefined(adapter default '').
+          reflectionContext: incumbentContextByTicker[job.ticker],
+        });
       });
       await markJob(client, {
         id: job.id,
@@ -535,7 +600,12 @@ export async function runTier1SelectionChunk(
   if (nonTerminal === 0) {
     const terminal = await countTerminalJobs(client, periodKey);
     if (terminal > 0) {
-      finalized = await finalizeSelection(input, candidates);
+      finalized = await finalizeSelection(
+        input,
+        candidates,
+        incumbentTickers,
+        incumbentMetadataByTicker,
+      );
     }
   }
 
@@ -572,6 +642,8 @@ function bucketOf(c: Tier1Candidate): "short" | "mid" | "long" {
 async function finalizeSelection(
   input: RunTier1SelectionChunkInput,
   candidates: Tier1Candidate[],
+  incumbentTickers: ReadonlySet<string>,
+  incumbentMetadataByTicker: IncumbentMetadataMap,
 ): Promise<boolean> {
   const { month, track, periodKey, client } = input;
   // 전체 rows 1회 SELECT (ticker, status, panel_result) — period_key 필터.
@@ -612,7 +684,24 @@ async function finalizeSelection(
   await input.persist(month, track, result.selected, {
     client,
     commentsByTicker: result.commentsByTicker,
+    // W2b (D27 Q5) — delta_status hold/new 실계산 + incumbent-only display meta 보존 (D9).
+    incumbentTickers,
+    incumbentMetadataByTicker,
   });
+  // W2b (D6) — removed는 행 materialize 불가(트랙 count gate 10/20 + always-30) → 구조화 로그.
+  const selectedSet = new Set(result.selected.map((s) => s.ticker));
+  const removed = [...incumbentTickers].filter((t) => !selectedSet.has(t));
+  if (removed.length > 0) {
+    console.info(
+      JSON.stringify({
+        event: "incumbent_removed",
+        month,
+        periodKey,
+        track,
+        tickers: removed,
+      }),
+    );
+  }
   await markSelectionFinalized(client, periodKey, input.runId ?? "");
   return true;
 }

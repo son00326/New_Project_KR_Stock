@@ -232,6 +232,25 @@ function stubScreeningResult(track: SelectionTrack): Tier1ScreeningResult {
   };
 }
 
+// W2b (D27 Q5) — incumbent fixture (IncumbentInfo shape).
+function makeIncumbentInfo(ticker: string, bucket: "short" | "mid" | "long") {
+  return {
+    ticker,
+    bucket,
+    rank: 1,
+    month: "2026-05-01",
+    sector: null,
+    name: `종목${ticker}`,
+    aiCommentKr: "직전 논거",
+    consensusBadge: "🟢",
+    aiScore: 78.2,
+    conviction: 71,
+    deltaStatus: "new",
+    compositeScore: 72.5,
+    signalLabel: "기존 신호",
+  };
+}
+
 // DI 기본 세팅. over는 loosely typed로 받아 mock 타입(.mock 접근) 보존.
 function makeDeps(track: SelectionTrack = "midlong", over: Record<string, unknown> = {}) {
   const callPersonaPanel = vi.fn(async () => makePanel());
@@ -244,6 +263,9 @@ function makeDeps(track: SelectionTrack = "midlong", over: Record<string, unknow
   const insertPipelineHealth = vi.fn(async () => {});
   const insertAlertEvents = vi.fn(async () => {});
   const emitCostAlert = vi.fn(async () => {});
+  // W2b — incumbent DI 기본값: cold start([]) = W2a fresh-only 무회귀.
+  const incumbentsSource = vi.fn(async () => [] as ReturnType<typeof makeIncumbentInfo>[]);
+  const buildIncumbentContexts = vi.fn(async () => ({}) as Record<string, string>);
   const deps = {
     tier0Source,
     callPersonaPanel,
@@ -255,6 +277,8 @@ function makeDeps(track: SelectionTrack = "midlong", over: Record<string, unknow
     insertPipelineHealth,
     insertAlertEvents,
     emitCostAlert,
+    incumbentsSource,
+    buildIncumbentContexts,
     promptVersionId: "p@v1",
     personasVersionId: "core11@v3.1",
     ...over,
@@ -964,3 +988,200 @@ interface RunTier1ScreeningLike {
   fetchFinancials: (ticker: string) => Promise<string>;
   candidates: unknown[];
 }
+
+// ---------------------------------------------------------------------------
+// W2b (D27 Q5) — incumbent union + per-call thesis context + delta/removed
+// ---------------------------------------------------------------------------
+describe("W2b incumbent union + thesis context", () => {
+  it("union enqueue: incumbent source 10 중 fresh와 5개 중첩 → fresh 50 + incumbent-only 5 = 55 jobs (무심사 탈락 금지)", async () => {
+    const fresh = makeTrackCandidates("short"); // tickers 000000..000049
+    const incumbents = [
+      // 5 overlap with fresh
+      ...fresh.slice(0, 5).map((c) => makeIncumbentInfo(c.ticker, "short")),
+      // 5 incumbent-only
+      ...Array.from({ length: 5 }, (_, i) => makeIncumbentInfo(`90000${i}`, "short")),
+    ];
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 55,
+      nonTerminalCount: 55,
+      terminalCount: 0,
+    });
+    let upsertRows: Array<Record<string, unknown>> = [];
+    const origFrom = client.from;
+    client.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>;
+      chain.upsert = vi.fn(async (rows: Array<Record<string, unknown>>) => {
+        if (table === "tier1_selection_job") upsertRows = rows;
+        return { error: null };
+      });
+      return chain;
+    }) as typeof client.from;
+    const deps = makeDeps("short", {
+      incumbentsSource: vi.fn(async () => incumbents),
+    });
+    await runChunk(client, deps, { track: "short" });
+    expect(upsertRows).toHaveLength(55);
+    const tickers = new Set(upsertRows.map((r) => r.ticker));
+    expect(tickers.has("900000")).toBe(true);
+    expect(tickers.has("900004")).toBe(true);
+  });
+
+  it("incumbent ticker chunk 처리 시 callPersonaPanel에 reflectionContext 전달, 비-incumbent는 undefined", async () => {
+    const incumbents = [makeIncumbentInfo("900000", "mid")];
+    const { client } = makeFakeClient({
+      claimedJobs: [
+        { id: "j1", ticker: "900000" },
+        { id: "j2", ticker: "000000" },
+      ],
+      openCount: 0,
+      nonTerminalCount: 1,
+      terminalCount: 100,
+    });
+    const deps = makeDeps("midlong", {
+      incumbentsSource: vi.fn(async () => incumbents),
+      buildIncumbentContexts: vi.fn(async () => ({
+        "900000": "[재점검] 직전 논거 컨텍스트",
+      })),
+    });
+    await runChunk(client, deps);
+    expect(deps.buildIncumbentContexts).toHaveBeenCalledTimes(1);
+    const calls = (deps.callPersonaPanel as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[{ ticker: string; reflectionContext?: string }]>;
+    const incCall = calls.find(([a]) => a.ticker === "900000")!;
+    const freshCall = calls.find(([a]) => a.ticker === "000000")!;
+    expect(incCall[0].reflectionContext).toBe("[재점검] 직전 논거 컨텍스트");
+    expect(freshCall[0].reflectionContext).toBeUndefined();
+  });
+
+  it("claimed에 incumbent 없으면 buildIncumbentContexts 미호출 (조회 절약 + cold start 무회귀)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [{ id: "j2", ticker: "000000" }],
+      openCount: 0,
+      nonTerminalCount: 1,
+      terminalCount: 100,
+    });
+    const deps = makeDeps("midlong", {
+      incumbentsSource: vi.fn(async () => [makeIncumbentInfo("900000", "mid")]),
+    });
+    await runChunk(client, deps);
+    expect(deps.buildIncumbentContexts).not.toHaveBeenCalled();
+  });
+
+  it("finalize: persist options.incumbentTickers + incumbentMetadataByTicker + removed 구조화 로그", async () => {
+    const allRows = makeTrackCandidates("midlong").map((c) => ({
+      ticker: c.ticker,
+      status: "done",
+      panel_result: makePanel(),
+    }));
+    // stubSelected(midlong) tickers: 0000xx/1000xx 형태 — incumbent 1개는 selected에 없음 → removed.
+    const incumbents = [
+      makeIncumbentInfo("900000", "mid"), // removed 예상
+    ];
+    const { client } = makeFakeClient({
+      claimedJobs: [{ id: "j1", ticker: "000000" }],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 101,
+      allRows,
+    });
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      const deps = makeDeps("midlong", {
+        incumbentsSource: vi.fn(async () => incumbents),
+      });
+      const res = await runChunk(client, deps);
+      expect(res.finalized).toBe(true);
+      const persistArgs = deps.persist.mock.calls[0] as unknown[];
+      const options = persistArgs[3] as {
+        incumbentTickers: ReadonlySet<string>;
+        incumbentMetadataByTicker: Record<string, { name: string | null }>;
+      };
+      expect(options.incumbentTickers.has("900000")).toBe(true);
+      expect(options.incumbentMetadataByTicker["900000"]).toMatchObject({
+        name: "종목900000",
+        compositeScore: 72.5,
+        signalLabel: "기존 신호",
+      });
+      const removedLog = infoSpy.mock.calls
+        .map((c) => String(c[0]))
+        .find((s) => s.includes("incumbent_removed"));
+      expect(removedLog).toBeDefined();
+      expect(removedLog).toContain("900000");
+    } finally {
+      infoSpy.mockRestore();
+    }
+  });
+
+  it("incumbents가 TRACK_SELECT_COUNT를 초과하면(11) → abortBeforeSpend(incumbents_count_exceeded) (fail-closed, spend 0)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 0,
+    });
+    const deps = makeDeps("short", {
+      incumbentsSource: vi.fn(async () =>
+        Array.from({ length: 11 }, (_, i) => makeIncumbentInfo(`9000${String(i).padStart(2, "0")}`, "short")),
+      ),
+    });
+    await expect(runChunk(client, deps, { track: "short" })).rejects.toThrow(
+      "incumbents_count_exceeded:11>10",
+    );
+    expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+  });
+
+  it("carry 졸업 제외로 incumbent 9행이어도 abort 없이 union enqueue (partial 정당)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 0,
+    });
+    const deps = makeDeps("short", {
+      incumbentsSource: vi.fn(async () =>
+        Array.from({ length: 9 }, (_, i) => makeIncumbentInfo(`90000${i}`, "short")),
+      ),
+    });
+    const res = await runChunk(client, deps, { track: "short" });
+    expect(res.aborted).toBeNull();
+  });
+
+  it("incumbentsSource 실패 → throw 전파 (silent drop 금지 — D27 무심사 탈락 금지)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 0,
+    });
+    const deps = makeDeps("short", {
+      incumbentsSource: vi.fn(async () => {
+        throw new Error("incumbents_query_failed:PGRST000");
+      }),
+    });
+    await expect(runChunk(client, deps, { track: "short" })).rejects.toThrow(
+      "incumbents_query_failed",
+    );
+    expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+  });
+
+  it("reservation: open 55 + deferred 5 = 60 jobs × 11 = 660 callCount preflight (incumbent job 자동 포함)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 55,
+      deferredCount: 5,
+      nonTerminalCount: 60,
+      terminalCount: 0,
+    });
+    const deps = makeDeps("short", {
+      incumbentsSource: vi.fn(async () =>
+        Array.from({ length: 10 }, (_, i) => makeIncumbentInfo(`90000${i}`, "short")),
+      ),
+    });
+    await runChunk(client, deps, { track: "short" });
+    const preflightArgs = deps.preflightHardcap.mock.calls[0] as unknown[];
+    const lines = (preflightArgs[0] as { lines: Array<{ callCount: number }> }).lines;
+    expect(lines[0].callCount).toBe(660);
+  });
+});
