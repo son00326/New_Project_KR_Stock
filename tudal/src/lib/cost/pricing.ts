@@ -99,12 +99,9 @@ export const REVISE_MAX_COST_PER_CALL_KRW = calculateCostKrw(
   REVISE_PRICING_KEY,
 );
 
-// PR3c — orchestrate total budget (writer + critic + revise worst case)
-// 약 236 + 27.5 + 272 ≈ 535원/per ticker worst case (revise 항상 발생 가정 + B22 critic input 9000 보수화).
-// 30 stocks × 535 ≈ 16,050원/월 ≈ hardcap 500k(65차 LOCKED #5)의 3.2%.
-// 평균 30% revise trigger 가정 시 ≈ 345원/ticker × 30 ≈ 10,350원/월 (2.1%).
-export const ORCHESTRATE_TOTAL_COST_BUDGET_KRW =
-  FULL_REPORT_MAX_COST_PER_CALL_KRW + CRITIC_MAX_COST_PER_CALL_KRW + REVISE_MAX_COST_PER_CALL_KRW;
+// W0 D28 ③ supersede: 구 ORCHESTRATE_TOTAL_COST_BUDGET_KRW(writer+critic+revise 고정 합산)은
+// critic이 GPT mid로 resolve되면 Haiku 고정 단가로 undercount → model-registry
+// getOrchestrateBudgetKrw()(역할별 worst-case 합산)로 이전. 본 상수는 importer 0이라 제거.
 
 // PR5 — cron batch cost-warning 임계 (HARDCAP_KRW=500k 대비 조기 경고).
 // 65차 LOCKED #5 (2026-06-04): 35만 → 45만 (hardcap 90% 파생).

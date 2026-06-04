@@ -15,12 +15,12 @@ beforeEach(() => {
 });
 
 describe("emitCostAlert", () => {
-  it("total below 350k threshold → no alert", async () => {
+  it("total below 450k threshold → no alert (65차 LOCKED #5: warning 45만)", async () => {
     await emitCostAlert(
       {
         month: "2026-06",
         currentTotalKrw: 100_000,
-        projectedKrw: 249_999,
+        projectedKrw: 349_999,
       },
       { client: fakeClient as never },
     );
@@ -28,11 +28,11 @@ describe("emitCostAlert", () => {
     expect(insertAlertEventsMock).not.toHaveBeenCalled();
   });
 
-  it("350k <= total <= 400k → cost_warning / warning", async () => {
+  it("450k <= total <= 500k → cost_warning / warning (65차 LOCKED #5)", async () => {
     await emitCostAlert(
       {
         month: "2026-06",
-        currentTotalKrw: 340_000,
+        currentTotalKrw: 440_000,
         projectedKrw: 10_000,
       },
       { client: fakeClient as never },
@@ -48,11 +48,11 @@ describe("emitCostAlert", () => {
     expect(options.client).toBe(fakeClient);
   });
 
-  it("total > 400k → cost_hardcap / critical", async () => {
+  it("total > 500k → cost_hardcap / critical (65차 LOCKED #5: hardcap 50만)", async () => {
     await emitCostAlert(
       {
         month: "2026-06",
-        currentTotalKrw: 399_000,
+        currentTotalKrw: 499_000,
         projectedKrw: 1_001,
       },
       { client: fakeClient as never },

@@ -13,7 +13,7 @@
 //   (5) success — orchestrateFullReport resolves (Task 2 Step 2.2 quality swap, preflight true)
 //   (6) auth unavailable — supabase user null → auth_unavailable
 //   (7) orchestrateFullReport throws full_report_validation_failed → propagate
-//   (8) orchestrateFullReport throws cost_hardcap_40man → propagate
+//   (8) orchestrateFullReport throws cost_hardcap_exceeded → propagate
 //   (9) B65-P1: reportExistsForMonth returns false → report_not_found + orchestrate NOT called
 //   (10) B65-P1: reportExistsForMonth throws → report_lookup_failed + orchestrate NOT called
 //   (11) B65-P1: reportExistsForMonth called with `${month}-01` (B86 invariant)
@@ -373,7 +373,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     });
   });
 
-  it('returns error when orchestrateFullReport throws cost_hardcap_40man', async () => {
+  it('returns error when orchestrateFullReport throws cost_hardcap_exceeded', async () => {
     // 57차 §1 — B65-P1 preflight 통과 위해 reportExistsForMonth: true mock.
     vi.doMock('@/lib/data/admin-reports', () => ({
       reportExistsForMonth: vi.fn().mockResolvedValue(true),
@@ -385,7 +385,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
       enrichReportInput: vi.fn().mockResolvedValue({ ...ENRICHED }),
     }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
-      orchestrateFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_40man')),
+      orchestrateFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_exceeded')),
     }));
     vi.doMock('@/lib/supabase/server', () => ({
       createClient: async () => ({
@@ -395,7 +395,7 @@ describe('triggerFullReport admin server action (PR4 Task 1 Step 1.2)', () => {
     }));
     const { triggerFullReport } = await import('../actions');
     const res = await triggerFullReport(validArgs);
-    expect(res).toEqual({ success: false, error: 'cost_hardcap_40man' });
+    expect(res).toEqual({ success: false, error: 'cost_hardcap_exceeded' });
   });
 
   // ---------------------------------------------------------------------------

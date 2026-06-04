@@ -177,16 +177,16 @@ describe('triggerMonthlyBatch', () => {
     }
   });
 
-  it('preflight fail-closed: hardcap 초과 → cost_hardcap_40man 전파', async () => {
+  it('preflight fail-closed: hardcap 초과 → cost_hardcap_exceeded 전파', async () => {
     isCostLoggingEnabledMock.mockReturnValue(true);
-    preflightHardcapMock.mockRejectedValue(new Error('cost_hardcap_40man'));
+    preflightHardcapMock.mockRejectedValue(new Error('cost_hardcap_exceeded'));
     const prev = process.env.ANTHROPIC_API_KEY;
     process.env.ANTHROPIC_API_KEY = 'sk-test';
     try {
       const preflight = await capturePreflight();
       await expect(
         preflight({ month: '2026-06', callCount: 1650 }),
-      ).rejects.toThrow('cost_hardcap_40man');
+      ).rejects.toThrow('cost_hardcap_exceeded');
     } finally {
       if (prev !== undefined) process.env.ANTHROPIC_API_KEY = prev;
       else delete process.env.ANTHROPIC_API_KEY;

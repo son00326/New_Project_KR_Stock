@@ -452,10 +452,10 @@ describe("runTier1SelectionChunk sequential + isolation", () => {
 });
 
 describe("runTier1SelectionChunk cost_hardcap abort", () => {
-  it("batch preflight cost_hardcap_40man → deferred + cost alert + STOP (no throw), aborted='cost_hardcap'", async () => {
+  it("batch preflight cost_hardcap_exceeded → deferred + cost alert + STOP (no throw), aborted='cost_hardcap'", async () => {
     const preflightHardcap = vi
       .fn()
-      .mockRejectedValue(new Error("cost_hardcap_40man"));
+      .mockRejectedValue(new Error("cost_hardcap_exceeded"));
     const { client, rpcCalls } = makeFakeClient({
       claimedJobs: [],
       remainingCount: 5,
@@ -474,7 +474,7 @@ describe("runTier1SelectionChunk cost_hardcap abort", () => {
     );
   });
 
-  it("preflight callCount = pendingTickerCount × 11 (Core 11)", async () => {
+  it("preflight lines callCount = pendingTickerCount × 11 (Core 11, W0 D28 ③ model-aware)", async () => {
     const preflightHardcap = vi.fn(async () => {});
     const { client } = makeFakeClient({
       claimedJobs: [{ id: "j1", ticker: "000000" }],
@@ -483,9 +483,24 @@ describe("runTier1SelectionChunk cost_hardcap abort", () => {
     const deps = makeDeps({ preflightHardcap });
     await runChunk(client, deps);
     expect(preflightHardcap).toHaveBeenCalledWith(
-      expect.objectContaining({ month: "2026-06", callCount: 77 }),
+      expect.objectContaining({
+        month: "2026-06",
+        lines: [
+          expect.objectContaining({
+            callCount: 77,
+            maxCostPerCallKrw: expect.any(Number),
+          }),
+        ],
+      }),
       expect.objectContaining({ callerKind: "service-role" }),
     );
+    // W0 D28 ③: tier1_panel 역할 단가가 lines에 반영 (registry getRoleMaxCostPerCallKrw).
+    // mock 시그니처가 () => void라 calls args 튜플이 []로 추론 — unknown[] 경유 index (any 금지).
+    const firstCallArgs = preflightHardcap.mock.calls[0] as unknown as unknown[];
+    const callArgs = firstCallArgs[0] as {
+      lines: Array<{ maxCostPerCallKrw: number }>;
+    };
+    expect(callArgs.lines[0].maxCostPerCallKrw).toBeGreaterThan(0);
   });
 
   it("preflight 통과 후 cost warning emitter를 best-effort 호출한다", async () => {
@@ -507,7 +522,7 @@ describe("runTier1SelectionChunk cost_hardcap abort", () => {
   it("CRF-1 batch hardcap alert insert 실패 best-effort → defer 먼저 then aborted return", async () => {
     const preflightHardcap = vi
       .fn()
-      .mockRejectedValue(new Error("cost_hardcap_40man"));
+      .mockRejectedValue(new Error("cost_hardcap_exceeded"));
     const emitCostAlert = vi
       .fn()
       .mockRejectedValue(new Error("alert_event_insert_failed"));

@@ -400,8 +400,8 @@ describe("regenerateReport", () => {
       expect(mocks.orchestrateFullReport).not.toHaveBeenCalled();
     });
 
-    it("returns cost_hardcap_40man when monthly total reaches HARDCAP_KRW (400000)", async () => {
-      mocks.getMonthlyTotal.mockResolvedValueOnce(400_000);
+    it("returns cost_hardcap_exceeded when monthly total reaches HARDCAP_KRW (500000)", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(500_000);
       const { regenerateReport } = await import("../actions");
 
       const result = await regenerateReport({
@@ -410,13 +410,13 @@ describe("regenerateReport", () => {
       });
 
       expect(result.success).toBe(false);
-      if (!result.success) expect(result.error).toBe("cost_hardcap_40man");
+      if (!result.success) expect(result.error).toBe("cost_hardcap_exceeded");
       expect(mocks.incrementManualRegenCount).not.toHaveBeenCalled();
       expect(mocks.orchestrateFullReport).not.toHaveBeenCalled();
     });
 
-    it("returns cost_hardcap_40man when monthly total exceeds HARDCAP_KRW", async () => {
-      mocks.getMonthlyTotal.mockResolvedValueOnce(450_000);
+    it("returns cost_hardcap_exceeded when monthly total exceeds HARDCAP_KRW", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(550_000);
       const { regenerateReport } = await import("../actions");
 
       const result = await regenerateReport({
@@ -425,11 +425,11 @@ describe("regenerateReport", () => {
       });
 
       expect(result.success).toBe(false);
-      if (!result.success) expect(result.error).toBe("cost_hardcap_40man");
+      if (!result.success) expect(result.error).toBe("cost_hardcap_exceeded");
     });
 
-    it("proceeds when monthly total is below HARDCAP_KRW (399999)", async () => {
-      mocks.getMonthlyTotal.mockResolvedValueOnce(399_999);
+    it("proceeds when monthly total is below HARDCAP_KRW (499999)", async () => {
+      mocks.getMonthlyTotal.mockResolvedValueOnce(499_999);
       const { regenerateReport } = await import("../actions");
 
       const result = await regenerateReport({

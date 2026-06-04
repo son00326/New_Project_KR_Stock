@@ -30,7 +30,7 @@ describe('persona-eval (Q6 + Design R4)', () => {
     vi.clearAllMocks();
     vi.mocked(acquireBatchLock).mockResolvedValue({ acquired: true, resumed: false });
     vi.mocked(releaseBatchLock).mockResolvedValue(undefined);
-    vi.mocked(preflightHardcap).mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 400000 });
+    vi.mocked(preflightHardcap).mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 500000 });
     vi.mocked(callPersona).mockResolvedValue({
       content: '{"vote":"BUY","one_line":"강함","argument_excerpt":"근거"}',
       usage: { input_tokens: 100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 50 },
@@ -83,13 +83,13 @@ describe('persona-eval (Q6 + Design R4)', () => {
     await first.catch(() => {});
   });
 
-  it('preflight upper-bound × 30 throws cost_hardcap_40man → no callPersona', async () => {
-    vi.mocked(preflightHardcap).mockRejectedValueOnce(new Error('cost_hardcap_40man'));
-    await expect(runMonthlyPersonaEval(baseInput)).rejects.toThrow('cost_hardcap_40man');
+  it('preflight upper-bound × 30 throws cost_hardcap_exceeded → no callPersona', async () => {
+    vi.mocked(preflightHardcap).mockRejectedValueOnce(new Error('cost_hardcap_exceeded'));
+    await expect(runMonthlyPersonaEval(baseInput)).rejects.toThrow('cost_hardcap_exceeded');
     expect(callPersona).not.toHaveBeenCalled();
     // lock release with status='failed'
     expect(releaseBatchLock).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'failed', errorCode: 'cost_hardcap_40man' })
+      expect.objectContaining({ status: 'failed', errorCode: 'cost_hardcap_exceeded' })
     );
   });
 
@@ -139,7 +139,7 @@ describe('runSectorEval (Tier 2 D21, 52차)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(preflightHardcap).mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 400000 });
+    vi.mocked(preflightHardcap).mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 500000 });
     vi.mocked(callPersona).mockResolvedValue({
       content: '{"vote":"BUY","one_line":"강함","argument_excerpt":"근거"}',
       usage: { input_tokens: 100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 50 },

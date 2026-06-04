@@ -20,7 +20,7 @@ import { orchestrateFullReport } from "@/lib/report/full-report-orchestrator";
 import { enrichReportInput } from "@/lib/report/report-input-enricher";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
-import { ORCHESTRATE_TOTAL_COST_BUDGET_KRW } from "@/lib/cost/pricing";
+import { getOrchestrateBudgetKrw } from "@/lib/ai/model-registry";
 import { insertPipelineHealth } from "@/lib/data/admin-pipeline-health-insert";
 import { emitCostAlert } from "@/lib/data/admin-cost-alerts";
 import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
@@ -278,23 +278,25 @@ export async function runReportBatchChunk(
   const pendingCount = remainingBefore ?? 0;
   // STEP-2: service-role client → 직접 SELECT(RLS bypass) 유지. admin-only RPC 미경유(worker 무회귀).
   const currentTotal = await getMonthlyTotal(month, { client, callerKind: 'service-role' });
-  const projectedKrw = pendingCount * ORCHESTRATE_TOTAL_COST_BUDGET_KRW;
+  // W0 D28 ③: registry worst-case 합산 (writer+critic+revise) — critic GPT resolve 시 Haiku 고정 상수 undercount 차단.
+  const orchestrateBudgetKrw = getOrchestrateBudgetKrw();
+  const projectedKrw = pendingCount * orchestrateBudgetKrw;
   // hardcap 도달 시 chunk 진입 전 abort + alert (cost_hardcap).
   try {
     await preflightHardcap(
       {
         month,
         callCount: pendingCount,
-        maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
+        maxCostPerCallKrw: orchestrateBudgetKrw,
       },
       // STEP-2: preflightHardcap이 options를 getMonthlyTotal로 전파 → service-role 직접 SELECT 고정.
       { client, callerKind: 'service-role' },
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("cost_hardcap_40man")) {
+    if (msg.includes("cost_hardcap_exceeded")) {
       // 남은 pending/running을 먼저 deferred 표시해야 alert insert 장애가 month-stop을 막지 않는다.
-      await deferOpenJobs(client, month, "cost_hardcap_40man");
+      await deferOpenJobs(client, month, "cost_hardcap_exceeded");
       await emitCostAlertBestEffort(
         {
           month,
@@ -310,7 +312,7 @@ export async function runReportBatchChunk(
         0,
         1,
         [],
-        "systemic_abort:cost_hardcap_40man",
+        "systemic_abort:cost_hardcap_exceeded",
       );
       return {
         month,
@@ -402,19 +404,19 @@ export async function runReportBatchChunk(
       done += 1;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // systemic abort: ai_key_unavailable / cost_hardcap_40man → 즉시 batch 중단
+      // systemic abort: ai_key_unavailable / cost_hardcap_exceeded → 즉시 batch 중단
       if (
         msg.includes("ai_key_unavailable") ||
-        msg.includes("cost_hardcap_40man")
+        msg.includes("cost_hardcap_exceeded")
       ) {
-        if (msg.includes("cost_hardcap_40man")) {
-          await deferOpenJobs(client, month, "cost_hardcap_40man");
+        if (msg.includes("cost_hardcap_exceeded")) {
+          await deferOpenJobs(client, month, "cost_hardcap_exceeded");
           const currentTotalAfter = await getMonthlyTotal(month, { client, callerKind: 'service-role' });
           await emitCostAlertBestEffort(
             {
               month,
               currentTotalKrw: currentTotalAfter,
-              projectedKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
+              projectedKrw: orchestrateBudgetKrw,
             },
             { client },
           );

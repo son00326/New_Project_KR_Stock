@@ -143,7 +143,7 @@ export async function commitFullReport(
   input: CommitFullReportInput,
   options: CommitFullReportOptions = {},
 ): Promise<CommitFullReportResult> {
-  // 3-track Track 2 C1 fix: cost-hardcap preflight (40만원). FULL_REPORT_MAX_COST_PER_CALL_KRW은
+  // 3-track Track 2 C1 fix: cost-hardcap preflight (50만원). FULL_REPORT_MAX_COST_PER_CALL_KRW은
   // max_tokens 8192 calibration (input 3000 + output 6000). preflightHardcap 호출 시 caller가
   // 명시적으로 override 주입해야 — 기본 MAX_COST_PER_CALL_KRW (2000 output)은 부족.
   // PR4 Task 1 Step 1.1 (B2): caller-supplied client 전파 (cost_log RLS 정합).

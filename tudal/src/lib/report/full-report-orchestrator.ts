@@ -13,7 +13,7 @@
 //   3. insert_or_bump_sector_backlog RPC (B21 fix — non-blocking warn, Level A guard helper)
 //
 // fixes:
-//   - B1 cost-hardcap preflight (ORCHESTRATE_TOTAL_COST_BUDGET_KRW, pricing.ts calculateCostKrw 통과)
+//   - B1 cost-hardcap preflight (W0 D28 ③ getOrchestrateBudgetKrw() — registry worst-case 합산)
 //   - B17 criticRunId 반환 (OrchestrateFullReportResult.criticRunId 필드)
 //   - B19 target_stage='writer_draft' (PR3c 1회 hard cap)
 //   - B21 backlog non-blocking warn (critic findings는 blocking)
@@ -32,7 +32,7 @@ import { REVISE_SYSTEM_PROMPT, buildReviseUserPrompt } from '@/lib/ai/prompts/re
 import { evaluateReport } from '@/lib/report/critic';
 import { enrichInput } from '@/lib/report/analyst';
 import { preflightHardcap } from '@/lib/cost/cost-logger';
-import { ORCHESTRATE_TOTAL_COST_BUDGET_KRW } from '@/lib/cost/pricing';
+import { getOrchestrateBudgetKrw } from '@/lib/ai/model-registry';
 import { insertCriticFindingsRun } from '@/lib/data/report-critic-findings';
 import { insertOrBumpBacklog } from '@/lib/data/sector-reference-backlog';
 import type { CriticResultJson } from '@/lib/ai/critic-client';
@@ -141,7 +141,8 @@ export async function orchestrateFullReport(
   // 모든 단계에서 일관 사용 (input.* drift 차단). adminUserId만 input 유지 (EnrichedFullReportInput에 없음).
   const enriched = enrichInput(input);
 
-  // B1 fix: cost-hardcap preflight (ORCHESTRATE_TOTAL_COST_BUDGET_KRW = writer + critic + revise worst case)
+  // B1 fix: cost-hardcap preflight (writer + critic + revise worst case)
+  // W0 D28 ③: registry getOrchestrateBudgetKrw() — critic GPT resolve 시 Haiku 고정 상수 undercount 차단.
   // PR4 Task 2 Step 2.1: caller-supplied client 전파 (cost_log RLS 정합).
   // PR4 Task 8 W7 fix: enriched.month 사용.
   // STEP-2: cron은 service-role client를 주입하므로 admin-only cost_log SUM RPC를 타면
@@ -150,7 +151,7 @@ export async function orchestrateFullReport(
     {
       month: enriched.month,
       callCount: 1,
-      maxCostPerCallKrw: ORCHESTRATE_TOTAL_COST_BUDGET_KRW,
+      maxCostPerCallKrw: getOrchestrateBudgetKrw(),
     },
     options.callerKind === 'cron'
       ? { client: options.client, callerKind: 'service-role' }

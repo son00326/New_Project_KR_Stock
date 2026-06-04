@@ -18,7 +18,7 @@ const KNOWN_ACTION_CODES = [
   "ticker_required",
   "reason_too_short",
   // regenerate
-  "cost_hardcap_40man",
+  "cost_hardcap_exceeded",
   "manual_cap_exhausted",
   "report_lookup_failed",
   "report_not_found",
@@ -27,6 +27,10 @@ const KNOWN_ACTION_CODES = [
   "regen_counter_write_conflict",
   // 58차 Mock cleanup Step 2.3 — regenerate cost_log 실 SELECT 통로
   "cost_log_lookup_failed",
+  // W0 D28 비용가드 — 모델 레지스트리/preflight 신규 throw 코드
+  "pricing_unknown_model",
+  "preflight_reservation_missing",
+  "preflight_reservation_invalid",
   // Mock cleanup Step 2.5 — health page pipeline_health 실 SELECT 통로
   "pipeline_health_select_failed",
   // Mock cleanup Step 2.6 — news cron/news_event 실 SELECT 통로
@@ -185,9 +189,9 @@ describe("formatErrorMessage", () => {
   // were only covered by the inventory loop. Locks user-facing copy so changes
   // require explicit test update.
   describe("high-importance specific outputs (G-FE-map)", () => {
-    it("cost_hardcap_40man — 월 비용 한도 운영자 메시지", () => {
-      expect(formatErrorMessage("cost_hardcap_40man")).toBe(
-        "월 AI 비용 한도(40만원)를 초과했습니다",
+    it("cost_hardcap_exceeded — 월 비용 한도 운영자 메시지", () => {
+      expect(formatErrorMessage("cost_hardcap_exceeded")).toBe(
+        "월 AI 비용 한도(50만원)를 초과했습니다",
       );
     });
 
@@ -413,8 +417,8 @@ describe("formatErrorMessage", () => {
       expect(msg).toContain("부재");
     });
     // R6 non-blocking catch: cost_log throw 매핑 추가 검증
-    it("cost_hardcap_40man → 한국어 '월 AI 비용 한도'", () => {
-      expect(formatErrorMessage("cost_hardcap_40man")).toContain("비용");
+    it("cost_hardcap_exceeded → 한국어 '월 AI 비용 한도'", () => {
+      expect(formatErrorMessage("cost_hardcap_exceeded")).toContain("비용");
     });
     it("cost_log_select_failed:<pg-code> → 한국어 '비용 로그 조회 실패'", () => {
       expect(formatErrorMessage("cost_log_select_failed:42P01")).toContain(

@@ -190,7 +190,7 @@ describe('preflightHardcap STEP-2 — callerKind 전파', () => {
         { month: '2026-06', callCount: 30 },
         { client: client as unknown as DiClient },
       ),
-    ).rejects.toThrow('cost_hardcap_40man');
+    ).rejects.toThrow('cost_hardcap_exceeded');
     expect(rpc).toHaveBeenCalledWith('get_cost_log_monthly_total_admin', {
       p_month: '2026-06',
     });

@@ -672,7 +672,7 @@ export async function triggerFullReport(input: {
   }
 
   // PR-B2 (B7/D-8): cost-logging fail-closed — flag off면 cost_log noop → getMonthlyTotal=0 →
-  //   preflightHardcap fail-open(40만원 hardcap 무력화). 실 AI(orchestrate) 전 차단, spend 0.
+  //   preflightHardcap fail-open(50만원 hardcap 무력화). 실 AI(orchestrate) 전 차단, spend 0.
   if (!isCostLoggingEnabled()) {
     return { success: false, error: "cost_logging_disabled" };
   }
