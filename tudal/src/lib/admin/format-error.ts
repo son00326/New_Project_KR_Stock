@@ -107,6 +107,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
     "반박 라운드(DB round 컬럼/제약) 마이그레이션이 적용되지 않았습니다",
   debate_r1_panel_missing: "반박 라운드 입력(1차 평가)이 없어 해당 종목을 건너뜁니다",
   debate_r1_prior_missing: "반박 라운드 입력에 일부 위원의 1차 평가가 없습니다",
+  // W1b (D28 ③) — judge/dual-judge
+  judge_verdict_parse_failed: "최종 판정(judge) 응답 해석에 실패했습니다",
+  judge_enqueue_failed: "최종 판정(judge) 작업 등록에 실패했습니다",
+  judge_panel_missing: "최종 판정 입력(위원 패널)이 없어 해당 종목을 건너뜁니다",
   tier1_screening_failed: "Tier 1 평가에 실패했습니다",
   shortlist_persist_failed: "Short List 저장에 실패했습니다",
   commit_badge_only_failed: "배지 commit에 실패했습니다",
@@ -197,6 +201,15 @@ export function formatErrorMessage(code: string): string {
     return "Tier 0 후보 수가 트랙 기대치와 다릅니다";
   }
   // W1a (D26 Q4) — suffix throw 호환 (`:idx` / `:<pg code>` / `:ticker` / `:persona` / `:status` 숨김).
+  if (code.startsWith("judge_verdict_parse_failed")) {
+    return KOREAN_MAPPINGS["judge_verdict_parse_failed"];
+  }
+  if (code.startsWith("judge_enqueue_failed")) {
+    return KOREAN_MAPPINGS["judge_enqueue_failed"];
+  }
+  if (code.startsWith("judge_panel_missing")) {
+    return KOREAN_MAPPINGS["judge_panel_missing"];
+  }
   if (code.startsWith("tier1_panel_slot_out_of_range")) {
     return KOREAN_MAPPINGS["tier1_panel_slot_out_of_range"];
   }

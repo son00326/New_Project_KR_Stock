@@ -101,6 +101,10 @@ const KNOWN_ACTION_CODES = [
   "selection_round_schema_missing",
   "debate_r1_panel_missing",
   "debate_r1_prior_missing",
+  // W1b (D28 ③) — judge/dual-judge
+  "judge_verdict_parse_failed",
+  "judge_enqueue_failed",
+  "judge_panel_missing",
 ];
 
 describe("formatErrorMessage", () => {
@@ -145,6 +149,18 @@ describe("formatErrorMessage", () => {
       expect(formatErrorMessage("pending-s8")).toBe(
         "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
       );
+    });
+
+    it("W1b suffix handlers — judge 3종 (fallback 오류: 노출 금지)", () => {
+      for (const code of [
+        "judge_verdict_parse_failed:scores.short",
+        "judge_enqueue_failed:target_not_in_candidates:005930",
+        "judge_panel_missing:005930",
+      ]) {
+        const msg = formatErrorMessage(code);
+        expect(msg).toMatch(/[가-힣]/);
+        expect(msg).not.toMatch(/^오류:/);
+      }
     });
 
     it("W1a suffix handlers — slot/r2/debate + ai_call_failed:transient (fallback 오류: 노출 금지)", () => {
