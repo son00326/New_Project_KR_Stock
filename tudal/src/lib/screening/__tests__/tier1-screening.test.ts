@@ -153,7 +153,20 @@ describe('runTier1Screening (W2a track 파라미터화)', () => {
   });
 
   describe('Input validation', () => {
-    it('short: throws on candidates.length !== 50 (트랙 fresh pool)', async () => {
+    // W2b (D27 Q5) — incumbent 합성 후보 (tier0_scores 전부 null, 직전 bucket만 true).
+    function makeIncumbentSynths(
+      count: number,
+      bucket: 'short' | 'mid' | 'long',
+    ): Tier1Candidate[] {
+      return Array.from({ length: count }, (_, i) => ({
+        ticker: `I${String(i).padStart(3, '0')}`,
+        sector: '바이오' as const,
+        tier0_buckets: { short: bucket === 'short', mid: bucket === 'mid', long: bucket === 'long' },
+        tier0_scores: { short: null, mid: null, long: null },
+      }));
+    }
+
+    it('short: pool < fresh(50) → throw tier1_candidates_pool_out_of_range', async () => {
       const badInput: RunTier1ScreeningInput = {
         track: 'short',
         candidates: makeShortCandidates(49),
@@ -162,10 +175,12 @@ describe('runTier1Screening (W2a track 파라미터화)', () => {
         promptVersionId: 'tier1-v1.0.0',
         personasVersionId: 'core11-v1.0.0',
       };
-      await expect(runTier1Screening(badInput)).rejects.toThrow(/tier1_candidates_must_be_50/);
+      await expect(runTier1Screening(badInput)).rejects.toThrow(
+        'tier1_candidates_pool_out_of_range:short:49',
+      );
     });
 
-    it('midlong: throws on candidates.length !== 100', async () => {
+    it('midlong: pool < fresh(100) → throw', async () => {
       const badInput: RunTier1ScreeningInput = {
         track: 'midlong',
         candidates: makeMidlongCandidates(99),
@@ -174,7 +189,59 @@ describe('runTier1Screening (W2a track 파라미터화)', () => {
         promptVersionId: 'tier1-v1.0.0',
         personasVersionId: 'core11-v1.0.0',
       };
-      await expect(runTier1Screening(badInput)).rejects.toThrow(/tier1_candidates_must_be_100/);
+      await expect(runTier1Screening(badInput)).rejects.toThrow(
+        'tier1_candidates_pool_out_of_range:midlong:99',
+      );
+    });
+
+    it('W2b — short: fresh 50 + incumbent 7 = 57 pool 허용 → selected 10 + notSelected 47', async () => {
+      const input: RunTier1ScreeningInput = {
+        track: 'short',
+        candidates: [...makeShortCandidates(50), ...makeIncumbentSynths(7, 'short')],
+        callPersonaPanel: makePanelCallback(() => 50),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      };
+      const result = await runTier1Screening(input);
+      expect(result.selected).toHaveLength(10);
+      expect(result.notSelected).toHaveLength(47);
+    });
+
+    it('W2b — short: pool > fresh+selectCount(60) → throw', async () => {
+      const input: RunTier1ScreeningInput = {
+        track: 'short',
+        candidates: [...makeShortCandidates(50), ...makeIncumbentSynths(11, 'short')],
+        callPersonaPanel: makePanelCallback(() => 50),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      };
+      await expect(runTier1Screening(input)).rejects.toThrow(
+        'tier1_candidates_pool_out_of_range:short:61',
+      );
+    });
+
+    it('W2b — midlong: 100+20=120 허용 / 121 throw', async () => {
+      const ok: RunTier1ScreeningInput = {
+        track: 'midlong',
+        candidates: [...makeMidlongCandidates(100), ...makeIncumbentSynths(20, 'mid')],
+        callPersonaPanel: makePanelCallback(() => 50),
+        fetchFinancials: async () => 'mock',
+        promptVersionId: 'tier1-v1.0.0',
+        personasVersionId: 'core11-v1.0.0',
+      };
+      const result = await runTier1Screening(ok);
+      expect(result.selected).toHaveLength(20);
+      expect(result.notSelected).toHaveLength(100);
+
+      const tooMany: RunTier1ScreeningInput = {
+        ...ok,
+        candidates: [...makeMidlongCandidates(100), ...makeIncumbentSynths(21, 'mid')],
+      };
+      await expect(runTier1Screening(tooMany)).rejects.toThrow(
+        'tier1_candidates_pool_out_of_range:midlong:121',
+      );
     });
 
     it('CR-02 reviewer fix — throws on duplicate ticker', async () => {

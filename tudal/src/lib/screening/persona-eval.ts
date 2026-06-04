@@ -17,6 +17,7 @@ import {
   type Tier1ScreeningResult,
   TRACK_TIMEFRAMES,
   TRACK_FRESH_POOL,
+  TRACK_SELECT_COUNT,
   makeTier1ScreeningResultSchema,
   PersonaPanelSchema,
   assertPanelMatchesCore11,
@@ -303,7 +304,12 @@ export interface RunTier1ScreeningInput {
    * 실제 LLM 호출 wire는 caller scope (PR1 cron 또는 PR4 UI trigger).
    * Promise reject 시 본 함수가 settled 처리 → tier1AvailableByTicker[ticker]=false로 자동 fallback.
    */
-  callPersonaPanel: (input: { ticker: string; financials: string }) => Promise<PersonaScore[]>;
+  callPersonaPanel: (input: {
+    ticker: string;
+    financials: string;
+    /** W2b (D27 Q5) — incumbent thesis context per-call 주입. 미지정 = 비-incumbent. */
+    reflectionContext?: string;
+  }) => Promise<PersonaScore[]>;
   fetchFinancials: (ticker: string) => Promise<string>;
   promptVersionId: string;
   personasVersionId: string;
@@ -421,11 +427,15 @@ export async function runTier1Screening(
   input: RunTier1ScreeningInput
 ): Promise<Tier1ScreeningResult> {
   const { track } = input;
-  // W2a — 트랙 fresh pool 길이 검증. expected는 caller가 enqueue 수로 보장하나,
-  // 여기서는 distinct + 비음수 + 트랙 pool count를 강하게 검증 (count 최종 정합은 schema).
-  const expectedPool = TRACK_FRESH_POOL[track];
-  if (input.candidates.length !== expectedPool) {
-    throw new Error(`tier1_candidates_must_be_${expectedPool} (got ${input.candidates.length})`);
+  // W2b (D27 Q5) — pool 동적화: fresh(TRACK_FRESH_POOL) ∪ incumbent-only(≤TRACK_SELECT_COUNT).
+  // fresh 정확 count는 caller(worker)가 union 전에 보장. 여기는 range + distinct만 강하게,
+  // 최종 count 정합은 makeTier1ScreeningResultSchema(track, candidates.length)가 검증.
+  const minPool = TRACK_FRESH_POOL[track];
+  const maxPool = minPool + TRACK_SELECT_COUNT[track];
+  if (input.candidates.length < minPool || input.candidates.length > maxPool) {
+    throw new Error(
+      `tier1_candidates_pool_out_of_range:${track}:${input.candidates.length}`
+    );
   }
   // 53차 §5 reviewer CR-02 정정 박제 — duplicate ticker silent corruption 차단.
   const distinctTickers = new Set(input.candidates.map((c) => c.ticker));
