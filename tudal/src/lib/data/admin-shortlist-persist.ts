@@ -53,6 +53,17 @@ export type TickerCommentMap = Record<
   { comment_kr: string; conviction: number }
 >;
 
+// W2b (D27 Q5) — incumbent-only selected가 tier0_candidates_150에 없을 때 기존 카드 메타 보존 fallback.
+// sector는 제외 — agg.sector(canonical 검증 통과분)만 사용 (B93 비-canonical 재유입 방지).
+export type IncumbentMetadataMap = Record<
+  string,
+  {
+    name: string | null;
+    compositeScore: number | null;
+    signalLabel: string | null;
+  }
+>;
+
 function toMonthDate(monthYM: string): string {
   if (!MONTH_RE.test(monthYM)) {
     throw new Error(`invalid_month_format:${monthYM}`);
@@ -83,6 +94,8 @@ async function buildShortListRows(
   buckets: readonly Timeframe[],
   selected: readonly TickerAggregate[],
   commentsByTicker?: TickerCommentMap,
+  incumbentTickers?: ReadonlySet<string>,
+  incumbentMetadataByTicker?: IncumbentMetadataMap,
 ): Promise<ShortListRow[]> {
   const byTf: Record<Timeframe, TickerAggregate[]> = {
     short: [],
@@ -116,8 +129,9 @@ async function buildShortListRows(
         assigned_by: agg.assigned_by,
         prompt_version_id: agg.prompt_version_id,
         personas_version_id: agg.personas_version_id,
-        // B4 fix — delta_status NOT NULL. PR1 첫 실행 모두 'new'.
-        delta_status: 'new',
+        // W2b (D27 Q5) — delta_status 실계산: 직전 리스트(incumbent)에 있던 ticker가 재선정되면 'hold'.
+        // incumbentTickers 미지정(단발 경로 등)은 전부 'new' (B4 fix — NOT NULL 보존).
+        delta_status: incumbentTickers?.has(agg.ticker) ? 'hold' : 'new',
         delta_reason: null,
         // PR-E (ADR D-7) — assigned_timeframe(tf) 기준 배지/점수 + primary_timeframe + panel 코멘트/conviction.
         consensus_badge: agg.consensus_badges_by_timeframe[tf],
@@ -183,6 +197,19 @@ async function buildShortListRows(
     // best-effort display-meta lookup only; short_list_30 persist must not be blocked here.
   }
 
+  // W2b (D27 Q5/D9) — incumbent-only display meta fallback. tier0 lookup이 채우지 못한 필드만
+  // 기존 short_list_30 row 메타로 보존 (incumbent-only ticker는 tier0_candidates_150에 없음).
+  // sector는 fallback 제외 — agg.sector(canonical 검증 통과분)만 사용 (B93).
+  if (incumbentMetadataByTicker) {
+    for (const row of rows) {
+      const incMeta = incumbentMetadataByTicker[row.ticker];
+      if (!incMeta) continue;
+      row.name ??= incMeta.name;
+      row.composite_score ??= incMeta.compositeScore;
+      row.signal_label ??= incMeta.signalLabel;
+    }
+  }
+
   return rows;
 }
 
@@ -246,7 +273,14 @@ export async function upsertShortListTrack(
   monthYM: string,
   track: SelectionTrack,
   selected: readonly TickerAggregate[],
-  options: { client?: SupabaseClient; commentsByTicker?: TickerCommentMap } = {},
+  options: {
+    client?: SupabaseClient;
+    commentsByTicker?: TickerCommentMap;
+    /** W2b (D27 Q5) — 직전 리스트 ticker set. 포함 selected는 delta_status='hold'. */
+    incumbentTickers?: ReadonlySet<string>;
+    /** W2b (D9) — incumbent-only selected의 display meta 보존 fallback (sector 제외). */
+    incumbentMetadataByTicker?: IncumbentMetadataMap;
+  } = {},
 ): Promise<void> {
   // ① count 선검증.
   const expected = TRACK_SELECT_COUNT[track]; // 10 / 20
@@ -286,13 +320,16 @@ export async function upsertShortListTrack(
   const monthDate = toMonthDate(monthYM);
   const supabase = options.client ?? (await createClient());
 
-  // ④ row 빌드 (공유 헬퍼 — bucket order = 트랙 bucket subset, AI 컬럼 + 메타 lookup).
+  // ④ row 빌드 (공유 헬퍼 — bucket order = 트랙 bucket subset, AI 컬럼 + 메타 lookup +
+  //    W2b delta_status 실계산 + incumbent-only meta fallback).
   const rows = await buildShortListRows(
     supabase,
     monthDate,
     TRACK_BUCKETS[track],
     selected,
     options.commentsByTicker,
+    options.incumbentTickers,
+    options.incumbentMetadataByTicker,
   );
 
   // ⑤ 원자적 RPC 단일 호출. carry는 midlong일 때 RPC 내부에서 수행 (R2 HIGH-2).
