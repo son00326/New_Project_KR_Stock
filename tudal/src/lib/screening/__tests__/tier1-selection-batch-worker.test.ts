@@ -1307,6 +1307,41 @@ describe("W1a 멀티라운드 R2 반박", () => {
     expect(deps.callPersonaPanel).not.toHaveBeenCalled();
   });
 
+  it("round-aware SELECT에서 0032 schema가 없으면 selection_round_schema_missing으로 fail-closed", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 1,
+    });
+    const origFrom = client.from;
+    client.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>;
+      if (table === "tier1_selection_job") {
+        const origSelect = chain.select as (
+          cols: string,
+          opts?: { count?: string; head?: boolean },
+        ) => unknown;
+        chain.select = vi.fn((cols: string, opts?: { count?: string; head?: boolean }) => {
+          if (opts?.head) return origSelect(cols, opts);
+          return {
+            eq: vi.fn(async () => ({
+              data: null,
+              error: { code: "PGRST204", message: "Could not find the 'round' column" },
+            })),
+          };
+        });
+      }
+      return chain;
+    }) as typeof client.from;
+    const deps = makeDeps("midlong");
+    await expect(runChunk(client, deps)).rejects.toThrow(
+      "selection_round_schema_missing",
+    );
+    expect(deps.persist).not.toHaveBeenCalled();
+  });
+
   it("R1 전부 terminal + targets>0 + round2 미존재 → round2 enqueue(대상만, round:2) + finalize 안 함", async () => {
     // 균일 panel(분산 0) → targets = 경계 rank 6..15 (각 tf) — round2 부재라 enqueue 발생.
     const r1Rows = makeTrackCandidates("midlong").map((c) => ({
