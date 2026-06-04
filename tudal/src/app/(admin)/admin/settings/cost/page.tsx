@@ -14,7 +14,7 @@ import {
 
 // M17 AI API 비용 실시간 모니터링 대시보드 (S6 T6.2 · Mock cleanup Step 2.4 — 2026-05-28
 // 실 cost_log SELECT 전환). ref: ServicePlan-Admin §3.12 R3.12-1~3
-// 35만 경보 배너 · 40만 hardcap 활성 · purpose별 비중 · Top 5 기여 · BL-18 견적 비교
+// 45만 경보 배너 · 50만 hardcap 활성 · purpose별 비중 · Top 5 기여 · BL-18 견적 비교
 
 export const dynamic = "force-dynamic";
 
@@ -70,14 +70,14 @@ export default async function AdminCostPage() {
     summary.hardcapTriggered
       ? {
           tone: "border-[var(--color-market-down)] bg-[var(--color-market-down)]/10 text-[var(--color-market-down)]",
-          label: "🚨 40만 Hardcap 도달",
-          body: "이번 달 AI 비용이 40만원을 초과했습니다. M9 수동 재생성·M7 Reject 재분석 모두 차단됩니다. 대표 1인 override 토글로만 해제 가능 (BL-17 B).",
+          label: "🚨 50만 Hardcap 도달",
+          body: "이번 달 AI 비용이 50만원을 초과했습니다. M9 수동 재생성·M7 Reject 재분석 모두 차단됩니다. 대표 1인 override 토글로만 해제 가능 (BL-17 B).",
         }
       : summary.warningTriggered
         ? {
             tone: "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-            label: "⚠️ 35만 경보",
-            body: "이번 달 AI 비용이 35만원을 넘었습니다. 40만 hardcap까지 잔여 ₩" +
+            label: "⚠️ 45만 경보",
+            body: "이번 달 AI 비용이 45만원을 넘었습니다. 50만 hardcap까지 잔여 ₩" +
               Math.round(summary.remainingKrw).toLocaleString("ko-KR") +
               ". 재생성 cap·페르소나 호출 빈도를 점검하세요.",
           }
@@ -119,7 +119,7 @@ export default async function AdminCostPage() {
       <header>
         <h1 className="text-2xl font-semibold">AI 비용 모니터</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          M17 R3.12-1~3 · 월간 누적 + 35만 경보 + 40만 hardcap. 임계 도달 시
+          M17 R3.12-1~3 · 월간 누적 + 45만 경보 + 50만 hardcap. 임계 도달 시
           M9 수동 재생성·M7 Reject 재분석 동시 차단. 자세한 의사결정은{" "}
           <Link
             href="/admin/settings/health"
@@ -173,7 +173,7 @@ export default async function AdminCostPage() {
           </div>
         </article>
         <article className="rounded-lg border bg-card p-4">
-          <div className="text-xs text-muted-foreground">35만 경보</div>
+          <div className="text-xs text-muted-foreground">45만 경보</div>
           <div className="mt-1 text-2xl font-semibold tabular-nums">
             {formatKrw(COST_WARNING_THRESHOLD_KRW)}
           </div>
@@ -185,7 +185,7 @@ export default async function AdminCostPage() {
           </div>
         </article>
         <article className="rounded-lg border bg-card p-4">
-          <div className="text-xs text-muted-foreground">40만 Hardcap</div>
+          <div className="text-xs text-muted-foreground">50만 Hardcap</div>
           <div className="mt-1 text-2xl font-semibold tabular-nums">
             {formatKrw(COST_HARDCAP_KRW)}
           </div>
@@ -311,7 +311,7 @@ export default async function AdminCostPage() {
       <footer className="text-xs text-muted-foreground">
         ※ 본 페이지는 M17 DoD{" "}
         <span>
-          &quot;당월 누적 + 35만 경보 + 40만 hardcap + Top 5 + override&quot;
+          &quot;당월 누적 + 45만 경보 + 50만 hardcap + Top 5 + override&quot;
         </span>{" "}
         충족. override 토글(BL-17 B 대표 1인)은 후속 PR에서 추가.
       </footer>

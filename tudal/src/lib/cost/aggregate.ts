@@ -3,11 +3,11 @@
 // ref: ServicePlan-Admin §3.12 R3.12-1~3
 //
 // 입력: CostLog[] (실 Supabase SELECT 또는 mock)
-// 출력: CostMonthlySummary — total · 35만/40만 임계 도달 여부 · purpose 비중 · Top 5
+// 출력: CostMonthlySummary — total · 45만/50만 임계 도달 여부 · purpose 비중 · Top 5
 //
 // 동작:
 //   1. month = YYYY-MM-01 으로 정규화 (입력 ts에서 추출)
-//   2. SUM(cost_krw) 집계 + 35만 경보·40만 hardcap 플래그
+//   2. SUM(cost_krw) 집계 + 45만 경보·50만 hardcap 플래그
 //   3. byPurpose: purpose별 합계 + 비중(0~1)
 //   4. topContributors: ticker·section·persona를 라벨로 합쳐 비용 Top 5
 // ---------------------------------------------------------------------------

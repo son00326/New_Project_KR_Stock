@@ -54,7 +54,7 @@ describe("estimateMonthlyCost (Sonnet 4.6, base workload)", () => {
     expect(Math.abs(result.totalKrw - sum)).toBeLessThanOrEqual(1);
   });
 
-  it("base 시나리오는 35만 경보 미만 (Sonnet 가정)", () => {
+  it("base 시나리오는 45만 경보 미만 (Sonnet 가정)", () => {
     expect(result.totalKrw).toBeLessThan(COST_WARNING_THRESHOLD_KRW);
   });
 });

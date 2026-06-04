@@ -30,8 +30,8 @@ const ALERT_TYPE_LABEL: Record<AlertType, string> = {
   briefing_failed: "브리핑 실패",
   scheduler_fail: "스케줄러 실패",
   gating_auto_relief: "게이팅 자동 바이패스",
-  cost_warning: "AI 비용 경보 (35만)",
-  cost_hardcap: "AI 비용 하드캡 (40만)",
+  cost_warning: "AI 비용 경보 (45만)",
+  cost_hardcap: "AI 비용 하드캡 (50만)",
   heartbeat_missing: "하트비트 발송 실패",
 };
 

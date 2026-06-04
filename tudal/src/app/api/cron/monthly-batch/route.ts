@@ -66,10 +66,10 @@ async function tier0SourceForCron(month: string): Promise<Tier1Candidate[]> {
 //   orchestrator가 lock + tier0Source(150-invariant) 통과 후, callPersonaPanel 직전 본 preflight 1회 호출.
 //   아래 4 게이트 중 하나라도 미충족이면 throw → callPersonaPanel 0회 → cost 0 (PR5 step-0 패턴 정합).
 //   ⓐ MONTHLY_BATCH_CRON_AI_ENABLED off (default): cron 실 AI 비활성 = merge-safe. USER가 Vercel env true 설정 시 가동.
-//   ⓑ cost-logging off: insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open(40만원 hardcap 무력화) 차단.
+//   ⓑ cost-logging off: insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open(50만원 hardcap 무력화) 차단.
 //   ⓒ ANTHROPIC_API_KEY 부재: 실 AI 불가.
 //   ⓓ CRON_SYSTEM_USER_ID: cost_log.called_by FK(auth.users) — UUID 형식 + 실존 검증 (service-role admin API).
-//   통과 시 preflightHardcap(service-role client — cron auth.uid()=null RLS bypass)로 40만원 hardcap 비용 가드.
+//   통과 시 preflightHardcap(service-role client — cron auth.uid()=null RLS bypass)로 50만원 hardcap 비용 가드.
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
