@@ -51,10 +51,6 @@ import { GET } from "@/app/api/cron/monthly-batch/selection-worker/route";
 const URL = "http://localhost/api/cron/monthly-batch/selection-worker";
 const ORIG_ENV = { ...process.env };
 
-function req(headers: Record<string, string> = {}): NextRequest {
-  return new NextRequest(URL, { headers });
-}
-
 function chunkResult(
   over: Partial<Tier1SelectionChunkResult> = {},
 ): Tier1SelectionChunkResult {
