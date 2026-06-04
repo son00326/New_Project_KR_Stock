@@ -495,7 +495,7 @@
 
 - **Mock 동작**: 19/19 (100% mock fixture)
 - **실데이터 연결**: **0/19** — 전 Must가 mock 의존
-- **실 AI 호출**: **0** — Anthropic wrapper 미구현 (65차 Q3 supersede: AI 프로바이더 추상화 wrapper[Claude+GPT 멀티프로바이더, provider auto-detect] = W0 구현 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조)
+- **실 AI 호출**: **0** — ~~Anthropic wrapper 미구현~~ → **66차 W0 ✅ 구현 MERGED** (LlmProvider + model-registry, Claude+GPT 멀티프로바이더 + provider auto-detect — PR #86). 실 호출 활성 = W1/W2 엔진 + USER 키·비용 게이트 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션)
 - **2채널 알림 실 발송**: **0** — Resend·Telegram 미연결
 - **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·AI(Claude/GPT)·DART UI 표시는 아직 미연결 (65차 Q3 supersede: AI 키 = Anthropic 단일 아님, Claude 필수 + GPT 선택 멀티프로바이더 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션). T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
 - **실 운용 검증**: **0일**
@@ -517,7 +517,7 @@
 - [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 
 ### 실데이터 전환 (S7, 진행 중 — S7e T7e.8 + 46차 P0·P1 완료, S7a 진입 대기)
-- [ ] **AI 프로바이더 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — W0(모델/프로바이더 추상화) 진입 트리거. 65차 Q3 supersede: Claude(Anthropic) 키는 필수, GPT(OpenAI) 키는 선택(provider availability auto-detect — 없으면 Claude-only). HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
+- [ ] **AI 프로바이더 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — ~~W0 진입 트리거~~ → **66차: W0 코드 ✅ MERGED — 키는 W0 smoke 실행(USER 선택) + W1/W2 실 가동 게이트**. Claude(Anthropic) 키 필수, GPT(OpenAI) 키 선택(provider availability auto-detect — 없으면 Claude-only). HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] **KIS API 계정 발급** (BL-KRIT-2, 사용자 액션 B-10) — S7c WS read-only 본인 1개로 충분 (D18)
 - [x] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전 · B-8)
 - [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4, 사용자 액션 B-7) — S7b 선결
@@ -526,7 +526,7 @@
 - [x] **마이그레이션 0010 alert RLS hardening** (BL-KRIT-7) — 적용 완료 (36차)
 - [x] **마이그레이션 0009 DQ-7 credential** (E9 확장 + E12 신설 + RLS) — 적용 완료 (DQ-7 Session 3, production brokerage_connection 1 row 존재)
 - [🟢] **Supabase 실 SELECT/INSERT 전환** (S7e · 8 Must) — T7e.1~T7e.6 + T7e.8 완료 (7/8) · T7e.7 RLS 수동 QA 잔여
-- [ ] AI 프로바이더 추상화 wrapper + cost_log 실 INSERT (W0 · M17·M2·M3·M6·M9·M10·M11·M12) — B-6 키 발급 후 진입. 65차 Q3 + D28 supersede: Claude+GPT 멀티프로바이더 + 모델 레지스트리 + 역할별 모델 차등 기준 재정의(목적함수=예측 적중률+리포트 정확성, hardcap=제약; 초기 기본값은 Sonnet×6+GPT mid×5 토론 + Opus4.8 judge/리포트/W3 + GPT critic) — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
+- [x] AI 프로바이더 추상화 wrapper (W0 · M17·M2·M3·M6·M9·M10·M11·M12) — **66차 ✅ MERGED (PR #86)**. cost_log 실 INSERT 활성·smoke 실행은 USER 키·비용 게이트. 65차 Q3 + D28 supersede: Claude+GPT 멀티프로바이더 + 모델 레지스트리 + 역할별 모델 차등 기준 재정의(목적함수=예측 적중률+리포트 정확성, hardcap=제약; 초기 기본값은 Sonnet×6+GPT mid×5 토론 + Opus4.8 judge/리포트/W3 + GPT critic) — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)
 - [ ] 장중·Exit 실 연결 (S7c · M13·M15)
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)

@@ -89,7 +89,7 @@ Last updated: 2026-06-04 — **⭐ 66차 W0 ✅ MERGED (PR #86, main `46a8f63`) 
 
 **다음 액션 큐 — 실데이터+실AI e2e (ADR 로드맵, PR별 §2.0a flow)**:
 
-> ⚠️ **superseded by 상단 ⭐ 65차 MVP 엔진 섹션.** 다음 세션 1순위 = **W0 → W2 → W1 → W3**. 아래 PR-G ⓑ 큐는 코드 자산(청크워커/큐/run-mutex)을 W0~W3 토대로 재사용하는 형태로 흡수됨 — 역사 기록으로 보존.
+> ⚠️ **superseded by 상단 ⭐ 65차 MVP 엔진 섹션.** 다음 세션 1순위 = **W2** (빌드 순서 W0 ✅ → W2 → W1 → W3). 아래 PR-G ⓑ 큐는 코드 자산(청크워커/큐/run-mutex)을 W0~W3 토대로 재사용하는 형태로 흡수됨 — 역사 기록으로 보존.
 
 1. **PR-G ⓑ 실 AI 첫 30선정** (~~다음 1순위~~ **superseded — W0~W3로 흡수** — ⓐ ✅ MERGED `d15da47`/PR #68. **63차(2026-06-02) 결정: ❶ 실행 = B 청크 워커**(Vercel cron, PR5 report-worker 패턴 복제 — 로컬 러너 폐기) **/ ❷ 데이터 = 하이브리드**(KRX 공식 Open API[시세·거래량·universe] + pykrx[S3 외국인] + DART[S4·S5])):
    - ⓐ [CLAUDE] ✅ **DONE**: cron 실 AI 경로 배선 (PR #68, §6 참조).
@@ -142,7 +142,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §0.A — PR5 go-live 활성화 진입 (⚠️ **별도 트랙** — 1순위 아님)
 
-> **[→ 65차 supersede] 다음 세션 1순위 = 상단 ⭐ MVP 엔진 W0** (구: §다음 액션 큐 1번 PR-G ⓑ — 코드 자산은 W0~W3 토대 재사용). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). **KRX 공식 API 전환(PR #80) + 150 시드(`tier0_candidates_150` 150 rows) + 선정 청크 워커(PR #82, 마이그 0031 written-not-applied dormant)는 63차 ✅ 빌드 완료.** ⓑ 잔여 = **[USER] 마이그 0031 apply + `SELECTION_CRON_AUTO_ENABLED=true` + Anthropic 키 + 실 30선정 1회 비용 승인(~6.5–8만원) → 워커 수동 트리거 ~55분 → 배지/cost_log/카드 검증** (동기 단발은 NON-VIABLE이라 청크 워커 단일화). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
+> **[→ 65차 supersede · 66차 갱신] 다음 세션 1순위 = 상단 ⭐ MVP 엔진 W2** (W0 ✅ MERGED PR #86 · 구: §다음 액션 큐 1번 PR-G ⓑ — 코드 자산은 W0~W3 토대 재사용). PR-G ⓐ는 이미 ✅ MERGED(`d15da47`/PR #68). **KRX 공식 API 전환(PR #80) + 150 시드(`tier0_candidates_150` 150 rows) + 선정 청크 워커(PR #82, 마이그 0031 written-not-applied dormant)는 63차 ✅ 빌드 완료.** ⓑ 잔여 = **[USER] 마이그 0031 apply + `SELECTION_CRON_AUTO_ENABLED=true` + Anthropic 키 + 실 30선정 1회 비용 승인(~6.5–8만원) → 워커 수동 트리거 ~55분 → 배지/cost_log/카드 검증** (동기 단발은 NON-VIABLE이라 청크 워커 단일화). 본 §0.A는 그와 **독립된 PR5(report-only cron) go-live** 트랙 — 혼동 금지. ⓑ가 ① 재시드/④ 비용으로 막히면 보고 후 다음 unblocked CLAUDE step으로 진행하고, PR5는 별도 USER-gate 트랙으로 유지한다.
 
 **PR5 코드는 MERGED**(main `c2f7504`, PR #60 — branch 삭제됨) + 마이그 0027 production applied. cron route는 **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0). 다음은 **go-live 활성화 USER 게이트** (한눈에 §[별도 트랙] PR5 — e2e PR-F~G와 독립): (b) 마이그 ✅ DONE / (c) cron-system seed → `CRON_SYSTEM_USER_ID` ✅ **DONE**(62차, PR5+PR-G 공용) / (d) Vercel PR5 env(`PR5_CRON_AUTO_ENABLED=true`) / (a) Task 7 비용 smoke + cron-persist canary / (e) plan tier. 전부 production external(USER) — CLAUDE는 명령/체크리스트 + 후속 verify. 미충족이면 보고 + 다음 unblocked CLAUDE step.
 
@@ -216,9 +216,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 - **omxy 환경/송신**: cmux pair-debate, peer surface runtime discover. 상세 runbook → `docs/superpowers/omxy-rdebate-runbook.md`.
 - **USER 게이트는 본 순서와 무관하게 항상 적용** (§2.0).
 
-### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. **현 1순위 = 상단 ⭐ MVP 엔진 W0** [구: PR-G])
+### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. **현 1순위 = 상단 ⭐ MVP 엔진 W2** [W0 ✅ MERGED · 구: PR-G])
 
-**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **[→ 65차 supersede] 현 1순위 = 상단 ⭐ MVP 엔진 W0** (구: PR-G ⓑ 실 AI 첫 30선정 — 코드 자산은 W0~W3 토대 재사용). 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
+**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **[→ 65차 supersede · 66차: W0 ✅ MERGED] 현 1순위 = 상단 ⭐ MVP 엔진 W2** (구: PR-G ⓑ 실 AI 첫 30선정 — 코드 자산은 W0~W3 토대 재사용). 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
