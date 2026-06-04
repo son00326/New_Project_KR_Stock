@@ -288,4 +288,74 @@ describe('upsertShortListTrack', () => {
     expect(rOther.signal_label).toBeNull();
     expect(rOther.sector).toBeNull();
   });
+
+  // W2b (D27 Q5) — delta_status 실계산 + incumbent-only display meta fallback.
+  it('incumbentTickers에 포함된 selected는 delta_status=hold, 그 외 new (RPC p_rows 검증)', async () => {
+    const selected = buildShort10();
+    await upsertShortListTrack('2026-06', 'short', selected, {
+      incumbentTickers: new Set([selected[0].ticker, selected[1].ticker]),
+    });
+    const rows = rpcSpy.calls[0].args.p_rows as Array<
+      { ticker: string; delta_status: string }
+    >;
+    expect(rows.find((r) => r.ticker === selected[0].ticker)!.delta_status).toBe('hold');
+    expect(rows.find((r) => r.ticker === selected[1].ticker)!.delta_status).toBe('hold');
+    expect(rows.find((r) => r.ticker === selected[2].ticker)!.delta_status).toBe('new');
+  });
+
+  it('incumbentTickers 미지정 → 전부 new (W2a 무회귀)', async () => {
+    await upsertShortListTrack('2026-06', 'short', buildShort10());
+    const rows = rpcSpy.calls[0].args.p_rows as Array<{ delta_status: string }>;
+    expect(rows.every((r) => r.delta_status === 'new')).toBe(true);
+  });
+
+  it('incumbent-only selected는 tier0 meta lookup 부재 시 incumbentMetadataByTicker로 name/composite/signal_label 보존 (sector는 fallback 제외)', async () => {
+    const selected = buildShort10();
+    const incTicker = selected[0].ticker;
+    await upsertShortListTrack('2026-06', 'short', selected, {
+      incumbentTickers: new Set([incTicker]),
+      incumbentMetadataByTicker: {
+        [incTicker]: { name: '기존명', compositeScore: 72.5, signalLabel: '기존 신호' },
+      },
+    });
+    const rows = rpcSpy.calls[0].args.p_rows as Array<
+      {
+        ticker: string;
+        name: string | null;
+        composite_score: number | null;
+        signal_label: string | null;
+        sector: string | null;
+      }
+    >;
+    const inc = rows.find((r) => r.ticker === incTicker)!;
+    expect(inc).toMatchObject({
+      name: '기존명',
+      composite_score: 72.5,
+      signal_label: '기존 신호',
+    });
+    expect(inc.sector).toBeNull(); // sector는 agg.sector(canonical)만 — fallback 제외 (B93)
+  });
+
+  it('tier0 lookup이 채운 필드는 incumbent fallback이 덮어쓰지 않음 (lookup 우선)', async () => {
+    const selected = buildShort10();
+    const incTicker = selected[0].ticker;
+    tier0InMock.mockResolvedValue({
+      data: [
+        { ticker: incTicker, name: '신규명', tier0_score: '90', signal_label: '신규 신호' },
+      ],
+      error: null,
+    });
+    await upsertShortListTrack('2026-06', 'short', selected, {
+      incumbentTickers: new Set([incTicker]),
+      incumbentMetadataByTicker: {
+        [incTicker]: { name: '기존명', compositeScore: 72.5, signalLabel: '기존 신호' },
+      },
+    });
+    const rows = rpcSpy.calls[0].args.p_rows as Array<
+      { ticker: string; name: string | null; composite_score: number | null }
+    >;
+    const inc = rows.find((r) => r.ticker === incTicker)!;
+    expect(inc.name).toBe('신규명');
+    expect(inc.composite_score).toBe(90);
+  });
 });
