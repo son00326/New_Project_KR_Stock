@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
   if (hasMore && process.env.SELECTION_CRON_SELF_CONTINUE === "true") {
     const secret = process.env.CRON_SECRET;
     const selfUrl = new URL(
-      request.nextUrl.pathname,
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
       request.nextUrl.origin,
     ).toString();
     after(async () => {
