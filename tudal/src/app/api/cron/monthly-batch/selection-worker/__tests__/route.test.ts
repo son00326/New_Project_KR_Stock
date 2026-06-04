@@ -6,12 +6,18 @@ import { NextRequest } from "next/server";
 import type { Tier1SelectionChunkResult } from "@/lib/screening/tier1-selection-batch-worker";
 
 const guardedMock = vi.fn();
+const afterCallbacks = vi.hoisted(() => [] as Array<() => void | Promise<void>>);
 
 // next/server `after()`는 request scope를 요구 → vitest node env에서 throw.
-// NextResponse/NextRequest는 real 유지하고 after만 no-op stub (self-continue 게이트 결정만 검증).
+// NextResponse/NextRequest는 real 유지하고 after callback만 캡처해 self-continue URL까지 검증.
 vi.mock("next/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/server")>();
-  return { ...actual, after: () => {} };
+  return {
+    ...actual,
+    after: (callback: () => void | Promise<void>) => {
+      afterCallbacks.push(callback);
+    },
+  };
 });
 
 vi.mock("@/lib/supabase/service-role", () => ({
@@ -99,6 +105,7 @@ function reqAt(now: string, headers: Record<string, string> = {}): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  afterCallbacks.length = 0;
   process.env.CRON_SECRET = "secret-x";
   process.env.SELECTION_CRON_AUTO_ENABLED = "true";
   delete process.env.SELECTION_CRON_SELF_CONTINUE;
@@ -108,6 +115,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   process.env = { ...ORIG_ENV };
 });
 
@@ -331,6 +339,25 @@ describe("selection-worker self-continue forward-progress gate (OPS-3)", () => {
     expect(res.status).toBe(202);
     const body = await res.json();
     expect(body.continued).toBe(true);
+  });
+
+  it("SELF_CONTINUE fetch는 now query를 보존한다", async () => {
+    process.env.SELECTION_CRON_SELF_CONTINUE = "true";
+    guardedMock.mockResolvedValue({
+      result: chunkResult({ remaining: 27 }),
+    });
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(202);
+    expect(afterCallbacks).toHaveLength(1);
+    await afterCallbacks[0]();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${URL}?now=${encodeURIComponent(MON_NOT_FIRST)}`,
+      expect.objectContaining({
+        headers: { authorization: "Bearer secret-x" },
+      }),
+    );
   });
 
   it("claimed=0 + remaining>0 + SELF_CONTINUE → 200 (no zero-progress self-loop)", async () => {
