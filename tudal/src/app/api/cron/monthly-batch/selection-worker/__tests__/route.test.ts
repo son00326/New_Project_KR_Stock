@@ -250,11 +250,52 @@ describe("selection-worker run-mutex + result", () => {
   it("W1b — guarded 인자에 callJudgePanel/callDualJudge DI 배선", async () => {
     await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     const args = guardedMock.mock.calls[0][0] as {
-      callJudgePanel?: unknown;
-      callDualJudge?: unknown;
+      callJudgePanel?: (input: {
+        ticker: string;
+        month: string;
+        track: "short" | "midlong";
+        finalPanel: unknown[];
+        reflectionContext?: string;
+      }) => Promise<unknown>;
+      callDualJudge?: (input: {
+        ticker: string;
+        month: string;
+        track: "short" | "midlong";
+        finalPanel: unknown[];
+        reflectionContext?: string;
+      }) => Promise<unknown>;
     };
     expect(typeof args.callJudgePanel).toBe("function");
     expect(typeof args.callDualJudge).toBe("function");
+    await args.callJudgePanel!({
+      ticker: "005930",
+      month: "2026-06",
+      track: "short",
+      finalPanel: [],
+      reflectionContext: "[재점검] ctx",
+    });
+    await args.callDualJudge!({
+      ticker: "000660",
+      month: "2026-06",
+      track: "midlong",
+      finalPanel: [],
+    });
+    const { callJudge, callDualJudge } = await import("@/lib/ai/judge-client");
+    expect(callJudge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticker: "005930",
+        month: "2026-06",
+        track: "short",
+        reflectionContext: "[재점검] ctx",
+      }),
+    );
+    expect(callDualJudge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticker: "000660",
+        month: "2026-06",
+        track: "midlong",
+      }),
+    );
   });
 
   it("W2b — guarded 호출 인자에 incumbentsSource/buildIncumbentContexts DI 배선", async () => {

@@ -98,6 +98,8 @@ type CallDebatePanel = (input: {
 // W1b (D28 ③) — per-ticker 최종 judge + 경계 dual-judge (judge-client 주입).
 type CallJudgePanel = (input: {
   ticker: string;
+  month: string;
+  track: SelectionTrack;
   finalPanel: readonly PersonaScore[];
   reflectionContext?: string;
 }) => Promise<JudgeVerdict>;
@@ -384,6 +386,9 @@ async function countByStatus(
   }
   const { count, error } = await query;
   if (error) {
+    if (isRoundSchemaMissingError(error)) {
+      throw new Error("selection_round_schema_missing");
+    }
     throw new Error(`selection_count_failed:${error.code ?? "unknown"}`);
   }
   return count ?? 0;
@@ -391,8 +396,6 @@ async function countByStatus(
 
 const countOpenJobs = (client: SupabaseClient, periodKey: string) =>
   countByStatus(client, periodKey, ["pending", "running"]);
-const countDeferredJobs = (client: SupabaseClient, periodKey: string) =>
-  countByStatus(client, periodKey, ["deferred"]);
 const countNonTerminalJobs = (client: SupabaseClient, periodKey: string) =>
   countByStatus(client, periodKey, ["pending", "running", "deferred"]);
 const countTerminalJobs = (client: SupabaseClient, periodKey: string) =>
@@ -627,7 +630,7 @@ export async function runTier1SelectionChunk(
 
   // W1a (D4/D5) — claimed에 R2 job이 있으면 R1 done panel을 1회 로드 (반박 라운드 입력).
   // W1b — round=3(judge)는 최종 panel(R2-우선/R1 fallback) 입력 필요 → 같은 rows에서 빌드.
-  let r1PanelByTicker = new Map<string, PersonaScore[]>();
+  const r1PanelByTicker = new Map<string, PersonaScore[]>();
   let finalPanelByTicker = new Map<string, PersonaScore[]>();
   if (jobs.some((j) => (j.round ?? 1) >= 2)) {
     const rows = await selectPeriodRows(client, periodKey);
@@ -679,6 +682,8 @@ export async function runTier1SelectionChunk(
           // W1b — judge: financials 불필요(패널 요약 판정), incumbent ctx 동반.
           return input.callJudgePanel({
             ticker: job.ticker,
+            month,
+            track,
             finalPanel: finalPanelByTicker.get(job.ticker)!,
             reflectionContext: incumbentContextByTicker[job.ticker],
           });
@@ -884,6 +889,14 @@ export async function runTier1SelectionChunk(
           const dualTargets = computeDualJudgeBoundary(judgeScoresMap, track);
           if (dualTargets.length > 0) {
             try {
+              if (
+                dualTargets.some((tk) => incumbentTickers.has(tk)) &&
+                Object.keys(incumbentContextByTicker).length === 0
+              ) {
+                incumbentContextByTicker = await input.buildIncumbentContexts(incumbents, {
+                  client,
+                });
+              }
               await input.preflightHardcap(
                 {
                   month,
@@ -901,7 +914,10 @@ export async function runTier1SelectionChunk(
                 try {
                   const gptVerdict = await input.callDualJudge({
                     ticker: tk,
+                    month,
+                    track,
                     finalPanel: finalPanels.get(tk) ?? [],
+                    reflectionContext: incumbentContextByTicker[tk],
                   });
                   const opusVerdict = judgeVerdictByTicker.get(tk);
                   if (opusVerdict && isDualJudgeDisagreement(opusVerdict, gptVerdict)) {
