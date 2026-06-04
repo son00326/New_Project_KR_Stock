@@ -5,26 +5,6 @@ import type { PersonaScore, SelectionTrack } from '../tier1-schema';
 import { TRACK_FRESH_POOL } from '../tier1-schema';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 
-function buildCandidates(count = 150): Tier1Candidate[] {
-  return Array.from({ length: count }, (_, i) => {
-    const ticker = String(100000 + i).padStart(6, '0');
-    return {
-      ticker,
-      sector: null,
-      tier0_buckets: {
-        short: i % 3 === 0,
-        mid: i % 3 === 1,
-        long: i % 3 === 2,
-      },
-      tier0_scores: {
-        short: i % 3 === 0 ? 100 - i : null,
-        mid: i % 3 === 1 ? 100 - i : null,
-        long: i % 3 === 2 ? 100 - i : null,
-      },
-    };
-  });
-}
-
 /**
  * W2a Task 4 — 트랙별 fresh 후보 풀. short=50(전부 bucket short) / midlong=100(mid/long).
  * orchestrator 길이 게이트가 TRACK_FRESH_POOL[track]를 사용하므로 트랙별 distinct pool 필요.
