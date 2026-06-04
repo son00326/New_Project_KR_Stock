@@ -415,11 +415,28 @@ begin
     raise exception 'replace_shortlist_track_count:%:%', p_track, jsonb_array_length(p_rows); end if;
   if exists (select 1 from jsonb_array_elements(p_rows) e
              where not ((e->>'bucket') = any(v_buckets)) or (e->>'ticker') !~ '^\d{6}$'
-                or (e->>'rank')::int < 1) then
+                or coalesce(e->>'rank','') !~ '^\d+$') then
+    raise exception 'replace_shortlist_track_row_invalid'; end if;
+  if exists (select 1 from jsonb_array_elements(p_rows) e
+             where (e->>'rank')::int < 1 or (e->>'rank')::int > 10) then
     raise exception 'replace_shortlist_track_row_invalid'; end if;
   select array_agg(distinct e->>'ticker') into v_new_tickers from jsonb_array_elements(p_rows) e;
   if array_length(v_new_tickers,1) <> v_expected then
     raise exception 'replace_shortlist_track_dup_ticker'; end if;
+  if exists (
+    select 1
+      from unnest(v_buckets) b(bucket)
+      left join (
+        select e->>'bucket' as bucket,
+               count(*) as row_count,
+               count(distinct (e->>'rank')::int) as rank_count
+          from jsonb_array_elements(p_rows) e
+         group by e->>'bucket'
+      ) stats using (bucket)
+     where coalesce(stats.row_count, 0) <> 10
+        or coalesce(stats.rank_count, 0) <> 10
+  ) then
+    raise exception 'replace_shortlist_track_bucket_rank_mismatch'; end if;
   -- (R1 MED-4) cross-bucket overlap: 신규 ticker가 동일 month 다른 bucket에 존재 → abort
   if exists (select 1 from short_list_30 s
              where s.month=p_month and s.ticker=any(v_new_tickers) and not (s.bucket=any(v_buckets))) then

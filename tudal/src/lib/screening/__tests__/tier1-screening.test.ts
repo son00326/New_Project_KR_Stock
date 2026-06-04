@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { runTier1Screening } from '../persona-eval';
 import type { PersonaScore } from '../tier1-schema';
-import type { RunTier1ScreeningInput } from '../persona-eval';
+import type { RunTier1ScreeningInput, Tier1Candidate } from '../persona-eval';
 
 // 53차 §5 reviewer WR-04 정정 박제 — production persona ID (kebab-case) 동기.
 // Source: tudal/src/lib/ai/prompts/personas/*.ts id 필드.
@@ -56,7 +56,7 @@ function makePanelCallback(
 /**
  * W2a — short 트랙 후보 50개. 전부 bucket='short' (tier0_scores.short만 non-null).
  */
-function makeShortCandidates(count = 50) {
+function makeShortCandidates(count = 50): Tier1Candidate[] {
   return Array.from({ length: count }, (_, i) => ({
     ticker: `T${String(i).padStart(3, '0')}`,
     sector: '바이오' as const,
@@ -72,7 +72,7 @@ function makeShortCandidates(count = 50) {
 /**
  * W2a — midlong 트랙 후보 100개. 앞 50 = mid bucket, 뒤 50 = long bucket.
  */
-function makeMidlongCandidates(count = 100) {
+function makeMidlongCandidates(count = 100): Tier1Candidate[] {
   return Array.from({ length: count }, (_, i) => ({
     ticker: `T${String(i).padStart(3, '0')}`,
     sector: '바이오' as const,
@@ -191,6 +191,44 @@ describe('runTier1Screening (W2a track 파라미터화)', () => {
       await expect(runTier1Screening(dupInput)).rejects.toThrow(
         /tier1_candidates_have_duplicate_tickers/
       );
+    });
+
+    it('short: rejects cross-track candidate bucket before selection', async () => {
+      const mixed = makeShortCandidates(50);
+      mixed[0] = {
+        ...mixed[0],
+        tier0_buckets: { short: false, mid: true, long: false },
+        tier0_scores: { short: null, mid: 99, long: null },
+      };
+      await expect(
+        runTier1Screening({
+          track: 'short',
+          candidates: mixed,
+          callPersonaPanel: makePanelCallback(() => 50),
+          fetchFinancials: async () => 'mock',
+          promptVersionId: 'tier1-v1.0.0',
+          personasVersionId: 'core11-v1.0.0',
+        })
+      ).rejects.toThrow(/tier1_candidates_track_bucket_impurity:short/);
+    });
+
+    it('midlong: rejects short bucket candidate before selection', async () => {
+      const mixed = makeMidlongCandidates(100);
+      mixed[0] = {
+        ...mixed[0],
+        tier0_buckets: { short: true, mid: false, long: false },
+        tier0_scores: { short: 99, mid: null, long: null },
+      };
+      await expect(
+        runTier1Screening({
+          track: 'midlong',
+          candidates: mixed,
+          callPersonaPanel: makePanelCallback(() => 50),
+          fetchFinancials: async () => 'mock',
+          promptVersionId: 'tier1-v1.0.0',
+          personasVersionId: 'core11-v1.0.0',
+        })
+      ).rejects.toThrow(/tier1_candidates_track_bucket_impurity:midlong/);
     });
   });
 

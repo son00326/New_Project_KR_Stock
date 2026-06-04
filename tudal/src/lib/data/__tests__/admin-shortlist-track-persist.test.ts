@@ -165,6 +165,17 @@ describe('upsertShortListTrack', () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
+  it('rejects per-bucket count mismatch (midlong all mid) — RPC 미호출', async () => {
+    const rows = buildMidLong20().map((row) => ({
+      ...row,
+      assigned_timeframe: 'mid' as const,
+    }));
+    await expect(
+      upsertShortListTrack('2026-06', 'midlong', rows),
+    ).rejects.toThrow(/shortlist_track_bucket_count_mismatch:midlong:mid:20!=10/);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it('rejects assigned_timeframe null as bucket impurity — RPC 미호출', async () => {
     const rows = buildShort10();
     rows[0] = { ...rows[0], assigned_timeframe: null };
