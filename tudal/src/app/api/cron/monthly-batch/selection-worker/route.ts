@@ -10,12 +10,13 @@ import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { runGuardedSelectionChunk } from "@/lib/screening/tier1-selection-batch-worker";
 import { getTier0Candidates } from "@/lib/data/admin-tier0-candidates";
+import { currentMidlongPeriodKey } from "@/lib/screening/selection-period";
 import { makeCallPersonaPanel } from "@/lib/screening/persona-panel-adapter";
 import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
 import { callPersona } from "@/lib/ai/anthropic-client";
 import { fetchFinancialsSummary } from "@/lib/data/dart-financials";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
-import { upsertShortList30 } from "@/lib/data/admin-shortlist-persist";
+import { upsertShortListTrack } from "@/lib/data/admin-shortlist-persist";
 import { runTier1Screening } from "@/lib/screening/persona-eval";
 import { insertPipelineHealth } from "@/lib/data/admin-pipeline-health-insert";
 import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
@@ -71,12 +72,14 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceRoleClient();
     guarded = await runGuardedSelectionChunk({
       month,
+      // W2a Task 8 — period_key/track 필수화. 본 route는 dormant(SELECTION_CRON_AUTO_ENABLED off)
+      //   + Task 9에서 KST due-gate(short/midlong 분기 + per-track 실패격리)로 전면 재작성 예정.
+      //   현재는 compile-only 어댑터(midlong 단일). 활성 path 무회귀(dormant).
+      track: "midlong",
+      periodKey: currentMidlongPeriodKey(new Date()),
       client: supabase,
       promptVersionId: process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
       personasVersionId: process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
-      // W2a Task 7 — getTier0Candidates track 필수화. 본 route는 dormant(SELECTION_CRON_AUTO_ENABLED off)
-      //   + Task 8/9에서 period_key/track due-gate로 전면 재작성 예정. 현재는 Tier0Source 시그니처({month,client})
-      //   정합을 위한 compile-only 어댑터 (orchestrator track:'midlong' 정합). 활성 path 무회귀(dormant).
       tier0Source: (opts) => getTier0Candidates({ track: "midlong", ...opts }),
       // 실 Core 11 panel (PR-C 어댑터). costClient=service-role → callPersona가 cost_log INSERT 가능.
       //   adminUserId=CRON_SYSTEM_USER_ID(검증된 UUID) → cost_log.called_by FK 통과. step-0 off면 미도달.
@@ -91,9 +94,9 @@ export async function GET(request: NextRequest) {
         fetchFinancialsSummary(ticker, { client: supabase }),
       preflightHardcap,
       getMonthlyTotal,
-      // persist는 finalize(150/150)에서만 도달. service-role + commentsByTicker 라우팅.
-      persist: (m, selected, options) =>
-        upsertShortList30(m, selected, options),
+      // persist는 finalize에서만 도달. rolling writer(트랙별 in-place 교체) + commentsByTicker 라우팅.
+      persist: (m, t, selected, options) =>
+        upsertShortListTrack(m, t, selected, options),
       // finalize replay seam — 저장된 panel_result로 글로벌 rank/select 1회 (LLM 0콜).
       runScreening: runTier1Screening,
       insertPipelineHealth,
