@@ -2,7 +2,7 @@
 // PR5 full-report-batch-worker.ts 패턴 1:1 복제 + finalize(replay) 단계 신규.
 //
 // WHY: 트랙별 fresh 후보(short 50 / midlong 100)를 Core 11 AI panel(종목당 11콜)로 평가 → 트랙 top(short 10 / midlong 20) 선정.
-//   단발 runMonthlyBatchOrchestrator는 전 콜이 한 invocation에 발생해 Vercel 300s 초과(NON-VIABLE).
+//   구 단발 orchestrator(전 콜 1 invocation, 300s 초과 NON-VIABLE — W1b에서 제거)의 chunked 대체.
 //   → (A) fan-out 단계(청크별 종목당 11콜 → panel_result jsonb 큐 저장) ↔ (B) finalize 단계(nonTerminal===0 && terminal>0 시
 //   runTier1Screening 1회 replay 호출 → 글로벌 rank/select/badge + upsertShortListTrack)로 2단계 분리. (W2a period_key/track)
 //

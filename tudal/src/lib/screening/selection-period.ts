@@ -1,5 +1,4 @@
 // W2a — 선정 트랙 period_key + due-gate. 전부 순수 함수(KST=UTC+9 명시 보정).
-import type { SelectionTrack } from './tier1-schema';
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
@@ -36,8 +35,3 @@ export function monthYMOfPeriod(periodKey: string): string {
 // Reserved helper for W2b/incumbent carry and diagnostics that receive only period_key.
 // Keep exported even if W2a callers currently pass track explicitly, but do not
 // silently coerce malformed keys to midlong.
-export function trackOfPeriod(periodKey: string): SelectionTrack {
-  if (periodKey.startsWith('s:')) return 'short';
-  if (periodKey.startsWith('m:')) return 'midlong';
-  throw new Error(`invalid_period_key:${periodKey}`);
-}

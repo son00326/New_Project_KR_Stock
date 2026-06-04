@@ -1,4 +1,5 @@
-// PR1 Task 3 — upsertShortList30 helper.
+// PR1 Task 3 → W1b 정리: 구 단발 writer(upsertShortList30)는 제거(67차 follow-up ②, live caller 0).
+// 현 SoT writer = upsertShortListTrack(원자 RPC).
 // runTier1Screening 산출 30 selected를 short_list_30 (month, ticker) 유니크 키로 UPSERT.
 // B4 fix (omxy R1): delta_status NOT NULL constraint 통과 — 모든 row 'new' (전월 diff는 후속 PR scope).
 // MF1 fix (deep-review #1, 3-track Fix-First): supabase client DI — cron path는 service-role, server action은 session-based.
@@ -78,14 +79,14 @@ const TRACK_BUCKETS: Record<SelectionTrack, readonly Timeframe[]> = {
 };
 
 /**
- * W2a Task 6 — 공유 row 빌더. upsertShortList30(단발)·upsertShortListTrack(트랙) 양쪽 재사용.
+ * W2a Task 6 — 공유 row 빌더 (upsertShortListTrack 전용 — 구 단발 writer는 W1b에서 제거).
  *
  * - 입력 selected를 bucket(assigned_timeframe)별로 묶어 rank(1-based)·AI 컬럼·delta_status='new'로 매핑.
  * - tier0_candidates_150(동일 month) best-effort lookup으로 name/composite_score/signal_label patch.
  *   ⚠ persist는 이 lookup 때문에 실패하지 않는다 — error/부재 시 placeholder null 유지.
  * - bucket order는 buckets 인자 순서를 따른다 (short → [short] / midlong → [mid, long]).
  *
- * 선검증(count/bucket purity/ticker/null)은 caller(upsertShortList30·upsertShortListTrack)에서 수행.
+ * 선검증(count/bucket purity/ticker/null)은 caller(upsertShortListTrack)에서 수행.
  * 본 헬퍼는 row가 trusted(검증 통과)임을 전제하되, ticker 형식만 방어적으로 재검증(lookup filter 안전성).
  */
 async function buildShortListRows(
@@ -211,53 +212,6 @@ async function buildShortListRows(
   }
 
   return rows;
-}
-
-/**
- * MF1 fix: 선택적 DI supabase client. 미지정 시 session-based createClient (admin server action 경로).
- * cron route는 service-role client를 명시 주입 — RLS bypass + auth.uid()=null 환경 호환.
- *
- * W2a: 단발(30 동시) 경로는 NON-VIABLE이나 코드/테스트 동기화 유지. 트랙 분리 경로는 upsertShortListTrack.
- */
-export async function upsertShortList30(
-  monthYM: string,
-  selected: readonly TickerAggregate[],
-  options: { client?: SupabaseClient; commentsByTicker?: TickerCommentMap } = {},
-): Promise<void> {
-  if (selected.length !== 30) {
-    throw new Error(
-      `shortlist_must_have_30_rows (got ${selected.length})`,
-    );
-  }
-  const monthDate = toMonthDate(monthYM);
-  const supabase = options.client ?? (await createClient());
-
-  const rows = await buildShortListRows(
-    supabase,
-    monthDate,
-    ['short', 'mid', 'long'],
-    selected,
-    options.commentsByTicker,
-  );
-  const newTickers = rows.map((r) => r.ticker);
-
-  // MF2 fix — 신규 30 외 기존 row DELETE (prior failed run의 stale ticker 차단).
-  // 동일 month + ticker NOT IN new set.
-  const { error: delError } = await supabase
-    .from('short_list_30')
-    .delete()
-    .eq('month', monthDate)
-    .not('ticker', 'in', `(${newTickers.map((t) => `"${t}"`).join(',')})`);
-  if (delError) {
-    throw new Error(`shortlist_persist_failed:${delError.code ?? 'unknown'}`);
-  }
-
-  const { error } = await supabase
-    .from('short_list_30')
-    .upsert(rows, { onConflict: 'month,ticker' });
-  if (error) {
-    throw new Error(`shortlist_persist_failed:${error.code ?? 'unknown'}`);
-  }
 }
 
 /**
