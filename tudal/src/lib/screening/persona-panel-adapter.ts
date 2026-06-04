@@ -161,10 +161,14 @@ export interface CallPersonaPanelDeps {
  */
 export function makeCallPersonaPanel(
   deps: CallPersonaPanelDeps,
-): (input: { ticker: string; financials: string }) => Promise<PersonaScore[]> {
+): (input: {
+  ticker: string;
+  financials: string;
+  reflectionContext?: string;
+}) => Promise<PersonaScore[]> {
   const template = deps.userPromptTemplate ?? PERSONA_SCORE_USER_PROMPT_TEMPLATE;
   const runLimited = createLimiter(resolveMaxConcurrentCalls(deps.maxConcurrentCalls));
-  return async ({ ticker, financials }) => {
+  return async ({ ticker, financials, reflectionContext }) => {
     return Promise.all(
       deps.personas.map(async (persona) => {
         const res = await runLimited(() =>
@@ -172,7 +176,8 @@ export function makeCallPersonaPanel(
             personaId: persona.id,
             ticker,
             financials,
-            reflectionContext: deps.reflectionContext,
+            // W2b (D27 Q5): per-call incumbent thesis context override. 미지정 시 invocation default.
+            reflectionContext: reflectionContext ?? deps.reflectionContext,
             adminUserId: deps.adminUserId,
             userPromptTemplate: template,
             costClient: deps.costClient,
