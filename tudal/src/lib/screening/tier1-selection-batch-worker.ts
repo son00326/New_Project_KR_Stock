@@ -29,7 +29,7 @@
 //   둘은 독립 — 동시 활성 금지 운영 가이드(.env.example). default-off라 merge-safe (claim 0, LLM 0, spend 0).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
-import { getRoleMaxCostPerCallKrw } from "@/lib/ai/model-registry";
+import { getTier1PanelWorstSlotCostKrw } from "@/lib/ai/model-registry";
 import type {
   PersonaScore,
   SelectionTrack,
@@ -41,6 +41,11 @@ import {
   mergeFreshWithIncumbents,
   type IncumbentInfo,
 } from "@/lib/screening/incumbent-merge";
+import {
+  computeR2Targets,
+  pickFinalPanels,
+  type R1PanelRow,
+} from "@/lib/screening/debate-round";
 import type {
   IncumbentMetadataMap,
   TickerCommentMap,
@@ -75,6 +80,13 @@ type BuildIncumbentContexts = (
   incumbents: readonly IncumbentInfo[],
   opts: { client: SupabaseClient },
 ) => Promise<Record<string, string>>;
+// W1a (D5/D6) — R2 반박 라운드 패널 (makeCallDebatePanel 주입).
+type CallDebatePanel = (input: {
+  ticker: string;
+  financials: string;
+  reflectionContext?: string;
+  r1Panel: readonly PersonaScore[];
+}) => Promise<PersonaScore[]>;
 type FetchFinancials = (ticker: string) => Promise<string>;
 type PreflightHardcap = (
   args: {
@@ -143,6 +155,8 @@ export interface RunTier1SelectionChunkInput {
   // W2b (D27 Q5) — incumbent union + per-ticker thesis context.
   incumbentsSource: IncumbentsSource;
   buildIncumbentContexts: BuildIncumbentContexts;
+  // W1a (D26 Q4) — R2 반박 라운드 패널.
+  callDebatePanel: CallDebatePanel;
 }
 
 export interface Tier1SelectionChunkResult {
@@ -160,12 +174,16 @@ export interface Tier1SelectionChunkResult {
 interface SelectionJobRow {
   id: string;
   ticker: string;
+  // W1a — claim RPC는 returns setof tier1_selection_job + returning * 라 0032 후 자동 포함.
+  //   미적용(0032 전) 호환: undefined → 1 간주.
+  round?: 1 | 2;
 }
 
 interface SelectionFullRow {
   ticker: string;
   status: string;
   panel_result: PersonaScore[] | null;
+  round?: 1 | 2; // W1a — DB default 1 동형 (미지정 시 1 간주)
 }
 
 async function abortBeforeSpend(
@@ -340,6 +358,21 @@ const countNonTerminalJobs = (client: SupabaseClient, periodKey: string) =>
 const countTerminalJobs = (client: SupabaseClient, periodKey: string) =>
   countByStatus(client, periodKey, ["done", "failed"]);
 
+// W1a — period 전체 rows 1회 SELECT (R2 trigger 계산 + finalize replay 공용).
+async function selectPeriodRows(
+  client: SupabaseClient,
+  periodKey: string,
+): Promise<SelectionFullRow[]> {
+  const { data, error } = await client
+    .from("tier1_selection_job")
+    .select("ticker, status, panel_result, round")
+    .eq("period_key", periodKey);
+  if (error) {
+    throw new Error(`selection_finalize_select_failed:${error.code ?? "unknown"}`);
+  }
+  return (data ?? []) as SelectionFullRow[];
+}
+
 /**
  * 1 chunk 처리. route가 run-mutex 보유 상태에서 호출 (단일 worker 보장).
  * step 0 fail-closed 검증 통과 후에만 LLM 경로 진입.
@@ -433,11 +466,12 @@ export async function runTier1SelectionChunk(
     track,
     ticker: c.ticker,
     bucket: bucketOf(c),
+    round: 1, // W1a — R1 채점 라운드 (R2는 R1 완료 후 worker가 대상만 enqueue)
   }));
   const { error: enqErr } = await client
     .from("tier1_selection_job")
     .upsert(enqueueRows, {
-      onConflict: "period_key,ticker",
+      onConflict: "period_key,ticker,round",
       ignoreDuplicates: true,
     });
   if (enqErr) {
@@ -446,7 +480,8 @@ export async function runTier1SelectionChunk(
 
   // ── (R4 HIGH-2) preflight를 claim/reset 前으로 — budget 초과 사이클에서 attempts 미소진 ──
   // reservation = (openJobs + deferredJobs)(periodKey) × 11콜 × 역할 단가(W0 model-aware).
-  const tier1MaxCostPerCallKrw = getRoleMaxCostPerCallKrw("tier1_panel");
+  // W1a (D8) — mix worst-slot 단가 (Sonnet/GPT mid 중 최고가, env 무관 — undercount 금지).
+  const tier1MaxCostPerCallKrw = getTier1PanelWorstSlotCostKrw();
   const reservationJobCount =
     (await countOpenJobs(client, periodKey)) +
     (await countDeferredJobs(client, periodKey));
@@ -520,6 +555,17 @@ export async function runTier1SelectionChunk(
     });
   }
 
+  // W1a (D4/D5) — claimed에 R2 job이 있으면 R1 done panel을 1회 로드 (반박 라운드 입력).
+  let r1PanelByTicker = new Map<string, PersonaScore[]>();
+  if (jobs.some((j) => (j.round ?? 1) === 2)) {
+    const rows = await selectPeriodRows(client, periodKey);
+    r1PanelByTicker = new Map(
+      rows
+        .filter((r) => (r.round ?? 1) === 1 && r.status === "done" && r.panel_result)
+        .map((r) => [r.ticker, r.panel_result as PersonaScore[]]),
+    );
+  }
+
   let done = 0;
   let failed = 0;
   const failedTickers: string[] = [];
@@ -527,8 +573,29 @@ export async function runTier1SelectionChunk(
   // ── 순차 처리 (병렬 fan-out 금지 — cost gate 직렬화, 0027 R2 HIGH-1) ──
   for (const job of jobs) {
     try {
+      // W1a — round=2(반박)는 R1 done panel 필수: 부재 시 spend 0으로 failed 처리.
+      const isDebateRound = (job.round ?? 1) === 2;
+      if (isDebateRound && !r1PanelByTicker.has(job.ticker)) {
+        await markJob(client, {
+          id: job.id,
+          status: "failed",
+          panelResult: null,
+          error: `debate_r1_panel_missing:${job.ticker}`,
+        });
+        failed += 1;
+        failedTickers.push(job.ticker);
+        continue;
+      }
       const panel = await retryWithBackoff(async () => {
         const financials = await input.fetchFinancials(job.ticker);
+        if (isDebateRound) {
+          return input.callDebatePanel({
+            ticker: job.ticker,
+            financials,
+            reflectionContext: incumbentContextByTicker[job.ticker],
+            r1Panel: r1PanelByTicker.get(job.ticker)!,
+          });
+        }
         return input.callPersonaPanel({
           ticker: job.ticker,
           financials,
@@ -597,7 +664,7 @@ export async function runTier1SelectionChunk(
 
   // ── 남은 작업 수 (forward-progress / finalize 판정) ──
   //   remaining = open(pending+running) — self-continue accelerator gate용.
-  const remaining = await countOpenJobs(client, periodKey);
+  let remaining = await countOpenJobs(client, periodKey);
 
   // ── finalize 게이트: nonTerminal(pending+running+deferred)===0 && terminal(done+failed)>0 ──
   //   (R2 MED-6) deferred는 nonTerminal로 finalize 차단(degraded 조기 finalize 방지). 빈 풀(terminal 0) 미발동.
@@ -606,12 +673,61 @@ export async function runTier1SelectionChunk(
   if (nonTerminal === 0) {
     const terminal = await countTerminalJobs(client, periodKey);
     if (terminal > 0) {
-      finalized = await finalizeSelection(
-        input,
-        candidates,
-        incumbentTickers,
-        incumbentMetadataByTicker,
+      // W1a (D4) — R1 완료 시점: 저장 panel의 순수 함수로 R2 대상 결정(멱등 재계산, 플래그 불필요).
+      const rows = await selectPeriodRows(client, periodKey);
+      const r1Rows: R1PanelRow[] = rows
+        .filter((r) => (r.round ?? 1) === 1)
+        .map((r) => ({
+          ticker: r.ticker,
+          panel: r.status === "done" ? r.panel_result : null,
+        }));
+      const targets = computeR2Targets(r1Rows, track);
+      const round2Tickers = new Set(
+        rows.filter((r) => (r.round ?? 1) === 2).map((r) => r.ticker),
       );
+      const missing = targets.filter((tk) => !round2Tickers.has(tk));
+      if (missing.length > 0) {
+        // R2 반박 라운드 enqueue (대상만, idempotent) — 이번 invocation은 finalize 안 함.
+        const bucketByTicker = new Map(candidates.map((c) => [c.ticker, bucketOf(c)]));
+        const knownMissing = missing.filter((tk) => {
+          if (bucketByTicker.has(tk)) return true;
+          // D8 — 후보 재조회와 enqueue 시점 어긋남(드묾): 후보 밖 ticker는 skip + 관측 로그.
+          console.error(
+            JSON.stringify({ event: "r2_target_not_in_candidates", month, periodKey, ticker: tk }),
+          );
+          return false;
+        });
+        if (knownMissing.length > 0) {
+          const r2Rows = knownMissing.map((tk) => ({
+            month,
+            period_key: periodKey,
+            track,
+            ticker: tk,
+            bucket: bucketByTicker.get(tk)!,
+            round: 2,
+          }));
+          const { error: r2Err } = await client
+            .from("tier1_selection_job")
+            .upsert(r2Rows, {
+              onConflict: "period_key,ticker,round",
+              ignoreDuplicates: true,
+            });
+          if (r2Err) {
+            throw new Error(`r2_enqueue_failed:${r2Err.code ?? "unknown"}`);
+          }
+          // self-continue/forward-progress 정확성: enqueue 후 open 재계산.
+          remaining = await countOpenJobs(client, periodKey);
+        }
+      } else {
+        // R2 불필요(targets 0) 또는 targets 전부 round2 존재 + 전 라운드 terminal → finalize.
+        finalized = await finalizeSelection(
+          input,
+          candidates,
+          incumbentTickers,
+          incumbentMetadataByTicker,
+          rows,
+        );
+      }
     }
   }
 
@@ -650,25 +766,22 @@ async function finalizeSelection(
   candidates: Tier1Candidate[],
   incumbentTickers: ReadonlySet<string>,
   incumbentMetadataByTicker: IncumbentMetadataMap,
+  rows: SelectionFullRow[],
 ): Promise<boolean> {
   const { month, track, periodKey, client } = input;
-  // 전체 rows 1회 SELECT (ticker, status, panel_result) — period_key 필터.
-  const { data, error } = await client
-    .from("tier1_selection_job")
-    .select("ticker, status, panel_result")
-    .eq("period_key", periodKey);
-  if (error) {
-    throw new Error(`selection_finalize_select_failed:${error.code ?? "unknown"}`);
-  }
-  const rows = (data ?? []) as SelectionFullRow[];
-
-  // replay map: status='done' & panel_result 존재만. degraded는 부재 → 콜백 reject → ⚪.
-  const storedPanels = new Map<string, PersonaScore[]>();
+  // W1a (D6) — replay map: round=2 done 우선 / round=1 fallback (R2 실패는 R1 유지 graceful).
+  //   degraded(양 라운드 모두 부재)는 콜백 reject → ⚪ 자동.
+  const r1Map = new Map<string, PersonaScore[]>();
+  const r2Map = new Map<string, PersonaScore[]>();
   for (const r of rows) {
-    if (r.status === "done" && r.panel_result) {
-      storedPanels.set(r.ticker, r.panel_result);
+    if (r.status !== "done" || !r.panel_result) continue;
+    if ((r.round ?? 1) === 2) {
+      r2Map.set(r.ticker, r.panel_result);
+    } else {
+      r1Map.set(r.ticker, r.panel_result);
     }
   }
+  const storedPanels = pickFinalPanels(r1Map, r2Map);
 
   // candidates 재공급 (computeTier0Ranks가 원본 candidates 필요 — persona-eval.ts). 트랙 전파.
   const result = await input.runScreening({

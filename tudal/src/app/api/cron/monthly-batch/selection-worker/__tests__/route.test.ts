@@ -26,6 +26,10 @@ vi.mock("@/lib/data/admin-tier0-candidates", () => ({
 }));
 vi.mock("@/lib/screening/persona-panel-adapter", () => ({
   makeCallPersonaPanel: vi.fn(() => vi.fn()),
+  makeCallDebatePanel: vi.fn(() => vi.fn()), // W1a
+}));
+vi.mock("@/lib/ai/model-registry", () => ({
+  resolveTier1PanelSlot: vi.fn(), // W1a — server-only 모듈 stub
 }));
 vi.mock("@/lib/ai/prompts/personas", () => ({ CORE_11_PERSONAS: [] }));
 vi.mock("@/lib/ai/anthropic-client", () => ({ callPersona: vi.fn() }));
