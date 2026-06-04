@@ -2,7 +2,11 @@
 // mock chain 타이핑: feedback_test_mock_typing (any 금지, admin-tier0-candidates.test.ts 패턴).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getIncumbents } from "@/lib/data/admin-shortlist-incumbents";
+import {
+  getIncumbents,
+  buildIncumbentThesisContexts,
+} from "@/lib/data/admin-shortlist-incumbents";
+import type { IncumbentInfo } from "@/lib/screening/incumbent-merge";
 
 interface IncumbentQueryRow {
   ticker: string;
@@ -145,5 +149,177 @@ describe("getIncumbents", () => {
     await expect(
       getIncumbents({ track: "short", month: "2026-06", client }),
     ).rejects.toThrow("incumbents_query_failed:PGRST000");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildIncumbentThesisContexts — 직전 row + section_0 thesis + 실현 성과 합성
+// ---------------------------------------------------------------------------
+interface ReportRow {
+  ticker: string;
+  month: string;
+  section_0: unknown;
+}
+interface SnapshotRow {
+  ticker: string;
+  date: string;
+  entry_price: string | number | null;
+  total_return: string | number | null;
+}
+interface ChainResult<T> {
+  data: T[] | null;
+  error: { code?: string } | null;
+}
+
+function buildContextClient(opts: {
+  reports: ChainResult<ReportRow>;
+  snapshots: ChainResult<SnapshotRow>;
+  rejectReports?: boolean;
+  rejectSnapshots?: boolean;
+}) {
+  // stock_reports chain: select → in → eq → lte → order(resolves)
+  const reportOrder = opts.rejectReports
+    ? vi.fn().mockRejectedValue(new Error("network"))
+    : vi.fn().mockResolvedValue(opts.reports);
+  const reportLte = vi.fn().mockReturnValue({ order: reportOrder });
+  const reportEq = vi.fn().mockReturnValue({ lte: reportLte });
+  const reportIn = vi.fn().mockReturnValue({ eq: reportEq });
+  const reportSelect = vi.fn().mockReturnValue({ in: reportIn });
+  // portfolio_snapshot chain: select → in → order(resolves)
+  const snapOrder = opts.rejectSnapshots
+    ? vi.fn().mockRejectedValue(new Error("network"))
+    : vi.fn().mockResolvedValue(opts.snapshots);
+  const snapIn = vi.fn().mockReturnValue({ order: snapOrder });
+  const snapSelect = vi.fn().mockReturnValue({ in: snapIn });
+
+  const from = vi.fn((table: string) => {
+    if (table === "stock_reports") return { select: reportSelect };
+    if (table === "portfolio_snapshot") return { select: snapSelect };
+    throw new Error(`unexpected table:${table}`);
+  });
+  return {
+    client: { from } as unknown as SupabaseClient,
+    spies: { from, reportIn, reportEq, reportLte, snapIn },
+  };
+}
+
+function makeIncumbent(overrides: Partial<IncumbentInfo> = {}): IncumbentInfo {
+  return {
+    ticker: "005930",
+    bucket: "short",
+    rank: 1,
+    month: "2026-06-01",
+    sector: "반도체",
+    name: "삼성전자",
+    aiCommentKr: "직전 논거",
+    consensusBadge: "🟢",
+    aiScore: 78.2,
+    conviction: 71,
+    deltaStatus: "new",
+    compositeScore: 72.5,
+    signalLabel: "기존 신호",
+    ...overrides,
+  };
+}
+
+const validSection0 = {
+  headline: "반도체 회복 사이클 진입",
+  thesis: ["t1", "t2", "t3", "t4"],
+  conviction: 80,
+  committeeMini: {
+    core: { approve: 7, reject: 2, abstain: 2 },
+    sector: { approve: 9, reject: 3, abstain: 2 },
+  },
+  priceBands: { bear: "60,000", base: "75,000", bull: "90,000" },
+};
+
+describe("buildIncumbentThesisContexts", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("직전 row 필드 + 리포트 thesis + 실현 성과를 한국어 컨텍스트로 합성", async () => {
+    const { client } = buildContextClient({
+      reports: {
+        data: [{ ticker: "005930", month: "2026-06-01", section_0: validSection0 }],
+        error: null,
+      },
+      snapshots: {
+        data: [
+          { ticker: "005930", date: "2026-06-03", entry_price: 50000, total_return: 0.052 },
+        ],
+        error: null,
+      },
+    });
+    const map = await buildIncumbentThesisContexts([makeIncumbent()], { client });
+    const ctx = map["005930"];
+    expect(ctx).toContain("직전 선정 리스트");
+    expect(ctx).toContain("🟢");
+    expect(ctx).toContain("직전 논거");
+    expect(ctx).toContain("반도체 회복 사이클 진입");
+    expect(ctx).toContain("t1");
+    expect(ctx).toContain("t3");
+    expect(ctx).not.toContain("t4"); // 최대 3개 cap
+    expect(ctx).toContain("+5.2%");
+    expect(ctx).toContain("유지가 자동이 아닙니다");
+  });
+
+  it("리포트 부재/section_0 파싱 실패 → thesis 줄 생략 (graceful)", async () => {
+    const { client } = buildContextClient({
+      reports: {
+        data: [{ ticker: "005930", month: "2026-06-01", section_0: { bogus: true } }],
+        error: null,
+      },
+      snapshots: { data: [], error: null },
+    });
+    const map = await buildIncumbentThesisContexts([makeIncumbent()], { client });
+    expect(map["005930"]).not.toContain("핵심 thesis");
+    expect(map["005930"]).toContain("직전 논거");
+  });
+
+  it("incumbent month보다 미래인 stock_reports row는 직전 thesis로 사용하지 않음 (lte 필터)", async () => {
+    const { client, spies } = buildContextClient({
+      reports: { data: [], error: null },
+      snapshots: { data: [], error: null },
+    });
+    await buildIncumbentThesisContexts(
+      [makeIncumbent({ month: "2026-06-01" })],
+      { client },
+    );
+    expect(spies.reportLte).toHaveBeenCalledWith("month", "2026-06-01");
+  });
+
+  it("snapshot 부재/entry_price=0 → 실현 성과 줄 생략 (W3 graceful)", async () => {
+    const { client } = buildContextClient({
+      reports: { data: [], error: null },
+      snapshots: {
+        data: [
+          { ticker: "005930", date: "2026-06-03", entry_price: 0, total_return: 0.1 },
+        ],
+        error: null,
+      },
+    });
+    const map = await buildIncumbentThesisContexts([makeIncumbent()], { client });
+    expect(map["005930"]).not.toContain("실현 성과");
+  });
+
+  it("보조 조회(reports/snapshot) 실패 → 직전 row 정보만으로 생성 (throw 금지 — best-effort)", async () => {
+    const { client } = buildContextClient({
+      reports: { data: null, error: null },
+      snapshots: { data: null, error: null },
+      rejectReports: true,
+      rejectSnapshots: true,
+    });
+    const map = await buildIncumbentThesisContexts([makeIncumbent()], { client });
+    expect(map["005930"]).toContain("직전 논거");
+    expect(map["005930"]).toContain("유지가 자동이 아닙니다");
+  });
+
+  it("incumbents [] → {} (조회 0회)", async () => {
+    const { client, spies } = buildContextClient({
+      reports: { data: [], error: null },
+      snapshots: { data: [], error: null },
+    });
+    const map = await buildIncumbentThesisContexts([], { client });
+    expect(map).toEqual({});
+    expect(spies.from).not.toHaveBeenCalled();
   });
 });
