@@ -1,33 +1,33 @@
-// PR3c — 3-step orchestration critic (Haiku 4.5) LLM 호출 wrapper.
+// PR3c — 3-step orchestration critic LLM 호출 wrapper.
 // SoT = docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md (v6, omxy R6 CONVERGED).
 // PR3b full-report-client.ts 패턴 follow.
 //
-// B14 fix (omxy R3): CRITIC_API_MODEL (actual Anthropic API ID) vs CRITIC_PRICING_KEY 분리.
-//   - API call → CRITIC_API_MODEL ('claude-haiku-4-5-20251001')
-//   - calculateCostKrw → CRITIC_PRICING_KEY ('claude-haiku-4-5', pricing.ts SoT)
+// W0 (65차 D28 ⑤): critic = GPT mid (gpt-5.4) 교차 — GPT 키 부재 시 Haiku fallback (auto-detect).
+//   ⚠️ critic은 호출 시점 resolve (모듈 로드 고정 금지 — env 가변). CRITIC_API_MODEL/
+//      CRITIC_PRICING_KEY는 모듈 로드 시점 기본값(편의 export — GPT off=Haiku) 이며 cost 계산은
+//      callCritic 내부 resolved.pricingKey 사용.
 // B7 fix (omxy R1): reason 한국어 500자 cap (zod max(500)).
 // (d) fix (omxy R2): prompt_version 분리 (cost_log filter UI) — CRITIC_PROMPT_VERSION = 'critic-v1'.
 // (j) fix (omxy R4): SDK error catch + structured console.warn capture (PR3b CR-3 패턴).
 
-import Anthropic from '@anthropic-ai/sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import {
-  calculateCostKrw,
-  CRITIC_PRICING_KEY,
-  type TokenUsage,
-} from '@/lib/cost/pricing';
+import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { CRITIC_PROMPT_VERSION } from './prompts/critic-prompt';
 import { extractJsonObject } from '@/lib/report/full-report-writer';
+import { resolveRole } from './model-registry';
 
 // PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — AI client options 2nd arg.
 export interface CallCriticOptions {
   client?: SupabaseClient;
 }
 
-export const CRITIC_API_MODEL = 'claude-haiku-4-5-20251001';
-export const CRITIC_MAX_TOKENS = 2048;
+// 모듈 로드 시점 기본값 (편의 export — 실 cost 계산은 callCritic 내부 resolve). GPT 키 부재 시 Haiku.
+const CRITIC_ROLE_DEFAULT = resolveRole('critic');
+export const CRITIC_API_MODEL = CRITIC_ROLE_DEFAULT.model;
+export const CRITIC_PRICING_KEY = CRITIC_ROLE_DEFAULT.pricingKey;
+export const CRITIC_MAX_TOKENS = CRITIC_ROLE_DEFAULT.maxTokens;
 const PERSONA_ID = 'critic';
 
 // B7 fix: zod max 500자 cap (한국어 multi-byte JS code unit count safe — emoji 제외).
@@ -68,29 +68,28 @@ export async function callCritic(
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ai_key_unavailable');
   }
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  let response;
+  // W0 (65차 D28 ⑤): critic = GPT mid 교차 / GPT off → Haiku fallback. 호출 시점 resolve (env 가변).
+  const resolved = resolveRole('critic');
+
+  let aiResult;
   try {
-    response = await client.messages.create({
-      model: CRITIC_API_MODEL,
-      max_tokens: CRITIC_MAX_TOKENS,
-      system: input.systemPrompt,
-      messages: [{ role: 'user', content: input.userPrompt }],
+    aiResult = await resolved.provider.call({
+      model: resolved.model,
+      maxTokens: resolved.maxTokens,
+      systemPrompt: input.systemPrompt,
+      userPrompt: input.userPrompt,
     });
   } catch (err) {
     // (j) fix (omxy R4): structured warn capture — rate-limit / 5xx / network 구분.
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `[callCritic] anthropic_failed ticker=${input.ticker} month=${input.month} message=${message}`,
+      `[callCritic] ai_call_failed ticker=${input.ticker} month=${input.month} message=${message}`,
     );
     throw new Error('critic_llm_failed');
   }
 
-  const text = response.content
-    .filter((c) => c.type === 'text')
-    .map((c) => (c as { type: 'text'; text: string }).text)
-    .join('');
+  const text = aiResult.text;
 
   const jsonStr = extractJsonObject(text);
   if (jsonStr === null) {
@@ -114,18 +113,9 @@ export async function callCritic(
     throw new Error(`critic_validation_failed:${path}`);
   }
 
-  const usageWithCache = response.usage as typeof response.usage & {
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
-  const usage: TokenUsage = {
-    input_tokens: response.usage.input_tokens ?? 0,
-    cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
-    cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
-    output_tokens: response.usage.output_tokens ?? 0,
-  };
-  // B14 fix: calculateCostKrw에 CRITIC_PRICING_KEY 명시 — fallback Sonnet 단가 차단.
-  const costKrw = calculateCostKrw(usage, CRITIC_PRICING_KEY);
+  const usage: TokenUsage = aiResult.usage;
+  // W0 (65차 D28 ⑤): registry resolved pricingKey 명시 — env 가변 모델(gpt-5.4↔haiku) 단가 정합.
+  const costKrw = calculateCostKrw(usage, resolved.pricingKey);
 
   await insertCostLog(
     {
@@ -133,7 +123,7 @@ export async function callCritic(
       ticker: input.ticker,
       persona_id: PERSONA_ID,
       prompt_version: CRITIC_PROMPT_VERSION,
-      model: CRITIC_API_MODEL,
+      model: resolved.model,
       ...usage,
       cost_krw: costKrw,
       prompt_cache_enabled: false,

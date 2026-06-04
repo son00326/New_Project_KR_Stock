@@ -1,7 +1,9 @@
-// PR3c Task 2 — critic-client (Haiku 4.5) test (PR3b full-report-client.test.ts 패턴 follow).
+// PR3c Task 2 — critic-client test (PR3b full-report-client.test.ts 패턴 follow).
 // SoT = plan v6, omxy R6 CONVERGED.
+// W0 (65차 D28 ⑤): critic = GPT mid (gpt-5.4) 교차 / GPT 키 부재 시 Haiku fallback (auto-detect).
+//   CI(OPENAI_API_KEY unset) 기본 = Haiku. env 분기 테스트 추가.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@anthropic-ai/sdk', () => {
   const create = vi.fn();
@@ -10,6 +12,16 @@ vi.mock('@anthropic-ai/sdk', () => {
     constructor() {}
   }
   return { default: Anthropic, __create: create };
+});
+
+// W0: critic GPT 경로 검증용 openai SDK mock (Responses API).
+vi.mock('openai', () => {
+  const responsesCreate = vi.fn();
+  class OpenAI {
+    responses = { create: responsesCreate };
+    constructor() {}
+  }
+  return { default: OpenAI, __responsesCreate: responsesCreate };
 });
 
 vi.mock('@/lib/cost/cost-logger', () => ({
@@ -33,16 +45,65 @@ const baseInput = {
   adminUserId: 'u1',
 };
 
-describe('callCritic — Haiku 4.5 + cost_log + zod 6축', () => {
+describe('callCritic — GPT mid / Haiku fallback + cost_log + zod 6축 (W0 D28 ⑤)', () => {
+  const savedOpenAiKey = process.env.OPENAI_API_KEY;
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.ANTHROPIC_API_KEY = 'test-key';
+    // 기본(default) = GPT off → Haiku fallback (CI 정합). 개별 env-branch 테스트가 override.
+    delete process.env.OPENAI_API_KEY;
+  });
+  afterEach(() => {
+    if (savedOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = savedOpenAiKey;
   });
 
-  it('CRITIC_API_MODEL = "claude-haiku-4-5-20251001" + CRITIC_MAX_TOKENS = 2048 invariant', async () => {
+  it('CRITIC_MAX_TOKENS = 2048 invariant + CRITIC_API_MODEL은 registry critic 역할 파생', async () => {
     const { CRITIC_API_MODEL, CRITIC_MAX_TOKENS } = await import('@/lib/ai/critic-client');
-    expect(CRITIC_API_MODEL).toBe('claude-haiku-4-5-20251001');
     expect(CRITIC_MAX_TOKENS).toBe(2048);
+    // 모듈 로드 시점 기본값 — gpt-5.4(GPT 가용) 또는 claude-haiku-4-5-20251001(fallback) 중 하나.
+    expect(['gpt-5.4', 'claude-haiku-4-5-20251001']).toContain(CRITIC_API_MODEL);
+  });
+
+  it('GPT 키 부재 → Haiku fallback 경로 (anthropic SDK model=claude-haiku-4-5-20251001)', async () => {
+    const sdk = await import('@anthropic-ai/sdk');
+    const create = (sdk as unknown as { __create: ReturnType<typeof vi.fn> }).__create;
+    create.mockResolvedValueOnce({
+      content: [{ type: 'text', text: JSON.stringify(happyVerdict) }],
+      usage: { input_tokens: 800, output_tokens: 400 },
+    });
+    const { insertCostLog } = await import('@/lib/cost/cost-logger');
+    const { callCritic } = await import('@/lib/ai/critic-client');
+    const result = await callCritic(baseInput);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-haiku-4-5-20251001', max_tokens: 2048 }),
+    );
+    expect(result.verdict.factuality.verdict).toBe('PASS');
+    expect(insertCostLog).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-haiku-4-5-20251001' }),
+      { client: undefined },
+    );
+  });
+
+  it('GPT 키 보유 → openai Responses API 경로 (model=gpt-5.4, cost_log model=gpt-5.4)', async () => {
+    process.env.OPENAI_API_KEY = 'sk-openai-test';
+    const oa = await import('openai');
+    const responsesCreate = (oa as unknown as { __responsesCreate: ReturnType<typeof vi.fn> }).__responsesCreate;
+    responsesCreate.mockResolvedValueOnce({
+      output_text: JSON.stringify(happyVerdict),
+      usage: { input_tokens: 800, output_tokens: 400, input_tokens_details: { cached_tokens: 0 } },
+    });
+    const { insertCostLog } = await import('@/lib/cost/cost-logger');
+    const { callCritic } = await import('@/lib/ai/critic-client');
+    const result = await callCritic(baseInput);
+    expect(responsesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.4', max_output_tokens: 2048 }),
+    );
+    expect(result.verdict.logic.verdict).toBe('WARN');
+    expect(insertCostLog).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.4', persona_id: 'critic' }),
+      { client: undefined },
+    );
   });
 
   it('ANTHROPIC_API_KEY 없으면 ai_key_unavailable throw', async () => {
@@ -51,7 +112,7 @@ describe('callCritic — Haiku 4.5 + cost_log + zod 6축', () => {
     await expect(callCritic(baseInput)).rejects.toThrow('ai_key_unavailable');
   });
 
-  it('happy path — Haiku call + parse + cost_log (persona_id=critic, prompt_version=critic-v1)', async () => {
+  it('happy path (GPT off=Haiku) — parse + cost_log (persona_id=critic, prompt_version=critic-v1)', async () => {
     const sdk = await import('@anthropic-ai/sdk');
     const create = (sdk as unknown as { __create: ReturnType<typeof vi.fn> }).__create;
     create.mockResolvedValueOnce({
@@ -59,14 +120,12 @@ describe('callCritic — Haiku 4.5 + cost_log + zod 6축', () => {
       usage: { input_tokens: 800, output_tokens: 400 },
     });
     const { insertCostLog } = await import('@/lib/cost/cost-logger');
-    const { callCritic, CRITIC_API_MODEL, CRITIC_MAX_TOKENS } = await import(
-      '@/lib/ai/critic-client'
-    );
+    const { callCritic, CRITIC_MAX_TOKENS } = await import('@/lib/ai/critic-client');
     const result = await callCritic(baseInput);
     expect(result.verdict.factuality.verdict).toBe('PASS');
     expect(result.verdict.reader_level.verdict).toBe('PASS');
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ model: CRITIC_API_MODEL, max_tokens: CRITIC_MAX_TOKENS }),
+      expect.objectContaining({ model: 'claude-haiku-4-5-20251001', max_tokens: CRITIC_MAX_TOKENS }),
     );
     expect(insertCostLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -74,7 +133,7 @@ describe('callCritic — Haiku 4.5 + cost_log + zod 6축', () => {
         month: '2026-06',
         persona_id: 'critic',
         prompt_version: 'critic-v1',
-        model: CRITIC_API_MODEL,
+        model: 'claude-haiku-4-5-20251001',
         called_by: 'u1',
       }),
       { client: undefined },

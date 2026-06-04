@@ -23,15 +23,15 @@ const baseInput = {
   adminUserId: 'u1',
 };
 
-describe('callRevise — Opus 4.7 max_tokens 8192 + cost_log', () => {
+describe('callRevise — Opus 4.8 max_tokens 8192 + cost_log (W0 D28 ④)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.ANTHROPIC_API_KEY = 'test-key';
   });
 
-  it('REVISE_API_MODEL = "claude-opus-4-7" + REVISE_MAX_TOKENS = 8192 invariant (B3 fix)', async () => {
+  it('REVISE_API_MODEL = "claude-opus-4-8" (registry 파생) + REVISE_MAX_TOKENS = 8192 invariant (W0 D28 ④)', async () => {
     const { REVISE_API_MODEL, REVISE_MAX_TOKENS } = await import('@/lib/ai/revise-client');
-    expect(REVISE_API_MODEL).toBe('claude-opus-4-7');
+    expect(REVISE_API_MODEL).toBe('claude-opus-4-8');
     expect(REVISE_MAX_TOKENS).toBe(8192);
   });
 
