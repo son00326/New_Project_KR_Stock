@@ -230,4 +230,38 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     expect(callPersona).toHaveBeenCalledTimes(22);
     expect(observedMax).toBeLessThanOrEqual(3);
   });
+
+  // W2b (D27 Q5) — per-call reflectionContext override (incumbent thesis context 주입 seam).
+  it("per-call reflectionContext가 deps default를 override해 callPersona에 전달", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    await panel({
+      ticker: "000001",
+      financials: "f",
+      reflectionContext: "[재점검] 직전 논거...",
+    });
+    expect(callPersona).toHaveBeenCalledTimes(11);
+    for (const call of callPersona.mock.calls) {
+      expect(call[0]).toMatchObject({ reflectionContext: "[재점검] 직전 논거..." });
+    }
+  });
+
+  it("per-call reflectionContext 미지정 시 deps default 사용 (W2a 무회귀)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "기본 컨텍스트",
+      adminUserId: "u",
+    });
+    await panel({ ticker: "000001", financials: "f" });
+    for (const call of callPersona.mock.calls) {
+      expect(call[0]).toMatchObject({ reflectionContext: "기본 컨텍스트" });
+    }
+  });
 });
