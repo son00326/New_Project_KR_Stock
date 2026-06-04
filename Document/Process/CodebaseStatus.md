@@ -517,7 +517,7 @@
 - [x] **마이그레이션 0010 alert RLS hardening** (BL-KRIT-7) — 적용 완료 (36차)
 - [x] **마이그레이션 0009 DQ-7 credential** (E9 확장 + E12 신설 + RLS) — 적용 완료 (DQ-7 Session 3, production brokerage_connection 1 row 존재)
 - [🟢] **Supabase 실 SELECT/INSERT 전환** (S7e · 8 Must) — T7e.1~T7e.6 + T7e.8 완료 (7/8) · T7e.7 RLS 수동 QA 잔여
-- [ ] AI 프로바이더 추상화 wrapper + cost_log 실 INSERT (W0 · M17·M2·M3·M6·M9·M10·M11·M12) — B-6 키 발급 후 진입. 65차 Q3 supersede: Claude+GPT 멀티프로바이더 + 모델 레지스트리 + 역할별 모델 차등(토론=저가/최종=고가) — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
+- [ ] AI 프로바이더 추상화 wrapper + cost_log 실 INSERT (W0 · M17·M2·M3·M6·M9·M10·M11·M12) — B-6 키 발급 후 진입. 65차 Q3 + D28 supersede: Claude+GPT 멀티프로바이더 + 모델 레지스트리 + 역할별 모델 차등 기준 재정의(목적함수=예측 적중률+리포트 정확성, hardcap=제약; 초기 기본값은 Sonnet×6+GPT mid×5 토론 + Opus4.8 judge/리포트/W3 + GPT critic) — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] 뉴스·브리핑 실 연결 (S7b · M10·M11·M12)
 - [ ] 장중·Exit 실 연결 (S7c · M13·M15)
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)

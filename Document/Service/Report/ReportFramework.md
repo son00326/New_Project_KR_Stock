@@ -728,7 +728,7 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 
 ### Step 1~4: 풀 리포트 작성 (선정된 30종목만)
 
-> **65차 Q3 supersede (2026-06-04)**: 아래 Step 1~3의 에이전트 `(opus)` 모델 하드코딩은 65차 Q3로 폐기 — 모델 하드코딩 제거 + 설정값화, Claude+GPT 멀티프로바이더(provider auto-detect: GPT키 없으면 Claude-only), 모델 레지스트리. 65차 Q6(역할별 모델 차등: 토론=저가 / 최종 writer·critic=고가 tier)로 정합. 구 'Anthropic opus 고정' 어휘는 W0(모델 설정화) 구현 시 정합. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
+> **65차 Q3 + D28 supersede (2026-06-04)**: 아래 Step 1~3의 에이전트 `(opus)` 모델 하드코딩은 65차 Q3로 폐기 — 모델 하드코딩 제거 + 설정값화, Claude+GPT 멀티프로바이더(provider auto-detect: GPT키 없으면 Claude-only), 모델 레지스트리. D28로 역할별 차등 기준도 비용→**예측 적중률+리포트 정확성**(hardcap=제약)으로 재정의됨: writer·revise=Opus 4.8, critic=GPT mid 교차(off 시 Haiku), judge=Opus 4.8+경계 dual. 구 'Anthropic opus 고정' / '토론=저가' 어휘는 W0(모델 설정화) 구현 시 정합. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 > **Tier 2 Sector Board 활성화**: 30종목 각자의 섹터 14명만 호출 (전체 140명 X). 종목당 Core 11 + Sector 14 = 25명 × 30종 ≈ 750 LLM call/월 (M17 hardcap 50만원 내 통제 · 65차 상향).
 
