@@ -70,6 +70,7 @@ function chunkResult(
     skipped: 0,
     failed: 0,
     deferred: 0,
+    r2Enqueued: 0,
     remaining: 0,
     finalized: false,
     aborted: null,
@@ -274,6 +275,17 @@ describe("selection-worker self-continue forward-progress gate (OPS-3)", () => {
     const body = await res.json();
     expect(body.continued).toBeUndefined();
     expect(body.ok).toBe(true);
+  });
+
+  it("claimed=0 + r2Enqueued>0 + remaining>0 + SELF_CONTINUE → 202 continued", async () => {
+    process.env.SELECTION_CRON_SELF_CONTINUE = "true";
+    guardedMock.mockResolvedValue({
+      result: chunkResult({ claimed: 0, done: 0, r2Enqueued: 7, remaining: 7 }),
+    });
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.continued).toBe(true);
   });
 
   it("finalize 발생(finalized:true, remaining:0) → 200, self-continue 안 함", async () => {

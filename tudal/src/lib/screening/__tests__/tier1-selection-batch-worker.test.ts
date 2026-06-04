@@ -37,6 +37,16 @@ const CORE_11_IDS = Array.from({ length: 11 }, (_, i) => `persona-${i}`);
 function makePanel(): PersonaScore[] {
   return CORE_11_IDS.map(makePanelResult);
 }
+function makeHighVariancePanel(): PersonaScore[] {
+  return CORE_11_IDS.map((personaId, i) => ({
+    ...makePanelResult(personaId),
+    scores: {
+      short: i % 2 === 0 ? 90 : 10,
+      mid: i % 2 === 0 ? 90 : 10,
+      long: i % 2 === 0 ? 90 : 10,
+    },
+  }));
+}
 
 function makeTickerAggregate(ticker: string, tf: "short" | "mid" | "long"): TickerAggregate {
   return {
@@ -1271,6 +1281,32 @@ describe("W1a 멀티라운드 R2 반박", () => {
     expect(upsertOpts).toMatchObject({ onConflict: "period_key,ticker,round" });
   });
 
+  it("0032 round schema 미적용 DB는 selection_round_schema_missing으로 fail-closed", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 100,
+      nonTerminalCount: 100,
+      terminalCount: 0,
+    });
+    const origFrom = client.from;
+    client.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>;
+      chain.upsert = vi.fn(async () => ({
+        error:
+          table === "tier1_selection_job"
+            ? { code: "PGRST204", message: "Could not find the 'round' column" }
+            : null,
+      }));
+      return chain;
+    }) as typeof client.from;
+    const deps = makeDeps("midlong");
+    await expect(runChunk(client, deps)).rejects.toThrow(
+      "selection_round_schema_missing",
+    );
+    expect(deps.preflightHardcap).not.toHaveBeenCalled();
+    expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+  });
+
   it("R1 전부 terminal + targets>0 + round2 미존재 → round2 enqueue(대상만, round:2) + finalize 안 함", async () => {
     // 균일 panel(분산 0) → targets = 경계 rank 6..15 (각 tf) — round2 부재라 enqueue 발생.
     const r1Rows = makeTrackCandidates("midlong").map((c) => ({
@@ -1305,7 +1341,32 @@ describe("W1a 멀티라운드 R2 반박", () => {
     const r2Rows = upserts[upserts.length - 1];
     expect(r2Rows.length).toBeGreaterThan(0);
     expect(r2Rows.every((r) => r.round === 2)).toBe(true);
+    expect(res.r2Enqueued).toBe(r2Rows.length);
     expect(r2Rows.length).toBeLessThan(100); // 대상만 (전체 아님)
+  });
+
+  it("R2 target이 현재 후보 밖이면 silently stuck 대신 r2_enqueue_failed로 fail-closed", async () => {
+    const allRows = [
+      {
+        ticker: "999999",
+        status: "done",
+        panel_result: makeHighVariancePanel(),
+        round: 1 as const,
+      },
+    ];
+    const { client } = makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 1,
+      allRows,
+    });
+    const deps = makeDeps("midlong");
+    await expect(runChunk(client, deps)).rejects.toThrow(
+      "r2_enqueue_failed:target_not_in_candidates:999999",
+    );
+    expect(deps.persist).not.toHaveBeenCalled();
   });
 
   it("R1 전부 terminal + targets=0(전부 degraded) → 즉시 finalize (무회귀)", async () => {

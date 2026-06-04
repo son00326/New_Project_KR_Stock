@@ -188,14 +188,14 @@ export async function GET(request: NextRequest) {
   }
 
   // optional self-continue accelerator (env-gated, load-bearing 아님).
-  // OPS-3: forward-progress gate — claimed>0(remaining>0·미abort)일 때만 self-continue.
+  // OPS-3: forward-progress gate — claimed>0 또는 R2 enqueue 진행(remaining>0·미abort)일 때만 self-continue.
   //   per-track 분기 후엔 어느 due 트랙이라도 forward-progress 있으면 1회 self-continue(다음 chunk advance).
   const hasMore = outcomes.some(
     (o) =>
       o.result !== undefined &&
       o.result.remaining > 0 &&
       o.result.aborted === null &&
-      o.result.claimed > 0,
+      (o.result.claimed > 0 || o.result.r2Enqueued > 0),
   );
   if (hasMore && process.env.SELECTION_CRON_SELF_CONTINUE === "true") {
     const secret = process.env.CRON_SECRET;
