@@ -257,6 +257,9 @@ export async function upsertShortListTrack(
   }
   // ② ticker 형식 + bucket purity 선검증 (트랙 외 bucket·null → throw, RPC 미호출).
   const allowed = new Set<Timeframe>(TRACK_BUCKETS[track]);
+  const bucketCounts = new Map<Timeframe, number>(
+    TRACK_BUCKETS[track].map((tf) => [tf, 0]),
+  );
   for (const a of selected) {
     if (!TICKER_RE.test(a.ticker)) {
       throw new Error(`invalid_ticker:${a.ticker}`);
@@ -264,6 +267,18 @@ export async function upsertShortListTrack(
     if (a.assigned_timeframe === null || !allowed.has(a.assigned_timeframe)) {
       throw new Error(
         `shortlist_track_bucket_impurity:${track}:${a.ticker}:${a.assigned_timeframe}`,
+      );
+    }
+    bucketCounts.set(
+      a.assigned_timeframe,
+      (bucketCounts.get(a.assigned_timeframe) ?? 0) + 1,
+    );
+  }
+  for (const tf of TRACK_BUCKETS[track]) {
+    const actual = bucketCounts.get(tf) ?? 0;
+    if (actual !== 10) {
+      throw new Error(
+        `shortlist_track_bucket_count_mismatch:${track}:${tf}:${actual}!=10`,
       );
     }
   }

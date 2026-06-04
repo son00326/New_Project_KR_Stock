@@ -431,8 +431,17 @@ export async function runTier1Screening(
   const distinctTickers = new Set(input.candidates.map((c) => c.ticker));
   if (distinctTickers.size !== input.candidates.length) {
     throw new Error(
-      `tier1_candidates_have_duplicate_tickers (distinct=${distinctTickers.size}/150)`
+      `tier1_candidates_have_duplicate_tickers (distinct=${distinctTickers.size}/${input.candidates.length})`
     );
+  }
+  const activeBuckets = new Set<Timeframe>(TRACK_TIMEFRAMES[track]);
+  for (const c of input.candidates) {
+    const buckets = TIMEFRAMES.filter((tf) => c.tier0_buckets[tf]);
+    if (buckets.length !== 1 || !activeBuckets.has(buckets[0])) {
+      throw new Error(
+        `tier1_candidates_track_bucket_impurity:${track}:${c.ticker}:${buckets.join(',') || 'none'}`
+      );
+    }
   }
 
   const generatedAt = new Date().toISOString();
