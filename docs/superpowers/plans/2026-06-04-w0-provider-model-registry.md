@@ -754,7 +754,7 @@ pricing_unknown_model: "미등록 AI 모델 단가입니다 — 모델 레지스
 
 - [ ] **Step 6.4b: `portfolio/actions.ts` 포함** (omxy R1 MEDIUM catch — sweep 누락): `tudal/src/app/(admin)/admin/portfolio/actions.ts` 주석 "40만원" + 관련 키 사용처 rename. 그 테스트(trigger-full-report-action.test / monthly-batch-action.test)도 Step 6.5에 포함.
 - [ ] **Step 6.4c: rename 안전성 production verify** (omxy R1 MEDIUM — 주장만으로 rename 금지): 구현 시점에 Supabase MCP로 `select count(*) from report_batch_job;` = 0 확인 (tier1_selection_job은 마이그 0031 미적용 = 테이블 부재 → 해당 없음). 0이 아니면 rename 중단 + 보고.
-- [ ] **Step 6.5: 테스트 일괄 갱신** — `rg -l "cost_hardcap_40man" src`로 잔존 0 확인하며 테스트 12파일 교체 + 400_000 리터럴 mock → 500_000. persona-eval.test의 reservation 기대값 무회귀 확인. **preflight 검증 테스트 추가**: lines `[]` → throw / 음수 callCount → throw / NaN maxCost → throw / callCount 0 (단일) → throw 아님(예약 0 정상 의미 없음 — `lines` 경로와 달리 기존 호환: 단일 경로 callCount 0은 reservation 0 통과 유지 여부를 omxy와 확정 — 기본은 0 허용·음수만 차단).
+- [ ] **Step 6.5: 테스트 일괄 갱신** — `rg -l "cost_hardcap_40man" src`로 잔존 0 확인하며 테스트 12파일 교체 + 400_000 리터럴 mock → 500_000. persona-eval.test의 reservation 기대값 무회귀 확인. **preflight 검증 테스트 추가** (omxy R2/R3 합의 확정): lines `[]` → throw / lines callCount 0 → throw / lines maxCostPerCallKrw 0 → throw / lines 음수·NaN → throw / 단일 경로 callCount 0 + default maxCost → no-op 허용(throw 아님) / 단일 경로 callCount>0 + 명시 maxCost 0 → throw.
 - [ ] **Step 6.6: 게이트 + Commit** — `feat(w0): model-aware reservation lines + cost_hardcap_exceeded rename (D28 ③)`
 
 ---
