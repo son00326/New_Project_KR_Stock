@@ -95,6 +95,11 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   ai_call_failed: "AI 호출 실패 — 분석 결과 ⚪(분석 대기)로 처리됨",
   // PR1 — orchestrator + persist + commit_badge_only error codes (54차 §4 v8)
   tier1_candidates_must_be_150: "Tier 0 후보 수가 150개가 아닙니다",
+  // W2b (D27 Q5) — incumbent union + pool range gate
+  tier1_candidates_pool_out_of_range:
+    "후보 풀 크기가 트랙 허용 범위를 벗어났습니다 (fresh+incumbent)",
+  incumbents_count_exceeded: "직전 리스트(incumbent) 수가 트랙 허용치를 초과했습니다",
+  incumbents_query_failed: "직전 리스트(incumbent) 조회에 실패했습니다",
   tier1_screening_failed: "Tier 1 평가에 실패했습니다",
   shortlist_persist_failed: "Short List 저장에 실패했습니다",
   commit_badge_only_failed: "배지 commit에 실패했습니다",
@@ -179,6 +184,20 @@ export function formatErrorMessage(code: string): string {
   //   `tier1_candidates_must_be_150 (got N)` / `shortlist_persist_failed:<code>`
   if (code.startsWith("tier1_candidates_must_be_150")) {
     return KOREAN_MAPPINGS["tier1_candidates_must_be_150"];
+  }
+  // W2a 트랙 분리 후 fresh pool 50/100 변형 (`tier1_candidates_must_be_50 (got N)` 등) — 일반화 매핑.
+  if (code.startsWith("tier1_candidates_must_be_")) {
+    return "Tier 0 후보 수가 트랙 기대치와 다릅니다";
+  }
+  // W2b (D27 Q5) — suffix throw 호환 (`:track:N` / `:N>M` / `:<pg code>` 숨김).
+  if (code.startsWith("tier1_candidates_pool_out_of_range")) {
+    return KOREAN_MAPPINGS["tier1_candidates_pool_out_of_range"];
+  }
+  if (code.startsWith("incumbents_count_exceeded")) {
+    return KOREAN_MAPPINGS["incumbents_count_exceeded"];
+  }
+  if (code.startsWith("incumbents_query_failed")) {
+    return KOREAN_MAPPINGS["incumbents_query_failed"];
   }
   if (
     code.startsWith("shortlist_persist_failed:") ||

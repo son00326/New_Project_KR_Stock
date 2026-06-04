@@ -91,6 +91,10 @@ const KNOWN_ACTION_CODES = [
   "orchestrator_failed",
   "short_list_30_invalid_count",
   "report_batch_worker_failed",
+  // W2b (D27 Q5) — incumbent union + pool range gate
+  "tier1_candidates_pool_out_of_range",
+  "incumbents_count_exceeded",
+  "incumbents_query_failed",
 ];
 
 describe("formatErrorMessage", () => {
@@ -135,6 +139,29 @@ describe("formatErrorMessage", () => {
       expect(formatErrorMessage("pending-s8")).toBe(
         "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
       );
+    });
+
+    it("W2b suffix handlers — pool range / incumbents (fallback 오류: 노출 금지)", () => {
+      for (const code of [
+        "tier1_candidates_pool_out_of_range:short:49",
+        "incumbents_count_exceeded:short:11>10",
+        "incumbents_query_failed:PGRST000",
+      ]) {
+        const msg = formatErrorMessage(code);
+        expect(msg).toMatch(/[가-힣]/);
+        expect(msg).not.toMatch(/^오류:/); // unmapped fallback 금지 = 실제 매핑 강제
+      }
+    });
+
+    it("W2a drift — tier1_candidates_must_be_50/100 (트랙 fresh pool)도 한국어 매핑", () => {
+      for (const code of [
+        "tier1_candidates_must_be_50 (got 49)",
+        "tier1_candidates_must_be_100 (got 99)",
+      ]) {
+        const msg = formatErrorMessage(code);
+        expect(msg).toMatch(/[가-힣]/);
+        expect(msg).not.toMatch(/^오류:/);
+      }
     });
 
     it("pricing_unknown_model:<model> suffix hides raw model id", () => {
