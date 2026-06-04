@@ -14,6 +14,10 @@ import {
 } from "@/lib/screening/tier1-selection-batch-worker";
 import { getTier0Candidates } from "@/lib/data/admin-tier0-candidates";
 import {
+  getIncumbents,
+  buildIncumbentThesisContexts,
+} from "@/lib/data/admin-shortlist-incumbents";
+import {
   currentShortPeriodKey,
   currentMidlongPeriodKey,
   isShortDue,
@@ -128,6 +132,10 @@ export async function GET(request: NextRequest) {
         personasVersionId: process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
         tier0Source: (opts) =>
           getTier0Candidates({ track: t.track, ...opts }),
+        // W2b (D27 Q5) — incumbent union + per-ticker thesis context (service-role client 경유).
+        incumbentsSource: (opts) => getIncumbents(opts),
+        buildIncumbentContexts: (incumbents, opts) =>
+          buildIncumbentThesisContexts(incumbents, opts),
         // 실 Core 11 panel (PR-C 어댑터). costClient=service-role → callPersona가 cost_log INSERT 가능.
         //   adminUserId=CRON_SYSTEM_USER_ID(검증된 UUID) → cost_log.called_by FK 통과. step-0 off면 미도달.
         callPersonaPanel: makeCallPersonaPanel({
