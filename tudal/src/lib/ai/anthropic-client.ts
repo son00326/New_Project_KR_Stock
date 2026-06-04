@@ -76,7 +76,7 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
     const transient =
       status === 429 ||
       (status !== undefined && status >= 500) ||
-      /rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(msg);
+      /\b(?:429|529)\b|rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(msg);
     throw new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
   }
 

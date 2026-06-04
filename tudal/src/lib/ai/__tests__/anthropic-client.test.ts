@@ -206,6 +206,17 @@ describe('anthropic-client (Q6)', () => {
     })).rejects.toThrow(/^ai_call_failed$/);
   });
 
+  it('provider numeric 529 message without status → ai_call_failed:transient:network throw', async () => {
+    mockMessagesCreate.mockRejectedValue(new Error('provider 529'));
+    await expect(callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: 'admin-uuid',
+    })).rejects.toThrow('ai_call_failed:transient:network');
+  });
+
   it('missing ANTHROPIC_API_KEY → throws ai_key_unavailable', async () => {
     delete process.env.ANTHROPIC_API_KEY;
     await expect(callPersona({

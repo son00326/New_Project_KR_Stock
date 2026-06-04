@@ -103,6 +103,8 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // W1a (D26 Q4) — mix slot + R2 반박 라운드
   tier1_panel_slot_out_of_range: "패널 슬롯 인덱스가 범위를 벗어났습니다 (Core 11)",
   r2_enqueue_failed: "반박 라운드(R2) 작업 등록에 실패했습니다",
+  selection_round_schema_missing:
+    "반박 라운드(DB round 컬럼/제약) 마이그레이션이 적용되지 않았습니다",
   debate_r1_panel_missing: "반박 라운드 입력(1차 평가)이 없어 해당 종목을 건너뜁니다",
   debate_r1_prior_missing: "반박 라운드 입력에 일부 위원의 1차 평가가 없습니다",
   tier1_screening_failed: "Tier 1 평가에 실패했습니다",
@@ -200,6 +202,9 @@ export function formatErrorMessage(code: string): string {
   }
   if (code.startsWith("r2_enqueue_failed")) {
     return KOREAN_MAPPINGS["r2_enqueue_failed"];
+  }
+  if (code.startsWith("selection_round_schema_missing")) {
+    return KOREAN_MAPPINGS["selection_round_schema_missing"];
   }
   if (code.startsWith("debate_r1_panel_missing")) {
     return KOREAN_MAPPINGS["debate_r1_panel_missing"];

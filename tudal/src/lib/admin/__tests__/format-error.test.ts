@@ -98,6 +98,7 @@ const KNOWN_ACTION_CODES = [
   // W1a (D26 Q4) — mix slot + R2 반박 라운드
   "tier1_panel_slot_out_of_range",
   "r2_enqueue_failed",
+  "selection_round_schema_missing",
   "debate_r1_panel_missing",
   "debate_r1_prior_missing",
 ];
@@ -150,6 +151,7 @@ describe("formatErrorMessage", () => {
       for (const code of [
         "tier1_panel_slot_out_of_range:11",
         "r2_enqueue_failed:PGRST000",
+        "selection_round_schema_missing:PGRST204",
         "debate_r1_panel_missing:005930",
         "debate_r1_prior_missing:warren-buffett",
         "ai_call_failed:transient:429",

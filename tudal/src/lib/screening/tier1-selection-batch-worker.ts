@@ -166,6 +166,7 @@ export interface Tier1SelectionChunkResult {
   skipped: number;
   failed: number;
   deferred: number;
+  r2Enqueued: number;
   remaining: number; // pending + reclaimable running
   finalized: boolean; // 이 invocation에서 finalize+persist 수행 여부
   aborted: "cost_hardcap" | null;
@@ -184,6 +185,20 @@ interface SelectionFullRow {
   status: string;
   panel_result: PersonaScore[] | null;
   round?: 1 | 2; // W1a — DB default 1 동형 (미지정 시 1 간주)
+}
+
+function isRoundSchemaMissingError(error: {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+}): boolean {
+  const code = error.code ?? "";
+  const text = [error.message, error.details, error.hint].filter(Boolean).join(" ");
+  return (
+    code === "42P10" ||
+    ((code === "42703" || code === "PGRST204") && /round/i.test(text))
+  );
 }
 
 async function abortBeforeSpend(
@@ -417,6 +432,7 @@ export async function runTier1SelectionChunk(
       skipped: 0,
       failed: 0,
       deferred: 0,
+      r2Enqueued: 0,
       remaining: 0,
       finalized: false,
       aborted: null,
@@ -475,6 +491,9 @@ export async function runTier1SelectionChunk(
       ignoreDuplicates: true,
     });
   if (enqErr) {
+    if (isRoundSchemaMissingError(enqErr)) {
+      throw new Error("selection_round_schema_missing");
+    }
     throw new Error(`selection_enqueue_failed:${enqErr.code ?? "unknown"}`);
   }
 
@@ -519,6 +538,7 @@ export async function runTier1SelectionChunk(
           skipped: 0,
           failed: 0,
           deferred: reservationJobCount,
+          r2Enqueued: 0,
           remaining: 0,
           finalized: false,
           aborted: "cost_hardcap",
@@ -665,6 +685,7 @@ export async function runTier1SelectionChunk(
   // ── 남은 작업 수 (forward-progress / finalize 판정) ──
   //   remaining = open(pending+running) — self-continue accelerator gate용.
   let remaining = await countOpenJobs(client, periodKey);
+  let r2Enqueued = 0;
 
   // ── finalize 게이트: nonTerminal(pending+running+deferred)===0 && terminal(done+failed)>0 ──
   //   (R2 MED-6) deferred는 nonTerminal로 finalize 차단(degraded 조기 finalize 방지). 빈 풀(terminal 0) 미발동.
@@ -689,14 +710,11 @@ export async function runTier1SelectionChunk(
       if (missing.length > 0) {
         // R2 반박 라운드 enqueue (대상만, idempotent) — 이번 invocation은 finalize 안 함.
         const bucketByTicker = new Map(candidates.map((c) => [c.ticker, bucketOf(c)]));
-        const knownMissing = missing.filter((tk) => {
-          if (bucketByTicker.has(tk)) return true;
-          // D8 — 후보 재조회와 enqueue 시점 어긋남(드묾): 후보 밖 ticker는 skip + 관측 로그.
-          console.error(
-            JSON.stringify({ event: "r2_target_not_in_candidates", month, periodKey, ticker: tk }),
-          );
-          return false;
-        });
+        const unknownMissing = missing.filter((tk) => !bucketByTicker.has(tk));
+        if (unknownMissing.length > 0) {
+          throw new Error(`r2_enqueue_failed:target_not_in_candidates:${unknownMissing.join(",")}`);
+        }
+        const knownMissing = missing;
         if (knownMissing.length > 0) {
           const r2Rows = knownMissing.map((tk) => ({
             month,
@@ -711,11 +729,14 @@ export async function runTier1SelectionChunk(
             .upsert(r2Rows, {
               onConflict: "period_key,ticker,round",
               ignoreDuplicates: true,
-            });
+          });
           if (r2Err) {
+            if (isRoundSchemaMissingError(r2Err)) {
+              throw new Error("selection_round_schema_missing");
+            }
             throw new Error(`r2_enqueue_failed:${r2Err.code ?? "unknown"}`);
           }
-          // self-continue/forward-progress 정확성: enqueue 후 open 재계산.
+          r2Enqueued = knownMissing.length;
           remaining = await countOpenJobs(client, periodKey);
         }
       } else {
@@ -741,6 +762,7 @@ export async function runTier1SelectionChunk(
     skipped: 0,
     failed,
     deferred: 0,
+    r2Enqueued,
     remaining,
     finalized,
     aborted: null,
