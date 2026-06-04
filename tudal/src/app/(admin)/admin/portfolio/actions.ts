@@ -566,8 +566,9 @@ export async function triggerMonthlyBatch(input: {
       personasVersionId:
         process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
       // PR-D: admin은 session client 주입 (is_admin() RLS). input.month=YYYY-MM → consumer가 YYYY-MM-01 변환.
-      // 시드 부재 시 0건 → orchestrator `tier1_candidates_must_be_150 (got 0)` throw → action error 반환.
-      tier0Source: () => getTier0Candidates({ month: input.month, client: supabase }),
+      // 시드 부재 시 0건 → orchestrator `tier1_candidates_must_be_100 (got 0)` throw → action error 반환.
+      // W2a Task 7 — getTier0Candidates track 필수화. orchestrator track:'midlong' 정합 보존으로 동기 유지.
+      tier0Source: () => getTier0Candidates({ track: 'midlong', month: input.month, client: supabase }),
       // PR-E (omxy §2.0a) — 실 Anthropic 전 fail-closed 비용 가드: flag off / 키 부재 / hardcap 초과 시
       //   여기서 throw (callPersonaPanel 0회 → cost 0). cost_log_admin_select RLS로 getMonthlyTotal 정확.
       preflight: async ({ month, callCount }) => {

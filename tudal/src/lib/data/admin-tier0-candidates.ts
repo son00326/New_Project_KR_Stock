@@ -15,10 +15,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { Tier1Candidate } from "@/lib/screening/persona-eval";
 import { isCanonicalSector, type CanonicalSector } from "@/lib/screening/canonical-sectors";
+import type { SelectionTrack, Timeframe } from "@/lib/screening/tier1-schema";
 
 const MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-const EXPECTED_TOTAL_CANDIDATES = 150;
 const EXPECTED_PER_BUCKET = 50;
+
+// W2a Task 7 — 트랙별 활성 bucket subset. SELECT 필터 + per-track assert 양쪽 기준.
+const TRACK_BUCKETS: Record<SelectionTrack, readonly Timeframe[]> = {
+  short: ["short"],
+  midlong: ["mid", "long"],
+};
 
 export interface Tier0CandidateDbRow {
   ticker: string;
@@ -60,24 +66,30 @@ export function transformTier0CandidateRow(row: Tier0CandidateDbRow): Tier1Candi
   };
 }
 
-function assertTier0CandidateRows(rows: Tier0CandidateDbRow[]): void {
-  // Empty/short months keep the existing orchestrator error path (`got N`).
-  // The extra checks close the 150-row-but-not-50/50/50, duplicate-rank, and
-  // non-canonical-sector holes that length+distinct asserts miss.
-  if (rows.length !== EXPECTED_TOTAL_CANDIDATES) return;
+/**
+ * W2a Task 7 — 트랙별 row 계약 검증. 단발 150 monolith 폐기, 트랙 bucket subset에서 유도.
+ *   - short: 1 bucket × 50 (rank 1..50)
+ *   - midlong: 2 bucket(mid,long) × 50 (각 rank 1..50) = 100
+ * Empty/short payload은 기존 degraded 경로 유지 (worker pool-size assert가 `got N` throw).
+ * full payload(= track 기대 총 수)일 때만 50/50/rank/sector/cross-track-leak hole을 닫는다.
+ */
+function assertTier0CandidateRows(rows: Tier0CandidateDbRow[], track: SelectionTrack): void {
+  const buckets = TRACK_BUCKETS[track];
+  const expectedTotal = buckets.length * EXPECTED_PER_BUCKET;
+  if (rows.length !== expectedTotal) return;
 
-  const bucketCounts: Record<Tier0CandidateDbRow["bucket"], number> = {
-    short: 0,
-    mid: 0,
-    long: 0,
-  };
-  const ranksByBucket: Record<Tier0CandidateDbRow["bucket"], Set<number>> = {
-    short: new Set(),
-    mid: new Set(),
-    long: new Set(),
-  };
+  const allowed = new Set<Timeframe>(buckets);
+  const bucketCounts = new Map<Timeframe, number>(buckets.map((b) => [b, 0]));
+  const ranksByBucket = new Map<Timeframe, Set<number>>(
+    buckets.map((b) => [b, new Set<number>()]),
+  );
   const tickers = new Set<string>();
   for (const row of rows) {
+    if (!allowed.has(row.bucket)) {
+      throw new Error(
+        `tier0_candidates_bucket_contract_violation:cross_track:${row.ticker}:${row.bucket}`,
+      );
+    }
     if (row.sector === null || !isCanonicalSector(row.sector)) {
       throw new Error(`tier0_candidates_sector_contract_violation:${row.ticker}`);
     }
@@ -89,8 +101,8 @@ function assertTier0CandidateRows(rows: Tier0CandidateDbRow[]): void {
     ) {
       throw new Error(`tier0_candidates_rank_contract_violation:${row.ticker}`);
     }
-    bucketCounts[row.bucket] += 1;
-    ranksByBucket[row.bucket].add(row.rank);
+    bucketCounts.set(row.bucket, (bucketCounts.get(row.bucket) ?? 0) + 1);
+    ranksByBucket.get(row.bucket)!.add(row.rank);
     tickers.add(row.ticker);
   }
 
@@ -99,15 +111,15 @@ function assertTier0CandidateRows(rows: Tier0CandidateDbRow[]): void {
       `tier0_candidates_duplicate_tickers:${tickers.size}/${rows.length}`,
     );
   }
-  const badBuckets = Object.entries(bucketCounts).filter(
+  const badBuckets = [...bucketCounts.entries()].filter(
     ([, count]) => count !== EXPECTED_PER_BUCKET,
   );
   if (badBuckets.length > 0) {
     throw new Error(
-      `tier0_candidates_bucket_contract_violation:${JSON.stringify(bucketCounts)}`,
+      `tier0_candidates_bucket_contract_violation:${JSON.stringify(Object.fromEntries(bucketCounts))}`,
     );
   }
-  for (const [bucket, ranks] of Object.entries(ranksByBucket)) {
+  for (const [bucket, ranks] of ranksByBucket.entries()) {
     if (
       ranks.size !== EXPECTED_PER_BUCKET ||
       !Array.from({ length: EXPECTED_PER_BUCKET }, (_, i) => i + 1).every((rank) =>
@@ -120,11 +132,15 @@ function assertTier0CandidateRows(rows: Tier0CandidateDbRow[]): void {
 }
 
 /**
- * 해당 month의 Tier 0 150 후보를 SELECT → Tier1Candidate[].
+ * 해당 month·track의 Tier 0 fresh 후보를 SELECT → Tier1Candidate[].
+ *   - short: bucket in [short] → 50
+ *   - midlong: bucket in [mid, long] → 100
+ * @param options.track 선정 트랙 (W2a 주간/월간 split).
  * @param options.month YYYY-MM (consumer가 YYYY-MM-01 date로 변환해 조회).
  * @param options.client DI Supabase client (cron=service-role / admin=session). 미지정 시 session.
  */
 export async function getTier0Candidates(options: {
+  track: SelectionTrack;
   month: string;
   client?: SupabaseClient;
 }): Promise<Tier1Candidate[]> {
@@ -138,6 +154,7 @@ export async function getTier0Candidates(options: {
     .from("tier0_candidates_150")
     .select("ticker, sector, bucket, rank, tier0_score")
     .eq("month", monthDate)
+    .in("bucket", [...TRACK_BUCKETS[options.track]])
     .order("bucket", { ascending: true })
     .order("rank", { ascending: true });
 
@@ -148,6 +165,6 @@ export async function getTier0Candidates(options: {
   }
 
   const rows = (data ?? []) as Tier0CandidateDbRow[];
-  assertTier0CandidateRows(rows);
+  assertTier0CandidateRows(rows, options.track);
   return rows.map(transformTier0CandidateRow);
 }

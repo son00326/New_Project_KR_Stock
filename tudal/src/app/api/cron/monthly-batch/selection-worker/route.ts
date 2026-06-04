@@ -74,7 +74,10 @@ export async function GET(request: NextRequest) {
       client: supabase,
       promptVersionId: process.env.PROMPT_VERSION_ID ?? "render-user-prompt@v1",
       personasVersionId: process.env.PERSONAS_VERSION_ID ?? "core11@v3.1",
-      tier0Source: getTier0Candidates,
+      // W2a Task 7 — getTier0Candidates track 필수화. 본 route는 dormant(SELECTION_CRON_AUTO_ENABLED off)
+      //   + Task 8/9에서 period_key/track due-gate로 전면 재작성 예정. 현재는 Tier0Source 시그니처({month,client})
+      //   정합을 위한 compile-only 어댑터 (orchestrator track:'midlong' 정합). 활성 path 무회귀(dormant).
+      tier0Source: (opts) => getTier0Candidates({ track: "midlong", ...opts }),
       // 실 Core 11 panel (PR-C 어댑터). costClient=service-role → callPersona가 cost_log INSERT 가능.
       //   adminUserId=CRON_SYSTEM_USER_ID(검증된 UUID) → cost_log.called_by FK 통과. step-0 off면 미도달.
       callPersonaPanel: makeCallPersonaPanel({

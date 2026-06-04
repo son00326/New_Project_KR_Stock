@@ -65,23 +65,42 @@ describe("transformTier0CandidateRow", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getTier0Candidates — SELECT + DI client
+// getTier0Candidates — track-scoped SELECT + DI client
+// W2a Task 7: track param (short=50/midlong=100), bucket-scoped SELECT,
+//   per-track assert. 150-row monolith assert는 폐기.
 // ---------------------------------------------------------------------------
 interface QueryResult {
   data: Tier0CandidateDbRow[] | null;
   error: { code?: string; message?: string } | null;
 }
 
+// chain: from → select → eq(month) → in(bucket) → order(bucket) → order(rank)
 function buildClient(result: QueryResult) {
   const order2 = vi.fn().mockResolvedValue(result); // 2nd order (rank) resolves the awaited query
   const order1 = vi.fn().mockReturnValue({ order: order2 });
-  const eq = vi.fn().mockReturnValue({ order: order1 });
+  const inFn = vi.fn().mockReturnValue({ order: order1 });
+  const eq = vi.fn().mockReturnValue({ in: inFn });
   const select = vi.fn().mockReturnValue({ eq });
   const from = vi.fn().mockReturnValue({ select });
   return {
     client: { from } as unknown as SupabaseClient,
-    spies: { from, select, eq, order1, order2 },
+    spies: { from, select, eq, in: inFn, order1, order2 },
   };
+}
+
+// helper: build N rows in one bucket with sequential ranks 1..N.
+function bucketRows(
+  bucket: "short" | "mid" | "long",
+  count: number,
+  baseIdx: number,
+): Tier0CandidateDbRow[] {
+  return Array.from({ length: count }, (_, i) => ({
+    ticker: `${baseIdx + i}`.padStart(6, "0"),
+    sector: "반도체",
+    bucket,
+    rank: i + 1,
+    tier0_score: 100 - i,
+  }));
 }
 
 describe("getTier0Candidates", () => {
@@ -89,95 +108,99 @@ describe("getTier0Candidates", () => {
 
   it("rejects malformed month before any query", async () => {
     const { client, spies } = buildClient({ data: [], error: null });
-    await expect(getTier0Candidates({ month: "2026-6", client })).rejects.toThrow(
-      /invalid_month_format/,
-    );
-    await expect(getTier0Candidates({ month: "2026-13", client })).rejects.toThrow(
-      /invalid_month_format/,
-    );
+    await expect(
+      getTier0Candidates({ track: "short", month: "2026-6", client }),
+    ).rejects.toThrow(/invalid_month_format/);
+    await expect(
+      getTier0Candidates({ track: "short", month: "2026-13", client }),
+    ).rejects.toThrow(/invalid_month_format/);
     expect(spies.from).not.toHaveBeenCalled();
   });
 
-  it("queries tier0_candidates_150 by YYYY-MM-01 and maps rows to Tier1Candidate[]", async () => {
-    const rows: Tier0CandidateDbRow[] = [
-      { ticker: "005930", sector: "반도체", bucket: "short", tier0_score: "90" },
-      { ticker: "000660", sector: "반도체", bucket: "mid", tier0_score: "80" },
-      { ticker: "035420", sector: "IT/SW", bucket: "long", tier0_score: "70" },
-    ];
+  it("short track: queries bucket in [short] by YYYY-MM-01 and maps 50 rows", async () => {
+    const rows = bucketRows("short", 50, 0);
     const { client, spies } = buildClient({ data: rows, error: null });
 
-    const out = await getTier0Candidates({ month: "2026-06", client });
+    const out = await getTier0Candidates({ track: "short", month: "2026-06", client });
 
     expect(spies.from).toHaveBeenCalledWith("tier0_candidates_150");
     expect(spies.select).toHaveBeenCalledWith("ticker, sector, bucket, rank, tier0_score");
     expect(spies.eq).toHaveBeenCalledWith("month", "2026-06-01");
+    expect(spies.in).toHaveBeenCalledWith("bucket", ["short"]);
     expect(spies.order1).toHaveBeenCalledWith("bucket", { ascending: true });
     expect(spies.order2).toHaveBeenCalledWith("rank", { ascending: true });
-    expect(out).toHaveLength(3);
-    expect(out[0].tier0_scores.short).toBe(90);
-    expect(out[1].tier0_scores.mid).toBe(80);
-    expect(out[2].tier0_scores.long).toBe(70);
+    expect(out).toHaveLength(50);
+    expect(out[0].tier0_scores.short).toBe(100);
   });
 
-  it("returns [] when no rows for the month (degraded path handled by orchestrator 150-assert)", async () => {
+  it("midlong track: queries bucket in [mid, long] and maps 100 rows (50 mid + 50 long)", async () => {
+    const rows = [...bucketRows("mid", 50, 0), ...bucketRows("long", 50, 100)];
+    const { client, spies } = buildClient({ data: rows, error: null });
+
+    const out = await getTier0Candidates({ track: "midlong", month: "2026-06", client });
+
+    expect(spies.in).toHaveBeenCalledWith("bucket", ["mid", "long"]);
+    expect(out).toHaveLength(100);
+    expect(out[0].tier0_scores.mid).toBe(100);
+    expect(out[50].tier0_scores.long).toBe(100);
+  });
+
+  it("returns [] when no rows for the track (degraded path handled by worker pool-size assert)", async () => {
     const { client } = buildClient({ data: null, error: null });
-    const out = await getTier0Candidates({ month: "2026-06", client });
+    const out = await getTier0Candidates({ track: "short", month: "2026-06", client });
     expect(out).toEqual([]);
   });
 
-  it("rejects 150-row payloads that are not exactly 50 per bucket", async () => {
-    const rows: Tier0CandidateDbRow[] = [
-      ...Array.from({ length: 100 }, (_, i) => ({
-        ticker: `${i}`.padStart(6, "0"),
-        sector: "반도체",
-        bucket: "short" as const,
-        rank: (i % 50) + 1,
-        tier0_score: 100 - i,
-      })),
-      ...Array.from({ length: 50 }, (_, i) => ({
-        ticker: `${i + 100}`.padStart(6, "0"),
-        sector: "반도체",
-        bucket: "mid" as const,
-        rank: i + 1,
-        tier0_score: 50 - i,
-      })),
-    ];
+  it("short track: under-sized payload (49 short rows) returns degraded — worker pool-size assert handles `got N`", async () => {
+    const rows = bucketRows("short", 49, 0); // one short of 50: not full → degraded passthrough
     const { client } = buildClient({ data: rows, error: null });
-    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
-      /tier0_candidates_bucket_contract_violation/,
-    );
+    const out = await getTier0Candidates({ track: "short", month: "2026-06", client });
+    expect(out).toHaveLength(49);
   });
 
-  it("rejects 150-row payloads with duplicate/missing bucket ranks", async () => {
-    const rows: Tier0CandidateDbRow[] = ["short", "mid", "long"].flatMap((bucket, bidx) =>
-      Array.from({ length: 50 }, (_, i) => ({
-        ticker: `${bidx * 100 + i}`.padStart(6, "0"),
-        sector: "반도체",
-        bucket: bucket as "short" | "mid" | "long",
-        rank: bucket === "short" && i === 49 ? 49 : i + 1,
-        tier0_score: 100 - i,
-      })),
-    );
+  it("midlong track: rejects a full(100) payload that is not exactly 50 per bucket (mid 51 / long 49)", async () => {
+    const rows = [...bucketRows("mid", 51, 0), ...bucketRows("long", 49, 100)];
     const { client } = buildClient({ data: rows, error: null });
-    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
-      /tier0_candidates_rank_contract_violation/,
-    );
+    await expect(
+      getTier0Candidates({ track: "midlong", month: "2026-06", client }),
+    ).rejects.toThrow(/tier0_candidates_(bucket|rank)_contract_violation/);
   });
 
-  it("rejects 150-row payloads with non-canonical sector", async () => {
-    const rows: Tier0CandidateDbRow[] = ["short", "mid", "long"].flatMap((bucket, bidx) =>
-      Array.from({ length: 50 }, (_, i) => ({
-        ticker: `${bidx * 100 + i}`.padStart(6, "0"),
-        sector: bidx === 0 && i === 0 ? "코스피" : "반도체",
-        bucket: bucket as "short" | "mid" | "long",
-        rank: i + 1,
-        tier0_score: 100 - i,
-      })),
-    );
+  it("short track: rejects a row with the wrong bucket (cross-track leak)", async () => {
+    const rows = bucketRows("short", 50, 0);
+    rows[10] = { ...rows[10], bucket: "mid" }; // mid leaked into a short-track payload
     const { client } = buildClient({ data: rows, error: null });
-    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
-      /tier0_candidates_sector_contract_violation/,
-    );
+    await expect(
+      getTier0Candidates({ track: "short", month: "2026-06", client }),
+    ).rejects.toThrow(/tier0_candidates_bucket_contract_violation/);
+  });
+
+  it("short track: rejects duplicate/missing bucket ranks", async () => {
+    const rows = bucketRows("short", 50, 0);
+    rows[49] = { ...rows[49], rank: 49 }; // duplicate of rank 49, missing 50
+    const { client } = buildClient({ data: rows, error: null });
+    await expect(
+      getTier0Candidates({ track: "short", month: "2026-06", client }),
+    ).rejects.toThrow(/tier0_candidates_rank_contract_violation/);
+  });
+
+  it("midlong track: rejects duplicate/missing bucket ranks within a bucket", async () => {
+    const mid = bucketRows("mid", 50, 0);
+    mid[49] = { ...mid[49], rank: 49 };
+    const rows = [...mid, ...bucketRows("long", 50, 100)];
+    const { client } = buildClient({ data: rows, error: null });
+    await expect(
+      getTier0Candidates({ track: "midlong", month: "2026-06", client }),
+    ).rejects.toThrow(/tier0_candidates_rank_contract_violation/);
+  });
+
+  it("short track: rejects non-canonical sector", async () => {
+    const rows = bucketRows("short", 50, 0);
+    rows[0] = { ...rows[0], sector: "코스피" };
+    const { client } = buildClient({ data: rows, error: null });
+    await expect(
+      getTier0Candidates({ track: "short", month: "2026-06", client }),
+    ).rejects.toThrow(/tier0_candidates_sector_contract_violation/);
   });
 
   it("throws wrapped error when supabase select errors", async () => {
@@ -185,8 +208,8 @@ describe("getTier0Candidates", () => {
       data: null,
       error: { code: "PGRST116", message: "rls denied" },
     });
-    await expect(getTier0Candidates({ month: "2026-06", client })).rejects.toThrow(
-      /tier0_candidates_query_failed/,
-    );
+    await expect(
+      getTier0Candidates({ track: "short", month: "2026-06", client }),
+    ).rejects.toThrow(/tier0_candidates_query_failed/);
   });
 });

@@ -59,7 +59,9 @@ function currentMonthYM(): string {
 // orchestrator가 `tier1_candidates_must_be_150 (got 0)` throw → 내부 catch → recordSchedulerFailAlert
 // + release failed → route catch JSON 502 (정상 degraded — 운영자가 Python 시드 후 재실행).
 async function tier0SourceForCron(month: string): Promise<Tier1Candidate[]> {
-  return getTier0Candidates({ month, client: createServiceRoleClient() });
+  // W2a Task 7 — getTier0Candidates track 필수화. 단발 경로는 NON-VIABLE(W2a chunk worker로 대체 예정);
+  //   orchestrator의 track:'midlong'(midlong 100 fresh pool) 정합 보존으로 동기 유지.
+  return getTier0Candidates({ track: 'midlong', month, client: createServiceRoleClient() });
 }
 
 // PR-G (ADR 2026-05-31) — cron 실 AI fail-closed preflight (실 Anthropic 호출 전 1회, spend 0).
