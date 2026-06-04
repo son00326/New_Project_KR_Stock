@@ -5,7 +5,12 @@
 // MF2 fix (deep-review #2): month-level idempotency — 신규 30 set 외 기존 row DELETE (stale row 누적 차단).
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { TickerAggregate } from '@/lib/screening/tier1-schema';
+import type {
+  SelectionTrack,
+  TickerAggregate,
+  Timeframe,
+} from '@/lib/screening/tier1-schema';
+import { TRACK_SELECT_COUNT } from '@/lib/screening/tier1-schema';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 // B23 fix (omxy R11): ticker는 한국 종목 6자리 숫자만 허용. MF2 stale delete의 PostgREST filter
@@ -55,29 +60,37 @@ function toMonthDate(monthYM: string): string {
   return `${monthYM}-01`;
 }
 
-/**
- * MF1 fix: 선택적 DI supabase client. 미지정 시 session-based createClient (admin server action 경로).
- * cron route는 service-role client를 명시 주입 — RLS bypass + auth.uid()=null 환경 호환.
- */
-export async function upsertShortList30(
-  monthYM: string,
-  selected: readonly TickerAggregate[],
-  options: { client?: SupabaseClient; commentsByTicker?: TickerCommentMap } = {},
-): Promise<void> {
-  if (selected.length !== 30) {
-    throw new Error(
-      `shortlist_must_have_30_rows (got ${selected.length})`,
-    );
-  }
-  const monthDate = toMonthDate(monthYM);
+// W2a Task 6 — 트랙별 활성 bucket subset. assigned_timeframe(Timeframe)이 트랙 bucket purity 검증 기준.
+const TRACK_BUCKETS: Record<SelectionTrack, readonly Timeframe[]> = {
+  short: ['short'],
+  midlong: ['mid', 'long'],
+};
 
-  const byTf: Record<'short' | 'mid' | 'long', TickerAggregate[]> = {
+/**
+ * W2a Task 6 — 공유 row 빌더. upsertShortList30(단발)·upsertShortListTrack(트랙) 양쪽 재사용.
+ *
+ * - 입력 selected를 bucket(assigned_timeframe)별로 묶어 rank(1-based)·AI 컬럼·delta_status='new'로 매핑.
+ * - tier0_candidates_150(동일 month) best-effort lookup으로 name/composite_score/signal_label patch.
+ *   ⚠ persist는 이 lookup 때문에 실패하지 않는다 — error/부재 시 placeholder null 유지.
+ * - bucket order는 buckets 인자 순서를 따른다 (short → [short] / midlong → [mid, long]).
+ *
+ * 선검증(count/bucket purity/ticker/null)은 caller(upsertShortList30·upsertShortListTrack)에서 수행.
+ * 본 헬퍼는 row가 trusted(검증 통과)임을 전제하되, ticker 형식만 방어적으로 재검증(lookup filter 안전성).
+ */
+async function buildShortListRows(
+  supabase: SupabaseClient,
+  monthDate: string,
+  buckets: readonly Timeframe[],
+  selected: readonly TickerAggregate[],
+  commentsByTicker?: TickerCommentMap,
+): Promise<ShortListRow[]> {
+  const byTf: Record<Timeframe, TickerAggregate[]> = {
     short: [],
     mid: [],
     long: [],
   };
   for (const agg of selected) {
-    // B23 fix (omxy R11): ticker 형식 검증 — MF2 DELETE PostgREST filter 조립 안전성.
+    // B23 fix (omxy R11): ticker 형식 검증 — lookup filter / RPC p_rows 안전성.
     if (!TICKER_RE.test(agg.ticker)) {
       throw new Error(`invalid_ticker:${agg.ticker}`);
     }
@@ -91,10 +104,10 @@ export async function upsertShortList30(
 
   const rows: ShortListRow[] = [];
   const newTickers: string[] = [];
-  for (const tf of ['short', 'mid', 'long'] as const) {
+  for (const tf of buckets) {
     byTf[tf].forEach((agg, idx) => {
       // PR-E — AI 컬럼 매핑. tf = assigned_timeframe (byTf 키). 배지/ai_score는 assigned timeframe 기준.
-      const comment = options.commentsByTicker?.[agg.ticker];
+      const comment = commentsByTicker?.[agg.ticker];
       rows.push({
         month: monthDate,
         ticker: agg.ticker,
@@ -127,9 +140,7 @@ export async function upsertShortList30(
     });
   }
 
-  const supabase = options.client ?? (await createClient());
-
-  // SHORTLIST-PERSIST-METADATA-1 fix (omxy 교차검증 ROUND 1 P1) — 선정 30 ticker의 display 메타데이터
+  // SHORTLIST-PERSIST-METADATA-1 fix (omxy 교차검증 ROUND 1 P1) — 선정 ticker의 display 메타데이터
   // (name / composite_score=tier0_score / signal_label)를 tier0_candidates_150(동일 month, AI 선정 입력
   // 원천)에서 best-effort lookup해 row에 patch. tier0_candidates_150엔 trend/momentum/volatility/
   // summary_3line/suggested_weight가 없으므로 그 컬럼은 null 유지(카드 transform이 0/""로 표시).
@@ -172,6 +183,37 @@ export async function upsertShortList30(
     // best-effort display-meta lookup only; short_list_30 persist must not be blocked here.
   }
 
+  return rows;
+}
+
+/**
+ * MF1 fix: 선택적 DI supabase client. 미지정 시 session-based createClient (admin server action 경로).
+ * cron route는 service-role client를 명시 주입 — RLS bypass + auth.uid()=null 환경 호환.
+ *
+ * W2a: 단발(30 동시) 경로는 NON-VIABLE이나 코드/테스트 동기화 유지. 트랙 분리 경로는 upsertShortListTrack.
+ */
+export async function upsertShortList30(
+  monthYM: string,
+  selected: readonly TickerAggregate[],
+  options: { client?: SupabaseClient; commentsByTicker?: TickerCommentMap } = {},
+): Promise<void> {
+  if (selected.length !== 30) {
+    throw new Error(
+      `shortlist_must_have_30_rows (got ${selected.length})`,
+    );
+  }
+  const monthDate = toMonthDate(monthYM);
+  const supabase = options.client ?? (await createClient());
+
+  const rows = await buildShortListRows(
+    supabase,
+    monthDate,
+    ['short', 'mid', 'long'],
+    selected,
+    options.commentsByTicker,
+  );
+  const newTickers = rows.map((r) => r.ticker);
+
   // MF2 fix — 신규 30 외 기존 row DELETE (prior failed run의 stale ticker 차단).
   // 동일 month + ticker NOT IN new set.
   const { error: delError } = await supabase
@@ -186,6 +228,64 @@ export async function upsertShortList30(
   const { error } = await supabase
     .from('short_list_30')
     .upsert(rows, { onConflict: 'month,ticker' });
+  if (error) {
+    throw new Error(`shortlist_persist_failed:${error.code ?? 'unknown'}`);
+  }
+}
+
+/**
+ * W2a Task 6 — rolling composite writer. 트랙(short=10 / midlong=20) 단위로 short_list_30를 갱신하되
+ * 다른 트랙 bucket(예: short 갱신 시 mid/long 20)은 보존한다 (bucket-scoped DELETE는 RPC 내부).
+ *
+ * 선검증(count / bucket purity / ticker / month) 통과 후 `replace_shortlist_track` **단일 RPC 호출**.
+ * atomic DELETE+INSERT · cross-bucket overlap · p_rows 내부검증 · authz guard · midlong carry는
+ * 전부 RPC(마이그 0031, Task 5)의 단일 트랜잭션 내부에서 수행 — TS는 carry RPC를 별도 호출하지 않는다
+ * (R2 HIGH-2).
+ */
+export async function upsertShortListTrack(
+  monthYM: string,
+  track: SelectionTrack,
+  selected: readonly TickerAggregate[],
+  options: { client?: SupabaseClient; commentsByTicker?: TickerCommentMap } = {},
+): Promise<void> {
+  // ① count 선검증.
+  const expected = TRACK_SELECT_COUNT[track]; // 10 / 20
+  if (selected.length !== expected) {
+    throw new Error(
+      `shortlist_track_count_mismatch:${track}:${selected.length}!=${expected}`,
+    );
+  }
+  // ② ticker 형식 + bucket purity 선검증 (트랙 외 bucket·null → throw, RPC 미호출).
+  const allowed = new Set<Timeframe>(TRACK_BUCKETS[track]);
+  for (const a of selected) {
+    if (!TICKER_RE.test(a.ticker)) {
+      throw new Error(`invalid_ticker:${a.ticker}`);
+    }
+    if (a.assigned_timeframe === null || !allowed.has(a.assigned_timeframe)) {
+      throw new Error(
+        `shortlist_track_bucket_impurity:${track}:${a.ticker}:${a.assigned_timeframe}`,
+      );
+    }
+  }
+  // ③ month 선검증.
+  const monthDate = toMonthDate(monthYM);
+  const supabase = options.client ?? (await createClient());
+
+  // ④ row 빌드 (공유 헬퍼 — bucket order = 트랙 bucket subset, AI 컬럼 + 메타 lookup).
+  const rows = await buildShortListRows(
+    supabase,
+    monthDate,
+    TRACK_BUCKETS[track],
+    selected,
+    options.commentsByTicker,
+  );
+
+  // ⑤ 원자적 RPC 단일 호출. carry는 midlong일 때 RPC 내부에서 수행 (R2 HIGH-2).
+  const { error } = await supabase.rpc('replace_shortlist_track', {
+    p_month: monthDate,
+    p_track: track,
+    p_rows: rows,
+  });
   if (error) {
     throw new Error(`shortlist_persist_failed:${error.code ?? 'unknown'}`);
   }
