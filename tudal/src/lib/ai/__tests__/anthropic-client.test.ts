@@ -135,6 +135,77 @@ describe('anthropic-client (Q6)', () => {
     expect(insertCostLog).not.toHaveBeenCalled();
   });
 
+  // W1a (D2) — per-call modelBinding override (D28 ① mix slot)
+  it('modelBinding 지정 시 해당 provider/model로 호출 + cost_log.model=per-slot 모델', async () => {
+    const stubCall = vi.fn(async () => ({
+      text: '{"vote":"BUY"}',
+      usage: {
+        input_tokens: 100,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        output_tokens: 50,
+      },
+    }));
+    const binding = {
+      role: 'tier1_panel' as const,
+      provider: { id: 'openai' as const, isAvailable: () => true, call: stubCall },
+      model: 'gpt-5.4',
+      pricingKey: 'gpt-5.4',
+      maxTokens: 1024,
+    };
+    await callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: 'admin-uuid',
+      modelBinding: binding,
+    });
+    expect(stubCall).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.4', maxTokens: 1024 }),
+    );
+    expect(mockMessagesCreate).not.toHaveBeenCalled(); // 기존 SDK 경로 미사용
+    expect(insertCostLog).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.4' }),
+      expect.anything(),
+    );
+  });
+
+  // W1a (D9) — transient retry classifier
+  it('provider 429 status → ai_call_failed:transient:429 throw', async () => {
+    const err = Object.assign(new Error('rate limited'), { status: 429 });
+    mockMessagesCreate.mockRejectedValue(err);
+    await expect(callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: 'admin-uuid',
+    })).rejects.toThrow('ai_call_failed:transient:429');
+  });
+
+  it('provider 5xx/네트워크 hint → ai_call_failed:transient:* / 4xx invalid_request → ai_call_failed (suffix 없음)', async () => {
+    const e529 = Object.assign(new Error('overloaded_error'), { status: 529 });
+    mockMessagesCreate.mockRejectedValueOnce(e529);
+    await expect(callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: 'admin-uuid',
+    })).rejects.toThrow('ai_call_failed:transient:529');
+
+    const e400 = Object.assign(new Error('invalid_request_error: bad prompt'), { status: 400 });
+    mockMessagesCreate.mockRejectedValueOnce(e400);
+    await expect(callPersona({
+      personaId: 'warren-buffett',
+      ticker: '005930',
+      financials: 'stub',
+      reflectionContext: '',
+      adminUserId: 'admin-uuid',
+    })).rejects.toThrow(/^ai_call_failed$/);
+  });
+
   it('missing ANTHROPIC_API_KEY → throws ai_key_unavailable', async () => {
     delete process.env.ANTHROPIC_API_KEY;
     await expect(callPersona({

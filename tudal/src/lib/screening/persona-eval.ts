@@ -77,7 +77,8 @@ export async function runMonthlyPersonaEval(
         callCountDone++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'unknown';
-        if (msg === 'ai_key_unavailable' || msg === 'ai_call_failed' || msg === 'ai_billing_exhausted') {
+        // W1a (D9): ai_call_failed:transient:* suffix 호환 — startsWith 매칭.
+        if (msg === 'ai_key_unavailable' || msg.startsWith('ai_call_failed') || msg === 'ai_billing_exhausted') {
           tier1Available[warmTicker] = false;
         } else {
           throw err; // fatal
@@ -112,7 +113,7 @@ export async function runMonthlyPersonaEval(
           callCountDone++;
         } else {
           const msg = item.error instanceof Error ? item.error.message : 'unknown';
-          if (['ai_key_unavailable', 'ai_call_failed', 'ai_billing_exhausted'].includes(msg)) {
+          if (['ai_key_unavailable', 'ai_billing_exhausted'].includes(msg) || msg.startsWith('ai_call_failed')) {
             tier1Available[item.ticker] = false; // ⚪ 대상 명시 (BLOCKER 2 해소)
           } else {
             throw item.error;
@@ -238,7 +239,7 @@ export async function runSectorEval(input: RunSectorEvalInput): Promise<SectorEv
       // 모두 degraded로 처리. fatal은 throw.
       if (
         msg === 'ai_key_unavailable' ||
-        msg === 'ai_call_failed' ||
+        msg.startsWith('ai_call_failed') ||
         msg === 'ai_billing_exhausted' ||
         msg.startsWith('unknown_persona_id:')
       ) {

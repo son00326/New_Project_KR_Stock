@@ -9,6 +9,8 @@ const TRANSIENT_CODES: readonly string[] = [
   'full_report_llm_failed',
   'critic_llm_failed',
   'revise_llm_failed',
+  // W1a (D9) — callPersona transient 분류 코드 (suffix `:status` 포함 prefix 매칭).
+  'ai_call_failed:transient',
 ];
 
 const TRANSIENT_HINTS: readonly string[] = [

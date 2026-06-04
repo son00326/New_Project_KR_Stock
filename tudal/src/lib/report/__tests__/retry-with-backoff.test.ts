@@ -92,3 +92,26 @@ describe('retryWithBackoff (T-b1 deterministic + T2 retry)', () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 });
+
+// W1a (D9) — callPersona transient 분류 코드 소비
+describe('W1a ai_call_failed:transient', () => {
+  it('ai_call_failed:transient:429는 TRANSIENT — 재시도 발생', async () => {
+    let calls = 0;
+    const fn = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('ai_call_failed:transient:429');
+      return 'ok';
+    });
+    const result = await retryWithBackoff(fn, { retries: 2, baseMs: 1 });
+    expect(result).toBe('ok');
+    expect(calls).toBe(2);
+  });
+
+  it('ai_call_failed(무suffix)는 non-transient — 즉시 throw, 재시도 0', async () => {
+    const fn = vi.fn(async () => {
+      throw new Error('ai_call_failed');
+    });
+    await expect(retryWithBackoff(fn, { retries: 2, baseMs: 1 })).rejects.toThrow(/^ai_call_failed$/);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
