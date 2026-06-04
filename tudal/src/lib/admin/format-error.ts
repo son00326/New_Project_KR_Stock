@@ -154,6 +154,9 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // TRACK-RECORD-1 — triggerMonthlyBatch(portfolio/actions.ts)의 non-Error catch-all fallback 코드.
   //   (format-error엔 'orchestrate_failed'만 있었음 — 'orchestrator_failed'는 별개 미매핑.)
   orchestrator_failed: "월간 배치 실행에 실패했습니다 — 잠시 후 다시 시도하세요",
+  // W2a wiring audit — old single-shot monthly-batch path is no longer a viable live selector.
+  monthly_batch_single_shot_deprecated:
+    "30 재선정 단발 경로는 비활성화되었습니다 — selection-worker 청크 경로를 사용하세요",
   // CRON-REPORT-1 — full-report-batch-worker 인프라 throw codes (admin report-worker 트리거 노출 경로).
   short_list_30_invalid_count: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
   report_batch_worker_failed: "리포트 배치 처리에 실패했습니다 — 잠시 후 다시 시도하세요",

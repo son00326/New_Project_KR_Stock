@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   toKstParts, currentShortPeriodKey, currentMidlongPeriodKey,
-  isShortDue, isMidlongDue, monthYMOfPeriod,
+  isShortDue, isMidlongDue, monthYMOfPeriod, trackOfPeriod,
 } from '../selection-period';
 
 describe('selection-period', () => {
@@ -33,6 +33,12 @@ describe('selection-period', () => {
     expect(monthYMOfPeriod('s:2026-06-01')).toBe('2026-06');
     expect(monthYMOfPeriod('m:2026-06')).toBe('2026-06');
     expect(monthYMOfPeriod('s:2026-06-29')).toBe('2026-06'); // 월말 주 → 해당 월
+  });
+
+  it('trackOfPeriod: prefix를 트랙으로 매핑하고 malformed key는 fail-closed', () => {
+    expect(trackOfPeriod('s:2026-06-01')).toBe('short');
+    expect(trackOfPeriod('m:2026-06')).toBe('midlong');
+    expect(() => trackOfPeriod('x:2026-06')).toThrow('invalid_period_key:x:2026-06');
   });
 
   // toKstParts는 import 검증 + 직접 단위 확인 (계획 import 라인에 포함).

@@ -33,6 +33,11 @@ export function monthYMOfPeriod(periodKey: string): string {
   return body.slice(0, 7);         // YYYY-MM-DD → YYYY-MM, YYYY-MM → 그대로
 }
 
+// Reserved helper for W2b/incumbent carry and diagnostics that receive only period_key.
+// Keep exported even if W2a callers currently pass track explicitly, but do not
+// silently coerce malformed keys to midlong.
 export function trackOfPeriod(periodKey: string): SelectionTrack {
-  return periodKey.startsWith('s:') ? 'short' : 'midlong';
+  if (periodKey.startsWith('s:')) return 'short';
+  if (periodKey.startsWith('m:')) return 'midlong';
+  throw new Error(`invalid_period_key:${periodKey}`);
 }

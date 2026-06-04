@@ -539,6 +539,12 @@ describe("formatErrorMessage", () => {
       );
     });
 
+    it("exact: monthly_batch_single_shot_deprecated → W2a 청크 경로 안내", () => {
+      expect(formatErrorMessage("monthly_batch_single_shot_deprecated")).toBe(
+        "30 재선정 단발 경로는 비활성화되었습니다 — selection-worker 청크 경로를 사용하세요",
+      );
+    });
+
     // CRON-REPORT-1 — report-worker 인프라 throw codes.
     it("exact + prefix: short_list_30_invalid_count(:N) → 30선정 미완료 안내", () => {
       expect(formatErrorMessage("short_list_30_invalid_count")).toBe(
