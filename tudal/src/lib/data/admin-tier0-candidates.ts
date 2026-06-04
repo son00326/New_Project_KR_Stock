@@ -1,6 +1,6 @@
 // PR-D (ADR D-3 / B1) — tier0_candidates_150 consumer.
 // Python --emit-candidates producer가 write한 150 후보(단/중/장 disjoint 50씩)를 SELECT →
-// runMonthlyBatchOrchestrator의 tier0Source 입력 (Tier1Candidate[]).
+// 청크 워커(tier1-selection-batch-worker)의 tier0Source 입력 (Tier1Candidate[]). 구 단발 orchestrator는 W1b에서 제거.
 //
 // DI seam (admin-shortlist.ts 패턴): options.client 미지정 시 session-based createClient.
 //   - cron route = createServiceRoleClient() 명시 주입 (auth.uid()=null → RLS bypass 필요).
@@ -8,7 +8,7 @@
 //   본 모듈은 createServiceRoleClient를 직접 import하지 않는다 (server-only import boundary 보존).
 //
 // shape: producer가 cross-bucket disjoint 보장 (ticker 1개 = bucket 1개). DB unique(month,ticker)가
-//   150 distinct 2차 방어. count(===150)/distinct assert는 호출자(runMonthlyBatchOrchestrator /
+//   150 distinct 2차 방어. count/distinct assert는 호출자(청크 워커 /
 //   runTier1Screening)가 수행 — 본 consumer는 SELECT 결과를 그대로 매핑 (부족 시 orchestrator가
 //   `tier1_candidates_must_be_150 (got N)` throw → 정상 degraded 경로).
 import type { SupabaseClient } from "@supabase/supabase-js";

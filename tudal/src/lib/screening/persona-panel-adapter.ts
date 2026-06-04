@@ -167,7 +167,7 @@ export interface CallPersonaPanelDeps {
 }
 
 /**
- * runMonthlyBatchOrchestrator의 callPersonaPanel DI에 주입할 실 구현 factory.
+ * 선정 청크 워커(runTier1SelectionChunk)의 callPersonaPanel DI에 주입할 실 구현 factory.
  * ticker당 personas 전원 callPersona 병렬 → PersonaScore[] (정확히 personas.length개).
  * 한 명이라도 실패하면 reject (Promise.all) → ticker ⚪.
  */

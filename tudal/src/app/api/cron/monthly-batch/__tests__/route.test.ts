@@ -3,12 +3,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const { runMock } = vi.hoisted(() => ({
-  runMock: vi.fn(),
+  runMock: vi.fn(), // W1b — 구 orchestrator 삭제: stub route가 AI 코드 미임포트임을 간접 검증하는 더미
 }));
 
-vi.mock('@/lib/screening/monthly-batch-orchestrator', () => ({
-  runMonthlyBatchOrchestrator: runMock,
-}));
 
 function req(headers: Record<string, string> = {}) {
   return new NextRequest('http://localhost/api/cron/monthly-batch', {
