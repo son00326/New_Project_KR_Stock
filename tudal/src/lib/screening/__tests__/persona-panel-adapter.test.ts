@@ -4,7 +4,10 @@ import {
   parsePersonaScore,
   makeCallPersonaPanel,
 } from "@/lib/screening/persona-panel-adapter";
-import type { CallPersonaResult } from "@/lib/ai/anthropic-client";
+import type {
+  CallPersonaInput,
+  CallPersonaResult,
+} from "@/lib/ai/anthropic-client";
 
 const validJson = JSON.stringify({
   scores: { short: 80, mid: 60, long: 40 },
@@ -233,7 +236,9 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
 
   // W2b (D27 Q5) — per-call reflectionContext override (incumbent thesis context 주입 seam).
   it("per-call reflectionContext가 deps default를 override해 callPersona에 전달", async () => {
-    const callPersona = vi.fn(async () => callResult(validJson));
+    const callPersona = vi.fn(async (_input: CallPersonaInput) =>
+      callResult(validJson),
+    );
     const panel = makeCallPersonaPanel({
       callPersona,
       personas,
@@ -252,7 +257,9 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
   });
 
   it("per-call reflectionContext 미지정 시 deps default 사용 (W2a 무회귀)", async () => {
-    const callPersona = vi.fn(async () => callResult(validJson));
+    const callPersona = vi.fn(async (_input: CallPersonaInput) =>
+      callResult(validJson),
+    );
     const panel = makeCallPersonaPanel({
       callPersona,
       personas,
