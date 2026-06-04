@@ -23,7 +23,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   ticker_required: "종목코드가 필요합니다",
   reason_too_short: "사유는 10자 이상 입력해주세요",
   // regenerate
-  cost_hardcap_40man: "월 AI 비용 한도(40만원)를 초과했습니다",
+  // W0 D28 ③ rename: cost_hardcap_40man → cost_hardcap_exceeded (65차 LOCKED #5 50만 + cap-agnostic).
+  cost_hardcap_exceeded: "월 AI 비용 한도(50만원)를 초과했습니다",
+  // W0 D28 비용가드: 모델 레지스트리/preflight 신규 throw 코드 한국어 매핑.
+  pricing_unknown_model: "미등록 AI 모델 단가입니다 — 모델 레지스트리 등록이 필요합니다",
+  preflight_reservation_missing: "비용 예약 정보가 누락되어 AI 호출을 차단했습니다 (운영자 확인 필요)",
+  preflight_reservation_invalid: "비용 예약 값이 올바르지 않아 AI 호출을 차단했습니다 (운영자 확인 필요)",
   cost_logging_disabled: "AI 비용 로깅이 비활성화되어 실 AI 호출을 차단했습니다 (운영자: AI_COST_LOG_REAL_INSERT_ENABLED 확인)",
   manual_cap_exhausted: "수동 재생성 한도(월 2회)를 모두 사용했습니다",
   report_lookup_failed: "리포트 조회 실패 — 다시 시도해주세요",
@@ -116,7 +121,7 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   upsert_report_sections_0_7_admin_failed: "리포트 본문 저장 실패 (admin UPSERT)",
   upsert_report_sections_0_7_admin_failed_no_returning: "리포트 본문 저장 실패 — UPSERT returning 부재 (안전망 발동)",
   // PR3b R6 non-blocking catch — cost_log throw 경로 매핑 누락 (preflightHardcap 호출 중 발생 가능)
-  // cost_hardcap_40man은 이미 line 26에 매핑 박제됨 — 본 PR에서 추가 매핑 0.
+  // cost_hardcap_exceeded는 이미 regenerate 섹션에 매핑 박제됨 — 본 PR에서 추가 매핑 0.
   cost_log_select_failed: "비용 로그 조회 실패",
   cost_log_insert_failed: "비용 로그 저장 실패",
   // Mock cleanup Step 2.5 — pipeline_health 실 SELECT 통로 error 매핑.

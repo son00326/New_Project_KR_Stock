@@ -305,7 +305,7 @@ describe('regenerateReport orchestrate wire (PR4 Task 2 Step 2.3)', () => {
     expect(orchestrateMock).not.toHaveBeenCalled();
   });
 
-  it('propagates orchestrate error message (e.g., cost_hardcap_40man, full_report_validation_failed)', async () => {
+  it('propagates orchestrate error message (e.g., cost_hardcap_exceeded, full_report_validation_failed)', async () => {
     // Step 2.2 trigger-full-report-action 패턴 동일 — orchestrate throw 시 error.message 전파.
     const supabaseClient = {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
@@ -335,7 +335,7 @@ describe('regenerateReport orchestrate wire (PR4 Task 2 Step 2.3)', () => {
     });
   });
 
-  it('propagates cost_hardcap_40man from orchestrate', async () => {
+  it('propagates cost_hardcap_exceeded from orchestrate', async () => {
     const supabaseClient = {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-uid' } }, error: null }) },
       rpc: adminRpc,
@@ -351,12 +351,12 @@ describe('regenerateReport orchestrate wire (PR4 Task 2 Step 2.3)', () => {
       incrementManualRegenCount: vi.fn().mockResolvedValue({ ok: true, manualCount: 1 }),
     }));
     vi.doMock('@/lib/report/full-report-orchestrator', () => ({
-      orchestrateFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_40man')),
+      orchestrateFullReport: vi.fn().mockRejectedValue(new Error('cost_hardcap_exceeded')),
     }));
 
     const { regenerateReport } = await import('../actions');
     const res = await regenerateReport(validInput);
-    expect(res).toEqual({ success: false, error: 'cost_hardcap_40man' });
+    expect(res).toEqual({ success: false, error: 'cost_hardcap_exceeded' });
   });
 
   it('rejects when auth unavailable (user null) — orchestrate NOT called', async () => {

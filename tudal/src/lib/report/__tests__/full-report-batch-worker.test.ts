@@ -155,7 +155,7 @@ beforeEach(() => {
   preflightMock.mockResolvedValue({
     currentTotal: 0,
     reservation: 0,
-    remaining: 400000,
+    remaining: 500000,
   });
   getMonthlyTotalMock.mockResolvedValue(0);
   reportExistsMock.mockResolvedValue({ exists: false, complete: false });
@@ -469,8 +469,8 @@ describe("runReportBatchChunk sequential + skip + isolation", () => {
 });
 
 describe("runReportBatchChunk cost_hardcap abort (T4)", () => {
-  it("batch preflight cost_hardcap_40man → deferred + cost alert + STOP (throw 안 함)", async () => {
-    preflightMock.mockRejectedValue(new Error("cost_hardcap_40man"));
+  it("batch preflight cost_hardcap_exceeded → deferred + cost alert + STOP (throw 안 함)", async () => {
+    preflightMock.mockRejectedValue(new Error("cost_hardcap_exceeded"));
     const { client, rpcCalls } = makeFakeClient({
       claimedJobs: [],
       remainingCount: 5,
@@ -493,7 +493,7 @@ describe("runReportBatchChunk cost_hardcap abort (T4)", () => {
   });
 
   it("CRF-1 batch hardcap: alert insert failure is best-effort after deferring open jobs", async () => {
-    preflightMock.mockRejectedValue(new Error("cost_hardcap_40man"));
+    preflightMock.mockRejectedValue(new Error("cost_hardcap_exceeded"));
     emitCostAlertMock.mockRejectedValue(new Error("alert_event_insert_failed"));
     const { client, updatePayloads } = makeFakeClient({
       claimedJobs: [],
@@ -516,7 +516,7 @@ describe("runReportBatchChunk cost_hardcap abort (T4)", () => {
   });
 
   it("CRF-1 mid-loop hardcap: defer open jobs before best-effort alert, then throw original hardcap", async () => {
-    orchestrateMock.mockRejectedValue(new Error("cost_hardcap_40man"));
+    orchestrateMock.mockRejectedValue(new Error("cost_hardcap_exceeded"));
     emitCostAlertMock.mockRejectedValue(new Error("alert_event_insert_failed"));
     const { client, updatePayloads } = makeFakeClient({
       claimedJobs: [{ id: "j1", ticker: "005930" }],
@@ -525,7 +525,7 @@ describe("runReportBatchChunk cost_hardcap abort (T4)", () => {
     try {
       await expect(
         runReportBatchChunk({ month: "2026-06", client: workerClient(client) }),
-      ).rejects.toThrow("cost_hardcap_40man");
+      ).rejects.toThrow("cost_hardcap_exceeded");
       expect(updatePayloads).toContainEqual(
         expect.objectContaining({ status: "deferred" }),
       );

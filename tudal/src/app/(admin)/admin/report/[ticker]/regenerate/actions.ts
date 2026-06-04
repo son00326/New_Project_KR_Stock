@@ -115,7 +115,7 @@ export async function regenerateReport(input: {
     return { success: false, error: "cost_logging_disabled" };
   }
 
-  // S6 M17 — 월 40만원 hardcap (58차 Mock cleanup Step 2.3: 실 cost_log SELECT 통로).
+  // S6 M17 → 65차 LOCKED #5 — 월 50만원 hardcap (58차 Mock cleanup Step 2.3: 실 cost_log SELECT 통로).
   // month YYYY-MM-DD (regen-cap) → YYYY-MM (cost_log.month SoT, insertCostLog 정합).
   // RLS "cost_log_admin_select" 자동 의존 — 인증 client 공유 (caller-flow 단일).
   const costMonth = month.slice(0, 7);
@@ -126,7 +126,7 @@ export async function regenerateReport(input: {
     return { success: false, error: "cost_log_lookup_failed" };
   }
   if (monthlyCostKrw >= HARDCAP_KRW) {
-    return { success: false, error: "cost_hardcap_40man" };
+    return { success: false, error: "cost_hardcap_exceeded" };
   }
 
   // PR4 Step 2.3: name/sector SoT = short_list_30 (마이그 0012, 마이그 0건 유지).

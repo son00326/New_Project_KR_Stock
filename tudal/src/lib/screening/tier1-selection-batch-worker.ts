@@ -26,7 +26,7 @@
 //   둘은 독립 — 동시 활성 금지 운영 가이드(.env.example). default-off라 merge-safe (claim 0, LLM 0, spend 0).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
-import { MAX_COST_PER_CALL_KRW } from "@/lib/cost/pricing";
+import { getRoleMaxCostPerCallKrw } from "@/lib/ai/model-registry";
 import type { PersonaScore, Tier1ScreeningResult } from "@/lib/screening/tier1-schema";
 import type { Tier1Candidate, RunTier1ScreeningInput } from "@/lib/screening/persona-eval";
 import type { TickerCommentMap } from "@/lib/data/admin-shortlist-persist";
@@ -51,7 +51,12 @@ type CallPersonaPanel = (input: {
 }) => Promise<PersonaScore[]>;
 type FetchFinancials = (ticker: string) => Promise<string>;
 type PreflightHardcap = (
-  args: { month: string; callCount: number },
+  args: {
+    month: string;
+    callCount?: number;
+    maxCostPerCallKrw?: number;
+    lines?: Array<{ callCount: number; maxCostPerCallKrw: number }>;
+  },
   opts: { client: SupabaseClient; callerKind: "service-role" },
 ) => Promise<unknown>;
 type GetMonthlyTotal = (
@@ -355,23 +360,28 @@ export async function runTier1SelectionChunk(
     client,
     callerKind: "service-role",
   });
-  const projectedKrw = callCount * MAX_COST_PER_CALL_KRW;
+  // W0 D28 ③ model-aware reservation: tier1_panel 역할 단가 (W1 토론 mix로 진화할 단일 지점).
+  const tier1MaxCostPerCallKrw = getRoleMaxCostPerCallKrw("tier1_panel");
+  const projectedKrw = callCount * tier1MaxCostPerCallKrw;
   try {
     await input.preflightHardcap(
-      { month, callCount },
+      {
+        month,
+        lines: [{ callCount, maxCostPerCallKrw: tier1MaxCostPerCallKrw }],
+      },
       { client, callerKind: "service-role" },
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("cost_hardcap_40man")) {
+    if (msg.includes("cost_hardcap_exceeded")) {
       // 남은 pending/running을 먼저 deferred 표시해야 alert insert 장애가 month-stop을 막지 않는다.
-      await deferOpenJobs(client, month, "cost_hardcap_40man");
+      await deferOpenJobs(client, month, "cost_hardcap_exceeded");
       await emitCostAlertBestEffort(input, {
         month,
         currentTotalKrw: currentTotal,
         projectedKrw,
       });
-      await summarize(input, 0, 0, 1, [], "systemic_abort:cost_hardcap_40man");
+      await summarize(input, 0, 0, 1, [], "systemic_abort:cost_hardcap_exceeded");
       return {
         month,
         claimed: 0,
@@ -412,13 +422,13 @@ export async function runTier1SelectionChunk(
       done += 1;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // systemic abort: ai_key_unavailable / cost_hardcap_40man → 즉시 batch 중단
+      // systemic abort: ai_key_unavailable / cost_hardcap_exceeded → 즉시 batch 중단
       if (
         msg.includes("ai_key_unavailable") ||
-        msg.includes("cost_hardcap_40man")
+        msg.includes("cost_hardcap_exceeded")
       ) {
-        if (msg.includes("cost_hardcap_40man")) {
-          await deferOpenJobs(client, month, "cost_hardcap_40man");
+        if (msg.includes("cost_hardcap_exceeded")) {
+          await deferOpenJobs(client, month, "cost_hardcap_exceeded");
           const currentTotalAfter = await input.getMonthlyTotal(month, {
             client,
             callerKind: "service-role",
@@ -426,7 +436,7 @@ export async function runTier1SelectionChunk(
           await emitCostAlertBestEffort(input, {
             month,
             currentTotalKrw: currentTotalAfter,
-            projectedKrw: MAX_COST_PER_CALL_KRW,
+            projectedKrw: tier1MaxCostPerCallKrw,
           });
         } else {
           await resetJobForSystemicAbort(client, job.id, msg);

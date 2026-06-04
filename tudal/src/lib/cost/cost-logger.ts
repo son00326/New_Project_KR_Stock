@@ -38,7 +38,7 @@ function isEnabled(): boolean {
 }
 
 // PR-B2 (B7/D-8, ADR 2026-05-31): admin real-AI 진입점 fail-closed guard용 공개 helper.
-// flag off면 insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open(40만원 hardcap 무력화 = 무제한 burn).
+// flag off면 insertCostLog noop → getMonthlyTotal=0 → preflightHardcap fail-open(50만원 hardcap 무력화 = 무제한 burn).
 // admin report paths(triggerFullReport / regenerateReport)는 실 AI spend 전 본 helper로 차단.
 // Legacy triggerMonthlyPersonaEvalAction은 UI caller 0 + D-1 deprecate 예정이라 PR-B2 코드 가드 OOS.
 export function isCostLoggingEnabled(): boolean {
@@ -204,25 +204,60 @@ export async function getMonthlyTotal(
   return total;
 }
 
+// W0 (65차 D28 ③) model-aware reservation: 역할별 (콜수 × 해당 모델 단가) 합산.
+// 단일 모델(균일 단가)은 callCount/maxCostPerCallKrw legacy 경로, 다모델 mix는 lines[].
+export interface ReservationLine {
+  callCount: number;
+  maxCostPerCallKrw: number;
+}
+
 export async function preflightHardcap(
   opts: {
     month: string;
-    callCount: number;
     /**
-     * Per-call reservation override (KRW). Defaults to MAX_COST_PER_CALL_KRW
-     * (persona call calibration: 1500 input + 2000 output). PR3b full-report
-     * writer는 FULL_REPORT_MAX_COST_PER_CALL_KRW (3000 input + 6000 output)을
-     * 명시적으로 주입 — 3-track C1 fix.
+     * 단일 라인 (기존 호환). Per-call reservation override (KRW). Defaults to
+     * MAX_COST_PER_CALL_KRW (persona call calibration: 1500 input + 2000 output).
+     * PR3b full-report writer는 FULL_REPORT_MAX_COST_PER_CALL_KRW을 명시 주입.
      */
+    callCount?: number;
     maxCostPerCallKrw?: number;
+    /** W0 D28 ③ — 역할별 (콜수 × 해당 모델 단가) 합산 reservation. */
+    lines?: ReservationLine[];
   },
   options: CostHelperOptions = {},
 ): Promise<{ currentTotal: number; reservation: number; remaining: number }> {
+  // fail-open 차단 (omxy R1 HIGH fix): lines/callCount 둘 다 부재, lines: [], 음수/비유한 값
+  // 전부 reservation 0/오염으로 hardcap 무력화 가능 → 명시 throw.
+  if (!opts.lines && opts.callCount == null) {
+    throw new Error('preflight_reservation_missing');
+  }
+  if (opts.lines) {
+    if (opts.lines.length === 0) throw new Error('preflight_reservation_missing');
+    for (const l of opts.lines) {
+      // 신규 lines 경로는 legacy 호환 부담 없음 (omxy R2): 0도 fail-open 벡터 → 양수 강제.
+      if (
+        !Number.isFinite(l.callCount) || l.callCount <= 0 ||
+        !Number.isFinite(l.maxCostPerCallKrw) || l.maxCostPerCallKrw <= 0
+      ) {
+        throw new Error('preflight_reservation_invalid');
+      }
+    }
+  } else if (
+    // 단일(legacy) 경로: callCount=0 + default maxCost = 무해 no-op 호환 허용 (omxy R2 합의).
+    // 단 callCount>0이면 명시된 maxCostPerCallKrw는 반드시 >0.
+    !Number.isFinite(opts.callCount!) || opts.callCount! < 0 ||
+    (opts.maxCostPerCallKrw != null &&
+      (!Number.isFinite(opts.maxCostPerCallKrw) ||
+        (opts.callCount! > 0 ? opts.maxCostPerCallKrw <= 0 : opts.maxCostPerCallKrw < 0)))
+  ) {
+    throw new Error('preflight_reservation_invalid');
+  }
   const currentTotal = await getMonthlyTotal(opts.month, options);
-  const perCallKrw = opts.maxCostPerCallKrw ?? MAX_COST_PER_CALL_KRW;
-  const reservation = opts.callCount * perCallKrw;
+  const reservation = opts.lines
+    ? opts.lines.reduce((s, l) => s + l.callCount * l.maxCostPerCallKrw, 0)
+    : (opts.callCount ?? 0) * (opts.maxCostPerCallKrw ?? MAX_COST_PER_CALL_KRW);
   if (currentTotal + reservation > HARDCAP_KRW) {
-    throw new Error('cost_hardcap_40man');
+    throw new Error('cost_hardcap_exceeded'); // 구 cost_hardcap_40man — 65차 50만 + cap-agnostic rename
   }
   return {
     currentTotal,

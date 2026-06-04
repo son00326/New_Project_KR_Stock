@@ -18,9 +18,9 @@ describe('isTransientError (T-b2 transient classifier)', () => {
     expect(isTransientError(new Error('network timeout'))).toBe(true);
   });
 
-  it('non-transient: ai_key_unavailable / cost_hardcap_40man', () => {
+  it('non-transient: ai_key_unavailable / cost_hardcap_exceeded', () => {
     expect(isTransientError(new Error('ai_key_unavailable'))).toBe(false);
-    expect(isTransientError(new Error('cost_hardcap_40man'))).toBe(false);
+    expect(isTransientError(new Error('cost_hardcap_exceeded'))).toBe(false);
     expect(isTransientError(new Error('invalid_ticker'))).toBe(false);
   });
 });

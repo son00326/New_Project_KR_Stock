@@ -102,7 +102,86 @@ describe('cost-logger (Q2 + Q6)', () => {
     await expect(preflightHardcap({
       month: '2026-05',
       callCount: 30,
-    }, { callerKind: 'service-role' })).rejects.toThrow('cost_hardcap_40man');
+    }, { callerKind: 'service-role' })).rejects.toThrow('cost_hardcap_exceeded');
+  });
+
+  // W0 D28 ③ — preflight reservation 검증 (fail-open 차단, omxy R2/R3 합의 확정).
+  // 모든 invalid 입력은 getMonthlyTotal SELECT 전에 throw → DB 미접근.
+  describe('preflightHardcap reservation 검증 (W0 D28 ③ fail-open 차단)', () => {
+    it('lines [] → preflight_reservation_missing', async () => {
+      await expect(
+        preflightHardcap({ month: '2026-05', lines: [] }, { callerKind: 'service-role' }),
+      ).rejects.toThrow('preflight_reservation_missing');
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it('lines/callCount 둘 다 부재 → preflight_reservation_missing', async () => {
+      await expect(
+        preflightHardcap({ month: '2026-05' }, { callerKind: 'service-role' }),
+      ).rejects.toThrow('preflight_reservation_missing');
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it('lines callCount 0 → preflight_reservation_invalid', async () => {
+      await expect(
+        preflightHardcap(
+          { month: '2026-05', lines: [{ callCount: 0, maxCostPerCallKrw: 100 }] },
+          { callerKind: 'service-role' },
+        ),
+      ).rejects.toThrow('preflight_reservation_invalid');
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it('lines maxCostPerCallKrw 0 → preflight_reservation_invalid', async () => {
+      await expect(
+        preflightHardcap(
+          { month: '2026-05', lines: [{ callCount: 5, maxCostPerCallKrw: 0 }] },
+          { callerKind: 'service-role' },
+        ),
+      ).rejects.toThrow('preflight_reservation_invalid');
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it('lines 음수·NaN → preflight_reservation_invalid', async () => {
+      await expect(
+        preflightHardcap(
+          { month: '2026-05', lines: [{ callCount: -1, maxCostPerCallKrw: 100 }] },
+          { callerKind: 'service-role' },
+        ),
+      ).rejects.toThrow('preflight_reservation_invalid');
+      await expect(
+        preflightHardcap(
+          { month: '2026-05', lines: [{ callCount: 5, maxCostPerCallKrw: NaN }] },
+          { callerKind: 'service-role' },
+        ),
+      ).rejects.toThrow('preflight_reservation_invalid');
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it('단일 경로 callCount 0 + default maxCost → no-op 허용 (throw 아님)', async () => {
+      // legacy 호환: callCount=0 + default maxCost = reservation 0 = 무해 no-op.
+      const rangeMock = vi.fn().mockResolvedValue({ data: [], error: null });
+      const orderChain = { order: vi.fn(), range: rangeMock };
+      orderChain.order = vi.fn().mockReturnValue(orderChain);
+      mockSelect.mockReturnValue({
+        eq: vi.fn().mockReturnValue({ order: orderChain.order }),
+      });
+      const result = await preflightHardcap(
+        { month: '2026-05', callCount: 0 },
+        { callerKind: 'service-role' },
+      );
+      expect(result.reservation).toBe(0);
+    });
+
+    it('단일 경로 callCount>0 + 명시 maxCost 0 → preflight_reservation_invalid', async () => {
+      await expect(
+        preflightHardcap(
+          { month: '2026-05', callCount: 5, maxCostPerCallKrw: 0 },
+          { callerKind: 'service-role' },
+        ),
+      ).rejects.toThrow('preflight_reservation_invalid');
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
   });
 
   // 58차 Mock cleanup Step 2.3 omxy R1 + R2 HIGH-1 fix — getMonthlyTotal pagination loop

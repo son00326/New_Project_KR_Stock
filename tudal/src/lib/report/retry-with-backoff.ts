@@ -2,7 +2,7 @@
 // plan §3.5 / §4.2 C5 / omxy R1 MEDIUM-2.
 //
 // transient (retry): full_report_llm_failed / critic_llm_failed / revise_llm_failed / 429 / 529 / network.
-// non-transient (no retry): ai_key_unavailable / cost_hardcap_40man — caller가 systemic abort 판단.
+// non-transient (no retry): ai_key_unavailable / cost_hardcap_exceeded — caller가 systemic abort 판단.
 
 // 코드 작성 후 grep 검증: critic_llm_failed / revise_llm_failed 포함 (R1 MEDIUM-2).
 const TRANSIENT_CODES: readonly string[] = [

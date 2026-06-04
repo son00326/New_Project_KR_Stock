@@ -12,7 +12,7 @@ vi.mock('@/lib/ai/full-report-client', () => ({
 vi.mock('@/lib/cost/cost-logger', () => ({
   preflightHardcap: vi
     .fn()
-    .mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 400_000 }),
+    .mockResolvedValue({ currentTotal: 0, reservation: 0, remaining: 500_000 }),
 }));
 
 const validResponse = {
@@ -210,15 +210,15 @@ describe('commitFullReport', () => {
     await expect(commitFullReport(baseInput)).rejects.toThrow(/update_report_sections_0_7_failed:42501/);
   });
 
-  // 3-track C1 fix: preflightHardcap이 cost_hardcap_40man throw 시 LLM 호출 차단 검증.
+  // 3-track C1 fix: preflightHardcap이 cost_hardcap_exceeded throw 시 LLM 호출 차단 검증.
   it('C1 — cost hardcap 초과 시 preflightHardcap throw → callFullReport 미호출', async () => {
     const { callFullReport } = await import('@/lib/ai/full-report-client');
     const { preflightHardcap } = await import('@/lib/cost/cost-logger');
     (preflightHardcap as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error('cost_hardcap_40man'),
+      new Error('cost_hardcap_exceeded'),
     );
     const { commitFullReport } = await import('@/lib/report/full-report-writer');
-    await expect(commitFullReport(baseInput)).rejects.toThrow('cost_hardcap_40man');
+    await expect(commitFullReport(baseInput)).rejects.toThrow('cost_hardcap_exceeded');
     expect(callFullReport).not.toHaveBeenCalled();
   });
 
