@@ -71,6 +71,7 @@ function chunkResult(
     failed: 0,
     deferred: 0,
     r2Enqueued: 0,
+    judgeEnqueued: 0,
     remaining: 0,
     finalized: false,
     aborted: null,
