@@ -4,7 +4,7 @@
 
 **Goal:** 포트폴리오 Accept 시 항상 `entry_price_unavailable`로 막히던 `resolveRealEntryPrice()` stub을 **KRX 공식 Open API EOD 종가 소스**로 배선해, 실 종가로 `portfolio_snapshot` entry_price를 채운다. 이로써 Accept/Reject가 작동하고 W2b incumbent thesis context의 실현 성과(`entry_price>0` graceful)가 활성화된다. **AI 키 불필요**(KRX 데이터 키 — AI 키와 별개).
 
-**Architecture:** W3를 **W3a(entry_price, AI-key-free, 이 계획)** / W3b(portfolio_proposal AI 자율 판단, Opus, USER-gated 후속)로 분할(W2a/W2b·W1a/W1b 전례). KRX EOD 종가 fetcher를 신규 `src/lib/data/krx-eod.ts`에 DI-seam으로 구현(`scripts/krx_openapi.py` 계약 1:1 포팅 — gateway/AUTH_KEY/stk·ksq_bydd_trd/OutBlock_1/ISU_CD/TDD_CLSPRC). `buildInitialSnapshots`를 async batch lookup으로 전환. **이중 게이트로 behavior-neutral 머지**: `PORTFOLIO_REAL_ENTRY_PRICE_ENABLED!=='true'` 또는 `KRX_OPENAPI_KEY` 부재 → 기존처럼 null 반환 → `entry_price_unavailable`(현 동작 무변경). USER가 flag+key 둘 다 설정 시에만 실 종가 활성.
+**Architecture:** W3를 **W3a(entry_price, AI-key-free, 이 계획)** / W3b(portfolio_proposal AI 자율 판단, Opus, USER-gated 후속)로 분할(W2a/W2b·W1a/W1b 전례). KRX EOD 종가 fetcher를 신규 `src/lib/data/krx-eod.ts`에 DI-seam으로 구현(`scripts/krx_openapi.py` 계약 1:1 포팅 — gateway/AUTH_KEY/stk·ksq_bydd_trd/OutBlock_1/ISU_CD/TDD_CLSPRC). `buildInitialSnapshots`를 async batch lookup으로 전환. **이중 게이트로 behavior-neutral 머지**: `PORTFOLIO_REAL_ENTRY_PRICE_ENABLED!=='true'` 또는 `KRX_OPENAPI_KEY` 부재 → 기존처럼 null 반환 → `entry_price_unavailable`(현 동작 무변경). USER가 flag+key 둘 다 설정 시에만 **최신 완료 거래일(KST cutoff+calendar stale guard)** 실 종가 활성.
 
 **Tech Stack:** Next.js 16 (server action) · Vitest · KRX 공식 Open API(REST, TS fetch — S1 종가 소스, HANDOFF ADR D-10).
 
@@ -15,10 +15,10 @@
 ## 범위 (W3a) vs 분리 (W3b)
 
 **W3a (이 계획):**
-1. KRX EOD 종가 fetcher `src/lib/data/krx-eod.ts` — `fetchEodCloseMap`(market별 daily 전종목 1콜 → Map<6자리 ticker, 종가>) + `resolveEntryPricesKrw`(tickers → Map, 최신 거래일 기준).
+1. KRX EOD 종가 fetcher `src/lib/data/krx-eod.ts` — `fetchEodCloseMap`(market별 daily 전종목 1콜 → Map<6자리 ticker, 종가>) + `resolveEntryPricesKrw`(tickers → Map, 최신 **완료** 거래일 기준) + `resolveLatestCompletedTradingDay`(KST 장마감 cutoff·calendar stale guard).
 2. `buildInitialSnapshots` async batch 전환 — 30 ticker entry_price를 1회 fetch(KOSPI+KOSDAQ 2콜)로 lookup. 누락 ticker 1개라도 있으면 **전체 accept 거부**(`entry_price_unavailable` — 부분 snapshot 금지, 기존 안전성 유지).
 3. **이중 게이트**(flag + key) — behavior-neutral 머지.
-4. 연결 테스트 — accept→EOD source DI→snapshot 실 entryPrice 영속 + KRX OutBlock_1 fixture parse + flag/key 부재 graceful.
+4. 연결 테스트 — accept→EOD module mock→snapshot 실 entryPrice 영속 + KRX OutBlock_1 fixture parse + flag/key 부재 graceful.
 
 **W3b (후속, 명시 DEFER):** portfolio_proposal(편입/개수/단·중·장 분배/비중/현금 0~30%) AI 자율 판단(Opus, `portfolio` role). 실 AI·USER 게이트.
 
@@ -27,21 +27,21 @@
 ## 핵심 설계 결정
 
 - **D1 KRX 계약 = python 1:1 포팅.** gateway `https://data-dbg.krx.co.kr/svc/apis/`, header `{ AUTH_KEY: KRX_OPENAPI_KEY }`, endpoints `sto/stk_bydd_trd`(KOSPI)·`sto/ksq_bydd_trd`(KOSDAQ), param `basDd=YYYYMMDD`. 응답 `OutBlock_1: Array<{ ISU_CD(6자리), ISU_NM, TDD_CLSPRC(콤마 종가) }>`. 빈 `OutBlock_1` = 휴장/미갱신(정상 — 빈 Map). 4xx 즉시 throw(키 문제 노출), 429/5xx backoff 재시도(MAX_RETRIES 4). `_to_float` 동형 파서(콤마 제거, '-'/''/'N/A'→null). **AUTH_KEY 값은 로그/에러에 절대 미출력.**
-- **D2 fetch DI-seam.** `fetchEodCloseMap(opts: { basDd, market, fetchImpl?, authKey })` — `fetchImpl` 미지정 시 global `fetch`. 테스트는 mock fetchImpl 주입(외부 호출 0, cost 무관). authKey 미지정 시 `KRX_OPENAPI_KEY` env → 부재면 `krx_auth_key_missing` throw(caller가 게이트로 사전 차단하므로 정상 경로 미도달).
-- **D3 거래일 해석.** entry_price = **가장 최근 완료 거래일** 종가. `resolveLatestTradingDay(now, businessDays)` — calendar.ts `loadKrBusinessDays`/`MOCK_KR_BUSINESS_DAYS_2026`에서 `now` 이하 최신 `isBusinessDay` 날짜. (장중 당일은 종가 미확정이라 "오늘이 거래일이어도 직전 거래일 사용" 보수 옵션은 W3a 범위 밖 — 일배치 Accept 가정, 최신 거래일 사용. KRX가 미갱신이면 빈 Map→entry_price_unavailable로 안전 fallback.) 주말/공휴일 walk-back.
+- **D2 fetch DI-seam.** `fetchEodCloseMap(opts: { basDd, market, fetchImpl?, sleepImpl?, authKey })` — `fetchImpl` 미지정 시 global `fetch`. 테스트는 mock fetchImpl 주입(외부 호출 0, cost 무관). **authKey는 caller가 이중 게이트 통과 후 명시 전달**(fetcher 내부 env read 금지; 빈 key면 `krx_auth_key_missing` throw). 200 응답이어도 `OutBlock_1`이 list가 아니면 `krx_eod_payload_invalid` throw — 빈/누락 `OutBlock_1`만 빈 Map.
+- **D3 거래일 해석.** entry_price = **가장 최근 완료 거래일** 종가. `resolveLatestCompletedTradingDay(now, businessDays, { closeReadyHourKst=18, maxLookbackDays=14 })` — KST 기준 오늘이 영업일이어도 cutoff 전이면 오늘을 제외하고 직전 영업일 사용(장중 당일 종가 미확정 방지), cutoff 후에는 오늘 허용하되 KRX 미갱신 시 빈 Map→`entry_price_unavailable`. `loadKrBusinessDays(from,to)`는 현재 `MOCK_KR_BUSINESS_DAYS_2026`를 반환하므로, 후보가 `maxLookbackDays` 밖이면 null을 반환해 2027+에서 2026년 말 종가로 stale accept되는 경계 버그를 fail-closed 처리한다. 주말/공휴일 walk-back.
 - **D4 이중 게이트(behavior-neutral).** `resolveRealEntryPrice` 제거 → `resolveEntryPricesKrw(tickers, deps)` 도입. accept 경로 진입 전 게이트: `process.env.PORTFOLIO_REAL_ENTRY_PRICE_ENABLED !== 'true'` → 즉시 `entry_price_unavailable`(현 동작 1:1). flag on이어도 `KRX_OPENAPI_KEY` 부재 → 동일. **둘 다 충족 시에만** 실 fetch. ∴ 머지 후 production 동작 무변경(USER가 flag+key 설정해야 활성). KRX_OPENAPI_KEY가 이미 prod에 있어도 flag 없으면 비활성.
-- **D5 batch + 누락 fail-closed.** 30 ticker를 KOSPI+KOSDAQ 2콜로 한 번에 fetch → merged Map. ticker별 lookup, **하나라도 누락(또는 종가 ≤0) → 전체 accept 거부**(`entry_price_unavailable`). 부분 snapshot 절대 금지(money-path 안전 — 기존 "synthetic price 금지" 주석 정신 유지). 집계행(ticker=null)은 기존대로 entryPrice 0.
+- **D5 batch + 누락 fail-closed.** 30 ticker를 KOSPI+KOSDAQ 2콜로 한 번에 fetch → merged Map. ticker별 lookup, **하나라도 누락(또는 종가 ≤0) → 전체 accept 거부**(`entry_price_unavailable`). 부분 snapshot 절대 금지(money-path 안전 — 기존 "synthetic price 금지" 주석 정신 유지). 집계행(ticker=null)은 기존대로 entryPrice 0. W3a는 6자리 ticker를 **정확히 lookup만** 하며 우선주→보통주 같은 코드 보정/대체를 하지 않는다(보통주 universe 보장은 W2a/Tier0 upstream invariant).
 - **D6 server action 계약 보존.** `acceptShortList`는 `{success,error}` 계약 유지. `buildInitialSnapshots`가 async가 되므로 await. KRX fetch 실패(throw)는 catch → `entry_price_unavailable`(money-path는 throw가 accept 트랜잭션 시작 전에 차단되도록 snapshot build를 RPC 前에 유지 — 기존 구조 그대로). RPC·atomic·gate 무변경.
 
 ## File Structure
 
 **신규:**
-- `tudal/src/lib/data/krx-eod.ts` — `fetchEodCloseMap` + `resolveEntryPricesKrw` + `resolveLatestTradingDay` + `parseKrxClose`(콤마 파서).
+- `tudal/src/lib/data/krx-eod.ts` — `fetchEodCloseMap` + `resolveEntryPricesKrw` + `resolveLatestCompletedTradingDay` + `parseKrxClose`(콤마 파서).
 - `tudal/src/lib/data/__tests__/krx-eod.test.ts`
 
 **수정:**
 - `tudal/src/app/(admin)/admin/portfolio/actions.ts` — `resolveRealEntryPrice` 제거 → `buildInitialSnapshots` async + 이중 게이트 + batch lookup. accept 호출부 await.
-- `tudal/src/app/(admin)/admin/portfolio/__tests__/*.ts` — accept 테스트에 게이트/EOD DI 반영(기존 entry_price_unavailable 테스트는 flag-off 경로로 무회귀).
+- `tudal/src/app/(admin)/admin/portfolio/__tests__/*.ts` — accept 테스트에 게이트/EOD module mock 반영(기존 entry_price_unavailable 테스트는 flag-off 경로로 무회귀).
 - `tudal/.env.example` — `PORTFOLIO_REAL_ENTRY_PRICE_ENABLED`(default off) 문서화.
 
 **무변경(DoD diff):** 마이그 전부 · `admin-approvals.ts`(RPC persist) · `admin-snapshots.ts`(타입) · reader · calendar.ts(loadKrBusinessDays 재사용).
@@ -58,15 +58,12 @@
 
 - [ ] **Step 1: 실패 테스트**
 ```typescript
-import { parseKrxClose, fetchEodCloseMap, resolveLatestTradingDay } from '../krx-eod';
+import { parseKrxClose, fetchEodCloseMap, resolveLatestCompletedTradingDay } from '../krx-eod';
 
-it('parseKrxClose: 콤마 종가 → number / "-"·""·"N/A"·null → null', () => {
+it('parseKrxClose: 콤마 종가 → positive number / invalid·zero·negative → null', () => {
   expect(parseKrxClose('71,200')).toBe(71200);
   expect(parseKrxClose('1500')).toBe(1500);
-  for (const v of ['-', '', 'N/A', null, '0']) {
-    const r = parseKrxClose(v);
-    expect(r === null || r === 0).toBe(true);
-  }
+  for (const v of ['-', '', 'N/A', null, '0', '-10']) expect(parseKrxClose(v)).toBeNull();
 });
 
 it('fetchEodCloseMap: OutBlock_1 → Map<6자리 ISU_CD, 종가>, 빈 블록=빈 Map, AUTH_KEY 헤더 주입', async () => {
@@ -101,22 +98,30 @@ it('fetchEodCloseMap: 4xx 즉시 throw(키 미노출) / 429 backoff 후 성공',
   expect(m.get('035720')).toBe(50000);
 });
 
-it('throw 메시지에 authKey 비노출', async () => {
+it('fetchEodCloseMap: malformed OutBlock_1은 throw하고 authKey 비노출', async () => {
+  await expect(fetchEodCloseMap({ basDd: '20260605', market: 'KOSPI',
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ OutBlock_1: {} }) }), authKey: 'k' }))
+    .rejects.toThrow(/krx_eod_payload_invalid/);
   try {
     await fetchEodCloseMap({ basDd: '20260605', market: 'KOSPI',
       fetchImpl: async () => ({ ok: false, status: 403, json: async () => ({}) }), authKey: 'SUPERSECRET' });
-  } catch (e) { expect(String(e)).not.toContain('SUPERSECRET'); }
+  } catch (e) {
+    expect(String(e)).toContain('krx_eod_fetch_failed');
+    expect(String(e)).not.toContain('SUPERSECRET');
+  }
 });
 
-it('resolveLatestTradingDay: now 이하 최신 영업일 YYYYMMDD (주말 walk-back)', () => {
+it('resolveLatestCompletedTradingDay: KST cutoff·주말 walk-back·stale calendar fail-closed', () => {
   const days = [
     { date: '2026-06-04', isBusinessDay: true, holidayName: null },
     { date: '2026-06-05', isBusinessDay: true, holidayName: null },
     { date: '2026-06-06', isBusinessDay: false, holidayName: '현충일' },
     { date: '2026-06-07', isBusinessDay: false, holidayName: null },
   ];
-  expect(resolveLatestTradingDay(new Date('2026-06-07T05:00:00Z'), days)).toBe('20260605');
-  expect(resolveLatestTradingDay(new Date('2026-06-05T05:00:00Z'), days)).toBe('20260605');
+  expect(resolveLatestCompletedTradingDay(new Date('2026-06-05T05:00:00Z'), days)).toBe('20260604'); // 14:00 KST, close 미완료
+  expect(resolveLatestCompletedTradingDay(new Date('2026-06-05T09:30:00Z'), days)).toBe('20260605'); // 18:30 KST
+  expect(resolveLatestCompletedTradingDay(new Date('2026-06-07T05:00:00Z'), days)).toBe('20260605');
+  expect(resolveLatestCompletedTradingDay(new Date('2027-06-05T05:00:00Z'), days)).toBeNull(); // MOCK_2026 stale guard
 });
 ```
 - [ ] **Step 2: 실패 확인.**
@@ -135,7 +140,7 @@ export type KrxFetchImpl = (url: string, init: { headers: Record<string, string>
 export function parseKrxClose(v: unknown): number | null {
   if (v == null) return null;
   const s = String(v).trim().replace(/,/g, '');
-  if (s === '' || s === '-' || s === 'N/A') return null;
+  if (s === '' || s === '-' || s.toUpperCase() === 'N/A') return null;
   const n = Number(s);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
@@ -148,6 +153,7 @@ export async function fetchEodCloseMap(opts: {
     const r = await fetch(url, init); return { ok: r.ok, status: r.status, json: () => r.json() };
   });
   const sleep = opts.sleepImpl ?? ((ms) => new Promise((res) => setTimeout(res, ms)));
+  if (!opts.authKey.trim()) throw new Error('krx_auth_key_missing');
   const url = `${KRX_GATEWAY}${EP[opts.market]}?basDd=${opts.basDd}`;
   let lastStatus = 0;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -156,14 +162,16 @@ export async function fetchEodCloseMap(opts: {
     catch { if (attempt < MAX_RETRIES - 1) await sleep(1500 * 2 ** attempt); continue; }
     if (res.status === 200) {
       const payload = await res.json();
-      const rows = (payload as { OutBlock_1?: unknown }).OutBlock_1;
+      if (payload == null || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error('krx_eod_payload_invalid:root');
+      }
+      const rows = (payload as { OutBlock_1?: unknown }).OutBlock_1 ?? [];
+      if (!Array.isArray(rows)) throw new Error('krx_eod_payload_invalid:OutBlock_1');
       const map = new Map<string, number>();
-      if (Array.isArray(rows)) {
-        for (const row of rows as Array<Record<string, unknown>>) {
-          const code = String(row.ISU_CD ?? '').trim();
-          const close = parseKrxClose(row.TDD_CLSPRC);
-          if (/^\d{6}$/.test(code) && close !== null) map.set(code, close);
-        }
+      for (const row of rows as Array<Record<string, unknown>>) {
+        const code = String(row.ISU_CD ?? '').trim();
+        const close = parseKrxClose(row.TDD_CLSPRC);
+        if (/^\d{6}$/.test(code) && close !== null) map.set(code, close);
       }
       return map;
     }
@@ -176,10 +184,34 @@ export async function fetchEodCloseMap(opts: {
   throw new Error(`krx_eod_fetch_failed:retries_exhausted:${lastStatus}`);
 }
 
-export function resolveLatestTradingDay(now: Date, days: ReadonlyArray<{ date: string; isBusinessDay: boolean }>): string | null {
-  const todayKst = new Date(now.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-  const candidates = days.filter((d) => d.isBusinessDay && d.date <= todayKst).sort((a, b) => a.date.localeCompare(b.date));
+function kstDateAndHour(now: Date): { date: string; hour: number } {
+  const kst = new Date(now.getTime() + 9 * 3600 * 1000);
+  return { date: kst.toISOString().slice(0, 10), hour: kst.getUTCHours() };
+}
+
+function dayDiff(a: string, b: string): number {
+  return Math.floor((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+function previousIsoDate(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function resolveLatestCompletedTradingDay(
+  now: Date,
+  days: ReadonlyArray<{ date: string; isBusinessDay: boolean }>,
+  opts: { closeReadyHourKst?: number; maxLookbackDays?: number } = {},
+): string | null {
+  const { date: todayKst, hour } = kstDateAndHour(now);
+  const closeReadyHourKst = opts.closeReadyHourKst ?? 18;
+  const maxLookbackDays = opts.maxLookbackDays ?? 14;
+  const todayIsBusinessDay = days.some((d) => d.date === todayKst && d.isBusinessDay);
+  const cutoffDate = todayIsBusinessDay && hour < closeReadyHourKst ? previousIsoDate(todayKst) : todayKst;
+  const candidates = days.filter((d) => d.isBusinessDay && d.date <= cutoffDate).sort((a, b) => a.date.localeCompare(b.date));
   const last = candidates[candidates.length - 1];
+  if (!last || dayDiff(last.date, todayKst) > maxLookbackDays) return null;
   return last ? last.date.replace(/-/g, '') : null;
 }
 
@@ -209,10 +241,12 @@ export async function resolveEntryPricesKrw(
 ```typescript
 it('flag off → entry_price_unavailable (무회귀, KRX 미호출)', ...);  // PORTFOLIO_REAL_ENTRY_PRICE_ENABLED 미설정
 it('flag on + KRX_OPENAPI_KEY 부재 → entry_price_unavailable', ...);
-it('flag on + key + EOD 전 ticker 종가 → snapshot entryPrice 실값 영속', ...);  // DI fetchImpl mock
+it('flag on + key + EOD 전 ticker 종가 → acceptShortlistRpc snapshots entryPrice 실값', ...);  // @/lib/data/krx-eod module mock
 it('flag on + key + 1 ticker 누락 → 전체 entry_price_unavailable (부분 snapshot 금지)', ...);
 it('KRX fetch throw → entry_price_unavailable (accept 트랜잭션 미시작)', ...);
+it('calendar stale/null basDd → entry_price_unavailable (2026 mock 연도경계 방어)', ...);
 ```
+테스트 harness 주의: 기존 `actions.test.ts`의 `@/lib/data/admin-approvals` mock에 `acceptShortlistRpc`를 추가하고, `@/lib/data/krx-eod`(`resolveEntryPricesKrw`, `resolveLatestCompletedTradingDay`)와 `@/lib/portfolio/calendar`(`loadKrBusinessDays`)은 module mock으로 주입한다. Server Action public params에는 test-only DI를 추가하지 않는다.
 - [ ] **Step 2: 실패 확인.**
 - [ ] **Step 3: 구현** — `resolveRealEntryPrice` 제거. `buildInitialSnapshots` async:
 ```typescript
@@ -222,11 +256,11 @@ async function buildInitialSnapshots(input): Promise<{success:true;snapshots}|{s
   if (!authKey) return { success: false, error: 'entry_price_unavailable' };
   let priceMap: Map<string, number>;
   try {
-    const days = await loadKrBusinessDays(/* range */);
-    const basDd = resolveLatestTradingDay(new Date(), days);
+    const now = new Date();
+    const days = await loadKrBusinessDays(new Date(now.getTime() - 14 * 86_400_000), now);
+    const basDd = resolveLatestCompletedTradingDay(now, days);
     if (!basDd) return { success: false, error: 'entry_price_unavailable' };
-    priceMap = await (input.resolveEntryPrices ?? resolveEntryPricesKrw)(
-      input.shortlist.map((s) => s.ticker), { authKey, basDd });
+    priceMap = await resolveEntryPricesKrw(input.shortlist.map((s) => s.ticker), { authKey, basDd });
   } catch { return { success: false, error: 'entry_price_unavailable' }; }
   const snapshots = [];
   for (const item of input.shortlist) {
@@ -238,8 +272,8 @@ async function buildInitialSnapshots(input): Promise<{success:true;snapshots}|{s
   return { success: true, snapshots };
 }
 ```
-`input`에 optional `resolveEntryPrices` DI seam 추가(테스트 mock 주입). acceptShortList 호출부 `await buildInitialSnapshots(...)`.
-- [ ] **Step 4: 통과 확인** — 기존 accept 테스트(flag-off로 무회귀) + 신규 5건.
+acceptShortList 호출부 `await buildInitialSnapshots(...)`. Async 전환 후 snapshot build 실패가 여전히 `acceptShortlistRpc` 호출 전 return되는지 assert한다.
+- [ ] **Step 4: 통과 확인** — 기존 accept 테스트(flag-off로 무회귀) + 신규 6건.
 - [ ] **Step 5: commit** `feat(w3a): buildInitialSnapshots KRX EOD 배선 + flag/key 이중 게이트(behavior-neutral) + batch 누락 fail-closed (D4/D5/D6, TDD)`
 
 ## Task 3: .env.example + 통합 게이트 + DoD
@@ -256,7 +290,7 @@ async function buildInitialSnapshots(input): Promise<{success:true;snapshots}|{s
 
 ## 검증 게이트 (DoD)
 - ALL GREEN + 무변경 diff 0 + resolveRealEntryPrice grep 0.
-- 연결 테스트: accept→EOD DI→snapshot 실 entryPrice 영속(Task 2) + KRX OutBlock_1 parse(Task 1) + flag/key 부재 graceful(Task 2).
+- 연결 테스트: accept→EOD module mock→`acceptShortlistRpc` snapshot 실 entryPrice 영속(Task 2) + KRX OutBlock_1 parse·malformed throw·authKey 비노출(Task 1) + flag/key 부재 graceful + calendar stale fail-closed(Task 2).
 - behavior-neutral: flag-off 머지 = production 무변경(USER가 flag+key 설정해야 활성). 실 KRX 호출 = USER 게이트.
 
 ## Execution Handoff
