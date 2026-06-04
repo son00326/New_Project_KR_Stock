@@ -3,19 +3,17 @@
 // 별도 모듈 분리 — callPersona (anthropic-client.ts)는 200자 argument용 max_tokens 1024.
 //   본 함수는 max_tokens 8192 (Section 0~7 + Appendix 통합 JSON).
 
-import Anthropic from '@anthropic-ai/sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { FULL_REPORT_PROMPT_VERSION } from './prompts/full-report-prompt';
+import { resolveRole } from './model-registry';
 
 // PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — AI client options 2nd arg.
 export interface CallFullReportOptions {
   client?: SupabaseClient;
 }
 
-const MODEL = 'claude-opus-4-7';
-const MAX_TOKENS = 8192;
 const PERSONA_ID = 'full_report_writer';
 
 export interface CallFullReportInput {
@@ -39,43 +37,32 @@ export async function callFullReport(
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ai_key_unavailable');
   }
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  let response;
+  // W0 (65차 D28 ④): writer = Opus 4.8. 모델 하드코딩 제거 — full_report 역할로 registry resolve.
+  const resolved = resolveRole('full_report');
+
+  let result;
   try {
-    response = await client.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: input.systemPrompt,
-      messages: [{ role: 'user', content: input.userPrompt }],
+    result = await resolved.provider.call({
+      model: resolved.model,
+      maxTokens: resolved.maxTokens,
+      systemPrompt: input.systemPrompt,
+      userPrompt: input.userPrompt,
     });
   } catch (err) {
-    // 3-track Track 3 Angle 4 fix (CR-3): underlying Anthropic SDK error를 structured warn으로 capture
+    // 3-track Track 3 Angle 4 fix (CR-3): underlying AI SDK error를 structured warn으로 capture
     // (rate-limit 429 vs auth 401 vs 5xx vs network ECONNRESET 구분 가능). 운영 디버깅성 보강.
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `[callFullReport] anthropic_failed ticker=${input.ticker} month=${input.month} message=${message}`,
+      `[callFullReport] ai_call_failed ticker=${input.ticker} month=${input.month} message=${message}`,
     );
     // P0 #4 fix: callPersona의 일반 LLM 실패 코드와 분리 — 본 함수는 별도 키 throw로 format-error 매핑 정합.
     throw new Error('full_report_llm_failed');
   }
 
-  const text = response.content
-    .filter((c) => c.type === 'text')
-    .map((c) => (c as { type: 'text'; text: string }).text)
-    .join('');
-
-  const usageWithCache = response.usage as typeof response.usage & {
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
-  const usage: TokenUsage = {
-    input_tokens: response.usage.input_tokens ?? 0,
-    cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
-    cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
-    output_tokens: response.usage.output_tokens ?? 0,
-  };
-  const costKrw = calculateCostKrw(usage);
+  const text = result.text;
+  const usage: TokenUsage = result.usage;
+  const costKrw = calculateCostKrw(usage, resolved.pricingKey);
 
   await insertCostLog(
     {
@@ -83,7 +70,7 @@ export async function callFullReport(
       ticker: input.ticker,
       persona_id: PERSONA_ID,
       prompt_version: FULL_REPORT_PROMPT_VERSION,
-      model: MODEL,
+      model: resolved.model,
       ...usage,
       cost_krw: costKrw,
       prompt_cache_enabled: false,

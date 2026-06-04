@@ -1,11 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getPersonaById } from './prompts/personas';
 import { renderUserPrompt } from './prompts/render-user-prompt';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
-
-const MODEL = 'claude-opus-4-7';
+import { resolveRole } from './model-registry';
 
 export interface CallPersonaInput {
   personaId: string;
@@ -42,10 +40,6 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
 
   const promptCacheEnabled = isCacheEnabled();
 
-  const systemBlocks = promptCacheEnabled
-    ? [{ type: 'text' as const, text: persona.systemPrompt, cache_control: { type: 'ephemeral' as const } }]
-    : [{ type: 'text' as const, text: persona.systemPrompt }];
-
   // PR-C: adapter override 우선 (PersonaScore 출력). 미지정 시 persona 기본 템플릿(legacy {vote}).
   const userPrompt = renderUserPrompt(input.userPromptTemplate ?? persona.userPromptTemplate, {
     ticker: input.ticker,
@@ -53,36 +47,26 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
     reflectionContext: input.reflectionContext,
   });
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // W0 (65차 Q3/D28 ①): 모델 하드코딩 제거 — tier1_panel 역할로 registry resolve.
+  //   현행 claude-opus-4-7 유지 (토론 mix 배선은 W1). provider 경유 호출.
+  const resolved = resolveRole('tier1_panel');
 
-  let response;
+  let result;
   try {
-    response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: systemBlocks,
-      messages: [{ role: 'user', content: userPrompt }],
+    result = await resolved.provider.call({
+      model: resolved.model,
+      maxTokens: resolved.maxTokens,
+      systemPrompt: persona.systemPrompt,
+      userPrompt,
+      enablePromptCache: promptCacheEnabled,
     });
   } catch {
     throw new Error('ai_call_failed');
   }
 
-  const text = response.content
-    .filter((c) => c.type === 'text')
-    .map((c) => (c as { type: 'text'; text: string }).text)
-    .join('');
-
-  const usageWithCache = response.usage as typeof response.usage & {
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
-  const usage: TokenUsage = {
-    input_tokens: response.usage.input_tokens ?? 0,
-    cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
-    cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
-    output_tokens: response.usage.output_tokens ?? 0,
-  };
-  const costKrw = calculateCostKrw(usage);
+  const text = result.text;
+  const usage: TokenUsage = result.usage;
+  const costKrw = calculateCostKrw(usage, resolved.pricingKey);
 
   // cost-logger 호출 (성공한 호출만 — orphan 보존을 위해 try/catch 안 함)
   const now = new Date();
@@ -93,7 +77,7 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
       ticker: input.ticker,
       persona_id: persona.id,
       prompt_version: persona.version,
-      model: MODEL,
+      model: resolved.model,
       ...usage,
       cost_krw: costKrw,
       prompt_cache_enabled: promptCacheEnabled,

@@ -50,7 +50,7 @@ describe('callFullReport', () => {
       adminUserId: 'u1',
     });
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'claude-opus-4-7', max_tokens: 8192 }),
+      expect.objectContaining({ model: 'claude-opus-4-8', max_tokens: 8192 }),
     );
     expect(result.content).toBe('{"section_0":{}}');
     expect(result.usage.input_tokens).toBe(1500);
