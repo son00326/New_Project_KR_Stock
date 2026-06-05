@@ -543,6 +543,24 @@ describe("acceptShortList", () => {
     expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
   });
 
+  it("USE flag on + proposal valid + 1 proposal ticker 종가 누락 → entry_price_unavailable (proposal path 부분 snapshot 금지)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockResolvedValue(VALID_PERSISTED);
+    // 000660만 종가 누락(005930만 반환) → buildSnapshotRowsFromProposal throw → 전체 거부.
+    mocks.resolveEntryPricesKrw.mockImplementation(async (tickers: string[]) =>
+      new Map(tickers.filter((t) => t === "005930").map((t) => [t, 71200])),
+    );
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("entry_price_unavailable");
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
   it("USE flag on + 기타 SELECT 실패 → proposal_lookup_failed", async () => {
     stubAcceptEnv();
     vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
