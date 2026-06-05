@@ -142,6 +142,11 @@ export async function upsertProposalRpc(input: {
   if (error) {
     throw normalizeSchemaError(error as PgLikeError, "upsert");
   }
+  // 안전망(no-returning): RPC가 error 없이 id 없는 응답(schema-cache 갱신 지연/RETURNING 누락)을 주면
+  //   영속 성공으로 오인하면 안 됨 — fail-closed. (upsert_report_sections_0_7_admin_failed_no_returning 동형.)
   const result = (data ?? {}) as { id?: string; created_at?: string };
-  return { id: result.id ?? "", createdAt: result.created_at ?? "" };
+  if (!result.id) {
+    throw new Error("proposal_persist_failed:no_returning");
+  }
+  return { id: result.id, createdAt: result.created_at ?? "" };
 }

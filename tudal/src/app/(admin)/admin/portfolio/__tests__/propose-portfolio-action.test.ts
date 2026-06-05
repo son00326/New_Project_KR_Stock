@@ -1,4 +1,5 @@
-// W3b-1 (D26 Q2 / D3) — proposePortfolio admin server action tests.
+// W3b-1/W3b-2a (D26 Q2) — proposePortfolio admin server action tests.
+//   W3b-1 게이트(auth/admin/flag/key/cost-log/shortlist/hardcap/universe) + W3b-2a persist 게이트.
 // invariant:
 //   - input.month MONTH_RE(YYYY-MM-01) 검증 (acceptShortList/portfolio page와 동일).
 //   - getUser → user 없음 → auth_unavailable (AI cost path, dev mock fallback 금지).
