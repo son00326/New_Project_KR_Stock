@@ -62,6 +62,8 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   portfolio_approval_archive_query_failed: "월별 아카이브 조회 실패 (portfolio_approval)",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
+  // W3b-2c (R33 HIGH) — Accept 영속 중 예기치 않은 unique 충돌(스냅샷 스키마 readiness/재진입). already_finalized와 구분.
+  accept_write_conflict: "포트 저장 충돌 — 스키마 상태를 확인하고 다시 시도하세요",
   // acceptShortList/proposePortfolio 공통 — active Short List가 30종목 정확히가 아닐 때(부분/초과).
   shortlist_incomplete: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",

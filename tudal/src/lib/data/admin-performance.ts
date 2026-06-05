@@ -140,6 +140,9 @@ async function fetchTickerRows(): Promise<PortfolioSnapshotRow[]> {
     .from("portfolio_snapshot")
     .select(COLUMNS)
     .not("ticker", "is", null)
+    // W3b-2c (R33 MED1 방어) — per-ticker는 equity 종목만. 0035 CHECK가 is_cash⟹ticker null을 강제하지만
+    //   여기서도 is_cash=false를 명시해 어떤 cash 행도 가중평균에 유입되지 않게 한다(depth-in-defense).
+    .eq("is_cash", false)
     .order("date", { ascending: true });
 
   if (error) {
