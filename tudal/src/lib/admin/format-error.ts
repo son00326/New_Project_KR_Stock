@@ -176,6 +176,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // CRON-REPORT-1 — full-report-batch-worker 인프라 throw codes (admin report-worker 트리거 노출 경로).
   short_list_30_invalid_count: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
   report_batch_worker_failed: "리포트 배치 처리에 실패했습니다 — 잠시 후 다시 시도하세요",
+  // W3b-1 (D26 Q2) — proposePortfolio AI 자율 포트 제안 error codes.
+  proposal_disabled:
+    "AI 포트폴리오 제안이 비활성화되어 있습니다 (운영자: PORTFOLIO_AI_PROPOSAL_ENABLED + ANTHROPIC_API_KEY 확인)",
+  portfolio_proposal_parse_failed: "AI 포트폴리오 제안 응답 해석에 실패했습니다",
+  portfolio_proposal_unknown_ticker:
+    "AI 제안에 이번 달 Short List 밖의 종목이 포함되어 있습니다",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -381,6 +387,11 @@ export function formatErrorMessage(code: string): string {
     code.startsWith("report_job_reset_failed:")
   ) {
     return KOREAN_MAPPINGS["report_batch_worker_failed"];
+  }
+  // W3b-1 (D26 Q2) — parsePortfolioProposal throw는 `portfolio_proposal_parse_failed:<path>` suffix.
+  //   transient/4xx(ai_call_failed*)는 위 ai_call_failed 핸들러가 이미 처리.
+  if (code.startsWith("portfolio_proposal_parse_failed")) {
+    return KOREAN_MAPPINGS["portfolio_proposal_parse_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;

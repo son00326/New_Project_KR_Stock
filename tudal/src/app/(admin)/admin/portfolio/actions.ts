@@ -13,6 +13,12 @@ import {
 import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
+import {
+  callPortfolioProposal,
+  renderPortfolioShortlistSummary,
+  type PortfolioProposal,
+  type PortfolioShortlistItem,
+} from "@/lib/ai/portfolio-proposal-client";
 import type { NewPortfolioSnapshot } from "@/lib/data/admin-snapshots";
 import {
   loadKrBusinessDays,
@@ -760,6 +766,105 @@ export async function triggerFullReport(input: {
         : "orchestrate_full_report_failed",
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// W3b-1 (D26 Q2 / D3) — proposePortfolio admin server action.
+// 선정 30 종목에 대해 AI(Opus 4.8 `portfolio` role)가 편입 여부·종목별 비중·현금(0~30%)을 자율 제안.
+// 게이트 순서: input → getUser(auth_unavailable) → is_admin RPC(admin_required) →
+//   flag(PORTFOLIO_AI_PROPOSAL_ENABLED)+key(ANTHROPIC_API_KEY) 이중(proposal_disabled) →
+//   getActiveShortList(active 30) → callPortfolioProposal → positions ⊆ shortlist 검증.
+// cost burn = admin+flag+key 3중 게이트 후에만 (flag-off는 prod key 존재해도 call/shortlist 미호출 → 비용 0).
+// W3b-1 = proposal 반환만 — DB 영속·Accept·snapshot 무변경(money-path 무접촉, W3b-2에서 통합).
+// UI 미연결이나 server action export로 호출 가능(W3b-3 UI 연결 예정).
+// ---------------------------------------------------------------------------
+export async function proposePortfolio(input: {
+  month: string; // YYYY-MM-01 (acceptShortList/portfolio page와 동일)
+}): Promise<
+  | { success: true; data: { proposal: PortfolioProposal } }
+  | { success: false; error: string }
+> {
+  if (!input || typeof input.month !== "string") {
+    return { success: false, error: "invalid_input" };
+  }
+  if (!MONTH_RE.test(input.month)) {
+    return { success: false, error: "invalid_month" };
+  }
+
+  // AI cost path — dev mock fallback(resolveAdminId) 금지. 실 세션 user만.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) return { success: false, error: "auth_unavailable" };
+
+  // is_admin() RPC 게이트 (triggerFullReport/triggerMonthlyBatch 대칭). error/false 모두 fail-closed.
+  const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
+  if (adminErr || !isAdmin) {
+    return { success: false, error: "admin_required" };
+  }
+
+  // flag+key 이중 게이트(behavior-neutral): 둘 다 충족해야 cost burn. flag-off는 prod key가 있어도
+  //   getActiveShortList/callPortfolioProposal 미호출 → 비용 0. key 부재도 동일(proposal_disabled).
+  if (process.env.PORTFOLIO_AI_PROPOSAL_ENABLED !== "true") {
+    return { success: false, error: "proposal_disabled" };
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return { success: false, error: "proposal_disabled" };
+  }
+
+  let shortlist: ShortListItem[];
+  try {
+    shortlist = await getActiveShortList({
+      month: input.month,
+      client: supabase,
+    });
+  } catch {
+    return { success: false, error: "shortlist_lookup_failed" };
+  }
+  // acceptShortList와 동일 가드 — 부분 리스트(<30)가 제안 universe에 진입하지 않도록 거부.
+  const active = filterActiveShortlist(shortlist);
+  if (active.length < SHORTLIST_TARGET_COUNT) {
+    return { success: false, error: "shortlist_incomplete" };
+  }
+
+  const summary = renderPortfolioShortlistSummary(
+    active.map(
+      (item): PortfolioShortlistItem => ({
+        ticker: item.ticker,
+        name: item.name,
+        consensusBadge: item.consensusBadge ?? null,
+        aiScore: item.aiScore ?? null,
+        winningTimeframe: item.winningTimeframe ?? null,
+        conviction: item.conviction ?? null,
+      }),
+    ),
+  );
+
+  let proposal: PortfolioProposal;
+  try {
+    proposal = await callPortfolioProposal({
+      month: input.month.slice(0, 7), // cost_log/prompt month = YYYY-MM
+      shortlistSummary: summary,
+      adminUserId: user.id,
+      costClient: supabase,
+    });
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "ai_call_failed",
+    };
+  }
+
+  // D2 — positions ⊆ 입력(active shortlist) ticker. schema는 universe를 모르므로 caller가 검증.
+  const universe = new Set(active.map((item) => item.ticker));
+  for (const position of proposal.positions) {
+    if (!universe.has(position.ticker)) {
+      return { success: false, error: "portfolio_proposal_unknown_ticker" };
+    }
+  }
+
+  return { success: true, data: { proposal } };
 }
 
 // ---------------------------------------------------------------------------
