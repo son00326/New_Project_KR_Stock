@@ -205,11 +205,11 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-05 69차 W3b-2a PR #98 merge main `c1ee610` + docs-sync `05f70ca` 또는 자손). |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-05 69차 W3b-2b PR #99 merge main `96c91b5` + docs-sync `af0cbf3` 또는 자손). |
 | **W0 (66차)** | ✅ **MERGED** (PR #86 rebase FF + delete-branch). LlmProvider + model-registry 7 role + openai@6.42 + hardcap 50만 + D28 비용가드 3종 + projection 350,167 ≤ 50만 + `cost_hardcap_exceeded` rename. omxy R1~R4 CONVERGED(11 catch). 잔여 = smoke 실행만(USER 선택). **다음 = W2a ✅(PR #89).** |
 | PR5 | ✅ **MERGED** (PR #60 rebase FF + delete-branch). cron monthly-batch report-only worker + 마이그 0027. cron **dormant**(`PR5_CRON_AUTO_ENABLED` 미설정 → spend 0), 실 가동 = USER 게이트. |
 | OPEN PRs | **#2**(format-error, CONFLICTING 보류) only. PR #19~#76 + PR #79 + canonical 5-PR 모두 반영/머지(상세 git log). |
-| 검증 게이트 (main, 2026-06-05 69차 W3b-2a PR #98 main `c1ee610`) | build 26 routes / lint 0 err 0 warn / **test:ci 1866 PASS + 2 skipped / 154+1 files** / tsc clean. |
+| 검증 게이트 (main, 2026-06-05 69차 W3b-2b PR #99 main `96c91b5`) | build 26 routes / lint 0 err 0 warn / **test:ci 1880 PASS + 2 skipped / 155+1 files** / tsc clean. |
 | **W2a (67차)** | ✅ **MERGED** (PR #89 rebase FF). 주간/월간 트랙 split + rolling composite. selection-period(period_key s:월요일/m:YYYY-MM) + makeTier1ScreeningResultSchema(track) + upsertShortListTrack + 마이그 0031 재작성(replace_shortlist_track/carry_short_into_month RPC, **production applied 67차**) + selection-worker due-gate + 소비자 <30 가드. omxy plan R1~R5(22 catch)+impl R1~R2 CONVERGED. **다음 = W2b ✅(PR #91).** |
 | **W2b (68차)** | ✅ **MERGED** (PR #91 rebase FF + delete-branch, main `ff32dbd`). D27 Q5 incumbent thesis 재점검 — fresh∪incumbent union(무심사 탈락 금지) + pool range gate + per-ticker thesis context(reflectionContext per-call) + delta hold/new 실계산 + incumbent-only meta fallback + 옛 단발 cron 스케줄 제거. **마이그 0·RPC 무변경·reader 무변경.** omxy plan R1~R2 + impl R3 CONVERGED(Claude counter-catch 1 포함). **다음 = W1a ✅(PR #92+#93) → W1b.** |
 | **W1a (68차)** | ✅ **MERGED** (PR #92 rebase FF + 배선감사 fix PR #93, main `d032034`). D28 mix(Sonnet×6+GPT×5 interleave + per-slot binding + cost_log per-slot model) + R2 선택적 반박 라운드(computeR2Targets 경계±5∪분산>0 20% → round=2 jobs → makeCallDebatePanel → pickFinalPanels R2 우선) + **마이그 0032 dormant**(USER apply 게이트) + transient retry classifier + worst-slot reservation. 0031 RPC·reader·consensus·W2b 모듈 무변경. omxy plan R6 + impl R7 + blind R8 CONVERGED. **다음(당시 기준) = W1b(judge/dual-judge).** |
@@ -377,7 +377,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
 
-> ⚠️ **본 §6은 과거 세션 완료 기록(history).** 각 entry의 "다음: PR-G ⓑ …" 표현은 **해당 차수 당시 기준**이며, **현재 1순위는 상단 ⭐ MVP 엔진 W0✅→W2a✅→W2b✅→W1a✅→W1b✅→W3a✅→W3b-1✅→W3b-2a✅→W3b-2b 중 W3b-2b** (PR-G ⓑ는 W0~W3로 superseded·코드 자산 재사용). 과거 행은 역사로 보존하며 개별 정정하지 않는다.
+> ⚠️ **본 §6은 과거 세션 완료 기록(history).** 각 entry의 "다음: PR-G ⓑ …" 표현은 **해당 차수 당시 기준**이며, **현재 1순위는 상단 ⭐ MVP 엔진 W0✅→W2a✅→W2b✅→W1a✅→W1b✅→W3a✅→W3b-1✅→W3b-2a✅→W3b-2b✅→W3b-3 중 W3b-3(또는 W3b-2c 선택)** (PR-G ⓑ는 W0~W3로 superseded·코드 자산 재사용). 과거 행은 역사로 보존하며 개별 정정하지 않는다.
 
 ### W3a — entry_price 실배선 (KRX EOD 종가) (68차, 2026-06-05, PR #96 + 배선 LOW fix MERGED)
 
