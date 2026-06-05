@@ -49,7 +49,7 @@
 ---
 
 ## Task 0: 착수 가드
-- [ ] Step 1: branch `feat/w3b1-portfolio-proposal-client` + main 게이트 1812+2skip 기준 분기.
+- [ ] Step 1: branch `feat/w3b1-portfolio-proposal-client` + main 게이트(W3a post-merge baseline) 기준 분기.
 - [ ] Step 2: `extractJsonObject` export 확인(`tudal/src/lib/screening/persona-panel-adapter.ts`) — 재사용 가능.
 
 ## Task 1: portfolio-proposal-client.ts (TDD)
