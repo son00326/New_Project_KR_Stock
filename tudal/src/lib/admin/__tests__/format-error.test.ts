@@ -113,6 +113,9 @@ const KNOWN_ACTION_CODES = [
   // W3b-2a — portfolio_proposal 영속
   "proposal_schema_missing",
   "proposal_persist_failed",
+  // W3b-2b — Accept proposal 소비
+  "proposal_stale_for_month",
+  "proposal_lookup_failed",
 ];
 
 describe("formatErrorMessage", () => {

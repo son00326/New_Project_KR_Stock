@@ -19,8 +19,10 @@ import {
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import {
   assertProposalPersistenceReady,
+  getProposalByMonth,
   upsertProposalRpc,
 } from "@/lib/data/admin-proposals";
+import { buildSnapshotRowsFromProposal } from "@/lib/portfolio/proposal-snapshots";
 import {
   callPortfolioProposal,
   renderPortfolioShortlistSummary,
@@ -187,6 +189,9 @@ async function buildInitialSnapshots(input: {
   month: string;
   acceptDate: string;
   shortlist: ShortListItem[];
+  // W3b-2b — proposal 있으면 snapshot을 proposal.positions(편입 종목만) + proposal weight로 구성.
+  //   없으면(flag-off/미존재/fallback) 현 shortlist.suggestedWeight 경로 1:1(behavior-neutral).
+  proposal?: PortfolioProposal | null;
 }): Promise<
   | { success: true; snapshots: NewPortfolioSnapshot[] }
   | { success: false; error: "entry_price_unavailable" }
@@ -200,6 +205,12 @@ async function buildInitialSnapshots(input: {
   if (!authKey) {
     return { success: false, error: "entry_price_unavailable" };
   }
+
+  // W3b-2b — entry_price fetch scope는 proposal-aware: proposal 있으면 편입 종목만(비편입 stale가 spurious
+  //   거부 유발 안 함), 없으면 전체 shortlist(현 동작).
+  const tickersToPrice = input.proposal
+    ? input.proposal.positions.map((p) => p.ticker)
+    : input.shortlist.map((s) => s.ticker);
 
   // 최신 완료 거래일 KOSPI+KOSDAQ 종가 1배치. fetch throw는 catch → entry_price_unavailable
   //   (snapshot build는 RPC 前이라 accept 트랜잭션 미시작 — money-path 안전).
@@ -217,12 +228,24 @@ async function buildInitialSnapshots(input: {
     if (!basDd) {
       return { success: false, error: "entry_price_unavailable" };
     }
-    priceMap = await resolveEntryPricesKrw(
-      input.shortlist.map((s) => s.ticker),
-      { authKey, basDd },
-    );
+    priceMap = await resolveEntryPricesKrw(tickersToPrice, { authKey, basDd });
   } catch {
     return { success: false, error: "entry_price_unavailable" };
+  }
+
+  // W3b-2b — proposal 경로: 편입 종목만 + proposal weight. 누락 entry_price → 전체 거부(helper throw).
+  if (input.proposal) {
+    try {
+      const snapshots = buildSnapshotRowsFromProposal({
+        positions: input.proposal.positions,
+        priceMap,
+        month: input.month,
+        acceptDate: input.acceptDate,
+      });
+      return { success: true, snapshots };
+    } catch {
+      return { success: false, error: "entry_price_unavailable" };
+    }
   }
 
   const snapshots: NewPortfolioSnapshot[] = [];
@@ -268,6 +291,49 @@ async function buildInitialSnapshots(input: {
   });
 
   return { success: true, snapshots };
+}
+
+// ---------------------------------------------------------------------------
+// W3b-2b (D2/D3/D6) — Accept 시점 proposal 로드(money-path).
+//   PORTFOLIO_USE_PROPOSAL_ENABLED off → null(현 suggestedWeight 경로 1:1).
+//   0034 미적용(proposal_schema_missing) / proposal row 부재(null) → null fallback(기존 Accept 무브릭).
+//   row 존재 but stale(positions ⊄ 현 active) → proposal_stale_for_month reject.
+//   row 오염(portfolio_proposal_parse_failed) → reject. 기타 SELECT 실패 → proposal_lookup_failed reject.
+//   getProposalByMonth raw throw가 acceptShortList {success,error} contract를 깨지 않도록 전부 catch.
+// ---------------------------------------------------------------------------
+async function loadProposalForAccept(
+  month: string,
+  activeTickers: Set<string>,
+): Promise<
+  | { ok: true; proposal: PortfolioProposal | null }
+  | { ok: false; error: string }
+> {
+  if (process.env.PORTFOLIO_USE_PROPOSAL_ENABLED !== "true") {
+    return { ok: true, proposal: null };
+  }
+  let persisted: Awaited<ReturnType<typeof getProposalByMonth>>;
+  try {
+    persisted = await getProposalByMonth({ month });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg === "proposal_schema_missing") {
+      return { ok: true, proposal: null }; // 0034 미적용 → fallback(behavior-neutral, Accept 무브릭).
+    }
+    if (msg.startsWith("portfolio_proposal_parse_failed")) {
+      return { ok: false, error: msg }; // 오염 row → reject(silent 오중 weight 금지).
+    }
+    return { ok: false, error: "proposal_lookup_failed" };
+  }
+  if (!persisted) {
+    return { ok: true, proposal: null }; // row 부재 → fallback.
+  }
+  // stale: proposal 종목이 현 active shortlist에 모두 있어야(생성 후 re-screening 가능). 위반 → orphan 배분 차단.
+  for (const pos of persisted.proposal.positions) {
+    if (!activeTickers.has(pos.ticker)) {
+      return { ok: false, error: "proposal_stale_for_month" };
+    }
+  }
+  return { ok: true, proposal: persisted.proposal };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,11 +403,23 @@ export async function acceptShortList(params: {
   // body is a single transaction, so an exception (including unique_violation
   // re-raise on the snapshot side) auto-rollbacks. This removes the orphan
   // approval risk (G-1) that existed when the two writes ran sequentially.
+  // W3b-2b (D2/D3/D6) — proposal 소비. flag-off/미존재/0034 미적용 → null(fallback, suggestedWeight 1:1).
+  //   present-but-stale → proposal_stale_for_month, corrupted → parse_failed, SELECT 실패 → proposal_lookup_failed.
+  const activeShortlist = filterActiveShortlist(shortlist);
+  const proposalLoad = await loadProposalForAccept(
+    month,
+    new Set(activeShortlist.map((s) => s.ticker)),
+  );
+  if (!proposalLoad.ok) {
+    return { success: false, error: proposalLoad.error };
+  }
+
   const acceptDate = new Date().toISOString().slice(0, 10);
   const snapshotPlan = await buildInitialSnapshots({
     month,
     acceptDate,
-    shortlist: filterActiveShortlist(shortlist),
+    shortlist: activeShortlist,
+    proposal: proposalLoad.proposal,
   });
   if (!snapshotPlan.success) {
     return { success: false, error: snapshotPlan.error };

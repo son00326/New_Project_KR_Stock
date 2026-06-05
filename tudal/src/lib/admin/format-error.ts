@@ -188,6 +188,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   proposal_schema_missing:
     "포트폴리오 제안 저장 스키마가 적용되지 않았습니다 (운영자: 마이그 0034 apply 확인)",
   proposal_persist_failed: "AI 포트폴리오 제안 저장에 실패했습니다 — 잠시 후 다시 시도하세요",
+  // W3b-2b — Accept가 영속 proposal 소비 시.
+  proposal_stale_for_month:
+    "이번 달 포트 제안의 종목이 현재 Short List와 맞지 않습니다 — 제안을 다시 생성해주세요",
+  proposal_lookup_failed: "포트폴리오 제안 조회에 실패했습니다 — 잠시 후 다시 시도하세요",
 };
 
 export function formatErrorMessage(code: string): string {
