@@ -171,4 +171,13 @@ describe("upsertProposalRpc", () => {
       upsertProposalRpc({ month: "2026-06-01", proposal: VALID_PROPOSAL, model: "m", client }),
     ).rejects.toThrow("proposal_persist_failed:23514");
   });
+
+  it("error 없이 data null/ id 누락 → proposal_persist_failed:no_returning (영속 성공 오인 방지)", async () => {
+    for (const data of [null, {}, { created_at: "2026-06-05T00:00:00Z" }]) {
+      const { client } = makeRpcClient({ data, error: null });
+      await expect(
+        upsertProposalRpc({ month: "2026-06-01", proposal: VALID_PROPOSAL, model: "m", client }),
+      ).rejects.toThrow("proposal_persist_failed:no_returning");
+    }
+  });
 });

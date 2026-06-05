@@ -777,15 +777,17 @@ export async function triggerFullReport(input: {
 }
 
 // ---------------------------------------------------------------------------
-// W3b-1 (D26 Q2 / D3) — proposePortfolio admin server action.
+// W3b-1/W3b-2a (D26 Q2) — proposePortfolio admin server action.
 // 선정 30 종목에 대해 AI(Opus 4.8 `portfolio` role)가 편입 여부·종목별 비중·현금(0~30%)을 자율 제안.
-// 게이트 순서(R19 omxy fix 반영): input → getUser(auth_unavailable) → is_admin RPC(admin_required) →
+// 게이트 순서(R19/W3b-2a 반영): input → getUser(auth_unavailable) → is_admin RPC(admin_required) →
 //   flag(PORTFOLIO_AI_PROPOSAL_ENABLED)+key(ANTHROPIC_API_KEY) 이중(proposal_disabled) →
-//   isCostLoggingEnabled(cost_logging_disabled) → getActiveShortList(active exact 30, else shortlist_incomplete) →
-//   preflightHardcap(cost_hardcap_exceeded) → callPortfolioProposal → positions ⊆ shortlist 검증.
+//   isCostLoggingEnabled(cost_logging_disabled) → [persist-on이면 assertProposalPersistenceReady preflight,
+//   schema-missing 시 AI 호출 0] → getActiveShortList(active exact 30, else shortlist_incomplete) →
+//   preflightHardcap(cost_hardcap_exceeded) → callPortfolioProposal → positions ⊆ shortlist 검증 →
+//   [persist-on이면 upsertProposalRpc → proposalId].
 // cost burn = admin+flag+key+logging+hardcap 모두 통과 후에만 (어느 게이트든 실패 시 call/shortlist 미호출 → 비용 0).
-// W3b-1 = proposal 반환만 — DB 영속·Accept·snapshot 무변경(money-path 무접촉, W3b-2에서 통합).
-// UI 미연결이나 server action export로 호출 가능(W3b-3 UI 연결 예정).
+// W3b-1 = proposal 생성·반환 / W3b-2a = persist 게이트(PORTFOLIO_PROPOSAL_PERSIST_ENABLED, default off=영속 0).
+//   **Accept·snapshot·0016 RPC 무변경**(money-path 무접촉) — Accept 통합은 W3b-2b, UI는 W3b-3.
 // ---------------------------------------------------------------------------
 export async function proposePortfolio(input: {
   month: string; // YYYY-MM-01 (acceptShortList/portfolio page와 동일)
