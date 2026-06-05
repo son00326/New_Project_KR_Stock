@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   resolveEntryPricesKrw: vi.fn(),
   loadKrBusinessDays: vi.fn(),
   acceptShortlistRpc: vi.fn(),
+  // W3b-2b: proposal 소비(getProposalByMonth). 기본 null(미존재 → suggestedWeight fallback).
+  getProposalByMonth: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -38,6 +40,14 @@ vi.mock("@/lib/data/admin-approvals", () => ({
 
 vi.mock("@/lib/data/admin-snapshots", () => ({
   insertPortfolioSnapshots: mocks.insertPortfolioSnapshots,
+}));
+
+// W3b-2b — admin-proposals mock(getProposalByMonth만 acceptShortList가 소비). assert/upsert는 proposePortfolio
+//   전용이라 본 파일 미사용이나 모듈 mock 완전성 위해 stub. buildSnapshotRowsFromProposal은 real(pure).
+vi.mock("@/lib/data/admin-proposals", () => ({
+  getProposalByMonth: (...a: unknown[]) => mocks.getProposalByMonth(...a),
+  assertProposalPersistenceReady: vi.fn(),
+  upsertProposalRpc: vi.fn(),
 }));
 
 vi.mock("@/lib/data/admin-report-view-log", () => ({
@@ -122,6 +132,8 @@ beforeEach(async () => {
     approvalId: "33333333-3333-3333-3333-333333333333",
     isFinal: true,
   });
+  // W3b-2b: 기본 proposal 미존재(null) → suggestedWeight fallback(USE flag off 시엔 호출도 안 됨).
+  mocks.getProposalByMonth.mockResolvedValue(null);
   // Mock cleanup Step 1.3: 기본 = 게이트 통과 (대표 5종 모두 2인 열람 충족) — 기존 mock seed 동등.
   // 게이트 차단 케이스는 per-test override.
   mocks.getDistinctViewerCountsByTicker.mockResolvedValue(
@@ -397,6 +409,152 @@ describe("acceptShortList", () => {
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("entry_price_unavailable");
     expect(mocks.resolveEntryPricesKrw).not.toHaveBeenCalled();
+  });
+
+  // ---- W3b-2b: Accept가 영속 proposal weight로 snapshot 구성 (money-path) ----
+  // 공통: entry_price flag+key on(snapshot은 항상 entry_price 필요), resolveEntryPricesKrw는 요청 ticker에 가격.
+  function stubAcceptEnv() {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    vi.stubEnv("PORTFOLIO_REAL_ENTRY_PRICE_ENABLED", "true");
+    vi.stubEnv("KRX_OPENAPI_KEY", "krx-test-key");
+    mocks.resolveEntryPricesKrw.mockImplementation(async (tickers: string[]) =>
+      new Map(tickers.map((t) => [t, 71200])),
+    );
+  }
+  const VALID_PERSISTED = {
+    id: "prop-1",
+    month: "2026-04-01",
+    model: "claude-opus-4-8",
+    createdBy: "admin-test-1",
+    createdAt: "2026-04-19T00:00:00.000Z",
+    updatedAt: "2026-04-19T00:00:00.000Z",
+    proposal: {
+      positions: [
+        { ticker: "005930", weight: 0.6, timeframe: "long" as const },
+        { ticker: "000660", weight: 0.2, timeframe: "mid" as const },
+      ],
+      cashWeight: 0.2,
+      rationale_kr: "반도체 집중 + 현금 20%",
+    },
+  };
+
+  it("USE flag off(default) → getProposalByMonth 미호출 + suggestedWeight 경로(전체 shortlist snapshot)", async () => {
+    stubAcceptEnv();
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+    expect(mocks.getProposalByMonth).not.toHaveBeenCalled();
+    // suggestedWeight 경로 = 전체 active shortlist(>2종) snapshot.
+    const equity = mocks.acceptShortlistRpc.mock.calls[0][0].snapshots.filter(
+      (s: { ticker: string | null }) => s.ticker !== null,
+    );
+    expect(equity.length).toBeGreaterThan(2);
+  });
+
+  it("USE flag on + proposal valid(positions⊆active) → proposal weight snapshot(편입 종목만 + aggregate)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockResolvedValue(VALID_PERSISTED);
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+    expect(mocks.getProposalByMonth).toHaveBeenCalledWith({ month: "2026-04-01" });
+    const snaps = mocks.acceptShortlistRpc.mock.calls[0][0].snapshots;
+    const equity = snaps.filter((s: { ticker: string | null }) => s.ticker !== null);
+    // 편입 2종목만(+aggregate) — 전체 shortlist 아님.
+    expect(equity).toHaveLength(2);
+    const s = equity.find((r: { ticker: string }) => r.ticker === "005930");
+    expect(s.weight).toBe(0.6); // proposal weight (suggestedWeight 아님)
+    const agg = snaps.find((r: { ticker: string | null }) => r.ticker === null);
+    expect(agg.weight).toBe(1);
+    // entry_price fetch는 proposal 종목만(2개) 요청.
+    expect(mocks.resolveEntryPricesKrw.mock.calls[0][0]).toEqual(["005930", "000660"]);
+  });
+
+  it("USE flag on + getProposalByMonth null → suggestedWeight fallback(success, 무브릭)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockResolvedValue(null);
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+    const equity = mocks.acceptShortlistRpc.mock.calls[0][0].snapshots.filter(
+      (s: { ticker: string | null }) => s.ticker !== null,
+    );
+    expect(equity.length).toBeGreaterThan(2); // 전체 shortlist
+  });
+
+  it("USE flag on + 0034 미적용(proposal_schema_missing throw) → suggestedWeight fallback(기존 Accept 무브릭)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockRejectedValue(new Error("proposal_schema_missing"));
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true); // fail-closed 아님 — fallback
+    expect(mocks.acceptShortlistRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("USE flag on + proposal stale(positions⊄active) → proposal_stale_for_month (accept 미시작)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockResolvedValue({
+      ...VALID_PERSISTED,
+      proposal: {
+        ...VALID_PERSISTED.proposal,
+        positions: [{ ticker: "999999", weight: 1, timeframe: "long" as const }], // shortlist 밖
+      },
+    });
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("proposal_stale_for_month");
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
+  it("USE flag on + proposal 오염(parse_failed throw) → reject(raw throw 금지)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockRejectedValue(
+      new Error("portfolio_proposal_parse_failed:cashWeight"),
+    );
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/portfolio_proposal_parse_failed/);
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
+  });
+
+  it("USE flag on + 기타 SELECT 실패 → proposal_lookup_failed", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    mocks.getProposalByMonth.mockRejectedValue(new Error("proposal_persist_failed:42501"));
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("proposal_lookup_failed");
+    expect(mocks.acceptShortlistRpc).not.toHaveBeenCalled();
   });
 
   // W2a Task 9.5 (R4 HIGH-3): mixed-cadence(오래된 mid + now() refresh short)에서 쿨다운 anchor가
