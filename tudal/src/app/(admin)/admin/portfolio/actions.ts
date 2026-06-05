@@ -12,8 +12,15 @@ import {
 } from "@/lib/data/admin-approvals";
 import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { isCostLoggingEnabled, preflightHardcap } from "@/lib/cost/cost-logger";
-import { getRoleWorstCaseMaxCostPerCallKrw } from "@/lib/ai/model-registry";
+import {
+  getRoleWorstCaseMaxCostPerCallKrw,
+  resolveRole,
+} from "@/lib/ai/model-registry";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
+import {
+  assertProposalPersistenceReady,
+  upsertProposalRpc,
+} from "@/lib/data/admin-proposals";
 import {
   callPortfolioProposal,
   renderPortfolioShortlistSummary,
@@ -783,7 +790,7 @@ export async function triggerFullReport(input: {
 export async function proposePortfolio(input: {
   month: string; // YYYY-MM-01 (acceptShortList/portfolio page와 동일)
 }): Promise<
-  | { success: true; data: { proposal: PortfolioProposal } }
+  | { success: true; data: { proposal: PortfolioProposal; proposalId?: string } }
   | { success: false; error: string }
 > {
   if (!input || typeof input.month !== "string") {
@@ -820,6 +827,21 @@ export async function proposePortfolio(input: {
   //   hardcap fail-open(무제한 burn). flag=true인데 logging off면 실호출 전 차단.
   if (!isCostLoggingEnabled()) {
     return { success: false, error: "cost_logging_disabled" };
+  }
+
+  // W3b-2a (D4) — persist 게이트. flag-on이면 AI 비용 발생 전(getActiveShortList/preflight/call 前)
+  //   schema-ready preflight로 0034 미적용을 fail-closed → 유료 제안 유실 방지(AI 호출 0회).
+  const shouldPersist =
+    process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED === "true";
+  if (shouldPersist) {
+    try {
+      await assertProposalPersistenceReady({ client: supabase });
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "proposal_schema_missing",
+      };
+    }
   }
 
   const monthYm = input.month.slice(0, 7); // cost_log/prompt month = YYYY-MM
@@ -895,7 +917,30 @@ export async function proposePortfolio(input: {
     }
   }
 
-  return { success: true, data: { proposal } };
+  // W3b-2a (D4) — persist(영속). flag-on이면 생성된 proposal을 upsert. post-AI 영속 실패는 fail-closed
+  //   (D5 정책 — 비영속 proposal을 success로 노출 금지). flag-off=영속 0(W3b-1 1:1, proposalId 없음).
+  let proposalId: string | undefined;
+  if (shouldPersist) {
+    try {
+      const result = await upsertProposalRpc({
+        month: input.month, // 테이블 month=date(YYYY-MM-01) — cost_log의 monthYm(YYYY-MM)과 구분.
+        proposal,
+        model: resolveRole("portfolio").model, // callPortfolioProposal과 동일 SoT(하드코딩 금지).
+        client: supabase,
+      });
+      proposalId = result.id;
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "proposal_persist_failed",
+      };
+    }
+  }
+
+  return {
+    success: true,
+    data: proposalId ? { proposal, proposalId } : { proposal },
+  };
 }
 
 // ---------------------------------------------------------------------------

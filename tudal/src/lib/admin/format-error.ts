@@ -184,6 +184,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   portfolio_proposal_parse_failed: "AI 포트폴리오 제안 응답 해석에 실패했습니다",
   portfolio_proposal_unknown_ticker:
     "AI 제안에 이번 달 Short List 밖의 종목이 포함되어 있습니다",
+  // W3b-2a (D2/D5) — portfolio_proposal 영속.
+  proposal_schema_missing:
+    "포트폴리오 제안 저장 스키마가 적용되지 않았습니다 (운영자: 마이그 0034 apply 확인)",
+  proposal_persist_failed: "AI 포트폴리오 제안 저장에 실패했습니다 — 잠시 후 다시 시도하세요",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -394,6 +398,10 @@ export function formatErrorMessage(code: string): string {
   //   transient/4xx(ai_call_failed*)는 위 ai_call_failed 핸들러가 이미 처리.
   if (code.startsWith("portfolio_proposal_parse_failed")) {
     return KOREAN_MAPPINGS["portfolio_proposal_parse_failed"];
+  }
+  // W3b-2a — 영속 실패는 `proposal_persist_failed:<pg-code>` suffix 동반.
+  if (code.startsWith("proposal_persist_failed")) {
+    return KOREAN_MAPPINGS["proposal_persist_failed"];
   }
   // 한국어가 이미 포함된 메시지(credentials lib 등)는 그대로 통과.
   if (/[가-힣]/.test(code)) return code;
