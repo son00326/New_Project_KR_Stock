@@ -19,6 +19,8 @@ const {
   callProposalMock,
   isCostLoggingMock,
   preflightMock,
+  assertReadyMock,
+  upsertProposalMock,
   SESSION_CLIENT,
 } = vi.hoisted(() => {
   const getUserMock = vi.fn();
@@ -30,6 +32,8 @@ const {
     callProposalMock: vi.fn(),
     isCostLoggingMock: vi.fn(),
     preflightMock: vi.fn(),
+    assertReadyMock: vi.fn(),
+    upsertProposalMock: vi.fn(),
     SESSION_CLIENT: { auth: { getUser: getUserMock }, rpc: rpcMock },
   };
 });
@@ -44,6 +48,11 @@ vi.mock("@/lib/data/admin-shortlist", () => ({
 vi.mock("@/lib/cost/cost-logger", () => ({
   isCostLoggingEnabled: isCostLoggingMock,
   preflightHardcap: preflightMock,
+}));
+// W3b-2a — portfolio_proposal 영속 helper.
+vi.mock("@/lib/data/admin-proposals", () => ({
+  assertProposalPersistenceReady: assertReadyMock,
+  upsertProposalRpc: upsertProposalMock,
 }));
 // callPortfolioProposal만 mock — renderPortfolioShortlistSummary는 real(액션이 실제 요약 빌드).
 vi.mock("@/lib/ai/portfolio-proposal-client", async (importOriginal) => {
@@ -107,8 +116,13 @@ beforeEach(() => {
   isCostLoggingMock.mockReturnValue(true);
   preflightMock.mockReset();
   preflightMock.mockResolvedValue({ currentTotal: 0, reservation: 1, remaining: 499999 });
+  assertReadyMock.mockReset();
+  assertReadyMock.mockResolvedValue(undefined);
+  upsertProposalMock.mockReset();
+  upsertProposalMock.mockResolvedValue({ id: "prop-1", createdAt: "2026-06-05T00:00:00Z" });
   process.env.PORTFOLIO_AI_PROPOSAL_ENABLED = "true";
   process.env.ANTHROPIC_API_KEY = "sk-test";
+  delete process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED; // default off (W3b-1 동작)
 });
 
 describe("proposePortfolio", () => {
@@ -192,6 +206,49 @@ describe("proposePortfolio", () => {
     expect(pf[0].month).toBe("2026-06");
     expect(pf[0].lines).toHaveLength(1);
     expect(pf[1]).toEqual({ client: SESSION_CLIENT });
+    // W3b-2a — persist flag off(default) → 영속 helper 미호출 (W3b-1 동작 1:1).
+    expect(assertReadyMock).not.toHaveBeenCalled();
+    expect(upsertProposalMock).not.toHaveBeenCalled();
+  });
+
+  it("W3b-2a — persist flag on → assertReady(AI 前) + upsertProposalRpc 후 data.proposalId 반환", async () => {
+    process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED = "true";
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({
+      success: true,
+      data: { proposal: VALID_PROPOSAL, proposalId: "prop-1" },
+    });
+    expect(assertReadyMock).toHaveBeenCalledWith({ client: SESSION_CLIENT });
+    expect(upsertProposalMock).toHaveBeenCalledTimes(1);
+    const up = upsertProposalMock.mock.calls[0][0] as {
+      month: string;
+      proposal: unknown;
+      model: string;
+      client: unknown;
+    };
+    expect(up.month).toBe("2026-06-01"); // 테이블 month=date(YYYY-MM-01), cost_log YYYY-MM과 구분
+    expect(up.proposal).toEqual(VALID_PROPOSAL);
+    expect(up.model).toBe("claude-opus-4-8"); // resolveRole('portfolio').model
+    expect(up.client).toBe(SESSION_CLIENT);
+  });
+
+  it("W3b-2a — persist on + assertReady throw(schema missing) → proposal_schema_missing + AI 호출 0", async () => {
+    process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED = "true";
+    assertReadyMock.mockRejectedValueOnce(new Error("proposal_schema_missing"));
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: false, error: "proposal_schema_missing" });
+    // 유료 제안 유실 방지 — assertReady가 AI 호출 前이라 callPortfolioProposal/preflight 0.
+    expect(callProposalMock).not.toHaveBeenCalled();
+    expect(preflightMock).not.toHaveBeenCalled();
+    expect(upsertProposalMock).not.toHaveBeenCalled();
+  });
+
+  it("W3b-2a — persist on + post-AI upsert throw(persist_failed) → fail-closed (callPortfolioProposal 1회)", async () => {
+    process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED = "true";
+    upsertProposalMock.mockRejectedValueOnce(new Error("proposal_persist_failed:23514"));
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: false, error: "proposal_persist_failed:23514" });
+    expect(callProposalMock).toHaveBeenCalledTimes(1); // AI는 이미 호출됨(정책상 fail-closed)
   });
 
   it("R19 HIGH — cost logging off → cost_logging_disabled (shortlist/preflight/call 미호출)", async () => {

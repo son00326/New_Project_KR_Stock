@@ -110,6 +110,9 @@ const KNOWN_ACTION_CODES = [
   "proposal_disabled",
   "portfolio_proposal_parse_failed",
   "portfolio_proposal_unknown_ticker",
+  // W3b-2a — portfolio_proposal 영속
+  "proposal_schema_missing",
+  "proposal_persist_failed",
 ];
 
 describe("formatErrorMessage", () => {
@@ -180,6 +183,17 @@ describe("formatErrorMessage", () => {
         // raw path suffix(positions 등 영문)가 운영자 메시지에 새지 않는다.
         expect(msg).not.toContain("positions");
       }
+    });
+
+    it("W3b-2a suffix handler — proposal_persist_failed:<pg-code> (raw code 노출 금지)", () => {
+      for (const code of ["proposal_persist_failed:23514", "proposal_persist_failed:42501"]) {
+        const msg = formatErrorMessage(code);
+        expect(msg).toBe("AI 포트폴리오 제안 저장에 실패했습니다 — 잠시 후 다시 시도하세요");
+        expect(msg).not.toMatch(/^오류:/);
+        expect(msg).not.toContain("23514");
+      }
+      // proposal_schema_missing은 plain code(직접 매핑).
+      expect(formatErrorMessage("proposal_schema_missing")).toContain("마이그 0034");
     });
 
     it("W1a suffix handlers — slot/r2/debate + ai_call_failed:transient (fallback 오류: 노출 금지)", () => {
