@@ -16,8 +16,8 @@
 
 **W3b-1 (이 계획):**
 1. `callPortfolioProposal`(`portfolio` role) — 입력 = 30 종목 요약(ticker/name/배지/ai_score/winning_timeframe/conviction), 출력 = `PortfolioProposal {positions[{ticker,weight,timeframe}], cashWeight, rationale_kr}`. judge-client 동형(cost_log persona_id='portfolio-proposal'/prompt_version 'portfolio@v1'/transient classifier/authKey 게이트).
-2. `PortfolioProposalSchema` zod — positions weight∈(0,1]·timeframe enum·ticker 6자리, cashWeight∈[0,0.30], **sum(weights)+cashWeight≈1**(±0.01 tolerance) refine, positions ⊆ 입력 ticker, distinct ticker. `parsePortfolioProposal`(extractJsonObject 재사용 — W1b export 승격분).
-3. `proposePortfolio` admin server action — is_admin RPC 게이트 + flag(`PORTFOLIO_AI_PROPOSAL_ENABLED`)+key(`ANTHROPIC_API_KEY`) 게이트 → getActiveShortList(month) → 30 요약 → callPortfolioProposal → `{success, data: proposal}`. **영속 0 · Accept 무변경 · flag-off=proposal_disabled.**
+2. `PortfolioProposalSchema` zod — positions weight∈(0,1]·timeframe enum·ticker 6자리, cashWeight∈[0,0.30], **sum(weights)+cashWeight≈1**(±0.01 tolerance) refine, distinct ticker. `parsePortfolioProposal`(extractJsonObject 재사용 — persona-panel-adapter export). **positions⊆입력 ticker는 schema가 아니라 action에서 검증**(universe는 런타임 shortlist).
+3. `proposePortfolio` admin server action — is_admin RPC 게이트 + flag(`PORTFOLIO_AI_PROPOSAL_ENABLED`)+key(`ANTHROPIC_API_KEY`) 게이트 → getActiveShortList({month, client}) → 30 요약 → callPortfolioProposal → `{success, data: proposal}`. **영속 0 · Accept 무변경 · flag-off=proposal_disabled.**
 4. format-error 신규 코드 한국어 매핑.
 
 **분리(후속 DEFER):** W3b-2(portfolio_proposal DB 테이블 + 영속 + Accept가 proposal 기반 종목/비중 사용) · W3b-3(admin UI 버튼·표시) · proposal을 selection finalize에 자동 연결.
@@ -27,8 +27,8 @@
 ## 핵심 설계 결정
 
 - **D1 client = judge-client 미러.** `src/lib/ai/portfolio-proposal-client.ts`: `callPortfolioProposal(input)` → `resolveRole('portfolio')`(Opus 4.8) → provider.call(systemPrompt+userPrompt) → W1a transient classifier(`ai_call_failed:transient:*`) → insertCostLog(persona_id='portfolio-proposal', prompt_version='portfolio@v1', model=resolved) → `parsePortfolioProposal`. `ANTHROPIC_API_KEY` 부재 → `ai_key_unavailable`(D28 A). authKey 미노출.
-- **D2 schema invariant(결정론 검증).** `PortfolioProposalSchema`: `positions: [{ticker: /^\d{6}$/, weight: (0,1], timeframe: short|mid|long}]`(1~30) + `cashWeight: [0,0.30]` + `rationale_kr: ≤200`. **refine 3종**: ① sum(positions.weight)+cashWeight ∈ [0.99, 1.01](부동소수 tolerance) ② distinct ticker ③ positions 비어있지 않음(현금 100%는 Q2 "운용 여부" 후속 — W3b-1은 최소 1종목). parse 실패 → `portfolio_proposal_parse_failed:<path>`. **positions ⊆ 입력 ticker**는 caller(action)가 검증(스키마는 universe 모름) — 위반 시 `portfolio_proposal_unknown_ticker`.
-- **D3 admin action 게이트 순서.** `proposePortfolio({month})`: ① input 검증(month YYYY-MM) ② createClient + getUser(없음→auth_unavailable) ③ is_admin RPC(실패→admin_required) ④ flag `PORTFOLIO_AI_PROPOSAL_ENABLED!=='true'`→`proposal_disabled` ⑤ `ANTHROPIC_API_KEY` 부재→`proposal_disabled`(behavior-neutral — flag-off 머지) ⑥ getActiveShortList(month) <30이면 `shortlist_incomplete` ⑦ 요약 빌드 → callPortfolioProposal ⑧ positions ⊆ shortlist ticker 검증 → `{success,data:{proposal}}`. **cost burn = flag+key+admin 3중 게이트 후에만**(USER 게이트).
+- **D2 schema invariant(구조 검증 — 결정론 selection 금지).** `PortfolioProposalSchema`: `positions: [{ticker: /^\d{6}$/, weight: (0,1], timeframe: short|mid|long}]`(1~30) + `cashWeight: [0,0.30]` + `rationale_kr: ≤200`. **refine 3종**: ① sum(positions.weight)+cashWeight ∈ [0.99, 1.01](부동소수 tolerance) ② distinct ticker ③ positions 비어있지 않음. **Q2 자율성 해석:** AI가 후보 30 중 편입 종목 수/비중/현금을 정하되, 현재 SoT의 현금 cap(0~30%) 때문에 W3b-1은 최소 1종목을 요구한다. 0종목·현금 100% 운용 모드는 cash cap 변경이므로 이 계획에서 몰래 열지 말고 W3b-2/product decision으로 ESCALATE. parse 실패 → `portfolio_proposal_parse_failed:<path>`. **positions ⊆ 입력 ticker**는 caller(action)가 검증(스키마는 universe 모름) — 위반 시 `portfolio_proposal_unknown_ticker`.
+- **D3 admin action 게이트 순서.** `proposePortfolio({month})`: ① input 검증(month `YYYY-MM-01`, `acceptShortList`/portfolio page와 동일; `YYYY-MM`는 `invalid_month`) ② `createClient` 1회 + `getUser`(없음→`auth_unavailable`, AI cost path dev fallback 금지) ③ `is_admin` RPC(실패/false→`admin_required`) ④ flag `PORTFOLIO_AI_PROPOSAL_ENABLED!=='true'`→`proposal_disabled` ⑤ `ANTHROPIC_API_KEY` 부재→`proposal_disabled`(behavior-neutral) ⑥ `getActiveShortList({ month, client: supabase })` active <30이면 `shortlist_incomplete` ⑦ 요약 빌드 → `callPortfolioProposal({month, shortlistSummary, adminUserId, costClient: supabase})` ⑧ positions ⊆ shortlist ticker 검증 → `{success,data:{proposal}}`. **cost burn = admin+flag+key 3중 게이트 후에만**(flag-off는 prod key 존재해도 call/getActiveShortList 미호출).
 - **D4 영속/Accept 무변경.** W3b-1은 proposal을 **반환만** — DB·Accept·snapshot 무변경(money-path 무접촉). W3b-2에서 영속+Accept 통합.
 - **D5 dead-code 회피.** client는 admin action이 즉시 소비(live caller 1) — wiring 감사 "no caller" 회피. action은 UI 미연결이나 server action export로 호출 가능(W3b-3 UI 연결 예정, 문서 명시).
 
@@ -50,7 +50,7 @@
 
 ## Task 0: 착수 가드
 - [ ] Step 1: branch `feat/w3b1-portfolio-proposal-client` + main 게이트 1812+2skip 기준 분기.
-- [ ] Step 2: `extractJsonObject` export 확인(W1b 승격분, persona-panel-adapter.ts) — 재사용 가능.
+- [ ] Step 2: `extractJsonObject` export 확인(`tudal/src/lib/screening/persona-panel-adapter.ts`) — 재사용 가능.
 
 ## Task 1: portfolio-proposal-client.ts (TDD)
 
@@ -58,11 +58,13 @@
 
 - [ ] **Step 1: 실패 테스트** (judge-client.test.ts 패턴)
 ```typescript
-it('PortfolioProposalSchema: weight sum+cash≈1 / cash∈[0,0.30] / distinct ticker — 위반 throw', () => {});
+it('PortfolioProposalSchema: weight sum+cash≈1 / cash∈[0,0.30] / distinct ticker / positions min(1) — 위반 throw', () => {});
+it('PortfolioProposalSchema: 0종목·현금100%는 current cash cap 위반으로 실패(제품 변경은 ESCALATE)', () => {});
 it('parsePortfolioProposal: 펜스/노이즈 JSON 추출 + rationale 200자 truncate', () => {});
 it('callPortfolioProposal: resolveRole(portfolio)=opus-4-8 호출 + cost_log(persona_id=portfolio-proposal, prompt_version portfolio@v1, model 실모델)', async () => {});
 it('ANTHROPIC_API_KEY 부재 → ai_key_unavailable', async () => {});
 it('transient(429/5xx) → ai_call_failed:transient:* / 4xx → ai_call_failed', async () => {});
+it('renderPortfolioShortlistSummary: 30개 요약만 사용 + 필드 truncate로 prompt payload bounded', () => {});
 it('프롬프트에 종목 요약/month 주입 + placeholder 미잔존', async () => {});
 ```
 - [ ] **Step 2: 실패 확인.**
@@ -82,7 +84,7 @@ export const PortfolioProposalSchema = z.object({
 }, { message: 'weights_sum_invalid' })
   .refine((v) => new Set(v.positions.map(p=>p.ticker)).size === v.positions.length, { message: 'duplicate_ticker' });
 export function parsePortfolioProposal(content: string): PortfolioProposal {
-  // extractJsonObject → rationale_kr slice(0,200) → safeParse → throw portfolio_proposal_parse_failed:<path>
+  // extractJsonObject → rationale_kr String(...).slice(0,200) → safeParse → throw portfolio_proposal_parse_failed:<path>
 }
 export async function callPortfolioProposal(input: {
   month: string; shortlistSummary: string; adminUserId: string; costClient?: SupabaseClient;
@@ -97,21 +99,23 @@ export async function callPortfolioProposal(input: {
 
 - [ ] **Step 1: 실패 테스트**
 ```typescript
-it('비-admin → admin_required (callPortfolioProposal 미호출)', ...);
-it('flag off → proposal_disabled', ...);
-it('flag on + ANTHROPIC_API_KEY 부재 → proposal_disabled', ...);
-it('flag on + key + admin + shortlist 30 → proposal 반환(callPortfolioProposal 1회, cost client 주입)', ...);
+it('미인증 → auth_unavailable (is_admin/getActiveShortList/callPortfolioProposal 미호출)', ...);
+it('비-admin 또는 is_admin RPC error → admin_required (getActiveShortList/callPortfolioProposal 미호출)', ...);
+it('invalid month(YYYY-MM 등) → invalid_month', ...);
+it('flag off + ANTHROPIC_API_KEY 존재 → proposal_disabled (getActiveShortList/callPortfolioProposal 미호출)', ...);
+it('flag on + ANTHROPIC_API_KEY 부재 → proposal_disabled (getActiveShortList/callPortfolioProposal 미호출)', ...);
+it('flag on + key + admin + shortlist 30 → proposal 반환(callPortfolioProposal 1회, getActiveShortList/client+costClient 주입)', ...);
 it('shortlist <30 → shortlist_incomplete', ...);
 it('proposal positions에 shortlist 밖 ticker → portfolio_proposal_unknown_ticker', ...);
 it('format-error: 신규 3종 한국어 매핑 + suffix prefix', ...);
 ```
 - [ ] **Step 2: 실패 확인.**
-- [ ] **Step 3: 구현** — `proposePortfolio` (triggerMonthlyBatch 게이트 패턴 + W3a flag/key 패턴). callPortfolioProposal은 module import(테스트는 vi.mock). positions ⊆ getActiveShortList ticker set 검증. format-error 3종 매핑+prefix.
+- [ ] **Step 3: 구현** — `proposePortfolio` (regenerateReport/triggerMonthlyBatch 게이트 패턴 + W3a flag/key 패턴). callPortfolioProposal은 module import(테스트는 vi.mock). `getActiveShortList({ month, client: supabase })`의 active 30개를 universe로 삼고 positions ⊆ ticker set 검증. format-error 3종 매핑+prefix.
 - [ ] **Step 4: 통과 확인.**
 - [ ] **Step 5: commit** `feat(w3b1): proposePortfolio admin action(is_admin+flag+key 게이트, 영속 0) + format-error 3종 (D3/D4, TDD)`
 
 ## Task 3: .env.example + 통합 게이트 + DoD
-- [ ] Step 1: `.env.example` `PORTFOLIO_AI_PROPOSAL_ENABLED=false` + 주석(ANTHROPIC_API_KEY 동반, cost burn 게이트).
+- [ ] Step 1: `.env.example` `PORTFOLIO_AI_PROPOSAL_ENABLED=false` + 주석(ANTHROPIC_API_KEY 동반, flag false면 prod key가 있어도 cost burn 0).
 - [ ] Step 2: build+lint+test:ci+tsc ALL GREEN.
 - [ ] Step 3: 무변경 확인 — `git diff --stat main -- tudal/supabase/migrations tudal/src/lib/data/admin-approvals.ts tudal/src/lib/data/admin-snapshots.ts` → 0.
 - [ ] Step 4: grep — callPortfolioProposal live caller ≥1(proposePortfolio).
@@ -124,7 +128,7 @@ it('format-error: 신규 3종 한국어 매핑 + suffix prefix', ...);
 
 ## 검증 게이트 (DoD)
 - ALL GREEN + 무변경 diff 0 + callPortfolioProposal live caller ≥1.
-- 연결 테스트: action(게이트)→client(mock)→proposal 반환 + schema refine + positions⊆shortlist.
+- 연결 테스트: action(게이트)→client(mock)→proposal 반환 + schema refine + positions⊆shortlist + flag-off/prod-key no-call.
 - 실 AI 0 · cost 0(flag-off + mock). 실 호출 = flag+key+admin USER 게이트.
 
 ## Execution Handoff
