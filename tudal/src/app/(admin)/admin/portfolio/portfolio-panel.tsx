@@ -25,6 +25,7 @@ import {
 import { ProposalDisplay } from "./proposal-display";
 import {
   enrichProposalPositions,
+  computeProposalSummary,
   type ShortlistNameItem,
 } from "@/lib/portfolio/proposal-view";
 import type { PortfolioProposal } from "@/lib/ai/portfolio-proposal-client";
@@ -189,6 +190,7 @@ export function PortfolioPanel({
   //   영속 read-only 카드 갱신. money-path 무접촉(생성·표시만, Accept는 별개).
   function handlePropose() {
     startTransition(async () => {
+      setGeneratedProposal(null); // 직전 결과 stale 방지 — 성공 시에만 새 proposal 채움.
       const result = await proposePortfolio({ month });
       if (result.success) {
         setGeneratedProposal(result.data.proposal);
@@ -316,7 +318,7 @@ export function PortfolioPanel({
       {banner?.kind === "propose_done" && (
         <div className="flex items-start gap-3 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" aria-hidden />
-          <span>AI 포트 제안이 생성되었습니다. 아래 카드에서 확인하세요.</span>
+          <span>AI 포트 제안이 생성되었습니다. 결과 창에서 확인하세요.</span>
         </div>
       )}
 
@@ -478,14 +480,20 @@ export function PortfolioPanel({
       {/* W3b-3 — 영속된 AI 제안 read-only 카드 (page.tsx getProposalByMonth 로드분). */}
       {persistedProposal ? (
         <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">
-              현재 AI 제안 ({persistedProposal.proposal.positions.length}종목)
-            </span>
-            <span className="text-xs text-muted-foreground">
-              모델 {persistedProposal.model}
-            </span>
-          </div>
+          {(() => {
+            const summary = computeProposalSummary(persistedProposal.proposal);
+            return (
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  현재 AI 제안 ({summary.positionCount}종목 · 현금{" "}
+                  {summary.cashPct.toFixed(1)}%)
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  모델 {persistedProposal.model}
+                </span>
+              </div>
+            );
+          })()}
           <ProposalDisplay
             positions={enrichProposalPositions(
               persistedProposal.proposal.positions,
