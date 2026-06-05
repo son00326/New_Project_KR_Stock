@@ -20,7 +20,15 @@ import {
   resolveDispute,
   triggerMonthlyBatch,
   triggerReportWorkerChunk,
+  proposePortfolio,
 } from "./actions";
+import { ProposalDisplay } from "./proposal-display";
+import {
+  enrichProposalPositions,
+  type ShortlistNameItem,
+} from "@/lib/portfolio/proposal-view";
+import type { PortfolioProposal } from "@/lib/ai/portfolio-proposal-client";
+import type { PersistedPortfolioProposal } from "@/lib/data/admin-proposals";
 import {
   DISPUTE_ERROR_REASON_TOO_SHORT,
   isAcceptBlockedByDispute,
@@ -44,9 +52,12 @@ interface PortfolioPanelProps {
   gateReason: AcceptGateReason | null;
   // Wave 5 (T3.7): 이의 제기 — 현재 월 확정 approval
   finalApproval?: PortfolioApproval | null;
+  // W3b-3: AI 포트 제안 — 영속 제안(read-only 표시) + 종목 이름 조인용 view model(직렬화 안전).
+  persistedProposal?: PersistedPortfolioProposal | null;
+  shortlistView?: ShortlistNameItem[];
 }
 
-type ModalKind = "accept" | "reject" | "dispute" | null;
+type ModalKind = "accept" | "reject" | "dispute" | "propose" | null;
 type BannerState =
   | { kind: "accept_done" }
   | { kind: "reject_done"; reanalysisCount: number; portfolioHoldWarning?: boolean }
@@ -58,6 +69,8 @@ type BannerState =
   | { kind: "report_worker_done"; processed: number; remaining: number; aborted: string | null }
   | { kind: "report_worker_skipped" }
   | { kind: "report_worker_not_ready"; reason: string }
+  // W3b-3 — AI 포트 제안 생성 결과 배너.
+  | { kind: "propose_done" }
   | { kind: "error"; message: string }
   | null;
 
@@ -80,6 +93,8 @@ export function PortfolioPanel({
   gateMessage,
   // gateReason reserved for T3.7 server-side re-validation display
   finalApproval,
+  persistedProposal = null,
+  shortlistView = [],
 }: PortfolioPanelProps) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalKind>(null);
@@ -87,6 +102,9 @@ export function PortfolioPanel({
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeError, setDisputeError] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState>(null);
+  // W3b-3 — proposePortfolio 성공 시 반환 proposal을 로컬 보관해 즉시 Dialog 표시.
+  const [generatedProposal, setGeneratedProposal] =
+    useState<PortfolioProposal | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // 이의 제기 48h Hold 판정
@@ -159,6 +177,23 @@ export function PortfolioPanel({
       const result = await triggerMonthlyBatch({ month: month.slice(0, 7) });
       if (result.success) {
         setBanner({ kind: "reanalyze_done", selectedCount: result.data.selectedCount });
+        router.refresh();
+      } else {
+        setBanner({ kind: "error", message: result.error });
+      }
+    });
+  }
+
+  // W3b-3 — AI 포트 제안 생성 트리거. 실 동작은 백엔드 게이트(flag/key/admin/cost)가 결정 —
+  //   flag-off면 proposal_disabled 안내만(cost 0). 성공 시 결과를 Dialog로 즉시 표시 + router.refresh()로
+  //   영속 read-only 카드 갱신. money-path 무접촉(생성·표시만, Accept는 별개).
+  function handlePropose() {
+    startTransition(async () => {
+      const result = await proposePortfolio({ month });
+      if (result.success) {
+        setGeneratedProposal(result.data.proposal);
+        setModal("propose");
+        setBanner({ kind: "propose_done" });
         router.refresh();
       } else {
         setBanner({ kind: "error", message: result.error });
@@ -275,6 +310,13 @@ export function PortfolioPanel({
               아래 “30 재선정 — 실 AI 재실행” 버튼으로 재선정하거나, 매월 1일 자동 배치를 기다립니다. 확정 전까지 전월 포트 유지 상태입니다.
             </p>
           </div>
+        </div>
+      )}
+
+      {banner?.kind === "propose_done" && (
+        <div className="flex items-start gap-3 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" aria-hidden />
+          <span>AI 포트 제안이 생성되었습니다. 아래 카드에서 확인하세요.</span>
         </div>
       )}
 
@@ -420,8 +462,40 @@ export function PortfolioPanel({
           >
             리포트 배치 생성 (1 chunk)
           </Button>
+          {/* W3b-3 — AI 포트 제안 생성. 실 동작은 백엔드 게이트 결정(flag-off=proposal_disabled 안내, cost 0). */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePropose}
+            disabled={isPending}
+            title="선정 30 종목으로 AI(Opus)가 편입·비중·현금을 제안 (flag/키 활성 필요)"
+          >
+            🤖 AI 포트 제안 받기
+          </Button>
         </div>
       )}
+
+      {/* W3b-3 — 영속된 AI 제안 read-only 카드 (page.tsx getProposalByMonth 로드분). */}
+      {persistedProposal ? (
+        <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">
+              현재 AI 제안 ({persistedProposal.proposal.positions.length}종목)
+            </span>
+            <span className="text-xs text-muted-foreground">
+              모델 {persistedProposal.model}
+            </span>
+          </div>
+          <ProposalDisplay
+            positions={enrichProposalPositions(
+              persistedProposal.proposal.positions,
+              shortlistView,
+            )}
+            cashWeight={persistedProposal.proposal.cashWeight}
+            rationale={persistedProposal.proposal.rationale_kr}
+          />
+        </div>
+      ) : null}
 
       {/* 확정 배너 + 이의 제기 버튼 — is_final=true 시 */}
       {isAlreadyFinalized && banner?.kind !== "accept_done" && (
@@ -586,6 +660,35 @@ export function PortfolioPanel({
             >
               {isPending ? "처리 중…" : "이의 제기"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* W3b-3 — AI 포트 제안 결과 모달 (생성 직후 표시). */}
+      <Dialog
+        open={modal === "propose"}
+        onOpenChange={(open) => !open && setModal(null)}
+      >
+        <DialogContent showCloseButton>
+          <DialogHeader>
+            <DialogTitle>🤖 AI 포트 제안 — {monthLabel}</DialogTitle>
+            <DialogDescription>
+              AI(Opus)가 제안한 편입 종목·비중·현금입니다. 확정하려면 위 “포트
+              확정(Accept)”을 사용하세요(제안 비중 반영은 운영자 flag 활성 시).
+            </DialogDescription>
+          </DialogHeader>
+          {generatedProposal ? (
+            <ProposalDisplay
+              positions={enrichProposalPositions(
+                generatedProposal.positions,
+                shortlistView,
+              )}
+              cashWeight={generatedProposal.cashWeight}
+              rationale={generatedProposal.rationale_kr}
+            />
+          ) : null}
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>닫기</DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
