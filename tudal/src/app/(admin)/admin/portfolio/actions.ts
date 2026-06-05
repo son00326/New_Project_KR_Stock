@@ -238,6 +238,9 @@ async function buildInitialSnapshots(input: {
     try {
       const snapshots = buildSnapshotRowsFromProposal({
         positions: input.proposal.positions,
+        // W3b-2c — 명시 cash 행. flag off(기본)면 cash-implicit 유지(behavior-neutral). USER는 0035 apply 후에만 on.
+        cashWeight: input.proposal.cashWeight,
+        emitCashRow: process.env.PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED === "true",
         priceMap,
         month: input.month,
         acceptDate: input.acceptDate,
@@ -439,12 +442,13 @@ export async function acceptShortList(params: {
       data: { approvalId: result.approvalId, isFinal: result.isFinal },
     };
   } catch (err: unknown) {
-    // RPC re-raises non-approval unique_violation (e.g., snapshot-side
-    // portfolio_snapshot_date_*_uniq). Defensive catch maps any unique 23505
-    // that escapes the RPC's constraint_name match to already_finalized rather
-    // than throwing raw to the panel.
+    // (R33 HIGH) 진짜 already_finalized(approval finalization race)는 RPC가 in-band로 반환한다(위 result.error
+    //   처리). 이 catch는 RPC가 re-raise한 snapshot-side unique violation만 받는다 — 예: 0035 미적용/drift 시
+    //   cash 인덱스 충돌, 동일 date 재Accept의 aggregate 충돌. 이를 already_finalized로 매핑하면 money-path
+    //   장애가 "이미 확정"으로 오표시되어 디버깅이 어려워진다 → accept_write_conflict로 정직히 구분
+    //   (스키마 readiness / 재진입 충돌 신호). panel raw throw는 여전히 방지.
     if (isUniqueViolation(err)) {
-      return { success: false, error: "already_finalized" };
+      return { success: false, error: "accept_write_conflict" };
     }
     throw err;
   }

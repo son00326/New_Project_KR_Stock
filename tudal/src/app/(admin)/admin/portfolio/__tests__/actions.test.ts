@@ -478,6 +478,63 @@ describe("acceptShortList", () => {
     expect(mocks.resolveEntryPricesKrw.mock.calls[0][0]).toEqual(["005930", "000660"]);
   });
 
+  // ── W3b-2c — 명시 cash 행 emission (PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED) ──
+  it("W3b-2c: proposal 경로 + EXPLICIT_CASH on → snapshots에 cash 행(ticker=NULL, is_cash=true, weight=cashWeight) 포함", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    vi.stubEnv("PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED", "true");
+    mocks.getProposalByMonth.mockResolvedValue(VALID_PERSISTED);
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+    const snaps = mocks.acceptShortlistRpc.mock.calls[0][0].snapshots;
+    const cash = snaps.find(
+      (s: { ticker: string | null; is_cash?: boolean; isCash?: boolean }) =>
+        s.ticker === null && (s.is_cash ?? s.isCash) === true,
+    );
+    expect(cash).toBeDefined();
+    expect(cash.weight).toBe(0.2); // proposal.cashWeight
+    // aggregate(ticker=NULL, is_cash=false)와 공존(별개 행).
+    const agg = snaps.find(
+      (s: { ticker: string | null; is_cash?: boolean; isCash?: boolean }) =>
+        s.ticker === null && (s.is_cash ?? s.isCash) === false,
+    );
+    expect(agg.weight).toBe(1);
+  });
+
+  it("W3b-2c: proposal 경로 + EXPLICIT_CASH off(기본) → cash 행 없음(implicit, behavior-neutral)", async () => {
+    stubAcceptEnv();
+    vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");
+    // PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED 미설정(off)
+    mocks.getProposalByMonth.mockResolvedValue(VALID_PERSISTED);
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+    const snaps = mocks.acceptShortlistRpc.mock.calls[0][0].snapshots;
+    const cash = snaps.find(
+      (s: { is_cash?: boolean; isCash?: boolean }) => (s.is_cash ?? s.isCash) === true,
+    );
+    expect(cash).toBeUndefined();
+  });
+
+  it("W3b-2c (R33 HIGH): acceptShortlistRpc가 re-raise한 unique violation → accept_write_conflict (already_finalized 오표시 아님)", async () => {
+    stubAcceptEnv();
+    mocks.acceptShortlistRpc.mockRejectedValueOnce({ code: "23505" });
+    const { acceptShortList } = await import("../actions");
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("accept_write_conflict");
+  });
+
   it("USE flag on + getProposalByMonth null → suggestedWeight fallback(success, 무브릭)", async () => {
     stubAcceptEnv();
     vi.stubEnv("PORTFOLIO_USE_PROPOSAL_ENABLED", "true");

@@ -58,6 +58,7 @@ const KNOWN_ACTION_CODES = [
   "accept_gate_lookup_failed",
   // portfolio
   "already_finalized",
+  "accept_write_conflict",
   "approval_write_failed",
   "approval_lookup_failed",
   "approval_not_found",

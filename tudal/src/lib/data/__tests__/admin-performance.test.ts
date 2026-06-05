@@ -459,6 +459,14 @@ describe("getBucketPerformance", () => {
     expect(short?.sharpe).toBeCloseTo(0.7);
     expect(mid?.sharpe).toBeCloseTo(0.9);
   });
+
+  it("W3b-2c (R33 MED1): per-ticker 쿼리는 ticker IS NOT NULL + is_cash=false 방어 필터 적용 (cash 행 종목 오인 차단)", async () => {
+    const chain = makeSelectChain({ data: [], error: null });
+    mocks.from.mockReturnValue({ select: chain.select });
+    await getBucketPerformance();
+    expect(chain.not).toHaveBeenCalledWith("ticker", "is", null);
+    expect(chain.eq).toHaveBeenCalledWith("is_cash", false);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@
 | getPerformanceSummary/Monthly | admin-performance.ts:124-125 | `ticker IS NULL AND is_cash=false` | 제외(ticker≠null) | **제외(is_cash=true)** |
 | getBucketPerformance | admin-performance.ts:142 | `ticker IS NOT NULL`(is_cash 필터 **없음**) | **유입**(ticker='CASH'가 종목으로) → bucket-lookup이 우연히 막을 뿐 fragile | **제외(ticker=null)** |
 | getDecisionTreeSnapshot | admin-decision-tree.ts:48-49 | `ticker IS NULL AND is_cash=false` | 제외 | **제외(is_cash=true)** |
-| buildIncumbentThesisContexts | admin-shortlist-incumbents.ts | per-ticker(ticker not null) | 유입 가능 | 제외 |
+| buildIncumbentThesisContexts | admin-shortlist-incumbents.ts:166-170 | `.in("ticker", tickers)` (incumbent ticker 한정, ticker not null) | sentinel이 tickers에 없으면 미유입 | **제외**(cash는 ticker=null이라 `.in`에서 제외) |
 
 → **결론: Option B 채택.** `fetchTickerRows`가 `is_cash` 필터가 없어 `ticker='CASH'`(Option A)는 per-ticker consumer로 새어든다(dim1 "무손상" 주장 **반증됨**). Option B(`ticker=NULL + is_cash=true`)는 기존 두 필터(`is_cash=false`로 aggregate / `ticker IS NOT NULL`로 per-ticker)에 **양쪽 자동 제외 → consumer 코드 0 변경**.
 
@@ -130,7 +130,7 @@ const snapshots = buildSnapshotRowsFromProposal({
    - `dropdb w3b2c_smoke`.
    - = money-path 스키마 위험(인덱스 충돌)을 **실 DB로 실증**.
 3. **게이트**: `npm run build` + `lint` + `test:ci`(회귀 0) + `tsc`.
-4. **USER/Docker 대기(자율 불가, blocker 보고)**: PostgREST app round-trip(실 Supabase 클라이언트 Accept→snapshot 조회) + 브라우저 track-record 페이지 cash 행 표시. + 0035 production apply(USER).
+4. **USER/Docker 대기(자율 불가, blocker 보고)**: PostgREST app round-trip = 실 Supabase에서 **`ticker is null and is_cash=true` snapshot row 존재 확인**(R33 MED2 — cash 행은 Option B로 전 performance/decision-tree consumer에서 *제외* 설계라 track-record UI에 표시되지 않음; "브라우저 cash 행 표시"는 본 plan scope 아님, 별도 reader/UI 필요). + 0035 production apply(USER) + `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED=true`(USER, 0035 apply 후).
 
 ---
 
@@ -141,4 +141,20 @@ Context packet 9필드 + 특히 omxy에 **blind 2차 배선 감사**(money-path 
 
 ## 6. 머지/문서
 - 브랜치 `feat/w3b2c-explicit-cash-row`. TDD 커밋. omxy CONVERGED + 3게이트 GREEN → rebase FF merge + delete-branch. 배선감사 fix 별도 커밋. docs-sync(HANDOFF/ProgressDashboard/S7-RealData/CLAUDE.md 빌드순서) main-direct.
-- USER 게이트(잔여): 0035 production apply + (실검증) Docker/실env.
+- USER 게이트(잔여): 0035 production apply + `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED=true`(0035 apply 후) + (실검증) Docker/실env.
+
+---
+
+## 7. R33 omxy 검토 반영 (plan v2 — HIGH 1 / MED 3 / LOW 1, 전부 적용)
+
+| R33 | 결정 | 구현 |
+|---|---|---|
+| **HIGH** 0035 미적용 시 cash emission → unique violation이 catch에서 `already_finalized`로 오표시(money-path 디버깅 지옥) | flag 게이트 + catch 정직화 | (a) `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED`(default off → implicit, USER가 0035 apply 후 on)로 emission gating → 0035 전엔 cash 행 emit 안 됨. (b) actions.ts catch(re-raised snapshot-side 23505) → `already_finalized`에서 **`accept_write_conflict`**로 분리(진짜 already_finalized는 RPC in-band). |
+| **MED1** Option B invariant(is_cash⟹ticker null) DB 미강제 | DB + 코드 이중 방어 | (a) 0035에 `CHECK (not is_cash or ticker is null)`. (b) fetchTickerRows에 `.eq("is_cash", false)` 방어. |
+| **MED2** DoD "브라우저 cash 행 표시"가 Option B(전 consumer 제외)와 모순 | DoD 정정 | §4-4를 "실 PostgREST에서 row 존재 확인"으로 변경(브라우저 표시는 scope 아님). |
+| **MED3** rollback 경고만, fail-fast 없음 | preflight 추가 | rollback.sql에 cash 행 존재 시 `raise exception` preflight + "one-way after live cash rows". |
+| **LOW** incumbents audit 설명이 `.in("ticker",tickers)` 실제와 불일치 | §0 표 정정 | 위 표 갱신. |
+
+### 실 PG smoke 결과 (로컬 PostgreSQL 16, Docker-free — money-path 스키마 실증)
+- [A] 0035 apply OK (CHECK + index 분할) · [B] agg(null,false)+cash(null,true) **공존 OK**(기존 인덱스에선 violation이던 것) · [C ★MED1] `CHECK`가 `ticker='CASH',is_cash=true` **거부** · [D] per-ticker OK · [E] consumer 필터 분리 실증(agg=1·per-ticker=1·cash=1) · [F ★MED3] rollback preflight가 cash 존재 시 **명시 예외 중단** · [G] cash 제거 후 rollback OK · [H] rollback 후 0005 동작 원복(2nd null→violation).
+- 게이트: build ✓ · lint ✓ · test:ci 1908 pass(+8) ✓ · tsc 0 ✓.
