@@ -115,9 +115,15 @@ export interface CallPortfolioProposalInput {
   costClient?: SupabaseClient;
 }
 
+const MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 export async function callPortfolioProposal(
   input: CallPortfolioProposalInput,
 ): Promise<PortfolioProposal> {
+  // R19 LOW (omxy) — month 자체 검증(재사용 brittle 방어). cost_log.month='YYYY-MM' 계약.
+  if (!MONTH_YM_RE.test(input.month)) {
+    throw new Error('invalid_month');
+  }
   // D28 A — Claude 필수 primary 불변.
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ai_key_unavailable');

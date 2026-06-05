@@ -11,7 +11,8 @@ import {
   resolvePortfolioDispute,
 } from "@/lib/data/admin-approvals";
 import { reportExistsForMonth } from "@/lib/data/admin-reports";
-import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
+import { isCostLoggingEnabled, preflightHardcap } from "@/lib/cost/cost-logger";
+import { getRoleWorstCaseMaxCostPerCallKrw } from "@/lib/ai/model-registry";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import {
   callPortfolioProposal,
@@ -813,6 +814,15 @@ export async function proposePortfolio(input: {
     return { success: false, error: "proposal_disabled" };
   }
 
+  // R19 HIGH (omxy) — cost master guard. triggerFullReport와 동형: isCostLoggingEnabled() 부재 시
+  //   insertCostLog noop → 실 Opus 비용은 발생했는데 cost_log 미기록 → getMonthlyTotal=0 →
+  //   hardcap fail-open(무제한 burn). flag=true인데 logging off면 실호출 전 차단.
+  if (!isCostLoggingEnabled()) {
+    return { success: false, error: "cost_logging_disabled" };
+  }
+
+  const monthYm = input.month.slice(0, 7); // cost_log/prompt month = YYYY-MM
+
   let shortlist: ShortListItem[];
   try {
     shortlist = await getActiveShortList({
@@ -822,9 +832,10 @@ export async function proposePortfolio(input: {
   } catch {
     return { success: false, error: "shortlist_lookup_failed" };
   }
-  // acceptShortList와 동일 가드 — 부분 리스트(<30)가 제안 universe에 진입하지 않도록 거부.
+  // R19 MED (omxy) — "선정 30" 입력 계약 + bounded prompt. acceptShortList(`<`)보다 엄격한 exact-30:
+  //   AI cost path는 universe가 30을 초과(트랙 split 전이 등)해도 안 되므로 !== 로 fail-closed.
   const active = filterActiveShortlist(shortlist);
-  if (active.length < SHORTLIST_TARGET_COUNT) {
+  if (active.length !== SHORTLIST_TARGET_COUNT) {
     return { success: false, error: "shortlist_incomplete" };
   }
 
@@ -841,10 +852,29 @@ export async function proposePortfolio(input: {
     ),
   );
 
+  // R19 HIGH (omxy) — preflight hardcap. 단일 Opus(portfolio) 콜 보수 단가 reservation으로
+  //   50만원/월 hardcap 초과 시 실호출 전 fail-closed. is_admin 게이트 후라 admin cost SUM RPC 정합.
+  try {
+    await preflightHardcap(
+      {
+        month: monthYm,
+        lines: [
+          { callCount: 1, maxCostPerCallKrw: getRoleWorstCaseMaxCostPerCallKrw("portfolio") },
+        ],
+      },
+      { client: supabase },
+    );
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "cost_hardcap_exceeded",
+    };
+  }
+
   let proposal: PortfolioProposal;
   try {
     proposal = await callPortfolioProposal({
-      month: input.month.slice(0, 7), // cost_log/prompt month = YYYY-MM
+      month: monthYm,
       shortlistSummary: summary,
       adminUserId: user.id,
       costClient: supabase,

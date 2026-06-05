@@ -62,6 +62,8 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   portfolio_approval_archive_query_failed: "월별 아카이브 조회 실패 (portfolio_approval)",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
+  // acceptShortList/proposePortfolio 공통 — active Short List가 30종목 정확히가 아닐 때(부분/초과).
+  shortlist_incomplete: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",
   approval_lookup_failed: "승인 조회 실패 — 다시 시도해주세요",
   approval_not_found: "해당 승인을 찾을 수 없습니다",

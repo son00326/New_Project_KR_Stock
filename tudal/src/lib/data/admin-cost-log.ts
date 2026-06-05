@@ -71,6 +71,15 @@ function derivePurpose(personaId: string): CostPurpose {
   ) {
     return "briefing";
   }
+  // R19 LOW (omxy) — W3b-1 portfolio_proposal은 현재 의도적으로 'other'로 분류(전용 cost purpose는
+  //   W3b dashboard 작업에서 추가). 명시 return으로 분류 의도를 박제(향후 portfolio-* persona 확장 anchor).
+  if (
+    personaId === "portfolio-proposal" ||
+    personaId.startsWith("portfolio-") ||
+    personaId.startsWith("portfolio_")
+  ) {
+    return "other";
+  }
   return "other";
 }
 
