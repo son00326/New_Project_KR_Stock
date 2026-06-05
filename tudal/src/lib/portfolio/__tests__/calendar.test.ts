@@ -8,8 +8,10 @@ import {
 
 const cal = MOCK_KR_BUSINESS_DAYS_2026;
 const byDate = new Map(cal.map((d) => [d.date, d]));
-// 소스와 동일 방식(local midnight)으로 요일 계산 — 동일 node TZ라 일관.
-const dow = (date: string) => new Date(`${date}T00:00:00`).getDay();
+// 요일/일자 산술은 UTC 고정 — 실행 TZ(DST 포함)에 무관하게 결정적(달력일자=고정 속성).
+//   (local Date.getTime() 차는 DST일 23/25h라 86400000ms 불변식이 깨짐 → UTC 사용.)
+const dow = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
+const utcMs = (date: string) => new Date(`${date}T00:00:00Z`).getTime();
 
 describe("MOCK_KR_BUSINESS_DAYS_2026 — 구조 불변식", () => {
   it("2026 전체 365일(비윤년) 연속·오름차순·중복 없음", () => {
@@ -18,9 +20,7 @@ describe("MOCK_KR_BUSINESS_DAYS_2026 — 구조 불변식", () => {
     expect(cal[cal.length - 1].date).toBe("2026-12-31");
     expect(new Set(cal.map((d) => d.date)).size).toBe(365);
     for (let i = 1; i < cal.length; i++) {
-      const prev = new Date(`${cal[i - 1].date}T00:00:00`).getTime();
-      const cur = new Date(`${cal[i].date}T00:00:00`).getTime();
-      expect(cur - prev).toBe(86_400_000); // 정확히 +1일
+      expect(utcMs(cal[i].date) - utcMs(cal[i - 1].date)).toBe(86_400_000); // UTC +1일
     }
   });
 
