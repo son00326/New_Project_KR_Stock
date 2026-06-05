@@ -105,6 +105,10 @@ const KNOWN_ACTION_CODES = [
   "judge_verdict_parse_failed",
   "judge_enqueue_failed",
   "judge_panel_missing",
+  // W3b-1 (D26 Q2) — proposePortfolio AI 자율 포트 제안
+  "proposal_disabled",
+  "portfolio_proposal_parse_failed",
+  "portfolio_proposal_unknown_ticker",
 ];
 
 describe("formatErrorMessage", () => {
@@ -160,6 +164,20 @@ describe("formatErrorMessage", () => {
         const msg = formatErrorMessage(code);
         expect(msg).toMatch(/[가-힣]/);
         expect(msg).not.toMatch(/^오류:/);
+      }
+    });
+
+    it("W3b-1 suffix handler — portfolio_proposal_parse_failed:<path> (fallback 오류: 노출 금지)", () => {
+      for (const code of [
+        "portfolio_proposal_parse_failed:positions",
+        "portfolio_proposal_parse_failed:weights_sum_invalid",
+        "portfolio_proposal_parse_failed:no_json_object",
+      ]) {
+        const msg = formatErrorMessage(code);
+        expect(msg).toBe("AI 포트폴리오 제안 응답 해석에 실패했습니다");
+        expect(msg).not.toMatch(/^오류:/);
+        // raw path suffix(positions 등 영문)가 운영자 메시지에 새지 않는다.
+        expect(msg).not.toContain("positions");
       }
     });
 
