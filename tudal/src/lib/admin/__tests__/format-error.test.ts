@@ -63,6 +63,7 @@ const KNOWN_ACTION_CODES = [
   "approval_not_found",
   "shortlist_lookup_failed",
   "shortlist_month_not_found",
+  "shortlist_incomplete",
   "entry_price_unavailable",
   "reanalysis_limit_reached",
   "already_disputed",

@@ -186,6 +186,15 @@ describe('callPortfolioProposal', () => {
     expect(providerCall).not.toHaveBeenCalled();
   });
 
+  it('R19 LOW — month 비 YYYY-MM → invalid_month (provider 미호출, 재사용 brittle 방어)', async () => {
+    for (const month of ['2026-6', '2026-06-01', '2026-13', 'bad']) {
+      await expect(
+        callPortfolioProposal({ ...baseInput, month }),
+      ).rejects.toThrow('invalid_month');
+    }
+    expect(providerCall).not.toHaveBeenCalled();
+  });
+
   it('transient(429) → ai_call_failed:transient:429 / 4xx → ai_call_failed', async () => {
     providerCall.mockRejectedValueOnce(Object.assign(new Error('rate'), { status: 429 }));
     await expect(callPortfolioProposal(baseInput)).rejects.toThrow('ai_call_failed:transient:429');

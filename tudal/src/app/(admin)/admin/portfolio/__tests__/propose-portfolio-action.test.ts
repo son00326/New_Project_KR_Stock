@@ -17,6 +17,8 @@ const {
   rpcMock,
   getShortlistMock,
   callProposalMock,
+  isCostLoggingMock,
+  preflightMock,
   SESSION_CLIENT,
 } = vi.hoisted(() => {
   const getUserMock = vi.fn();
@@ -26,6 +28,8 @@ const {
     rpcMock,
     getShortlistMock: vi.fn(),
     callProposalMock: vi.fn(),
+    isCostLoggingMock: vi.fn(),
+    preflightMock: vi.fn(),
     SESSION_CLIENT: { auth: { getUser: getUserMock }, rpc: rpcMock },
   };
 });
@@ -35,6 +39,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/data/admin-shortlist", () => ({
   getActiveShortList: getShortlistMock,
+}));
+// R19 HIGH (omxy) — cost master guard: isCostLoggingEnabled() + preflightHardcap 게이트.
+vi.mock("@/lib/cost/cost-logger", () => ({
+  isCostLoggingEnabled: isCostLoggingMock,
+  preflightHardcap: preflightMock,
 }));
 // callPortfolioProposal만 mock — renderPortfolioShortlistSummary는 real(액션이 실제 요약 빌드).
 vi.mock("@/lib/ai/portfolio-proposal-client", async (importOriginal) => {
@@ -94,6 +103,10 @@ beforeEach(() => {
   getShortlistMock.mockResolvedValue(makeShortlist(30));
   callProposalMock.mockReset();
   callProposalMock.mockResolvedValue(VALID_PROPOSAL);
+  isCostLoggingMock.mockReset();
+  isCostLoggingMock.mockReturnValue(true);
+  preflightMock.mockReset();
+  preflightMock.mockResolvedValue({ currentTotal: 0, reservation: 1, remaining: 499999 });
   process.env.PORTFOLIO_AI_PROPOSAL_ENABLED = "true";
   process.env.ANTHROPIC_API_KEY = "sk-test";
 });
@@ -173,14 +186,45 @@ describe("proposePortfolio", () => {
     expect(arg.costClient).toBe(SESSION_CLIENT);
     expect(arg.shortlistSummary).toContain("000001");
     expect(arg.shortlistSummary).toContain("종목1");
+    // R19 HIGH — preflightHardcap이 AI 호출 전 1회(month YYYY-MM + admin session client).
+    expect(preflightMock).toHaveBeenCalledTimes(1);
+    const pf = preflightMock.mock.calls[0];
+    expect(pf[0].month).toBe("2026-06");
+    expect(pf[0].lines).toHaveLength(1);
+    expect(pf[1]).toEqual({ client: SESSION_CLIENT });
   });
 
-  it("active shortlist < 30(removed 제외) → shortlist_incomplete (call 미호출)", async () => {
+  it("R19 HIGH — cost logging off → cost_logging_disabled (shortlist/preflight/call 미호출)", async () => {
+    isCostLoggingMock.mockReturnValueOnce(false);
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: false, error: "cost_logging_disabled" });
+    expect(getShortlistMock).not.toHaveBeenCalled();
+    expect(preflightMock).not.toHaveBeenCalled();
+    expect(callProposalMock).not.toHaveBeenCalled();
+  });
+
+  it("R19 HIGH — hardcap 초과(preflight throw) → cost_hardcap_exceeded (callPortfolioProposal 미호출)", async () => {
+    preflightMock.mockRejectedValueOnce(new Error("cost_hardcap_exceeded"));
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: false, error: "cost_hardcap_exceeded" });
+    expect(callProposalMock).not.toHaveBeenCalled();
+  });
+
+  it("active shortlist < 30(removed 제외) → shortlist_incomplete (preflight/call 미호출)", async () => {
     const list = makeShortlist(30);
     list[0].deltaStatus = "removed"; // active 29
     getShortlistMock.mockResolvedValueOnce(list);
     const res = await proposePortfolio({ month: "2026-06-01" });
     expect(res).toEqual({ success: false, error: "shortlist_incomplete" });
+    expect(preflightMock).not.toHaveBeenCalled();
+    expect(callProposalMock).not.toHaveBeenCalled();
+  });
+
+  it("R19 MED — active shortlist > 30(31개) → shortlist_incomplete (exact-30, call 미호출)", async () => {
+    getShortlistMock.mockResolvedValueOnce(makeShortlist(31));
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: false, error: "shortlist_incomplete" });
+    expect(preflightMock).not.toHaveBeenCalled();
     expect(callProposalMock).not.toHaveBeenCalled();
   });
 
