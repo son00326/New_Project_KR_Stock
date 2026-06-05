@@ -1,5 +1,10 @@
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { getApprovalsByMonth } from "@/lib/data/admin-approvals";
+import {
+  getProposalByMonth,
+  type PersistedPortfolioProposal,
+} from "@/lib/data/admin-proposals";
+import type { ShortlistNameItem } from "@/lib/portfolio/proposal-view";
 import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
 import { getDistinctViewerCountsByTicker } from "@/lib/data/admin-report-view-log";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
@@ -204,6 +209,21 @@ export default async function AdminPortfolioPage() {
       .sort((a, b) => a.rank - b.rank),
   }));
 
+  // W3b-3 — 영속된 AI 제안(read-only 표시) + 종목 이름 조인용 view model(직렬화 안전: plain object만).
+  //   getProposalByMonth는 0034 미적용/오염/조회실패 시 throw → 전부 catch해 null(Server Component crash 금지).
+  //   raw error는 client에 넘기지 않고 표시 생략(기존 화면 보존).
+  let persistedProposal: PersistedPortfolioProposal | null = null;
+  try {
+    persistedProposal = await getProposalByMonth({ month });
+  } catch {
+    persistedProposal = null;
+  }
+  const shortlistView: ShortlistNameItem[] = thisMonthItems.map((r) => ({
+    ticker: r.ticker,
+    name: r.name,
+    sector: r.sector,
+  }));
+
   return (
     <div className="space-y-6">
       {/* (c) BL-20 자동 바이패스 배지 (T3.8) — active=true 시 최상단 */}
@@ -261,6 +281,8 @@ export default async function AdminPortfolioPage() {
         gateMessage={gateMessage}
         gateReason={gateResult.reason}
         finalApproval={finalApproval}
+        persistedProposal={persistedProposal}
+        shortlistView={shortlistView}
       />
 
       {/* Short List 30 표 — 버킷별 섹션 */}
