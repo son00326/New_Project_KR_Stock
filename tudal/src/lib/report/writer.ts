@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getPersonaById } from '@/lib/ai/prompts/personas';
 import type { CallPersonaResult } from '@/lib/ai/anthropic-client';
@@ -36,15 +37,30 @@ export interface CommitTickerReportInput {
   badge: Exclude<ConsensusBadge, '⚪'>; // 🟢🔵🟣🟡 only (Plan R3 BLOCKER 7 — ⚪는 commit_badge_only)
 }
 
-export async function commitTickerReport(input: CommitTickerReportInput): Promise<{ reportId: string }> {
-  if (input.personaResults.length !== 11 || input.personaIds.length !== 11) {
+export interface BuiltSection8 {
+  section8: Section8;
+  votes: Array<{
+    persona_id: string;
+    persona_layer: 'core';
+    vote: 'BUY' | 'HOLD' | 'SELL';
+    argument_excerpt: string;
+  }>;
+}
+
+// P2 (PR5b) — PURE builder: personaResults(11) + personaIds(11) → Section8 + committee_votes payload.
+//   no client / no I/O. commitTickerReport(admin session)와 commitTickerReportCron(service-role) 공용.
+export function buildSection8AndVotes(
+  personaResults: CallPersonaResult[],
+  personaIds: string[],
+): BuiltSection8 {
+  if (personaResults.length !== 11 || personaIds.length !== 11) {
     throw new Error('writer_persona_count_mismatch');
   }
 
   // Part D (Core 11) 생성
-  const partD = input.personaIds.map((id, i) => {
+  const partD = personaIds.map((id, i) => {
     const persona = getPersonaById(id);
-    const parsed = parseContent(input.personaResults[i].content);
+    const parsed = parseContent(personaResults[i].content);
     return {
       persona_id: id,
       label: persona?.label ?? id,
@@ -60,9 +76,9 @@ export async function commitTickerReport(input: CommitTickerReportInput): Promis
     {
       issue: '실적 모멘텀',
       pro_quote:
-        input.personaResults.find((_, i) => parseContent(input.personaResults[i].content).vote === 'BUY')?.content.slice(0, 100) ?? '',
+        personaResults.find((_, i) => parseContent(personaResults[i].content).vote === 'BUY')?.content.slice(0, 100) ?? '',
       con_quote:
-        input.personaResults.find((_, i) => parseContent(input.personaResults[i].content).vote === 'SELL')?.content.slice(0, 100) ?? '',
+        personaResults.find((_, i) => parseContent(personaResults[i].content).vote === 'SELL')?.content.slice(0, 100) ?? '',
     },
     {
       issue: '재무 건전성',
@@ -98,7 +114,7 @@ export async function commitTickerReport(input: CommitTickerReportInput): Promis
     verdict,
     rationale: [
       `Core 11 중 BUY ${voteCounts.BUY}표, HOLD ${voteCounts.HOLD}표, SELL ${voteCounts.SELL}표`,
-      `위원장 의견: ${parseContent(input.personaResults[10].content).one_line}`,
+      `위원장 의견: ${parseContent(personaResults[10].content).one_line}`,
       `최종 판정: ${verdict}`,
     ],
   };
@@ -113,10 +129,16 @@ export async function commitTickerReport(input: CommitTickerReportInput): Promis
   // committee_votes payload (RPC가 INSERT) — BUY/HOLD/SELL literal 그대로 (DB enum 매핑은 RPC 내부 책임)
   const votes = partD.map((v) => ({
     persona_id: v.persona_id,
-    persona_layer: 'core',
+    persona_layer: 'core' as const,
     vote: v.vote,
-    argument_excerpt: parseContent(input.personaResults[input.personaIds.indexOf(v.persona_id)].content).argument_excerpt,
+    argument_excerpt: parseContent(personaResults[personaIds.indexOf(v.persona_id)].content).argument_excerpt,
   }));
+
+  return { section8, votes };
+}
+
+export async function commitTickerReport(input: CommitTickerReportInput): Promise<{ reportId: string }> {
+  const { section8, votes } = buildSection8AndVotes(input.personaResults, input.personaIds);
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('commit_persona_eval', {
@@ -132,6 +154,32 @@ export async function commitTickerReport(input: CommitTickerReportInput): Promis
   }
   if (!data?.success) {
     throw new Error('commit_persona_eval_failed:no_success');
+  }
+  return { reportId: data.report_id };
+}
+
+// P2 (PR5b, omxy R4 BLOCKER 1) — service-role-DI 변형. cron/worker 경로(auth.uid()=null)에서
+//   commit_persona_eval_cron(0036, p_called_by=cron-system user) 호출. 원 admin commitTickerReport 무변경.
+export async function commitTickerReportCron(
+  input: CommitTickerReportInput,
+  options: { client: SupabaseClient; calledBy: string },
+): Promise<{ reportId: string }> {
+  const { section8, votes } = buildSection8AndVotes(input.personaResults, input.personaIds);
+
+  const { data, error } = await options.client.rpc('commit_persona_eval_cron', {
+    p_month: input.month,
+    p_ticker: input.ticker,
+    p_section_8: section8,
+    p_votes: votes,
+    p_consensus_badge: input.badge,
+    p_called_by: options.calledBy,
+  });
+
+  if (error) {
+    throw new Error(`commit_persona_eval_cron_failed:${error.code ?? 'unknown'}`);
+  }
+  if (!data?.success) {
+    throw new Error('commit_persona_eval_cron_failed:no_success');
   }
   return { reportId: data.report_id };
 }

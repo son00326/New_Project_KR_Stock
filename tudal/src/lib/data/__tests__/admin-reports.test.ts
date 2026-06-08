@@ -223,36 +223,53 @@ describe("getReportByTicker", () => {
 describe("reportExistsAndCompleteForMonth", () => {
   it("section_0 set + section_7 null → exists true, complete false", async () => {
     const { client } = buildCompletenessClient({
-      data: { id: "r1", section_0: { headline: "h" }, section_7: null },
+      data: { id: "r1", section_0: { headline: "h" }, section_7: null, section_8: null },
       error: null,
     });
     await expect(
       reportExistsAndCompleteForMonth("005930", "2026-06-01", { client }),
-    ).resolves.toEqual({ exists: true, complete: false });
+    ).resolves.toEqual({ exists: true, complete: false, hasSection8: false });
   });
 
   it("section_0 null + section_7 set → exists true, complete false", async () => {
     const { client } = buildCompletenessClient({
-      data: { id: "r1", section_0: null, section_7: { conclusion: "c" } },
+      data: { id: "r1", section_0: null, section_7: { conclusion: "c" }, section_8: null },
       error: null,
     });
     await expect(
       reportExistsAndCompleteForMonth("005930", "2026-06-01", { client }),
-    ).resolves.toEqual({ exists: true, complete: false });
+    ).resolves.toEqual({ exists: true, complete: false, hasSection8: false });
   });
 
-  it("section_0 and section_7 both set → exists true, complete true", async () => {
+  it("section_0 and section_7 both set, section_8 null → complete true, hasSection8 false", async () => {
     const { client } = buildCompletenessClient({
       data: {
         id: "r1",
         section_0: { headline: "h" },
         section_7: { conclusion: "c" },
+        section_8: null,
       },
       error: null,
     });
     await expect(
       reportExistsAndCompleteForMonth("005930", "2026-06-01", { client }),
-    ).resolves.toEqual({ exists: true, complete: true });
+    ).resolves.toEqual({ exists: true, complete: true, hasSection8: false });
+  });
+
+  // P2 (PR5b): body complete + Section 8 present → hasSection8 true (needsSection8=false 경로).
+  it("section_0/7 set + section_8 set → complete true, hasSection8 true", async () => {
+    const { client } = buildCompletenessClient({
+      data: {
+        id: "r1",
+        section_0: { headline: "h" },
+        section_7: { conclusion: "c" },
+        section_8: { partD: [] },
+      },
+      error: null,
+    });
+    await expect(
+      reportExistsAndCompleteForMonth("005930", "2026-06-01", { client }),
+    ).resolves.toEqual({ exists: true, complete: true, hasSection8: true });
   });
 
   it("no row → exists false, complete false", async () => {
@@ -262,7 +279,7 @@ describe("reportExistsAndCompleteForMonth", () => {
     });
     await expect(
       reportExistsAndCompleteForMonth("005930", "2026-06-01", { client }),
-    ).resolves.toEqual({ exists: false, complete: false });
+    ).resolves.toEqual({ exists: false, complete: false, hasSection8: false });
   });
 
   it("filters latest row with .eq('is_latest', true)", async () => {

@@ -31,6 +31,7 @@ import { callRevise } from '@/lib/ai/revise-client';
 import { REVISE_SYSTEM_PROMPT, buildReviseUserPrompt } from '@/lib/ai/prompts/revise-prompt';
 import { evaluateReport } from '@/lib/report/critic';
 import { enrichInput } from '@/lib/report/analyst';
+import { commitSection8Step } from './section8-step';
 import { preflightHardcap } from '@/lib/cost/cost-logger';
 import { getOrchestrateBudgetKrw } from '@/lib/ai/model-registry';
 import { insertCriticFindingsRun } from '@/lib/data/report-critic-findings';
@@ -315,6 +316,31 @@ export async function orchestrateFullReport(
       `[orchestrateFullReport] sector_backlog_insert_failed ticker=${enriched.ticker} sector=${enriched.sector} message=${message}`,
     );
     // 보고서 commit + critic findings는 이미 성공. backlog 부가효과만 실패이므로 계속.
+  }
+
+  // P2 (PR5b, omxy R1~R4 CONVERGED) — Section 8 + committee_votes (Core-11 panel). LAST step:
+  //   body persist → critic audit → backlog 이후라, Section8(11콜+commit) 실패 시에도 body+audit 보존
+  //   (omxy R3 fix1). flag-off=dormant(cost 0). 배지=canonical(short_list_30); ⚪/null→not_ready skip.
+  //   commit_persona_eval_cron(0036, service-role DI) — 미적용 시 throw로 fail-closed(job 재시도).
+  //   Section8 throw는 의도적 propagate(body 이미 commit, worker retry/enqueue-reset가 복구).
+  if (process.env.PR5B_SECTION8_ENABLED === 'true') {
+    const section8 = await commitSection8Step({
+      ticker: enriched.ticker,
+      month: enriched.month,
+      badge: enriched.consensusBadge ?? null,
+      adminUserId: input.adminUserId,
+      client: supabase,
+    });
+    if (section8.status !== 'committed') {
+      console.info(
+        JSON.stringify({
+          event: 'commit_section8_skipped',
+          ticker: enriched.ticker,
+          month: enriched.month,
+          status: section8.status,
+        }),
+      );
+    }
   }
 
   return {
