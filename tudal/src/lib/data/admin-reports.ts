@@ -202,11 +202,12 @@ export async function reportExistsAndCompleteForMonth(
   ticker: string,
   month: string,
   options?: { client?: SupabaseClient },
-): Promise<{ exists: boolean; complete: boolean }> {
+): Promise<{ exists: boolean; complete: boolean; hasSection8: boolean }> {
   const client = options?.client ?? (await createClient());
+  // P2 (PR5b): section_8 presence도 반환 — worker needsSection8 분기(body complete + section_8 null)용.
   const { data, error } = await client
     .from("stock_reports")
-    .select("id, section_0, section_7")
+    .select("id, section_0, section_7, section_8")
     .eq("ticker", ticker)
     .eq("month", month)
     .eq("is_latest", true)
@@ -218,11 +219,16 @@ export async function reportExistsAndCompleteForMonth(
     );
   }
   if (data === null) {
-    return { exists: false, complete: false };
+    return { exists: false, complete: false, hasSection8: false };
   }
-  const row = data as { section_0: unknown; section_7: unknown };
+  const row = data as {
+    section_0: unknown;
+    section_7: unknown;
+    section_8: unknown;
+  };
   const complete = row.section_0 !== null && row.section_7 !== null;
-  return { exists: true, complete };
+  const hasSection8 = row.section_8 !== null;
+  return { exists: true, complete, hasSection8 };
 }
 
 // ---------------------------------------------------------------------------

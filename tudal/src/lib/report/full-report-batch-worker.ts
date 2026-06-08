@@ -17,6 +17,7 @@ import type { ShortListItem } from "@/types/admin";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { reportExistsAndCompleteForMonth } from "@/lib/data/admin-reports";
 import { orchestrateFullReport } from "@/lib/report/full-report-orchestrator";
+import { commitSection8Step, isAiBadge } from "@/lib/report/section8-step";
 import { enrichReportInput } from "@/lib/report/report-input-enricher";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
@@ -263,6 +264,22 @@ export async function runReportBatchChunk(
     shortList.map((s) => [s.ticker, s]),
   );
 
+  // ── P2 (PR5b, omxy R4 BLOCKER 2): enqueue-step reset ──
+  // flag-on이면 done/deferred지만 body complete + section_8 null + canonical 배지 non-⚪ 인 job을
+  //   pending reset(claim_next는 pending/stale-running만 claim → 영구 skip 차단). flag-off=no-op.
+  const section8Enabled = process.env.PR5B_SECTION8_ENABLED === "true";
+  if (section8Enabled) {
+    const { error: resetErr } = await client.rpc(
+      "reset_section8_eligible_jobs",
+      { p_month: month },
+    );
+    if (resetErr) {
+      throw new Error(
+        `reset_section8_eligible_jobs_failed:${resetErr.code ?? "unknown"}`,
+      );
+    }
+  }
+
   // ── claim 1 chunk (atomic, SKIP LOCKED, attempts<3, stale sweep) ──
   const { data: claimed, error: claimErr } = await client.rpc(
     "claim_next_report_jobs",
@@ -349,18 +366,23 @@ export async function runReportBatchChunk(
   let done = 0;
   let skipped = 0;
   let failed = 0;
+  let deferred = 0;
   const failedTickers: string[] = [];
 
   // ── 순차 처리 (병렬 fan-out 금지 — cost gate 직렬화, R2 HIGH-1) ──
   for (const job of jobs) {
     const meta = metaByTicker.get(job.ticker);
-    // idempotent skip: 이미 완성된 본문이면 LLM 0
-    const { complete } = await reportExistsAndCompleteForMonth(
+    // idempotent skip: 이미 완성된 본문이면 LLM 0 (P2: section_8 presence도 함께 판정).
+    const { complete, hasSection8 } = await reportExistsAndCompleteForMonth(
       job.ticker,
       `${month}-01`,
       { client },
     );
-    if (complete) {
+    // P2 (PR5b, omxy R3): flag-on + 본문 complete + Section 8 누락 → Section 8만 추가 (본문 재생성 skip).
+    const needsSection8Only = section8Enabled && complete && !hasSection8;
+
+    if (complete && !needsSection8Only) {
+      // 본문 완성 + (flag-off 또는 Section 8 present) → LLM 0 skip.
       await markJob(client, {
         id: job.id,
         status: "done",
@@ -384,35 +406,76 @@ export async function runReportBatchChunk(
     }
 
     try {
-      // PR-H scope 2: stub("HOLD"/"🟡"/"") → enrichReportInput(row) 실값 (short_list_30 배지/점수 +
-      //   DART 재무, cost 0 SELECT). financials SELECT 에러는 throw → per-ticker isolation(아래 catch).
-      //   미캐시 ticker는 graceful. macroSummary는 S7b 전까지 "근거 부족"(enrich 내부 고정).
-      const enrich = await enrichReportInput(meta, { client });
-      const result = await retryWithBackoff(() =>
-        orchestrateFullReport(
-          {
-            ticker: meta.ticker,
-            name: meta.name,
-            sector: meta.sector,
+      if (needsSection8Only) {
+        // P2: Section 8만 추가. 배지=canonical(short_list_30). ⚪/null → deferred(배지 생기면 reset 재pending).
+        const badge = meta.consensusBadge ?? null;
+        if (!isAiBadge(badge)) {
+          await markJob(client, {
+            id: job.id,
+            status: "deferred",
+            reportId: null,
+            error: "section8_not_ready",
+          });
+          deferred += 1;
+        } else {
+          const r = await commitSection8Step({
+            ticker: job.ticker,
             month,
-            tier1Verdict: enrich.tier1Verdict,
-            consensusBadge: enrich.consensusBadge,
-            financialsSummary: enrich.financialsSummary,
-            technicalsSummary: enrich.technicalsSummary,
-            macroSummary: enrich.macroSummary,
-            sectorReference: enrich.sectorReference,
+            badge,
             adminUserId: cronSystemUserId,
-          },
-          { client, callerKind: "cron" },
-        ),
-      );
-      await markJob(client, {
-        id: job.id,
-        status: "done",
-        reportId: result.reportId,
-        error: null,
-      });
-      done += 1;
+            client,
+          });
+          if (r.status === "committed") {
+            await markJob(client, {
+              id: job.id,
+              status: "done",
+              reportId: r.reportId ?? null,
+              error: null,
+            });
+            done += 1;
+          } else {
+            await markJob(client, {
+              id: job.id,
+              status: "failed",
+              reportId: null,
+              error: r.status,
+            });
+            failed += 1;
+            failedTickers.push(job.ticker);
+          }
+        }
+      } else {
+        // 전체 본문 경로 (body 미완성) — orchestrate가 끝에서 Section 8도 처리(flag-on 시).
+        // PR-H scope 2: stub("HOLD"/"🟡"/"") → enrichReportInput(row) 실값 (short_list_30 배지/점수 +
+        //   DART 재무, cost 0 SELECT). financials SELECT 에러는 throw → per-ticker isolation(아래 catch).
+        //   미캐시 ticker는 graceful. macroSummary는 S7b 전까지 "근거 부족"(enrich 내부 고정).
+        const enrich = await enrichReportInput(meta, { client });
+        const result = await retryWithBackoff(() =>
+          orchestrateFullReport(
+            {
+              ticker: meta.ticker,
+              name: meta.name,
+              sector: meta.sector,
+              month,
+              tier1Verdict: enrich.tier1Verdict,
+              consensusBadge: enrich.consensusBadge,
+              financialsSummary: enrich.financialsSummary,
+              technicalsSummary: enrich.technicalsSummary,
+              macroSummary: enrich.macroSummary,
+              sectorReference: enrich.sectorReference,
+              adminUserId: cronSystemUserId,
+            },
+            { client, callerKind: "cron" },
+          ),
+        );
+        await markJob(client, {
+          id: job.id,
+          status: "done",
+          reportId: result.reportId,
+          error: null,
+        });
+        done += 1;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // systemic abort: ai_key_unavailable / cost_hardcap_exceeded → 즉시 batch 중단
@@ -487,7 +550,7 @@ export async function runReportBatchChunk(
     done,
     skipped,
     failed,
-    deferred: 0,
+    deferred,
     remaining,
     aborted: null,
   };
