@@ -98,6 +98,10 @@ $$;
 
 revoke all on function public.commit_persona_eval_cron(text, text, jsonb, jsonb, text, uuid) from public;
 revoke all on function public.commit_persona_eval_cron(text, text, jsonb, jsonb, text, uuid) from anon;
+-- ⚠️ Supabase default-privilege: 신규 public 함수에 authenticated EXECUTE가 자동 부여됨
+--   (feedback_supabase_security_definer_pattern). grant 생략만으로는 부족 → 명시 revoke 필수.
+--   cron RPC는 is_admin 게이트 없음(p_called_by 존재 체크만) → service_role only 강제.
+revoke all on function public.commit_persona_eval_cron(text, text, jsonb, jsonb, text, uuid) from authenticated;
 grant execute on function public.commit_persona_eval_cron(text, text, jsonb, jsonb, text, uuid) to service_role;
 
 -- reset_section8_eligible_jobs (omxy P2 design R4 BLOCKER 2): enqueue-step reset.
@@ -151,4 +155,6 @@ $$;
 
 revoke all on function public.reset_section8_eligible_jobs(text) from public;
 revoke all on function public.reset_section8_eligible_jobs(text) from anon;
+-- ⚠️ Supabase default-privilege 자동 authenticated grant 명시 제거 (위 commit RPC와 동일 이유).
+revoke all on function public.reset_section8_eligible_jobs(text) from authenticated;
 grant execute on function public.reset_section8_eligible_jobs(text) to service_role;
