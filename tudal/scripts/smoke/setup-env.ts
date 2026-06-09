@@ -32,10 +32,15 @@ function loadEnvLocal(): void {
 loadEnvLocal();
 
 // Step-0 fail-closed gates (tier1-selection-batch-worker.ts:434-451) not present in .env.local.
-process.env.SELECTION_CRON_AUTO_ENABLED = 'true';
-process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'true';
+// Defense-in-depth (SC-4): only force the two COST gates ON when the real smoke is explicitly
+// confirmed. Merely loading this config (e.g. a stray --config without P3_SMOKE_CONFIRM) then
+// must NOT flip cost-logging / selection gates in the process env.
+if (process.env.P3_SMOKE_CONFIRM === '1') {
+  process.env.SELECTION_CRON_AUTO_ENABLED = 'true';
+  process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'true';
+}
 // cron-system reserved user (exists in prod auth.users; FK target for cost_log.called_by).
 process.env.CRON_SYSTEM_USER_ID ??= '39202d8b-1042-48a6-8da0-df14a52fabea';
 // A manual smoke must never chain into the next chunk (direct call doesn't self-continue,
-// but be explicit so a stray env can't balloon the ₩1-2k smoke into a full run).
+// but be explicit so a stray env can't balloon the smoke into a full run).
 delete process.env.SELECTION_CRON_SELF_CONTINUE;

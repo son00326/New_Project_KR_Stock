@@ -1,23 +1,38 @@
 // ============================================================================
 // P3 cheap selection smoke — REAL AI + REAL production Supabase.
 //
-// Verifies the Tier1 selection chunk plumbing end-to-end at minimal cost by
-// running ONE midlong ticker through the Core-11 panel (chunkSize=1):
+// Verifies the Tier1 selection chunk WORKER plumbing at minimal cost by running
+// ONE midlong ticker through the Core-11 panel (chunkSize=1):
 //   runGuardedSelectionChunk → acquire run-mutex → enqueue full midlong pool
 //   → claim 1 → Core-11 panel (11 real callPersona) → cost_log INSERT x11
 //   → mark job done → release lock. finalize/short_list_30 are NOT reached
 //   (99 jobs remain pending), so the public shortlist is untouched.
 //
-// Cost: ~11 billable calls ≈ ₩537 (Sonnet x6 + GPT mid x5). ~100-120 dormant
-// tier1_selection_job rows are seeded (idempotent ON CONFLICT) — resumable by
-// the later full P3 run for the same period_key='m:2026-06'.
+// Observed first run (2026-06-08, m:2026-06): 11 calls (Sonnet x6 + GPT-5.4 x5)
+// = ₩86.98. Conservative ceiling ~₩500. ~100-120 dormant tier1_selection_job
+// rows are seeded (idempotent ON CONFLICT).
+//
+// SCOPE (honest boundary — CF-2/CF-3, blind-audit BW-1): this is a WORKER-level
+// smoke, NOT route/cron coverage. It does NOT exercise the route GET wrapper
+// (CRON_SECRET auth, the route's own SELECTION_CRON_AUTO_ENABLED gate, isMidlongDue
+// due-gate, per-track try/catch, self-continue), and it injects two USER-owned
+// prod flags (SELECTION_CRON_AUTO_ENABLED, AI_COST_LOG_REAL_INSERT_ENABLED) that
+// the route never sets. It verifies ONLY the R1-path seams; R2/debate, judge/
+// dual-judge (round 3), finalize→persist→short_list_30, and FE AI-badge are
+// UNREACHABLE at chunkSize=1 (gated behind nonTerminal===0) and stay UNVERIFIED.
+//
+// SINGLE-SHOT: the post-run transient job/run rows are DELETEd but cost_log is
+// retained audit. A second run on the same month would re-bill ~₩87 — the
+// idempotency guard below aborts at $0 if cost_log already has rows for the month.
+// Spend-without-log window: callPersona bills the provider BEFORE insertCostLog
+// (orphan-preserving by design), so a thrown panel may have already billed.
 //
 // HOW TO RUN (intentional, real money):
 //   cd tudal && P3_SMOKE_CONFIRM=1 npx vitest run --config vitest.smoke.config.ts
 // Without P3_SMOKE_CONFIRM=1 this test SKIPS (spends $0). Not in `npm run test:ci`.
 //
 // DI mirrors src/app/api/cron/monthly-batch/selection-worker/route.ts:143-211
-// exactly (incl. incumbentsSource) so the smoke exercises the real cron path.
+// (incl. incumbentsSource) so the smoke exercises the real worker DI path.
 // ============================================================================
 import { describe, it, expect } from 'vitest';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
@@ -75,6 +90,21 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
       expect(periodKey).toBe('m:2026-06');
       expect(month).toBe('2026-06');
       expect(cronSystemUserId).toMatch(/^[0-9a-f-]{36}$/i);
+
+      // SC-2 idempotency guard — abort at $0 if this month already has cost_log rows.
+      // The post-run DELETE clears job/run rows but cost_log is retained audit, so a
+      // re-run would re-bill ~₩87 and the seam-D delta assertion would shift. Fail loud.
+      const { count: baseCostRows } = await supabase
+        .from('cost_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('month', month);
+      if ((baseCostRows ?? 0) > 0) {
+        throw new Error(
+          `[p3-smoke] cost_log already has ${baseCostRows} row(s) for ${month} — a re-run ` +
+            `would double-bill. cost_log is retained audit and not auto-cleared; use a clean ` +
+            `month or intentionally reset before re-running.`,
+        );
+      }
 
       const baseCostKrw = await getMonthlyTotal(month, {
         client: supabase,
@@ -183,13 +213,18 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
         .from('cost_log')
         .select('persona_id,model,ticker,cost_krw,called_by')
         .eq('month', month);
-      expect(costRows && costRows.length).toBe(11);
+      // delta (not absolute) — robust if cost_log retains prior audit rows (SC-2).
+      expect((costRows?.length ?? 0) - (baseCostRows ?? 0)).toBe(11);
       const calledByOk = (costRows ?? []).every((r) => r.called_by === cronSystemUserId);
       expect(calledByOk).toBe(true);
       const models = new Set((costRows ?? []).map((r) => r.model));
-      // D28 mix: Sonnet x6 + GPT mid x5 (OPENAI present) → both providers wired.
+      // D28 mix: Sonnet x6 always; GPT mid x5 ONLY when OPENAI_API_KEY present
+      // (provider auto-detect). Gating the GPT assertion avoids a false-red on a
+      // Claude-only re-run — it's a plumbing smoke, not an env assertion (BW-2).
       expect(models.has('claude-sonnet-4-6')).toBe(true);
-      expect(models.has('gpt-5.4')).toBe(true);
+      if (process.env.OPENAI_API_KEY) {
+        expect(models.has('gpt-5.4')).toBe(true); // GPT secondary provider wired
+      }
       const summedKrw = (costRows ?? []).reduce((s, r) => s + Number(r.cost_krw), 0);
       expect(summedKrw).toBeGreaterThan(0);
 
@@ -229,12 +264,17 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
         models: [...models],
         pipelineHealth: ph?.[0],
       };
-      // eslint-disable-next-line no-console
       console.log('===P3_SMOKE_RESULT===\n' + JSON.stringify(summary, null, 2) + '\n===END===');
     },
   );
 
-  it.skipIf(CONFIRMED)('guard: P3_SMOKE_CONFIRM not set → real smoke skipped ($0)', () => {
-    expect(CONFIRMED).toBe(false);
-  });
+  it.skipIf(CONFIRMED)(
+    'guard: without P3_SMOKE_CONFIRM the real run is skipped AND cost gates are not forced ($0)',
+    () => {
+      expect(CONFIRMED).toBe(false);
+      // SC-4: setup-env must NOT have force-enabled the cost gates without the confirm flag.
+      expect(process.env.AI_COST_LOG_REAL_INSERT_ENABLED).not.toBe('true');
+      expect(process.env.SELECTION_CRON_AUTO_ENABLED).not.toBe('true');
+    },
+  );
 });
