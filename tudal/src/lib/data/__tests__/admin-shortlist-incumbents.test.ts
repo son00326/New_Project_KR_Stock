@@ -351,6 +351,35 @@ describe("buildIncumbentThesisContexts", () => {
     });
   });
 
+  it("null section_0 (writer-unfilled) → 무로그 skip (read-path null 불변 정합)", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { client } = buildContextClient({
+      reports: {
+        data: [{ ticker: "005930", month: "2026-06-01", section_0: null }],
+        error: null,
+      },
+      snapshots: { data: [], error: null },
+    });
+
+    const map = await buildIncumbentThesisContexts([makeIncumbent()], { client });
+
+    const calls = spy.mock.calls as unknown[][];
+    const validationLogs = calls
+      .map((call): Record<string, unknown> | null => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter(
+        (p): p is Record<string, unknown> =>
+          p !== null && p.event === "report_section_validation_failed",
+      );
+    expect(validationLogs).toHaveLength(0);
+    expect(map["005930"]).not.toContain("핵심 thesis");
+  });
+
   it("incumbent month보다 미래인 stock_reports row는 직전 thesis로 사용하지 않음 (lte 필터)", async () => {
     const { client, spies } = buildContextClient({
       reports: { data: [], error: null },

@@ -148,10 +148,13 @@ export async function buildIncumbentThesisContexts(
       .order("month", { ascending: false });
     for (const row of (data ?? []) as ReportThesisRow[]) {
       if (thesisByTicker.has(row.ticker)) continue; // month desc — 첫 행이 최신
+      // null/undefined section_0 = writer-unfilled = 정상 → 무로그 skip. read-path
+      // 불변 정합(report-section-schemas.ts parseSectionSafe와 동일: null은 로그 안 함).
+      if (row.section_0 === null || row.section_0 === undefined) continue;
       const parsed = reportSection0Schema.safeParse(row.section_0);
       if (!parsed.success) {
         // best-effort skip은 유지하되 silent-drop은 격상 — P3 selection incumbent thesis
-        // 경로에서 malformed section_0이 묻히지 않도록 (admin-reports read-path와 동일 event).
+        // 경로에서 malformed(non-null) section_0이 묻히지 않도록 (admin-reports read-path와 동일 event).
         logStructured("warn", "report_section_validation_failed", {
           component: "incumbent-thesis",
           ticker: row.ticker,
