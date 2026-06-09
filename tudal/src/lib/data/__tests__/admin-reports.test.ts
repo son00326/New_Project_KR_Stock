@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   transformStockReportRow,
   deriveBucketNeighbors,
@@ -378,5 +378,93 @@ describe("deriveBucketNeighbors", () => {
     const neighbors = deriveBucketNeighbors("C", items);
     expect(neighbors.prev?.ticker).toBe("B");
     expect(neighbors.next).toBeUndefined();
+  });
+});
+
+describe("transformStockReportRow — structured validation logging (PR1 격상)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function parsedWarnLines(
+    spy: ReturnType<typeof vi.spyOn>,
+  ): Array<Record<string, unknown>> {
+    const calls = spy.mock.calls as unknown[][];
+    return calls
+      .map((call): Record<string, unknown> | null => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter((p): p is Record<string, unknown> => p !== null);
+  }
+
+  it("emits a structured report_section_validation_failed event for a malformed (non-null) section_0", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const row: StockReportDbRow = {
+      ...baseRow,
+      ticker: "005930",
+      section_0: { headline: "h", conviction: 80 },
+    };
+
+    transformStockReportRow(row);
+
+    const evt = parsedWarnLines(spy).find(
+      (p) =>
+        p.event === "report_section_validation_failed" &&
+        p.section === "section_0",
+    );
+    expect(evt).toBeDefined();
+    expect(evt).toMatchObject({
+      level: "warn",
+      event: "report_section_validation_failed",
+      component: "admin-reports",
+      ticker: "005930",
+      section: "section_0",
+    });
+    expect(typeof evt!.path).toBe("string");
+    expect(typeof evt!.message).toBe("string");
+  });
+
+  it("does NOT log for null sections (writer-unfilled is the normal case)", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const row: StockReportDbRow = { ...baseRow, section_0: validSection0 };
+
+    transformStockReportRow(row);
+
+    const validationEvents = parsedWarnLines(spy).filter(
+      (p) => p.event === "report_section_validation_failed",
+    );
+    expect(validationEvents).toHaveLength(0);
+  });
+
+  it("emits a structured event with modern+legacy context for a malformed section_8", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const row: StockReportDbRow = {
+      ...baseRow,
+      ticker: "000660",
+      section_8: { partA: "not-a-valid-shape" },
+    };
+
+    transformStockReportRow(row);
+
+    const evt = parsedWarnLines(spy).find(
+      (p) =>
+        p.event === "report_section_validation_failed" &&
+        p.section === "section_8",
+    );
+    expect(evt).toBeDefined();
+    expect(evt).toMatchObject({
+      level: "warn",
+      component: "admin-reports",
+      ticker: "000660",
+      section: "section_8",
+    });
+    expect(typeof evt!.modernPath).toBe("string");
+    expect(typeof evt!.modernMessage).toBe("string");
+    expect(typeof evt!.legacyPath).toBe("string");
+    expect(typeof evt!.legacyMessage).toBe("string");
   });
 });

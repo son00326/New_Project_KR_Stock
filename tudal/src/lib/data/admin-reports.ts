@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { logStructured } from "@/lib/log/structured-log";
 import type { ShortListItem, StockReport, StockReportSections } from "@/types/admin";
 import {
   reportSection0Schema,
@@ -90,18 +91,21 @@ const REPORT_COLUMNS =
 
 // PR3a multi-source review (gsd CR-01 + red-team RT#2 + omxy R7 P2):
 // silent null drop은 PR1 cron 가동 후 운영 monitoring blind spot. transformer가
-// section context와 ticker를 cline → console.warn으로 위임. PR1 wire 시점에
-// metric/logger로 격상하기 좋은 분리 지점.
+// section context와 ticker를 담아 구조화 로그로 위임 — serverless 로그 드레인에서
+// event=report_section_validation_failed 로 쿼리/집계 가능 (PR1 격상 완료).
 function warnSectionValidationFailure(
   ticker: string,
   section: string,
   ctx: ParseErrorContext,
 ): void {
   const pathStr = ctx.path.length > 0 ? ctx.path.join('.') : '<root>';
-  console.warn(
-    `[admin-reports] ${section} validation failed for ticker=${ticker} ` +
-      `path=${pathStr} message=${ctx.message}`,
-  );
+  logStructured('warn', 'report_section_validation_failed', {
+    component: 'admin-reports',
+    ticker,
+    section,
+    path: pathStr,
+    message: ctx.message,
+  });
 }
 
 export function transformStockReportRow(
@@ -125,13 +129,15 @@ export function transformStockReportRow(
     section_6: parseSectionSafe(reportSection6Schema, row.section_6, warn('section_6')),
     section_7: parseSectionSafe(reportSection7Schema, row.section_7, warn('section_7')),
     section_8: parseReportSection8(row.section_8, (s8ctx) => {
-      console.warn(
-        `[admin-reports] section_8 validation failed for ticker=${row.ticker} ` +
-          `modernPath=${s8ctx.modernError.path.join('.') || '<root>'} ` +
-          `modernMsg=${s8ctx.modernError.message} ` +
-          `legacyPath=${s8ctx.legacyError.path.join('.') || '<root>'} ` +
-          `legacyMsg=${s8ctx.legacyError.message}`,
-      );
+      logStructured('warn', 'report_section_validation_failed', {
+        component: 'admin-reports',
+        ticker: row.ticker,
+        section: 'section_8',
+        modernPath: s8ctx.modernError.path.join('.') || '<root>',
+        modernMessage: s8ctx.modernError.message,
+        legacyPath: s8ctx.legacyError.path.join('.') || '<root>',
+        legacyMessage: s8ctx.legacyError.message,
+      });
     }),
     appendix: parseSectionSafe(reportAppendixSchema, row.appendix, warn('appendix')),
     regenAutoCount: row.regen_auto_count,
