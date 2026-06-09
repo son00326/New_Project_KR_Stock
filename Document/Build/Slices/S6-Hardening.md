@@ -58,7 +58,7 @@ Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent H
 - [x] **T6.2** M17 AI 비용 대시보드 — 당월 누적 + 35만 경보 + 40만 hardcap 시각화 + 시나리오 비교(BL-18 견적) + Purpose별 비중 + Top 5 기여 + 시연 영역(2026-03 경보·2026-02 hardcap mock)
 - [x] **T6.3** override 토글 — BL-17 B 채택 (대표 1인). UI 토글 자체는 실데이터 전환 시점에 추가 (현재는 mock 차단만)
 - [x] **T6.4** heartbeat_log 스키마 신규 (0008 §2)
-- [x] **T6.5** M19 Silent Health 배치 — `/api/cron/silent-health` (Vercel Cron 매일 15:00 UTC = 24:00 KST). 텔·이메일 2채널 + D10 catch-up(이메일 1회 재시도) + heartbeat_missing AlertEvent 적재
+- [x] **T6.5** M19 Silent Health 배치 — `/api/cron/silent-health` (Vercel Cron 매일 15:00 UTC = 24:00 KST). legacy 텔·이메일 2채널 + D10 catch-up(이메일 1회 재시도) + heartbeat_missing AlertEvent 적재. **72차 현행 target은 Telegram best-effort + `/admin/alerts` durable event + 대시보드 unread badge.**
 - [x] **T6.6** 최종 E2E 검증 — Must 19 전원 mock 데이터로 빌드/테스트 통과 (build 22 routes · test 20 files/190 tests · lint 0)
 
 ---
@@ -69,7 +69,7 @@ Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent H
 - [x] M17: 35만 경보 배너 노출 (2026-03 mock으로 시연)
 - [x] M17: Top 5 기여 테이블 렌더링 + Purpose별 비중 바
 - [x] 40만 hardcap 활성 확인 — `regenerateReport` 핸들러에서 `isHardcapBlocked()` 가드 호출
-- [x] M19: Cron 핸들러 수동 트리거 시 텔·이메일 2채널 발송 + ok/red_alert 자동 분기
+- [x] M19: Cron 핸들러 수동 트리거 시 legacy 텔·이메일 2채널 발송 + ok/red_alert 자동 분기. **72차 현행 target은 Telegram+/admin 2-layer.**
 - [x] M19: `heartbeat_missing` AlertEvent 페이로드 빌드 (D10 catch-up도 실패 시)
 - [x] Must 19 전원 mock 플로우 빌드 통과
 - [x] `npm run build` 오류 0, `npm run lint` 경고 0, `npm run test:ci` 190 tests pass

@@ -336,9 +336,9 @@
 **2026-04-20** (23차 후속 정정): **S6 ✅ Mock 완료 반영** — Mock Skeleton Stage 1 완성(S0~S6). Mock 동작 19/19 · 실데이터 0/19 · 실 AI 호출 0 · 운용 검증 0일. 진짜 MVP는 S7(실데이터 전환, 미착수) + 운용 검증 후.
 - 마이그레이션 0008(cost_log 확장 ticker·persona_id·section + heartbeat_log + RLS 1종)
 - src/lib/cost/{anthropic-pricing.ts·dry-run-estimate.ts·aggregate.ts} (BL-18 견적 박제 + M17 집계 + hardcap 가드)
-- src/lib/health/heartbeat.ts (M19 분류·메시지·D10 catch-up·heartbeat_missing 페이로드)
+- src/lib/health/heartbeat.ts (M19 분류·메시지·legacy D10 catch-up·heartbeat_missing 페이로드; 72차 target은 Telegram+/admin 2-layer)
 - src/app/(admin)/admin/settings/cost/page.tsx — M17 대시보드 (35만 경보·40만 hardcap·Purpose 비중·Top 5·BL-18 시나리오 비교·시연 영역)
-- src/app/api/cron/silent-health/route.ts — Vercel Cron 매일 24:00 KST 2채널 + D10 재시도
+- src/app/api/cron/silent-health/route.ts — Vercel Cron 매일 24:00 KST legacy 2채널 + D10 재시도(72차 target: Telegram best-effort + `/admin` durable event/unread badge)
 - regenerateReport에 isHardcapBlocked 가드 활성 (S4 stub → 실 활성화)
 - vercel.json crons 4건으로 확장 (silent-health 추가, 0 15 * * *)
 - src/app/(admin)/layout.tsx — Sidebar nav에 AI 비용·Health 항목 노출
@@ -351,7 +351,7 @@
 **2026-04-19** (21차): **S5a ✅ 완료 반영** — M10·M11·M12·M18 4 Must 달성.
 - 마이그레이션 0006(pipeline_health · news_event · briefing_log · briefing_view_event + RLS 4종)
 - src/lib/scheduler/monthly-batch.ts + __tests__ (재시도·실패 처리, 13 tests)
-- src/lib/email/resend.ts + src/lib/briefing/compose.ts + __tests__ (브리핑 컴포저, 8 tests)
+- src/lib/email/resend.ts + src/lib/briefing/compose.ts + __tests__ (브리핑 컴포저, 8 tests; legacy mock adapter — 72차 현행 알림 spec은 email/Resend 미사용)
 - src/lib/news/{naver-api.ts · scraper.ts · classifier.ts} + __tests__ (분류기, 12 tests)
 - src/lib/health/pipeline-health.ts + __tests__ (5 파이프라인 집계, 8 tests)
 - vercel.json (crons 3건: 월간 배치 · 모닝 브리핑 08:00 KST · 뉴스 sweep 15분 주기)
