@@ -1,15 +1,16 @@
 # AGENTS.md — New_Project_KR_Stock
 
-Last reviewed: 2026-04-24
+Last reviewed: 2026-06-09
 
 ## Purpose
 
 This repository is the planning and implementation workspace for **주픽(JooPick)**, an internal investment operations tool for the owner and two friends. The current product track is not a public MVP. Treat member-facing pages, public signup, legal terms, and 500-user invite flows as **Deferred-D** unless the user explicitly reopens that track.
 
 Current state:
-- `Mock Skeleton` is complete for S0~S6.
-- Active priority is **DQ-7 Admin Credential System + Vercel deployment follow-up**.
-- Next major tracks are **S7 real data migration**, **S8 stock + Binance futures auto-trading framework**, then **S9 operation validation**.
+- `Mock Skeleton` complete (S0~S6); DQ-7 credential system ~97% (user-led smoke/deploy items remain).
+- The real-data + real-AI MVP engine (W0~W3) is **code-complete and merged**: W0→W2a→W2b→W1a→W1b→W3a→W3b-1→W3b-2a→W3b-2b→W3b-3→W3b-2c (all ✅). Migrations 0001~0036 applied.
+- **P3 cheap selection smoke ✅** (real AI, 1 midlong ticker, worker plumbing verified end-to-end). Next is the USER-gated **full P3 selection** (cost approval), then P2b/P4.
+- S8 stock + Binance auto-trading remains **post-release / deferred** unless the user explicitly reopens it.
 
 ## Repository Layout
 
@@ -37,22 +38,15 @@ Do not use archived files as current guidance. Files under `Document/Archive/` a
 
 ## Current Execution Priority
 
-As of the latest checked documents, DQ-7 Session 3 is partially done. The remaining user-led items are:
+`Document/Process/HANDOFF.md` is the live source of truth — re-read it first. As of 71차 (2026-06-09):
 
-- Supabase Redirect URL registration for Magic Link.
-- Applying `tudal/supabase/migrations/0009_dq7_credentials.sql` to the real Supabase DB.
-- Vercel Cron dashboard and smoke checks.
+1. **Full P3 AI 30-selection** — USER cost-approval gate (~₩6.5-9만) + reservation re-check. The cheap 1-ticker smoke is already verified.
+2. Then **P2b** (Section 8 live canary on an AI-badged ticker), then **P4** (30 full reports).
+3. USER gates for the live path: Vercel flags (`SELECTION_CRON_AUTO_ENABLED`, `PR5B_SECTION8_ENABLED`, `PORTFOLIO_*`, `KRX_OPENAPI_KEY`) + weekly tier0 producer (Python).
+4. Then S7b news/briefing, S7c intraday/exit, S7d silent health, S9 operation validation.
+5. S8 live auto-trading remains post-release / deferred unless the slice reopens it.
 
-After DQ-7 closes, follow the documented order:
-
-1. S7a Anthropic wrapper + `cost_log` real insert.
-2. S7e Supabase real SELECT/INSERT transition.
-3. Begin S8 scaffold in parallel after S7a/S7e.
-4. S7b news/briefing real integration.
-5. S7c intraday/exit integration.
-6. S7d silent health real integration.
-7. S8 live execution paths.
-8. S9 operation validation.
+DQ-7 remaining items are user-led smoke/deploy checks, not the active code track unless the user says otherwise.
 
 ## Development Commands
 
