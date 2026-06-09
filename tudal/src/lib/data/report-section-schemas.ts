@@ -120,7 +120,8 @@ export type ReportAppendix = z.infer<typeof reportAppendixSchema>;
 // PR3a multi-source review (gsd CR-01 + red-team RT#2 + omxy R7 P2):
 // silent null drop은 PR1 cron 가동 후 운영 모니터링 blind spot 위험.
 // onError 콜백 제공해서 caller (transformer)가 ticker/section context 박제하도록 함.
-// 본 PR3a scope에서는 caller가 console.warn으로 위임 — 후속 PR1에서 metric으로 격상 예정.
+// PR1 격상 완료: caller(admin-reports.ts)가 logStructured('warn',
+// 'report_section_validation_failed', ...)로 위임 → serverless 로그 드레인에서 쿼리 가능.
 // ---------------------------------------------------------------------------
 
 export interface ParseErrorContext {
