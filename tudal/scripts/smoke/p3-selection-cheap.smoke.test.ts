@@ -94,11 +94,19 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
       // SC-2 idempotency guard — abort at $0 if this month already has cost_log rows.
       // The post-run DELETE clears job/run rows but cost_log is retained audit, so a
       // re-run would re-bill ~₩87 and the seam-D delta assertion would shift. Fail loud.
-      const { count: baseCostRows } = await supabase
+      const { count: baseCostRows, error: baseCostErr } = await supabase
         .from('cost_log')
         .select('*', { count: 'exact', head: true })
         .eq('month', month);
-      if ((baseCostRows ?? 0) > 0) {
+      // ④ fail-closed: a count error / null must ABORT before spend (do NOT fall through
+      // to billing). Only proceed when we POSITIVELY confirm 0 prior rows for the month.
+      if (baseCostErr || baseCostRows == null) {
+        throw new Error(
+          `[p3-smoke] cost_log baseline count failed for ${month} ` +
+            `(${baseCostErr?.message ?? 'null count'}) — aborting before spend (fail-closed).`,
+        );
+      }
+      if (baseCostRows > 0) {
         throw new Error(
           `[p3-smoke] cost_log already has ${baseCostRows} row(s) for ${month} — a re-run ` +
             `would double-bill. cost_log is retained audit and not auto-cleared; use a clean ` +
@@ -273,6 +281,7 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
     () => {
       expect(CONFIRMED).toBe(false);
       // SC-4: setup-env must NOT have force-enabled the cost gates without the confirm flag.
+      expect(process.env.P3_SMOKE_CONFIRM).not.toBe('1');
       expect(process.env.AI_COST_LOG_REAL_INSERT_ENABLED).not.toBe('true');
       expect(process.env.SELECTION_CRON_AUTO_ENABLED).not.toBe('true');
     },
