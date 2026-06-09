@@ -31,6 +31,7 @@ function loadEnvLocal(): void {
     ) {
       val = val.slice(1, -1);
     }
+    if (key.startsWith('P3_FULL_') && process.env[key] !== undefined) continue;
     process.env[key] = val; // .env.local is the canonical local secret source → override
   }
 }
