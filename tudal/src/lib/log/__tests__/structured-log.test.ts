@@ -147,4 +147,20 @@ describe("logStructured", () => {
       event: "proxy_event",
     });
   });
+
+  it("does not throw when a field value is hostile (revoked Proxy throws on instanceof)", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { proxy, revoke } = Proxy.revocable<Record<string, unknown>>({}, {});
+    revoke();
+
+    expect(() =>
+      logStructured("warn", "revoked_proxy_event", { bad: proxy }),
+    ).not.toThrow();
+
+    // 빌드 단계 throw도 caller resilience를 깨지 않고 최소 라인을 emit해야 함.
+    expect(spy).toHaveBeenCalledTimes(1);
+    const parsed = JSON.parse(spy.mock.calls[0][0] as string);
+    expect(parsed.level).toBe("warn");
+    expect(parsed.event).toBe("revoked_proxy_event");
+  });
 });
