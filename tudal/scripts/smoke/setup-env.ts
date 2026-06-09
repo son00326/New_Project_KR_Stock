@@ -1,8 +1,11 @@
 // Smoke-only env bootstrap. vitest sets NODE_ENV=test and does NOT auto-load .env.local,
-// so we parse it manually (no dotenv dependency bet) and inject the step-0 gate vars that
-// are intentionally absent from .env.local. Only ever loaded by vitest.smoke.config.ts.
+// so the confirmed real-money path parses it manually (no dotenv dependency bet) and
+// injects the step-0 gate vars that are intentionally absent from .env.local.
+// Only ever loaded by vitest.smoke.config.ts.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+
+const smokeConfirmedByCaller = process.env.P3_SMOKE_CONFIRM === '1';
 
 function loadEnvLocal(): void {
   const p = path.resolve(__dirname, '../../.env.local');
@@ -29,15 +32,19 @@ function loadEnvLocal(): void {
   }
 }
 
-loadEnvLocal();
-
 // Step-0 fail-closed gates (tier1-selection-batch-worker.ts:434-451) not present in .env.local.
 // Defense-in-depth (SC-4): only force the two COST gates ON when the real smoke is explicitly
-// confirmed. Merely loading this config (e.g. a stray --config without P3_SMOKE_CONFIRM) then
-// must NOT flip cost-logging / selection gates in the process env.
-if (process.env.P3_SMOKE_CONFIRM === '1') {
+// confirmed by the caller's process env. A stale P3_SMOKE_CONFIRM or cost gate in .env.local
+// must not turn an accidental `--config vitest.smoke.config.ts` into a billing run.
+if (smokeConfirmedByCaller) {
+  loadEnvLocal();
+  process.env.P3_SMOKE_CONFIRM = '1';
   process.env.SELECTION_CRON_AUTO_ENABLED = 'true';
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'true';
+} else {
+  delete process.env.P3_SMOKE_CONFIRM;
+  delete process.env.SELECTION_CRON_AUTO_ENABLED;
+  delete process.env.AI_COST_LOG_REAL_INSERT_ENABLED;
 }
 // cron-system reserved user (exists in prod auth.users; FK target for cost_log.called_by).
 process.env.CRON_SYSTEM_USER_ID ??= '39202d8b-1042-48a6-8da0-df14a52fabea';
