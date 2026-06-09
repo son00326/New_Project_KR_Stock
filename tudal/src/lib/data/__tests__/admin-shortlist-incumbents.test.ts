@@ -1,6 +1,6 @@
 // W2b (D27 Q5) — getIncumbents + buildIncumbentThesisContexts 유닛테스트.
 // mock chain 타이핑: feedback_test_mock_typing (any 금지, admin-tier0-candidates.test.ts 패턴).
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getIncumbents,
@@ -235,6 +235,7 @@ const validSection0 = {
 
 describe("buildIncumbentThesisContexts", () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it("직전 row 필드 + 리포트 thesis + 실현 성과를 한국어 컨텍스트로 합성", async () => {
     const { client } = buildContextClient({
@@ -308,6 +309,46 @@ describe("buildIncumbentThesisContexts", () => {
     const map = await buildIncumbentThesisContexts([makeIncumbent()], { client });
     expect(map["005930"]).not.toContain("핵심 thesis");
     expect(map["005930"]).toContain("직전 논거");
+  });
+
+  it("malformed section_0 → 구조화 로그 emit (P3 selection silent-drop 가시화)", async () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { client } = buildContextClient({
+      reports: {
+        data: [{ ticker: "005930", month: "2026-06-01", section_0: { bogus: true } }],
+        error: null,
+      },
+      snapshots: { data: [], error: null },
+    });
+
+    await buildIncumbentThesisContexts([makeIncumbent()], { client });
+
+    const calls = spy.mock.calls as unknown[][];
+    const evt = calls
+      .map((call): Record<string, unknown> | null => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find(
+        (p): p is Record<string, unknown> =>
+          p !== null &&
+          p.event === "report_section_validation_failed" &&
+          p.section === "section_0",
+      );
+    expect(evt).toBeDefined();
+    if (evt === undefined) {
+      throw new Error("expected incumbent section_0 validation event");
+    }
+    expect(evt).toMatchObject({
+      level: "warn",
+      event: "report_section_validation_failed",
+      component: "incumbent-thesis",
+      ticker: "005930",
+      section: "section_0",
+    });
   });
 
   it("incumbent month보다 미래인 stock_reports row는 직전 thesis로 사용하지 않음 (lte 필터)", async () => {
