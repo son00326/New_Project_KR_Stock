@@ -17,10 +17,10 @@
 > **[65차 supersede 2026-06-04 → 66차 W0 부분 해소]**: AI 엔진 스택은 W0~W3로 재정의됨 — 멀티프로바이더(Claude+GPT, provider auto-detect)/역할별 모델 차등/hardcap **50만**/주간(short)·월간(mid·long) 선정 split/실시간 반박 토론 loop/AI 자율 포트/**D27 Q5 incumbent thesis 재점검**(재선정 후보풀 = fresh Tier0 ∪ incumbents, 직전 리포트·논거 주입 재평가 — W2 union + W1 주입). ~~본 스냅샷의 Anthropic-단일·40만 hardcap 표기~~ → **66차 W0에서 해소됨** (아래 2026-06-04 entry). Core 11 단발 채점·monthly-batch 단일 선정·stateless 재선정(reflectionContext='') 표기는 **W2/W1 구현 시 갱신 예정**(과거 timeline·완료 로그는 역사로 보존). 활성 SoT = `HANDOFF.md §2` + `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + CLAUDE.md.
 
 **2026-06-09** (72차 — ⭐ 뉴스 기반 자동 제외 (M12a) **spec 신설 — 문서 only · 코드 미구현(planned)**, omxy scope debate R1~R4 CONVERGED):
-- **신규 product spec(planned)**: `ServicePlan-Admin.md §3.10 M12 → M12a 재작성`. AI 페르소나(Core 11)가 개장 전 08:00 KST 보유 포트+30리스트 뉴스 평가 → 구조화 판정(severity/scope/confidence/affected_tickers/materiality/directness/thesis_break_reason/recommended_action) → direct·material·high-conf·회사고유(또는 thesis 직접 깨는 sector)만 **자동 제외(빼기만·freed→현금)** + **smart brake**(1run 4건↑[>3] 또는 track 70% floor → 전체 hold_for_review; 집중포트 N<10=1건 자동·2건↑ 보류) + **durable removal ledger**(lockout 없음) + 다음 선정 **candidate-level negative-news context**(fresh∪incumbent, D27 seam과 별개) + **텔레그램/앱 알림(이메일 미발송)**.
+- **신규 product spec(planned)**: `ServicePlan-Admin.md §3.10 M12 → M12a 재작성`. AI 페르소나(Core 11)가 개장 전 08:00 KST 보유 포트+30리스트 뉴스 평가 → 구조화 판정(severity/scope/confidence/affected_tickers/materiality/directness/thesis_break_reason/recommended_action; `scope`는 의사결정 gate가 아닌 메타데이터) → 회사/섹터/거시 뉴스 모두 각 종목별 per-company thesis-break 평가 → direct·material·high-conf 종목만 **자동 제외(빼기만·freed→현금)** + **smart brake**(1run 4건↑[>3] 또는 track 70% floor → 전체 hold_for_review; 집중포트 N<10=1건 자동·2건↑ 보류) + **news_event 1건 + per_ticker_assessments N건 durable ledger**(lockout 없음) + 다음 선정 **candidate-level negative-news context**(fresh∪incumbent, D27 seam과 별개) + **텔레그램 + `/admin` 웹 알림(`/admin/alerts` durable event + 대시보드 unread badge)**.
 - **⚠️ 현재 코드 상태(변경 없음)**: 뉴스 = 규칙기반 passive(`src/lib/news/classifier.ts` 키워드 3등급) + M11 모닝 브리핑(deterministic). **M12a AI 자동 제외 = 코드 0줄, planned only.** 이번 작업 = 6개 SoT 문서 spec 갱신 + 잘못된 내용(즉시 교체/이메일/규칙 3등급 분류) 수정뿐 — **`tudal/src` 무변경**.
 - **갱신 문서**: ServicePlan-Admin §3.10 M12a(primary) + S7-RealData S7b Task + HANDOFF Step7/B-7~9 + ProgressDashboard S7b scope + BusinessPlan §10.6 + ReportFramework boundary note + 본 CodebaseStatus.
-- **Resend 범위 정정**: S7b 뉴스/브리핑 = 텔레그램+앱(Resend 미사용). **M15/S7c Exit 이메일(D10)은 불변**(전역 제거 아님).
+- **Resend 범위 정정**: **72차 사용자 override로 이메일/Resend 알림 전역 제거**. S7b 뉴스/브리핑, M15/S7c Exit(D10), S7d health 모두 텔레그램 best-effort + `/admin/alerts` durable event + 대시보드 unread badge. `ADMIN_EMAILS` 인증 allowlist는 알림 채널이 아니므로 별개.
 - omxy scope debate(catch-only) R1~R4 CONVERGED: candidate-level context(incumbent-only 아님)·durable ledger 분리(E1 row 불변)·70% per-track floor·M12a output schema·B-7/B-9 게이트·`alert_event.alert_type` enum 불변·소형포트 brake 예외 반영.
 
 **2026-06-09** (72차 — ⭐ structured-log 격상: report 섹션 validation silent null-drop → JSON 구조화 로그, PR #107 MERGED main `6f1913a`):
@@ -526,7 +526,7 @@
 - **Mock 동작**: 19/19 (100% mock fixture)
 - **실데이터 연결**: **0/19** — 전 Must가 mock 의존
 - **실 AI 호출**: **0** — ~~Anthropic wrapper 미구현~~ → **66차 W0 ✅ 구현 MERGED** (LlmProvider + model-registry, Claude+GPT 멀티프로바이더 + provider auto-detect — PR #86). 실 호출 활성 = W1/W2 엔진 + USER 키·비용 게이트 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션)
-- **2채널 알림 실 발송**: **0** — Resend·Telegram 미연결
+- **텔레그램 + `/admin` 웹 알림 실 발송/표시**: **0** — Telegram 실 발송 미연결(`/admin` durable event/badge 실검증 대기)
 - **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·AI(Claude/GPT)·DART UI 표시는 아직 미연결 (65차 Q3 supersede: AI 키 = Anthropic 단일 아님, Claude 필수 + GPT 선택 멀티프로바이더 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션). T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
 - **실 운용 검증**: **0일**
 
@@ -550,8 +550,8 @@
 - [ ] **AI 프로바이더 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — ~~W0 진입 트리거~~ → **66차: W0 코드 ✅ MERGED — 키는 W0 smoke 실행(USER 선택) + W1/W2 실 가동 게이트**. Claude(Anthropic) 키 필수, GPT(OpenAI) 키 선택(provider availability auto-detect — 없으면 Claude-only). HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] **KIS API 계정 발급** (BL-KRIT-2, 사용자 액션 B-10) — S7c WS read-only 본인 1개로 충분 (D18)
 - [x] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전 · B-8)
-- [ ] **Resend 계정 + 도메인 인증** (BL-KRIT-4, 사용자 액션 B-7) — 비-S7b 이메일(M15/S7c Exit·D10·S7d health/catch-up) 선결; S7b 뉴스/브리핑은 미사용
-- [ ] **Telegram Bot** (BL-KRIT-5, 사용자 액션 B-9) — S7b M12a 뉴스 자동제외 알림부터 필요 + S7c 선결
+- [x] ~~**Resend 계정 + 도메인 인증** (BL-KRIT-4, 사용자 액션 B-7)~~ — **폐기(72차 사용자 override)**: 이메일/Resend 알림 전역 제거. D10/M15/S7c/S7d는 텔레그램 best-effort + `/admin/alerts` durable event + 대시보드 unread badge로 대체
+- [ ] **Telegram Bot** (BL-KRIT-5, 사용자 액션 B-9) — S7b M12a 뉴스 자동제외 알림부터 필요 + S7c/S7d 텔레그램 알림 선결
 - [x] **Supabase anon key 갱신** (BL-KRIT-6) — 2026-04-21 해소
 - [x] **마이그레이션 0010 alert RLS hardening** (BL-KRIT-7) — 적용 완료 (36차)
 - [x] **마이그레이션 0009 DQ-7 credential** (E9 확장 + E12 신설 + RLS) — 적용 완료 (DQ-7 Session 3, production brokerage_connection 1 row 존재)

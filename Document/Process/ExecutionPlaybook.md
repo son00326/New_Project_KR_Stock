@@ -92,7 +92,7 @@ Status: **v1.1 · 2026-04-16**
 | 시점 | 평가 기준 | 조건부 실행 |
 |---|---|---|
 | **S1 킥오프** (디자인 하네스) | S0의 deepinit + 표준 executor로 UI 품질 충분한가? | 불충분 시 → designer·UI-builder 2~3 에이전트 하네스 구축 |
-| **S5 킥오프** (데이터 하네스) | 외부 API 4종(텔레그램·이메일·SMS·뉴스) 통합이 표준 executor로 감당 가능한가? | 불충분 시 → api-integrator·pipeline-builder 하네스 구축 |
+| **S5 킥오프** (데이터 하네스) | 외부 API/알림(텔레그램·뉴스·한투 WebSocket·`/admin` durable alert; 이메일/Resend/SMS 알림은 72차/22차로 폐기) 통합이 표준 executor로 감당 가능한가? | 불충분 시 → api-integrator·pipeline-builder 하네스 구축 |
 
 하네스를 구축하면 `.claude/agents/`에 에이전트 정의 + `.claude/skills/`에 전용 스킬이 생성되어 **이후 모든 세션에서 자동 활성화** (CLAUDE.md 등록). 따라서 **한번 만들면 S1~S6 전체에서 재사용**.
 

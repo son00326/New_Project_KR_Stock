@@ -52,6 +52,8 @@ Must 19의 마지막 방어층. M17(AI API 비용 40만 hardcap)과 M19(Silent H
 
 ## Tasks (체크리스트)
 
+> **72차 사용자 override(2026-06-09)**: 아래 T6.5/M19의 텔·이메일/D10 표현은 S6 mock-complete 당시 historical. 현행 M19 알림 spec은 **Telegram best-effort + `/admin/alerts` durable event + 대시보드 unread badge**, 이메일/Resend 알림 전역 제거.
+
 - [x] **T6.1** cost_log 스키마 확장 — BL-16 A 채택 후 ticker·persona_id·section 컬럼 추가 (0008 마이그레이션)
 - [x] **T6.2** M17 AI 비용 대시보드 — 당월 누적 + 35만 경보 + 40만 hardcap 시각화 + 시나리오 비교(BL-18 견적) + Purpose별 비중 + Top 5 기여 + 시연 영역(2026-03 경보·2026-02 hardcap mock)
 - [x] **T6.3** override 토글 — BL-17 B 채택 (대표 1인). UI 토글 자체는 실데이터 전환 시점에 추가 (현재는 mock 차단만)

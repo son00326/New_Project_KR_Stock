@@ -52,6 +52,8 @@ current_progress: 100% (M10·M11·M12·M13·M14·M15·M18 7건 / S5 총 7 Must +
 | 한투 API (WebSocket) | M13 장중 감지 | ✅ **WebSocket 확정** (22차, 2026-04-19) — BL-14 해소 |
 | 배치 실행 환경 | M10 월간 스케줄러 | BL-15 결정 후 (Vercel Cron / Supabase Edge / GitHub Actions) |
 
+> **72차 사용자 override(2026-06-09)**: 아래 S5의 Resend/D10 이메일 재시도/2~3채널 표현은 Mock Skeleton 완료 당시 historical. 현행 알림 spec은 **Telegram best-effort + `/admin/alerts` durable event + 대시보드 unread badge**, 이메일/Resend 알림 전역 제거.
+
 ---
 
 ## S5a Tasks (M10·M11·M12·M18 — 3세션 예상 · 실제 1세션)

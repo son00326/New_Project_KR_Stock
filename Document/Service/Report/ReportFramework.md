@@ -726,7 +726,7 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 
 > **AI 키 미발급 fallback**: Step 0a(Tier 0)만 가동 → 진짜 코스피·코스닥 30종목 + 실 가격·재무·뉴스가 어드민 화면에 노출. Step 0b·1·2·3은 placeholder ("AI 분석 대기 중"). AI 키 발급 시 plug-in.
 
-> **M12a 뉴스 기반 자동 제외 — 경계 (72차, planned · 상세 SoT = `ServicePlan-Admin §3.10 M12a`)**: 본 Step 0(선정)·Section 8(BUY/HOLD/SELL 리포트 평정)·D19 합의 배지와 **M12a는 별개 축**이다. M12a는 **Core 11 페르소나를 재사용**하되 **별도 평정틀**(제거 판정 yes/no + 신뢰도 + scope/recommended_action — BUY/HOLD/SELL·배지와 독립)을 쓴다. M12a의 **durable negative-news context는 다음 선정 시 fresh∪incumbent 모든 Tier1 후보에 주입**되며, D27 incumbent thesis context와 **별도·additive**다(incumbent-only 아님). Sector 14 = MVP 제외(후순위). 상세 algo/event = ServicePlan-Admin/S7-RealData.
+> **M12a 뉴스 기반 자동 제외 — 경계 (72차, planned · 상세 SoT = `ServicePlan-Admin §3.10 M12a`)**: 본 Step 0(선정)·Section 8(BUY/HOLD/SELL 리포트 평정)·D19 합의 배지와 **M12a는 별개 축**이다. M12a는 **Core 11 페르소나를 재사용**하되 **별도 평정틀**(제거 판정 yes/no + 신뢰도 + scope/recommended_action — BUY/HOLD/SELL·배지와 독립)을 쓴다. 이때 `scope`는 출처 메타데이터일 뿐 의사결정 gate가 아니며, 회사/섹터/거시 뉴스 모두 각 후보·보유 종목별 thesis-break로 차등 평가한다. M12a의 **durable negative-news context는 다음 선정 시 fresh∪incumbent 모든 Tier1 후보에 주입**되며, D27 incumbent thesis context와 **별도·additive**다(incumbent-only 아님). Sector 14 = MVP 제외(후순위). 상세 algo/event = ServicePlan-Admin/S7-RealData(news_event 1건 + per_ticker_assessments N건).
 
 ### Step 1~4: 풀 리포트 작성 (선정된 30종목만)
 

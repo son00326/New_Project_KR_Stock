@@ -178,7 +178,7 @@ Status: 기획 확정 (Q1~Q11) + 투심위·자동화 설계 확정 + 보고서 
 ```
 Mock Skeleton (S0~S6) ✅
    ▼
-S7  주식 실데이터 연결 (Anthropic·Supabase·KIS·Naver·Resend·Telegram·헬스)
+S7  주식 실데이터 연결 (Anthropic·Supabase·KIS·Naver·Telegram·헬스; Resend/email 알림은 72차 사용자 override로 폐기)
    ▼
 S8  자동매매 프레임 (주식 KIS 모의→실계좌 + 코인 바이낸스 테스트넷→메인넷 + Strategy 폴더 + AI 어댑터)
    ▼
@@ -436,7 +436,7 @@ Tier 3 최소 기준 = 가격 차트 + 기업 개요 + 재무 요약 + 기술적
 | 기본 주기 | **단기 주1회 / 중장기 월1회 분리 재선정** (65차 Q1 supersede, 2026-06-04 · 기존 "월 1회 단일 배치"는 stale — HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조) |
 | 변동 표시 | 신규 편입 / 유지 / 제외 + 변동 사유 명시 (**65차 D27 Q5**: 유지/제외는 AI가 직전 리포트·논거+실현 성과를 재점검["incumbent thesis context"]한 뒤 신규 후보와 top10 랭킹 경쟁으로 결정 — 자동 유지 아님, 무심사 탈락 금지. HANDOFF ⭐ 참조) |
 | 리포트 갱신 | 단기 주1회 / 중장기 월1회 기본 + 실적 발표/대형 이벤트 시 수시 갱신 (65차 Q1 선정주기 분리 정합) |
-| 긴급 변동 | **(72차 정정 · M12a)** 뉴스 AI 페르소나 판정으로 **즉시 Short List/포트에서 제외(빼기만 — 즉시 교체 X, 빈자리는 다음 정기 cron refill)** + **텔레그램/앱 알림(이메일 미발송)**. spec SoT = `ServicePlan-Admin §3.10 M12a` (planned). 구 "즉시 제외/교체 + 이메일/텔레그램"은 supersede |
+| 긴급 변동 | **(72차 정정 · M12a)** 뉴스 AI 페르소나가 회사/섹터/거시 뉴스를 각 종목별 thesis-break로 평가해 direct/material/high-conf 종목만 **즉시 Short List/포트에서 제외(빼기만 — 즉시 교체 X, 빈자리는 다음 정기 cron refill)** + **텔레그램 + `/admin` 웹 알림(`/admin/alerts` durable event + 대시보드 unread badge)**. spec SoT = `ServicePlan-Admin §3.10 M12a` (planned). 구 "즉시 제외/교체 + 이메일/텔레그램"은 supersede |
 
 ### 10.7 비용
 
@@ -551,12 +551,12 @@ Tier 3 최소 기준 = 가격 차트 + 기업 개요 + 재무 요약 + 기술적
 | 2026-04-15 | **승인 워크플로우 확정** — 어드민 동등 권한, 먼저 승인한 사람이 확정. AI가 Short List 30 + 비중을 완성 형태로 제공, 어드민은 Accept/Reject (수동 수정 아님). Reject 시 AI 재분석 요청. 트랙 레코드 기준가 = 승인 시점 시장가. |
 | 2026-04-15 | **Quant 범위 명확화** — "자동매매 3축 Quant"(§9 제목) → "Quant 분석 엔진"으로 재정의. 분석 엔진은 전 Stage 공통 사용. 자동매매 실행은 Stage 2(API 연동)~Stage 3(자율 운용)에서 추가. ServicePlan.md §2 동기화. |
 | 2026-04-15 | **P3.0 Pre-P3 Q&A 확정 (9개 결정 D1~D9)** — 서비스 운영 레벨. 사업 파급 핵심: (a) 미승인 D+5 영업일 시 전월 포트 유지 (D2) — 운영 디폴트 규칙, (b) 트랙 레코드 기준 = 승인 시점 종가 100% 일괄매수 + 현금 0~30% (D3·D4) — Y1 Decision Tree alpha·Sharpe 산정 기준, (c) MVP Short List 30 산출 유지·백테스트 검증은 6종목에서 점진 확장 (D6, 배분은 P3.1/B3 결정, 분석 로직에 AI 투심위 Core11+Sector14×10 판단기준 포함) — BusinessPlan §9 Quant 분석 엔진과 정합, (d) 리포트 재생성 cap 자동1·수동2/종목·월 (D8) — Anti-Metric "AI API 40만원" 가드. 상세는 ServicePlan-Admin.md §1A.5 SoT. 어드민 인원은 3명 가정으로 확정(Q10 2~3명 중 3명), 실존 공동창업자 여부는 서비스 설계 비영향. |
-| 2026-04-15 | **P5 검증 → v1.0 확정: D10 Exit 시그널 백업 채널 Must 원복** — critic I-01 해소. R3.10-15: 텔레그램·이메일 중 하나 실패 시 다른 채널 catch-up, 둘 다 실패 시 SMS 1회 재시도 Must 포함. "Build 이관" 삭제. Anti-Metric "Exit 시그널 미수신 1건+" 달성 가능 구조로 복원. |
+| 2026-04-15 | **P5 검증 → v1.0 확정: D10 Exit 시그널 백업 채널 Must 원복** — critic I-01 해소. R3.10-15: 텔레그램·이메일 중 하나 실패 시 다른 채널 catch-up, 둘 다 실패 시 SMS 1회 재시도 Must 포함. "Build 이관" 삭제. Anti-Metric "Exit 시그널 미수신 1건+" 달성 가능 구조로 복원. **72차 사용자 override(2026-06-09)로 현행 D10은 이메일/SMS 없이 Telegram best-effort + `/admin` durable event/unread badge 2-layer로 superseded.** |
 | 2026-04-15 | **P5 검증 → v1.0 확정: D11 어드민 실행 모델 — AI 가상 포트 본체 + 3경로 집행** — critic I-05 / Q10 충돌 해소. (1) **AI 분석·가상 포트폴리오**(본체): Short List→투심위→선착순 Accept→가상 포트 확정. Track Record·NSM(CAP Months)·Anti-Metric "오버라이드 비율"은 **전부 이 가상 포트 기준으로 측정**. (2) **매뉴얼 트레이딩 서브시스템**: 어드민 개별 증권사 API 연결→수동 주문. (3) **자동매매 서브시스템**: 미확정(주식/코인). (4) **외부 바이패스**: 본인 증권사 앱 직접 사용 허용. 승인(Accept)=가상 포트 확정이며 실제 자금 집행 강제 아님. Q10 "독립 자금·독립 의사결정"은 (2)(3)(4) 레이어에서 각자 독립, 가상 포트는 단일 기록. |
 | 2026-04-15 | **P5 검증 → v1.0 확정: D12 어드민 증권사 API 다중 연결 (E9 신규)** — 동일 증권사라도 전략별 복수 앱키·계좌 등록 허용. `어드민 1 × 증권사 N × 계좌 M × 앱키/전략 K` 다대다. E9 BrokerageConnection 엔티티 신설 (admin_id / broker / account_no / api_key_ref / strategy_label / scope(manual\|auto\|both) / is_active). API 시크릿 평문 저장 금지(Vault), 본인 키는 본인만 접근(RLS). 증권사별 앱 등록 한도는 BuildPhase B2 직전 약관 확인. |
 | 2026-04-15 | **P5 검증 → v1.0 확정: D13 멤버 스코프 축소** — critic I-11 대응. 당분간 어드민 3명 전용 운영. 일반 사용자(멤버)는 **"법적 문제 없는 선에서 리서치 웹페이지 수준"**으로 축소 재정의. 매수/매도 추천 금지 원칙 유지, Short List·포트폴리오·Exit 시그널 등 어드민 전용 데이터는 멤버 노출 금지. ServicePlan-Member.md 스코프 재정의 대상. Y1 법적 등록 경로(§Q4)는 재검토 유보. |
 | 2026-04-15 | **P5 검증 REJECT → 해소 완료 (12차)** — 적대적 critic REJECT 판정(Critical 3·Major 10·Minor 9) 수령. 사용자 확정 결정 D10~D13으로 Critical 3건 전원 해소. Major 10건 전원 해소(I-02 D+5 예외규칙·I-03 AI 비용 dry-run·I-04 미달정책·I-06 역할분담 가이드·I-07 schema_version·I-08 유니크제약·I-09 entry_price·I-10 폴링 대안·I-12 NSM 포함·I-13 ○/△/✕ 기준). pre-mortem 4개 시나리오(A 비용폭주·B Exit 미수신·C 화면유출·D 3인합의붕괴) 선행지표·예방조치 박제. ServicePlan-Admin.md v0.9→v1.0. |
-| 2026-04-15 | **P5 Q-OP 후속 → v1.1 확정: D14 Must 승격 3건 (Q-OP1 해소)** — Anti-Metric 방어 기능을 Deferred에서 Must로 승격. Must 16 → **19**. 신규: M17 AI API 비용 실시간 모니터링 대시보드(35만 경보·40만 하드캡·종목·페르소나·섹션 브레이크다운) · M18 파이프라인 헬스체크(DART·뉴스·가격·AI·알림 5개 핵심, 95% 미만 자동 호출) · M19 Silent Health 일간 하트비트(장 운영일 자정 "오늘 이상 없음" 카드 3채널 발송, 조용한 장애 원천 방지). §3.12 시스템 관측·가드레일 섹션 신설. pre-mortem 시나리오 A·B 직접 방어. 상세 `ServicePlan-Admin.md §3.12 / §1A.5 D14`. |
+| 2026-04-15 | **P5 Q-OP 후속 → v1.1 확정: D14 Must 승격 3건 (Q-OP1 해소)** — Anti-Metric 방어 기능을 Deferred에서 Must로 승격. Must 16 → **19**. 신규: M17 AI API 비용 실시간 모니터링 대시보드(35만 경보·40만 하드캡·종목·페르소나·섹션 브레이크다운) · M18 파이프라인 헬스체크(DART·뉴스·가격·AI·알림 5개 핵심, 95% 미만 자동 호출) · M19 Silent Health 일간 하트비트(장 운영일 자정 "오늘 이상 없음" 카드 3채널 발송, 조용한 장애 원천 방지; **72차 사용자 override로 현 채널은 Telegram + `/admin` 웹 2-layer**). §3.12 시스템 관측·가드레일 섹션 신설. pre-mortem 시나리오 A·B 직접 방어. 상세 `ServicePlan-Admin.md §3.12 / §1A.5 D14`. |
 | 2026-04-15 | **P5 Q-OP 후속 → v1.1 확정: D15 승인 Holding + 2인 게이팅 (Q-OP2 해소)** — 3인 투심위 1인 의사결정 변질 방지(pre-mortem 시나리오 D). R3.3-7 Short List 생성 후 24h Holding(Accept 차단) · R3.3-8 3인 중 2인 이상이 풀 리포트 Section 0+ 열람 시에만 Accept 활성화 · R3.3-9 연휴 우회(24h 또는 D+4 중 짧은 쪽) · R3.3-10 이의 제기 시 48h 추가 Hold. E4 PortfolioApproval 필드 확장(shortlist_generated_at·dispute_raised_at·dispute_resolved_at). 상세 `ServicePlan-Admin.md §3.3 / §1A.5 D15`. |
 | 2026-04-15 | **Q-OP3·Q-OP4 개발 완료 전까지 재질문 금지 (사용자 지시)** — Q-OP3(멤버 유료 모델 재검토)·Q-OP4(Y1 투자자문업 등록 경로)는 개발·운영 단계에서 실제 필요성이 발생할 때만 재검토. Claude는 선제적으로 묻지 않음. 과금 원칙 재확인: **돈은 멤버 플랜에서만 발생, 어드민은 지불 주체 아님**(§Q11 유지). Y1 등록 경로(§Q4)는 변호사 1차 자문 결과 확보 전까지 유보. 관련 HANDOFF §🟡 유보 목록에 고정. |
 | 2026-04-20 | **법무·약관 유예 확정** — 어드민 3명 내부 운용은 Q16(법무 자문)·Q17(이용약관·개인정보처리방침) 모두 불필요. Footer 면책 문구로 충분. Deferred-D 멤버 오픈 시점(재개 트리거)부터 `/legal/*` 라우트 신설 + 약관 초안 + 변호사 자문. 현 어드민 트랙에서 법무 관련 DQ 제거. |

@@ -65,7 +65,7 @@ Status: **Week 1 스프린트 착수 대기** (2026-04-16 ~ 2026-04-23)
 | C8 | M17 AI 비용 모니터링 대시보드 | C3, B6 | Blocked | Claude | v1.1 신규 |
 | C9 | M18 파이프라인 헬스체크 대시보드 | C3, B6 | Blocked | Claude | v1.1 신규 |
 | C10 | M19 Silent Health 하트비트 UI + 발송 로직 | C3, B6 | Blocked | Claude | v1.1 신규 |
-| C11 | 알림·Exit 시그널 (M11·M12·M13·M15) | C3, B5 | Blocked | Claude | 3채널 ACK (D10) |
+| C11 | 알림·Exit 시그널 (M11·M12·M13·M15) | C3, B5 | Blocked | Claude | Telegram + `/admin` 웹 ACK (D10 72차) |
 | C12 | Short List 월간 배치 UI (M1·M10) | C3, B6 | Blocked | Claude | Cron 연결 |
 
 ### B4 QA · B5 Ship · B6 Iteration
@@ -81,7 +81,7 @@ Track C 주요 기능 완료 후 진입. 세부 태스크는 `Document/Process/E
 | BL-01 | Supabase 계정 생성 (사용자 행동 필요) | B1·B2·B3·B4 착수 불가 → Track B 전체 정지 | 사용자가 https://supabase.com 가입 · 프로젝트 생성 후 URL/anon key/service role key 공유 |
 | BL-02 | Q13 기존 `tudal/` 코드베이스 재활용 방식 미확정 | C1 스캐폴딩 전략 결정 필요 | Claude 권장: (B) 선별 재활용. 사용자 최종 확정 필요 |
 | BL-03 | 증권사 API 계정·앱키 (한투/키움) | B5 이후·E9 구현 시 필요 | 사용자가 한투 OpenAPI·DART OpenAPI 키 발급 |
-| BL-04 | 텔레그램 Bot Token · 이메일 서비스 (Resend 등) | C11 알림 발송 구현 시 필요 | 사용자 계정 생성 후 공유 |
+| BL-04 | 텔레그램 Bot Token | C11 알림 발송 구현 시 필요(이메일/Resend는 72차 사용자 override로 폐기) | 사용자 계정 생성 후 공유 |
 
 ---
 
