@@ -8,7 +8,7 @@ Last updated: 2026-06-09 — **⭐ 72차 structured-log 격상 (report 섹션 va
 
 ## ⭐ 65차 MVP 엔진 재정의 (2026-06-04) — 현재 진입점 (사용자 확정 7결정(D26) + D27 Q5 + D28 프로바이더·모델 배분 LOCKED · omxy CONVERGED)
 
-> **이게 다음 세션 진입점.** 사용자 결정: 아래 Q1~Q4는 **고도화가 아니라 원래 MVP**다. **MVP = ① 30 리스트가 올바르게 나옴 + ② 포트폴리오가 올바르게 짜여짐 + ③ 30 리포트가 올바르게 나옴.** 결정 자체는 **변경 금지** (SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + 본 섹션). omxy 토론은 **순서·수정방법·문서구성만** 다뤘고 **R1~R4 CONVERGED**. file:line은 omxy 검증 포인터 — 착수 시 drift 재확인. **[69차 갱신] W0 ✅ → W2a ✅ → W2b ✅ → W1a ✅ → W1b ✅ → W3a ✅ → W3b-1 ✅ → W3b-2a ✅ → W3b-2b ✅ → W3b-3 ✅ → **A(테스트 보강) ✅ MERGED (PR #101)** → **W3b-2c(명시 cash row, Option B) ✅ MERGED (PR #102, main `9698d74`)**. **W3·W3b 전체 완결 + R31 합의 키-free 실테스트 3종(A·S7d·W3b-2c) 처리 완료** — S7d는 코드+테스트 이미 완결(실 INSERT/cron/대시보드)이라 실 DB/브라우저 실검증만 Docker/USER 대기. **다음 세션 1순위 = USER go-live 게이트**(AI 키/flags/마이그 0034·0035 apply → 실 AI 첫 제안/cash 행) 또는 S7b(뉴스/브리핑, Naver/Resend 키). **키-free CLAUDE 빌드 큐 소진** — 추가 진행은 USER 외부상태(키/flag/마이그 apply/Docker) 필요.**
+> **이게 다음 세션 진입점.** 사용자 결정: 아래 Q1~Q4는 **고도화가 아니라 원래 MVP**다. **MVP = ① 30 리스트가 올바르게 나옴 + ② 포트폴리오가 올바르게 짜여짐 + ③ 30 리포트가 올바르게 나옴.** 결정 자체는 **변경 금지** (SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + 본 섹션). omxy 토론은 **순서·수정방법·문서구성만** 다뤘고 **R1~R4 CONVERGED**. file:line은 omxy 검증 포인터 — 착수 시 drift 재확인. **[69차 갱신] W0 ✅ → W2a ✅ → W2b ✅ → W1a ✅ → W1b ✅ → W3a ✅ → W3b-1 ✅ → W3b-2a ✅ → W3b-2b ✅ → W3b-3 ✅ → **A(테스트 보강) ✅ MERGED (PR #101)** → **W3b-2c(명시 cash row, Option B) ✅ MERGED (PR #102, main `9698d74`)**. **W3·W3b 전체 완결 + R31 합의 키-free 실테스트 3종(A·S7d·W3b-2c) 처리 완료** — S7d는 코드+테스트 이미 완결(실 INSERT/cron/대시보드)이라 실 DB/브라우저 실검증만 Docker/USER 대기. **다음 세션 1순위 = 풀 P3 AI 30-selection (USER 비용 승인 = go-live 게이트: AI 키/flags/마이그 apply → 실 AI 첫 30선정)**, 그 후 P2b/P4·proposal Accept. 또는 병행 S7b(뉴스/브리핑, Naver/Resend 키). **키-free CLAUDE 빌드 큐 소진** — 추가 진행은 USER 외부상태(키/flag/마이그 apply/Docker) 필요.**
 
 ### LOCKED 결정 9 — D26 7결정 + D27 Q5 + D28 프로바이더·모델 배분 (변경 금지)
 1. **Q1 선정주기 분리**: 단기 10 = **주 1회**(ⓐ Tier 0 단기 후보 50 매주 새로 뽑아 단기 Core 11 패널 재실행 = 주간 AI 비용), 중기·장기 20 = **월 1회**. 21일 고정 리밸런스 폐기 → 중복/교체/리밸런스는 AI 포트 판단(Q2) 위임. 데이터 = 정확도 기준(예비: KRX 종가/거래량+외국인+모멘텀, DART는 분기성=느린 품질필터).
@@ -385,7 +385,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ## 6. 완료/active 이력 (직전 1~2 entry only · older는 git log + PR body)
 
-> ⚠️ **본 §6은 과거 세션 완료 기록(history).** 각 entry의 "다음: PR-G ⓑ …" 표현은 **해당 차수 당시 기준**이며, **현재 1순위는 상단 ⭐ MVP 엔진 W0✅→W2a✅→W2b✅→W1a✅→W1b✅→W3a✅→W3b-1✅→W3b-2a✅→W3b-2b✅→W3b-3 중 W3b-3(또는 W3b-2c 선택)** (PR-G ⓑ는 W0~W3로 superseded·코드 자산 재사용). 과거 행은 역사로 보존하며 개별 정정하지 않는다.
+> ⚠️ **본 §6은 과거 세션 완료 기록(history).** 각 entry의 "다음: …" 표현은 **해당 차수 당시 기준**이다. **현재 1순위 = 상단 ⭐ 72차 / 한눈에 = 풀 P3 AI 30-selection (USER 비용 승인)** — W0~W3·W3b·P1/P2/P3 cheap smoke 전부 ✅ MERGED(PR-G ⓑ·W3b-3·W3b-2c 등 "현재 1순위" 표현은 모두 당시 기준 stale). 과거 행은 역사로 보존하며 개별 정정하지 않는다.
 
 ### W3a — entry_price 실배선 (KRX EOD 종가) (68차, 2026-06-05, PR #96 + 배선 LOW fix MERGED)
 
