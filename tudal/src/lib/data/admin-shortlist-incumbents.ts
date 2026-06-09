@@ -7,6 +7,7 @@ import type { IncumbentInfo } from "@/lib/screening/incumbent-merge";
 import type { SelectionTrack, Timeframe } from "@/lib/screening/tier1-schema";
 import { TRACK_SELECT_COUNT } from "@/lib/screening/tier1-schema";
 import { reportSection0Schema } from "@/lib/data/report-section-schemas";
+import { logStructured } from "@/lib/log/structured-log";
 
 const MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const TRACK_BUCKETS: Record<SelectionTrack, readonly Timeframe[]> = {
@@ -148,7 +149,18 @@ export async function buildIncumbentThesisContexts(
     for (const row of (data ?? []) as ReportThesisRow[]) {
       if (thesisByTicker.has(row.ticker)) continue; // month desc — 첫 행이 최신
       const parsed = reportSection0Schema.safeParse(row.section_0);
-      if (!parsed.success) continue;
+      if (!parsed.success) {
+        // best-effort skip은 유지하되 silent-drop은 격상 — P3 selection incumbent thesis
+        // 경로에서 malformed section_0이 묻히지 않도록 (admin-reports read-path와 동일 event).
+        logStructured("warn", "report_section_validation_failed", {
+          component: "incumbent-thesis",
+          ticker: row.ticker,
+          month: row.month,
+          section: "section_0",
+          message: parsed.error.issues[0]?.message ?? "unknown",
+        });
+        continue;
+      }
       thesisByTicker.set(row.ticker, {
         headline: truncateText(parsed.data.headline, THESIS_HEADLINE_MAX),
         bullets: parsed.data.thesis
