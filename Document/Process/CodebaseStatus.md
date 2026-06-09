@@ -36,7 +36,7 @@
 **2026-06-09** (71차 — ⭐ P3 cheap selection smoke + 미머지/잔재 전면 정리, main `fee5640`):
 - **P3 cheap selection smoke harness 신설 (PR #105 MERGED)**: `tudal/scripts/smoke/{p3-selection-cheap.smoke.test.ts,setup-env.ts}` + `tudal/vitest.smoke.config.ts` — direct `runGuardedSelectionChunk(midlong, chunkSize=1)`로 Tier1 selection 워커 plumbing을 **실 AI + 실 prod Supabase**로 검증(1 ticker 000220, 11콜 = ₩86.98, Sonnet×6+GPT-5.4×5). **CI glob 제외**(`vitest.config.ts`는 `src/**/__tests__/**`만 glob) + `P3_SMOKE_CONFIRM=1` 게이트 + `setup-env.ts`가 confirm 없으면 `.env.local` 로드/cost flag 주입 안 함(SC-4 defense-in-depth) + SC-2 baseline-count fail-closed idempotency guard. 전 R1-path seam(provider→cost_log FK→job lifecycle→run-mutex fencing→pipeline_health) 배선 검증 후 transient `tier1_selection_job`/`run` rows DELETE(cost_log/pipeline_health audit 보존) → prod pristine.
 - **format-error salvage (PR #106 MERGED → PR #2 CLOSED superseded)**: `tudal/src/lib/admin/format-error.ts`에 PR #2의 net-new 3종 추가(`ai_billing_exhausted` exact / `unknown_persona_id:` + `commit_persona_eval_failed:` prefix — 전부 현재 src에서 실 throw·check) + `KNOWN_ACTION_CODES` 인벤토리 + suffix 테스트. PR #2 13종 중 나머지 10종은 이미 main 존재 → PR #2 superseded close.
-- **루트 AGENTS.md 71차 새로고침** (stale 2026-04-24/DQ-7·S7 → W0~W3 완결 + P3 done + 풀 P3 다음).
+- **루트 AGENTS.md 71차 새로고침** (stale 2026-04-24/DQ-7·S7 → W0~W3 완결 + P3 cheap done + 풀 P3은 73차 완료).
 - **정리**: 스테일 로컬 브랜치 11개 `-D` 삭제(작업 main 반영분, reflog 복구 가능) + stash 2개 drop(stash@{1} `.vercel` redundant — `.gitignore`가 이미 `.vercel/` 포함 / stash@{0} 19파일 deep-agents AGENTS.md scaffold, 방치 WIP).
 - **듀얼 트랙 검토**: Claude 16-agent 독립 적대+blind wiring 교차감사 → **omxy 실검토 CONVERGED**(setup-env `.env.local` 게이트 누락 catch) → **Claude ④**(SC-2 fail-OPEN→fail-closed) + 정리계획 omxy 검증(stash@{1} 적용불가·stash@{0} 14 신규파일 catch). 게이트 build/lint 0·0/**test:ci 1928+4skip/163 files**/tsc 0 · Vercel pass · 열린 PR 0.
 
@@ -72,7 +72,7 @@
   - `tudal/src/app/(admin)/admin/report/[ticker]/page.tsx` 확장: `as ReportSection` 강제 어서션 10개 전면 제거 + section null guard + 헤더 `section0?.conviction ?? '—'` + `SectionFallback` 단일 helper component + Section 0~7 + AppendixView가 `data: ReportSectionX | null` 처리 + `Section8View` 3분기 (null/modern/legacy) + `Section8ModernView` (`data.partC.core_revote`/`partC.sector_aggregate`가 authoritative + `partCToCommitteeAgg` helper + committee_votes 외부 집계는 audit details 패널로 분리) + `Section8LegacyView` (기존 본문 보존)
 - **silent null drop log 격상 박제 (PR1 wire 시점)**: 현재 `console.warn`으로 위임 (P2 비차단). PR1 cron 가동 시 metric/structured log로 격상해서 production blind spot 차단 (gsd CR-01 + red-team RT#2 + omxy R7 P2). **→ 72차(2026-06-09) ✅ 해소** (PR #107 `logStructured` 구조화 로그 격상 — read-path + P3 selection incumbent path).
 - **Group D 박제 (Step 3c dangling) 잔존**: PR1 cron real path + PR4 UI trigger에서 wire 예정.
-- **Group B 박제 (short_list_30 Tier 0 단독)**: PR1 cron wire 후 Tier 1 AI 30 선정 메인 path 가동 (PR2 코드 + PR3a 검증 인프라 모두 main 박제 완료).
+- **Group B 박제 (short_list_30 Tier 0 단독)**: **73차 supersede: PR #109(main `179d745`)로 Tier 1 AI 30 선정 메인 path 가동 완료**.
 - **canonical PR 순서 갱신**: ~~PR2~~ ✅ → ~~PR3a~~ ✅ → **PR1** → **PR3b** → **PR4** (잔여 3 task). Hard gate 해소.
 - **OOS findings (54차 §3 PR3a, 후속 PR로 분리)**: partA Tier 2 silent drop (RT#1, PR4 Tier 2 wiring) / aggregateVotes NaN risk (RT#3, PR1 admin-committee wire) / LLM string/array max bound (RT#4/RT#5, PR1 wire) / React Testing Library Section view render tests (T#4, 별도 infra PR).
 - **편집 문서 7개** (B16 정정): HANDOFF.md(§0/§1/§2.1/§3/§4/§5/§6/§8 54차 §3 entry) + ProgressDashboard.md(상단 박스 + Last updated + 진행률 + 변경 이력) + 이 문서(54차 §3 entry + PR3a 신규 SoT 박제 + 53차 §5 entry strikethrough) + CLAUDE.md(v3.3 → v3.4 + D24 신설) + ServicePlan-Admin.md(v1.9 → v2.0 + §3 IA Group H 해소) + Slices/S7-RealData.md(54차 §3 박제 + 53차 §5 entry strikethrough) + Service/Report/ReportFramework.md(§8 Hard gate 해소 + v2.7).
@@ -91,7 +91,7 @@
 - **Group D 박제 — dangling server action**:
   - `tudal/src/app/(admin)/admin/track-record/actions.ts::triggerMonthlyPersonaEvalAction` = **dangling server action** (export 존재 / page render·import 0 / cron real 0 / UI caller 0). UI wiring PR4 + cron wiring PR1에서 해소.
 - **Group B 박제 — short_list_30 Tier 0 단독** **[→ 73차 supersede 2026-06-09: 메인 path 가동됨]**:
-  - ~~현재 = Tier 0 단독 30 rows production (Tier 1 AI 0 호출) — **fallback 상태**~~ → **현재 production = 실 AI 선정**. `short_list_30` 2026-06-01 = **AI 30**(consensus_badge/ai_score populated, 🟣20/🟢7/🟡2/🔵1), 풀 P3 실행 완료(73차, PR #109, cost ₩24,655.64). 2026-05-01 30 rows = Tier0 incumbents 보존. **fallback(Tier0 단독)은 이제 AI 키 미발급 시에만** 해당.
+  - ~~53차 당시 AI 미평가 30 rows 박제~~ → **현재 production = 실 AI 선정**. `short_list_30` 2026-06-01 = **AI 30**(consensus_badge/ai_score populated, 🟣20/🟢7/🟡2/🔵1), 풀 P3 실행 완료(73차, PR #109 main `179d745`, cost_log 2026-06 2611행 ₩24,655.64, 양 run succeeded). 2026-05-01 30 rows = Tier0 incumbents 보존. **fallback(Tier0 단독)은 이제 AI 키 미발급 시에만** 해당.
   - 메인 path = Tier 1 AI 30 선정 — **가동 완료**: W0~W3 엔진(멀티프로바이더 Sonnet×6+GPT×5 panel → R2 debate → Opus judge + GPT dual-judge → 단/중/장 top 10 = 30). 매달 자동화는 Vercel cron + 주간 tier0 producer USER 게이트.
 - **Group C 박제 — cron monthly-batch mock dry-run only**:
   - `tudal/src/app/api/cron/monthly-batch/route.ts` = mock dry-run only. 실 AI 호출 없음. PR1 후속 implementation으로 enable 필요 (Task 12 박제 "활성"은 실제로 mock dry-run).
