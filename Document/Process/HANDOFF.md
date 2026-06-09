@@ -269,7 +269,7 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 
 ### §2.1 Step matrix — 8-row (legacy B65/B66/PR5 Task 구조 — 역사 기록. **현 1순위 = 상단 ⭐ 72차 / 한눈에 = 풀 P3 AI 30-selection (USER 비용)** [W0~W3·W3b 전부 ✅ MERGED · 구: "현 1순위 = W3"·PR-G는 stale])
 
-**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **[→ 65차 supersede · 68차: W0 ✅ → W2a ✅ → W2b ✅ → W1a ✅ → W1b ✅ MERGED] 현 1순위 = 상단 ⭐ MVP 엔진 W3** (구: PR-G ⓑ 실 AI 첫 30선정 — 코드 자산은 W0~W3 토대 재사용). 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
+**현재 위치** = **실데이터+실AI e2e 트랙** (PR-A~F + PR-G ⓐ MERGED + 마이그 0028~0030 applied). **[→ 70~72차 갱신] 현 1순위 = 상단 ⭐ 72차 / 한눈에 = 풀 P3 AI 30-selection (USER 비용)** — W0~W3·W3b·P1/P2/P3 cheap smoke 전부 ✅ MERGED. 구 "현 1순위 = W3"·"PR-G ⓑ 실 AI 첫 30선정"은 stale(코드 자산은 W0~W3 토대 재사용). 아래 8-row Task matrix는 **legacy(B65/B66/PR5 Task 구조) 역사 기록** — 현 진행은 e2e 11-PR 로드맵(ADR §4)이 SoT. PR5 go-live는 별도 트랙(USER 게이트, dormant). **상세 박제는 git log + PR body + ADR/plan docs 위임.**
 
 | # | Task | Owner | 상태 |
 |---|---|---|---|
