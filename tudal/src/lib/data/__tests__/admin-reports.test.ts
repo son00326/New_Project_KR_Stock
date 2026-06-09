@@ -417,6 +417,9 @@ describe("transformStockReportRow — structured validation logging (PR1 격상)
         p.section === "section_0",
     );
     expect(evt).toBeDefined();
+    if (evt === undefined) {
+      throw new Error("expected section_0 validation event");
+    }
     expect(evt).toMatchObject({
       level: "warn",
       event: "report_section_validation_failed",
@@ -424,8 +427,8 @@ describe("transformStockReportRow — structured validation logging (PR1 격상)
       ticker: "005930",
       section: "section_0",
     });
-    expect(typeof evt!.path).toBe("string");
-    expect(typeof evt!.message).toBe("string");
+    expect(typeof evt.path).toBe("string");
+    expect(typeof evt.message).toBe("string");
   });
 
   it("does NOT log for null sections (writer-unfilled is the normal case)", () => {
@@ -456,15 +459,48 @@ describe("transformStockReportRow — structured validation logging (PR1 격상)
         p.section === "section_8",
     );
     expect(evt).toBeDefined();
+    if (evt === undefined) {
+      throw new Error("expected section_8 validation event");
+    }
     expect(evt).toMatchObject({
       level: "warn",
       component: "admin-reports",
       ticker: "000660",
       section: "section_8",
     });
-    expect(typeof evt!.modernPath).toBe("string");
-    expect(typeof evt!.modernMessage).toBe("string");
-    expect(typeof evt!.legacyPath).toBe("string");
-    expect(typeof evt!.legacyMessage).toBe("string");
+    expect(typeof evt.modernPath).toBe("string");
+    expect(typeof evt.modernMessage).toBe("string");
+    expect(typeof evt.legacyPath).toBe("string");
+    expect(typeof evt.legacyMessage).toBe("string");
+  });
+
+  it("emits a structured report_section_validation_failed event for a malformed appendix", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const row: StockReportDbRow = {
+      ...baseRow,
+      ticker: "035420",
+      appendix: { technicals: [{ name: "RSI" }], dataSources: [] },
+    };
+
+    transformStockReportRow(row);
+
+    const evt = parsedWarnLines(spy).find(
+      (p) =>
+        p.event === "report_section_validation_failed" &&
+        p.section === "appendix",
+    );
+    expect(evt).toBeDefined();
+    if (evt === undefined) {
+      throw new Error("expected appendix validation event");
+    }
+    expect(evt).toMatchObject({
+      level: "warn",
+      event: "report_section_validation_failed",
+      component: "admin-reports",
+      ticker: "035420",
+      section: "appendix",
+    });
+    expect(typeof evt.path).toBe("string");
+    expect(typeof evt.message).toBe("string");
   });
 });

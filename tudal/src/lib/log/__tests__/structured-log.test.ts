@@ -62,4 +62,89 @@ describe("logStructured", () => {
     expect(parsed.event).toBe("real_event");
     expect(parsed.ok).toBe(true);
   });
+
+  it("does not let caller toJSON spoof reserved keys", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    logStructured("warn", "real_event", {
+      toJSON: () => ({ level: "spoofed", event: "spoofed" }),
+      ok: true,
+    });
+
+    const parsed = JSON.parse(spy.mock.calls[0][0] as string);
+    expect(parsed.level).toBe("warn");
+    expect(parsed.event).toBe("real_event");
+    expect(parsed.ok).toBe(true);
+    expect(parsed).not.toHaveProperty("toJSON");
+  });
+
+  it("serializes non-JSON-safe fields without throwing", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const circular: Record<string, unknown> = { name: "root" };
+    circular.self = circular;
+
+    expect(() =>
+      logStructured("warn", "safe_event", {
+        count: BigInt(3),
+        missing: undefined,
+        circular,
+      }),
+    ).not.toThrow();
+
+    const parsed = JSON.parse(spy.mock.calls[0][0] as string);
+    expect(parsed.count).toBe("3");
+    expect(parsed.missing).toBeNull();
+    expect(parsed.circular).toEqual({
+      name: "root",
+      self: "[Circular]",
+    });
+  });
+
+  it("does not invoke nested caller toJSON functions", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(() =>
+      logStructured("warn", "nested_event", {
+        nested: {
+          ok: true,
+          toJSON: () => {
+            throw new Error("caller toJSON should not be invoked");
+          },
+        },
+      }),
+    ).not.toThrow();
+
+    expect(JSON.parse(spy.mock.calls[0][0] as string)).toMatchObject({
+      level: "warn",
+      event: "nested_event",
+      nested: { ok: true },
+    });
+  });
+
+  it("does not throw when console emission fails", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {
+      throw new Error("console unavailable");
+    });
+
+    expect(() => logStructured("warn", "sink_fails")).not.toThrow();
+  });
+
+  it("falls back to a minimal JSON line when field enumeration fails", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fields = new Proxy<Record<string, unknown>>(
+      {},
+      {
+        ownKeys: () => {
+          throw new Error("cannot enumerate");
+        },
+      },
+    );
+
+    expect(() => logStructured("warn", "proxy_event", fields)).not.toThrow();
+
+    expect(JSON.parse(spy.mock.calls[0][0] as string)).toEqual({
+      level: "warn",
+      event: "proxy_event",
+    });
+  });
 });
