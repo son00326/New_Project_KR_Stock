@@ -90,9 +90,9 @@
 - **Group E (신규) 박제** — `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 함수로 `section_8` jsonb commit만 가능. **Section 0~7 본문 작성 path 미구현**. `parseSectorContentStrict`는 Section 8 parser only. 후속 **PR3b** (writer Section 0~7 본문 구현 = document-specialist + analyst + writer + critic 4-step) 별개 진행 — PR1 cron 가동 후 가능 (PR3a Hard gate는 별도).
 - **Group D 박제 — dangling server action**:
   - `tudal/src/app/(admin)/admin/track-record/actions.ts::triggerMonthlyPersonaEvalAction` = **dangling server action** (export 존재 / page render·import 0 / cron real 0 / UI caller 0). UI wiring PR4 + cron wiring PR1에서 해소.
-- **Group B 박제 — short_list_30 Tier 0 단독**:
-  - 현재 = Tier 0 단독 30 rows production (Tier 1 AI 0 호출) — **fallback 상태**, 메인 path 아님.
-  - 메인 path = Tier 1 AI 30 선정 (PR2 후속 — persona-eval.ts 확장으로 Tier 0 150 후보 → Core 11 AI 평가 + 시간대별 페르소나 가중치 → 단/중/장 top 10 = 30 선정).
+- **Group B 박제 — short_list_30 Tier 0 단독** **[→ 73차 supersede 2026-06-09: 메인 path 가동됨]**:
+  - ~~현재 = Tier 0 단독 30 rows production (Tier 1 AI 0 호출) — **fallback 상태**~~ → **현재 production = 실 AI 선정**. `short_list_30` 2026-06-01 = **AI 30**(consensus_badge/ai_score populated, 🟣20/🟢7/🟡2/🔵1), 풀 P3 실행 완료(73차, PR #109, cost ₩24,655.64). 2026-05-01 30 rows = Tier0 incumbents 보존. **fallback(Tier0 단독)은 이제 AI 키 미발급 시에만** 해당.
+  - 메인 path = Tier 1 AI 30 선정 — **가동 완료**: W0~W3 엔진(멀티프로바이더 Sonnet×6+GPT×5 panel → R2 debate → Opus judge + GPT dual-judge → 단/중/장 top 10 = 30). 매달 자동화는 Vercel cron + 주간 tier0 producer USER 게이트.
 - **Group C 박제 — cron monthly-batch mock dry-run only**:
   - `tudal/src/app/api/cron/monthly-batch/route.ts` = mock dry-run only. 실 AI 호출 없음. PR1 후속 implementation으로 enable 필요 (Task 12 박제 "활성"은 실제로 mock dry-run).
 - **Group F 박제 — Track Record 의미 재정의**:
