@@ -27,8 +27,15 @@ export function logStructured(
   event: string,
   fields: Record<string, unknown> = {},
 ): void {
-  const payload = buildPayload(level, event, fields);
-  const line = stringifyPayload(payload, level, event);
+  // build/serialize도 try 안 — sanitize가 hostile value(예: revoked Proxy의
+  // instanceof)에서 throw해도 caller resilience path를 절대 안 깨뜨리도록 fail-safe.
+  let line: string;
+  try {
+    const payload = buildPayload(level, event, fields);
+    line = stringifyPayload(payload, level, event);
+  } catch {
+    line = JSON.stringify({ level, event, logError: "structured_log_build_failed" });
+  }
 
   try {
     if (level === "error") {
