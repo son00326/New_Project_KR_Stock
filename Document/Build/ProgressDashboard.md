@@ -85,7 +85,7 @@ S7 실데이터 전환 (S7a~e): 🟢 **진행 중** (S7e T7e.1~T7e.6 ✅ + T7e.8
 | **S2** | 풀 리포트 + 투심위 | M2·M3 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7e 대기 | [S2-FullReport.md](./Slices/S2-FullReport.md) |
 | **S3** | 승인 워크플로우 (+D15) | M7 | 4 (실제 1) | ✅ Mock 완료 | ⚪ S7e 대기 | [S3-Approval.md](./Slices/S3-Approval.md) |
 | **S4** | 가상 포트·성과 측정 + Decision Tree | M8·M9·M16 | 4 (실제 1) | ✅ Mock 완료 | ⚪ cost_log stub만 · S7a·e 대기 | [S4-Performance.md](./Slices/S4-Performance.md) |
-| **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b·c 대기 (Anthropic·Naver·KIS·Resend·Telegram) | [S5-Automation.md](./Slices/S5-Automation.md) |
+| **S5** | 스케줄러·알림·Exit + M18 동시 | M10·M11·M12·M13·M14·M15·M18 | 5 (S5a 1 · S5b 1 = 실제 2) | ✅ Mock 완료 | ⚪ S7b(Naver·Telegram·AI)·S7c(KIS·Resend·Telegram) 대기 | [S5-Automation.md](./Slices/S5-Automation.md) |
 | **S6** | Hardening (AI 비용 + Silent Health) | M17·M19 | 3 (실제 1) | ✅ Mock 완료 | ⚪ S7a·d 대기 (cost_log 실 INSERT · override UI) | [S6-Hardening.md](./Slices/S6-Hardening.md) |
 | **DQ-7** | **Admin Credential System + Vercel 첫 배포** (2026-04-22 신설, S7a 선행) | (Must 19 밖 집행 인프라 · E9 확장 + E12 신설 + `/admin/settings/{brokerage,binance}`) | 4 | — | 🟡 **Session 3 ~97% (30차 Vercel + 32차 Supabase 마이그 + 33차 Smoke #1·#2·#6 ✅ · Smoke #4·#5 잔여 · Smoke #3 ⏸ S8까지 유예 D19)** · prod URL https://tudal-tawny.vercel.app | [DQ7-Credentials.md](./Slices/DQ7-Credentials.md) |
 | **S7** | **실데이터 전환** (S7a~e) | 전 Must 실 연결 | 8 (예상) | — | 🟢 **진행 중** (S7e T7e.1~T7e.6 ✅ 36~40차 + T7e.8 DART Signal 4·5 production 적용 ✅, T7e.7 RLS QA 잔여) | [S7-RealData.md](./Slices/S7-RealData.md) |
@@ -137,8 +137,9 @@ S7a · Anthropic wrapper + cost_log 실 INSERT (1세션)        ← BL-KRIT-1
      │  T7a.1~10 (Tier 1 Core 11 + Tier 2 Sector Board 30종목 + 합의 배지 4종 + Reflection)
      │  ※ 65차 supersede: "Anthropic wrapper" → 멀티프로바이더 추상화(W0), "Tier 1 Core 11 + 합의 배지" → 실시간 토론 loop(W1). 상세 HANDOFF.md ⭐ 65차.
      ▼
-S7b · 뉴스 + 모닝 브리핑 실 연결 (2세션)                     ← BL-KRIT-3 잔여·4
-     │
+S7b · 뉴스 기반 자동 제외(M12a) + 모닝 브리핑(M11) (2.5세션)  ← Naver·Telegram·AI키 (Resend X)
+     │  ※ 72차 재정의(planned): AI 페르소나(Core 11) 뉴스 평가→direct/material/high-conf 자동 제외(빼기만·freed→현금)
+     │    + smart brake + durable removal ledger + 다음 선정 candidate-level context + 텔레그램/앱 알림. spec=ServicePlan-Admin §3.10 M12a
      ▼
 ★ D11 AI 가상 포트 1차 가동 — KIS 0개로 동작 가능
      │  AI 키 ✅: Tier 0 + Tier 1 + Tier 2 + 합의 배지 + AI 코멘트 1~2줄 + 풀 리포트
@@ -197,7 +198,7 @@ S8 자동매매 프레임 — **분리된 단독 진입** (4세션)
 | M9 | 리포트 재생성 cap 가드 | S4 | ✅ | ⚪ (S7e) | ⚪ (S7a) |
 | M10 | 자동 배치 스케줄러 (65차 Q1 supersede: 단일 월간배치 → 단기 주1회 / 중장기 월1회 split — HANDOFF.md ⭐ 65차) | S5a | ✅ | ⚪ (S7b) | ⚪ (S7a·b) |
 | M11 | 모닝 브리핑 요약 카드 | S5a | ✅ | ⚪ (S7b) | ⚪ (S7b) |
-| M12 | 뉴스 심각도 분류기 | S5a | ✅ | ⚪ Naver·scraper 미연결 (S7b) | ⚪ (S7b) |
+| M12 | 뉴스 기반 자동 제외(M12a·AI 페르소나, planned) | S5a | ✅ | ⚪ Naver·scraper 미연결 (S7b) | ⚪ (S7b) |
 | M13 | 장중 이상 감지 알림 (+ 모드 설정) | S5b | ✅ | ⚪ KIS WS 미연결 (S7c) | — |
 | M14 | 종목별 커스텀 임계치 on/off | S5b | ✅ | ⚪ (S7e) | — |
 | M15 | Exit 시그널 발송 + 근거 + 대안 | S5b | ✅ | ⚪ Telegram·Resend 미연결 (S7c) | — |
@@ -256,11 +257,11 @@ S8 자동매매 프레임 — **분리된 단독 진입** (4세션)
 
 | BL-KRIT | 대상 | 영향 |
 |---|---|---|
-| **BL-KRIT-1** | AI Provider Key (65차 Q3 supersede: Claude 필수 + GPT 선택, availability auto-detect — GPT키 없으면 Claude-only; HANDOFF.md ⭐ 65차) | M17·M11·M12·M19 실 AI 호출 불가 · S8 AI 어댑터 본체 |
+| **BL-KRIT-1** | AI Provider Key (65차 Q3 supersede: Claude 필수 + GPT 선택, availability auto-detect — GPT키 없으면 Claude-only; HANDOFF.md ⭐ 65차) | M17·M11·M12a·M19 실 AI 호출 불가 · S8 AI 어댑터 본체 |
 | **BL-KRIT-2** | KIS (한투) API 계정 | M13 장중 WebSocket + **S8 주식 자동매매** 불가 |
 | ~~BL-KRIT-3~~ | 🟡 Naver News API 키 — 2026-04-30 .env.local 투입 (Vercel env + rotate는 S7b 직전) | — |
-| **BL-KRIT-4** | Resend 계정 | M11·D10 catch-up 이메일 발송 불가 |
-| **BL-KRIT-5** | Telegram Bot | M13·M15 텔레그램 2채널 불가 |
+| **BL-KRIT-4** | Resend 계정 | 비-S7b 이메일(M15/S7c Exit·D10·S7d health/catch-up) 발송 불가 — S7b 뉴스/브리핑은 미사용 |
+| **BL-KRIT-5** | Telegram Bot | S7b M12a 뉴스 자동제외 알림 + M13·M15 텔레그램 2채널 불가 |
 | ~~BL-KRIT-6~~ | ✅ Supabase anon 키 갱신 (2026-04-21 해소, DQ-5) | — |
 | ~~BL-KRIT-7~~ | ✅ **해소 (36차)** — 마이그 0010 `alert_event_rls_hardening` 적용 검증 (`mcp__supabase__list_migrations` version 20260505134639). E6 alert_event 신설 + AlertType CHECK 12종 + 4 RPC + RLS select-all/insert-own/update-own. | ~~신규 AlertType 6종 실 INSERT 거부됨~~ |
 | **BL-KRIT-8** | 마이그레이션 **0011** (S8 자동매매 E13~E17: OrderQueue·TradeExecution·RiskPolicy·RiskViolationEvent·StrategyRegistration) — E12 ExchangeConnection은 DQ-7 0009 선행 생성 | S8 전체 (주문 큐·체결 이력·포지션·리스크 이벤트·코인 거래소 연결) |

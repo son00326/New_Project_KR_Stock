@@ -726,6 +726,8 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 
 > **AI 키 미발급 fallback**: Step 0a(Tier 0)만 가동 → 진짜 코스피·코스닥 30종목 + 실 가격·재무·뉴스가 어드민 화면에 노출. Step 0b·1·2·3은 placeholder ("AI 분석 대기 중"). AI 키 발급 시 plug-in.
 
+> **M12a 뉴스 기반 자동 제외 — 경계 (72차, planned · 상세 SoT = `ServicePlan-Admin §3.10 M12a`)**: 본 Step 0(선정)·Section 8(BUY/HOLD/SELL 리포트 평정)·D19 합의 배지와 **M12a는 별개 축**이다. M12a는 **Core 11 페르소나를 재사용**하되 **별도 평정틀**(제거 판정 yes/no + 신뢰도 + scope/recommended_action — BUY/HOLD/SELL·배지와 독립)을 쓴다. M12a의 **durable negative-news context는 다음 선정 시 fresh∪incumbent 모든 Tier1 후보에 주입**되며, D27 incumbent thesis context와 **별도·additive**다(incumbent-only 아님). Sector 14 = MVP 제외(후순위). 상세 algo/event = ServicePlan-Admin/S7-RealData.
+
 ### Step 1~4: 풀 리포트 작성 (선정된 30종목만)
 
 > **65차 Q3 + D28 supersede (2026-06-04)**: 아래 Step 1~3의 에이전트 `(opus)` 모델 하드코딩은 65차 Q3로 폐기 — 모델 하드코딩 제거 + 설정값화, Claude+GPT 멀티프로바이더(provider auto-detect: GPT키 없으면 Claude-only), 모델 레지스트리. D28로 역할별 차등 기준도 비용→**예측 적중률+리포트 정확성**(hardcap=제약)으로 재정의됨: writer·revise=Opus 4.8, critic=GPT mid 교차(off 시 Haiku), judge=Opus 4.8+경계 dual. 구 'Anthropic opus 고정' / '토론=저가' 어휘는 W0(모델 설정화) 구현 시 정합. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
