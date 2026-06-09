@@ -194,6 +194,14 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   proposal_stale_for_month:
     "이번 달 포트 제안의 종목이 현재 Short List와 맞지 않습니다 — 제안을 다시 생성해주세요",
   proposal_lookup_failed: "포트폴리오 제안 조회에 실패했습니다 — 잠시 후 다시 시도하세요",
+  // 71차 salvage from PR #2 (50차 §2.C S7a inventory) — net-new codes still emitted on main:
+  //   ai_billing_exhausted = persona-eval.ts catch-list 방어 매핑(직접 throw 0건, SDK 결제한도 신호 대비)
+  //   unknown_persona_id / commit_persona_eval_failed = 아래 prefix handler에서 suffix throw 호환.
+  ai_billing_exhausted:
+    "Anthropic 결제 한도가 소진되었습니다 — billing 충전 후 재시도",
+  unknown_persona_id:
+    "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
+  commit_persona_eval_failed: "페르소나 평가 저장 실패 — 다시 시도하세요",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -256,6 +264,14 @@ export function formatErrorMessage(code: string): string {
   }
   if (code.startsWith("incumbents_query_failed")) {
     return KOREAN_MAPPINGS["incumbents_query_failed"];
+  }
+  // 71차 salvage from PR #2 (50차 §2.C) — suffix throw 호환:
+  //   unknown_persona_id:<personaId> (anthropic-client.ts) / commit_persona_eval_failed:<code> (writer.ts)
+  if (code.startsWith("unknown_persona_id:")) {
+    return KOREAN_MAPPINGS["unknown_persona_id"];
+  }
+  if (code.startsWith("commit_persona_eval_failed:")) {
+    return KOREAN_MAPPINGS["commit_persona_eval_failed"];
   }
   if (
     code.startsWith("shortlist_persist_failed:") ||
