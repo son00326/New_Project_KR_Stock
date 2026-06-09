@@ -117,6 +117,10 @@ const KNOWN_ACTION_CODES = [
   // W3b-2b — Accept proposal 소비
   "proposal_stale_for_month",
   "proposal_lookup_failed",
+  // 71차 salvage from PR #2 (50차 §2.C) — net-new codes still emitted on main
+  "ai_billing_exhausted",
+  "unknown_persona_id",
+  "commit_persona_eval_failed",
 ];
 
 describe("formatErrorMessage", () => {
@@ -198,6 +202,20 @@ describe("formatErrorMessage", () => {
       }
       // proposal_schema_missing은 plain code(직접 매핑).
       expect(formatErrorMessage("proposal_schema_missing")).toContain("마이그 0034");
+    });
+
+    it("71차 salvage — unknown_persona_id:/commit_persona_eval_failed: suffix throw 호환 + ai_billing_exhausted (raw 노출 금지)", () => {
+      // 실제 throw 형태(suffix 포함)도 한국어로 매핑되고 raw 코드를 노출하지 않는다.
+      expect(formatErrorMessage("unknown_persona_id:warren_buffett")).toBe(
+        "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
+      );
+      expect(formatErrorMessage("commit_persona_eval_failed:23505")).toBe(
+        "페르소나 평가 저장 실패 — 다시 시도하세요",
+      );
+      expect(formatErrorMessage("commit_persona_eval_failed:no_success")).toBe(
+        "페르소나 평가 저장 실패 — 다시 시도하세요",
+      );
+      expect(formatErrorMessage("ai_billing_exhausted")).toContain("결제 한도");
     });
 
     it("W1a suffix handlers — slot/r2/debate + ai_call_failed:transient (fallback 오류: 노출 금지)", () => {
