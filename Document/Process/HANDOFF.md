@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-10 (74차 — P2b Section8 live 검증 + 마이그 0037 applied). **현재 1순위 = P4 잔여 27 풀 리포트 → proposal/Accept go-live** (§"다음 할 일").
+Last updated: 2026-06-10 (75차 — **P4 30 풀 리포트 완주 ✅**: stock_reports 2026-06 30행 section_0~8 + committee_votes 330 + run delta ₩14,962.66). **현재 1순위 = proposal/Accept go-live** (§"다음 할 일").
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify. 완료된 차수의 상세 박제·배선 교차감사 기록은 **git log + PR body + memory**에 위임하고 본 파일엔 남기지 않는다.
 
@@ -10,13 +10,12 @@ Last updated: 2026-06-10 (74차 — P2b Section8 live 검증 + 마이그 0037 ap
 
 > "HANDOFF.md 보고 이어서 진행" = 아래 1번부터 순서대로. 각 항목 옆 [SoT]가 상세 위치. USER 게이트는 §3, 출시 Runbook 상세는 §2.2.
 
-1. **P4 잔여 27 풀 리포트** — `report_batch_job` 2026-06 에 27 pending 잔존(= 자연 resume 큐). **전용 30-report driver harness 신규 작성**(73차 `p3-selection.full.run.test.ts` full-run 패턴 복제 — single-shot p2b canary는 재사용 금지[가드가 재실행 차단])로 `runGuardedReportChunk` 반복 → Section 0~8 + committee_votes 생성. **비용 ≈ 27×~₩565 ≈ ₩15k (USER 승인 게이트)**, `PR5B_SECTION8_ENABLED`+키 로컬 주입. 0037 applied로 claim 정확. [SoT: §3 P4 행 + §6 74차]
-2. **proposal/Accept go-live** — P4 후 W3 flags 순차 활성(마이그 0034/0035는 70차에 이미 applied — apply 불요, verify만). flags: `PORTFOLIO_AI_PROPOSAL_ENABLED` · `PORTFOLIO_PROPOSAL_PERSIST_ENABLED` · `PORTFOLIO_USE_PROPOSAL_ENABLED` · `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED` · (선택) `PORTFOLIO_REAL_ENTRY_PRICE_ENABLED`+`KRX_OPENAPI_KEY`. [SoT: §3]
-3. **B-SEL-CRON fix** (매달 자동화 켜기 전 선행) — selection cron이 due-gate(short=월요일만/midlong=1일만)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` 기본 off라 cron 단독으론 한 period를 finalize 못 함(차주 새 period_key가 기존 period 고아화 = silent spend·산출 0). fix = period-scoped due-gate(미finalize period 계속 due) 또는 SELF_CONTINUE load-bearing 문서화 + stall detector. **`SELECTION_CRON_AUTO_ENABLED=true` enable 전 필수.** [SoT: §3 B-SEL-CRON]
-4. **S7b** 뉴스 자동제외(M12a) + 모닝 브리핑(M11) — Naver(B-8)+Telegram(B-9)+AI 키. shadow/alert-only(`M12A_AUTO_REMOVE_ENABLED` default false)부터. 이메일/Resend 전역 미사용. [SoT: ServicePlan-Admin §3.10 M12a · §2.2 Step 7]
-5. **D11 운용 검증 → S7c → S7d → S9 → 🎉 출시** — §2.2 후속 PR/운영 Runbook 그대로. 출시 = 자동매매 제외("AI 추천+가상 포트+알림" 내부 도구), S8 자동매매는 출시 후.
+1. **proposal/Accept go-live** — W3 flags 순차 활성(마이그 0034/0035는 70차에 이미 applied — apply 불요, verify만). flags: `PORTFOLIO_AI_PROPOSAL_ENABLED` · `PORTFOLIO_PROPOSAL_PERSIST_ENABLED` · `PORTFOLIO_USE_PROPOSAL_ENABLED` · `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED` · (선택) `PORTFOLIO_REAL_ENTRY_PRICE_ENABLED`+`KRX_OPENAPI_KEY` → admin `/admin/portfolio` "🤖 AI 포트 제안 받기" 클릭(Opus 1콜 ~₩100) → 제안 표시·영속 확인 → Accept(가상 포트 확정). MVP ②(포트폴리오) 완성 단계. [SoT: §3]
+2. **B-SEL-CRON fix** (매달 자동화 켜기 전 선행) — selection cron이 due-gate(short=월요일만/midlong=1일만)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` 기본 off라 cron 단독으론 한 period를 finalize 못 함(차주 새 period_key가 기존 period 고아화 = silent spend·산출 0). fix = period-scoped due-gate(미finalize period 계속 due) 또는 SELF_CONTINUE load-bearing 문서화 + stall detector. **`SELECTION_CRON_AUTO_ENABLED=true` enable 전 필수.** [SoT: §3 B-SEL-CRON]
+3. **S7b** 뉴스 자동제외(M12a) + 모닝 브리핑(M11) — Naver(B-8)+Telegram(B-9)+AI 키. shadow/alert-only(`M12A_AUTO_REMOVE_ENABLED` default false)부터. 이메일/Resend 전역 미사용. [SoT: ServicePlan-Admin §3.10 M12a · §2.2 Step 7]
+4. **D11 운용 검증 → S7c → S7d → S9 → 🎉 출시** — §2.2 후속 PR/운영 Runbook 그대로. 출시 = 자동매매 제외("AI 추천+가상 포트+알림" 내부 도구), S8 자동매매는 출시 후.
 
-**MVP 엔진(W0~W3b)·P1/P2/P3/P2b·canonical 5-PR·B65/B66 = 전부 ✅ MERGED.** 결정 SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + CLAUDE.md ⭐ 헤더(LOCKED 9 — 변경 금지). 구현 상세 = git log + PR body.
+**MVP 엔진(W0~W3b)·P1/P2/P3/P2b·P4(30 리포트)·canonical 5-PR·B65/B66 = 전부 ✅.** MVP 산출물: ① 30 리스트 ✅(73차) · ③ 30 리포트 ✅(75차) · ② 포트폴리오 = 위 1번만 남음. 결정 SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + CLAUDE.md ⭐ 헤더(LOCKED 9 — 변경 금지). 구현 상세 = git log + PR body.
 
 ---
 
@@ -36,11 +35,10 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 **production audit (Supabase MCP execute_sql) — drift 감지 기준(현재 정상 상태):**
 ```sql
 select count(*), round(coalesce(sum(cost_krw),0)::numeric,2) from cost_log where month='2026-06';
-  -- 기대 2653 / ₩26,351.47 (73차 풀 P3 2611 + 74차 P2b live 42). 초과 증가 = 추가 실 AI 진행분.
-select status, count(*) from report_batch_job where month='2026-06' group by status;  -- 기대 done 3 / pending 27 (P4 resume 큐)
-select ticker, section_8 is not null from stock_reports where month='2026-06-01' order by ticker;
-  -- 기대 000660/000990/007610 3행 section_8=true. 4행 이상 = P4 진행분 → §1 갱신.
-select count(*) from committee_votes;  -- 기대 33 (P2b live 3×11)
+  -- 기대 3031 / ₩41,314.13 (73차 풀 P3 2611 + 74차 P2b 42 + 75차 P4 378). 초과 증가 = 추가 실 AI 진행분.
+select status, count(*) from report_batch_job where month='2026-06' group by status;  -- 기대 done 30 (75차 P4 완주)
+select count(*) from stock_reports where month='2026-06-01' and section_8 is not null;  -- 기대 30 (section_0~8 완결)
+select count(*) from committee_votes;  -- 기대 330 (30 reports × 11)
 select month::text, count(*), count(consensus_badge) from short_list_30 group by month order by month;
   -- 기대 2026-05-01=30/0(Tier0 incumbents 보존) + 2026-06-01=30/30(AI 선정)
 select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06 · 50/50/50 · canonical 14 · unresolved 0)
@@ -59,13 +57,13 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-10 74차 PR #111 merge 후 자손). |
-| OPEN PRs | **없음(0)** 기대. PR #19~#111 전부 머지(상세 git log). |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-10 75차 P4 driver PR merge 후 자손). |
+| OPEN PRs | **없음(0)** 기대. PR #19~#113 전부 머지(상세 git log). |
 | 검증 게이트 | build OK / lint 0 err 0 warn / **test:ci 1944 PASS + 4 skipped / 164 files+2skip** / tsc clean. |
 | **MVP 엔진** | **W0~W3b 전부 ✅ MERGED**(모델/프로바이더 추상화 + 주간/월간 split + incumbent thesis + 반박 토론 loop + judge/dual-judge + entry_price + AI 자율 포트 proposal→Accept→cash row). canonical 5-PR + B65/B66 ✅. 상세 = git log + PR body. |
-| **실 AI 검증** | P1(2026-05 4행 ₩334.71) + 73차 풀 P3 selection(2026-06 2611행 ₩24,655.64) + 74차 P2b live(42행 ₩1,695.83). selection-scale + report-scale(Section8 포함) 양쪽 ✅. 다음 실 AI = **P4 잔여 27 리포트**(≈₩15k). |
+| **실 AI 검증** | P1(2026-05 4행 ₩334.71) + 73차 풀 P3 selection(2026-06 2611행 ₩24,655.64) + 74차 P2b live(42행 ₩1,695.83). + **75차 P4 30 리포트 완주(378행 ₩14,962.66 ≈ ₩554/ticker)**. 월 누계 ₩41,314(hardcap 50만 내). 다음 실 AI = proposal 클릭(Opus 1콜 ~₩100, USER). |
 | **선정 흐름 (production)** | `short_list_30` 2026-06-01 = **30 AI 배지/ai_score**(🟣20/🟢7/🟡2/🔵1, short/mid/long 10/10/10) · 2026-05-01 = 30 Tier0 incumbents 보존. 메인 path = short 주간 + mid·long 월간 rolling composite(자동화는 USER 게이트 + B-SEL-CRON fix 선행). |
-| **풀 리포트 (production)** | `stock_reports` 2026-06 **3행(000660/000990/007610) section_0~8 완결** + `committee_votes` 33 (74차 P2b live) · 2026-05-01 004150 1행(section_0/7, section_8 null). 잔여 27 = P4 resume 큐. |
+| **풀 리포트 (production)** | `stock_reports` 2026-06 **30행 전부 section_0~8+appendix 완결**(verdict BUY 15/HOLD 7/SELL 8) + `committee_votes` **330**(30×11, parse stub 0) — **75차 P4 완주, MVP ③ 달성**. report_batch_job 30 done. 2026-05-01 004150 1행(section_0/7, section_8 null = P1 잔존). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · **마이그 0001~0037 production applied**(0037 = claim over-claim CTE fix, 74차 USER 승인, ledger `20260610015408`). 미적용 dormant 없음. cron RPC grants = postgres/service_role only. |
 | Vercel canary | public 4/4 OK (`/`·`/login`·`/macro` 200 + `/admin` 307→login, tudal-tawny.vercel.app). cron route 5개 전부 **dormant**(flag 미설정 → spend 0). |
 | Mock/슬라이스 | DQ-7 ~97%(Smoke #4/#5 + Session 4 QA 잔여) · S7e 7/8(T7e.7 RLS QA 잔여) · cron INSERT mock cleanup 완료. |
@@ -108,7 +106,6 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 
 | 우선 | 작업 | 필요 액션 |
 |---|---|---|
-| ⭐ **P4 잔여 27 full reports** | `report_batch_job` 2026-06 27 pending = 자연 resume 큐. 로컬 driver harness(73차 full-run 패턴)로 `runGuardedReportChunk` 반복 → Section 0~8+votes. **비용 ≈ ₩15k USER 승인** + `PR5B_SECTION8_ENABLED`+키 로컬 주입. 0037 applied로 claim 정확(chunk 초과 없음). | USER 비용 승인 + CLAUDE 실행 |
 | ⭐ **proposal/Accept go-live** | P4 PASS 후 W3 flags 순차 활성. **마이그 0034/0035는 70차에 이미 production applied — apply 불요(verify만; 0035 add-constraint는 IF NOT EXISTS 아니라 재실행 시 실패).** flags = `PORTFOLIO_AI_PROPOSAL_ENABLED` / `PORTFOLIO_PROPOSAL_PERSIST_ENABLED` / `PORTFOLIO_USE_PROPOSAL_ENABLED` / `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED` / (선택) `PORTFOLIO_REAL_ENTRY_PRICE_ENABLED`+`KRX_OPENAPI_KEY`. behavior-neutral(미설정=현 동작). | USER Vercel flags + admin click |
 | ⚠️ **B-SEL-CRON** (74차 배선감사 catch) | **`SELECTION_CRON_AUTO_ENABLED=true` enable 전 선행 fix 필수**: selection cron due-gate(short=월요일/midlong=1일)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` off → cron 단독 period finalize 불가(차주 새 period_key가 기존 고아화 = silent spend·산출 0). fix = period-scoped due-gate 또는 SELF_CONTINUE load-bearing+stall detector. 로컬 harness는 비노출. | CLAUDE fix → USER flag |
 | **매달 자동화 게이트** | Vercel `SELECTION_CRON_AUTO_ENABLED=true` + 주간 tier0 후보 producer(pykrx=Python → GitHub Actions 등 외부 cron, Vercel은 TS만) + 운영 비용 승인. (B-SEL-CRON fix 선행.) | USER + 외부 스케줄 |
@@ -162,10 +159,12 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 
 ## 6. 직전 완료 (직전 2 entry only · older = git log + PR body)
 
+### P4 30 풀 리포트 완주 (75차, 2026-06-10) — MVP ③ 달성
+- **P4 driver harness 신규**(`tudal/scripts/smoke/p4-reports.p4run.test.ts` + `setup-env-p4.ts`[`P4_FULL_RUN_CONFIRM` 게이트] + `vitest.p4-run.config.ts`)로 `runGuardedReportChunk` 루프 완주(86분) → **stock_reports 2026-06 30행 section_0~8+appendix 완결 + committee_votes 330(30×11) + parse stub 0 + verdict BUY 15/HOLD 7/SELL 8**. run delta **₩14,962.66**(27 ticker ≈ ₩554/개, 예약식 ceiling 40k 내) — USER 비용 승인 하 실행.
+- driver 안전장치: resume-tolerant pre-guard(stale 15min+skew 마진/failed·deferred audit abort) + 예약식 ceiling(retry ×3 worst 반영) + stall guard + per-ticker failed 즉시 중단. §2.0a 변형(①Claude→②omxy→③Claude→④omxy) R1~R4 CONVERGED(catch 5: stale-resume HIGH + 4 MED).
+- **다음(= 현 1순위)**: **proposal/Accept go-live**(W3 flags + admin 클릭, §다음 할 일 1번).
+
 ### P2b Section8 live 검증 + claim over-claim fix 0037 (74차, 2026-06-10)
 - **P2b live canary harness 신규**(`tudal/scripts/smoke/p2b-section8.canary.test.ts` + `setup-env-p2b.ts`[`P2B_CANARY_CONFIRM` 게이트] + `vitest.p2b.config.ts`)로 report-worker 실경로(`runGuardedReportChunk`) 구동 → `stock_reports` 2026-06 3행(000660/000990/007610) **section_0~8 완결** + `committee_votes` 33 + cost ₩1,695.83. **P2b Section8+committee_votes live 경로(0036 RPC) 검증 완료.**
 - canary seam A(claimed=1) RED가 **claim RPC over-claim** catch(0027/0031 IN-subquery rescan, p_limit=1→3) → **마이그 0037**(양 RPC MATERIALIZED CTE) 로컬 PG16 매트릭스 PASS → **USER 승인 production apply**(ledger `20260610015408`) + 3-way 사후검증.
 - §2.0a 변형(①Claude→②omxy→③Claude→④omxy) R1~R4 CONVERGED + blind Workflow 교차감사 2회(refuted 0). 게이트 build/lint 0·0/tsc/test:ci 1944 무영향. **신규 blocker B-SEL-CRON**(§3). **다음 = P4 잔여 27 풀 리포트.**
-
-### 풀 P3 AI 30-selection 실 실행 (73차, 2026-06-09) — 첫 selection-scale 실 AI 30선정
-- 로컬 full-run driver harness(`p3-selection.full.run.test.ts` + `setup-env-full.ts`[`P3_FULL_RUN_CONFIRM`] + `vitest.full-run.config.ts`, 재실행=resume idempotent)로 short(`s:2026-06-08`)+midlong(`m:2026-06`) 양 트랙 finalize → `short_list_30` 2026-06-01 = **30 AI 배지/ai_score**(🟣20/🟢7/🟡2/🔵1), cost **₩24,655.64**(Sonnet 1326 + GPT-5.4 1105 panel + Opus 168 judge + GPT-5.5 12 dual-judge), 0 stuck, 1 ticker(307950) ⚪ degraded(무영향). D26/D27/D28 전 결정 실증. §2.0a R1~R4 CONVERGED + blind 3-agent 교차감사. PR #109 MERGED. **다음(당시) = P2b → P4.**
