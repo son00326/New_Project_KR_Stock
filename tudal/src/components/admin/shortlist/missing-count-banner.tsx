@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarX, SearchX } from "lucide-react";
+import { AlertTriangle, CalendarX, Clock, SearchX } from "lucide-react";
 import type { ShortageReason } from "@/types/admin";
 import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
 
@@ -9,7 +9,7 @@ interface MissingCountBannerProps {
   fallbackMonth?: string;
 }
 
-// T1.6 30종 미달 경고 배너 (R3.8-5). 원인 2종 분리 + 전월 유지 표시.
+// T1.6 30종 미달 경고 배너 (R3.8-5). 원인 3종 분리 + 전월 유지 표시.
 // reason === "none" 또는 activeCount ≥ 30이면 렌더 안 함.
 export function MissingCountBanner({
   activeCount,
@@ -19,6 +19,31 @@ export function MissingCountBanner({
   if (reason === "none" || activeCount >= SHORTLIST_TARGET_COUNT) return null;
 
   const shortage = SHORTLIST_TARGET_COUNT - activeCount;
+
+  // W2a 트랙 분리(단기 주1회 / 중장기 월1회) finalize 시차 — 스크리닝 미달이 아님(정상 상태).
+  if (reason === "track_pending") {
+    return (
+      <div
+        role="status"
+        className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-400/40 bg-amber-50/60 px-4 py-3 text-sm dark:border-amber-500/30 dark:bg-amber-950/20"
+      >
+        <Clock
+          className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+          aria-hidden
+        />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-amber-700 dark:text-amber-300">
+            단기/중장기 트랙 선정 시차 — 직전 갱신분 참조
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            단기(주1회)·중장기(월1회) 선정 주기가 달라 일부 트랙이 아직 갱신되지
+            않았습니다 ({activeCount}/{SHORTLIST_TARGET_COUNT}종). 비어 있는
+            트랙은 직전 갱신분을 참고하세요 (스크리닝 미달 아님).
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (reason === "screening") {
     return (

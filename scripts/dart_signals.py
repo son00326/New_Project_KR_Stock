@@ -90,7 +90,17 @@ def parse_dart_financial_response(payload: dict) -> tuple[dict[str, Optional[flo
         std_key, allowed_sj_divs, is_primary = mapping
         if sj_div not in allowed_sj_divs or out[std_key] is not None:
             continue
-        value = parse_amount(item.get("thstrm_amount"))
+        # 손익(IS/CIS) accounts: in cumulative quarterly reports (반기 11012 / 3분기 11014)
+        # thstrm_amount is the 3-month (current quarter) figure while thstrm_add_amount
+        # is the 당기 누적 (cumulative) figure that compute_standalone_quarter expects.
+        # Prefer thstrm_add_amount when present; fall back to thstrm_amount when it is
+        # absent (annual 11011 has no add_amount → full year; Q1 11013 add==amount).
+        if sj_div in ("IS", "CIS"):
+            value = parse_amount(item.get("thstrm_add_amount"))
+            if value is None:
+                value = parse_amount(item.get("thstrm_amount"))
+        else:
+            value = parse_amount(item.get("thstrm_amount"))
         if value is None:
             continue
         out[std_key] = value

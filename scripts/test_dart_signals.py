@@ -72,6 +72,47 @@ class TestParseDartFinancialResponse(unittest.TestCase):
         self.assertEqual(parsed["revenue"], 5000)
         self.assertIn("account_alias_used:revenue=영업수익", aliases)
 
+    def test_is_accounts_prefer_cumulative_add_amount(self):
+        # In a cumulative quarterly report (반기 11012 / 3분기 11014), thstrm_amount is the
+        # 3-month figure while thstrm_add_amount is the 당기 누적 (cumulative) figure that
+        # compute_standalone_quarter expects. IS/CIS accounts must read the cumulative one.
+        from scripts.dart_signals import parse_dart_financial_response
+
+        parsed, _ = parse_dart_financial_response({"status": "000", "list": [
+            # IS account: 3-month (thstrm_amount) ≠ cumulative (thstrm_add_amount)
+            {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "150", "thstrm_add_amount": "440"},
+            {"account_nm": "영업이익", "sj_div": "IS", "thstrm_amount": "20", "thstrm_add_amount": "55"},
+            # BS account is point-in-time: keep thstrm_amount (add_amount, if any, must be ignored)
+            {"account_nm": "자산총계", "sj_div": "BS", "thstrm_amount": "9000", "thstrm_add_amount": "1"},
+        ]})
+        self.assertEqual(parsed["revenue"], 440)  # cumulative, not 150
+        self.assertEqual(parsed["op_income"], 55)  # cumulative, not 20
+        self.assertEqual(parsed["total_assets"], 9000)  # BS unchanged
+
+    def test_9m_cumulative_regression(self):
+        # 3분기보고서 (9M): thstrm_amount(3mo)=140 must NOT be parsed; cumulative 360 must be.
+        from scripts.dart_signals import parse_dart_financial_response
+
+        parsed, _ = parse_dart_financial_response({"status": "000", "list": [
+            {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "140", "thstrm_add_amount": "360"},
+        ]})
+        self.assertEqual(parsed["revenue"], 360)
+
+    def test_is_accounts_fall_back_when_add_amount_absent(self):
+        # Annual report (11011) has no thstrm_add_amount; Q1 (11013) has add==amount.
+        # In both cases the IS account must fall back to thstrm_amount.
+        from scripts.dart_signals import parse_dart_financial_response
+
+        annual, _ = parse_dart_financial_response({"status": "000", "list": [
+            {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "500"},  # no add_amount
+        ]})
+        self.assertEqual(annual["revenue"], 500)
+
+        q1, _ = parse_dart_financial_response({"status": "000", "list": [
+            {"account_nm": "매출액", "sj_div": "IS", "thstrm_amount": "100", "thstrm_add_amount": None},
+        ]})
+        self.assertEqual(q1["revenue"], 100)  # None add_amount → fall back to thstrm_amount
+
 
 class TestComputeQualityScore(unittest.TestCase):
     def test_normal_5_metrics(self):

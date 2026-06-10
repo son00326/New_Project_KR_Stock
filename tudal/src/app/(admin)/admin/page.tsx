@@ -5,8 +5,8 @@ import { DeltaBanner } from "@/components/admin/shortlist/delta-banner";
 import { MissingCountBanner } from "@/components/admin/shortlist/missing-count-banner";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { getBriefingLogForDate } from "@/lib/data/admin-briefing-log";
-import type { BucketKind, IntradayAnomalyEvent, ShortageReason } from "@/types/admin";
-import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
+import { resolveShortageReason } from "@/lib/admin/shortage-reason";
+import type { BucketKind, IntradayAnomalyEvent } from "@/types/admin";
 
 // Mock cleanup Step 1.2 (58차): user-visible mock 4종 제거 — LATEST_BRIEFING / MOCK_ADMIN_INTRADAY_EVENTS /
 // MOCK_ADMIN_SETTINGS / MOCK_ADMIN_TICKER_PREFS / INTRADAY_BADGE_REFERENCE_NOW 하드코딩 4/19.
@@ -26,17 +26,17 @@ const BUCKET_META: Record<
 > = {
   short: {
     label: "단기 (Short)",
-    cadence: "21일 리밸런스",
+    cadence: "주간 선정",
     weight: "축 비중 30%",
   },
   mid: {
     label: "중기 (Mid)",
-    cadence: "42일 리밸런스",
+    cadence: "월간 선정",
     weight: "축 비중 40%",
   },
   long: {
     label: "장기 (Long)",
-    cadence: "63일 리밸런스",
+    cadence: "월간 선정",
     weight: "축 비중 30%",
   },
 };
@@ -45,14 +45,6 @@ function formatMonthLabel(month: string): string {
   if (!month) return "";
   const [y, m] = month.split("-");
   return `${y}년 ${Number(m)}월`;
-}
-
-// T1.6 — 미달 원인을 결정. mock에서는 항상 충족 (30 = active).
-// 실배치 연결 후(S5 M10) shortlist fetch 결과의 원인 플래그로 교체.
-function resolveShortageReason(activeCount: number): ShortageReason {
-  if (activeCount >= SHORTLIST_TARGET_COUNT) return "none";
-  // MVP: 스케줄러 실패 판정은 M10 연결 후, 우선 스크리닝 미달로 간주.
-  return "screening";
 }
 
 export default async function AdminHomePage() {
@@ -67,8 +59,10 @@ export default async function AdminHomePage() {
       .sort((a, b) => a.rank - b.rank),
   }));
 
-  const activeCount = byBucket.reduce((sum, b) => sum + b.items.length, 0);
-  const shortageReason = resolveShortageReason(activeCount);
+  const bucketCounts = byBucket.map((b) => b.items.length);
+  const activeCount = bucketCounts.reduce((sum, n) => sum + n, 0);
+  // W2a 트랙 분리(단기 주1회 / 중장기 월1회) finalize 시차 → per-bucket 카운트로 track_pending 구분.
+  const shortageReason = resolveShortageReason(bucketCounts);
 
   // M13 장중 이상 감지 — boundary stub (S7c WS alert_event 실 연결 전까지 빈 배지).
   // settings ticker prefs 필터는 events 0건이라 moot — S7c에서 prefMap + alert_event SELECT 동시 wire.
@@ -90,7 +84,7 @@ export default async function AdminHomePage() {
         <div>
           <h1 className="text-2xl font-semibold">홈 — Short List 30</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {monthLabel} 월간 선정 · 단·중·장 각 10종 · v6 선정엔진 기준
+            {monthLabel} · 단기 주간 · 중·장기 월간 선정 · 단·중·장 각 10종
           </p>
         </div>
         <div className="text-xs text-muted-foreground">
