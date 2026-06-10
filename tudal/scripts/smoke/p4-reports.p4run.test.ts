@@ -271,13 +271,17 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
       );
 
       // ── drive loop (P3 full-run pattern) ──────────────────────────────────
-      // reservation-style ceiling (omxy R1 MED): a chunk's worst case is chunkSize ×
-      // (orchestrate writer+critic+revise + Section8 11×tier1_panel). Abort BEFORE a chunk
-      // whose worst case could push the run delta past the ceiling — a true pre-spend stop,
-      // not a post-hoc detection.
+      // reservation-style ceiling (omxy R1 MED + R3): a chunk's TRUE worst case includes
+      // retryWithBackoff re-running the whole orchestrate (writer+critic+revise AND the
+      // Section8 11-call vote-pass, since Section8 runs inside orchestrate) up to 3 attempts.
+      // perTickerWorst = 3 × (orchestrate budget + 11 × tier1_panel worst). Abort BEFORE a
+      // chunk whose worst case could push the run delta past the ceiling — a true pre-spend
+      // stop even under maximal retries.
+      const MAX_ORCHESTRATE_ATTEMPTS = 3; // retry-with-backoff.ts: retries default 2 → 3 attempts
       const perTickerWorstKrw =
-        getOrchestrateBudgetKrw() +
-        CORE_11_PERSONAS.length * getRoleWorstCaseMaxCostPerCallKrw('tier1_panel');
+        MAX_ORCHESTRATE_ATTEMPTS *
+        (getOrchestrateBudgetKrw() +
+          CORE_11_PERSONAS.length * getRoleWorstCaseMaxCostPerCallKrw('tier1_panel'));
       const effectiveChunkSize = CHUNK_SIZE ?? 3; // worker DEFAULT_CHUNK_SIZE mirror
       let chunks = 0;
       let lastResult: ReportBatchWorkerResult | null = null;
