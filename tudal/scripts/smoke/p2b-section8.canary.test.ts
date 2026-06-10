@@ -57,6 +57,14 @@
 // ⚠️ TOCTOU: the guards run before the run-mutex acquire — never launch two
 // canaries concurrently; the residual race window is seconds wide but real.
 //
+// ⚠️ FIRST LIVE RUN OUTCOME (2026-06-10): seam A claimed=1 assert REDed because the
+// PRE-0037 claim_next_report_jobs over-claimed 3 jobs on p_limit=1 (IN-subquery rescan
+// — Postgres locking-subquery anti-pattern; reproduced in prod with raw SQL LIMIT 1 → 2
+// rows). 3 tickers (000660/000990/007610) were fully committed+billed (₩1,695.83) and
+// every post-claim seam verified CLEAN by manual SQL. Migration 0037 fixes both claim
+// RPCs (report + selection) with a MATERIALIZED CTE; the claimed-exactness asserts in
+// this harness are only deterministic once 0037 is applied.
+//
 // HOW TO RUN (intentional, real money ~₩400-1,500; post-hoc ceiling ₩10,000):
 //   cd tudal && P2B_CANARY_CONFIRM=1 npx vitest run --config vitest.p2b.config.ts
 // Without P2B_CANARY_CONFIRM=1 this test SKIPS and the cost/flag gates are NOT
