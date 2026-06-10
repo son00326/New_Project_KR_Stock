@@ -24,7 +24,7 @@ Last updated: 2026-06-10 (75차 — **P4 30 풀 리포트 완주 ✅**: stock_re
 ```bash
 cd /Users/yong/New_Project_KR_Stock && git fetch origin
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # 74차 P2b+0037 merge 후 (PR #111) 자손
+git rev-parse --short HEAD          # 75차 P4 driver PR merge 후 자손
 git status --short                  # clean
 gh pr list --state open --json number,title,headRefName,mergeable   # 기대 0 (없으면 우선 처리)
 
@@ -37,7 +37,9 @@ cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit
 select count(*), round(coalesce(sum(cost_krw),0)::numeric,2) from cost_log where month='2026-06';
   -- 기대 3031 / ₩41,314.13 (73차 풀 P3 2611 + 74차 P2b 42 + 75차 P4 378). 초과 증가 = 추가 실 AI 진행분.
 select status, count(*) from report_batch_job where month='2026-06' group by status;  -- 기대 done 30 (75차 P4 완주)
-select count(*) from stock_reports where month='2026-06-01' and section_8 is not null;  -- 기대 30 (section_0~8 완결)
+select count(*) from stock_reports where month='2026-06-01'
+  and section_0 is not null and section_7 is not null and section_8 is not null and appendix is not null;
+  -- 기대 30 (section_0~8+appendix 완결 — 0/7/8+appendix가 완결성 대표 게이트)
 select count(*) from committee_votes;  -- 기대 330 (30 reports × 11)
 select month::text, count(*), count(consensus_badge) from short_list_30 group by month order by month;
   -- 기대 2026-05-01=30/0(Tier0 incumbents 보존) + 2026-06-01=30/30(AI 선정)
