@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-10 (76차 — **shortlist 정확성 fix ✅ MERGED(PR #114)**: track_pending 분류 + stale 카피 + DART 분기누적 파싱 버그. 코드/테스트만 — production 리스트 반영은 재시드 필요(§"다음 할 일" 정확성 트랙). **현재 1순위 = Accept go-live**(2026-06 AI 포트 제안은 DB 영속 완료, 최종 승인만 잔여; §"다음 할 일")).
+Last updated: 2026-06-10 (docs — **토스 스타일 전체 리디자인(폰트 포함) Toss-D0~D4 시점 결정 박제**: D0 spec-only 병행 / D1 Accept 후·S7b UI 전 / D2 D11 전 / D3 S7b·S7c 동시 / D4 S9 직전 freeze. 기존 #1 **Accept go-live critical path**와 출시 runbook 순서 유지). 직전 76차 — shortlist 정확성 fix ✅ MERGED(PR #114): track_pending + stale 카피 + DART 분기누적 파싱, production 리스트 반영은 재시드 필요.
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify. 완료된 차수의 상세 박제·배선 교차감사 기록은 **git log + PR body + memory**에 위임하고 본 파일엔 남기지 않는다.
 
@@ -22,6 +22,17 @@ Last updated: 2026-06-10 (76차 — **shortlist 정확성 fix ✅ MERGED(PR #114
 > - **3단계 — 재시드+재선정 1회 [본 트랙 다음 1순위]**: ① **DART quarterly 캐시 무효화 선행 필수**(옛 wrong-value 캐시 refetch 강제) → ② Tier0 재시드(Python `screen_shortlist_tier0.py`) → ③ Tier1 재선정(~₩25k, **USER 비용 게이트**). 목적 = DART fix 적용 후 대형주(삼성전자 등) 공정 경쟁 검증.
 > - **4단계 — 결과 보고 후 스코어링 튜닝 B 결정**: 3단계 데이터로 판단 — DART fix만으로 대형주 경쟁되면 **B 불필요**. 안 되면 deliberate 2차로 B(z정규화→percentile/winsorize · S3 시총정규화 · 장기 quality 보정, 14-agent 감사 MED 3종) 적용 + 재선정(+₩25k). **묶지 말 것**(검증 해상도 보존).
 > - **5단계 — 주간 자동화(진짜 지속성)**: 주간 tier0 producer(Python→외부 스케줄) + B-SEL-CRON fix(위 #2) + `SELECTION_CRON_AUTO_ENABLED`. 1회 재시드는 그 주만 fresh — 지속성은 5단계 필수. [SoT: §3 + 14-agent 감사 wq0gi0va0]
+
+**[병행 트랙] 토스 스타일 리디자인 Toss-D0~D4 (시점 결정, runbook 순서 불변):**
+> **토스 스타일 전체 리디자인(폰트 포함) — 마일스톤 결합 5-슬롯 (Claude↔omxy 토론 CONVERGED, 시점 결정. 스코프 C 전체·스킬 파이프라인은 확정분):**
+> - **namespace guard**: 이 블록의 D0~D4는 디자인 전용 `Toss-D0~D4`이며, ServicePlan의 포트폴리오 D1~D4 의미와 별개다.
+> - **D0 디자인 시스템 정의 [Accept와 병행 허용 — 단 산출물(스펙/문서)만, 코드·런타임·폰트패키지·globals.css·shadcn 토큰·layout primitive 변경 0; 그 변경은 D1]**: `/gstack-design-consultation` → 토스 원칙 + 폰트 후보/라이선스/한글 렌더링/성능 조건 + 토큰 방향 + primitive 목록. 별도 브랜치/문서 산출이면 Accept 리스크 0.
+> - **D1 쉘 리테마 [Accept 완료 후 merge; S7b UI 착수 전 필수; B-SEL-CRON과 병렬 가능하나 충돌 시 D1이 UI 선행조건]**: `vercel:shadcn` 토큰+폰트+공통 primitive(nav/header/card/table/form) 전역 리테마 + `npx impeccable` slop 가드. 전역 회귀면적 크므로 Accept 완료 전 merge 금지.
+> - **D2 기존 핵심 플로우 정밀 [D11 진입 전 필수]**: 홈/리스트/리포트/포트폴리오/승인 = `ce-frontend-design` + `ce-design-iterator`. D11은 짧아도 실 운용검증이라 핵심 플로우가 final-ish여야 피드백 유효(토큰만으론 부족).
+> - **D3 신규 화면 final-style 동시구현 [기능 PR 내장]**: S7b 화면 = S7b 구현과 함께 / S7c 화면 = S7c 구현과 함께. 별도 후행 리디자인 금지.
+> - **D4 freeze [S7d 후 · S9 직전]**: 풀 리디자인 아님 — `/gstack-design-review` QA + polish + 회귀 차단만.
+> - 전 디자인 PR: §2.0a Claude↔omxy 루프 + `/gstack-design-review` QA + `vercel:react-best-practices`. **AI 비용 0(디자인 작업; 제품/운영 AI spend 없음).**
+> - **critical path guard**: Accept go-live(MVP②)가 여전히 #1 critical path — 리디자인이 막지 않는다. 기존 출시 runbook 순서(Accept→B-SEL-CRON→S7b→D11→S7c→S7d→S9→출시)는 변경하지 않고, 디자인은 위 runbook에 결합되는 병행 트랙이다.
 
 **MVP 엔진(W0~W3b)·P1/P2/P3/P2b·P4(30 리포트)·canonical 5-PR·B65/B66 = 전부 ✅.** MVP 산출물: ① 30 리스트 ✅(73차, 정확성 fix 76차) · ③ 30 리포트 ✅(75차) · ② 포트폴리오 = AI 제안 생성/영속 ✅, **Accept 확정만 잔여**. 결정 SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + CLAUDE.md ⭐ 헤더(LOCKED 9 — 변경 금지). 구현 상세 = git log + PR body.
 
@@ -105,11 +116,11 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | Step | Owner | Trigger | Default action |
 |---|---|---|---|
 | **PR5** cron 30 report-only 자동(report_batch_job 큐) | CLAUDE | 코드 ✅ MERGED + 마이그 0027 applied. go-live = USER 게이트(§3 PR5 gates) | cron dormant(flag off). go-live 시 매달 자동 리포트. ⚠️ B-SEL-CRON fix와 동일 due-gate/finalize 검토. |
-| **Step 7 S7b** 뉴스 자동 제외(M12a) + 모닝 브리핑(M11) | USER(Naver B-8 + Telegram B-9 + AI 키) + CLAUDE | P4 + Accept go-live(MVP② 확정) 후 | AI 페르소나(Core 11) 뉴스 평가 → per-company thesis-break → direct/material/high-conf 자동 제외(빼기만·freed→현금) + smart brake + durable ledger + 텔레그램/`/admin/alerts` 알림. **개발 순서 = base-first + shadow-first**: D11 base 운용검증(M12a 없이 Track Record 기준선) → S7b에서 M12a **shadow/alert-only**(`M12A_AUTO_REMOVE_ENABLED` default false) → 출시 → 자동 제거 ON = 출시 후 fast-follow. **M12a 자동 mutation = 출시 게이트 아님.** spec SoT = `ServicePlan-Admin §3.10 M12a`. 이메일/Resend 전역 미사용. |
-| **Step 8 D11** AI 가상 포트 1차 가동 게이트 | USER 운용 + CLAUDE 모니터링 | S7b + PR-H/I/J D11 전 hard gate(manual trigger 2종 ✅ + PR5b/Section8 full path ✅ P2b + runtime mock grep 0) 완료 후, S7c 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증(의사결정 품질·승인·재생성 cap·알림 정확도). acceptance gate UI = 리포트 section_8 부재 시 '🤖 Tier 1 평가 대기' pill + Section 0 🔢🤖합의 배지 1행(✅ STEP-1). |
-| **Step 9 S7c** 장중·KIS WS + Exit 텔레그램+/admin 2-layer | USER(Telegram B-9 + KIS B-10) + CLAUDE | D11 검증 통과 후 | 실 alert_event + KIS read-only 1개 WS + Exit 텔레그램 best-effort + `/admin/alerts` durable event + 대안 3 + T+7 outcome. |
+| **Step 7 S7b** 뉴스 자동 제외(M12a) + 모닝 브리핑(M11) | USER(Naver B-8 + Telegram B-9 + AI 키) + CLAUDE | P4 + Accept go-live(MVP② 확정) 후 | AI 페르소나(Core 11) 뉴스 평가 → per-company thesis-break → direct/material/high-conf 자동 제외(빼기만·freed→현금) + smart brake + durable ledger + 텔레그램/`/admin/alerts` 알림. **개발 순서 = base-first + shadow-first**: D11 base 운용검증(M12a 없이 Track Record 기준선) → S7b에서 M12a **shadow/alert-only**(`M12A_AUTO_REMOVE_ENABLED` default false) → 출시 → 자동 제거 ON = 출시 후 fast-follow. **M12a 자동 mutation = 출시 게이트 아님.** spec SoT = `ServicePlan-Admin §3.10 M12a`. 이메일/Resend 전역 미사용. **디자인 결합**: D3 신규 화면 final-style 동시구현(S7b 화면 = S7b 구현과 함께), D1은 S7b UI 착수 전 필수. |
+| **Step 8 D11** AI 가상 포트 1차 가동 게이트 | USER 운용 + CLAUDE 모니터링 | S7b + PR-H/I/J D11 전 hard gate(manual trigger 2종 ✅ + PR5b/Section8 full path ✅ P2b + runtime mock grep 0) 완료 후, S7c 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증(의사결정 품질·승인·재생성 cap·알림 정확도). acceptance gate UI = 리포트 section_8 부재 시 '🤖 Tier 1 평가 대기' pill + Section 0 🔢🤖합의 배지 1행(✅ STEP-1). **디자인 결합**: D2 기존 핵심 플로우 정밀(홈/리스트/리포트/포트폴리오/승인)은 D11 진입 전 필수. |
+| **Step 9 S7c** 장중·KIS WS + Exit 텔레그램+/admin 2-layer | USER(Telegram B-9 + KIS B-10) + CLAUDE | D11 검증 통과 후 | 실 alert_event + KIS read-only 1개 WS + Exit 텔레그램 best-effort + `/admin/alerts` durable event + 대안 3 + T+7 outcome. **디자인 결합**: D3 신규 화면 final-style 동시구현(S7c 화면 = S7c 구현과 함께). |
 | **Step 10 S7d** Silent Health | CLAUDE | S7c 완료 후 | 5 파이프라인 success_rate + red_alert 0 + Exit outcome T+7 cron. (코드+테스트 완결, 실 DB/브라우저 실검증만 Docker/USER 대기.) |
-| **Step 15 S9 운용 → 🎉 출시** | USER 1개월+ + CLAUDE hotfix | S7d 완료 후 | 어드민 3인 실 사용 1개월+ + 위 7 criteria 통과 = 출시. |
+| **Step 15 S9 운용 → 🎉 출시** | USER 1개월+ + CLAUDE hotfix | S7d 완료 후 | 어드민 3인 실 사용 1개월+ + 위 7 criteria 통과 = 출시. **디자인 결합**: D4 freeze(S7d 후 · S9 직전) 완료 후 진입 — 풀 리디자인 아님, `/gstack-design-review` QA + polish + 회귀 차단만. |
 | **[defer] Reflection / PR-K** | CLAUDE | **출시 게이트 아님** — S9/go-live 후 | reflection_log 마이그 + Tier 1 context 주입. |
 | **[출시 후] S8 자동매매** | USER(Binance B-11) + CLAUDE | 출시 후 | 주식 KIS + 바이낸스 USDT-M 선물 · Strategy drop-in + AI 어댑터 · 가드레일 + Binance Smoke #3. |
 
