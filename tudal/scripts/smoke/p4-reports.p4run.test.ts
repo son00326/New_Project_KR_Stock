@@ -190,12 +190,17 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
             `— failed/deferred jobs are not reclaimable by claim; manual audit/reset first.`,
         );
       }
-      // running rows: STALE (claimed_at older than the 10-min claim window) is a normal
+      // running rows: STALE (claimed_at older than the DB's 10-min claim window) is a normal
       // crashed-run resume state — claim_next_report_jobs reclaims them (0037), so let the
       // drive loop proceed. NON-stale running = live worker or too-fresh crash → abort at $0.
       // attempts>=3 stale rows would be swept to 'failed' at next claim → audit first instead.
-      // (10-min comparison uses the LOCAL clock; skew errs toward abort, which is the $0-safe
-      // direction — a false-pass just yields claimed=0 and the stall guard catches it.)
+      // ⚠️ clock basis (omxy R2 MED): the DB judges staleness with ITS now(); we only have the
+      // local clock here (no migration-free way to read DB now() via PostgREST). A local clock
+      // running AHEAD of the DB could misjudge a live worker's fresh claim as stale (false-pass
+      // → duplicate-spend path). Mitigation: widen the abort window to 10min + 5min skew margin
+      // = 15min — anything claimed within the last 15 LOCAL minutes aborts. False-abort only
+      // widens the wait (=$0-safe); false-pass would need >5min local-ahead skew (NTP drift is
+      // seconds). 15min also matches the run-mutex stale window, covering the lock-expired edge.
       if (preCounts.running > 0) {
         const { data: runningRows, error: runningErr } = await supabase
           .from('report_batch_job')
@@ -205,15 +210,17 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
         if (runningErr || !runningRows) {
           throw new Error(`[p4-run] running-row read failed (${runningErr?.message ?? 'null'})`);
         }
-        const staleCutoffMs = Date.now() - 10 * 60 * 1000;
+        const SKEW_MARGIN_MS = 5 * 60 * 1000;
+        const abortCutoffMs = Date.now() - (10 * 60 * 1000 + SKEW_MARGIN_MS);
         const nonStale = runningRows.filter(
-          (r) => new Date(r.claimed_at as string).getTime() > staleCutoffMs,
+          (r) => new Date(r.claimed_at as string).getTime() > abortCutoffMs,
         );
         if (nonStale.length > 0) {
           throw new Error(
-            `[p4-run] ${nonStale.length} non-stale 'running' row(s) ` +
-              `(${nonStale.map((r) => r.ticker).join(', ')}) — a live worker or a crash inside ` +
-              `the 10-min stale window. Wait it out and re-run (resumable). Aborting before spend.`,
+            `[p4-run] ${nonStale.length} 'running' row(s) claimed within the last 15 local ` +
+              `minutes (${nonStale.map((r) => r.ticker).join(', ')}) — a live worker or a crash ` +
+              `inside the stale window (10min DB + 5min skew margin). Wait it out and re-run ` +
+              `(resumable). Aborting before spend.`,
           );
         }
         const exhausted = runningRows.filter((r) => (r.attempts as number) >= 3);
@@ -224,7 +231,8 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
               `'failed' permanently. Manual audit/reset first. Aborting before spend.`,
           );
         }
-        // stale + attempts<3 → proceed; the first chunk's claim reclaims them.
+        // stale(+margin) + attempts<3 → proceed; the first chunk's claim reclaims them
+        // (the claim RPC re-checks staleness with DB now() — the authoritative judge).
       }
 
       // ── baselines (delta-based: month already carries 73차/74차 audit rows) ──
