@@ -66,7 +66,13 @@ export const CRISIS_VOL_THRESHOLD = 60; // volatilityScore 미만 → Crisis 배
 export const SHORTLIST_TARGET_COUNT = 30;
 
 // T1.6 30종 미달 원인 구분
-export type ShortageReason = "screening" | "scheduler_fail" | "none";
+// track_pending (W2a 트랙 분리): 단기=주1회·중장기=월1회로 트랙별 finalize 시차가 생겨,
+//   최신 month에 일부 버킷만 full(10)이고 나머지가 empty(0)인 정상 상태. 스크리닝 미달이 아님.
+export type ShortageReason =
+  | "screening"
+  | "track_pending"
+  | "scheduler_fail"
+  | "none";
 
 // ---------------------------------------------------------------------------
 // E2. StockReport — 종목 풀 리포트 (jsonb sections)

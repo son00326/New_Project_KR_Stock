@@ -37,17 +37,17 @@ const BUCKET_META: Record<
 > = {
   short: {
     label: "단기 (Short)",
-    cadence: "21일 리밸런스",
+    cadence: "주간 선정",
     weight: "축 비중 30%",
   },
   mid: {
     label: "중기 (Mid)",
-    cadence: "42일 리밸런스",
+    cadence: "월간 선정",
     weight: "축 비중 40%",
   },
   long: {
     label: "장기 (Long)",
-    cadence: "63일 리밸런스",
+    cadence: "월간 선정",
     weight: "축 비중 30%",
   },
 };
