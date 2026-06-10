@@ -46,6 +46,10 @@ import {
   type ReportBatchWorkerResult,
 } from '@/lib/report/full-report-batch-worker';
 import { getMonthlyTotal } from '@/lib/cost/cost-logger';
+import {
+  getOrchestrateBudgetKrw,
+  getRoleWorstCaseMaxCostPerCallKrw,
+} from '@/lib/ai/model-registry';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 
 const CONFIRMED = process.env.P4_FULL_RUN_CONFIRM === '1';
@@ -180,12 +184,47 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
       if (preCounts.total > 30) {
         throw new Error(`[p4-run] report_batch_job has ${preCounts.total} rows (>30) — audit first.`);
       }
-      if (preCounts.failed > 0 || preCounts.deferred > 0 || preCounts.running > 0) {
+      if (preCounts.failed > 0 || preCounts.deferred > 0) {
         throw new Error(
           `[p4-run] queue not driveable: failed=${preCounts.failed} deferred=${preCounts.deferred} ` +
-            `running=${preCounts.running}. failed/deferred need manual audit; running needs the ` +
-            `10-min stale window (crashed prior run) or is a live worker. Aborting before spend.`,
+            `— failed/deferred jobs are not reclaimable by claim; manual audit/reset first.`,
         );
+      }
+      // running rows: STALE (claimed_at older than the 10-min claim window) is a normal
+      // crashed-run resume state — claim_next_report_jobs reclaims them (0037), so let the
+      // drive loop proceed. NON-stale running = live worker or too-fresh crash → abort at $0.
+      // attempts>=3 stale rows would be swept to 'failed' at next claim → audit first instead.
+      // (10-min comparison uses the LOCAL clock; skew errs toward abort, which is the $0-safe
+      // direction — a false-pass just yields claimed=0 and the stall guard catches it.)
+      if (preCounts.running > 0) {
+        const { data: runningRows, error: runningErr } = await supabase
+          .from('report_batch_job')
+          .select('ticker,claimed_at,attempts')
+          .eq('month', month)
+          .eq('status', 'running');
+        if (runningErr || !runningRows) {
+          throw new Error(`[p4-run] running-row read failed (${runningErr?.message ?? 'null'})`);
+        }
+        const staleCutoffMs = Date.now() - 10 * 60 * 1000;
+        const nonStale = runningRows.filter(
+          (r) => new Date(r.claimed_at as string).getTime() > staleCutoffMs,
+        );
+        if (nonStale.length > 0) {
+          throw new Error(
+            `[p4-run] ${nonStale.length} non-stale 'running' row(s) ` +
+              `(${nonStale.map((r) => r.ticker).join(', ')}) — a live worker or a crash inside ` +
+              `the 10-min stale window. Wait it out and re-run (resumable). Aborting before spend.`,
+          );
+        }
+        const exhausted = runningRows.filter((r) => (r.attempts as number) >= 3);
+        if (exhausted.length > 0) {
+          throw new Error(
+            `[p4-run] stale 'running' row(s) with attempts>=3 ` +
+              `(${exhausted.map((r) => r.ticker).join(', ')}) — next claim would sweep them to ` +
+              `'failed' permanently. Manual audit/reset first. Aborting before spend.`,
+          );
+        }
+        // stale + attempts<3 → proceed; the first chunk's claim reclaims them.
       }
 
       // ── baselines (delta-based: month already carries 73차/74차 audit rows) ──
@@ -224,6 +263,14 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
       );
 
       // ── drive loop (P3 full-run pattern) ──────────────────────────────────
+      // reservation-style ceiling (omxy R1 MED): a chunk's worst case is chunkSize ×
+      // (orchestrate writer+critic+revise + Section8 11×tier1_panel). Abort BEFORE a chunk
+      // whose worst case could push the run delta past the ceiling — a true pre-spend stop,
+      // not a post-hoc detection.
+      const perTickerWorstKrw =
+        getOrchestrateBudgetKrw() +
+        CORE_11_PERSONAS.length * getRoleWorstCaseMaxCostPerCallKrw('tier1_panel');
+      const effectiveChunkSize = CHUNK_SIZE ?? 3; // worker DEFAULT_CHUNK_SIZE mirror
       let chunks = 0;
       let lastResult: ReportBatchWorkerResult | null = null;
       for (;;) {
@@ -232,12 +279,15 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
             `[p4-run] exceeded MAX_CHUNKS=${MAX_CHUNKS} without completion — investigate job statuses`,
           );
         }
-        // driver-level run-delta ceiling — abort BEFORE the next chunk's spend.
+        // driver-level run-delta ceiling — reserve next chunk's worst case up front.
         const totalNow = await getMonthlyTotal(month, { client: supabase, callerKind: 'service-role' });
-        if (totalNow - baseCostKrw > COST_CEILING_KRW) {
+        const deltaNow = totalNow - baseCostKrw;
+        const nextChunkWorst = effectiveChunkSize * perTickerWorstKrw;
+        if (deltaNow + nextChunkWorst > COST_CEILING_KRW) {
           throw new Error(
-            `[p4-run] driver cost ceiling exceeded: run delta ₩${(totalNow - baseCostKrw).toFixed(2)} ` +
-              `> ₩${COST_CEILING_KRW} — aborting before next chunk (queue is resumable)`,
+            `[p4-run] driver cost ceiling: run delta ₩${deltaNow.toFixed(2)} + next-chunk worst ` +
+              `₩${nextChunkWorst.toFixed(2)} > ₩${COST_CEILING_KRW} — aborting before next chunk ` +
+              `(queue is resumable; raise P4_COST_CEILING_KRW only if intentional)`,
           );
         }
 
@@ -369,6 +419,10 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
       }
 
       // cost accounting: delta rows beyond the watermark, all by cron user, spend within ceiling.
+      // RESUME-tolerant (omxy R1 MED): no strict lower bound on row count or spend — a re-run on
+      // an already-complete queue legitimately bills ₩0, and a crash-after-commit-before-mark
+      // resume can mark a job done at LLM 0. The essential correctness is the 30 complete
+      // reports + 330 votes asserted above; cost checks here are accounting-consistency only.
       const { data: newCost, error: newCostErr } = await supabase
         .from('cost_log')
         .select('persona_id,model,ticker,cost_krw,called_by')
@@ -376,10 +430,8 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
         .gt('called_at', costWatermark);
       if (newCostErr || !newCost) throw new Error(`[p4-run] cost_log delta read failed`);
       const newDone = 30 - baseDone;
-      expect(newCost.length).toBeGreaterThanOrEqual(newDone * 13); // writer+critic+11 panel (revise/retries add)
       expect(newCost.every((r) => r.called_by === cronSystemUserId)).toBe(true);
       const spentKrw = newCost.reduce((s, r) => s + Number(r.cost_krw), 0);
-      expect(spentKrw).toBeGreaterThan(0);
       expect(spentKrw).toBeLessThanOrEqual(COST_CEILING_KRW);
       const afterCostKrw = await getMonthlyTotal(month, {
         client: supabase,
@@ -387,10 +439,12 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
       });
       expect(afterCostKrw - baseCostKrw).toBeCloseTo(spentKrw, 1);
       const deltaModels = new Set(newCost.map((r) => r.model));
-      expect(deltaModels.has('claude-opus-4-8')).toBe(true); // writer
-      expect(deltaModels.has('claude-opus-4-7')).toBe(true); // Section8 vote-pass (tier1_panel preferred)
-      if (process.env.OPENAI_API_KEY) {
-        expect(deltaModels.has('gpt-5.4')).toBe(true); // critic
+      if (newCost.length > 0) {
+        expect(deltaModels.has('claude-opus-4-8')).toBe(true); // writer
+        expect(deltaModels.has('claude-opus-4-7')).toBe(true); // Section8 vote-pass (tier1_panel preferred)
+        if (process.env.OPENAI_API_KEY) {
+          expect(deltaModels.has('gpt-5.4')).toBe(true); // critic
+        }
       }
 
       // run-mutex released + pipeline_health success.
