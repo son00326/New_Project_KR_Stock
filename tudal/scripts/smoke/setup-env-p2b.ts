@@ -47,14 +47,17 @@ if (canaryConfirmedByCaller) {
   process.env.PR5_CRON_AUTO_ENABLED = 'true';
   process.env.PR5B_SECTION8_ENABLED = 'true';
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = 'true';
+  // cron-system reserved user (exists in prod auth.users; FK target for cost_log.called_by).
+  // Inside the confirm gate (blind-audit LOW): the unconfirmed path stays fully env-neutral.
+  // The test additionally pre-verifies this UUID against auth.users side-effect-free, BEFORE
+  // the worker step-0 check (which would log a failed pipeline_health row + critical alert).
+  process.env.CRON_SYSTEM_USER_ID ??= '39202d8b-1042-48a6-8da0-df14a52fabea';
 } else {
   delete process.env.P2B_CANARY_CONFIRM;
   delete process.env.PR5_CRON_AUTO_ENABLED;
   delete process.env.PR5B_SECTION8_ENABLED;
   delete process.env.AI_COST_LOG_REAL_INSERT_ENABLED;
 }
-// cron-system reserved user (exists in prod auth.users; FK target for cost_log.called_by).
-process.env.CRON_SYSTEM_USER_ID ??= '39202d8b-1042-48a6-8da0-df14a52fabea';
 // The canary drives exactly one guarded chunk — self-continue is a route-level accelerator
 // (cannot fire here, no HTTP), but be explicit so a stray env can't change behaviour.
 delete process.env.PR5_CRON_SELF_CONTINUE;

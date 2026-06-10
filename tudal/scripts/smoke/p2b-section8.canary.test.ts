@@ -21,18 +21,48 @@
 // three USER-owned prod flags locally (PR5_CRON_AUTO_ENABLED, PR5B_SECTION8_ENABLED,
 // AI_COST_LOG_REAL_INSERT_ENABLED) that Vercel prod does NOT set — production crons
 // stay dormant. The 29 untouched jobs remain `pending` = the natural P4 resume
-// queue (inert while Vercel PR5_CRON_AUTO_ENABLED is unset; P4 enqueue is
-// idempotent either way).
+// queue. ⚠️ That queue is inert ONLY while Vercel PR5_CRON_AUTO_ENABLED stays
+// unset: if USER enables the PR5 flags (+keys) before 2026-07-01, the daily cron
+// auto-bills the backlog at DEFAULT_CHUNK_SIZE=3/day (~₩1.5-2k/day) with no
+// further human trigger. From 2026-07-01 the route's currentMonthYM() moves on
+// and the June queue is orphaned (no latent billing).
 //
-// SINGLE-SHOT: fail-closed pre-guards abort at $0 if the month already has any
-// stock_reports row / done report job / committee_votes — a re-run would claim
-// the NEXT ticker and bill again (~₩0.4-1.5k). Intentional P4 progression must
-// go through a dedicated 30-report driver, not repeated canary runs.
+// KNOWN TERMINAL STATES (disclosed — omxy R1 + blind-audit MED):
+//   - Section8 SOFT-SKIP: runCore11ForTicker swallows any `ai_call_failed*`
+//     (incl. transient 429/5xx after SDK-internal retries) → commitSection8Step
+//     returns 'section8_unavailable' (⚪/null badge → 'section8_not_ready');
+//     the orchestrator only console.info's non-committed statuses and the worker
+//     marks the job done. Outcome: body fully billed + persisted, section_8 NULL,
+//     result.done=1. This harness then REDs at the seam-D soft-skip check —
+//     an HONEST RED, not a wiring bug. Recovery is production-side only:
+//     the next flag-on chunk's reset_section8_eligible_jobs re-pends the job and
+//     the needsSection8Only branch adds Section 8 at panel-only cost (the P4
+//     30-report driver does this naturally). This harness stays blocked by its
+//     single-shot guards — by design.
+//   - retryWithBackoff worst case: a transient writer/critic/revise throw re-runs
+//     the whole orchestrate up to 3 attempts = 3×(writer+critic)+revise+1×panel
+//     (the panel is never re-billed inside one claim — its transients soft-skip).
+//   - vitest timeout/kill mid-run: billing is NOT cancelled; the claimed job and
+//     run-mutex are left for stale reclaim (10/15 min) and the in-flight call may
+//     be billed by the provider without a cost_log row. Before ANY re-run,
+//     reconcile cost_log against the provider console.
 //
-// HOW TO RUN (intentional, real money ~₩400-1,500; ceiling assert ₩10,000):
+// SINGLE-SHOT: fail-closed pre-guards abort at $0 unless the month is in the
+// exact pristine pre-canary state: stock_reports 0 / report_batch_job 0 (ANY
+// status — failed/running/deferred residue also aborts) / committee_votes 0 /
+// cost_log 0 report-path rows (full_report_writer|critic|revise). Re-running
+// after ANY prior attempt (success, crash, or failure) therefore aborts at $0
+// instead of claiming the next ticker and billing again. Intentional P4
+// progression must go through a dedicated 30-report driver, not this canary.
+// ⚠️ TOCTOU: the guards run before the run-mutex acquire — never launch two
+// canaries concurrently; the residual race window is seconds wide but real.
+//
+// HOW TO RUN (intentional, real money ~₩400-1,500; post-hoc ceiling ₩10,000):
 //   cd tudal && P2B_CANARY_CONFIRM=1 npx vitest run --config vitest.p2b.config.ts
 // Without P2B_CANARY_CONFIRM=1 this test SKIPS and the cost/flag gates are NOT
-// forced ($0). Not in `npm run test:ci`.
+// forced ($0). Not in `npm run test:ci`. NOTE: .env.local is authoritative —
+// shell-exported SUPABASE_*/ANTHROPIC_*/OPENAI_* overrides are clobbered, so a
+// confirmed run ALWAYS targets the production project recorded in .env.local.
 // ============================================================================
 import { describe, it, expect } from 'vitest';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
@@ -42,9 +72,12 @@ import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 
 const CONFIRMED = process.env.P2B_CANARY_CONFIRM === '1';
 
-// Spend sanity ceiling (₩): worst legit case = retryWithBackoff re-runs the whole
-// orchestrate up to 3 attempts (~3 × ₩1,000 + panel rebills). Anything above this
-// means a runaway loop — fail loud for the post-run audit.
+// Spend sanity ceiling (₩) — POST-HOC AUDIT, not an in-run blocker (the in-run
+// money guards are the three preflightHardcap reservations: worker batch /
+// orchestrator per-attempt / section8-step 11×tier1_panel, hardcap ₩500k).
+// Worst legit case ≈ 3×(writer+critic) + revise + 1×panel ≈ ₩2,600-4,500
+// (panel transients soft-skip — never re-billed inside one claim). Anything
+// above this ceiling means a runaway loop — fail loud for the post-run audit.
 const SPEND_CEILING_KRW = 10_000;
 
 const AI_BADGES = ['🟢', '🔵', '🟣', '🟡'] as const;
@@ -73,7 +106,9 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
     'runGuardedReportChunk(chunkSize=1): 1 full report + section_8 + 11 committee_votes wired',
     async () => {
       const supabase = createServiceRoleClient();
-      const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? '';
+      // lowercase once: Postgres normalizes uuid output to lowercase, so an uppercase
+      // env value would pass every upstream gate but false-RED the called_by equality.
+      const cronSystemUserId = (process.env.CRON_SYSTEM_USER_ID ?? '').toLowerCase();
 
       // month derivation via the real route seam (UTC); pin to the canary target month
       // (2026-06 = the month with 30 AI-badged rows from the 73차 full P3 run). A drifted
@@ -103,22 +138,27 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
             `bill again. P4 (30 reports) must use its own driver.`,
         );
       }
-      // (2) no done report job for the month (same single-shot semantics).
-      const { count: doneJobs0, error: doneJobs0Err } = await supabase
+      // (2) report_batch_job must be COMPLETELY empty for the month (verified production
+      //     baseline = 0 rows). Checking only status='done' would let failed/deferred/
+      //     pending/stale-running residue from a crashed prior attempt slip through and
+      //     (a) bill the NEXT ticker, (b) break the lowest-ticker/attempts=1/remaining=29
+      //     determinism asserts post-spend (blind-audit MED).
+      const { count: jobRows0, error: jobRows0Err } = await supabase
         .from('report_batch_job')
         .select('*', { count: 'exact', head: true })
-        .eq('month', month)
-        .eq('status', 'done');
-      if (doneJobs0Err || doneJobs0 == null) {
+        .eq('month', month);
+      if (jobRows0Err || jobRows0 == null) {
         throw new Error(
           `[p2b-canary] report_batch_job baseline count failed for ${month} ` +
-            `(${doneJobs0Err?.message ?? 'null count'}) — aborting before spend (fail-closed).`,
+            `(${jobRows0Err?.message ?? 'null count'}) — aborting before spend (fail-closed).`,
         );
       }
-      if (doneJobs0 > 0) {
+      if (jobRows0 > 0) {
         throw new Error(
-          `[p2b-canary] report_batch_job already has ${doneJobs0} done job(s) for ${month} — ` +
-            `single-shot canary already progressed this month's queue.`,
+          `[p2b-canary] report_batch_job already has ${jobRows0} row(s) for ${month} ` +
+            `(expected 0 — pristine pre-canary queue). A prior canary attempt (done, failed, ` +
+            `crashed or stale-running) already touched this month. Audit cost_log + job states ` +
+            `before deciding anything; do NOT just re-run.`,
         );
       }
       // (3) committee_votes must still be at the production baseline 0 (P2b is the FIRST
@@ -138,6 +178,71 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
             `baseline drift (expected 0 before first live Section8). Audit before re-running.`,
         );
       }
+      // (4) no report-path cost_log rows for the month yet. Covers the fail-BEFORE-first-
+      //     persist escape (blind-audit HIGH→MED + omxy MED-2): e.g. writer billed, then
+      //     critic fails persistently → 3 attempts billed, job failed, guards (1)-(3) all
+      //     still green. The 73차 selection rows are panel/judge personas only, so any
+      //     full_report_writer/critic/revise row for 2026-06 = a prior canary attempt.
+      const { count: reportCostRows, error: reportCostErr } = await supabase
+        .from('cost_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('month', month)
+        .in('persona_id', ['full_report_writer', 'critic', 'revise']);
+      if (reportCostErr || reportCostRows == null) {
+        throw new Error(
+          `[p2b-canary] cost_log report-path baseline count failed for ${month} ` +
+            `(${reportCostErr?.message ?? 'null count'}) — aborting before spend (fail-closed).`,
+        );
+      }
+      if (reportCostRows > 0) {
+        throw new Error(
+          `[p2b-canary] cost_log already has ${reportCostRows} report-path row(s) ` +
+            `(full_report_writer/critic/revise) for ${month} — a prior canary attempt billed ` +
+            `without persisting a report. Reconcile cost_log + provider console before any re-run.`,
+        );
+      }
+      // (5) the would-be-claimed ticker (lowest of the 30 — claim_next_report_jobs orders
+      //     by ticker on a pristine queue) must be AI-badged, and the month must have the
+      //     full 30 rows (worker not-ready gate mirror). $0 SELECT — avoids discovering a
+      //     ⚪/null badge only after the body is billed (section8_not_ready soft-skip).
+      const { data: slAll, error: slAllErr } = await supabase
+        .from('short_list_30')
+        .select('ticker,consensus_badge')
+        .eq('month', monthDate)
+        .order('ticker', { ascending: true });
+      if (slAllErr || !slAll) {
+        throw new Error(
+          `[p2b-canary] short_list_30 baseline read failed for ${monthDate} ` +
+            `(${slAllErr?.message ?? 'null data'}) — aborting before spend (fail-closed).`,
+        );
+      }
+      if (slAll.length !== 30) {
+        throw new Error(
+          `[p2b-canary] short_list_30 has ${slAll.length} row(s) for ${monthDate} (expected 30) ` +
+            `— worker would notReady-skip; nothing to canary.`,
+        );
+      }
+      const expectedTicker = slAll[0].ticker as string;
+      if (!AI_BADGES.includes(slAll[0].consensus_badge as (typeof AI_BADGES)[number])) {
+        throw new Error(
+          `[p2b-canary] would-be-claimed ticker ${expectedTicker} has badge ` +
+            `'${slAll[0].consensus_badge}' (not AI-badged) — the body would bill and Section 8 ` +
+            `would section8_not_ready soft-skip. Aborting before spend.`,
+        );
+      }
+      // (6) side-effect-free cron-system user existence preflight. The worker's own step-0
+      //     check aborts at $0 too, but via abortBeforeSpend → it would INSERT a failed
+      //     pipeline_health row + a critical scheduler_fail alert_event into production.
+      //     Verify here first so a misconfigured UUID pollutes nothing (blind-audit LOW).
+      const { data: cronUser, error: cronUserErr } =
+        await supabase.auth.admin.getUserById(cronSystemUserId);
+      if (cronUserErr || !cronUser?.user) {
+        throw new Error(
+          `[p2b-canary] CRON_SYSTEM_USER_ID ${cronSystemUserId} not found in auth.users ` +
+            `(${cronUserErr?.message ?? 'no user'}) — aborting before spend (fail-closed, ` +
+            `side-effect-free).`,
+        );
+      }
 
       // ── cost baseline (delta-based: 2026-06 already holds the 73차 selection audit rows) ──
       const { count: baseCostRows, error: baseCostErr } = await supabase
@@ -154,7 +259,23 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
         client: supabase,
         callerKind: 'service-role',
       });
-      const startedAtIso = new Date().toISOString();
+      // DB-side watermark (blind-audit LOW): cost_log.called_at is DB now(), so comparing
+      // against the LOCAL clock is unsound under skew. Anchor the delta on the month's
+      // current max(called_at) instead (2026-06 holds the 73차 selection rows → non-null;
+      // epoch fallback keeps a hypothetical empty month correct).
+      const { data: wmRow, error: wmErr } = await supabase
+        .from('cost_log')
+        .select('called_at')
+        .eq('month', month)
+        .order('called_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (wmErr) {
+        throw new Error(
+          `[p2b-canary] cost_log watermark read failed (${wmErr.message}) — aborting before spend.`,
+        );
+      }
+      const costWatermark = (wmRow?.called_at as string | null) ?? '1970-01-01T00:00:00Z';
 
       // ── the real worker path (route DI mirror: report-worker/route.ts:59-60; chunkSize=1
       //    is the canary's only deviation from the route default 3 — cost control) ──────────
@@ -189,6 +310,9 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
       // claim_next_report_jobs orders by ticker — lowest ticker of the 30 (deterministic).
       const minTicker = (jobs ?? []).map((j) => j.ticker as string).sort()[0];
       expect(doneTicker).toBe(minTicker);
+      // ...and it must be the ticker pre-guard (5) predicted from short_list_30 (pre-spend
+      // badge check target) — pins the claim path end-to-end.
+      expect(doneTicker).toBe(expectedTicker);
       const pendingCount = (jobs ?? []).filter((j) => j.status === 'pending').length;
       expect(pendingCount).toBe(29);
 
@@ -214,6 +338,21 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
         .single();
       expect(report).toBeTruthy();
       if (!report) throw new Error('no report row');
+      // Section8 SOFT-SKIP diagnosis BEFORE the bare assert (omxy R1 HIGH + blind-audit MED):
+      // body-complete + section_8 null + job done = the disclosed 'section8_unavailable /
+      // section8_not_ready' terminal state (a panel transient or badge gap — NOT a wiring
+      // bug). Name it explicitly so the post-spend RED carries its own recovery path.
+      if (report.section_8 === null) {
+        throw new Error(
+          `[p2b-canary] SECTION8 SOFT-SKIP: body for ${doneTicker} committed+billed but ` +
+            `section_8 is null (worker job done). Cause = section8_unavailable (Core-11 ` +
+            `transient/key/billing) or section8_not_ready (badge gap). Recovery = production ` +
+            `path only: next flag-on chunk's reset_section8_eligible_jobs re-pends the job and ` +
+            `needsSection8Only adds Section 8 at panel-only cost (P4 driver does this ` +
+            `naturally). This canary stays blocked by its single-shot guards — by design. ` +
+            `Check the commit_section8_skipped console line in the run output for the status.`,
+        );
+      }
       expect(report.id).toBe(doneJob.report_id);
       for (const key of [
         'section_0',
@@ -238,6 +377,14 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
       const revote = s8.partC.core_revote;
       expect(revote.buy + revote.hold + revote.sell).toBe(11);
       expect(['BUY', 'HOLD', 'SELL']).toContain(s8.partC.verdict);
+      // false-GREEN tripwire (blind-audit MED): writer.parseContent falls back to
+      // {vote:'HOLD', one_line:'parse failed'} on malformed persona JSON — 11 such stubs
+      // would still pass every shape/enum assert above. The canary's job is proving the
+      // REAL seam, so any parse-stub entry fails loud.
+      const parseStubs = s8.partD.filter(
+        (d) => (d as { one_line?: string }).one_line === 'parse failed',
+      );
+      expect(parseStubs.length, 'partD contains parse-failed stub entries').toBe(0);
 
       // ── seam E: committee_votes 11 rows — Core-11 ids, enum-mapped, revote-consistent ──
       const { data: votes } = await supabase
@@ -264,7 +411,7 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
         .from('cost_log')
         .select('persona_id,model,ticker,cost_krw,called_by,called_at')
         .eq('month', month)
-        .gte('called_at', startedAtIso);
+        .gt('called_at', costWatermark);
       const deltaRows = newCost ?? [];
       // minimum: writer 1 + critic 1 + panel 11 = 13 (revise conditional; transient retries may add).
       expect(deltaRows.length).toBeGreaterThanOrEqual(13);
