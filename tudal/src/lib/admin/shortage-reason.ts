@@ -1,30 +1,29 @@
 // T1.6 — Short List 30 미달 원인 분류 (pure, server/client 양쪽 import 가능 — no directive).
-// 버킷별 활성 카운트로 원인을 판정한다. 단순 total 비교는 W2a 트랙 분리(단기 주1회 / 중장기 월1회)
-// finalize 시차를 "스크리닝 미달"로 오인하므로, per-bucket 카운트로 track_pending을 구분한다.
+// W2a 트랙 분리(단기 주1회 / 중장기 월1회) finalize 시차 + short carry-partial을 "스크리닝 미달"로
+// 오인하지 않도록, 도달 가능 상태 불변식(아래)에 근거해 0<total<30을 track_pending으로 판정한다.
 import type { ShortageReason } from "@/types/admin";
 import { SHORTLIST_TARGET_COUNT } from "@/types/admin";
 
-const BUCKET_TARGET = SHORTLIST_TARGET_COUNT / 3; // 단·중·장 각 10종
-
-// ⚠️ 불변식 (omxy 76차 리뷰 적대 재판정): 이 판정은 persist된 short_list_30 버킷 카운트가
-//   항상 정확히 0 또는 10이라는 전제에 의존한다 — replace_shortlist_track(0031, active bucket당
-//   v_expected=10 hard check) + midlong 트랙 schema refine(per_active_timeframe_must_be_10:
-//   mid·long 동시 10) + carry_short_into_month(버킷 empty일 때만 실행 → 전체 10 복사 or no-op).
-//   즉 9 같은 부분 버킷은 persist 불가다(incumbent 풀 카운트[9/10 가능]와 혼동 금지 —
-//   그건 AI 평가 입력일 뿐 UI가 읽는 테이블 카운트가 아님). 이 커플링이 완화되면(예: per-bucket
-//   finalize) [0,10,0] 등이 track_pending로 오분류될 수 있으니 본 규칙도 함께 갱신해야 한다.
-// 버킷별 활성 카운트(removed 제외)에서 30종 미달 원인을 결정.
-//  - total ≥ 30 → none
-//  - total < 30 이고 (한 버킷 이상 full==10) AND (한 버킷 이상 empty==0) → track_pending
-//    (트랙 분리 finalize 시차 — 빈 트랙은 다음 주기에 갱신, 스크리닝 미달 아님)
-//  - 그 외 미달 → screening (M10 연결 후 scheduler_fail 판정 추가)
+// ⚠️ 도달 가능 상태 불변식 (omxy 76차 R1~R2 적대 재판정으로 정정):
+//   persist된 short_list_30에서 mid·long 버킷은 midlong 트랙 직접-write로만 기록되고
+//   exactly-10-or-throw로 강제된다(upsertShortListTrack `!==expected throw` +
+//   zod `per_active_timeframe_must_be_10`(mid·long 동시 10) + replace_shortlist_track v_expected=20).
+//   → **mid == long ∈ {0, 10}** (항상 같이 0 또는 같이 10).
+//   short 버킷은 (a) short 직접-write = exactly 10, 또는 (b) carry_short_into_month가
+//   직전 월 short를 hold로 복사하되 **midlong과 중복(졸업) ticker를 제외**(0031:494)하므로
+//   **short ∈ {0..10}** — overlap 수만큼 9·8… 부분 버킷이 persist 가능(0031 주석: "cross-track
+//   total=30 hard-raise 안 함"). 따라서 [9,10,10] 같은 carry-partial은 도달 가능하다.
+//   핵심: **직접-write는 partial을 절대 persist 못 한다(throw)** — 즉 0<total<30인 모든 persist
+//   상태는 screening 미달이 아니라 "트랙이 아직 갱신 안 됨 / short carry 반영분"인 timing 아티팩트다.
+//   (screening이 30을 못 채우면 그 트랙 finalize가 throw → 해당 버킷은 EMPTY로 남지 partial이 아님.)
+//
+// 30종 미달 원인 판정 (bucketCounts = [short, mid, long], removed 제외):
+//   - total ≥ 30 → none
+//   - 0 < total < 30 → track_pending (트랙 갱신 시차 또는 short carry-partial — 다음 주기에 30 채움)
+//   - total == 0 → screening (전혀 seed 안 됨)
 export function resolveShortageReason(bucketCounts: number[]): ShortageReason {
   const total = bucketCounts.reduce((sum, n) => sum + n, 0);
   if (total >= SHORTLIST_TARGET_COUNT) return "none";
-
-  const hasFull = bucketCounts.some((n) => n === BUCKET_TARGET);
-  const hasEmpty = bucketCounts.some((n) => n === 0);
-  if (hasFull && hasEmpty) return "track_pending";
-
-  return "screening";
+  if (total === 0) return "screening";
+  return "track_pending";
 }
