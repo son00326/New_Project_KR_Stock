@@ -21,11 +21,13 @@
 // three USER-owned prod flags locally (PR5_CRON_AUTO_ENABLED, PR5B_SECTION8_ENABLED,
 // AI_COST_LOG_REAL_INSERT_ENABLED) that Vercel prod does NOT set — production crons
 // stay dormant. The 29 untouched jobs remain `pending` = the natural P4 resume
-// queue. ⚠️ That queue is inert ONLY while Vercel PR5_CRON_AUTO_ENABLED stays
-// unset: if USER enables the PR5 flags (+keys) before 2026-07-01, the daily cron
-// auto-bills the backlog at DEFAULT_CHUNK_SIZE=3/day (~₩1.5-2k/day) with no
-// further human trigger. From 2026-07-01 the route's currentMonthYM() moves on
-// and the June queue is orphaned (no latent billing).
+// queue (design: 29 = 30−1; actual 2026-06 aftermath after the pre-0037 3-job
+// over-claim: 27 pending / 3 done). ⚠️ That queue is inert ONLY while Vercel
+// PR5_CRON_AUTO_ENABLED stays unset: if USER enables the PR5 flags (+keys)
+// before 2026-07-01, the daily cron auto-bills the backlog at
+// DEFAULT_CHUNK_SIZE=3/day (~₩1.5-2k/day) with no further human trigger. From
+// 2026-07-01 the route's currentMonthYM() moves on and the June queue is
+// orphaned (no latent billing).
 //
 // KNOWN TERMINAL STATES (disclosed — omxy R1 + blind-audit MED):
 //   - Section8 SOFT-SKIP: runCore11ForTicker swallows any `ai_call_failed*`
@@ -63,9 +65,14 @@
 // rows). 3 tickers (000660/000990/007610) were fully committed+billed (₩1,695.83) and
 // every post-claim seam verified CLEAN by manual SQL. Migration 0037 fixes both claim
 // RPCs (report + selection) with a MATERIALIZED CTE; the claimed-exactness asserts in
-// this harness are only deterministic once 0037 is applied.
+// this harness are only deterministic once 0037 is applied. ✅ 0037 was production-
+// applied 2026-06-10 (ledger 20260610015408, USER-approved) + 3-way verified
+// (functiondef MATERIALIZED / grants / prod behavioral LIMIT 1 → exactly 1).
 //
 // HOW TO RUN (intentional, real money ~₩400-1,500; post-hoc ceiling ₩10,000):
+//   PRECONDITION: migration 0037 (claim_skip_locked_cte_fix) applied to production —
+//   verify before any future-month adaptation of this harness (it was applied for
+//   2026-06; a forked harness must re-check, or the claim asserts go non-deterministic).
 //   cd tudal && P2B_CANARY_CONFIRM=1 npx vitest run --config vitest.p2b.config.ts
 // Without P2B_CANARY_CONFIRM=1 this test SKIPS and the cost/flag gates are NOT
 // forced ($0). Not in `npm run test:ci`. NOTE: .env.local is authoritative —
@@ -169,22 +176,39 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
             `before deciding anything; do NOT just re-run.`,
         );
       }
-      // (3) committee_votes must still be at the production baseline 0 (P2b is the FIRST
-      //     live committee_votes write — HANDOFF §0 audit). Non-zero = unexpected drift.
-      const { count: votesBaseline, error: votesBaselineErr } = await supabase
-        .from('committee_votes')
-        .select('*', { count: 'exact', head: true });
-      if (votesBaselineErr || votesBaseline == null) {
+      // (3) committee_votes for THIS month must be 0. Month-scoped via the month's
+      //     report ids (votes have no month column) — NOT a global zero: the 2026-06
+      //     canary left 33 historical rows (3 reports × 11), so a global check would
+      //     never pass again for any forked future-month run. Guard (1) already proves
+      //     0 reports on a pristine month; this stays as a drift cross-check in case
+      //     guards are ever reordered.
+      const { data: monthReportIds, error: monthReportIdsErr } = await supabase
+        .from('stock_reports')
+        .select('id')
+        .eq('month', monthDate);
+      if (monthReportIdsErr || !monthReportIds) {
         throw new Error(
-          `[p2b-canary] committee_votes baseline count failed ` +
-            `(${votesBaselineErr?.message ?? 'null count'}) — aborting before spend (fail-closed).`,
+          `[p2b-canary] stock_reports id read failed for ${monthDate} ` +
+            `(${monthReportIdsErr?.message ?? 'null data'}) — aborting before spend (fail-closed).`,
         );
       }
-      if (votesBaseline > 0) {
-        throw new Error(
-          `[p2b-canary] committee_votes already has ${votesBaseline} row(s) — production ` +
-            `baseline drift (expected 0 before first live Section8). Audit before re-running.`,
-        );
+      if (monthReportIds.length > 0) {
+        const { count: votesBaseline, error: votesBaselineErr } = await supabase
+          .from('committee_votes')
+          .select('*', { count: 'exact', head: true })
+          .in('report_id', monthReportIds.map((r) => r.id));
+        if (votesBaselineErr || votesBaseline == null) {
+          throw new Error(
+            `[p2b-canary] committee_votes baseline count failed ` +
+              `(${votesBaselineErr?.message ?? 'null count'}) — aborting before spend (fail-closed).`,
+          );
+        }
+        if (votesBaseline > 0) {
+          throw new Error(
+            `[p2b-canary] committee_votes already has ${votesBaseline} row(s) for ${monthDate} ` +
+              `reports — this month's Section8 already committed votes. Audit before re-running.`,
+          );
+        }
       }
       // (4) no report-path cost_log rows for the month yet. Covers the fail-BEFORE-first-
       //     persist escape (blind-audit HIGH→MED + omxy MED-2): e.g. writer billed, then
