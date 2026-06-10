@@ -33,12 +33,12 @@ export function MissingCountBanner({
         />
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-amber-700 dark:text-amber-300">
-            단기/중장기 트랙 선정 시차 — 직전 갱신분 참조
+            단기/중장기 트랙 선정 시차 — 갱신 진행 중
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             단기(주1회)·중장기(월1회) 선정 주기가 달라 일부 트랙이 아직 갱신되지
             않았습니다 ({activeCount}/{SHORTLIST_TARGET_COUNT}종). 비어 있는
-            트랙은 직전 갱신분을 참고하세요 (스크리닝 미달 아님).
+            트랙은 다음 선정 주기에 채워집니다 (스크리닝 미달 아님).
           </p>
         </div>
       </div>
