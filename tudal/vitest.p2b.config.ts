@@ -22,7 +22,10 @@ export default defineConfig({
     include: ['scripts/smoke/**/*.canary.test.ts'],
     environment: 'node',
     setupFiles: ['./scripts/smoke/setup-env-p2b.ts'],
-    testTimeout: 30 * 60 * 1000, // writer 8192-token Opus + 11 panel calls + retry worst — generous
+    // 90min: worst legit case = 3 full orchestrate attempts (3× writer 8192-token Opus +
+    // critic) + revise + 11 sequential panel calls on a slow-API day. A vitest timeout kill
+    // does NOT cancel billing and loses the post-run cost audit — make it near-impossible.
+    testTimeout: 90 * 60 * 1000,
     hookTimeout: 60_000,
     fileParallelism: false,
   },
