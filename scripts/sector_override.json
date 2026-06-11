@@ -1,7 +1,7 @@
 {
   "override_version": "v1",
   "override_date": "2026-06-03",
-  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed. | 63차(2026-06-03): 150 seed(--emit-candidates) dry-run unresolved-selected 21 추가 (Claude① WebSearch 리서치 + omxy② WebSearch 적대 검증 CONVERGED, 명백 오분류 0).",
+  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed. | 63차(2026-06-03): 150 seed(--emit-candidates) dry-run unresolved-selected 21 추가 (Claude① WebSearch 리서치 + omxy② WebSearch 적대 검증 CONVERGED, 명백 오분류 0). | 77차(2026-06-11): DART quarterly fix reseed dry-run unresolved-selected 16 추가 (반도체12/IT·SW1/바이오1/엔터·미디어1/유통·소비재1, 엔피=WebSearch 검증).",
   "schema_note": "tickers[<6-digit>] = {canonical: <one of CANONICAL_SECTORS 14>, reason: <non-empty>}. canonical_sector_mapper.OverrideSchemaError가 schema 위반을 fail-fast 한다.",
   "tickers": {
     "254490": {
@@ -115,6 +115,70 @@
     "443060": {
       "canonical": "운송/물류",
       "reason": "선박 애프터마켓 MRO/엔진 유지보수(induty 7212) → 조선/선박=운송/물류. 63차 omxy 검증"
+    },
+    "271830": {
+      "canonical": "반도체",
+      "reason": "팸텍 — induty 29271(측정/시험장비)이나 반도체 검사/번인 장비. 77차 reseed unresolved-selected."
+    },
+    "319660": {
+      "canonical": "반도체",
+      "reason": "피에스케이 — induty 29271이나 반도체 전공정(PR strip) 장비. 77차 reseed unresolved-selected."
+    },
+    "089970": {
+      "canonical": "반도체",
+      "reason": "브이엠 — induty 29271이나 반도체 공정 장비/부품. 77차 reseed unresolved-selected."
+    },
+    "160980": {
+      "canonical": "반도체",
+      "reason": "싸이맥스 — induty 29271이나 반도체 웨이퍼 이송(EFEM) 장비. 77차 reseed unresolved-selected."
+    },
+    "031980": {
+      "canonical": "반도체",
+      "reason": "피에스케이홀딩스 — induty 29271이나 반도체 장비 지주(피에스케이 모회사). 77차 reseed unresolved-selected."
+    },
+    "403870": {
+      "canonical": "반도체",
+      "reason": "HPSP — induty 29271이나 반도체 고압수소 어닐링 장비. 77차 reseed unresolved-selected."
+    },
+    "084370": {
+      "canonical": "반도체",
+      "reason": "유진테크 — induty 29271이나 반도체 증착(LPCVD/ALD) 장비. 77차 reseed unresolved-selected."
+    },
+    "083450": {
+      "canonical": "반도체",
+      "reason": "GST — induty 29271이나 반도체/디스플레이 가스정화·온도조절 장비. 77차 reseed unresolved-selected."
+    },
+    "053610": {
+      "canonical": "반도체",
+      "reason": "프로텍 — induty 29271이나 반도체 디스펜서/본더 장비. 77차 reseed unresolved-selected."
+    },
+    "168360": {
+      "canonical": "반도체",
+      "reason": "펨트론 — induty 292이나 반도체/2차전지 검사장비. 77차 reseed unresolved-selected."
+    },
+    "088130": {
+      "canonical": "반도체",
+      "reason": "동아엘텍 — induty 292이나 디스플레이/반도체 검사장비(HB테크 078150 선례 동류). 77차 reseed unresolved-selected."
+    },
+    "131970": {
+      "canonical": "반도체",
+      "reason": "두산테스나 — induty 739이나 반도체 후공정 테스트 하우스. 77차 reseed unresolved-selected."
+    },
+    "454910": {
+      "canonical": "IT/SW",
+      "reason": "두산로보틱스 — induty 2928(로봇)이나 협동로봇/자동화(로보스타 090360 선례 IT/SW). 77차 reseed unresolved-selected."
+    },
+    "226950": {
+      "canonical": "바이오",
+      "reason": "올릭스 — induty 70113이나 RNAi 신약개발 바이오(지아이이노베이션 358570 선례). 77차 reseed unresolved-selected."
+    },
+    "291230": {
+      "canonical": "엔터/미디어",
+      "reason": "엔피 — induty 759이나 XR/실감미디어/브랜드익스피어리언스 콘텐츠 기업(WebSearch 검증). 77차 reseed unresolved-selected."
+    },
+    "094850": {
+      "canonical": "유통/소비재",
+      "reason": "참좋은여행 — induty 752이나 패키지 여행/레저 소비재 서비스. 77차 reseed unresolved-selected."
     }
   }
 }
