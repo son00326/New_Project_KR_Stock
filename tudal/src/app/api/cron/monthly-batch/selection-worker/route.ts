@@ -17,6 +17,7 @@
 //       warning alert (silent spend 방지 2층). 수동 재개 = `?now=<해당 window 내 ISO>` + CRON_SECRET 재호출.
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   runGuardedSelectionChunk,
@@ -93,6 +94,86 @@ interface TrackOutcome {
   error?: string;
 }
 
+// B-SEL-CRON — self-continue hop 식별 마커. self-continue fetch URL에 &selfcontinue=1을 부여하므로
+//   genuine cron-entry(또는 수동 ?now= 재개)와 self-continue hop을 구분한다. 모든 route-level 관측
+//   alert(orphan sweep / track-throw / stall)는 hop에서 skip → 하루 ~수십 hop의 alert 폭주 차단
+//   (finding 2/5/12/14/15/17/23). 1 cron-entry/일 = 1 alert/일로 bound.
+function isSelfContinueHop(request: NextRequest): boolean {
+  return request.nextUrl.searchParams.get("selfcontinue") === "1";
+}
+
+// 고아 sweep lookback. midlong period window(~31일)를 초과해야 익월 rollover로 고아가 된 midlong run row
+//   (created_at은 최초 acquire 시 고정·ON CONFLICT 미갱신, 0031)을 탐지할 수 있다. 14일이면 midlong
+//   고아를 구조적으로 영원히 놓쳤다(finding 1/8/10). 60일 = midlong window + ~30일 가시화 grace.
+const ORPHAN_LOOKBACK_DAYS = 60;
+
+// B-SEL-CRON (finding 1/3/7/8/9/10/11/18/20/24/26) — 고아 period sweep.
+//   미finalize인데 현재 period가 아닌 run row = 처리되다 중단된 period. scheduler_fail warning으로 가시화.
+//   anchor는 ?now= seam이 아닌 실 wall-clock(new Date())으로 고정 — 수동 ?now=<과거 ISO> 재개가
+//   진짜 현재 진행 period를 고아로 오탐하지 않도록(finding 3/7/11/18/24). currentPeriodKeys = seam ∪ real
+//   (재개 대상 period와 라이브 period 양쪽 모두 제외). best-effort — 실패해도 caller 응답을 막지 않는다.
+async function sweepOrphanPeriods(
+  supabase: SupabaseClient,
+  seamPeriodKeys: readonly string[],
+): Promise<void> {
+  try {
+    const realNow = new Date();
+    const currentPeriodKeys = new Set<string>([
+      ...seamPeriodKeys,
+      currentShortPeriodKey(realNow),
+      currentMidlongPeriodKey(realNow),
+    ]);
+    const sinceIso = new Date(
+      realNow.getTime() - ORPHAN_LOOKBACK_DAYS * 86400000,
+    ).toISOString();
+    const { data: openRuns, error: openRunsErr } = await supabase
+      .from("tier1_selection_run")
+      .select("period_key, track, created_at")
+      .is("finalized_at", null)
+      .gt("created_at", sinceIso);
+    if (openRunsErr) {
+      throw new Error(`orphan_sweep_select_failed:${openRunsErr.code ?? "unknown"}`);
+    }
+    const orphans = (openRuns ?? []).filter(
+      (r) => !currentPeriodKeys.has(r.period_key),
+    );
+    if (orphans.length === 0) return;
+    const keys = orphans.map((r) => r.period_key).join(",");
+    console.error(
+      JSON.stringify({
+        event: "selection_period_orphaned",
+        periodKeys: keys,
+        hint: "manual resume = GET ?now=<ISO within that window> + CRON_SECRET (두 트랙 모두 해당 시점 period로 진행됨)",
+      }),
+    );
+    await insertAlertEvents(
+      [
+        {
+          alertType: "scheduler_fail",
+          ticker: null,
+          severity: "warning",
+          // finding 20/26: sweep는 cost_log를 확인하지 않으므로 'spend 발생'을 단정하지 않는다
+          //   (zero-spend run row = 미seed/step-0 abort/flag-off도 고아로 잡힘).
+          triggerReason: `selection period 미finalize 중단(window 경과): ${keys} — spend 여부는 cost_log 확인, 재개 = 해당 window 내 ?now= 재호출(두 트랙 진행)`,
+          signalSentAt: realNow.toISOString(),
+          outcomeAt: null,
+          t7PriceChange: null,
+          decisionRecorded: null,
+          decisionMemo: null,
+        },
+      ],
+      { client: supabase },
+    );
+  } catch (sweepErr) {
+    console.error(
+      JSON.stringify({
+        event: "selection_orphan_sweep_failed",
+        message: sweepErr instanceof Error ? sweepErr.message : String(sweepErr),
+      }),
+    );
+  }
+}
+
 // W1b — judge 입력 패널 요약: persona_id → Core 11 label 매핑 (미상 id는 id 그대로).
 function renderJudgePanelSummary(finalPanel: readonly PersonaScore[]): string {
   const labelById = new Map(CORE_11_PERSONAS.map((p) => [p.id, p.label]));
@@ -109,13 +190,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // flag gate: dormant 시 200 skip (502 아님 — dormant ≠ failure, mutex 미취득, spend 0).
-  if (process.env.SELECTION_CRON_AUTO_ENABLED !== "true") {
-    return NextResponse.json(
-      { ok: true, skipped: true, reason: "selection_cron_auto_disabled" },
-      { status: 200 },
-    );
-  }
+  const isHop = isSelfContinueHop(request);
 
   // B-SEL-CRON (1) — period-scoped due-gate: 두 트랙 모두 "현재 period"로 매일 진행.
   //   short = 그 주 KST 월요일 키(주 내내 동일) / midlong = 그 달 키(월 내내 동일).
@@ -124,6 +199,24 @@ export async function GET(request: NextRequest) {
   const now = resolveNow(request);
   const shortPeriodKey = currentShortPeriodKey(now);
   const midlongPeriodKey = currentMidlongPeriodKey(now);
+  const supabase = createServiceRoleClient();
+
+  // B-SEL-CRON (finding 9) — 고아 sweep은 flag gate 앞에서 실행: USER가 비용 사유로 period 중반에
+  //   flag를 끄는 것이 미finalize 고아(spend 발생·산출 0)의 가장 현실적 경로인데, gate 뒤면 그 상태에서
+  //   sweep이 한 번도 돌지 않는다. sweep은 read 1쿼리 + 조건부 alert뿐(LLM/claim/mutex 0)이라 dormant
+  //   invariant(spend 0) 불변. hop에서는 skip(finding 2/5/12/17/23 — 폭주 차단, cron-entry 1회/일만).
+  if (!isHop) {
+    await sweepOrphanPeriods(supabase, [shortPeriodKey, midlongPeriodKey]);
+  }
+
+  // flag gate: dormant 시 200 skip (502 아님 — dormant ≠ failure, mutex 미취득, spend 0).
+  if (process.env.SELECTION_CRON_AUTO_ENABLED !== "true") {
+    return NextResponse.json(
+      { ok: true, skipped: true, reason: "selection_cron_auto_disabled" },
+      { status: 200 },
+    );
+  }
+
   const dueTracks: { track: SelectionTrack; periodKey: string; month: string }[] = [
     {
       track: "short",
@@ -138,7 +231,6 @@ export async function GET(request: NextRequest) {
   ];
 
   const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? "";
-  const supabase = createServiceRoleClient();
 
   // per-track try/catch/continue — 한 트랙 실패가 다른 트랙을 막지 않음(부분실패 보고, 전체 502 단일화 금지).
   const outcomes: TrackOutcome[] = [];
@@ -166,6 +258,8 @@ export async function GET(request: NextRequest) {
           reflectionContext: "",
           adminUserId: cronSystemUserId,
           costClient: supabase,
+          // B-SEL-CRON (cluster D) — preflight month == insert month 정합 (period 월경계 누수 차단).
+          costLogMonth: t.month,
           // W1a (D28 ①) — per-slot 모델 mix (Sonnet×6 + GPT mid×5, GPT-off 시 전원 Sonnet).
           slotResolver: resolveTier1PanelSlot,
         }),
@@ -176,6 +270,7 @@ export async function GET(request: NextRequest) {
           reflectionContext: "",
           adminUserId: cronSystemUserId,
           costClient: supabase,
+          costLogMonth: t.month,
           slotResolver: resolveTier1PanelSlot,
         }),
         // W1b (D28 ③) — per-ticker 최종 judge(Opus) + 경계 dual-judge(GPT↔Opus auto-detect).
@@ -219,65 +314,42 @@ export async function GET(request: NextRequest) {
         outcomes.push({ track: t.track, ok: true, result: guarded.result! });
       }
     } catch (err) {
-      outcomes.push({
-        track: t.track,
-        ok: false,
-        error: err instanceof Error ? err.message : "unknown",
-      });
+      const message = err instanceof Error ? err.message : "unknown";
+      outcomes.push({ track: t.track, ok: false, error: message });
+      // B-SEL-CRON (finding 14) — track throw 가시화: finalize 결정론 실패(cross_bucket_overlap 등)는
+      //   worker summarize에 도달하지 못해(throw가 선행) 응답 body에만 남는 silent 상태였다. always-due로
+      //   매일 재시도되므로 best-effort scheduler_fail로 알린다. hop에서는 skip(중복 차단) — cron-entry
+      //   1회/일. systemic abort는 worker가 이미 self-alert하므로 드물게 중복 가능(허용 — 가시성 우선).
+      if (!isHop) {
+        try {
+          await insertAlertEvents(
+            [
+              {
+                alertType: "scheduler_fail",
+                ticker: null,
+                severity: "warning",
+                triggerReason: `selection track ${t.track} ${t.periodKey} 실패(${t.month}): ${message}`,
+                signalSentAt: new Date().toISOString(),
+                outcomeAt: null,
+                t7PriceChange: null,
+                decisionRecorded: null,
+                decisionMemo: null,
+              },
+            ],
+            { client: supabase },
+          );
+        } catch (alertErr) {
+          console.error(
+            JSON.stringify({
+              event: "selection_track_fail_alert_failed",
+              track: t.track,
+              message:
+                alertErr instanceof Error ? alertErr.message : String(alertErr),
+            }),
+          );
+        }
+      }
     }
-  }
-
-  // B-SEL-CRON (3) — 고아 period sweep: 최근 14일 내 시작됐고 미finalize인데 현재 period가
-  //   아닌 run row = 이미 spend가 발생했는데 산출 0으로 중단된 period. scheduler_fail warning으로
-  //   가시화 (resume는 수동 `?now=` 재호출). best-effort — 실패해도 본 응답을 막지 않는다.
-  const currentPeriodKeys = new Set([shortPeriodKey, midlongPeriodKey]);
-  try {
-    const sinceIso = new Date(now.getTime() - 14 * 86400000).toISOString();
-    const { data: openRuns, error: openRunsErr } = await supabase
-      .from("tier1_selection_run")
-      .select("period_key, track, created_at")
-      .is("finalized_at", null)
-      .gt("created_at", sinceIso);
-    if (openRunsErr) {
-      throw new Error(`orphan_sweep_select_failed:${openRunsErr.code ?? "unknown"}`);
-    }
-    const orphans = (openRuns ?? []).filter(
-      (r) => !currentPeriodKeys.has(r.period_key),
-    );
-    if (orphans.length > 0) {
-      const keys = orphans.map((r) => r.period_key).join(",");
-      console.error(
-        JSON.stringify({
-          event: "selection_period_orphaned",
-          periodKeys: keys,
-          hint: "manual resume = GET this route with ?now=<ISO within that window> + CRON_SECRET",
-        }),
-      );
-      const nowIso = new Date().toISOString();
-      await insertAlertEvents(
-        [
-          {
-            alertType: "scheduler_fail",
-            ticker: null,
-            severity: "warning",
-            triggerReason: `selection period orphaned (미finalize 중단): ${keys} — 수동 재개 = 해당 window 내 ?now= 재호출`,
-            signalSentAt: nowIso,
-            outcomeAt: null,
-            t7PriceChange: null,
-            decisionRecorded: null,
-            decisionMemo: null,
-          },
-        ],
-        { client: supabase },
-      );
-    }
-  } catch (sweepErr) {
-    console.error(
-      JSON.stringify({
-        event: "selection_orphan_sweep_failed",
-        message: sweepErr instanceof Error ? sweepErr.message : String(sweepErr),
-      }),
-    );
   }
 
   // B-SEL-CRON (2) — self-continue 기본 ON(opt-out). daily 단독 3 jobs/day로는 period 완주 불가
@@ -286,40 +358,51 @@ export async function GET(request: NextRequest) {
 
   // OPS-3: forward-progress gate — claimed>0 또는 R2/judge enqueue 진행(remaining>0·미abort)일 때만 self-continue.
   //   per-track 분기 후엔 어느 due 트랙이라도 forward-progress 있으면 1회 self-continue(다음 chunk advance).
+  const hasForwardProgress = (o: TrackOutcome): boolean =>
+    o.result !== undefined &&
+    (o.result.claimed > 0 ||
+      o.result.r2Enqueued > 0 ||
+      o.result.judgeEnqueued > 0);
   const hasMore = outcomes.some(
     (o) =>
       o.result !== undefined &&
       o.result.remaining > 0 &&
       o.result.aborted === null &&
-      (o.result.claimed > 0 || o.result.r2Enqueued > 0 || o.result.judgeEnqueued > 0),
+      hasForwardProgress(o),
   );
 
-  // stall alert: self-continue 명시 off + 미완 period(remaining>0, 미abort) = daily 3 jobs/day로는
-  //   window 내 finalize 불가 상태. scheduler_fail warning으로 매일 가시화 (해소 = SELF_CONTINUE 복원).
-  if (!selfContinueEnabled) {
-    const stalledTracks = outcomes.filter(
-      (o) => o.result !== undefined && o.result.remaining > 0 && o.result.aborted === null,
-    );
+  // B-SEL-CRON (finding 15) — stall alert 일반화: 미완 period(remaining>0, 미abort)가 진행 불능이면
+  //   가시화. 두 클래스: (a) self-continue 명시 off → accelerator 없어 daily-only로 완주 불가,
+  //   (b) 기본 ON이라도 forward-progress 0(claimed=0 & enqueue 0 — attempts 소진 pending livelock 등)
+  //   → self-continue가 안 돌아 stall. 구판은 (a)만 잡아 (b) default-ON livelock이 silent였다.
+  //   hop에서는 skip(중복 차단) — cron-entry 1회/일.
+  if (!isHop) {
+    const stalledTracks = outcomes.filter((o) => {
+      const r = o.result;
+      if (!r || r.remaining <= 0 || r.aborted !== null) return false;
+      return !selfContinueEnabled || !hasForwardProgress(o);
+    });
     if (stalledTracks.length > 0) {
       const detail = stalledTracks
-        .map((o) => `${o.track}(remaining ${o.result!.remaining})`)
+        .map((o) => {
+          const cause = !selfContinueEnabled
+            ? "self_continue=false"
+            : "no_forward_progress(attempts소진/livelock 의심)";
+          return `${o.track}(remaining ${o.result!.remaining}, ${cause})`;
+        })
         .join(", ");
       console.error(
-        JSON.stringify({
-          event: "selection_self_continue_disabled_stall",
-          tracks: detail,
-        }),
+        JSON.stringify({ event: "selection_stall", tracks: detail }),
       );
       try {
-        const nowIso = new Date().toISOString();
         await insertAlertEvents(
           [
             {
               alertType: "scheduler_fail",
               ticker: null,
               severity: "warning",
-              triggerReason: `self_continue_disabled_stall: ${detail} — SELECTION_CRON_SELF_CONTINUE=false로는 period 완주 불가(daily ${dueTracks.length}트랙 × chunk 3). 플래그 제거/true 권장`,
-              signalSentAt: nowIso,
+              triggerReason: `selection stall(진행 불능): ${detail} — SELF_CONTINUE=false면 플래그 제거/true, 아니면 livelock(attempts 소진 pending) 점검`,
+              signalSentAt: new Date().toISOString(),
               outcomeAt: null,
               t7PriceChange: null,
               decisionRecorded: null,
@@ -339,12 +422,21 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 전체 ok = 모든 due 트랙 성공(skip 포함). 일부 실패해도 트랙별 보고(전체 502 단일화 금지).
+  //   finding 21: 202 self-continue 경로도 ok를 하드코딩하지 않고 실제 트랙 성공으로 계산
+  //   (always-due로 '한 트랙 지속 실패 + 다른 트랙 진행'이 일상화 → 실패 마스킹 방지).
+  const ok = outcomes.every((o) => o.ok);
+
   if (hasMore && selfContinueEnabled) {
     const secret = process.env.CRON_SECRET;
-    const selfUrl = new URL(
+    // self-continue fetch에 &selfcontinue=1 마커 부여 → 다음 hop이 orphan sweep/track-throw/stall
+    //   alert를 skip(폭주 차단, finding 2/5/12/14/15/17/23). ?now= 등 기존 쿼리는 보존.
+    const selfUrlObj = new URL(
       `${request.nextUrl.pathname}${request.nextUrl.search}`,
       request.nextUrl.origin,
-    ).toString();
+    );
+    selfUrlObj.searchParams.set("selfcontinue", "1");
+    const selfUrl = selfUrlObj.toString();
     after(async () => {
       try {
         await fetch(selfUrl, {
@@ -355,12 +447,10 @@ export async function GET(request: NextRequest) {
       }
     });
     return NextResponse.json(
-      { ok: true, continued: true, tracks: outcomes },
+      { ok, continued: true, tracks: outcomes },
       { status: 202 },
     );
   }
 
-  // 전체 ok = 모든 due 트랙 성공(skip 포함). 일부 실패해도 200 + 트랙별 보고(전체 502 단일화 금지).
-  const ok = outcomes.every((o) => o.ok);
   return NextResponse.json({ ok, tracks: outcomes }, { status: 200 });
 }

@@ -164,6 +164,13 @@ export interface CallPersonaPanelDeps {
    *   cron caller = service-role client (auth.uid()=null RLS bypass). admin caller = 미지정(session fallback).
    */
   costClient?: SupabaseClient;
+  /**
+   * B-SEL-CRON (cluster D, section8-step 선례): cost_log.month DI. period 파생 month(worker month)를
+   *   주입해 `preflightHardcap month == insertCostLog month` invariant를 유지한다. 미지정 시 callPersona가
+   *   현 UTC월로 fallback(기존 무회귀) — period가 월경계를 넘으면(예 s:2026-06-29를 7/1에 진행) 패널 spend가
+   *   judge/preflight와 다른 달 버킷에 적재되는 hardcap 회계 누수가 발생하므로 cron 경로는 반드시 주입.
+   */
+  costLogMonth?: string;
 }
 
 /**
@@ -193,6 +200,8 @@ export function makeCallPersonaPanel(
             adminUserId: deps.adminUserId,
             userPromptTemplate: template,
             costClient: deps.costClient,
+            // B-SEL-CRON (cluster D): preflight month == insert month 정합.
+            costLogMonth: deps.costLogMonth,
             // W1a (D28 ①): per-slot 모델 binding. 미지정 시 기존 역할 resolve.
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
@@ -243,6 +252,8 @@ export function makeCallDebatePanel(
             ownPrior: renderOwnPrior(own),
             peerArguments: renderPeerArguments(peers),
             costClient: deps.costClient,
+            // B-SEL-CRON (cluster D): preflight month == insert month 정합.
+            costLogMonth: deps.costLogMonth,
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
         );

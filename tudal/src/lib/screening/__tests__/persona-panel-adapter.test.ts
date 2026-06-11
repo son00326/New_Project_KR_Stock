@@ -178,6 +178,35 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     );
   });
 
+  it("cluster D — costLogMonth를 callPersona로 전파 (preflight month == insert month)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      costLogMonth: "2026-06",
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ costLogMonth: "2026-06" }),
+    );
+  });
+
+  it("cluster D — costLogMonth 미지정 → callPersona에 undefined (callPersona가 UTC월 fallback)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ costLogMonth: undefined }),
+    );
+  });
+
   it("한 페르소나 parse 실패 → panel 전체 reject (ticker ⚪)", async () => {
     const callPersona = vi.fn(async (input: { personaId: string }) =>
       callResult(input.personaId === "core-5" ? "평가 불가" : validJson),
@@ -362,6 +391,23 @@ describe("W1a makeCallDebatePanel — R2 반박 라운드", () => {
       expect(call[0].reflectionContext).toBe("[재점검] 직전 논거");
     }
     expect(callPersona.mock.calls[3][0].modelBinding?.model).toBe("m-3");
+  });
+
+  it("cluster D — R2 패널도 costLogMonth를 callPersona로 전파", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const debate = makeCallDebatePanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      costLogMonth: "2026-07",
+    });
+    await debate({ ticker: "005930", financials: "f", r1Panel });
+    for (const call of callPersona.mock.calls) {
+      expect(call[0].costLogMonth).toBe("2026-07");
+    }
   });
 
   it("R2: r1Panel에 본인 R1 부재 → reject (panel 계약 위반)", async () => {

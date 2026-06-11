@@ -1016,6 +1016,36 @@ async function finalizeSelection(
   judgeScoresByTicker: Record<string, Record<"short" | "mid" | "long", number>>,
 ): Promise<boolean> {
   const { month, track, periodKey, client } = input;
+
+  // B-SEL-CRON (finding 16) — stale 재개 가드: 같은 트랙에서 더 최신(period_key 사전식=시간순) period가
+  //   이미 finalize됐으면 persist를 skip한다. 수동 ?now=<과거 window> 재개로 옛 period를 finalize하면
+  //   replace_shortlist_track(p_month, bucket)이 트랙 전행 DELETE+INSERT라(0031 5a) 더 최신 주차의
+  //   현행 shortlist(리포트·포트폴리오 money-path 입력)를 stale 선정으로 silent 덮어쓴다.
+  //   정상 전진(주2 > 주1)은 미발동 — period_key가 더 큰 finalized 행이 있을 때만(역순 재개) 차단.
+  //   skip 시에도 mark_selection_finalized로 이 period를 종착시켜 always-due 일일 재시도를 멈춘다.
+  const { data: newerFinalized, error: newerErr } = await client
+    .from("tier1_selection_run")
+    .select("period_key")
+    .eq("track", track)
+    .gt("period_key", periodKey)
+    .not("finalized_at", "is", null)
+    .limit(1);
+  if (newerErr) {
+    throw new Error(`stale_period_guard_failed:${newerErr.code ?? "unknown"}`);
+  }
+  if (newerFinalized && newerFinalized.length > 0) {
+    console.warn(
+      JSON.stringify({
+        event: "selection_stale_period_finalize_skipped",
+        track,
+        periodKey,
+        newerFinalized: newerFinalized[0].period_key,
+      }),
+    );
+    await markSelectionFinalized(client, periodKey, input.runId ?? "");
+    return false; // persist 안 함 (더 최신 shortlist 보존)
+  }
+
   // W1a (D6) — replay map: round=2 done 우선 / round=1 fallback (R2 실패는 R1 유지 graceful).
   //   degraded(양 라운드 모두 부재)는 콜백 reject → ⚪ 자동.
   const r1Map = new Map<string, PersonaScore[]>();
