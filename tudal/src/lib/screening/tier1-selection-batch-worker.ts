@@ -1025,7 +1025,8 @@ async function finalizeSelection(
   //   skip 시에도 mark_selection_finalized로 이 period를 종착시켜 always-due 일일 재시도를 멈춘다.
   //   NOTE(conservative): 월경계 cross-resume(예 s:2026-06-29 후 s:2026-07-06 finalized)는 실제로는
   //   서로 다른 short_list_30.month라 clobber가 아니지만, period_key 기준으로 보수적 skip한다 —
-  //   과거 month의 stale write는 무의미(read는 latest-month)하므로 month-정밀 가드 대신 단순 차단 유지.
+  //   canonical no-arg read는 latest-month이므로 과거 month의 stale write는 대체로 무의미(단,
+  //   getActiveShortList({month}) explicit-month 소비자는 별개)하여 month-정밀 가드 대신 단순 차단 유지.
   const { data: newerFinalized, error: newerErr } = await client
     .from("tier1_selection_run")
     .select("period_key")
