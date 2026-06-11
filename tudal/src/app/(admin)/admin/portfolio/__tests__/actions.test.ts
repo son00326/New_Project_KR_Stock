@@ -206,6 +206,32 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:viewers_insufficient");
   });
 
+  it("77차: viewer 게이트는 active 전 종목을 쿼리한다 (legacy mock 5종 subset 회귀 방지)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    const { MOCK_ADMIN_SHORTLIST } = await import(
+      "@/lib/data/mock-admin-shortlist"
+    );
+    const activeTickers = MOCK_ADMIN_SHORTLIST.filter(
+      (i) => i.month === "2026-04-01" && i.deltaStatus !== "removed",
+    ).map((i) => i.ticker);
+    const { acceptShortList } = await import("../actions");
+
+    await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+
+    // 게이트가 호출한 ticker 집합 = active 전 종목 (구 legacy 5종 subset이 아님).
+    const call = mocks.getDistinctViewerCountsByTicker.mock.calls.find(
+      (c) => Array.isArray(c[0]?.tickers),
+    );
+    expect(call).toBeTruthy();
+    const queried: string[] = call![0].tickers;
+    expect(new Set(queried)).toEqual(new Set(activeTickers));
+    expect(queried.length).toBeGreaterThan(5); // legacy 5종 subset이 아님을 명시
+  });
+
   it("returns accept_gate_lookup_failed when viewer count helper throws (R2 Gödel HIGH fix)", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
