@@ -36,6 +36,20 @@ describe('selection-period', () => {
     expect(monthYMOfPeriod('s:2026-06-29')).toBe('2026-06'); // 월말 주 → 해당 월
   });
 
+  it('월/연 경계: short는 KST 월요일 월, midlong은 KST 현재 월을 사용', () => {
+    const julyFirstKst = new Date('2026-06-30T15:30:00Z');
+    expect(currentShortPeriodKey(julyFirstKst)).toBe('s:2026-06-29');
+    expect(monthYMOfPeriod(currentShortPeriodKey(julyFirstKst))).toBe('2026-06');
+    expect(currentMidlongPeriodKey(julyFirstKst)).toBe('m:2026-07');
+    expect(monthYMOfPeriod(currentMidlongPeriodKey(julyFirstKst))).toBe('2026-07');
+
+    const newYearKst = new Date('2025-12-31T15:30:00Z');
+    expect(currentShortPeriodKey(newYearKst)).toBe('s:2025-12-29');
+    expect(monthYMOfPeriod(currentShortPeriodKey(newYearKst))).toBe('2025-12');
+    expect(currentMidlongPeriodKey(newYearKst)).toBe('m:2026-01');
+    expect(monthYMOfPeriod(currentMidlongPeriodKey(newYearKst))).toBe('2026-01');
+  });
+
 
   // toKstParts는 import 검증 + 직접 단위 확인 (계획 import 라인에 포함).
   it('toKstParts: UTC→KST 보정 (dow/날짜)', () => {

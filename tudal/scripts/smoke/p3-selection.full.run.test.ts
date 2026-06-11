@@ -179,7 +179,7 @@ function renderJudgePanelSummary(finalPanel: readonly PersonaScore[]): string {
   );
 }
 
-// Full DI block — verbatim mirror of selection-worker/route.ts:143-211 (and cheap smoke), so the
+// Full DI block — verbatim mirror of selection-worker/route.ts GET worker input block (and cheap smoke), so the
 // driver exercises the identical real worker path. Only month/track/periodKey/chunkSize vary per call.
 function buildChunkInput(args: {
   month: string;
@@ -207,6 +207,7 @@ function buildChunkInput(args: {
       reflectionContext: '',
       adminUserId: cronSystemUserId,
       costClient: client,
+      costLogMonth: month,
       slotResolver: resolveTier1PanelSlot,
     }),
     callDebatePanel: makeCallDebatePanel({
@@ -215,6 +216,7 @@ function buildChunkInput(args: {
       reflectionContext: '',
       adminUserId: cronSystemUserId,
       costClient: client,
+      costLogMonth: month,
       slotResolver: resolveTier1PanelSlot,
     }),
     callJudgePanel: ({ ticker, month: jMonth, track: jTrack, finalPanel, reflectionContext }) =>
