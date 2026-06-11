@@ -142,6 +142,10 @@ function makeFakeClient(opts: {
   acquireError?: { code?: string } | null;
   releaseErrors?: Array<{ code?: string }>;
   roundCountSchemaMissing?: boolean;
+  // B-SEL-CRON — acquire null 시 worker가 tier1_selection_run.finalized_at을 조회해
+  //   already_finalized/already_running을 구분. maybeSingle() 결과 주입.
+  runRow?: { finalized_at: string | null } | null;
+  runRowError?: { code?: string } | null;
 }) {
   const rpcCalls: RpcCall[] = [];
   const updatePayloads: unknown[] = [];
@@ -220,11 +224,18 @@ function makeFakeClient(opts: {
               })),
             };
           }
-          // finalize 전체 rows SELECT (no head) → .eq('period_key',..) returns {data}
+          // 비-count SELECT 2형:
+          //   (a) finalize 전체 rows: await .eq('period_key',..) → {data: allRows}
+          //   (b) run row 구분(B-SEL-CRON): .eq('period_key',..).maybeSingle() → {data: runRow}
           return {
-            eq: vi.fn(async () => ({
-              data: opts.allRows ?? [],
-              error: null,
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn(async () => ({
+                data: opts.runRow ?? null,
+                error: opts.runRowError ?? null,
+              })),
+              then: (
+                resolve: (v: { data: unknown[]; error: null }) => unknown,
+              ) => resolve({ data: opts.allRows ?? [], error: null }),
             })),
           };
         },
@@ -1021,15 +1032,41 @@ describe("runGuardedSelectionChunk lock mutex (OPS-2)", () => {
     });
   });
 
-  it("acquire→null → already_running skip, panel 0", async () => {
+  it("acquire→null + run row 미finalize → already_running skip, panel 0", async () => {
     const { client } = makeFakeClient({
       acquireRunId: null,
       claimedJobs: [{ id: "j1", ticker: "000000" }],
+      runRow: { finalized_at: null },
     });
     const deps = makeDeps("midlong");
     const res = await runGuarded(client, deps);
     expect(res).toEqual({ skipped: "already_running" });
     expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+  });
+
+  // B-SEL-CRON — period-scoped due-gate의 일일 재시도가 lock 경합처럼 보이지 않도록
+  //   finalize 완료 period는 already_finalized로 구분 보고 (cheap no-op 정상 상태).
+  it("acquire→null + run row finalized_at 존재 → already_finalized skip", async () => {
+    const { client } = makeFakeClient({
+      acquireRunId: null,
+      claimedJobs: [],
+      runRow: { finalized_at: "2026-06-08T03:00:00Z" },
+    });
+    const deps = makeDeps("midlong");
+    const res = await runGuarded(client, deps);
+    expect(res).toEqual({ skipped: "already_finalized" });
+    expect(deps.callPersonaPanel).not.toHaveBeenCalled();
+  });
+
+  it("acquire→null + run row 조회 실패 → 보수적으로 already_running (기존 의미 보존)", async () => {
+    const { client } = makeFakeClient({
+      acquireRunId: null,
+      claimedJobs: [],
+      runRowError: { code: "XX000" },
+    });
+    const deps = makeDeps("midlong");
+    const res = await runGuarded(client, deps);
+    expect(res).toEqual({ skipped: "already_running" });
   });
 
   it("chunk throws → release same run_id failed exactly once", async () => {

@@ -2,9 +2,19 @@
 // PR5 report-worker/route.ts 패턴 복제 + monthly-batch/route.ts DI 배선.
 //
 // 책임: auth(CRON_SECRET) → SELECTION_CRON_AUTO_ENABLED gate(200 skip) → 전용 run-mutex acquire(run_id)
-//   → 1 chunk 처리(tier1-selection-batch-worker) → release(run_id fencing) → optional self-continue.
+//   → 1 chunk 처리(tier1-selection-batch-worker) → release(run_id fencing) → self-continue.
 // 단발 monthly-batch cron(../route.ts)과 분리 — monthly_batch_runs / acquire_batch_lock_v2 미공유, 전용 run-mutex(0027 R2 HIGH-1).
-// chunk-advance primary = DAILY cron(vercel.json). self-continue는 env-gated optional accelerator(load-bearing 아님).
+//
+// B-SEL-CRON (74차 배선감사 catch → fix):
+//   (1) period-scoped due-gate — 구 날짜-단발 gate(short=월요일/midlong=1일)는 chunk 3 × daily 1회로는
+//       한 period를 finalize 못 하고 차주 새 period_key가 기존 period를 고아화(silent spend·산출 0).
+//       → 트랙별 "현재 period"는 window 내내(주/월) due. 미finalize면 daily cron이 계속 chunk-advance,
+//       finalize 후엔 acquire의 finalized_at null-guard가 null 반환(already_finalized cheap no-op).
+//   (2) SELF_CONTINUE 기본 ON(opt-out) — daily 단독 3 jobs/day로는 period당 ~130 jobs(R1+R2+judge)를
+//       window 내 완주 불가 → after() self-continue는 운영 viability상 load-bearing accelerator.
+//       명시 "false"(디버그 전용)면 off + 미완 period stall alert로 가시화.
+//   (3) 고아 period sweep — 최근 14일 내 시작·미finalize·현재 period 아님 run row → scheduler_fail
+//       warning alert (silent spend 방지 2층). 수동 재개 = `?now=<해당 window 내 ISO>` + CRON_SECRET 재호출.
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -20,8 +30,6 @@ import {
 import {
   currentShortPeriodKey,
   currentMidlongPeriodKey,
-  isShortDue,
-  isMidlongDue,
   monthYMOfPeriod,
 } from "@/lib/screening/selection-period";
 import type { SelectionTrack } from "@/lib/screening/tier1-schema";
@@ -65,8 +73,10 @@ function isAuthorized(request: NextRequest): boolean {
   return header === `Bearer ${secret}`;
 }
 
-// now seam — 테스트만 `?now=<ISO>` 주입(결정성). 운영은 무인자 → new Date().
-//   유효하지 않은 값이면 무시(현재 시각). due-gate/period_key는 KST=UTC+9로 selection-period가 보정.
+// now seam — 테스트는 `?now=<ISO>` 주입(결정성). 운영은 무인자 → new Date().
+//   유효하지 않은 값이면 무시(현재 시각). period_key는 KST=UTC+9로 selection-period가 보정.
+//   운영 수동 재개 경로: 고아 period(미finalize·window 경과)는 해당 window 내 ISO를 `?now=`로
+//   넘겨 CRON_SECRET와 함께 재호출하면 같은 period_key로 이어서 진행된다.
 function resolveNow(request: NextRequest): Date {
   const raw = request.nextUrl.searchParams.get("now");
   if (!raw) return new Date();
@@ -107,31 +117,25 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // W2a Task 9 — KST due-gate(Hobby-safe daily 단일 route): 월요일=short / 매월1일=midlong.
-  //   둘 다 due(1일=월요일)면 순차 2회 — 각 독립 period_key라 트랙별 독립 run-mutex.
+  // B-SEL-CRON (1) — period-scoped due-gate: 두 트랙 모두 "현재 period"로 매일 진행.
+  //   short = 그 주 KST 월요일 키(주 내내 동일) / midlong = 그 달 키(월 내내 동일).
+  //   미finalize period는 자연히 계속 due가 되고, finalize 후엔 acquire null-guard가 cheap no-op.
+  //   순차 2회 — 각 독립 period_key라 트랙별 독립 run-mutex.
   const now = resolveNow(request);
-  const dueTracks: { track: SelectionTrack; periodKey: string; month: string }[] =
-    [];
-  if (isShortDue(now)) {
-    const periodKey = currentShortPeriodKey(now);
-    dueTracks.push({ track: "short", periodKey, month: monthYMOfPeriod(periodKey) });
-  }
-  if (isMidlongDue(now)) {
-    const periodKey = currentMidlongPeriodKey(now);
-    dueTracks.push({
+  const shortPeriodKey = currentShortPeriodKey(now);
+  const midlongPeriodKey = currentMidlongPeriodKey(now);
+  const dueTracks: { track: SelectionTrack; periodKey: string; month: string }[] = [
+    {
+      track: "short",
+      periodKey: shortPeriodKey,
+      month: monthYMOfPeriod(shortPeriodKey),
+    },
+    {
       track: "midlong",
-      periodKey,
-      month: monthYMOfPeriod(periodKey),
-    });
-  }
-
-  // 둘 다 not due → 200 no-op (mutex 미취득, spend 0).
-  if (dueTracks.length === 0) {
-    return NextResponse.json(
-      { ok: true, skipped: true, reason: "no_track_due" },
-      { status: 200 },
-    );
-  }
+      periodKey: midlongPeriodKey,
+      month: monthYMOfPeriod(midlongPeriodKey),
+    },
+  ];
 
   const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? "";
   const supabase = createServiceRoleClient();
@@ -223,7 +227,63 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // optional self-continue accelerator (env-gated, load-bearing 아님).
+  // B-SEL-CRON (3) — 고아 period sweep: 최근 14일 내 시작됐고 미finalize인데 현재 period가
+  //   아닌 run row = 이미 spend가 발생했는데 산출 0으로 중단된 period. scheduler_fail warning으로
+  //   가시화 (resume는 수동 `?now=` 재호출). best-effort — 실패해도 본 응답을 막지 않는다.
+  const currentPeriodKeys = new Set([shortPeriodKey, midlongPeriodKey]);
+  try {
+    const sinceIso = new Date(now.getTime() - 14 * 86400000).toISOString();
+    const { data: openRuns, error: openRunsErr } = await supabase
+      .from("tier1_selection_run")
+      .select("period_key, track, created_at")
+      .is("finalized_at", null)
+      .gt("created_at", sinceIso);
+    if (openRunsErr) {
+      throw new Error(`orphan_sweep_select_failed:${openRunsErr.code ?? "unknown"}`);
+    }
+    const orphans = (openRuns ?? []).filter(
+      (r) => !currentPeriodKeys.has(r.period_key),
+    );
+    if (orphans.length > 0) {
+      const keys = orphans.map((r) => r.period_key).join(",");
+      console.error(
+        JSON.stringify({
+          event: "selection_period_orphaned",
+          periodKeys: keys,
+          hint: "manual resume = GET this route with ?now=<ISO within that window> + CRON_SECRET",
+        }),
+      );
+      const nowIso = new Date().toISOString();
+      await insertAlertEvents(
+        [
+          {
+            alertType: "scheduler_fail",
+            ticker: null,
+            severity: "warning",
+            triggerReason: `selection period orphaned (미finalize 중단): ${keys} — 수동 재개 = 해당 window 내 ?now= 재호출`,
+            signalSentAt: nowIso,
+            outcomeAt: null,
+            t7PriceChange: null,
+            decisionRecorded: null,
+            decisionMemo: null,
+          },
+        ],
+        { client: supabase },
+      );
+    }
+  } catch (sweepErr) {
+    console.error(
+      JSON.stringify({
+        event: "selection_orphan_sweep_failed",
+        message: sweepErr instanceof Error ? sweepErr.message : String(sweepErr),
+      }),
+    );
+  }
+
+  // B-SEL-CRON (2) — self-continue 기본 ON(opt-out). daily 단독 3 jobs/day로는 period 완주 불가
+  //   → load-bearing accelerator. 명시 "false"는 디버그 전용이며 아래 stall alert로 가시화.
+  const selfContinueEnabled = process.env.SELECTION_CRON_SELF_CONTINUE !== "false";
+
   // OPS-3: forward-progress gate — claimed>0 또는 R2/judge enqueue 진행(remaining>0·미abort)일 때만 self-continue.
   //   per-track 분기 후엔 어느 due 트랙이라도 forward-progress 있으면 1회 self-continue(다음 chunk advance).
   const hasMore = outcomes.some(
@@ -233,7 +293,53 @@ export async function GET(request: NextRequest) {
       o.result.aborted === null &&
       (o.result.claimed > 0 || o.result.r2Enqueued > 0 || o.result.judgeEnqueued > 0),
   );
-  if (hasMore && process.env.SELECTION_CRON_SELF_CONTINUE === "true") {
+
+  // stall alert: self-continue 명시 off + 미완 period(remaining>0, 미abort) = daily 3 jobs/day로는
+  //   window 내 finalize 불가 상태. scheduler_fail warning으로 매일 가시화 (해소 = SELF_CONTINUE 복원).
+  if (!selfContinueEnabled) {
+    const stalledTracks = outcomes.filter(
+      (o) => o.result !== undefined && o.result.remaining > 0 && o.result.aborted === null,
+    );
+    if (stalledTracks.length > 0) {
+      const detail = stalledTracks
+        .map((o) => `${o.track}(remaining ${o.result!.remaining})`)
+        .join(", ");
+      console.error(
+        JSON.stringify({
+          event: "selection_self_continue_disabled_stall",
+          tracks: detail,
+        }),
+      );
+      try {
+        const nowIso = new Date().toISOString();
+        await insertAlertEvents(
+          [
+            {
+              alertType: "scheduler_fail",
+              ticker: null,
+              severity: "warning",
+              triggerReason: `self_continue_disabled_stall: ${detail} — SELECTION_CRON_SELF_CONTINUE=false로는 period 완주 불가(daily ${dueTracks.length}트랙 × chunk 3). 플래그 제거/true 권장`,
+              signalSentAt: nowIso,
+              outcomeAt: null,
+              t7PriceChange: null,
+              decisionRecorded: null,
+              decisionMemo: null,
+            },
+          ],
+          { client: supabase },
+        );
+      } catch (alertErr) {
+        console.error(
+          JSON.stringify({
+            event: "selection_stall_alert_failed",
+            message: alertErr instanceof Error ? alertErr.message : String(alertErr),
+          }),
+        );
+      }
+    }
+  }
+
+  if (hasMore && selfContinueEnabled) {
     const secret = process.env.CRON_SECRET;
     const selfUrl = new URL(
       `${request.nextUrl.pathname}${request.nextUrl.search}`,

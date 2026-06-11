@@ -6,8 +6,9 @@
 //   → (A) fan-out 단계(청크별 종목당 11콜 → panel_result jsonb 큐 저장) ↔ (B) finalize 단계(nonTerminal===0 && terminal>0 시
 //   runTier1Screening 1회 replay 호출 → 글로벌 rank/select/badge + upsertShortListTrack)로 2단계 분리. (W2a period_key/track)
 //
-// 한 invocation = 1 chunk (chunkSize 종목 sequential). chunk-advance primary = daily cron 재호출(idempotent),
-// self-continuation은 route의 optional accelerator. run-mutex는 route(guarded)가 보유(단일 worker 보장 → cost 직렬화, 0027 R2 HIGH-1).
+// 한 invocation = 1 chunk (chunkSize 종목 sequential). chunk-advance = route의 after() self-continue가
+// primary accelerator(B-SEL-CRON: opt-out 기본 ON, load-bearing — daily 단독으론 period 완주 불가) +
+// daily cron 재호출(idempotent resume, period-scoped due-gate). run-mutex는 route(guarded)가 보유(단일 worker 보장 → cost 직렬화, 0027 R2 HIGH-1).
 //
 // 핵심 invariants:
 //   - 순차 for-loop (병렬 fan-out 금지) — concurrent preflightHardcap race 차단 (0027 R2 HIGH-1).
@@ -1079,7 +1080,9 @@ async function finalizeSelection(
 // run-mutex로 보호된 chunk 실행 (0027 R2 HIGH-1 + R3 HIGH-2). route + admin trigger 공용 entry —
 // acquire_selection_worker_lock(run_id) → chunk → release(run_id fencing). manual trigger도 반드시 이 경로 (mutex 우회 0).
 export interface GuardedSelectionChunkOutput {
-  skipped?: "already_running";
+  // B-SEL-CRON — acquire null 2형 구분: already_finalized(정상 종착, period-scoped daily 재시도의
+  //   cheap no-op) vs already_running(다른 non-stale worker 보유 중). 구분 실패 시 보수적 already_running.
+  skipped?: "already_running" | "already_finalized";
   result?: Tier1SelectionChunkResult;
 }
 
@@ -1095,7 +1098,20 @@ export async function runGuardedSelectionChunk(
     throw new Error(`acquire_lock_failed:${lockErr.code ?? "unknown"}`);
   }
   if (!runId) {
-    return { skipped: "already_running" }; // 다른 non-stale worker 보유 중
+    // acquire null = 이미 finalize된 period(acquire의 finalized_at null-guard) OR 다른
+    // non-stale worker 보유 중. period-scoped due-gate의 일일 재시도가 lock 경합처럼 보이지
+    // 않도록 finalized_at으로 구분 보고. 조회 실패는 보수적으로 already_running(기존 의미).
+    const { data: runRow, error: runRowErr } = await client
+      .from("tier1_selection_run")
+      .select("finalized_at")
+      .eq("period_key", periodKey)
+      .maybeSingle();
+    if (runRowErr || !runRow) {
+      return { skipped: "already_running" };
+    }
+    return {
+      skipped: runRow.finalized_at ? "already_finalized" : "already_running",
+    };
   }
   let chunkSucceeded = false;
   try {
