@@ -13,7 +13,7 @@
 //   (2) SELF_CONTINUE 기본 ON(opt-out) — daily 단독 3 jobs/day로는 period당 ~130 jobs(R1+R2+judge)를
 //       window 내 완주 불가 → after() self-continue는 운영 viability상 load-bearing accelerator.
 //       명시 "false"(디버그 전용)면 off + 미완 period stall alert로 가시화.
-//   (3) 고아 period sweep — 최근 14일 내 시작·미finalize·현재 period 아님 run row → scheduler_fail
+//   (3) 고아 period sweep — 최근 60일 내 시작·미finalize·현재 period 아님 run row → scheduler_fail
 //       warning alert (silent spend 방지 2층). 수동 재개 = `?now=<해당 window 내 ISO>` + CRON_SECRET 재호출.
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
@@ -199,14 +199,26 @@ export async function GET(request: NextRequest) {
   const now = resolveNow(request);
   const shortPeriodKey = currentShortPeriodKey(now);
   const midlongPeriodKey = currentMidlongPeriodKey(now);
-  const supabase = createServiceRoleClient();
+  let supabase: SupabaseClient | null = null;
 
   // B-SEL-CRON (finding 9) — 고아 sweep은 flag gate 앞에서 실행: USER가 비용 사유로 period 중반에
   //   flag를 끄는 것이 미finalize 고아(spend 발생·산출 0)의 가장 현실적 경로인데, gate 뒤면 그 상태에서
   //   sweep이 한 번도 돌지 않는다. sweep은 read 1쿼리 + 조건부 alert뿐(LLM/claim/mutex 0)이라 dormant
-  //   invariant(spend 0) 불변. hop에서는 skip(finding 2/5/12/17/23 — 폭주 차단, cron-entry 1회/일만).
+  //   invariant(spend 0) 불변. client 생성 실패도 dormant flag skip을 막지 않도록 best-effort.
+  //   hop에서는 skip(finding 2/5/12/17/23 — 폭주 차단, cron-entry 1회/일만).
   if (!isHop) {
-    await sweepOrphanPeriods(supabase, [shortPeriodKey, midlongPeriodKey]);
+    try {
+      supabase = createServiceRoleClient();
+      await sweepOrphanPeriods(supabase, [shortPeriodKey, midlongPeriodKey]);
+    } catch (sweepErr) {
+      console.error(
+        JSON.stringify({
+          event: "selection_orphan_sweep_failed",
+          message:
+            sweepErr instanceof Error ? sweepErr.message : String(sweepErr),
+        }),
+      );
+    }
   }
 
   // flag gate: dormant 시 200 skip (502 아님 — dormant ≠ failure, mutex 미취득, spend 0).
@@ -216,6 +228,8 @@ export async function GET(request: NextRequest) {
       { status: 200 },
     );
   }
+
+  supabase ??= createServiceRoleClient();
 
   const dueTracks: { track: SelectionTrack; periodKey: string; month: string }[] = [
     {
@@ -311,7 +325,12 @@ export async function GET(request: NextRequest) {
       if (guarded.skipped) {
         outcomes.push({ track: t.track, ok: true, skipped: guarded.skipped });
       } else {
-        outcomes.push({ track: t.track, ok: true, result: guarded.result! });
+        const result = guarded.result!;
+        outcomes.push({
+          track: t.track,
+          ok: result.aborted === null,
+          result,
+        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown";

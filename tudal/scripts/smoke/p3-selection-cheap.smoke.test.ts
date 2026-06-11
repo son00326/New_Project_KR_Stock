@@ -31,7 +31,7 @@
 //   cd tudal && P3_SMOKE_CONFIRM=1 npx vitest run --config vitest.smoke.config.ts
 // Without P3_SMOKE_CONFIRM=1 this test SKIPS (spends $0). Not in `npm run test:ci`.
 //
-// DI mirrors src/app/api/cron/monthly-batch/selection-worker/route.ts:143-211
+// DI mirrors src/app/api/cron/monthly-batch/selection-worker/route.ts GET worker input block
 // (incl. incumbentsSource) so the smoke exercises the real worker DI path.
 // ============================================================================
 import { describe, it, expect } from 'vitest';
@@ -137,6 +137,7 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
           reflectionContext: '',
           adminUserId: cronSystemUserId,
           costClient: supabase,
+          costLogMonth: month,
           slotResolver: resolveTier1PanelSlot,
         }),
         callDebatePanel: makeCallDebatePanel({
@@ -145,6 +146,7 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
           reflectionContext: '',
           adminUserId: cronSystemUserId,
           costClient: supabase,
+          costLogMonth: month,
           slotResolver: resolveTier1PanelSlot,
         }),
         callJudgePanel: ({ ticker, month: jMonth, track: jTrack, finalPanel, reflectionContext }) =>
