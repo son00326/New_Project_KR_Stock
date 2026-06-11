@@ -73,14 +73,16 @@ describe("영업일/주말/공휴일 불변식", () => {
     expect(d.holidayName).toBe("추석 연휴");
   });
 
-  it("공휴일 맵 16종 전수 일치 + 그 외 날짜는 holidayName=null (R32: exact 고정, 누락/추가 회귀 탐지)", () => {
+  it("공휴일 맵 17종 전수 일치 + 그 외 날짜는 holidayName=null (R32: exact 고정, 누락/추가 회귀 탐지)", () => {
     // 0004 §4 2026 블록과 100% 동기화 — money-path 게이팅 입력이라 정확히 박제(범위 아님).
+    // 77차: 2026-05-01 근로자의날(KRX 휴장) 추가 (16종→17종).
     const HOLIDAYS_2026: Record<string, string> = {
       "2026-01-01": "신정",
       "2026-02-16": "설날 연휴",
       "2026-02-17": "설날",
       "2026-02-18": "설날 연휴",
       "2026-03-02": "대체공휴일(삼일절)",
+      "2026-05-01": "근로자의날",
       "2026-05-05": "어린이날",
       "2026-05-25": "대체공휴일(석가탄신일)",
       "2026-06-03": "제9회 전국동시지방선거",
@@ -97,13 +99,14 @@ describe("영업일/주말/공휴일 불변식", () => {
     for (const [date, name] of Object.entries(HOLIDAYS_2026)) {
       expect(byDate.get(date)?.holidayName).toBe(name);
     }
-    // (2) holidayName 보유 날짜 집합 = 정확히 16종 (추가/유령 공휴일 회귀 탐지)
+    // (2) holidayName 보유 날짜 집합 = 정확히 17종 (추가/유령 공휴일 회귀 탐지)
     const named = cal.filter((d) => d.holidayName !== null).map((d) => d.date).sort();
     expect(named).toEqual(Object.keys(HOLIDAYS_2026).sort());
   });
 
-  it("영업일 수 정확히 246 (R32: exact 고정 — 365 − 주말 104 − 평일공휴일 15)", () => {
-    expect(cal.filter((d) => d.isBusinessDay).length).toBe(246);
+  it("영업일 수 정확히 245 (R32: exact 고정 — 365 − 주말 104 − 평일공휴일 16)", () => {
+    // 77차: 2026-05-01 근로자의날(금요일=평일) 추가로 평일공휴일 15→16, 영업일 246→245.
+    expect(cal.filter((d) => d.isBusinessDay).length).toBe(245);
   });
 });
 
