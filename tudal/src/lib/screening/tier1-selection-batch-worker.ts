@@ -1023,6 +1023,9 @@ async function finalizeSelection(
   //   현행 shortlist(리포트·포트폴리오 money-path 입력)를 stale 선정으로 silent 덮어쓴다.
   //   정상 전진(주2 > 주1)은 미발동 — period_key가 더 큰 finalized 행이 있을 때만(역순 재개) 차단.
   //   skip 시에도 mark_selection_finalized로 이 period를 종착시켜 always-due 일일 재시도를 멈춘다.
+  //   NOTE(conservative): 월경계 cross-resume(예 s:2026-06-29 후 s:2026-07-06 finalized)는 실제로는
+  //   서로 다른 short_list_30.month라 clobber가 아니지만, period_key 기준으로 보수적 skip한다 —
+  //   과거 month의 stale write는 무의미(read는 latest-month)하므로 month-정밀 가드 대신 단순 차단 유지.
   const { data: newerFinalized, error: newerErr } = await client
     .from("tier1_selection_run")
     .select("period_key")
