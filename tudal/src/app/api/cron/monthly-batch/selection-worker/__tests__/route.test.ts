@@ -5,13 +5,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import type { Tier1SelectionChunkResult } from "@/lib/screening/tier1-selection-batch-worker";
+import {
+  currentShortPeriodKey,
+  currentMidlongPeriodKey,
+} from "@/lib/screening/selection-period";
 
 const guardedMock = vi.fn();
 const afterCallbacks = vi.hoisted(() => [] as Array<() => void | Promise<void>>);
-// 고아 period sweep — service-role client.from('tier1_selection_run') SELECT 결과 주입 seam.
+// 고아 period sweep — service-role client.from('tier1_selection_run') SELECT 결과 + filter 인자 캡처 seam.
 const orphanQueryState = vi.hoisted(() => ({
   rows: [] as Array<{ period_key: string; track: string; created_at: string }>,
   error: null as { code?: string } | null,
+  // finding 22a — sweep 쿼리가 정확히 .is('finalized_at', null).gt('created_at', sinceIso)인지 검증용.
+  isArgs: null as [string, unknown] | null,
+  gtArgs: null as [string, unknown] | null,
+  selectCount: 0,
 }));
 
 // next/server `after()`는 request scope를 요구 → vitest node env에서 throw.
@@ -30,15 +38,25 @@ vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     rpc: vi.fn(),
     // 고아 period sweep: .from('tier1_selection_run').select(..).is('finalized_at', null).gt('created_at', iso)
+    //   finding 22a — is/gt 인자를 캡처해 컬럼·연산자 회귀를 잡는다.
     from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        is: vi.fn(() => ({
-          gt: vi.fn(async () => ({
-            data: orphanQueryState.rows,
-            error: orphanQueryState.error,
-          })),
-        })),
-      })),
+      select: vi.fn(() => {
+        orphanQueryState.selectCount += 1;
+        return {
+          is: vi.fn((col: string, val: unknown) => {
+            orphanQueryState.isArgs = [col, val];
+            return {
+              gt: vi.fn(async (col2: string, val2: unknown) => {
+                orphanQueryState.gtArgs = [col2, val2];
+                return {
+                  data: orphanQueryState.rows,
+                  error: orphanQueryState.error,
+                };
+              }),
+            };
+          }),
+        };
+      }),
     })),
   }),
 }));
@@ -122,12 +140,22 @@ const MIDWEEK = "2026-06-04T01:00:00Z";
 function reqAt(now: string, headers: Record<string, string> = {}): NextRequest {
   return new NextRequest(`${URL}?now=${encodeURIComponent(now)}`, { headers });
 }
+// B-SEL-CRON — self-continue hop 모의(&selfcontinue=1): route-level alert(sweep/track-throw/stall) skip 검증.
+function hopReqAt(now: string, headers: Record<string, string> = {}): NextRequest {
+  return new NextRequest(
+    `${URL}?now=${encodeURIComponent(now)}&selfcontinue=1`,
+    { headers },
+  );
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   afterCallbacks.length = 0;
   orphanQueryState.rows = [];
   orphanQueryState.error = null;
+  orphanQueryState.isArgs = null;
+  orphanQueryState.gtArgs = null;
+  orphanQueryState.selectCount = 0;
   process.env.CRON_SECRET = "secret-x";
   process.env.SELECTION_CRON_AUTO_ENABLED = "true";
   delete process.env.SELECTION_CRON_SELF_CONTINUE;
@@ -253,6 +281,46 @@ describe("selection-worker per-track 실패격리 (R3 MED-5)", () => {
     expect(short.error).toContain("cost_logging_disabled");
     expect(midlong.ok).toBe(true);
   });
+
+  it("finding 14 — track throw 시 cron-entry에서 best-effort scheduler_fail alert 발화", async () => {
+    guardedMock.mockImplementation((input: { track: string }) => {
+      if (input.track === "short") {
+        return Promise.reject(new Error("shortlist_track_cross_bucket_overlap"));
+      }
+      return Promise.resolve({ result: chunkResult() });
+    });
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(200);
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    const calls = (insertAlertEvents as ReturnType<typeof vi.fn>).mock.calls;
+    const failCall = calls.find((c) =>
+      (c[0] as Array<{ triggerReason: string }>).some((e) =>
+        e.triggerReason.includes("shortlist_track_cross_bucket_overlap"),
+      ),
+    );
+    expect(failCall).toBeDefined();
+    const event = (failCall![0] as Array<Record<string, unknown>>)[0];
+    expect(event.alertType).toBe("scheduler_fail");
+  });
+
+  it("finding 14 — hop(&selfcontinue=1)에서는 track throw alert skip (중복 차단)", async () => {
+    guardedMock.mockRejectedValue(new Error("shortlist_track_cross_bucket_overlap"));
+    await GET(hopReqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    expect(insertAlertEvents).not.toHaveBeenCalled();
+  });
+
+  it("track throw + best-effort alert 실패해도 응답 200 (트랙별 보고 유지)", async () => {
+    guardedMock.mockRejectedValue(new Error("finalize_boom"));
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    (insertAlertEvents as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("alert_insert_failed"),
+    );
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+  });
 });
 
 describe("selection-worker run-mutex + result", () => {
@@ -288,6 +356,20 @@ describe("selection-worker run-mutex + result", () => {
       .calls[0][0] as { slotResolver?: unknown };
     expect(typeof panelDeps.slotResolver).toBe("function");
     expect(typeof debateDeps.slotResolver).toBe("function");
+  });
+
+  it("cluster D — 패널 factory에 costLogMonth=t.month 배선 (preflight month == insert month)", async () => {
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const { makeCallPersonaPanel, makeCallDebatePanel } = await import(
+      "@/lib/screening/persona-panel-adapter"
+    );
+    // short 트랙 호출 = 첫 호출 (period s:2026-06-08 → month 2026-06).
+    const panelDeps = (makeCallPersonaPanel as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { costLogMonth?: string };
+    const debateDeps = (makeCallDebatePanel as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { costLogMonth?: string };
+    expect(panelDeps.costLogMonth).toBe("2026-06");
+    expect(debateDeps.costLogMonth).toBe("2026-06");
   });
 
   it("W1b — judgeEnqueued>0 + remaining>0 → self-continue 202 (forward-progress)", async () => {
@@ -386,19 +468,40 @@ describe("selection-worker self-continue forward-progress gate (OPS-3)", () => {
     expect(body.continued).toBe(true);
   });
 
-  it("SELF_CONTINUE fetch는 now query를 보존한다", async () => {
+  it("finding 21 — 한 트랙 throw + 다른 트랙 forward-progress → 202 + ok:false (실패 마스킹 방지)", async () => {
+    process.env.SELECTION_CRON_SELF_CONTINUE = "true";
+    guardedMock.mockImplementation((input: { track: string }) => {
+      if (input.track === "short") {
+        return Promise.reject(new Error("finalize_boom"));
+      }
+      return Promise.resolve({ result: chunkResult({ remaining: 27 }) });
+    });
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.continued).toBe(true);
+    expect(body.ok).toBe(false); // 하드코딩 true 아님 — short throw 반영
+  });
+
+  it("SELF_CONTINUE fetch는 now query 보존 + &selfcontinue=1 마커 부여", async () => {
     process.env.SELECTION_CRON_SELF_CONTINUE = "true";
     guardedMock.mockResolvedValue({
       result: chunkResult({ remaining: 27 }),
     });
-    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    const fetchMock = vi.fn<(input: unknown, init?: unknown) => Promise<Response>>(
+      async () => new Response(null, { status: 204 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     expect(res.status).toBe(202);
     expect(afterCallbacks).toHaveLength(1);
     await afterCallbacks[0]();
+    // now 보존 + selfcontinue=1 마커 (hop이 sweep/stall/track-throw alert skip하도록).
+    const fetchedUrl = fetchMock.mock.calls[0][0] as string;
+    expect(fetchedUrl).toContain(`now=${encodeURIComponent(MON_NOT_FIRST)}`);
+    expect(fetchedUrl).toContain("selfcontinue=1");
     expect(fetchMock).toHaveBeenCalledWith(
-      `${URL}?now=${encodeURIComponent(MON_NOT_FIRST)}`,
+      expect.any(String),
       expect.objectContaining({
         headers: { authorization: "Bearer secret-x" },
       }),
@@ -446,7 +549,7 @@ describe("selection-worker self-continue forward-progress gate (OPS-3)", () => {
 // B-SEL-CRON — SELF_CONTINUE는 opt-out 기본 ON (daily cron 단독 3 jobs/day로는 period당
 //   ~130 jobs를 window 내 완주 불가 → 운영 viability상 load-bearing accelerator).
 describe("selection-worker SELF_CONTINUE 기본값 (opt-out, B-SEL-CRON)", () => {
-  it("env 미설정 + forward-progress + remaining>0 → 기본 ON으로 202 continued", async () => {
+  it("env 미설정 + forward-progress + remaining>0 → 기본 ON으로 202 continued + after() 등록", async () => {
     // beforeEach가 SELECTION_CRON_SELF_CONTINUE를 delete — 미설정 상태 그대로.
     guardedMock.mockResolvedValue({
       result: chunkResult({ remaining: 27 }),
@@ -455,6 +558,8 @@ describe("selection-worker SELF_CONTINUE 기본값 (opt-out, B-SEL-CRON)", () =>
     expect(res.status).toBe(202);
     const body = await res.json();
     expect(body.continued).toBe(true);
+    // finding 22c — 기본 ON 경로에서도 after() 등록 회귀 방어 (명시 true 테스트가 대신 못 잡음).
+    expect(afterCallbacks).toHaveLength(1);
   });
 
   it('명시 "false" → self-continue 안 함 (opt-out 동작)', async () => {
@@ -470,8 +575,8 @@ describe("selection-worker SELF_CONTINUE 기본값 (opt-out, B-SEL-CRON)", () =>
   });
 });
 
-describe("selection-worker stall alert (SELF_CONTINUE 명시 off + 미완 period)", () => {
-  it('명시 "false" + remaining>0 → scheduler_fail warning alert (stall 가시화)', async () => {
+describe("selection-worker stall alert 일반화 (finding 15)", () => {
+  it('명시 "false" + remaining>0 → scheduler_fail warning (self_continue=false 사유)', async () => {
     process.env.SELECTION_CRON_SELF_CONTINUE = "false";
     guardedMock.mockResolvedValue({
       result: chunkResult({ remaining: 27 }),
@@ -482,13 +587,39 @@ describe("selection-worker stall alert (SELF_CONTINUE 명시 off + 미완 period
     const calls = (insertAlertEvents as ReturnType<typeof vi.fn>).mock.calls;
     const stallCall = calls.find((c) =>
       (c[0] as Array<{ triggerReason: string }>).some((e) =>
-        e.triggerReason.includes("self_continue_disabled_stall"),
+        e.triggerReason.includes("self_continue=false"),
       ),
     );
     expect(stallCall).toBeDefined();
     const event = (stallCall![0] as Array<Record<string, unknown>>)[0];
     expect(event.alertType).toBe("scheduler_fail");
     expect(event.severity).toBe("warning");
+  });
+
+  it("기본 ON livelock(claimed=0 + remaining>0 + enqueue 0) → stall warning (no_forward_progress 사유)", async () => {
+    // beforeEach가 SELF_CONTINUE delete → 기본 ON. forward-progress 0이면 self-continue 안 돌아 stall.
+    guardedMock.mockResolvedValue({
+      result: chunkResult({ claimed: 0, done: 0, remaining: 5 }),
+    });
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(200);
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    const calls = (insertAlertEvents as ReturnType<typeof vi.fn>).mock.calls;
+    const stallCall = calls.find((c) =>
+      (c[0] as Array<{ triggerReason: string }>).some((e) =>
+        e.triggerReason.includes("no_forward_progress"),
+      ),
+    );
+    expect(stallCall).toBeDefined();
+  });
+
+  it("기본 ON + forward-progress 있음(claimed>0, remaining>0) → stall 없음 (self-continue가 진행)", async () => {
+    guardedMock.mockResolvedValue({
+      result: chunkResult({ remaining: 27 }),
+    });
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    expect(insertAlertEvents).not.toHaveBeenCalled();
   });
 
   it('명시 "false" + remaining=0 → stall alert 없음', async () => {
@@ -501,11 +632,12 @@ describe("selection-worker stall alert (SELF_CONTINUE 명시 off + 미완 period
     expect(insertAlertEvents).not.toHaveBeenCalled();
   });
 
-  it("기본 ON(미설정) + remaining>0 → stall alert 없음 (self-continue가 진행 담당)", async () => {
+  it("hop(&selfcontinue=1)에서는 stall alert skip (중복 차단)", async () => {
+    process.env.SELECTION_CRON_SELF_CONTINUE = "false";
     guardedMock.mockResolvedValue({
       result: chunkResult({ remaining: 27 }),
     });
-    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    await GET(hopReqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
     expect(insertAlertEvents).not.toHaveBeenCalled();
   });
@@ -525,27 +657,64 @@ describe("selection-worker stall alert (SELF_CONTINUE 명시 off + 미완 period
 });
 
 describe("selection-worker 고아 period sweep (B-SEL-CRON silent-spend 가시화)", () => {
-  it("미finalize + 현재 period 아님 → scheduler_fail warning alert (period_key 명시)", async () => {
-    // now = 2026-06-08(월) → 현재 period = s:2026-06-08 / m:2026-06. 직전 주 미완 = 고아.
-    orphanQueryState.rows = [
-      { period_key: "s:2026-06-01", track: "short", created_at: "2026-06-01T02:00:00Z" },
-    ];
+  // 과거 분기(2026년 1분기) period — 실 wall-clock(test run date)와 무관하게 항상 비현재.
+  const PAST_ORPHAN = {
+    period_key: "s:2026-01-05",
+    track: "short",
+    created_at: "2026-01-05T02:00:00Z",
+  };
+
+  it("미finalize + 비현재 period → scheduler_fail warning (period_key 명시, spend 단정 안 함)", async () => {
+    orphanQueryState.rows = [PAST_ORPHAN];
     const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     expect(res.status).toBe(200);
     const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
     const calls = (insertAlertEvents as ReturnType<typeof vi.fn>).mock.calls;
     const orphanCall = calls.find((c) =>
       (c[0] as Array<{ triggerReason: string }>).some((e) =>
-        e.triggerReason.includes("s:2026-06-01"),
+        e.triggerReason.includes("s:2026-01-05"),
       ),
     );
     expect(orphanCall).toBeDefined();
     const event = (orphanCall![0] as Array<Record<string, unknown>>)[0];
     expect(event.alertType).toBe("scheduler_fail");
     expect(event.severity).toBe("warning");
+    // finding 20/26 — spend 발생을 단정하지 않는다.
+    expect(event.triggerReason as string).not.toContain("spend가 발생");
   });
 
-  it("현재 period의 미finalize run row → 고아 아님 (alert 없음)", async () => {
+  it("finding 22a — sweep 쿼리는 .is('finalized_at', null).gt('created_at', 60일전)", async () => {
+    orphanQueryState.rows = [];
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(orphanQueryState.isArgs).toEqual(["finalized_at", null]);
+    expect(orphanQueryState.gtArgs?.[0]).toBe("created_at");
+    // sinceIso = 실 wall-clock - 60일 (seam ?now=가 아님 — finding 3/7/11/18/24).
+    const sinceMs = Date.parse(orphanQueryState.gtArgs?.[1] as string);
+    const ageDays = (Date.now() - sinceMs) / 86400000;
+    expect(ageDays).toBeGreaterThan(58);
+    expect(ageDays).toBeLessThan(62);
+  });
+
+  it("finding 1/8/10 — midlong 고아(전분기 created)도 60일 window 내면 탐지", async () => {
+    // 실 wall-clock 기준 31일 전(midlong window 초과·60일 이내) created midlong 고아.
+    const created = new Date(Date.now() - 31 * 86400000).toISOString();
+    orphanQueryState.rows = [
+      { period_key: "m:2025-01", track: "midlong", created_at: created },
+    ];
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    const calls = (insertAlertEvents as ReturnType<typeof vi.fn>).mock.calls;
+    expect(
+      calls.some((c) =>
+        (c[0] as Array<{ triggerReason: string }>).some((e) =>
+          e.triggerReason.includes("m:2025-01"),
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("현재 period(seam)의 미finalize run row → 고아 아님 (alert 없음)", async () => {
+    // ?now=2026-06-08 seam → currentPeriodKeys에 s:2026-06-08·m:2026-06 포함(seam ∪ real).
     orphanQueryState.rows = [
       { period_key: "s:2026-06-08", track: "short", created_at: "2026-06-08T02:00:00Z" },
       { period_key: "m:2026-06", track: "midlong", created_at: "2026-06-01T02:00:00Z" },
@@ -553,6 +722,39 @@ describe("selection-worker 고아 period sweep (B-SEL-CRON silent-spend 가시�
     await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
     expect(insertAlertEvents).not.toHaveBeenCalled();
+  });
+
+  it("finding 3/7/11/18/24 — 수동 ?now=<과거> 재개 시 실 현재 live period는 고아 오탐 안 함", async () => {
+    // 수동 재개: ?now=과거. 그러나 sweep anchor는 실 wall-clock → 진짜 현재 진행 period는 union(real)에 포함.
+    const liveShortKey = currentShortPeriodKey(new Date());
+    const liveMidlongKey = currentMidlongPeriodKey(new Date());
+    orphanQueryState.rows = [
+      { period_key: liveShortKey, track: "short", created_at: new Date().toISOString() },
+      { period_key: liveMidlongKey, track: "midlong", created_at: new Date().toISOString() },
+    ];
+    await GET(reqAt("2026-01-12T01:00:00Z", { authorization: "Bearer secret-x" }));
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    expect(insertAlertEvents).not.toHaveBeenCalled();
+  });
+
+  it("finding 2/5/12/17/23 — hop(&selfcontinue=1)에서는 sweep skip (alert 폭주 차단)", async () => {
+    orphanQueryState.rows = [PAST_ORPHAN];
+    await GET(hopReqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(orphanQueryState.selectCount).toBe(0); // sweep 쿼리 자체가 안 돔
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    expect(insertAlertEvents).not.toHaveBeenCalled();
+  });
+
+  it("finding 9 — flag off여도 sweep은 돈다 (flag gate 앞)", async () => {
+    delete process.env.SELECTION_CRON_AUTO_ENABLED;
+    orphanQueryState.rows = [PAST_ORPHAN];
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reason).toBe("selection_cron_auto_disabled"); // flag gate는 여전히 작동
+    expect(orphanQueryState.selectCount).toBe(1); // 그래도 sweep은 실행됨
+    const { insertAlertEvents } = await import("@/lib/data/admin-alerts-insert");
+    expect(insertAlertEvents).toHaveBeenCalled(); // 고아 alert 발화
   });
 
   it("sweep 쿼리 실패해도 응답 200 유지 (best-effort)", async () => {
