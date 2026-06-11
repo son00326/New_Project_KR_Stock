@@ -33,10 +33,10 @@ Status: **Week 1 스프린트 착수 대기** (2026-04-16 ~ 2026-04-23)
 
 | ID | 작업 | 의존 | 상태 | 담당 | 비고 |
 |----|------|------|------|------|------|
-| A1 | 디자인 하네스 설정 | - | Todo | Claude | `.omc/design/` 구조 확정 · `/oh-my-claudecode:harness` |
+| A1 | 디자인 하네스 설정 | - | Todo | Claude | `Document/Service/Build/Prototypes/` 구조 확정 (2026-06-11: 구 `.omc/design/` 경로 대체) · `superpowers-subagent-driven-development` (2026-06-11: 구 `/oh-my-claudecode:harness` 대체) |
 | A2 | 토큰 + Voice/Tone 확정 → `UI-Tokens.md` 값 채움 | A1 | Todo | Claude+User | 한국 증시 컨벤션(상승=빨강·하락=파랑) · 다크모드 여부 결정 |
-| A3 | 홈 대시보드 정적 HTML 프로토타입 | A2 | Todo | Claude | `.omc/design/prototypes/home-dashboard.html` · 토큰 검증용 |
-| A4 | 풀 리포트 Section 0~8 정적 HTML 프로토타입 | A2 | Todo | Claude | `.omc/design/prototypes/report-section.html` · 정보밀도 검증 |
+| A3 | 홈 대시보드 정적 HTML 프로토타입 | A2 | Todo | Claude | `Document/Service/Build/Prototypes/home-dashboard.html` (2026-06-11: 구 `.omc/design/prototypes/` 경로 대체) · 토큰 검증용 |
+| A4 | 풀 리포트 Section 0~8 정적 HTML 프로토타입 | A2 | Todo | Claude | `Document/Service/Build/Prototypes/report-section.html` (2026-06-11: 구 `.omc/design/prototypes/` 경로 대체) · 정보밀도 검증 |
 
 ### Track B · Backend Foundation
 

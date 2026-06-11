@@ -69,12 +69,12 @@ Document/Research/BigFinance/
 |---|---|---|---|---|
 | 0. 스코프 확정 | ✅ 완료 | `planner` + `/oh-my-claudecode:omc-plan` | — | 이 문서 |
 | 1. 사이트맵 & 화면 구조 | ⏳ 대기 | `explore` + `qa-tester` + `/browse` (gstack) | ✅ (로그인 후 포함) | `01-sitemap.md` + `_raw/screenshots/` |
-| 2. 기능 인벤토리 | ⏳ 대기 | `analyst` + `/oh-my-claudecode:visual-verdict` | ✅ | `02-features.md` |
-| 3. API / 네트워크 리버스 | ⏳ 대기 | `scientist` + `tracer` + `/oh-my-claudecode:trace` + `/browse` | ✅ | `03-api-endpoints.md` + `_raw/har/` |
-| 4. 데이터 소스 추적 | ⏳ 대기 | `document-specialist` + `scientist` + `/oh-my-claudecode:external-context` | ❌ | `04-data-sources.md` |
+| 2. 기능 인벤토리 | ⏳ 대기 | Claude 직접 + gstack `/qa-only` (2026-06-11: 구 `/oh-my-claudecode:visual-verdict` 대체) | ✅ | `02-features.md` |
+| 3. API / 네트워크 리버스 | ⏳ 대기 | Claude 직접 + gstack `/investigate` + `/browse` (2026-06-11: 구 `/oh-my-claudecode:trace` 대체) | ✅ | `03-api-endpoints.md` + `_raw/har/` |
+| 4. 데이터 소스 추적 | ⏳ 대기 | Claude 직접 + `superpowers-dispatching-parallel-agents` (2026-06-11: 구 `/oh-my-claudecode:external-context` 대체) | ❌ | `04-data-sources.md` |
 | 5. 기술 스펙 프로파일링 | ⏳ 대기 | `explore` + `/browse` | ❌ | `05-tech-stack.md` |
 | 6. 통합 리포트 | ⏳ 대기 | `writer` (Sonnet) | — | `Competitor-BigFinance.md` |
-| 7. 검증 & 독립 리뷰 | ⏳ 대기 | `critic` (Opus) + `verifier` + `/oh-my-claudecode:ccg` (선택) | — | 리뷰 코멘트 반영 |
+| 7. 검증 & 독립 리뷰 | ⏳ 대기 | `critic` (Opus) + `verifier` + gstack `/codex` (선택, 2026-06-11: 구 `/oh-my-claudecode:ccg` 대체) | — | 리뷰 코멘트 반영 |
 
 ### 병렬 디스패치 순서
 
@@ -94,7 +94,7 @@ Document/Research/BigFinance/
 - 모바일 뷰포트(375×812) + 데스크톱(1440×900) 2종 캡처
 
 ### Stage 2 — 기능 인벤토리
-- Stage 1의 스크린샷 묶음을 `visual-verdict` 스킬로 판독
+- Stage 1의 스크린샷 묶음을 gstack `/qa-only` 스킬로 판독 (2026-06-11: 구 `visual-verdict` 대체)
 - 각 화면 × 제공 기능 × 접근 권한(무료/유료/로그인) 매트릭스화
 
 ### Stage 3 — API 리버스
@@ -131,7 +131,7 @@ Document/Research/BigFinance/
 
 ### Stage 7 — 검증
 - `critic` (Opus)으로 증거 체인 검토 (특히 데이터 소스 추정이 근거 있는지)
-- 선택: `/oh-my-claudecode:ccg`로 Codex·Gemini 교차 검증
+- 선택: gstack `/codex`로 Codex·Gemini 교차 검증 (2026-06-11: 구 `/oh-my-claudecode:ccg` 대체)
 
 ## 7. 제약·주의사항
 

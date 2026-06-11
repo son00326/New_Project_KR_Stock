@@ -62,7 +62,7 @@ Parent: → `ServicePlan.md` (인덱스·공통 원칙)
   - [ ] 6.1 FRD (`frd-writer`) → `Document/Service/Build/FRD-Admin.md`
   - [ ] 6.2 사용자 시나리오 (`scenario-system`) — customer-journey 4여정 변환 + 온보딩/초대 + edge 2~3 → `Scenarios-Admin.md`
 - [ ] **P8** UI Design (P6+P7 완료 후) — 6개 _(8차 재정비: 구 8.3 shadcn 오버라이드 삭제 → ServicePlan.md §3 base-nova 확정 + B1 흡수)_
-  - [ ] 8.0 디자인 하네스 구성 (`harness`)
+  - [ ] 8.0 디자인 하네스 구성 (`superpowers-subagent-driven-development`, 2026-06-11: 구 `harness` 대체)
   - [ ] 8.1 디자인 원칙·Voice·Tone (`designer` + `design-consultation`) — §1A.1 3대 약속 + 규약 재형식화
   - [ ] 8.2 디자인 토큰 (`designer`) → ServicePlan.md §3 + globals.css
   - [ ] 8.3 고품질 목업 (`frontend-design`) _(구 8.4)_ — Must 4~6종 (P7.2 확정 후 결정)
@@ -74,7 +74,7 @@ Parent: → `ServicePlan.md` (인덱스·공통 원칙)
 > **Note**: 디자인 **제작**은 Planning P7·P8에서 완료. B1은 디자인→코드 전환만.
 
 - [ ] B1 — 디자인→코드 전환 (P8 목업 → 코드 컴포넌트 / 리뷰)
-- [ ] B2 — 인프라 (deepinit / Supabase / 한투 / DART / pykrx / DB / 인증 / 하네스)
+- [ ] B2 — 인프라 (Claude 직접 분석(구 deepinit) / Supabase / 한투 / DART / pykrx / DB / 인증 / superpowers-subagent-driven-development(구 하네스))
 - [ ] B3 — 구현 (ScreenSpec / 간소화 / 실데이터 / Must 기능 / Smoke)
 - [ ] B4 — QA (QA 루프 / 보안 / 성능 / 접근성 / 리뷰 / 버그 수정)
 - [ ] B5 — 배포 (릴리스 / 머지 / 카나리 / 문서)

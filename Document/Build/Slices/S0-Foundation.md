@@ -66,28 +66,28 @@ current_progress: 0%
 Phase ① 클린업 (세션 1 전반)
   T0.1 Legacy 제거 ─────────────────── 직접 실행 (trivial)
     └─ [G-7] legacy 타입(SubscriptionTier 등)도 함께 정리
-  T0.8 deepinit ─────────────────────── oh-my-claudecode:deepinit
+  T0.8 deepinit ─────────────────────── Claude 직접 분석 (구 oh-my-claudecode:deepinit, §3 참조)
     └─ T0.1 이후 실행 = clean 코드 기반으로 컨벤션 분석
     └─ [G-1] 상태 관리 방침 3줄 AGENTS.md에 박제
     └─ [G-2] 에러 핸들링·로딩 패턴 AGENTS.md에 박제
 
 Phase ② 인프라 (세션 1 후반)
-  T0.2 Supabase env ─────────────────── executor (sonnet) + context7
-  T0.3 Admin role 가드 미들웨어 ──────── executor (opus) + context7
+  T0.2 Supabase env ─────────────────── Claude 직접 (sonnet) + context7
+  T0.3 Admin role 가드 미들웨어 ──────── Claude 직접 (opus) + context7
     └─ T0.2 선행 (env 없으면 Supabase import 에러)
-  T0.4 RLS sketch ───────────────────── executor (sonnet)
+  T0.4 RLS sketch ───────────────────── Claude 직접 (sonnet)
     └─ T0.3 선행 (role 모델 확정 후 정책 작성)
 
 Phase ③ UI + 구조 (세션 2, 병렬 가능)
-  ┌─ T0.5 Admin layout ──────────────── executor (sonnet) + context7
-  ├─ T0.6a 디자인 방향 결정 ─────────── 사용자 Q&A (45분, deep-interview 또는 직접)
+  ┌─ T0.5 Admin layout ──────────────── Claude 직접 (sonnet) + context7
+  ├─ T0.6a 디자인 방향 결정 ─────────── 사용자 Q&A (45분, 직접)
   │   └─ [G-8] shadcn 커스텀 수준·아이콘셋·반응형 breakpoint도 함께 결정
-  ├─ T0.6b 디자인 토큰 구현 ─────────── designer 에이전트 (T0.6a 결정 기반)
-  └─ T0.7 Mock data 구조 ────────────── executor (sonnet)
-    ↑ 3개 독립 → 병렬 디스패치 가능 (superpowers:dispatching-parallel-agents)
+  ├─ T0.6b 디자인 토큰 구현 ─────────── Claude 직접 (디자이너 역할, T0.6a 결정 기반)
+  └─ T0.7 Mock data 구조 ────────────── Claude 직접 (sonnet)
+    ↑ 3개 독립 → 병렬 디스패치 가능 (superpowers-dispatching-parallel-agents)
 
 Phase ④ 검증·클로즈 (세션 2 마감)
-  DoD 전수 체크 ──────────────────────── superpowers:verification-before-completion
+  DoD 전수 체크 ──────────────────────── superpowers-verification-before-completion
   커밋 ───────────────────────────────── commit-commands:commit
   HANDOFF + ProgressDashboard 갱신 ──── 직접 실행
 ```
@@ -112,10 +112,10 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | repo 컨벤션·AGENTS.md 계층화·import alias·타입 규칙 박제 + **[G-1]** 상태 관리 방침(Server Components 우선 / 클라이언트=useState·useReducer / 공유=React Context, 라이브러리 추가 불필요) + **[G-2]** 에러 핸들링 패턴(`error.tsx`·`loading.tsx` 글로벌 + 컴포넌트 레벨 loading/error/empty 3상태 + Server Action 반환 `{success, error?}`) |
-| **Primary** | `oh-my-claudecode:deepinit` (스킬) |
+| **Primary** | Claude 직접 — `tudal/` 코드베이스 분석 → `tudal/AGENTS.md` 작성/갱신 (2026-06-11: `oh-my-claudecode:deepinit` 스킬 제거에 따른 대체. 상세 ExecutionPlaybook §3) |
 | **Timing** | T0.1 직후 (legacy 제거된 clean 코드 기반으로 분석) |
-| **Rationale** | deepinit은 기존 코드를 분석해 컨벤션을 추출 → clean 상태에서 실행해야 legacy 패턴이 컨벤션으로 오인식되지 않음 |
-| **기각 후보** | GSD `gsd:deepinit`(동일 기능이나 .planning/ 전제), superpowers:brainstorming(컨벤션 분석이 아님) |
+| **Rationale** | 기존 코드를 분석해 컨벤션을 추출 → clean 상태에서 실행해야 legacy 패턴이 컨벤션으로 오인식되지 않음 |
+| **기각 후보** | GSD `gsd:deepinit`(동일 기능이나 .planning/ 전제), superpowers-brainstorming(컨벤션 분석이 아님) |
 | **주의** | S0에서 **1회만**. 이후 슬라이스에서 재실행 금지 (CLAUDE.md 규칙) |
 
 ### T0.2 Supabase env 세팅
@@ -123,7 +123,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | `.env.local` 템플릿 + `lib/supabase/{client,server,middleware}.ts` 동작 확인 |
-| **Primary** | executor (sonnet) |
+| **Primary** | Claude 직접 (sonnet) |
 | **Skill** | context7 MCP — `@supabase/ssr` 최신 docs 조회 **필수** |
 | **Pre-check** | BL-1 해소 확인 (Supabase 프로젝트 키 존재) |
 | **Rationale** | 기존 `lib/supabase/` 파일 3개가 이미 있음. env만 채우고 동작 확인이 핵심. SDK 버전 차이 가능 → context7 필수. |
@@ -134,11 +134,11 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | `middleware.ts`에 `/admin/*` 경로 role check 추가 |
-| **Primary** | **executor (opus)** |
+| **Primary** | **Claude 직접 (opus)** |
 | **Skill** | context7 MCP — **Next.js 16 middleware docs 필수** (breaking changes 위험) |
 | **Pre-check** | BL-2 결정 반영 (email allowlist vs role claim) |
 | **Rationale** | Next.js 16 middleware는 학습 데이터와 다를 수 있음 (CLAUDE.md §Critical 경고). 단순 코드지만 **API 변경 리스크 때문에 opus**. context7로 현재 middleware API 확인 후 작성. |
-| **기각 후보** | executor(sonnet) — 보통은 충분하나 Next.js 16 breaking change 리스크로 opus 승격, debugger(아직 버그 없음), superpowers:tdd(테스트 프레임워크 없음) |
+| **기각 후보** | executor(sonnet) — 보통은 충분하나 Next.js 16 breaking change 리스크로 opus 승격, debugger(아직 버그 없음), superpowers-test-driven-development(테스트 프레임워크 없음) |
 | **검증** | `npm run build` + 브라우저에서 비인증 `/admin` 접근 → 리다이렉트 확인 |
 
 ### T0.4 RLS sketch
@@ -146,7 +146,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | E1~E9 테이블용 admin-only RW 정책 SQL 초안 (`tudal/supabase/migrations/0001_rls_sketch.sql`) |
-| **Primary** | executor (sonnet) |
+| **Primary** | Claude 직접 (sonnet) |
 | **Skill** | context7 MCP — Supabase RLS 정책 문법 조회 |
 | **Input** | ServicePlan-Admin.md §4.2 (8엔티티 + E9) + T0.3의 role 모델 |
 | **Rationale** | SQL 정책 초안이므로 sonnet 충분. 실 마이그레이션은 각 슬라이스에서 실행 — 여기서는 sketch만. |
@@ -158,7 +158,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | `app/(admin)/layout.tsx` + Header stub + Footer(면책) + admin nav 뼈대 + 10 라우트 빈 페이지 생성 |
-| **Primary** | executor (sonnet) |
+| **Primary** | Claude 직접 (sonnet) |
 | **Skill** | context7 MCP — Next.js 16 App Router layout API 조회 |
 | **Input** | ServicePlan-Admin.md §2 (10 라우트 IA) |
 | **Rationale** | 표준 Next.js layout + 빈 페이지 생성. 디자인 결정 최소 (면책 Footer 텍스트만). |
@@ -170,12 +170,12 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | 레퍼런스 2~3개 합의 · 다크모드 여부 · 한국 증시 관례(빨강=상승·파랑=하락) 확인 · Voice/Tone 3줄 박제 · **[G-8]** shadcn 커스텀 수준(변수만 vs 컴포넌트 래핑) · 아이콘셋(Lucide 단독 vs 추가) · 반응형 breakpoint 1개 확정(<768px 단일 컬럼) |
-| **Primary** | 사용자 Q&A (직접 대화) 또는 `oh-my-claudecode:deep-interview` |
-| **Skill** | `deep-interview` — 모호한 디자인 선호를 구조화된 결정으로 수렴 |
+| **Primary** | 사용자 Q&A (직접 대화, 2026-06-11: `oh-my-claudecode:deep-interview` 스킬 제거됨) |
+| **Skill** | 없음 — 모호한 디자인 선호를 구조화된 결정으로 수렴하는 작업은 Claude가 직접 질문 목록을 구성해 진행 |
 | **산출물** | S0 의사결정 로그에 5~10줄 박제 (레퍼런스·다크모드·색상관례·Voice/Tone) |
 | **소요** | 30분 |
 | **Rationale** | 이 결정 없이 T0.6b 토큰을 만들면 임의 선택 → S1~S6 전체 UI 일관성 붕괴. P8 폐기 시 빠진 "디자인 원칙 결정" 역할을 S0 안에서 경량 수행. |
-| **기각 후보** | superpowers:brainstorming(디자인 방향은 사용자 선호 의존, 창의 탐색 아님), frontend-design(결정이 선행되어야 목업 가능) |
+| **기각 후보** | superpowers-brainstorming(디자인 방향은 사용자 선호 의존, 창의 탐색 아님), frontend-design(결정이 선행되어야 목업 가능) |
 | **선행**: 없음. Phase ③ 첫 번째. T0.6b·T0.5·T0.7보다 먼저 실행. |
 
 ### T0.6b 디자인 토큰 구현
@@ -195,7 +195,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 항목 | 값 |
 |---|---|
 | **작업** | `tudal/src/lib/data/mock-admin-*.ts` 파일 목록 + TypeScript export shape 정의 (빈 배열이라도 타입 확정) |
-| **Primary** | executor (sonnet) |
+| **Primary** | Claude 직접 (sonnet) |
 | **Input** | ServicePlan-Admin.md §4.2 (E1~E9 엔티티 필드 정의) |
 | **Rationale** | 엔티티 9개 × export interface 정의. 기존 `mock-stocks.ts` 등 패턴 참조. |
 | **기각 후보** | architect(읽기 전용), product-manager(기획 완료) |
@@ -207,12 +207,12 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 
 | Source | 후보 | S0 적합도 | 사용 Task | 비고 |
 |---|---|---|---|---|
-| **OMC** | `deepinit` | ★★★★★ | T0.8 | S0 전용. 1회만. |
-| **OMC** | `harness` (디자인) | ★ | — | S0에 신규 컴포넌트 다수 아님. S1~에서 필요 시 |
-| **OMC** | `harness` (데이터) | ★ | — | S0은 mock 구조만. S1 첫 Supabase 전환 시 |
-| **OMC** | `autopilot` | ★★ | — | S0 Task 8개 규모에 과잉. 순차 실행이 안전 |
-| **OMC** | `ultrawork` | ★★★ | Phase ③ 병렬 | T0.5∥T0.6∥T0.7에 유효. 단 3개뿐이라 직접 디스패치도 충분 |
-| **OMC** | `ralph` | ★★ | — | S0은 검증 루프 필요 없을 정도로 단순 |
+| (구)OMC | `deepinit` | ★★★★★ | T0.8 | S0 전용. 1회만. **2026-06-11: 제거됨 → Claude 직접 분석으로 대체 (§T0.8)** |
+| (구)OMC | `harness` (디자인) | ★ | — | S0에 신규 컴포넌트 다수 아님. S1~에서 필요 시 → `superpowers-subagent-driven-development`로 대체 |
+| (구)OMC | `harness` (데이터) | ★ | — | S0은 mock 구조만. S1 첫 Supabase 전환 시 → `superpowers-subagent-driven-development`로 대체 |
+| (구)OMC | `autopilot` | ★★ | — | S0 Task 8개 규모에 과잉. 순차 실행이 안전. 2026-06-11: 미설치 |
+| (구)OMC | `ultrawork` | ★★★ | Phase ③ 병렬 | T0.5∥T0.6∥T0.7에 유효. 단 3개뿐이라 직접 디스패치도 충분. 2026-06-11: 미설치 → `superpowers-dispatching-parallel-agents`로 대체 |
+| (구)OMC | `ralph` | ★★ | — | S0은 검증 루프 필요 없을 정도로 단순. 2026-06-11: 미설치 → S1~부터 `ralph-wiggum:/ralph-loop` |
 | **superpowers** | `brainstorming` | ★ | — | S0은 결정 완료. 창의적 탐색 불필요 |
 | **superpowers** | `tdd` | ★ | — | 테스트 프레임워크 없음 (CLAUDE.md "검증 게이트 = build + lint") |
 | **superpowers** | `executing-plans` | ★★★★ | 전체 | 이 문서 자체가 plan → 실행 시 이 스킬 활용 가능 |
@@ -224,7 +224,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | **gstack** | `/qa` | ★ | — | S0 DoD는 build+lint만 |
 | **frontend-design** | `frontend-design` | ★★ | — | 프로덕션 목업 스킬. 토큰 seed에는 과잉 |
 | **commit-commands** | `commit` | ★★★★ | Phase ④ | 슬라이스 클로즈 커밋 |
-| **claude-md-management** | `*` | ★ | — | S0과 무관 |
+| **claude-md-management** | `*` | ★ | — | S0과 무관. 2026-06-11: 미설치 |
 | **PM** | `*` | ★ | — | 기획 완료 |
 | **context7 MCP** | docs lookup | ★★★★★ | T0.2·T0.3·T0.4·T0.5 | Next.js 16 + Supabase SSR **필수 조회** |
 
@@ -233,24 +233,24 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 > 근거: `ExecutionPlaybook.md` §2.5 + `.omc/research/dev-workflow-comparison.md` (architect 7조합 비교)
 
 **직접 실행 (순차 + Phase ③만 병렬)**이 최적.
-- **ralph**: S0 Task는 전부 trivial (삭제·env·stub). prd.json 스토리 분해 오버헤드가 작업 자체보다 큼. **S1부터 기본 엔진**.
-- **harness**: 30~40분 팀 구축 비용 vs S0의 trivial Task. S0에서 구축하면 비용 대비 재사용 0. **S1 킥오프에서 평가**.
-- **autopilot**: "아이디어→코드" 파이프라인. 기획 완료 + 계획 존재 → Phase 0~1 불필요 오버헤드.
+- **ralph-wiggum**: S0 Task는 전부 trivial (삭제·env·stub). prd.json 스토리 분해 오버헤드가 작업 자체보다 큼. **S1부터 기본 엔진**.
+- **서브에이전트 팀 구성** (구 harness): 30~40분 팀 구축 비용 vs S0의 trivial Task. S0에서 구축하면 비용 대비 재사용 0. **S1 킥오프에서 평가**.
+- **autopilot**: "아이디어→코드" 파이프라인. 기획 완료 + 계획 존재 → Phase 0~1 불필요 오버헤드. (2026-06-11: 미설치, 어차피 기각)
 - **GSD**: `.planning/` 디렉토리가 `Document/Build/Slices/` 트래킹과 충돌. **채택 금지**.
-- **team**: 8 Task이지만 전부 trivial이므로 팀 조율 오버헤드만 추가.
-- Phase ③ 3개 병렬은 `superpowers:dispatching-parallel-agents` 또는 수동 Agent 3개 디스패치
-- 검증은 `superpowers:verification-before-completion` 필수
+- **superpowers-dispatching-parallel-agents 병렬 디스패치** (구 team): 8 Task이지만 전부 trivial이므로 팀 조율 오버헤드만 추가.
+- Phase ③ 3개 병렬은 `superpowers-dispatching-parallel-agents` 또는 수동 Agent 3개 디스패치
+- 검증은 `superpowers-verification-before-completion` 필수
 - **context7 MCP가 S0에서 가장 중요한 도구** (Next.js 16 breaking changes)
 
 ### S1~S6 실행 엔진 참고 (ExecutionPlaybook §2.5)
 
 | 슬라이스 | 엔진 | 이유 |
 |---|---|---|
-| S1 Short List 홈 | **ralph** | 4 Must, UI 복잡 (카드·스파크라인·Delta) |
+| S1 Short List 홈 | **ralph-wiggum** | 4 Must, UI 복잡 (카드·스파크라인·Delta) |
 | S2 풀 리포트 | 직접 + superpowers | 2 Must, 순차적 렌더링 작업 |
-| S3 승인 | **ralph** | 1 Must이지만 D15 게이팅 4종 + race condition → 스토리 5~6개 |
-| S4 성과 | **ralph** | 3 Must, EOD 배치 + Decision Tree |
-| S5 스케줄러 | **team + ralph** | 7 Must + M18, 외부 API 4종, 가장 큰 슬라이스 |
+| S3 승인 | **ralph-wiggum** | 1 Must이지만 D15 게이팅 4종 + race condition → 스토리 5~6개 |
+| S4 성과 | **ralph-wiggum** | 3 Must, EOD 배치 + Decision Tree |
+| S5 스케줄러 | **superpowers-dispatching-parallel-agents + ralph-wiggum** | 7 Must + M18, 외부 API 4종, 가장 큰 슬라이스 |
 | S6 Hardening | 직접 + superpowers | 2 Must, 비용 모니터 + 하트비트 |
 
 ---
@@ -271,7 +271,7 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 - [ ] deepinit 실행 완료 (`tudal/AGENTS.md` 또는 하위 AGENTS.md 갱신 확인)
 
 ### DoD 검증 방법
-- **`superpowers:verification-before-completion`** 스킬로 DoD 전수 체크
+- **`superpowers-verification-before-completion`** 스킬로 DoD 전수 체크
 - 각 항목별 증거 수집 (build output, 파일 존재 확인, 브라우저 접근 테스트)
 - 모든 항목 ✅ 후에만 `commit-commands:commit`으로 클로즈 커밋
 
@@ -313,3 +313,4 @@ Phase ④ 검증·클로즈 (세션 2 마감)
 | 2026-04-16 | critic I-03(BL-6 긴급도)·I-14(RLS 경로) 교정. |
 | 2026-04-16 | **보강**: 실행 순서(4 Phase)·Task별 에이전트 상세(8건)·전소스 비교(15 소스)·킥오프 체크리스트·DoD 검증 방법 추가. |
 | 2026-04-16 | **전소스 비교 확정**: architect 7조합 비교 결과 반영. S0=직접+superpowers 확정. ralph/harness/GSD/autopilot 기각 근거 박제. S1~S6 실행 엔진 참고표 추가. deepinit≠harness 명확화. |
+| 2026-06-11 | **OMC(oh-my-claudecode) 플러그인 제거 반영**: T0.8 deepinit→Claude 직접 분석, T0.6a deep-interview→직접 Q&A, T0.6b designer→Claude 직접, executor(opus/sonnet)→Claude 직접(opus/sonnet), `superpowers:*`→`superpowers-*` 표기 수정, S1~S6 엔진 참고표를 ralph-wiggum/superpowers-dispatching-parallel-agents로 재매핑 (ExecutionPlaybook §2.5 v1.2와 동기화). |

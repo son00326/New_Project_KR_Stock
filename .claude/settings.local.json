@@ -30,7 +30,14 @@
       "WebFetch(domain:www.chungoose.kr)",
       "WebFetch(domain:eiec.kdi.re.kr)",
       "WebFetch(domain:thevc.kr)",
-      "WebFetch(domain:www.tosspayments.com)"
+      "WebFetch(domain:www.tosspayments.com)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(claude --version)",
+      "Bash(npm list:*)",
+      "Bash(npm update:*)",
+      "Read(//Users/steven/.claude/**)",
+      "Bash(python3 -c ':*)"
     ]
   }
 }

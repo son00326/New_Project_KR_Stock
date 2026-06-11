@@ -39,7 +39,7 @@ This repository uses a **문서 기반 플래닝 시스템**, organized into sub
 
 1. **Read in order**: `HANDOFF.md` → `Document/Build/ProgressDashboard.md` → **현재 슬라이스** `Document/Build/Slices/S?-*.md` → `ServicePlan-Admin.md` → `BusinessPlan.md` → `Document/Process/ExecutionPlaybook.md` → `CodebaseStatus.md`. (ServicePlan.md 인덱스·ServicePlan-Member는 해당 작업 맥락일 때만 추가.)
 2. **Identify current slice**: `ProgressDashboard.md`에서 🟢 상태 슬라이스를 확인. 해당 `Slices/S?-*.md`의 Tasks 체크리스트에서 **다음 미완료 Task**를 1순위로 채택. 기획 보강 필요 시 `ServicePlan-Admin.md` 해당 섹션으로 우회.
-3. **Lookup agent/skill**: `ExecutionPlaybook.md` §2 (단계별 매핑 표)와 §3 (하네스 호출 시점)에서 현재 Task 단계(킥오프/설계/구현/실데이터 연결/QA/클로즈)에 해당하는 Primary·Secondary·Skill을 확인. Playbook에 없는 예외 작업만 `~/.claude/skill-routing.md` + Skill Sources 표로 fallback.
+3. **Lookup agent/skill**: `ExecutionPlaybook.md` §2 (단계별 매핑 표)와 §2.5 (실행 엔진 선택 및 서브에이전트 팀 구성 평가 시점)에서 현재 Task 단계(킥오프/설계/구현/실데이터 연결/QA/클로즈)에 해당하는 담당·도구를 확인. Playbook에 없는 예외 작업만 아래 "에이전트·스킬 선정 규칙"의 Skill Sources 표에서 적합한 소스를 선택해 제안.
 4. **Announce**: "이번에 〈슬라이스 S? — Task명〉을 〈단계: 설계/구현/…〉로 〈에이전트/스킬〉을 사용해 진행합니다. Uncertainty: 〈낮/중/높〉"를 사용자에게 먼저 고지. "중간" 이상은 사용자 재확인을 요청.
 
 ### Update routing (무엇을 어디에 쓸 것인가)
@@ -135,9 +135,20 @@ BusinessPlan.md §7 법적 원칙:
 
 ## 에이전트·스킬 선정 규칙
 
-- **슬라이스 작업**은 `Document/Process/ExecutionPlaybook.md` §2 단계별 매핑(킥오프/설계/구현/실데이터/QA/클로즈)의 Primary·Secondary·Skill 그대로 사용. Uncertainty "중간" 이상은 사용자 재확인.
-- Playbook 밖 예외 작업(문서 감사·리팩터·리서치 등)은 `~/.claude/skill-routing.md` + Skill Sources 표 참조해 **OMC·superpowers·PM·gstack·Korean Planning·frontend-design·commit-commands·claude-md-management** 등 전 소스를 검토한 뒤 제안.
-- 병렬 디스패치는 `ExecutionPlaybook.md` §4 (슬라이스 내부만 병렬, 슬라이스 간 순차) 준수.
-- **deepinit은 S0 Foundation에서만 1회** (`oh-my-claudecode:deepinit` 스킬). 이후 슬라이스에서는 `harness`만 사용 — 상세는 Playbook §3.
-- **하네스 3종** (구현 하네스 = S0 / 디자인 하네스 = 각 슬라이스 설계 단계 신규 컴포넌트 다수 시 / 데이터 하네스 = S1 또는 S5 첫 실데이터 전환 슬라이스)은 `oh-my-claudecode:harness` 스킬로 호출. 상세 시점은 Playbook §3.
+- **슬라이스 작업**은 `Document/Process/ExecutionPlaybook.md` §2 단계별 매핑(킥오프/설계/구현/실데이터/QA/클로즈)의 담당·도구 그대로 사용. Uncertainty "중간" 이상은 사용자 재확인.
+- Playbook 밖 예외 작업(문서 감사·리팩터·리서치 등)은 아래 **Skill Sources** 표에서 적합한 소스를 검토한 뒤 제안.
+
+  | 소스 | 제공 | 사용 시점 |
+  |---|---|---|
+  | `superpowers-*` | 브레인스토밍·계획 작성/실행·서브에이전트 팀 구성·병렬 디스패치·체계적 디버깅·TDD·코드리뷰·git worktree | 슬라이스 계획·구현·디버깅 전반 |
+  | `gstack` (`/autoplan` `/spec` `/ship` `/review` `/qa` `/design-review` `/browse` `/investigate` `/codex` 등) | 기획→코드 파이프라인·웹브라우징·디자인/품질 리뷰·교차검증 | 디자인·QA·리서치·배포 |
+  | `feature-dev` (code-architect / code-explorer / code-reviewer) | 아키텍처 설계·코드베이스 탐색·코드 리뷰 | 설계·리뷰 단계 |
+  | `pr-review-toolkit` | PR 리뷰(타입설계·테스트·실패처리 등) | PR 생성 전 |
+  | `pm-skills` (product-strategy/discovery/market-research 등) | 제품기획·시장리서치 | 기획 보강 |
+  | `ralph-wiggum:/ralph-loop` | prd.json 스토리 기반 자율 실행 루프 | 4+ Task 슬라이스 (Playbook §2.5) |
+  | `commit-commands`, `frontend-design` | 커밋·프론트엔드 디자인 | 해당 작업 |
+
+- 병렬 디스패치는 `ExecutionPlaybook.md` §4 (슬라이스 내부만 병렬, 슬라이스 간 순차) 준수 — 도구는 `superpowers-dispatching-parallel-agents`.
+- **deepinit (repo 컨벤션 설정)은 S0 Foundation에서만 1회** — Claude가 직접 코드베이스를 분석해 `tudal/AGENTS.md`를 작성/갱신 (상세 Playbook §3). 이후 슬라이스에서 재실행 금지.
+- **서브에이전트 팀 구성 평가** (구 "하네스 3종")는 S1·S5 킥오프에서 조건부로만 진행하며 `superpowers-subagent-driven-development` 스킬을 사용 — 상세 시점은 Playbook §2.5.
 - **ScreenSpec 등 산출 스펙**은 슬라이스 내부 설계 단계에서 필요 시 `Document/Service/Build/`에 생성. 별도 Phase·Task 아님.

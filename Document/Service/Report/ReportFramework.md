@@ -640,11 +640,11 @@ Part A: 섹터 보드 (10명)
 Step 1: 리서치 + 분석 (병렬)
 ├── document-specialist (opus) → 웹 리서치 전수 조사
 │   산업 구조, 경쟁사, 딜/계약, 실적, 뉴스/공시, 리스크
-│   → .omc/research/{종목명}-research.md
+│   → Document/Research/Stocks/{종목명}-research.md (2026-06-11: 구 `.omc/research/` 경로 대체)
 │
 └── analyst (opus) → 정량 분석
     pykrx 실데이터, 밸류에이션, 시나리오 TP, 리스크 매트릭스
-    → .omc/research/{종목명}-analysis.md
+    → Document/Research/Stocks/{종목명}-analysis.md (2026-06-11: 구 `.omc/research/` 경로 대체)
 
 Step 2: 작성
 └── writer (opus) → Section 0~8 + Appendix 풀 보고서 통합 작성
@@ -653,7 +653,7 @@ Step 2: 작성
 
 Step 3: 검증
 └── critic (opus) → 적대적 검증 (팩트/논리/누락/구조/편향/독자수준 6축)
-    → .omc/research/{종목명}-critique.md
+    → Document/Research/Stocks/{종목명}-critique.md (2026-06-11: 구 `.omc/research/` 경로 대체)
 
 Step 4: 수정 반영 → 최종본 확정
 ```
