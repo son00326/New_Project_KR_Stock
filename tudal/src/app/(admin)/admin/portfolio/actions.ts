@@ -41,6 +41,12 @@ import {
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
 import {
+  filterActiveShortlist,
+  resolveShortlistGeneratedAt,
+  getGateTickers,
+  computeMinimumViewerCount,
+} from "@/lib/portfolio/shortlist-gate";
+import {
   validateDisputeReason,
   canRaiseDispute,
 } from "@/lib/portfolio/dispute";
@@ -53,13 +59,6 @@ import {
 } from "@/types/admin";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
-const REQUIRED_GATE_TICKERS = new Set([
-  "005930",
-  "000660",
-  "012450",
-  "196170",
-  "373220",
-]);
 
 // ---------------------------------------------------------------------------
 // resolveAdminId — Supabase 세션에서 admin ID 추출 (mock fallback 포함)
@@ -85,10 +84,6 @@ async function resolveAdminId(): Promise<string | null> {
   }
 }
 
-function filterActiveShortlist(shortlist: ShortListItem[]): ShortListItem[] {
-  return shortlist.filter((item) => item.deltaStatus !== "removed");
-}
-
 function validateShortlistMonth(month: string, shortlist: ShortListItem[]) {
   if (!MONTH_RE.test(month)) {
     return { success: false as const, error: "invalid_month" };
@@ -99,49 +94,12 @@ function validateShortlistMonth(month: string, shortlist: ShortListItem[]) {
   return { success: true as const };
 }
 
-function resolveShortlistGeneratedAt(
-  _month: string,
-  shortlist: ShortListItem[],
-): Date | null {
-  // T7e.2 — 실 short_list_30.created_at 기반.
-  // W2a Task 9.5 (R4 HIGH-3): 트랙 split로 같은 월에 mixed createdAt 공존 가능(오래된 mid/long +
-  //   주간 refresh된 short = now()). '첫 활성 행' anchor면 오래된 mid가 freshly-refreshed short의
-  //   24h/D+4 Hold를 우회시킨다 → anchor를 가장 최근(MAX) createdAt으로 (per-ticker 정확).
-  const active = filterActiveShortlist(shortlist);
-  if (active.length === 0) return null;
-  let latest: number | null = null;
-  for (const item of active) {
-    if (!item.createdAt) continue;
-    const t = new Date(item.createdAt).getTime();
-    if (Number.isNaN(t)) continue;
-    if (latest === null || t > latest) latest = t;
-  }
-  return latest === null ? null : new Date(latest);
-}
-
-// Mock cleanup Step 1.3 (58차, omxy/Spinoza D1 HIGH split-brain fix):
-// MOCK_ADMIN_REPORT_VIEW_LOG의 가짜 2인 열람 시드를 actions.ts에서도 제거.
-// page.tsx (display gate)와 동일 source — real report_view_log SELECT via getDistinctViewerCountsByTicker.
-function getRequiredGateTickers(shortlist: ShortListItem[]): string[] {
-  const active = filterActiveShortlist(shortlist);
-  const representativeTickers = active
-    .map((item) => item.ticker)
-    .filter((ticker) => REQUIRED_GATE_TICKERS.has(ticker));
-  return representativeTickers.length > 0
-    ? representativeTickers
-    : active.map((item) => item.ticker);
-}
-
-function computeMinimumViewerCount(
-  tickers: string[],
-  viewerCountsByTicker: Map<string, number>,
-): number {
-  if (tickers.length === 0) return 0;
-  return Math.min(...tickers.map((t) => viewerCountsByTicker.get(t) ?? 0));
-}
+// 77차 Accept-gate fix: resolveShortlistGeneratedAt / getGateTickers / computeMinimumViewerCount는
+//   @/lib/portfolio/shortlist-gate 공유 모듈로 단일화 (page display gate ↔ actions enforcement gate
+//   split-brain 해소 + legacy mock 하드코딩 제거). 구 getRequiredGateTickers/로컬 정의 제거.
 
 async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
-  const generatedAt = resolveShortlistGeneratedAt(month, shortlist);
+  const generatedAt = resolveShortlistGeneratedAt(shortlist);
   if (!generatedAt) {
     return { success: false as const, error: "shortlist_month_not_found" };
   }
@@ -155,7 +113,7 @@ async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
   ).active;
 
   // Mock cleanup Step 1.3: real report_view_log SELECT (page.tsx와 동일 source — split-brain 해소).
-  const gateTickers = getRequiredGateTickers(shortlist);
+  const gateTickers = getGateTickers(shortlist);
   const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
     month: month.slice(0, 7),
     tickers: gateTickers,
@@ -369,7 +327,7 @@ export async function acceptShortList(params: {
   if (filterActiveShortlist(shortlist).length < SHORTLIST_TARGET_COUNT) {
     return { success: false, error: "shortlist_incomplete" };
   }
-  const generatedAt = resolveShortlistGeneratedAt(month, shortlist);
+  const generatedAt = resolveShortlistGeneratedAt(shortlist);
   if (!generatedAt) {
     return { success: false, error: "shortlist_month_not_found" };
   }
@@ -488,7 +446,7 @@ export async function rejectShortList(params: {
   }
   const monthValidation = validateShortlistMonth(month, shortlist);
   if (!monthValidation.success) return monthValidation;
-  const generatedAt = resolveShortlistGeneratedAt(month, shortlist);
+  const generatedAt = resolveShortlistGeneratedAt(shortlist);
   if (!generatedAt) {
     return { success: false, error: "shortlist_month_not_found" };
   }

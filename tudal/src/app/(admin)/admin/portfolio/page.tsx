@@ -9,6 +9,11 @@ import { getRecentAdminAccessLogs } from "@/lib/data/admin-access-logs";
 import { getDistinctViewerCountsByTicker } from "@/lib/data/admin-report-view-log";
 import { MOCK_KR_BUSINESS_DAYS_2026 } from "@/lib/portfolio/calendar";
 import { addBusinessDays, formatDateKey } from "@/lib/portfolio/business-days";
+import {
+  resolveShortlistGeneratedAt,
+  getGateTickers,
+  computeMinimumViewerCount,
+} from "@/lib/portfolio/shortlist-gate";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
@@ -23,13 +28,6 @@ import type { BucketKind } from "@/types/admin";
 // 이번 달 = short_list_30에 INSERT된 가장 최신 month (T7e.2 — DB 기반).
 // Tier 0 스크리너가 월초 외 시점에 INSERT해도 page는 latest를 따라간다.
 const BUCKET_ORDER: BucketKind[] = ["short", "mid", "long"];
-const REQUIRED_GATE_TICKERS = new Set([
-  "005930",
-  "000660",
-  "012450",
-  "196170",
-  "373220",
-]);
 
 const BUCKET_META: Record<
   BucketKind,
@@ -58,24 +56,9 @@ function formatMonthLabel(month: string): string {
   return `${y}년 ${Number(m)}월`;
 }
 
-// Mock cleanup Step 1.3 (58차): MOCK_ADMIN_REPORT_VIEW_LOG의 가짜 2인 열람 시드 제거.
-// 실 운영에서는 report_view_log 테이블 SELECT (admin이 /admin/report/[ticker] 방문 시 INSERT,
-// BL-5 1일 1회 dedupe). 0건이면 viewers_insufficient honest 차단.
-function getMinimumRequiredViewerCount(
-  tickers: string[],
-  viewerCountsByTicker: Map<string, number>,
-): number {
-  const representativeTickers = tickers.filter((ticker) =>
-    REQUIRED_GATE_TICKERS.has(ticker),
-  );
-  const requiredTickers =
-    representativeTickers.length > 0 ? representativeTickers : tickers;
-  if (requiredTickers.length === 0) return 0;
-
-  return Math.min(
-    ...requiredTickers.map((ticker) => viewerCountsByTicker.get(ticker) ?? 0),
-  );
-}
+// 77차 Accept-gate fix: 게이트 대상 티커·viewer-min·anchor는 @/lib/portfolio/shortlist-gate 공유
+//   모듈로 단일화 (구 REQUIRED_GATE_TICKERS legacy mock 하드코딩 + getMinimumRequiredViewerCount
+//   로컬 정의 제거 — page display gate ↔ actions enforcement gate split-brain 해소).
 
 export default async function AdminPortfolioPage() {
   // T7e.2 — latest month를 DB에서 조회. 빈 DB일 때는 month=""로 빈 화면 안내.
@@ -132,12 +115,11 @@ export default async function AdminPortfolioPage() {
 
   // ── Wave 4: D15 게이팅 계산 ─────────────────────────────────────────────
 
-  // T7e.2 — shortlistGeneratedAt = 실 short_list_30 row의 createdAt 기준.
-  // 같은 월 행은 Tier 0 batch INSERT라 createdAt 동일.
-  // DB 비어있을 때는 epoch fallback (게이트 자동 비활성).
-  const shortlistGeneratedAtDate = thisMonthItems[0]?.createdAt
-    ? new Date(thisMonthItems[0].createdAt)
-    : new Date(0);
+  // 77차 fix: anchor = active 중 MAX createdAt (actions enforcement gate와 동일 helper — 구 [0] anchor는
+  //   W2a mixed-cadence서 오래된 mid가 freshly-refreshed short보다 먼저 enable시키는 불일치였다).
+  //   DB 비어있을 때는 epoch fallback (게이트 자동 비활성).
+  const shortlistGeneratedAtDate =
+    resolveShortlistGeneratedAt(monthShortlist) ?? new Date(0);
   const shortlistGeneratedAt = shortlistGeneratedAtDate.toISOString();
 
   const now = new Date();
@@ -158,12 +140,12 @@ export default async function AdminPortfolioPage() {
 
   // (b) 2인 열람 게이팅 — 대표 상세 리포트 전체가 2인 열람을 만족해야 통과.
   // Mock cleanup Step 1.3 (58차): mock-admin-report-view-log 제거 → real report_view_log SELECT.
-  const tickersForGate = thisMonthItems.map((item) => item.ticker);
+  const tickersForGate = getGateTickers(monthShortlist);
   const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
     month: month.slice(0, 7),
     tickers: tickersForGate,
   });
-  const distinctViewerCount = getMinimumRequiredViewerCount(
+  const distinctViewerCount = computeMinimumViewerCount(
     tickersForGate,
     viewerCountsByTicker,
   );
@@ -190,7 +172,11 @@ export default async function AdminPortfolioPage() {
     if (gateResult.reason === "business_days_bypass") {
       const expiresAt = gateResult.holdExpiresAt;
       const expiresLabel = expiresAt ? formatDateKey(expiresAt) : "—";
-      return `⏳ D+4 영업일 Hold 진행 중 — 만료 ${expiresLabel}`;
+      // 77차 UX: D+4 Hold 중에도 다음 blocker(2인 열람) 현황을 함께 노출 (Hold만 끝나면 바로
+      //   enable될 것처럼 오인하지 않도록 — omxy 권고).
+      const viewerNote =
+        distinctViewerCount < 2 ? ` · 열람 ${distinctViewerCount}/2명` : "";
+      return `⏳ D+4 영업일 Hold 진행 중 — 만료 ${expiresLabel}${viewerNote}`;
     }
     if (gateResult.reason === "viewers_insufficient") {
       const remaining = gateResult.viewersRemaining ?? 0;

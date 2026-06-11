@@ -134,16 +134,11 @@ beforeEach(async () => {
   });
   // W3b-2b: 기본 proposal 미존재(null) → suggestedWeight fallback(USE flag off 시엔 호출도 안 됨).
   mocks.getProposalByMonth.mockResolvedValue(null);
-  // Mock cleanup Step 1.3: 기본 = 게이트 통과 (대표 5종 모두 2인 열람 충족) — 기존 mock seed 동등.
-  // 게이트 차단 케이스는 per-test override.
-  mocks.getDistinctViewerCountsByTicker.mockResolvedValue(
-    new Map([
-      ["005930", 2],
-      ["000660", 2],
-      ["012450", 2],
-      ["196170", 2],
-      ["373220", 2],
-    ]),
+  // 77차 Accept-gate fix: 게이트 대상 = active 전 종목(legacy mock 5종 하드코딩 제거)이므로,
+  //   기본 = 요청된 모든 ticker 2인 열람 충족(게이트 통과). 게이트 차단 케이스는 per-test override.
+  mocks.getDistinctViewerCountsByTicker.mockImplementation(
+    async (opts: { month: string; tickers: string[] }) =>
+      new Map(opts.tickers.map((t) => [t, 2])),
   );
 });
 
@@ -191,20 +186,14 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("shortlist_month_not_found");
   });
 
-  it("blocks accept when any required representative report has fewer than 2 viewers", async () => {
+  it("blocks accept when any active shortlist report has fewer than 2 viewers", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
-    // Mock cleanup Step 1.3 (58차): MOCK_ADMIN_REPORT_VIEW_LOG splice 패턴 폐기 →
-    // getDistinctViewerCountsByTicker mock DI로 viewers_insufficient 시나리오 구성.
-    // 005930·012450·196170·373220은 2인 통과, 000660은 1인 미달 → Math.min=1 → 게이트 차단.
-    mocks.getDistinctViewerCountsByTicker.mockResolvedValueOnce(
-      new Map([
-        ["005930", 2],
-        ["000660", 1],
-        ["012450", 2],
-        ["196170", 2],
-        ["373220", 2],
-      ]),
+    // 77차 Accept-gate fix: 게이트 대상 = active 전 종목. 전부 2인이지만 단 하나(여기선 000660)만
+    //   1인 미달이면 Math.min=1 → viewers_insufficient 차단. (구 legacy mock 5종 representative 폐기.)
+    mocks.getDistinctViewerCountsByTicker.mockImplementationOnce(
+      async (opts: { month: string; tickers: string[] }) =>
+        new Map(opts.tickers.map((t) => [t, t === "000660" ? 1 : 2])),
     );
     const { acceptShortList } = await import("../actions");
 
