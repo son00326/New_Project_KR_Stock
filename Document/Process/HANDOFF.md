@@ -9,11 +9,17 @@ Last updated: 2026-06-10 (docs — **토스 스타일 전체 리디자인(폰트
 ## 🎯 다음 할 일 (출시까지 남은 작업 — 순서대로)
 
 > "HANDOFF.md 보고 이어서 진행" = 아래 1번부터 순서대로. 각 항목 옆 [SoT]가 상세 위치. USER 게이트는 §3, 출시 Runbook 상세는 §2.2.
+>
+> **▶ 지금 당장 (owner별):**
+> - **[USER, 5분]** `/admin/portfolio`에서 **Accept 클릭**(#1) → MVP② 닫힘. 가장 먼저.
+> - **[CLAUDE, 비용 0·병행 가능]** Accept를 기다리는 동안 = **B-SEL-CRON fix(#2)** 또는 **토스 D0 디자인 시스템 정의**(spec-only) 착수.
+> - **[USER 비용 승인 필요]** shortlist 재시드(정확성 3단계, ~₩25k) — 급하지 않음, 별도 트랙.
+> - 트랙은 3개(메인 런북 #1~4 · shortlist 정확성 5단계 · 토스 리디자인 D0~D4)지만 **메인 런북 순서가 출시 critical path**이고 나머지 둘은 거기에 결합되는 병행 트랙.
 
-1. **Accept go-live** — production audit 기준 `portfolio_proposal` 2026-06-01 **1건 영속 완료**(Opus 4.8 1콜 ₩27.80, 11종목+현금 12%, 2026-06-10T05:28Z) / `portfolio_approval` 2026-06-01 **0건** / `portfolio_snapshot` **0건**. 다음은 admin `/admin/portfolio`에서 제안 표시 확인 → **Accept 클릭**(가상 포트 확정). proposal 생성·영속 경로는 동작 확인됨. Accept 관련 path(`PORTFOLIO_USE_PROPOSAL_ENABLED`, `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED`, 0035 cash-row snapshot)는 Accept 클릭으로 검증 필요. 0034/0035 마이그는 applied 상태라 재실행 금지(verify만). MVP ②(포트폴리오) 완성 단계. [SoT: §3]
-2. **B-SEL-CRON fix** (매달 자동화 켜기 전 선행) — selection cron이 due-gate(short=월요일만/midlong=1일만)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` 기본 off라 cron 단독으론 한 period를 finalize 못 함(차주 새 period_key가 기존 period 고아화 = silent spend·산출 0). fix = period-scoped due-gate(미finalize period 계속 due) 또는 SELF_CONTINUE load-bearing 문서화 + stall detector. **`SELECTION_CRON_AUTO_ENABLED=true` enable 전 필수.** [SoT: §3 B-SEL-CRON]
-3. **S7b** 뉴스 자동제외(M12a) + 모닝 브리핑(M11) — Naver(B-8)+Telegram(B-9)+AI 키. shadow/alert-only(`M12A_AUTO_REMOVE_ENABLED` default false)부터. 이메일/Resend 전역 미사용. [SoT: ServicePlan-Admin §3.10 M12a · §2.2 Step 7]
-4. **D11 운용 검증 → S7c → S7d → S9 → 🎉 출시** — §2.2 후속 PR/운영 Runbook 그대로. 출시 = 자동매매 제외("AI 추천+가상 포트+알림" 내부 도구), S8 자동매매는 출시 후.
+1. **[USER 클릭]** **Accept go-live** — production audit 기준 `portfolio_proposal` 2026-06-01 **1건 영속 완료**(Opus 4.8 1콜 ₩27.80, 11종목+현금 12%, 2026-06-10T05:28Z) / `portfolio_approval` 2026-06-01 **0건** / `portfolio_snapshot` **0건**. 다음은 admin `/admin/portfolio`에서 제안 표시 확인 → **Accept 클릭**(가상 포트 확정). proposal 생성·영속 경로는 동작 확인됨. Accept 관련 path(`PORTFOLIO_USE_PROPOSAL_ENABLED`, `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED`, 0035 cash-row snapshot)는 Accept 클릭으로 검증 필요. 0034/0035 마이그는 applied 상태라 재실행 금지(verify만). MVP ②(포트폴리오) 완성 단계. [SoT: §3]
+2. **[CLAUDE]** **B-SEL-CRON fix** (매달 자동화 켜기 전 선행) — selection cron이 due-gate(short=월요일만/midlong=1일만)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` 기본 off라 cron 단독으론 한 period를 finalize 못 함(차주 새 period_key가 기존 period 고아화 = silent spend·산출 0). fix = period-scoped due-gate(미finalize period 계속 due) 또는 SELF_CONTINUE load-bearing 문서화 + stall detector. **`SELECTION_CRON_AUTO_ENABLED=true` enable 전 필수.** [SoT: §3 B-SEL-CRON]
+3. **[USER 키 + CLAUDE]** **S7b** 뉴스 자동제외(M12a) + 모닝 브리핑(M11) — Naver(B-8)+Telegram(B-9)+AI 키. shadow/alert-only(`M12A_AUTO_REMOVE_ENABLED` default false)부터. 이메일/Resend 전역 미사용. [SoT: ServicePlan-Admin §3.10 M12a · §2.2 Step 7]
+4. **[USER 운용 + CLAUDE]** **D11 운용 검증 → S7c → S7d → S9 → 🎉 출시** — §2.2 후속 PR/운영 Runbook 그대로. 출시 = 자동매매 제외("AI 추천+가상 포트+알림" 내부 도구), S8 자동매매는 출시 후.
 
 **[병행/선택 트랙] shortlist 정확성 — "순차적 C" 5단계 (사용자 확정, 1·2 완료 / 3·4·5 다음 세션 순서대로):**
 > 사용자 발견(SK하이닉스 리스트 누락처럼 보임 / 삼성전자 부재) → 14-agent 감사(wq0gi0va0) → "순차적 C"(전부 한 방에 묶지 말고 단계 검증). Accept go-live(위 #1)와 **독립** 트랙.
