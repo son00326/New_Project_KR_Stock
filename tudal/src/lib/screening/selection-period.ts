@@ -23,8 +23,9 @@ export function currentMidlongPeriodKey(now: Date): string {
   const { y, m } = toKstParts(now);
   return `m:${y}-${pad(m)}`;
 }
-export function isShortDue(now: Date): boolean { return toKstParts(now).dow === 1; }   // 월요일
-export function isMidlongDue(now: Date): boolean { return toKstParts(now).d === 1; }    // 매월 1일
+// B-SEL-CRON — 구 isShortDue(월요일)/isMidlongDue(1일) 날짜-단발 due-gate는 제거.
+//   period key가 window 내 모든 날을 같은 period로 매핑하므로, route는 매일 현재 period를
+//   진행(period-scoped due)하고 finalize 후엔 acquire의 finalized_at null-guard가 no-op 보장.
 
 /** period_key → short_list_30.month 용 YYYY-MM (short는 월요일이 속한 달). */
 export function monthYMOfPeriod(periodKey: string): string {

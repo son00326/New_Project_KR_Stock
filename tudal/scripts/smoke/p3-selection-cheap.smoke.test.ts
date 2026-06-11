@@ -14,8 +14,8 @@
 //
 // SCOPE (honest boundary — CF-2/CF-3, blind-audit BW-1): this is a WORKER-level
 // smoke, NOT route/cron coverage. It does NOT exercise the route GET wrapper
-// (CRON_SECRET auth, the route's own SELECTION_CRON_AUTO_ENABLED gate, isMidlongDue
-// due-gate, per-track try/catch, self-continue), and it injects two USER-owned
+// (CRON_SECRET auth, the route's own SELECTION_CRON_AUTO_ENABLED gate, the
+// period-scoped due-gate, per-track try/catch, self-continue), and it injects two USER-owned
 // prod flags (SELECTION_CRON_AUTO_ENABLED, AI_COST_LOG_REAL_INSERT_ENABLED) that
 // the route never sets. It verifies ONLY the R1-path seams; R2/debate, judge/
 // dual-judge (round 3), finalize→persist→short_list_30, and FE AI-badge are
