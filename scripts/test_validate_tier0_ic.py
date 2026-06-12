@@ -453,18 +453,26 @@ class TestSelectionPerformance(unittest.TestCase):
         self.assertEqual(len(set(allp)), 30)       # disjoint
 
     def test_selection_performance_aggregation(self):
-        perf = {"short": {"bpp": [0.10, 0.20], "legacy": [0.0], "market_mean": 0.05},
-                "mid": {"bpp": [], "legacy": [], "market_mean": math.nan},
-                "long": {"bpp": [], "legacy": [], "market_mean": math.nan}}
+        # omxy R6: gross+net, eqw vs sleeve excess, monthly-independent counts.
+        perf = {"short": {"bpp": [0.10, 0.20], "legacy": [0.0], "eqw_mean": 0.05,
+                          "bpp_sleeve_excess": [0.03, 0.03], "bpp_basket": 0.15},
+                "mid": {"bpp": [], "legacy": [], "eqw_mean": math.nan,
+                        "bpp_sleeve_excess": [], "bpp_basket": math.nan},
+                "long": {"bpp": [], "legacy": [], "eqw_mean": math.nan,
+                         "bpp_sleeve_excess": [], "bpp_basket": math.nan}}
         rep = V.aggregate_harvest([_mk_month_result(selection_perf=perf)], smoke=True,
                                   generated_at="t", coverage_meta={}, survivorship_label="clean")
         sp = rep["selection_performance"]["short"]
-        self.assertAlmostEqual(sp["bpp_avg_return"], 0.15)
+        self.assertAlmostEqual(sp["bpp_avg_return_gross"], 0.15)
+        self.assertAlmostEqual(sp["bpp_net_return_after_cost"], 0.15 - V.ROUND_TRIP_COST)
         self.assertAlmostEqual(sp["bpp_hit_rate"], 1.0)
-        self.assertAlmostEqual(sp["bpp_excess_vs_market"], 0.10)   # ((0.10-0.05)+(0.20-0.05))/2
-        self.assertAlmostEqual(sp["legacy_avg_return"], 0.0)
-        self.assertAlmostEqual(sp["market_avg_return"], 0.05)
+        self.assertAlmostEqual(sp["bpp_excess_vs_liquid_eqw"], 0.10)    # ((0.10-0.05)+(0.20-0.05))/2
+        self.assertAlmostEqual(sp["bpp_excess_vs_own_sleeve"], 0.03)    # size-neutral skill
+        self.assertAlmostEqual(sp["legacy_momentum_proxy_avg_return"], 0.0)
+        self.assertAlmostEqual(sp["liquid_eqw_return"], 0.05)
         self.assertEqual(sp["n_bpp_picks"], 2)
+        self.assertEqual(sp["n_independent_months"], 1)   # NOT 2 (pick count ≠ independent obs)
+        self.assertIn("DIAGNOSTIC", rep["selection_performance_note"])
 
 
 def _make_fake_panel(n_days: int, n_tickers: int, *, start=date(2024, 1, 1)):
@@ -533,6 +541,17 @@ class TestSmokeHarvestNoIO(unittest.TestCase):
         self.assertIn("return_status_counts", report["data_quality"])
         # winners exist (drift 차등) → recall 산출 가능
         self.assertGreater(report["gate_a"]["per_month"][0]["n_winners"], 0)
+        # selection_performance wired end-to-end (omxy R6 MED: process_month → aggregate keys present)
+        self.assertIn("selection_performance", report)
+        self.assertIn("DIAGNOSTIC", report["selection_performance_note"])
+        for h in ("short", "mid", "long"):
+            sp = report["selection_performance"][h]
+            for k in ("bpp_avg_return_gross", "bpp_net_return_after_cost", "bpp_excess_vs_liquid_eqw",
+                      "bpp_excess_vs_own_sleeve", "liquid_eqw_return", "n_independent_months",
+                      "legacy_momentum_proxy_avg_return"):
+                self.assertIn(k, sp)
+            # independent obs = months, never the pick count
+            self.assertLessEqual(sp["n_independent_months"], report["harvest"]["months_analyzed"])
 
     def test_aggregate_harvest_leader_total_uses_injected_basket_size(self):
         r = V.MonthResult(
@@ -636,7 +655,7 @@ def _stub_raw(closes, **kw):
 class TestBaseline(unittest.TestCase):
     def test_legacy_score_short_weight(self):
         closes = [100.0] * 60 + [110.0]  # close/MA60 모멘텀 × short weight 0.40 > 0
-        s = V.legacy_manual_weight_score(_stub_raw(closes), "short")
+        s = V.legacy_momentum_proxy_score(_stub_raw(closes), "short")
         self.assertFalse(math.isnan(s))
         self.assertGreater(s, 0.0)
 

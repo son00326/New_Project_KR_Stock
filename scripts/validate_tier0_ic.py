@@ -555,11 +555,13 @@ def gate_c_size_composition(
 # Baselines (§3D — 복잡도 정당화용 비교)
 # ============================================================================
 
-def legacy_manual_weight_score(stock: F.StockRaw, bucket: str) -> float:
-    """current 스코어링 근사 baseline: close/MA60 모멘텀 + MA5/MA60 거래량 + 수기 가중치.
+def legacy_momentum_proxy_score(stock: F.StockRaw, bucket: str) -> float:
+    """⚠️ MOMENTUM-ONLY PROXY — **NOT the 73차 production scorer** (omxy R6 HIGH).
 
-    foreign/earnings/quality는 raw 그대로(정규화 전 비교용 단순 baseline). recall/IC가 B++ 대비
-    얼마나 단순 baseline을 이기는지 보기 위함(§4). 완전 동치는 아님(정규화는 cross-section에서).
+    = close/MA60 모멘텀 × bucket 가중치(양의 상수)뿐. 가중치가 양의 상수라 모든 horizon이 같은 60D
+    모멘텀 순위를 매김(mid/long은 그 tranche 2/3). 실제 production 73차는 5-시그널(모멘텀·거래량·외국인·
+    실적·퀄리티) z정규화 + 수기가중치라 **본 함수와 다름**. 따라서 이 비교로 "B++가 incumbent(73차)를
+    이긴다"고 주장 금지 — 어디까지나 **단순 모멘텀 프록시 대비** control일 뿐.
     """
     closes = stock.closes
     if len(closes) < 61:
@@ -575,7 +577,7 @@ def baseline_equal_rank_score(
 ) -> dict[str, float]:
     """naive baseline (§3D/§4): 유동 universe 내 (멀티호라이즌 trend + earnings) equal-rank.
 
-    legacy_manual_weight_score(close/MA60 momentum-only)보다 강한 control — B++가 size-sleeve·foreign·
+    legacy_momentum_proxy_score(close/MA60 momentum-only)보다 강한 control — B++가 size-sleeve·foreign·
     quality·52주고가 없이도 trend+earnings만으로 얻는 recall/IC를 이기지 못하면 복잡도 미정당화(적대검토 MED).
     sector-relative 아님(naive). IC-weighted/equal-weight 전체 baseline 세트는 step-2 harvest에서 wire.
     """
@@ -932,21 +934,37 @@ def process_month(
 
     # baseline selections (Gate A recall comparison)
     legacy_by_h = _select_by_horizon(
-        lambda ss, b: {s.ticker: legacy_manual_weight_score(s, b) for s in ss}, stocks)
+        lambda ss, b: {s.ticker: legacy_momentum_proxy_score(s, b) for s in ss}, stocks)
     baseline_current = set().union(*[set(v) for v in legacy_by_h.values()]) if legacy_by_h else set()
     baseline_equal = _baseline_select(baseline_equal_rank_score, stocks)
 
-    # selection_performance: horizon별 픽의 **실현 수익률** (B++ vs legacy vs 시장평균). recall/IC와 별개의
-    # 직관 지표 — "고른 종목이 실제로 시장보다 더 올랐나". market_mean = 유동 eligible universe 평균(벤치마크).
+    # selection_performance: horizon별 픽의 **실현 수익률** (B++ vs legacy momentum proxy vs 벤치마크).
+    # recall/IC와 별개의 직관 지표. omxy R6 정합:
+    #  - 벤치마크 = 유동 eligible universe **equal-weight**(liquid_eqw, cap-weight 아님) → size 베타 미통제.
+    #  - **bpp_sleeve_excess** = 픽 수익률 − 같은 size sleeve 평균 → size 틸트 제거한 "선택 스킬" 격리(핵심).
+    #  - bpp_basket = 월별 픽 바스켓 평균 → 독립 관측은 ~월 수(950 픽 아님). net = gross − round-trip cost.
     elig_set = {s.ticker for s in stocks if F.liquidity_floor_pass(F.adv60(s.trdvals))}
     perf: dict[str, dict] = {}
     for h in HARVEST_BUCKETS:
         fwd_h = fwd[h]
         elig_ret = [fwd_h[tk] for tk in elig_set if tk in fwd_h]
+        eqw_mean = (sum(elig_ret) / len(elig_ret)) if elig_ret else math.nan
+        sleeve_ret: dict[str, list[float]] = {"large": [], "mid": [], "small": []}
+        for tk in elig_set:
+            if tk in fwd_h:
+                sleeve_ret.setdefault(tier_of.get(tk, "small"), []).append(fwd_h[tk])
+        sleeve_mean = {s: (sum(v) / len(v) if v else math.nan) for s, v in sleeve_ret.items()}
+        bpp_ret = [fwd_h[tk] for tk in selected_by_h[h] if tk in fwd_h]
+        bpp_sleeve_exc = [
+            fwd_h[tk] - sleeve_mean.get(tier_of.get(tk, "small"), math.nan)
+            for tk in selected_by_h[h]
+            if tk in fwd_h and not _is_nan(sleeve_mean.get(tier_of.get(tk, "small"), math.nan))
+        ]
+        leg_ret = [fwd_h[tk] for tk in legacy_by_h[h] if tk in fwd_h]
         perf[h] = {
-            "bpp": [fwd_h[tk] for tk in selected_by_h[h] if tk in fwd_h],
-            "legacy": [fwd_h[tk] for tk in legacy_by_h[h] if tk in fwd_h],
-            "market_mean": (sum(elig_ret) / len(elig_ret)) if elig_ret else math.nan,
+            "bpp": bpp_ret, "legacy": leg_ret, "eqw_mean": eqw_mean,
+            "bpp_sleeve_excess": bpp_sleeve_exc,
+            "bpp_basket": (sum(bpp_ret) / len(bpp_ret)) if bpp_ret else math.nan,
         }
 
     return MonthResult(
@@ -1099,29 +1117,42 @@ def aggregate_harvest(
     foreign_failed = sum(r.quality_meta.get("foreign_failed", 0) for r in res)
     foreign_total = sum(r.n_universe for r in res)
 
-    # ---- selection_performance: 픽의 실현 수익률 (B++ vs legacy vs 시장) per horizon, pooled ----
+    # ---- selection_performance: 픽 실현 수익률 (B++ vs legacy momentum proxy vs liquid-eqw), pooled ----
+    # omxy R6: 벤치마크 라벨 정직(eqw≠cap-weight) + sleeve-neutral excess(스킬 격리) + net-after-cost +
+    # 독립 관측=월 수(950 픽 아님). "decision-grade alpha 아님 = reduced-feature 진단" 명시.
     selection_performance: dict[str, dict] = {}
     for h in HARVEST_BUCKETS:
-        bpp_all, leg_all, bpp_exc, leg_exc, mkt_means = [], [], [], [], []
+        bpp_all, leg_all, bpp_exc_eqw, leg_exc_eqw, eqw_means = [], [], [], [], []
+        bpp_sleeve_exc, bpp_baskets = [], []
         for r in res:
             p = r.selection_perf.get(h, {})
-            mm = p.get("market_mean", math.nan)
+            mm = p.get("eqw_mean", math.nan)
             if not _is_nan(mm):
-                mkt_means.append(mm)
+                eqw_means.append(mm)
             for x in p.get("bpp", []):
                 bpp_all.append(x)
                 if not _is_nan(mm):
-                    bpp_exc.append(x - mm)
+                    bpp_exc_eqw.append(x - mm)
             for x in p.get("legacy", []):
                 leg_all.append(x)
                 if not _is_nan(mm):
-                    leg_exc.append(x - mm)
+                    leg_exc_eqw.append(x - mm)
+            bpp_sleeve_exc.extend(p.get("bpp_sleeve_excess", []))
+            if not _is_nan(p.get("bpp_basket", math.nan)):
+                bpp_baskets.append(p["bpp_basket"])
+        bpp_avg = _mean(bpp_all)
         selection_performance[h] = {
-            "bpp_avg_return": round(_mean(bpp_all), 4), "bpp_hit_rate": round(_hit_rate(bpp_all), 4),
-            "bpp_excess_vs_market": round(_mean(bpp_exc), 4), "n_bpp_picks": len(bpp_all),
-            "legacy_avg_return": round(_mean(leg_all), 4), "legacy_hit_rate": round(_hit_rate(leg_all), 4),
-            "legacy_excess_vs_market": round(_mean(leg_exc), 4), "n_legacy_picks": len(leg_all),
-            "market_avg_return": round(_mean(mkt_means), 4),
+            "bpp_avg_return_gross": round(bpp_avg, 4),
+            "bpp_net_return_after_cost": round(bpp_avg - ROUND_TRIP_COST, 4) if not _is_nan(bpp_avg) else math.nan,
+            "bpp_hit_rate": round(_hit_rate(bpp_all), 4),
+            "bpp_excess_vs_liquid_eqw": round(_mean(bpp_exc_eqw), 4),
+            "bpp_excess_vs_own_sleeve": round(_mean(bpp_sleeve_exc), 4),  # size-neutral 선택 스킬(핵심)
+            "bpp_basket_monthly_ci90": _ci90(bpp_baskets),
+            "n_bpp_picks": len(bpp_all), "n_independent_months": len(bpp_baskets),
+            "legacy_momentum_proxy_avg_return": round(_mean(leg_all), 4),
+            "legacy_momentum_proxy_hit_rate": round(_hit_rate(leg_all), 4),
+            "legacy_momentum_proxy_excess_vs_liquid_eqw": round(_mean(leg_exc_eqw), 4),
+            "liquid_eqw_return": round(_mean(eqw_means), 4),
         }
 
     return {
@@ -1168,6 +1199,14 @@ def aggregate_harvest(
             **coverage_meta,
         },
         "selection_performance": selection_performance,
+        "selection_performance_note": (
+            "REDUCED-FEATURE (trend+size; foreign off, earnings ~0% in this run) feasibility backtest, "
+            "ONE regime (2024-06~2025-12), GROSS+net shown. Benchmarks = liquid-universe EQUAL-WEIGHT "
+            "(NOT cap-weight) + a LEGACY MOMENTUM PROXY (close/MA60 only, NOT the 73차 production 5-signal "
+            "scorer). bpp_excess_vs_own_sleeve isolates selection skill from the size tilt; "
+            "bpp_excess_vs_liquid_eqw is largely size/regime beta. Independent obs ≈ n_independent_months "
+            "(NOT n_bpp_picks); 6M windows overlap. DIAGNOSTIC SIGNAL, NOT decision-grade alpha."
+        ),
         "survivorship_label": survivorship_label,
         "triple_gate_all_pass": (gate_a_verdict == "PASS" and gate_b_verdict == "PASS" and gate_c.get("verdict") == "PASS"),
     }
