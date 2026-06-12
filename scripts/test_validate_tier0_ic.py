@@ -424,6 +424,49 @@ class TestHarvestDriverPure(unittest.TestCase):
         self.assertTrue(any(not math.isnan(v) for v in out.values()))
 
 
+def _mk_month_result(**kw):
+    base = dict(
+        month="2025-01-01", selection_date="20250102", n_universe=100, n_eligible=50, n_selected=2,
+        selected_all={"A", "B"}, selected_by_horizon={"short": {"A"}, "mid": {"B"}, "long": set()},
+        largemid_selected={"A"}, winners_by_horizon={"short": {"A"}, "mid": set(), "long": set()},
+        winners_all={"A"}, largemid_winners={"A"}, baseline_current_selected={"A"},
+        baseline_equal_selected={"A"}, leader_in_selected=[], composite_ic=0.05,
+        sleeve_ic={"large": 0.05, "mid": 0.05}, spread=0.02, top_tercile_ic=0.05,
+        baseline_equal_ic=0.0, baseline_ic_weighted_ic=0.0, factor_ics={},
+        status_counts={h: {"ok": 1, "gap": 0, "delisted": 0, "insufficient": 0, "absent": 0} for h in V.HARVEST_BUCKETS},
+        quality_meta={"foreign_failed": 0, "earnings_missing": 0, "quality_insufficient": 0},
+        selected_sleeve={"A": "large", "B": "mid"}, selected_score={"A": 90.0, "B": 70.0},
+        selected_mcap={"A": 1e13, "B": 1e12}, forward_insufficient_horizons=[], selection_perf={},
+    )
+    base.update(kw)
+    return V.MonthResult(**base)
+
+
+class TestSelectionPerformance(unittest.TestCase):
+    def test_select_by_horizon_disjoint(self):
+        import tier0_factors as F
+        stocks = [F.StockRaw(ticker=f"T{i}", sector="제조", market_cap=1e12, closes=[100] * 5, trdvals=[5e9] * 5)
+                  for i in range(120)]
+        out = V._select_by_horizon(lambda ss, b: {s.ticker: float(int(s.ticker[1:])) for s in ss}, stocks, pool=10)
+        allp = [t for v in out.values() for t in v]
+        self.assertEqual(len(allp), 30)            # 3 buckets × 10
+        self.assertEqual(len(set(allp)), 30)       # disjoint
+
+    def test_selection_performance_aggregation(self):
+        perf = {"short": {"bpp": [0.10, 0.20], "legacy": [0.0], "market_mean": 0.05},
+                "mid": {"bpp": [], "legacy": [], "market_mean": math.nan},
+                "long": {"bpp": [], "legacy": [], "market_mean": math.nan}}
+        rep = V.aggregate_harvest([_mk_month_result(selection_perf=perf)], smoke=True,
+                                  generated_at="t", coverage_meta={}, survivorship_label="clean")
+        sp = rep["selection_performance"]["short"]
+        self.assertAlmostEqual(sp["bpp_avg_return"], 0.15)
+        self.assertAlmostEqual(sp["bpp_hit_rate"], 1.0)
+        self.assertAlmostEqual(sp["bpp_excess_vs_market"], 0.10)   # ((0.10-0.05)+(0.20-0.05))/2
+        self.assertAlmostEqual(sp["legacy_avg_return"], 0.0)
+        self.assertAlmostEqual(sp["market_avg_return"], 0.05)
+        self.assertEqual(sp["n_bpp_picks"], 2)
+
+
 def _make_fake_panel(n_days: int, n_tickers: int, *, start=date(2024, 1, 1)):
     """결정론 fake 패널 (n_days 거래일 × n_tickers). drift 차등으로 winner 존재, 3 size tier."""
     dates = []
