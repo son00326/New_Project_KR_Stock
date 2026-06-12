@@ -97,7 +97,7 @@
 
 ## 5. 실행 순서 (step 0~1 ✅ 구현 MERGED PR #121 / step 2~6 = gated 다음)
 0. ✅ **survivorship feasibility — RESOLVED**: `scripts/probe_pit_survivorship.py` PASS — KRX `bydd_trd` historical = PIT universe(상폐-at-time 포함). upper-bound 라벨 불요(harvest는 라벨 게이트 코드 유지).
-1. ✅ **cheap deterministic wins 구현 MERGED**: §3B 유동성 플로어 + §3C vol-adj trend·52w-high·결측 tiering + §3A size sleeve = `tier0_factors.score_bpp_universe` + `screen --scoring bpp`. **Gate C smoke**(소형주 독식 소멸 + 대형 주도주 150 진입 + 60/60/30 deterministic PASS/FAIL) = 실 KRX dry-run(비용 0) 본 세션 진행(KRX throttle 내성 hardening 후 재가동).
+1. ✅ **cheap deterministic wins 구현 MERGED + Gate C smoke PASS**: §3B 유동성 플로어 + §3C vol-adj trend·52w-high·결측 tiering + §3A size sleeve = `tier0_factors.score_bpp_universe` + `screen --scoring bpp`. **Gate C smoke ✅ PASS**(실 KRX 2197종목 dry-run·비용 0): 분포 60/60/30 · Small 20% · long-trend NaN 0 · **11-leader tripwire 5/11**(SK하이닉스·삼성전자·두산에너빌리티·에코프로비엠·HD현대일렉트릭 — 기존 73차 1/11 → B++ 5/11, 소형주 독식 소멸 실증). ⚠️ pykrx 외국인 fetch 다수 Length-mismatch 에러→fail-soft penalty(foreign 약화, trend/실적/퀄리티만으로 5/11; step-2 전 foreign 점검). 11-leader=tripwire(합격 아님).
 2. ⏳ **recall+IC 하버스트(gated step-2)**: `validate_tier0_ic.py` 현재 **CLI fail-closed**(exit 2 "NOT A GATE YET"). 활성화 = 실 12-24M PIT run + Gate A(recall, visible-trend split, leader recall) + Gate B(scoped IC, PASS/FAIL/ADJUDICATE) + baseline 3종(current/equal/IC-weighted) wiring + dart_signals announcement-date rcept_dt PIT fix. (Gate A/B 메트릭·패널·forward-return[t+1·gap/delisted]·baseline_equal_rank 순수 로직은 구현+테스트 완료.)
 3. ⏳ **파라미터 sweep**: train calibrate → lock → OOS + 민감도 report. **11종목 맞추려 튜닝 금지**(tripwire-only).
 4. ⏳ **omxy 적대 재검토**(harvest 결과) → CONVERGED.
