@@ -1157,7 +1157,81 @@ def _parse_month_arg(s: str) -> date:
     return datetime.strptime(s, "%Y-%m-%d").date().replace(day=1)
 
 
-def _build_real_providers(start_month: date, end_month: date, cache_dir: Path, universe_limit: Optional[int]):
+class _MemResult:
+    __slots__ = ("data",)
+
+    def __init__(self, data):
+        self.data = data
+
+
+class _MemTable:
+    """In-memory stand-in for a supabase table query chain (cache reads only).
+
+    Feasibility (C7): a 12-18M × ~2000-ticker harvest issues ~hundreds of thousands of
+    dart cache SELECTs if hitting the network. Pre-load dart_financial_cache + dart_corp_codes
+    once and serve fetch_dart_signals' cache_lookup/_lookup_corp_code from memory → instant,
+    zero network. Mirrors only the .select().eq()....limit().execute() chain those helpers use.
+    """
+
+    def __init__(self, name, fin, corp):
+        self._name, self._fin, self._corp, self._f = name, fin, corp, {}
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, col, val):
+        self._f[col] = val
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def execute(self):
+        if self._name == "dart_corp_codes":
+            c = self._corp.get(self._f.get("ticker"))
+            return _MemResult([{"corp_code": c}] if c else [])
+        if self._name == "dart_financial_cache":
+            row = self._fin.get((self._f.get("corp_code"), self._f.get("period_type"), self._f.get("period_key")))
+            return _MemResult([row] if row else [])
+        return _MemResult([])
+
+
+class _MemDartClient:
+    def __init__(self, fin, corp):
+        self._fin, self._corp = fin, corp
+
+    def table(self, name):
+        return _MemTable(name, self._fin, self._corp)
+
+
+def _preload_dart_cache(client) -> tuple[dict, dict]:
+    """Bulk-load dart_financial_cache + dart_corp_codes into memory dicts (paged 1000)."""
+    fin: dict = {}
+    corp: dict = {}
+    start = 0
+    while True:
+        rows = (client.table("dart_corp_codes").select("ticker, corp_code")
+                .range(start, start + 999).execute().data or [])
+        for r in rows:
+            if r.get("ticker") and r.get("corp_code"):
+                corp[r["ticker"]] = r["corp_code"]
+        if len(rows) < 1000:
+            break
+        start += 1000
+    start = 0
+    while True:
+        rows = (client.table("dart_financial_cache").select("*")
+                .range(start, start + 999).execute().data or [])
+        for r in rows:
+            fin[(r.get("corp_code"), r.get("period_type"), r.get("period_key"))] = r
+        if len(rows) < 1000:
+            break
+        start += 1000
+    return fin, corp
+
+
+def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
+                          universe_limit: Optional[int], with_foreign: bool):
     """실 KRX/pykrx/DART provider + 디스크 캐시 panel 구성 (장시간 step-2 전용).
 
     Returns (panel, universe_at, foreign_at, dart_at, coverage_meta).
@@ -1181,7 +1255,15 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path, u
     print(f"[panel] {len(panel)} trading days loaded", file=sys.stderr, flush=True)
 
     dart_key = os.environ.get("DART_API_KEY")
-    dart_client = S.get_supabase_client() if dart_key else None
+    live_client = S.get_supabase_client() if (dart_key or with_foreign) else None
+    mem_fin, mem_corp = ({}, {})
+    if dart_key and live_client is not None:
+        print("[dart] pre-loading dart_financial_cache + dart_corp_codes into memory ...",
+              file=sys.stderr, flush=True)
+        mem_fin, mem_corp = _preload_dart_cache(live_client)
+        print(f"[dart] {len(mem_fin)} cache rows · {len(mem_corp)} corp_codes (cache-only harvest, no HTTP)",
+              file=sys.stderr, flush=True)
+    mem_client = _MemDartClient(mem_fin, mem_corp)
 
     # universe (per month) + sector resolve (정적 induty, 합집합 1회 캐시)
     _uni_cache: dict[str, list[dict]] = {}
@@ -1192,16 +1274,18 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path, u
             return _uni_cache[key]
         sel = S.last_business_day_on_or_before(t - timedelta(days=1))  # 전월말 (선정 = 직전 완료 영업일)
         uni = S.fetch_universe(sel, limit=universe_limit)
-        S.resolve_sectors_for_universe(uni, supabase_client=dart_client)
+        S.resolve_sectors_for_universe(uni, supabase_client=live_client)
         _uni_cache[key] = uni
         return uni
 
-    # foreign: fetch-once per ticker over full window → 디스크 캐시 → 선정월 trailing 60bday slice는
-    # screen.fetch_foreign_signal이 target_date 기준 60bday를 직접 산정하므로 per (ticker, 월) 호출하되
-    # pykrx 1콜/호출 → 캐시로 중복 제거. fail-soft (Length-mismatch 등 → penalty tier).
+    # foreign: default OFF (feasibility) — full-universe × multi-month pykrx is ~tens of thousands of
+    # flaky calls. OFF → fetch_failed penalty tier for all (constant rank → factor neutralized,
+    # documented, §3C). --with-foreign re-enables per-(ticker,month) pykrx with disk-mem cache + fail-soft.
     _foreign_cache: dict[tuple[str, str], tuple[float, bool]] = {}
 
     def foreign_at(tk: str, t: date) -> tuple[float, bool]:
+        if not with_foreign:
+            return (math.nan, True)  # neutralized via penalty tier (no pykrx); recorded as foreign_failed
         key = (tk, t.strftime("%Y-%m"))
         if key in _foreign_cache:
             return _foreign_cache[key]
@@ -1214,13 +1298,16 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path, u
         return val
 
     def dart_at(tk: str, t: date):
-        if dart_client is None or not dart_key:
+        if not dart_key:
             return D.DartSignalsResult()
         sel = S.last_business_day_on_or_before(t - timedelta(days=1))
-        return D.fetch_dart_signals(dart_client, tk, sel, dart_key, as_of_date=sel, cache_only=True)
+        return D.fetch_dart_signals(mem_client, tk, sel, dart_key, as_of_date=sel, cache_only=True)
 
-    # DART 캐시 커버리지 라벨 (sparse quarter 보고)
-    coverage_meta = {"dart_cache_only": True, "foreign_failsoft_penalty": True}
+    coverage_meta = {
+        "dart_cache_only": bool(dart_key), "dart_cache_rows": len(mem_fin),
+        "foreign_enabled": with_foreign,
+        "foreign_note": "disabled→penalty-tier neutralized (feasibility)" if not with_foreign else "pykrx fail-soft",
+    }
     return panel, universe_at, foreign_at, dart_at, coverage_meta
 
 
@@ -1239,6 +1326,9 @@ def main() -> None:
     parser.add_argument("--smoke", action="store_true",
                         help="패널/포워드 로직 smoke (게이트 임계 미적용 — metrics-only, PASS≠실 통과)")
     parser.add_argument("--universe-limit", type=int, default=None, help="universe cap (smoke 전용)")
+    parser.add_argument("--with-foreign", action="store_true",
+                        help="pykrx 외국인 시그널 활성 (기본 OFF — 대규모 multi-month는 비현실적이라 "
+                             "penalty-tier neutralize). 활성 시 per-(ticker,month) fail-soft.")
     args = parser.parse_args()
 
     _load_env()
@@ -1251,7 +1341,7 @@ def main() -> None:
               f"완전한 6M forward를 원하면 end-month ≤ {six_months_ago.replace(day=1)} 권장.", file=sys.stderr)
 
     panel, universe_at, foreign_at, dart_at, coverage_meta = _build_real_providers(
-        args.start_month, args.end_month, Path(args.cache_dir), args.universe_limit)
+        args.start_month, args.end_month, Path(args.cache_dir), args.universe_limit, args.with_foreign)
 
     report = harvest_pit_months(
         args.start_month, args.end_month, panel,
