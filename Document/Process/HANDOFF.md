@@ -90,7 +90,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | 영역 | 상태 |
 |---|---|
 | main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-12 77차 PR #122[B++ step-2 harvest] merge `285339a` 후 자손; 직전 PR #121[B++ 1차]). |
-| OPEN PRs | **없음(0)** 기대. PR #19~#121 전부 머지(상세 git log). |
+| OPEN PRs | **없음(0)** 기대. PR #19~#122 전부 머지(상세 git log). |
 | 검증 게이트 | build OK / lint 0 err 0 warn / **test:ci 1989 PASS + 4 skipped**(77차 Accept-gate +shortlist-gate 12 + breadth/dormant) / tsc clean / DART pytest 18. |
 | **MVP 엔진** | **W0~W3b 전부 ✅ MERGED**(모델/프로바이더 추상화 + 주간/월간 split + incumbent thesis + 반박 토론 loop + judge/dual-judge + entry_price + AI 자율 포트 proposal→Accept→cash row). canonical 5-PR + B65/B66 ✅. 상세 = git log + PR body. |
 | **실 AI 검증** | P1(2026-05 4행 ₩334.71) + 73차 풀 P3 selection(2026-06 2611행 ₩24,655.64) + 74차 P2b live(42행 ₩1,695.83) + **75차 P4 30 리포트 완주(378행 ₩14,962.66 ≈ ₩554/ticker)** + **76차 W3 portfolio proposal 1콜(₩27.80)** + **77차 proposal regen 1콜(₩26.91, 2026-06-11T02:36Z → proposal=10종목/현금15%)**. 2026-06 월 누계 **3033행 ₩41,368.84**(hardcap 50만 내). 다음 실 AI 비용 이벤트 = shortlist 재시드+재선정(~₩25k, USER) 또는 후속 regen; Accept 자체는 AI 호출 없음. |
@@ -183,7 +183,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | 어드민 서비스 기획 본체 (Tier 0/1/2 + 합의 배지 + M12a 뉴스 + Section 8 contract) | `Document/Service/Planning/ServicePlan-Admin.md` (§1A.5 D19·D21·D22 / §3.10 M12a / §4.2.1 Section 8) |
 | writer Section 8 작성 가이드 | `Document/Service/Report/ReportFramework.md §8` |
 | 실데이터+실AI e2e ADR + 11-PR 로드맵 | `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` |
-| **Tier0 스코어링 B++ (1차 구현 ✅ MERGED PR #121 / 실 Gate A·B harvest = step-2 실행 스펙)** | **`docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`** (B++ 설계[size sleeve·모멘텀 재설계·rank ensemble] + recall/IC/size 삼중 게이트 + §5 step 0~1 ✅ / step 2~6 gated) · 구현 = `scripts/tier0_factors.py`·`validate_tier0_ic.py`·`probe_pit_survivorship.py`·`screen --scoring bpp` |
+| **Tier0 스코어링 B++ (step-2 harvest 실행 완료 → triple-gate FAIL → CONVERGED → MERGED PR #122)** | **`docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`** (B++ 설계 + recall/IC/size 삼중 게이트 + §5 step 0~3 ✅ / step 4~5 USER-gated + §6 verdict 박제) · review `docs/superpowers/reviews/2026-06-12-tier0-bpp-step2-harvest-review.md` · 구현 = `scripts/tier0_factors.py`·`validate_tier0_ic.py`(harvest driver)·`dart_signals.py`(PIT)·`probe_pit_survivorship.py`·`screen --scoring bpp` |
 | omxy R-debate 적대 검토 runbook | `docs/superpowers/omxy-rdebate-runbook.md` |
 | Smoke/audit catalog (W-ticket) | `docs/superpowers/audit-catalog.md` |
 | S7 mock→real Phase/DoD (S7a~S7d + T7e.7 RLS QA) | `Document/Build/Slices/S7-RealData.md` |
@@ -199,7 +199,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 ### Tier0 B++ step-2 삼중 게이트 harvest 실행 + Claude↔omxy CONVERGED (77차 후속, PR #122 MERGED, main `285339a`)
 - **산출(코드만·production runtime 변화 0·tudal 0 touch·--apply hard-block 유지)**: `validate_tier0_ic.py` fail-closed main() 활성화 → 월반복 PIT harvest(disk-cached KRX panel + 선정/forward/Gate A·B·C 집계 + 3 baseline + report JSON). `dart_signals.py` PIT 강화(as_of_date + cache_only + availability fail-closed). 207 python tests.
 - **실 19개월 PIT harvest(2024-06~2025-12, 순수 trend+size, 비용 0, `scripts/out/tier0_ic_report.json`)**: **Gate A FAIL**(overall recall 0.108<0.20 · random 1.66<2.5 · per-horizon ~0.04<0.12 · **largemid 0.431** · **leaders 138/209≈7/11/mo**[73차 1/11] · **B++ 0.108 > baseline_equal 0.107 = 복잡도 정당화**) · **Gate B ADJUDICATE**(IC IR 0.260<0.30 · **large-sleeve IC +0.08** · mid −0.007 · **B++ IR 0.26 ≫ baseline −0.05**) · **Gate C PASS**(60/60/30, 19개월 전부). **TRIPLE GATE ALL PASS=False.**
-- **결론(Claude↔omxy 합의)**: B++는 (a) 대형 주도주 retrieval 개선 **실증**(largemid 0.431, leaders 7/11, large-IC +0.08) + (b) naive baseline recall·IC 모두 **상회(복잡도 정당화)** 하나, (c) earnings 99.9%+foreign 부재(순수 trend+size) + 절대 임계(recall 0.20·IC IR 0.30) 미달로 **full 예측 thesis 미검증** → 산출물 = **"robust, factor-informed, leader-inclusive candidate shortlist(diagnostic)"**, **--apply/Tier1/"상승 예측" claim 전부 금지·미실행**.
+- **결론(Claude↔omxy 합의)**: B++는 (a) 대형 주도주 retrieval 개선 **실증**(largemid 0.431, leaders 7/11, large-IC +0.08) + (b) naive baseline recall·IC 모두 **상회(복잡도 정당화)** 하나, (c) earnings 100%(availability fail-closed)+foreign 부재(순수 trend+size) + 절대 임계(recall 0.20·IC IR 0.30) 미달로 **full 예측 thesis 미검증** → 산출물 = **"robust, factor-informed, leader-inclusive candidate shortlist(diagnostic)"**, **--apply/Tier1/"상승 예측" claim 전부 금지·미실행**.
 - **cross-model 루프(§2.0a)**: Claude Phase1(impl + 4-lens workflow review: 3 clean + 1 HIGH PIT-001[holiday/weekday as-of] fix) → **omxy R1**(26m, native code-review lanes + Superpowers; 3 harness fix 직접: availability fail-closed/Gate C per-month/leader basket size + 적대 verdict) → **Claude R2**(omxy quarterly availability gate가 live-screen 누설[cache 무효화]되는 **Finding-1 HIGH** catch+fix[cache_only 스코프]+regression test) → re-run(post-fix 순수 trend+size) → **omxy R2 SIGNAL: CONVERGED**(harness 정확 incl Finding-1, verdict FAIL, decision). 양쪽 CONVERGED.
 - **다음(USER-gated)**: (a) 깨끗한 full-factor verdict = DART rcept_dt 스키마+backfill + foreign backfill → unchanged 게이트 rerun, 또는 (b) B++ diagnostic generator 유지. 둘 다 USER 결정 전까지 추가 작업 없음. **production short_list_30/tier0_candidates_150 2026-06 = 미변경(73차).**
 

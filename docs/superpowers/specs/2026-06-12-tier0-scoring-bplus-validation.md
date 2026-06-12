@@ -95,7 +95,7 @@
 - **DART announcement-date PIT**: 현 코드는 fiscal-quarter 키 → **미래 실적 leakage**. 공시일+grace(30D)로 fix해야 IC/recall 유효.
 - entry = t close 아닌 **t+1 open/close**(스크린은 t 종가 후 실행).
 
-## 5. 실행 순서 (step 0~1 ✅ 구현 MERGED PR #121 / step 2~6 = gated 다음)
+## 5. 실행 순서 (step 0~3 ✅ DONE — harvest 실행+CONVERGED+MERGED PR #122 / step 4~5 = USER-gated)
 0. ✅ **survivorship feasibility — RESOLVED**: `scripts/probe_pit_survivorship.py` PASS — KRX `bydd_trd` historical = PIT universe(상폐-at-time 포함). upper-bound 라벨 불요(harvest는 라벨 게이트 코드 유지).
 1. ✅ **cheap deterministic wins 구현 MERGED + Gate C smoke PASS**: §3B 유동성 플로어 + §3C vol-adj trend·52w-high·결측 tiering + §3A size sleeve = `tier0_factors.score_bpp_universe` + `screen --scoring bpp`. **Gate C smoke ✅ PASS**(실 KRX 2197종목 dry-run·비용 0): 분포 60/60/30 · Small 20% · long-trend NaN 0 · **11-leader tripwire 5/11**(SK하이닉스·삼성전자·두산에너빌리티·에코프로비엠·HD현대일렉트릭 — 기존 73차 1/11 → B++ 5/11, 소형주 독식 소멸 실증). ⚠️ pykrx 외국인 fetch 다수 Length-mismatch 에러→fail-soft penalty(foreign 약화, trend/실적/퀄리티만으로 5/11; step-2 전 foreign 점검). 11-leader=tripwire(합격 아님).
 2. ✅ **recall+IC 하버스트 실행 완료(step-2, 77차 후속 — 본 세션)**: `validate_tier0_ic.py` main() 활성화 → 실 19개월 PIT run(2024-06~2025-12), KRX panel 2023-03~2026-06(PIT, survivorship clean, delisted_fraction 0.0037). Gate A(pooled recall, fixed denominator, leader tripwire-only, largemid) + Gate B(scoped monthly composite IC + Large/Mid sleeve IC + cost-adj spread + top-tercile + baseline IR) + Gate C entry. baseline 3종(current+equal binding / ic_weighted no-lookahead diagnostic) wiring. DART = cache-only + **availability fail-closed**(rcept_dt 부재 → fail-closed, omxy R1; 현 캐시 rcept_dt 無 → DART 100% fail-closed → **순수 trend+size harvest**), foreign OFF(feasibility, penalty-tier neutralized). 코드 = 본 PR(MERGED). 비용 0.
@@ -127,4 +127,4 @@
 - 표본 thin: 12-24M는 독립 대형-상승 episode가 적음 → leader-recall 분산 큼, 단일 월 recall은 noisy(CI/다월 보고).
 - volume_surge: 경제 근거 최약 → Gate B IC 음수면 제거 1순위.
 - **survivorship**: step 0 probe PASS(KRX bydd_trd = PIT universe). 잔여 = harvest 실행 시 probe 아티팩트 재확인 + mid-horizon 상폐/halt forward-return(gap/delisted/insufficient 구분) PIT 라벨 유지.
-- 현 스코어링·B++ 모두 **예측력 검증 0건 상태** — 통과 전 어떤 "예측" claim도 근거 없음.
+- 현 스코어링 = **예측력 검증 0건**. B++ = step-2 trend+size harvest 1회(earnings/foreign 부재) → naive baseline 상회 + 대형 retrieval 개선 실증하나 **full 예측 thesis 미검증(triple-gate FAIL)** — 통과 전 어떤 "예측" claim도 근거 없음.
