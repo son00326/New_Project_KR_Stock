@@ -6,7 +6,7 @@
 > 근본원인 = **구조적 retrieval 실패**(지속추세 시그널 부재 + 소형주 구성편향), B+ 정규화로는 못 고침.
 > **Claude 퀀트 에이전트 + omxy(트레이딩/퀀트 sub-agent + 한국 모멘텀 문헌 웹리서치) 2 독립 토론 → B++ CONVERGED**
 > (main Opus 종합·판정). 사용자 합격 기준 = **recall + rank-IC + size 삼중 엄격 게이트**.
-> 본 문서 = B++ 설계 + 삼중 게이트 실행 스펙. **1차 구현·harness ✅ MERGED(PR #121).** 남은 실행 = 실 Gate A/B harvest(step-2) → 삼중 게이트 통과 시에만 재screen/apply/Tier1(₩25k).
+> 본 문서 = B++ 설계 + 삼중 게이트 실행 스펙 + verdict 박제. **step-2 harvest 실행 완료 → triple-gate FAIL → Claude↔omxy CONVERGED → MERGED(PR #122).** 다음 = USER 결정(깨끗한 full-factor verdict = DART rcept_dt+foreign backfill 후 unchanged 게이트 rerun, 또는 diagnostic generator 유지). --apply/Tier1 보류(§5/§6).
 
 ---
 
