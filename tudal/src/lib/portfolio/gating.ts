@@ -15,6 +15,11 @@ export interface AcceptGateInput {
   distinctViewerCount: number;     // report_view_log COUNT(DISTINCT admin_id)
   calendar: KrBusinessDay[];       // E11 kr_business_days SELECT 결과
   autoReliefActive: boolean;       // T3.8 detectSingleAdminStreak 결과
+  // 77차 D31 — 내부도구 완화 모드: D+4 영업일 Hold + 2인 열람 요건 면제(최소 24h hold만 유지).
+  //   default(미지정) = false = 멤버서비스급 strict (순수함수 후방호환 — 기존 호출/테스트 불변).
+  //   caller(page/actions)가 내부도구 default=relaxed로 주입. Accept=가상 포트 확정(실거래 아님)·3인
+  //   내부도구·본인이 의사결정자라는 product 맥락 반영 (사용자 결정 2026-06-12).
+  relaxGate?: boolean;
 }
 
 export type AcceptGateReason =
@@ -36,7 +41,7 @@ export interface AcceptGateResult {
 // ---------------------------------------------------------------------------
 
 export function computeAcceptGate(input: AcceptGateInput): AcceptGateResult {
-  const { shortlistGeneratedAt, now, distinctViewerCount, calendar, autoReliefActive } = input;
+  const { shortlistGeneratedAt, now, distinctViewerCount, calendar, autoReliefActive, relaxGate = false } = input;
 
   // ── Hold 만료 시각 계산 ──────────────────────────────────────────────────
   // R3.3-7: 24h 만료 시각
@@ -60,6 +65,17 @@ export function computeAcceptGate(input: AcceptGateInput): AcceptGateResult {
       allowed: false,
       reason: 'hold_24h',
       remainingMs,
+      holdExpiresAt,
+    };
+  }
+
+  // ── 내부도구 완화 모드 (77차 D31) ────────────────────────────────────────
+  // 24h sanity hold는 통과했고 relaxGate면 D+4 영업일 Hold + 2인 열람 요건을 면제하고 즉시 통과.
+  // (멤버서비스급 strict 게이트는 caller가 PORTFOLIO_ACCEPT_GATE_STRICT=true로 opt-in.)
+  if (relaxGate) {
+    return {
+      allowed: true,
+      reason: 'ok',
       holdExpiresAt,
     };
   }
