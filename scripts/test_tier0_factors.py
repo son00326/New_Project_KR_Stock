@@ -107,13 +107,13 @@ class TestTrend(unittest.TestCase):
 
 class TestLiquidity(unittest.TestCase):
     def test_adv60_median(self):
-        self.assertEqual(F.adv60([1, 2, 3, 4, 5]), 3)
+        self.assertEqual(F.adv60([1, 2, 3, 4, 5], window=5), 3)
 
     def test_adv60_empty_nan(self):
         self.assertTrue(math.isnan(F.adv60([])))
 
     def test_turnover60(self):
-        self.assertAlmostEqual(F.turnover60([2, 2, 2], market_cap=10.0), 0.2)
+        self.assertAlmostEqual(F.turnover60([2, 2, 2], market_cap=10.0, window=3), 0.2)
 
     def test_turnover60_bad_mcap(self):
         self.assertTrue(math.isnan(F.turnover60([2, 2], market_cap=0)))
@@ -283,6 +283,30 @@ class TestScoreBppUniverse(unittest.TestCase):
         self.assertTrue(scored["HIGH"].eligible)
         self.assertFalse(scored["LOWADV"].eligible)
         self.assertTrue(math.isnan(scored["LOWADV"].score))
+
+    def test_adv60_requires_half_window_coverage(self):
+        self.assertTrue(math.isnan(F.adv60([5e9] * 29)))
+        self.assertEqual(F.adv60([5e9] * 30), 5e9)
+
+    def test_missing_primary_trend_makes_stock_ineligible(self):
+        stocks = [
+            self._raw("FULL1", 5e12, 0.002),
+            self._raw("FULL2", 4e12, 0.0015),
+            F.StockRaw(
+                ticker="SHORT",
+                sector="제조",
+                market_cap=3e12,
+                closes=_series(30, 0.003),
+                trdvals=[5e9] * 60,
+                highs=_series(30, 0.003),
+                foreign_net_60d=1e9,
+                earnings_raw=0.5,
+                quality_composite_raw=0.5,
+            ),
+        ]
+        scored = {s.ticker: s for s in F.score_bpp_universe(stocks, "short")}
+        self.assertFalse(scored["SHORT"].eligible)
+        self.assertTrue(math.isnan(scored["SHORT"].score))
 
     def test_size_sleeve_distribution(self):
         stocks = [self._raw(f"T{k}", float(k) * 1e12, 0.001) for k in range(1, 11)]

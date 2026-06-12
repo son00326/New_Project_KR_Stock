@@ -40,7 +40,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence
 
 _DIR = Path(__file__).parent
 sys.path.insert(0, str(_DIR))
@@ -58,6 +58,7 @@ TOP_DECILE_Q = 0.90  # forward-return 상위 decile threshold.
 
 # KR round-trip 거래비용 [assumption]: 거래세 0.18~0.23% + 슬리피지 ≈ 0.4% (decile spread 차감).
 ROUND_TRIP_COST = 0.004
+DELISTING_RETURN_NO_PRICE = -1.0
 
 # 관측 11-leader basket (tripwire 전용, 합격 기준 아님 §4 — target leakage 금지).
 LEADER_BASKET_2026_06: dict[str, str] = {
@@ -225,7 +226,7 @@ def compute_forward_return(
     p0, used_entry = _first_price_from(panel, dates, ticker, entry_idx, entry_idx + ENTRY_GAP_DAYS)
     if _is_nan(p0):
         return (math.nan, "absent")
-    target_idx = entry_idx + horizon_days
+    target_idx = used_entry + horizon_days
     if target_idx >= len(dates):
         return (math.nan, "insufficient")
     p_tgt = _price_at(panel, dates, ticker, target_idx)
@@ -240,7 +241,7 @@ def compute_forward_return(
         nxt, _ = _first_price_from(panel, dates, ticker, target_idx + 1, len(dates) - 1)
         if not _is_nan(nxt):
             return (nxt / p0 - 1.0, "gap")
-    return (math.nan, "delisted")
+    return (DELISTING_RETURN_NO_PRICE, "delisted")
 
 
 def top_decile_winners(
@@ -374,7 +375,13 @@ def ic_information_ratio(monthly_ics: Sequence[float]) -> float:
         return math.nan
     mean = sum(present) / len(present)
     sd = F.stdev_pop(present)
-    if _is_nan(sd) or sd <= 0:
+    if _is_nan(sd):
+        return math.nan
+    if math.isclose(sd, 0.0, abs_tol=1e-12):
+        if mean > 0:
+            return math.inf
+        if mean < 0:
+            return -math.inf
         return math.nan
     return mean / sd
 
@@ -409,6 +416,10 @@ def decile_spread(
     return (top_mean - bot_mean) - cost
 
 
+GateBVerdict = Literal["PASS", "FAIL", "ADJUDICATE"]
+GateBMetrics = dict[str, float | dict[str, float]]
+
+
 def gate_b_pass(
     monthly_ics: Sequence[float],
     sleeve_ics: dict[str, Sequence[float]],
@@ -416,11 +427,31 @@ def gate_b_pass(
     *,
     baseline_ic_ir: Optional[float] = None,
     require_baseline: bool = True,
-) -> tuple[bool, list[str], dict]:
-    """§4 Gate B. 반환 = (pass, fails, metrics). Large/Mid 슬리브별 IC mean>0 포함.
+    top_tercile_ics: Optional[Sequence[float]] = None,
+) -> tuple[GateBVerdict, list[str], GateBMetrics]:
+    """§4 Gate B. 반환 = (verdict, fails, metrics). Large/Mid 슬리브별 IC mean>0 포함.
 
     require_baseline=True(기본)면 baseline_ic_ir 미제공도 FAIL(§3D anti-overfitting 필수, 적대검토 MED).
     """
+    return _gate_b_verdict(
+        monthly_ics=monthly_ics,
+        sleeve_ics=sleeve_ics,
+        spreads=spreads,
+        baseline_ic_ir=baseline_ic_ir,
+        require_baseline=require_baseline,
+        top_tercile_ics=top_tercile_ics,
+    )
+
+
+def _gate_b_verdict(
+    monthly_ics: Sequence[float],
+    sleeve_ics: dict[str, Sequence[float]],
+    spreads: Sequence[float],
+    *,
+    baseline_ic_ir: Optional[float],
+    require_baseline: bool,
+    top_tercile_ics: Optional[Sequence[float]],
+) -> tuple[GateBVerdict, list[str], GateBMetrics]:
     fails: list[str] = []
     present = [v for v in monthly_ics if not _is_nan(v)]
     ic_mean = sum(present) / len(present) if present else math.nan
@@ -428,6 +459,9 @@ def gate_b_pass(
     pos = positive_ic_fraction(monthly_ics)
     spread_present = [v for v in spreads if not _is_nan(v)]
     spread_mean = sum(spread_present) / len(spread_present) if spread_present else math.nan
+    top_present = [v for v in (top_tercile_ics or []) if not _is_nan(v)]
+    top_mean = sum(top_present) / len(top_present) if top_present else math.nan
+    sleeve_means: dict[str, float] = {}
 
     if _is_nan(ic_mean) or ic_mean <= 0:
         fails.append(f"composite IC mean {ic_mean} ≤ 0")
@@ -440,14 +474,39 @@ def gate_b_pass(
     for sleeve in ("large", "mid"):
         sic = [v for v in sleeve_ics.get(sleeve, []) if not _is_nan(v)]
         sm = sum(sic) / len(sic) if sic else math.nan
+        sleeve_means[sleeve] = sm
         if _is_nan(sm) or sm <= 0:
             fails.append(f"{sleeve} sleeve IC mean {sm} ≤ 0")
     if require_baseline and (baseline_ic_ir is None or _is_nan(baseline_ic_ir)):
         fails.append("baseline IC IR 미제공 — B++ 복잡도 정당화 비교 필수(§3D), gate FAIL")
+        metrics = {
+            "ic_mean": ic_mean, "ic_ir": ir, "positive_months": pos,
+            "decile_spread": spread_mean, "sleeve_ic_means": sleeve_means,
+            "top_tercile_ic_mean": top_mean,
+        }
+        return ("FAIL", fails, metrics)
     elif baseline_ic_ir is not None and not _is_nan(ir) and not _is_nan(baseline_ic_ir) and ir < baseline_ic_ir:
         fails.append(f"B++ IC IR {ir:.3f} < baseline {baseline_ic_ir:.3f}")
-    metrics = {"ic_mean": ic_mean, "ic_ir": ir, "positive_months": pos, "decile_spread": spread_mean}
-    return (len(fails) == 0, fails, metrics)
+        metrics = {
+            "ic_mean": ic_mean, "ic_ir": ir, "positive_months": pos,
+            "decile_spread": spread_mean, "sleeve_ic_means": sleeve_means,
+            "top_tercile_ic_mean": top_mean,
+        }
+        return ("FAIL", fails, metrics)
+    metrics = {
+        "ic_mean": ic_mean, "ic_ir": ir, "positive_months": pos,
+        "decile_spread": spread_mean, "sleeve_ic_means": sleeve_means,
+        "top_tercile_ic_mean": top_mean,
+    }
+    if not fails:
+        return ("PASS", fails, metrics)
+    scoped_positive = not _is_nan(ic_mean) and ic_mean > 0
+    sleeve_positive = any((not _is_nan(v) and v > 0) for v in sleeve_means.values())
+    top_positive = not _is_nan(top_mean) and top_mean > 0
+    spread_positive = not _is_nan(spread_mean) and spread_mean > 0
+    if not (scoped_positive or sleeve_positive or top_positive or spread_positive):
+        return ("FAIL", fails, metrics)
+    return ("ADJUDICATE", fails, metrics)
 
 
 # ============================================================================
@@ -459,8 +518,8 @@ def gate_c_size_composition(
     score_by_ticker: dict[str, float],
     mktcap_by_ticker: dict[str, float],
     *,
-    expected: dict[str, int] = None,
-) -> tuple[bool, list[str], dict]:
+    expected: Optional[dict[str, int]] = None,
+) -> tuple[bool, list[str], dict[str, float | dict[str, int]]]:
     """최종 150 size 분포 결정론 검증 + score-log(mcap) 상관 report (§4 Gate C).
 
     expected = sleeve별 기대 수(default L60/M60/S30). Small ≤ 25%.
@@ -570,13 +629,12 @@ def main() -> None:
     args = parser.parse_args()
 
     _load_env()
-    print("[validate_tier0_ic] 실 PIT 하버스트는 12-24M KRX 패널 + foreign one-shot + DART PIT가 필요한",
-          "장시간 게이트 step입니다(§5 step 2). 본 CLI 골격은 패널/포워드/게이트 로직을 wire하며,",
-          "실 run·임계 적용·--apply/Tier1은 omxy 적대검토 + 삼중 게이트 ALL PASS 후입니다.",
-          file=sys.stderr)
-    # 실 하버스트 본체(월별 universe 구성·스코어링·forward·gate 집계)는 omxy 검토 후 활성.
-    # 본 1차 PR scope = 검증된 순수 메트릭/패널 로직 + CLI 골격. 실행은 step 2.
-    print(json.dumps({"status": "skeleton", "note": "pure metrics tested; real harvest gated (§5 step 2)"}))
+    print(
+        "NOT A GATE YET (step-2): 실 PIT 하버스트/삼중 게이트 집계는 아직 비활성입니다. "
+        "--apply/Tier1 판단에 사용하지 마세요.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 if __name__ == "__main__":

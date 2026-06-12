@@ -6,8 +6,11 @@ SoT: docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md §4
 from __future__ import annotations
 
 import math
+import subprocess
+import sys
 import unittest
 from datetime import date
+from pathlib import Path
 
 import validate_tier0_ic as V
 
@@ -58,6 +61,23 @@ class TestForwardReturn(unittest.TestCase):
         self.assertEqual(status, "ok")
         self.assertAlmostEqual(ret, 0.10)
 
+    def test_gap_entry_anchors_horizon_to_actual_fill(self):
+        # Given: intended t+1/t+2 entry is halted, actual fill is d3.
+        dates = ["d0", "d1", "d2", "d3", "d4", "d5"]
+        panel = {
+            "d0": {"LATE": _row(80)},
+            "d1": {},
+            "d2": {},
+            "d3": {"LATE": _row(100)},
+            "d4": {"LATE": _row(110)},
+            "d5": {"LATE": _row(130)},
+        }
+        # When: measuring a 2-day forward return.
+        ret, status = V.compute_forward_return(panel, dates, "LATE", 0, 2)
+        # Then: target is d5 = used_entry(d3)+2, not original entry_idx(d1)+2=d3.
+        self.assertEqual(status, "ok")
+        self.assertAlmostEqual(ret, 0.30)
+
     def test_entry_offset_param(self):
         # entry_offset=0 → entry=d0(100), target=d0+2=d2(100) → 0.0
         ret, status = V.compute_forward_return(self.panel, self.dates, "OK", 0, 2, entry_offset=0)
@@ -75,6 +95,21 @@ class TestForwardReturn(unittest.TestCase):
         ret, status = V.compute_forward_return(self.panel, self.dates, "DEL", 0, 2)
         self.assertEqual(status, "delisted")
         self.assertAlmostEqual(ret, 0.0)
+
+    def test_immediate_post_entry_delisting_gets_conservative_loss(self):
+        # Given: ticker has an entry price but never trades after entry.
+        dates = ["d0", "d1", "d2", "d3"]
+        panel = {
+            "d0": {"IMD": _row(100)},
+            "d1": {"IMD": _row(90)},
+            "d2": {},
+            "d3": {},
+        }
+        # When: target horizon has no last-available post-entry price.
+        ret, status = V.compute_forward_return(panel, dates, "IMD", 0, 2)
+        # Then: it remains in the return distribution as a conservative delisting loss.
+        self.assertEqual(status, "delisted")
+        self.assertEqual(ret, V.DELISTING_RETURN_NO_PRICE)
 
     def test_insufficient(self):
         ret, status = V.compute_forward_return(self.panel, self.dates, "OK", 2, 5)
@@ -190,6 +225,11 @@ class TestGateB(unittest.TestCase):
     def test_ic_ir(self):
         self.assertAlmostEqual(V.ic_information_ratio([0.1, 0.2, 0.3]), 2.449, places=2)
 
+    def test_ic_ir_zero_variance_uses_signed_infinity(self):
+        self.assertEqual(V.ic_information_ratio([0.1, 0.1, 0.1]), math.inf)
+        self.assertEqual(V.ic_information_ratio([-0.1, -0.1, -0.1]), -math.inf)
+        self.assertTrue(math.isnan(V.ic_information_ratio([0.0, 0.0, 0.0])))
+
     def test_ic_ir_too_few(self):
         self.assertTrue(math.isnan(V.ic_information_ratio([0.1])))
 
@@ -203,40 +243,73 @@ class TestGateB(unittest.TestCase):
         self.assertAlmostEqual(V.decile_spread(scores, fwd), 0.176, places=3)
 
     def test_gate_b_pass(self):
-        ok, fails, metrics = V.gate_b_pass(
+        verdict, fails, metrics = V.gate_b_pass(
             monthly_ics=[0.05, 0.06, 0.04, 0.05],
             sleeve_ics={"large": [0.04, 0.05], "mid": [0.03]},
             spreads=[0.02, 0.03],
             baseline_ic_ir=0.5,  # B++ IR(~7) > baseline → pass
+            top_tercile_ics=[0.05, 0.04],
         )
-        self.assertTrue(ok, fails)
+        self.assertEqual(verdict, "PASS", fails)
         self.assertGreater(metrics["ic_ir"], 0.3)
 
     def test_gate_b_fail_baseline_missing(self):
         # 메트릭은 양호하나 baseline 미제공 → require_baseline FAIL
-        ok, fails, _ = V.gate_b_pass(
+        verdict, fails, _ = V.gate_b_pass(
             monthly_ics=[0.05, 0.06, 0.04, 0.05],
             sleeve_ics={"large": [0.04, 0.05], "mid": [0.03]},
             spreads=[0.02, 0.03],
         )
-        self.assertFalse(ok)
+        self.assertEqual(verdict, "FAIL")
         self.assertTrue(any("baseline IC IR 미제공" in f for f in fails))
 
     def test_gate_b_fail_negative_ic(self):
-        ok, fails, _ = V.gate_b_pass(
+        verdict, fails, _ = V.gate_b_pass(
             monthly_ics=[-0.05, -0.06], sleeve_ics={"large": [-0.01], "mid": [-0.01]},
-            spreads=[-0.02],
+            spreads=[-0.02], baseline_ic_ir=-2.0, top_tercile_ics=[-0.04],
         )
-        self.assertFalse(ok)
+        self.assertEqual(verdict, "FAIL")
 
-    def test_gate_b_fail_sleeve_ic(self):
-        ok, fails, _ = V.gate_b_pass(
+    def test_gate_b_adjudicates_mixed_sleeve_ic(self):
+        verdict, fails, _ = V.gate_b_pass(
             monthly_ics=[0.05, 0.06, 0.05, 0.06],
             sleeve_ics={"large": [-0.02, -0.01], "mid": [0.03]},  # large 음수
             spreads=[0.02, 0.03],
+            baseline_ic_ir=0.5,
         )
-        self.assertFalse(ok)
+        self.assertEqual(verdict, "ADJUDICATE")
         self.assertTrue(any("large sleeve" in f for f in fails))
+
+    def test_gate_b_adjudicates_composite_fail_with_top_tercile_support(self):
+        verdict, fails, metrics = V.gate_b_pass(
+            monthly_ics=[0.01, -0.01, 0.0],
+            sleeve_ics={"large": [0.02], "mid": [0.01]},
+            spreads=[0.02],
+            baseline_ic_ir=-1.0,
+            top_tercile_ics=[0.05, 0.04],
+        )
+        self.assertEqual(verdict, "ADJUDICATE")
+        self.assertGreater(metrics["top_tercile_ic_mean"], 0.0)
+        self.assertTrue(any("composite IC" in f or "positive IC" in f for f in fails))
+
+
+class TestCliFailClosed(unittest.TestCase):
+    def test_validate_cli_is_not_a_gate_yet(self):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(Path(V.__file__)),
+                "--start-month",
+                "2026-01-01",
+                "--end-month",
+                "2026-02-01",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("NOT A GATE YET (step-2)", proc.stdout + proc.stderr)
 
 
 class TestGateC(unittest.TestCase):

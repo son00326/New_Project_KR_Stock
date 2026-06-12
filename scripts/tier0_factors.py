@@ -237,8 +237,10 @@ def recent_return(closes: Sequence[float], window: int = SPIKE_WINDOW_DAYS) -> f
 # ============================================================================
 
 def adv60(trdvals: Sequence[float], window: int = ADV_WINDOW_DAYS) -> float:
-    """ADV60 = 최근 window 거래일 거래대금(won) median. 데이터 부족 → 가용분 median."""
+    """ADV60 = 최근 window 거래일 거래대금(won) median. 절반 미만 coverage → NaN."""
     tail = [v for v in trdvals[-window:] if not _is_nan(v) and v >= 0]
+    if len(tail) < window // 2:
+        return math.nan
     if not tail:
         return math.nan
     return median(tail)
@@ -624,14 +626,6 @@ def score_bpp_universe(
     advs = [adv60(s.trdvals) for s in stocks]
     eligible = [liquidity_floor_pass(a, min_adv_won) for a in advs]
 
-    # size sleeve — eligible 시총으로만 breakpoint 산정(§3A).
-    elig_caps = [stocks[i].market_cap for i in range(n) if eligible[i]]
-    large_cut, mid_cut = size_breakpoints(elig_caps)
-    sleeves = [
-        size_tier(stocks[i].market_cap, large_cut, mid_cut) if eligible[i] else "small"
-        for i in range(n)
-    ]
-
     def elig_mask(values: list[float]) -> list[float]:
         return [values[i] if eligible[i] else math.nan for i in range(n)]
 
@@ -644,6 +638,15 @@ def score_bpp_universe(
         prox_raw = [high_proximity(s.highs if s.highs is not None else s.closes) for s in stocks]
         trend_components.append(_rank_of(elig_mask(prox_raw)))
     trend_rank = _combine_ranks(trend_components)
+    eligible = [eligible[i] and not _is_nan(trend_rank[i]) for i in range(n)]
+
+    # size sleeve — eligible 시총으로만 breakpoint 산정(§3A).
+    elig_caps = [stocks[i].market_cap for i in range(n) if eligible[i]]
+    large_cut, mid_cut = size_breakpoints(elig_caps)
+    sleeves = [
+        size_tier(stocks[i].market_cap, large_cut, mid_cut) if eligible[i] else "small"
+        for i in range(n)
+    ]
 
     # --- foreign (§3C: ADV 정규화 + large/mid sponsorship 병용) ---
     fadv_raw = [signed_log(foreign_adv_normalized(s.foreign_net_60d, advs[i])) for i, s in enumerate(stocks)]

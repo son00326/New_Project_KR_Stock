@@ -1354,8 +1354,6 @@ def run_bpp_candidates(
 
     # Gate C smoke (§4) — 결정론 진입조건.
     gc = gate_c_smoke(selections)
-    print(f"[done] B++ dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · CSV={args.csv_backup}",
-          file=sys.stderr)
     print("\n=== Gate C smoke (§4, 결정론 진입조건 — 백테스트 불요) ===")
     verdict = "✅ PASS" if gc["gate_c_pass"] else f"❌ FAIL ({', '.join(gc['gate_c_fails'])})"
     print(f"  Gate C 판정: {verdict}")
@@ -1364,6 +1362,10 @@ def run_bpp_candidates(
     print(f"  score–log(시총) 상관: {gc['score_logmcap_corr']:.3f} (report 전용, 단독 pass 기준 아님)")
     print(f"  long-trend NaN(데이터 부족) per bucket: {gc['nan_trend']} (0이어야 정상)")
     print(f"  11-leader tripwire 진입(합격기준 아님): {len(gc['leader_hits'])}/11 {gc['leader_hits']}")
+    if not gc["gate_c_pass"]:
+        sys.exit(f"[ABORT] Gate C smoke FAIL (§4): {', '.join(gc['gate_c_fails'])}. CSV={args.csv_backup}")
+    print(f"[done] B++ dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · CSV={args.csv_backup}",
+          file=sys.stderr)
     print("\n--- preview (bucket별 top 3 후보) ---")
     for bucket in BUCKETS:
         picks = [r for r in rows if r.bucket == bucket][:3]
