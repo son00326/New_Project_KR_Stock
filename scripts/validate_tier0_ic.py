@@ -850,6 +850,7 @@ class MonthResult:
     selected_score: dict
     selected_mcap: dict
     forward_insufficient_horizons: list
+    selection_perf: dict = field(default_factory=dict)  # horizon별 픽 실현수익률 (selection_performance)
 
 
 def process_month(
@@ -930,9 +931,23 @@ def process_month(
     factor_ics = {f: (sum(v) / len(v) if v else math.nan) for f, v in factor_ic_acc.items()}
 
     # baseline selections (Gate A recall comparison)
-    baseline_current = _baseline_select(
+    legacy_by_h = _select_by_horizon(
         lambda ss, b: {s.ticker: legacy_manual_weight_score(s, b) for s in ss}, stocks)
+    baseline_current = set().union(*[set(v) for v in legacy_by_h.values()]) if legacy_by_h else set()
     baseline_equal = _baseline_select(baseline_equal_rank_score, stocks)
+
+    # selection_performance: horizon별 픽의 **실현 수익률** (B++ vs legacy vs 시장평균). recall/IC와 별개의
+    # 직관 지표 — "고른 종목이 실제로 시장보다 더 올랐나". market_mean = 유동 eligible universe 평균(벤치마크).
+    elig_set = {s.ticker for s in stocks if F.liquidity_floor_pass(F.adv60(s.trdvals))}
+    perf: dict[str, dict] = {}
+    for h in HARVEST_BUCKETS:
+        fwd_h = fwd[h]
+        elig_ret = [fwd_h[tk] for tk in elig_set if tk in fwd_h]
+        perf[h] = {
+            "bpp": [fwd_h[tk] for tk in selected_by_h[h] if tk in fwd_h],
+            "legacy": [fwd_h[tk] for tk in legacy_by_h[h] if tk in fwd_h],
+            "market_mean": (sum(elig_ret) / len(elig_ret)) if elig_ret else math.nan,
+        }
 
     return MonthResult(
         month=t.isoformat(), selection_date=sel_date, n_universe=len(stocks), n_eligible=n_eligible,
@@ -946,7 +961,7 @@ def process_month(
         baseline_equal_ic=_composite_ic(eq_ic_by_b), baseline_ic_weighted_ic=_composite_ic(icw_ic_by_b),
         factor_ics=factor_ics, status_counts=status, quality_meta=qmeta,
         selected_sleeve=selected_sleeve, selected_score=selected_score, selected_mcap=selected_mcap,
-        forward_insufficient_horizons=insufficient,
+        forward_insufficient_horizons=insufficient, selection_perf=perf,
     )
 
 
@@ -959,6 +974,38 @@ def _ci90(values: Sequence[float]) -> list[float]:
     if len(present) < 2:
         return [math.nan, math.nan]
     return [round(F.quantile(present, 0.05), 4), round(F.quantile(present, 0.95), 4)]
+
+
+def _mean(xs: Sequence[float]) -> float:
+    present = [v for v in xs if not _is_nan(v)]
+    return sum(present) / len(present) if present else math.nan
+
+
+def _hit_rate(xs: Sequence[float]) -> float:
+    present = [v for v in xs if not _is_nan(v)]
+    return (sum(1 for v in present if v > 0) / len(present)) if present else math.nan
+
+
+def _select_by_horizon(score_fn, stocks: Sequence[F.StockRaw], pool: int = 50) -> dict[str, list[str]]:
+    """bucket별 score 상위 pool개, cross-bucket disjoint → {bucket: [ticker]} (select_bpp 정합).
+
+    선정-종목 수익률 비교(selection_performance)에서 B++ 픽과 동일 규칙으로 baseline 픽을 뽑기 위함.
+    """
+    used: set[str] = set()
+    out: dict[str, list[str]] = {}
+    for b in HARVEST_BUCKETS:
+        scores = score_fn(stocks, b)
+        ranked = sorted(((tk, sc) for tk, sc in scores.items() if not _is_nan(sc)), key=lambda x: (-x[1], x[0]))
+        picks: list[str] = []
+        for tk, _sc in ranked:
+            if tk in used:
+                continue
+            picks.append(tk)
+            used.add(tk)
+            if len(picks) >= pool:
+                break
+        out[b] = picks
+    return out
 
 
 def aggregate_harvest(
@@ -1052,6 +1099,31 @@ def aggregate_harvest(
     foreign_failed = sum(r.quality_meta.get("foreign_failed", 0) for r in res)
     foreign_total = sum(r.n_universe for r in res)
 
+    # ---- selection_performance: 픽의 실현 수익률 (B++ vs legacy vs 시장) per horizon, pooled ----
+    selection_performance: dict[str, dict] = {}
+    for h in HARVEST_BUCKETS:
+        bpp_all, leg_all, bpp_exc, leg_exc, mkt_means = [], [], [], [], []
+        for r in res:
+            p = r.selection_perf.get(h, {})
+            mm = p.get("market_mean", math.nan)
+            if not _is_nan(mm):
+                mkt_means.append(mm)
+            for x in p.get("bpp", []):
+                bpp_all.append(x)
+                if not _is_nan(mm):
+                    bpp_exc.append(x - mm)
+            for x in p.get("legacy", []):
+                leg_all.append(x)
+                if not _is_nan(mm):
+                    leg_exc.append(x - mm)
+        selection_performance[h] = {
+            "bpp_avg_return": round(_mean(bpp_all), 4), "bpp_hit_rate": round(_hit_rate(bpp_all), 4),
+            "bpp_excess_vs_market": round(_mean(bpp_exc), 4), "n_bpp_picks": len(bpp_all),
+            "legacy_avg_return": round(_mean(leg_all), 4), "legacy_hit_rate": round(_hit_rate(leg_all), 4),
+            "legacy_excess_vs_market": round(_mean(leg_exc), 4), "n_legacy_picks": len(leg_all),
+            "market_avg_return": round(_mean(mkt_means), 4),
+        }
+
     return {
         "version": "bpp-step2-harvest-1",
         "generated_at": generated_at,
@@ -1095,6 +1167,7 @@ def aggregate_harvest(
                 (sum(r.quality_meta.get("earnings_missing", 0) for r in res) / foreign_total) if foreign_total else 0.0, 4),
             **coverage_meta,
         },
+        "selection_performance": selection_performance,
         "survivorship_label": survivorship_label,
         "triple_gate_all_pass": (gate_a_verdict == "PASS" and gate_b_verdict == "PASS" and gate_c.get("verdict") == "PASS"),
     }
