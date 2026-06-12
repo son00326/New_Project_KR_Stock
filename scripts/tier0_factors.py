@@ -405,7 +405,8 @@ def capped_volume_bonus(
     if trend_rank < 50.0:  # 추세 미확인 → confirmation 아님
         return 0.0
     # volume rank가 높을수록(축적) + trend 확인 → cap까지 선형 bonus.
-    return min(cap, (volume_surge_rank - 50.0) / 50.0 * cap)
+    # volume rank<50(추세는 확인됐으나 거래 미동반)이면 bonus 0 (source clamp — 음수 반환 금지).
+    return max(0.0, min(cap, (volume_surge_rank - 50.0) / 50.0 * cap))
 
 
 # ============================================================================
@@ -589,7 +590,12 @@ def _combine_ranks(rank_lists: list[list[float]]) -> list[float]:
 
 
 def _rank_of(raw: Sequence[float]) -> list[float]:
-    """winsorize → percentile rank (§3C 정규화 파이프라인)."""
+    """winsorize → percentile rank (§3C 정규화 파이프라인).
+
+    NOTE(적대검토 LOW): percentile rank는 단조변환 불변이라 winsorize는 rank를 바꾸지 않는다
+    (극단치 magnitude만 클램프). 본 파이프라인의 실질 fat-tail 방어는 **percentile rank 자체 +
+    (volume/foreign의) signed_log**다. winsorize는 §3C 문구 정합 + raw 값을 그대로 쓰는 다른 통계
+    (decile_spread 등)와의 일관성을 위해 유지하되, rank 단계에선 no-op임을 명시한다."""
     return percentile_rank(winsorize(raw))
 
 

@@ -169,8 +169,10 @@ TOP_K_PER_BUCKET = 10
 CANDIDATE_POOL_PER_BUCKET = 50  # 단/중/장 후보 50씩 (HANDOFF §2.A 박제)
 
 PRICE_WINDOW_DAYS = 90  # 60-day 모멘텀 계산용 여유 buffer (영업일 60일 ≈ 달력 90일)
-# B++ (D30): risk-adj 252D trend + 52주 고가 + 12-1 skip(21) → 영업일 ~252+21 ≈ 달력 ~400일.
-BPP_LOOKBACK_CALENDAR_DAYS = 400
+# B++ (D30): risk-adj 252D trend + 52주 고가 + 12-1 skip(21) → 거래일 252+21+1=274 필요.
+# 달력 450일 ≈ 거래일 ~308(주말/공휴일 제거 후) → halt/late-listing에도 274 충분한 headroom
+# (적대검토 LOW: 400은 ~285로 헤드룸 ~11뿐 → long trend NaN-degrade 위험).
+BPP_LOOKBACK_CALENDAR_DAYS = 450
 VOLUME_MA_SHORT = 5
 VOLUME_MA_LONG = 60
 MOMENTUM_MA_WINDOW = 60
@@ -238,6 +240,7 @@ class StockSignal:
     quality_metrics: dict[str, float] = field(default_factory=dict)
     signal_4_basis: str = "not_applicable"
     quality_insufficient: bool = True
+    foreign_fetch_failed: bool = False  # B++ §3C: pykrx fetch 실패(예외)=penalty / 빈데이터=genuine
     # 0~100 normalized — z-normalize 후
     momentum: float = 0.0
     volume_surge: float = 0.0
@@ -649,10 +652,12 @@ def fetch_price_signals(ticker: str, target_date: date, *, price_series: dict = 
     }
 
 
-def fetch_foreign_signal(ticker: str, target_date: date) -> float:
-    """pykrx 외국인 순매수 합계 (최근 60 영업일).
+def fetch_foreign_signal(ticker: str, target_date: date) -> tuple[float, bool]:
+    """pykrx 외국인 순매수 합계 (최근 60 영업일). Returns (raw_won, fetch_failed).
 
-    Returns raw won 합계. 양수면 매수 우위, 음수면 매도 우위.
+    raw won 합계: 양수=매수 우위, 음수=매도 우위. fetch_failed=True는 **pykrx 예외(데이터 인프라
+    실패)** 한정 — B++ §3C에서 penalty(5) tier로 처리(neutral 50로 보상 금지). 빈 데이터/컬럼 부재는
+    genuine no-flow(False)로 두어 legacy 0.0 contract 유지.
     """
     ensure_pykrx()
     from pykrx import stock
@@ -667,15 +672,15 @@ def fetch_foreign_signal(ticker: str, target_date: date) -> float:
             ticker,
         )
     except Exception:  # noqa: BLE001
-        return 0.0
+        return (0.0, True)  # 인프라 실패 → penalty tier
 
     if df is None or df.empty:
-        return 0.0
+        return (0.0, False)
     if "외국인합계" in df.columns:
-        return float(df["외국인합계"].astype(float).tail(MOMENTUM_MA_WINDOW).sum())
+        return (float(df["외국인합계"].astype(float).tail(MOMENTUM_MA_WINDOW).sum()), False)
     if "외국인" in df.columns:
-        return float(df["외국인"].astype(float).tail(MOMENTUM_MA_WINDOW).sum())
-    return 0.0
+        return (float(df["외국인"].astype(float).tail(MOMENTUM_MA_WINDOW).sum()), False)
+    return (0.0, False)
 
 
 def fetch_dart_signals(ticker: str, target_date: date, dart_api_key: Optional[str], supabase=None):
@@ -850,11 +855,14 @@ def build_stock_raw_list(
         trdvals = entry.get("trdvals", [])
         earnings = math.nan if s.signal_4_basis == "not_applicable" else s.earnings_raw
         quality = math.nan if s.quality_insufficient else qc
-        foreign = s.foreign_net_raw if s.foreign_net_raw != 0.0 else math.nan
+        # foreign: fetch 실패(예외)면 NaN+flag → score_bpp_universe가 penalty(5)로 처리(§3C).
+        # genuine 값(0.0 포함)은 그대로 전달 → foreign_adv_normalized→signed_log로 자연 rank.
+        foreign = math.nan if s.foreign_fetch_failed else s.foreign_net_raw
         out.append(TF.StockRaw(
             ticker=s.ticker, sector=s.sector, market_cap=s.market_cap_won,
             closes=closes, trdvals=trdvals, highs=highs,
-            foreign_net_60d=foreign, earnings_raw=earnings, quality_composite_raw=quality,
+            foreign_net_60d=foreign, foreign_fetch_failed=s.foreign_fetch_failed,
+            earnings_raw=earnings, quality_composite_raw=quality,
         ))
     return out
 
@@ -926,29 +934,57 @@ def build_bpp_candidate_rows(
     return rows
 
 
+def _isnan(x) -> bool:
+    return isinstance(x, float) and math.isnan(x)
+
+
 def gate_c_smoke(selections: dict[str, list["TF.ScoredStock"]]) -> dict:
     """Gate C (§4) 결정론 진입조건: 150 sleeve 분포 60/60/30 + Small ≤25% + score-log(mcap) 상관.
 
     같은 세션 1회 산출로 '소형주 독식 소멸 + 대형 주도주 150 진입' 확인. 백테스트 불요.
-    leader basket(11) 진입 수도 tripwire로 report (합격 기준 아님 §4).
+    deterministic PASS/FAIL을 명시 산출(적대검토 MED: backfill로 분포 drift해도 print만 하던 것 →
+    pass/fail 판정). leader basket(11) 진입 수 + per-bucket NaN-trend 수도 report(합격 기준 아님 §4).
     """
+    expected = {"large": 60, "mid": 60, "small": 30}
     all_scored = [sc for picks in selections.values() for sc in picks]
     dist = {"large": 0, "mid": 0, "small": 0}
     for sc in all_scored:
         dist[sc.sleeve] = dist.get(sc.sleeve, 0) + 1
     total = sum(dist.values())
     small_frac = dist.get("small", 0) / total if total else math.nan
-    scores = [sc.score for sc in all_scored if not (isinstance(sc.score, float) and math.isnan(sc.score))]
-    logmcaps = [math.log(sc.market_cap) for sc in all_scored
-                if sc.market_cap and sc.market_cap > 0 and not (isinstance(sc.score, float) and math.isnan(sc.score))]
-    corr = TF._pearson(scores, logmcaps) if len(scores) == len(logmcaps) and len(scores) >= 2 else math.nan
-    leader_hits = sorted(
-        sc.ticker for sc in all_scored if sc.ticker in _LEADER_BASKET
-    )
+    # 적대검토 LOW: score/log(mcap)를 한 번에 필터(길이 불일치 silent NaN 방지).
+    pairs = [(sc.score, math.log(sc.market_cap)) for sc in all_scored
+             if not _isnan(sc.score) and sc.market_cap and sc.market_cap > 0]
+    corr = TF._pearson([p[0] for p in pairs], [p[1] for p in pairs]) if len(pairs) >= 2 else math.nan
+    leader_hits = sorted(sc.ticker for sc in all_scored if sc.ticker in _LEADER_BASKET)
+    nan_trend = {
+        bucket: sum(1 for sc in picks if _isnan(sc.factor_ranks.get("trend", math.nan)))
+        for bucket, picks in selections.items()
+    }
+    # deterministic Gate C pass/fail.
+    fails: list[str] = []
+    for sl, want in expected.items():
+        if dist.get(sl, 0) != want:
+            fails.append(f"{sl} {dist.get(sl, 0)}≠{want}")
+    if not _isnan(small_frac) and small_frac > 0.25:
+        fails.append(f"Small {small_frac:.1%}>25%")
     return {
         "dist": dist, "total": total, "small_fraction": small_frac,
-        "score_logmcap_corr": corr, "leader_hits": leader_hits,
+        "score_logmcap_corr": corr, "leader_hits": leader_hits, "nan_trend": nan_trend,
+        "gate_c_pass": len(fails) == 0, "gate_c_fails": fails,
     }
+
+
+def correlation_diagnostic(stocks: list[TF.StockRaw], bucket: str) -> dict:
+    """§3C: 재설계 시그널 cross-sectional 상관행렬(eligible universe). trend-momentum >0.8이면
+    단일 factor 통합 권고(이중계산 방지). 매 run 로그용."""
+    scored = TF.score_bpp_universe(stocks, bucket)
+    elig = [sc for sc in scored if sc.eligible]
+    factor_vals = {
+        f: [sc.factor_ranks.get(f, math.nan) for sc in elig]
+        for f in ("trend", "foreign", "earnings", "quality")
+    }
+    return TF.pairwise_correlation(factor_vals)
 
 
 # 관측 11-leader basket (tripwire 전용 — 합격 기준 아님, §4 target leakage 금지).
@@ -1279,7 +1315,13 @@ def run_bpp_candidates(
     rows = build_bpp_candidate_rows(selections, name_by_ticker, args.month)
     validate_candidate_rows(rows)
 
-    # B89 strict block (canonical sector 정합 — bpp 150에도 동일 적용).
+    print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
+    write_candidates_csv(args.csv_backup, rows)
+
+    # B89 sector review (informational only for bpp dry-run smoke).
+    # bpp는 --apply가 이미 hard-block(§5)이므로 B89는 strict-exit 대신 unresolved 목록만 보고한다 —
+    # Gate C smoke(size 분포)는 sector 해소와 무관하므로 B89에 막혀선 안 된다. unresolved selected는
+    # 후속 --apply(삼중 게이트 통과 후) 전에 sector_override.json에 추가해야 한다.
     review_csv_path = args.sector_review_csv or args.csv_backup.replace(".csv", "_sector_review.csv")
     if review_csv_path == args.csv_backup:
         review_csv_path = args.csv_backup + ".sector_review.csv"
@@ -1296,21 +1338,31 @@ def run_bpp_candidates(
         for picks in selections.values() for sc in picks
     ]
     unresolved_count = write_sector_review_csv(selected_universe_view, review_csv_path)
-    print(f"      [B89] sector review CSV → {review_csv_path} (unresolved selected={unresolved_count})",
-          file=sys.stderr, flush=True)
-    enforce_b89_strict_block(unresolved_count, apply=False, review_csv_path=review_csv_path)
+    if unresolved_count > 0:
+        print(f"      [B89 info] unresolved selected={unresolved_count} → review CSV {review_csv_path}. "
+              f"삼중 게이트 통과 후 --apply 전에 sector_override.json 추가 필요(smoke는 계속 진행).",
+              file=sys.stderr, flush=True)
 
-    print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
-    write_candidates_csv(args.csv_backup, rows)
+    # §3C 상관 진단 (매 run 로그) — trend-momentum >0.8 이면 단일 factor 통합 권고.
+    print("\n=== §3C 시그널 상관 진단 (eligible cross-section) ===")
+    for bucket in BUCKETS:
+        corr = correlation_diagnostic(stocks, bucket)
+        hot = {f"{a}~{b}": round(v, 2) for (a, b), v in corr.items()
+               if not math.isnan(v) and abs(v) > 0.8}
+        flat = " ".join(f"{a}~{b}={v:.2f}" for (a, b), v in corr.items() if not math.isnan(v))
+        print(f"  [{bucket}] {flat}" + (f"  ⚠️>0.8: {hot}" if hot else ""))
 
     # Gate C smoke (§4) — 결정론 진입조건.
     gc = gate_c_smoke(selections)
     print(f"[done] B++ dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · CSV={args.csv_backup}",
           file=sys.stderr)
     print("\n=== Gate C smoke (§4, 결정론 진입조건 — 백테스트 불요) ===")
+    verdict = "✅ PASS" if gc["gate_c_pass"] else f"❌ FAIL ({', '.join(gc['gate_c_fails'])})"
+    print(f"  Gate C 판정: {verdict}")
     print(f"  size sleeve 분포 (기대 L60/M60/S30): {gc['dist']} (총 {gc['total']})")
     print(f"  Small 비중: {gc['small_fraction']:.1%} (한도 ≤ 25%)")
     print(f"  score–log(시총) 상관: {gc['score_logmcap_corr']:.3f} (report 전용, 단독 pass 기준 아님)")
+    print(f"  long-trend NaN(데이터 부족) per bucket: {gc['nan_trend']} (0이어야 정상)")
     print(f"  11-leader tripwire 진입(합격기준 아님): {len(gc['leader_hits'])}/11 {gc['leader_hits']}")
     print("\n--- preview (bucket별 top 3 후보) ---")
     for bucket in BUCKETS:
@@ -1414,7 +1466,7 @@ def main() -> None:
             print(f"      [refresh] supabase client recreated at ticker {i}",
                   file=sys.stderr, flush=True)
         price = fetch_price_signals(u["ticker"], target_date, price_series=price_series)
-        foreign = fetch_foreign_signal(u["ticker"], target_date)
+        foreign, foreign_failed = fetch_foreign_signal(u["ticker"], target_date)
         dart = fetch_dart_signals(u["ticker"], target_date, dart_key, dart_supabase)
         signals.append(StockSignal(
             ticker=u["ticker"],
@@ -1425,6 +1477,7 @@ def main() -> None:
             volume_surge_raw=price["volume_surge_raw"],
             volatility_raw=price["volatility_raw"],
             foreign_net_raw=foreign,
+            foreign_fetch_failed=foreign_failed,
             earnings_raw=dart.earnings_raw,
             quality_metrics=dart.quality_raw_metrics,
             signal_4_basis=dart.signal_4_basis,

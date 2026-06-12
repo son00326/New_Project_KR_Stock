@@ -39,34 +39,56 @@ class TestPanelLoad(unittest.TestCase):
 
 
 class TestForwardReturn(unittest.TestCase):
+    """entry = t+1(기본 entry_offset=1, §4 same-bar 편향 차단) + gap(halt 생존) vs delisted(상폐) 구분."""
+
     def setUp(self):
-        self.dates = ["20260101", "20260102", "20260103", "20260104"]
+        self.dates = ["d0", "d1", "d2", "d3", "d4", "d5"]
         self.panel = {
-            "20260101": {"A": _row(100), "B": _row(50), "C": _row(200)},
-            "20260102": {"A": _row(110), "B": _row(55), "C": _row(100)},
-            "20260103": {"A": _row(121), "C": _row(50)},   # B 상폐
-            "20260104": {"A": _row(133), "C": _row(25)},
+            "d0": {"OK": _row(100), "GAP": _row(100), "DEL": _row(100), "SOLO": _row(100)},
+            "d1": {"OK": _row(100), "GAP": _row(100), "DEL": _row(100)},
+            "d2": {"OK": _row(100), "GAP": _row(100), "DEL": _row(100)},
+            "d3": {"OK": _row(100)},                       # GAP/DEL 부재
+            "d4": {"OK": _row(110), "GAP": _row(120)},     # GAP 재거래(halt 해소), DEL 영구 부재
+            "d5": {"OK": _row(110), "GAP": _row(120)},
         }
 
-    def test_ok(self):
-        ret, status = V.compute_forward_return(self.panel, self.dates, "A", 0, 2)
+    def test_ok_t_plus_1_entry(self):
+        # entry=d1(100), target=d1+3=d4(110) → 0.10
+        ret, status = V.compute_forward_return(self.panel, self.dates, "OK", 0, 3)
         self.assertEqual(status, "ok")
-        self.assertAlmostEqual(ret, 0.21)
+        self.assertAlmostEqual(ret, 0.10)
 
-    def test_delisted_uses_last_available(self):
-        ret, status = V.compute_forward_return(self.panel, self.dates, "B", 0, 2)
+    def test_entry_offset_param(self):
+        # entry_offset=0 → entry=d0(100), target=d0+2=d2(100) → 0.0
+        ret, status = V.compute_forward_return(self.panel, self.dates, "OK", 0, 2, entry_offset=0)
+        self.assertEqual(status, "ok")
+        self.assertAlmostEqual(ret, 0.0)
+
+    def test_gap_alive_after_target(self):
+        # entry=d1(100), target=d3(부재), GAP는 d4/d5 재거래 → 'gap', last_before d2=100 → 0.0
+        ret, status = V.compute_forward_return(self.panel, self.dates, "GAP", 0, 2)
+        self.assertEqual(status, "gap")
+        self.assertAlmostEqual(ret, 0.0)
+
+    def test_delisted_no_future_price(self):
+        # entry=d1(100), target=d3(부재), DEL은 이후 전무 → 'delisted', last_before d2=100 → 0.0
+        ret, status = V.compute_forward_return(self.panel, self.dates, "DEL", 0, 2)
         self.assertEqual(status, "delisted")
-        self.assertAlmostEqual(ret, 0.10)  # 55/50-1, last available at d1
+        self.assertAlmostEqual(ret, 0.0)
 
     def test_insufficient(self):
-        ret, status = V.compute_forward_return(self.panel, self.dates, "A", 2, 5)
+        ret, status = V.compute_forward_return(self.panel, self.dates, "OK", 2, 5)
         self.assertEqual(status, "insufficient")
         self.assertTrue(math.isnan(ret))
 
-    def test_absent(self):
-        ret, status = V.compute_forward_return(self.panel, self.dates, "Z", 0, 1)
+    def test_absent_entry(self):
+        # SOLO만 d0 존재 → entry(d1~)에서 가격 없음 → 'absent'
+        ret, status = V.compute_forward_return(self.panel, self.dates, "SOLO", 0, 1)
         self.assertEqual(status, "absent")
         self.assertTrue(math.isnan(ret))
+
+    def test_panel_trading_days(self):
+        self.assertEqual(V.panel_trading_days(self.panel), self.dates)
 
 
 class TestWinnersRecall(unittest.TestCase):
@@ -116,6 +138,17 @@ class TestGateA(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("baseline" in f for f in fails))
 
+    def test_gate_a_fail_baseline_missing(self):
+        # baseline 미제공(NaN) → anti-overfitting 비교 필수 → FAIL
+        rep = V.RecallReport(
+            overall=0.30, random_ratio=3.0,
+            per_horizon={"short": 0.15}, largemid_recall=0.40,
+            largemid_vs_overall=0.85,  # baseline_recall defaults NaN
+        )
+        ok, fails = V.gate_a_pass(rep)
+        self.assertFalse(ok)
+        self.assertTrue(any("baseline recall 미제공" in f for f in fails))
+
     def test_classify_missed_winners(self):
         visible, pred = V.classify_missed_winners(
             {"A", "B", "C"}, {"A": 80.0, "B": 30.0, "C": math.nan}
@@ -141,6 +174,17 @@ class TestGateA(unittest.TestCase):
         self.assertEqual(rep.leader_total, 2)
         self.assertAlmostEqual(rep.baseline_recall, 0.5)
 
+    def test_per_horizon_union_includes_uncovered_winner_horizon(self):
+        # long horizon은 winner가 있으나 selected 키 없음 → union으로 포함 + recall 0
+        rep = V.gate_a_recall(
+            selected_all=set(), selected_by_horizon={"short": set()},
+            winners_all={"W"}, winners_by_horizon={"short": set(), "long": {"W"}},
+            universe_size=100, largemid_selected=set(), largemid_winners=set(),
+            leader_basket={},
+        )
+        self.assertIn("long", rep.per_horizon)
+        self.assertEqual(rep.per_horizon["long"], 0.0)
+
 
 class TestGateB(unittest.TestCase):
     def test_ic_ir(self):
@@ -163,9 +207,20 @@ class TestGateB(unittest.TestCase):
             monthly_ics=[0.05, 0.06, 0.04, 0.05],
             sleeve_ics={"large": [0.04, 0.05], "mid": [0.03]},
             spreads=[0.02, 0.03],
+            baseline_ic_ir=0.5,  # B++ IR(~7) > baseline → pass
         )
         self.assertTrue(ok, fails)
         self.assertGreater(metrics["ic_ir"], 0.3)
+
+    def test_gate_b_fail_baseline_missing(self):
+        # 메트릭은 양호하나 baseline 미제공 → require_baseline FAIL
+        ok, fails, _ = V.gate_b_pass(
+            monthly_ics=[0.05, 0.06, 0.04, 0.05],
+            sleeve_ics={"large": [0.04, 0.05], "mid": [0.03]},
+            spreads=[0.02, 0.03],
+        )
+        self.assertFalse(ok)
+        self.assertTrue(any("baseline IC IR 미제공" in f for f in fails))
 
     def test_gate_b_fail_negative_ic(self):
         ok, fails, _ = V.gate_b_pass(
@@ -213,20 +268,39 @@ class TestGateC(unittest.TestCase):
         self.assertGreater(metrics["small_fraction"], 0.25)
 
 
+def _stub_raw(closes, **kw):
+    import tier0_factors as F
+    return F.StockRaw(ticker=kw.pop("ticker", "X"), sector=kw.pop("sector", "제조"),
+                      market_cap=1e12, closes=closes, trdvals=[5e9] * len(closes), **kw)
+
+
 class TestBaseline(unittest.TestCase):
     def test_legacy_score_short_weight(self):
-        # close/MA60 모멘텀 × short weight 0.40
-        closes = [100.0] * 60 + [110.0]  # last close 110, MA60(of last 60)=...
-        s = V.legacy_manual_weight_score(
-            V.StockRaw_stub(closes) if hasattr(V, "StockRaw_stub") else _stub_raw(closes), "short"
-        )
+        closes = [100.0] * 60 + [110.0]  # close/MA60 모멘텀 × short weight 0.40 > 0
+        s = V.legacy_manual_weight_score(_stub_raw(closes), "short")
         self.assertFalse(math.isnan(s))
         self.assertGreater(s, 0.0)
 
+    def test_equal_rank_baseline_runs_and_floors(self):
+        import tier0_factors as F
+        n = 300
 
-def _stub_raw(closes):
-    import tier0_factors as F
-    return F.StockRaw(ticker="X", sector="제조", market_cap=1e12, closes=closes, trdvals=[5e9] * len(closes))
+        def series(drift, phase):
+            return [100.0 * ((1 + drift) ** t) * (1.0 + 0.01 * math.sin(t * 0.7 + phase)) for t in range(n)]
+        stocks = [
+            F.StockRaw(ticker=f"T{k}", sector="제조", market_cap=1e12,
+                       closes=series(0.001 + 0.0003 * k, k * 0.1),
+                       trdvals=[5e9] * n, earnings_raw=0.05 + 0.01 * k)
+            for k in range(6)
+        ]
+        # 유동성 미달 1종목 추가 → baseline에서 제외돼야 함
+        stocks.append(F.StockRaw(ticker="LOWADV", sector="제조", market_cap=1e12,
+                                 closes=series(0.002, 0.0), trdvals=[1e8] * n, earnings_raw=0.1))
+        scores = V.baseline_equal_rank_score(stocks, "mid")
+        self.assertNotIn("LOWADV", scores)  # 유동성 플로어 적용
+        self.assertEqual(len(scores), 6)
+        for v in scores.values():
+            self.assertFalse(math.isnan(v))
 
 
 if __name__ == "__main__":

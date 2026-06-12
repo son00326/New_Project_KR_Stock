@@ -844,21 +844,29 @@ class BppIntegrationTest(unittest.TestCase):
         sigs = [
             MODULE.StockSignal(ticker="A", name="A", sector="제조", market_cap_won=1e12,
                                foreign_net_raw=1e9, earnings_raw=0.1, signal_4_basis="standalone",
-                               quality_insufficient=False),
+                               quality_insufficient=False, foreign_fetch_failed=False),
             MODULE.StockSignal(ticker="B", name="B", sector="제조", market_cap_won=1e12,
                                foreign_net_raw=0.0, earnings_raw=0.0, signal_4_basis="not_applicable",
-                               quality_insufficient=True),
+                               quality_insufficient=True, foreign_fetch_failed=True),   # fetch 실패
+            MODULE.StockSignal(ticker="C", name="C", sector="제조", market_cap_won=1e12,
+                               foreign_net_raw=0.0, earnings_raw=0.2, signal_4_basis="standalone",
+                               quality_insufficient=False, foreign_fetch_failed=False),  # genuine 0
         ]
         price_series = {
-            "A": {"closes": [100.0] * 5, "highs": [100.0] * 5, "trdvals": [5e9] * 5},
-            "B": {"closes": [100.0] * 5, "highs": [100.0] * 5, "trdvals": [5e9] * 5},
+            t: {"closes": [100.0] * 5, "highs": [100.0] * 5, "trdvals": [5e9] * 5}
+            for t in ("A", "B", "C")
         }
-        raws = MODULE.build_stock_raw_list(sigs, price_series, [80.0, 80.0])
-        # A: 전부 present. B: earnings basis=not_applicable → NaN, quality_insufficient → NaN, foreign 0 → NaN
+        raws = MODULE.build_stock_raw_list(sigs, price_series, [80.0, 80.0, 80.0])
+        # A: 전부 present.
         self.assertEqual(raws[0].earnings_raw, 0.1)
+        # B: earnings basis=not_applicable → NaN, quality_insufficient → NaN, foreign FETCH 실패 → NaN+flag
         self.assertTrue(math.isnan(raws[1].earnings_raw))
         self.assertTrue(math.isnan(raws[1].quality_composite_raw))
         self.assertTrue(math.isnan(raws[1].foreign_net_60d))
+        self.assertTrue(raws[1].foreign_fetch_failed)
+        # C: genuine foreign 0.0 (not failed) → 0.0 그대로 전달(NaN 아님)
+        self.assertEqual(raws[2].foreign_net_60d, 0.0)
+        self.assertFalse(raws[2].foreign_fetch_failed)
 
 
 # Source 파일 string for grep-based tests (FetchUniverseSectorTest 전용)
