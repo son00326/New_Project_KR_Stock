@@ -40,7 +40,7 @@ Last updated: 2026-06-12 (77차 — **Accept go-live ✅ DONE(MVP② 완료, 202
 > - 전 디자인 PR: §2.0a Claude↔omxy 루프 + `/gstack-design-review` QA + `vercel:react-best-practices`. **AI 비용 0(디자인 작업; 제품/운영 AI spend 없음).**
 > - **critical path guard**: Accept go-live(MVP②)가 여전히 #1 critical path — 리디자인이 막지 않는다. 기존 출시 runbook 순서(Accept→B-SEL-CRON→S7b→D11→S7c→S7d→S9→출시)는 변경하지 않고, 디자인은 위 runbook에 결합되는 병행 트랙이다.
 
-**MVP 엔진(W0~W3b)·P1/P2/P3/P2b·P4(30 리포트)·canonical 5-PR·B65/B66 = 전부 ✅.** MVP 산출물: ① 30 리스트 ✅(73차, 정확성 fix 76차) · ③ 30 리포트 ✅(75차) · ② 포트폴리오 = AI 제안 생성/영속 ✅, **Accept 확정만 잔여**. 결정 SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + CLAUDE.md ⭐ 헤더(LOCKED 9 — 변경 금지). 구현 상세 = git log + PR body.
+**MVP 엔진(W0~W3b)·P1/P2/P3/P2b·P4(30 리포트)·canonical 5-PR·B65/B66 = 전부 ✅.** MVP 산출물: ① 30 리스트 ✅(73차, 정확성 fix 76차) · ③ 30 리포트 ✅(75차) · ② 포트폴리오 ✅ **Accept 확정 완료(2026-06-12, MVP② DONE)**. **MVP 3대 산출물 전부 완료.** 결정 SoT = memory `project_mvp_engine_4workstreams_2026_06_04` + CLAUDE.md ⭐ 헤더(LOCKED 9 — 변경 금지). 구현 상세 = git log + PR body.
 
 ---
 
@@ -70,8 +70,8 @@ select month::text, count(*), count(consensus_badge) from short_list_30 group by
   -- 기대 2026-05-01=30/0(Tier0 incumbents 보존) + 2026-06-01=30/30(AI 선정)
 select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06, 73차 선정 — B++ 재screen 전까지 갱신 안 됨)
 select count(*) from portfolio_proposal where month='2026-06-01';  -- 기대 1 (10종목/현금15%, regen 2026-06-11)
-select count(*) from portfolio_approval where month='2026-06-01';  -- 기대 0 (Accept 미완료)
-select count(*) from portfolio_snapshot;  -- 기대 0 (Accept 전)
+select count(*) from portfolio_approval where month='2026-06-01';  -- 기대 1 (accept·is_final=true, 2026-06-12 10:11 KST Accept DONE)
+select count(*) from portfolio_snapshot where month='2026-06-01';  -- 기대 14 (종목 12 + 현금 1 + aggregate 1, 실 entry_price)
 ```
 > 77차 재시드: `dart_financial_cache` quarterly 무효화 후 재populate(annual 보존). `short_list_30`/`tier0_candidates_150` 2026-06은 **여전히 73차 선정**(B++ 재screen→재선정 전까지 옛 데이터 — 77차 dry-run 150도 구 스코어링이라 폐기 대상). Tier1 재선정 시 cost_log 증가 예상(~₩25k).
 P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01 004150 1행(section_0/7, section_8 null).
