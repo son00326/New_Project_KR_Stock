@@ -491,6 +491,61 @@ class TestSmokeHarvestNoIO(unittest.TestCase):
         # winners exist (drift 차등) → recall 산출 가능
         self.assertGreater(report["gate_a"]["per_month"][0]["n_winners"], 0)
 
+    def test_aggregate_harvest_leader_total_uses_injected_basket_size(self):
+        r = V.MonthResult(
+            month="2025-03-01", selection_date="20250228", n_universe=100, n_eligible=80, n_selected=1,
+            selected_all={"A"}, selected_by_horizon={"short": {"A"}, "mid": set(), "long": set()},
+            largemid_selected={"A"}, winners_by_horizon={"short": {"A"}, "mid": set(), "long": set()},
+            winners_all={"A"}, largemid_winners={"A"}, baseline_current_selected=set(),
+            baseline_equal_selected=set(), leader_in_selected=["A"], composite_ic=math.nan,
+            sleeve_ic={"large": math.nan, "mid": math.nan}, spread=math.nan, top_tercile_ic=math.nan,
+            baseline_equal_ic=math.nan, baseline_ic_weighted_ic=math.nan, factor_ics={},
+            status_counts={h: {"ok": 1, "gap": 0, "delisted": 0, "insufficient": 0, "absent": 0}
+                           for h in V.HARVEST_BUCKETS},
+            quality_meta={"foreign_failed": 0, "earnings_missing": 0},
+            selected_sleeve={"A": "large"}, selected_score={"A": 90.0}, selected_mcap={"A": 1e13},
+            forward_insufficient_horizons=[],
+        )
+        report = V.aggregate_harvest(
+            [r], smoke=True, generated_at="2026-06-12T00:00:00", coverage_meta={},
+            survivorship_label="clean", leader_basket_size=2)
+        self.assertEqual(report["gate_a"]["leader_hits_total"], 1)
+        self.assertEqual(report["gate_a"]["leader_total"], 2)
+
+    def test_aggregate_harvest_gate_c_fails_if_any_month_fails_size_dist(self):
+        def month_result(month, selected_sleeve):
+            selected = set(selected_sleeve)
+            return V.MonthResult(
+                month=month, selection_date="20250228", n_universe=300, n_eligible=250,
+                n_selected=len(selected), selected_all=selected,
+                selected_by_horizon={"short": selected, "mid": set(), "long": set()},
+                largemid_selected=selected, winners_by_horizon={"short": set(), "mid": set(), "long": set()},
+                winners_all=set(), largemid_winners=set(), baseline_current_selected=set(),
+                baseline_equal_selected=set(), leader_in_selected=[], composite_ic=math.nan,
+                sleeve_ic={"large": math.nan, "mid": math.nan}, spread=math.nan, top_tercile_ic=math.nan,
+                baseline_equal_ic=math.nan, baseline_ic_weighted_ic=math.nan, factor_ics={},
+                status_counts={h: {"ok": 0, "gap": 0, "delisted": 0, "insufficient": 0, "absent": 0}
+                               for h in V.HARVEST_BUCKETS},
+                quality_meta={"foreign_failed": 0, "earnings_missing": 0},
+                selected_sleeve=selected_sleeve,
+                selected_score={t: 90.0 for t in selected},
+                selected_mcap={t: 1e13 for t in selected},
+                forward_insufficient_horizons=[],
+            )
+
+        passing = {
+            **{f"L{i}": "large" for i in range(60)},
+            **{f"M{i}": "mid" for i in range(60)},
+            **{f"S{i}": "small" for i in range(30)},
+        }
+        failing = {f"X{i}": "large" for i in range(150)}
+        report = V.aggregate_harvest(
+            [month_result("2025-03-01", passing), month_result("2025-04-01", failing)],
+            smoke=True, generated_at="2026-06-12T00:00:00", coverage_meta={},
+            survivorship_label="clean")
+        self.assertEqual(report["gate_c"]["verdict"], "FAIL")
+        self.assertTrue(any("2025-04-01" in f for f in report["gate_c"]["fails"]))
+
     def test_harvest_raises_on_empty_universe(self):
         panel, _ = _make_fake_panel(300, 60)
         with self.assertRaises(RuntimeError):
