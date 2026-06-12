@@ -82,7 +82,8 @@
 
 ### Gate B — Rank-IC (scoped sanity)
 - matched 1/3/6M composite IC mean > 0 · primary 3M IC IR ≥ 0.3(잠정·omxy 재확인) · positive IC months ≥ 60% · top decile − bottom decile spread > 0 (거래세 0.18~0.23%+슬리피지 차감 후) · B++가 baseline IC IR 하회 시 fail. Alphalens식 Spearman IC/forward return 구조.
-- **IC 측정 scope**: **유동 universe 내 + size 슬리브별 + (필요시) top-tercile**(전체 cross-section 강제 = recall 도구에 precision 강요 = category error). **Large/Mid 슬리브 각각 IC mean > 0**(omxy MED2: 이 슬리브별 IC 조건은 백테스트가 필요하므로 Gate C가 아닌 본 Gate B 소속) · **Large/Mid leader recall이 전체 recall보다 20%p 이상 낮으면 fail**(백테스트 기반 size-fairness — Gate B에서 평가).
+- **IC 측정 scope**: **유동 universe 내 + size 슬리브별 + (필요시) top-tercile**(전체 cross-section 강제 = recall 도구에 precision 강요 = category error). **Large/Mid 슬리브 각각 IC mean > 0**(omxy MED2: 이 슬리브별 IC 조건은 백테스트 필요 → Gate C 아닌 본 Gate B 소속).
+- **참고(중복 제거, Claude 자가검토)**: "Large/Mid recall이 전체 대비 충분한가"는 **recall 개념이므로 Gate A ③(≥35% AND overall의 ≥80%)에서 단일 평가** — Gate B에 별도 recall-gap 조건을 두지 않는다(같은 개념 이중 임계 방지).
 - **"recall 통과 / composite-IC 실패" → 자동 reject 금지, 사용자 adjudication**(omxy 수용): scoped/top-tercile IC·분위 스프레드가 **전부** 나쁘면 reject(score=노이즈), **mixed case만** 사용자 adjudication(하단만 평탄·상단은 변별 = recall 도구로 허용 가능).
 
 ### Gate C — Size composition (deterministic 진입조건 — 백테스트 불요)

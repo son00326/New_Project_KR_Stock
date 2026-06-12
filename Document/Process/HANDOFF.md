@@ -14,7 +14,7 @@ Last updated: 2026-06-12 (77차 — **Accept-gate 내부도구 완화 D31 ✅ ME
 > - **[CLAUDE, 1순위]** **Tier0 스코어링 B++ 구현 + 삼중 게이트 검증** (실증으로 B+ 단독 REJECT 확정 — 대형 주도주 10/11 누락). B++ = size sleeve + 유동성 플로어 + 모멘텀 재설계(risk-adj trend+52w-high) + 수기가중치 폐기 + recall/rank-IC/size 삼중 게이트. SoT = `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`(B++ 전문). **삼중 게이트 통과 시에만** Tier0 재screen→apply→Tier1(₩25k, USER 승인). **§5 step 0 = survivorship(상폐 포함 PIT) feasibility 선결.**
 > - ~~**[USER]** `/admin/portfolio` **Accept 클릭** → MVP② 닫힘~~ ✅ **DONE (2026-06-12 10:11 KST)** — `portfolio_approval` 2026-06-01 accept·is_final=true + `portfolio_snapshot` 14행(종목 12 + 현금 7% + aggregate, 실 entry_price). **MVP ② 완료.** (D31 게이트 완화 PR #120 배포로 버튼 활성 → 클릭 영속 확인. 멤버 공개 시 `PORTFOLIO_ACCEPT_GATE_STRICT=true` strict 복원.)
 > - **[CLAUDE, 비용 0·병행]** 토스 D0 디자인 시스템 정의(spec-only) — 여유 시.
-> - 트랙: 메인 런북 #1~4 · **shortlist 정확성(현재 = B+ 스코어링/검증)** · 토스 D0~D4. 메인 런북이 출시 critical path.
+> - 트랙: 메인 런북 #1~4 · **shortlist 정확성(현재 = B++ 구현 + 삼중 게이트 검증)** · 토스 D0~D4. 메인 런북이 출시 critical path.
 
 1. ✅ **Accept go-live — DONE (2026-06-12 10:11 KST, MVP ② 완료).** USER가 `/admin/portfolio`에서 Accept 클릭 → production 영속 확인(MCP 직접 쿼리): `portfolio_approval` 2026-06-01 = **accept·is_final=true** + `portfolio_snapshot` 2026-06 = **14행**(종목 12 + 현금 7% + aggregate, 실 entry_price[SK하이닉스 ₩2,101,000 등 W3a 실 KRX 종가] 채워짐). 확정 포트 = 화면 AI 제안(12종목 93% + 현금 7%)과 정확히 일치. **77차 D31: Accept 게이트 내부도구 완화(PR #120·배포)로 버튼 활성 → 클릭 영속.** 멤버 공개(Deferred-D) 시 `PORTFOLIO_ACCEPT_GATE_STRICT=true` strict 복원 + 마이그 0034/0035 재실행 금지(verify만). **MVP 3대 산출물 ①30리스트·②포트폴리오·③30리포트 전부 완료.** [SoT: §3]
 2. **[CLAUDE]** ~~**B-SEL-CRON fix**~~ ✅ **DONE (PR #118 MERGED)** — period-scoped due-gate + `SELECTION_CRON_SELF_CONTINUE` opt-out 기본 ON(load-bearing) + orphan/stall/track-throw alert + panel cost-month 배선 + finalize stale-guard. workflow 27 findings→11 fix + omxy 3 fix + Claude 최종검토 0-new로 3-pass 수렴. 코드만(production 행동 변화 0 — flag dormant). **남은 건 USER 게이트**(§3 매달 자동화: flag enable + `SELECTION_CRON_SELF_CONTINUE` env 삭제 + 주간 tier0 producer + 비용 승인).
@@ -68,12 +68,12 @@ select count(*) from stock_reports where month='2026-06-01'
 select count(*) from committee_votes;  -- 기대 330 (30 reports × 11)
 select month::text, count(*), count(consensus_badge) from short_list_30 group by month order by month;
   -- 기대 2026-05-01=30/0(Tier0 incumbents 보존) + 2026-06-01=30/30(AI 선정)
-select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06, 73차 선정 — B+ 재screen 전까지 갱신 안 됨)
+select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06, 73차 선정 — B++ 재screen 전까지 갱신 안 됨)
 select count(*) from portfolio_proposal where month='2026-06-01';  -- 기대 1 (10종목/현금15%, regen 2026-06-11)
 select count(*) from portfolio_approval where month='2026-06-01';  -- 기대 0 (Accept 미완료)
 select count(*) from portfolio_snapshot;  -- 기대 0 (Accept 전)
 ```
-> 77차 재시드: `dart_financial_cache` quarterly 무효화 후 재populate(annual 보존). `short_list_30`/`tier0_candidates_150` 2026-06은 **여전히 73차 선정**(B+ 재screen→재선정 전까지 옛 데이터). Tier1 재선정 시 cost_log 증가 예상(~₩25k).
+> 77차 재시드: `dart_financial_cache` quarterly 무효화 후 재populate(annual 보존). `short_list_30`/`tier0_candidates_150` 2026-06은 **여전히 73차 선정**(B++ 재screen→재선정 전까지 옛 데이터 — 77차 dry-run 150도 구 스코어링이라 폐기 대상). Tier1 재선정 시 cost_log 증가 예상(~₩25k).
 P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01 004150 1행(section_0/7, section_8 null).
 
 ### 진입자 자동 행동 (default-progress)
