@@ -1,12 +1,12 @@
 # Tier0 스코어링 B++ (size-sleeve recall-first) + 삼중 게이트 검증 — 다음 세션 실행 스펙
 
-> 작성 2026-06-12 (77차). **상태 = 1차 구현 + 삼중 게이트 harness ✅ MERGED(PR #121, main `8110e8c`, 77차).** §3 설계 + §4 게이트 메트릭/패널 로직 구현 + Claude↔omxy cross-model 적대 검토 수렴(양쪽 CONVERGED), python unittest 225 PASS, survivorship probe(step 0) PASS. **코드만 — `--apply`/Tier1 hard-block, AI 비용 0.** 남은 것 = §5 step 2~6(Gate A/B 실 12-24M PIT harvest = gated: 장시간 run + DART rcept_dt PIT + USER Tier1 ₩25k). 구현 위치: `scripts/tier0_factors.py`(공유 `score_bpp_universe`) + `scripts/validate_tier0_ic.py`(삼중 게이트, CLI fail-closed) + `scripts/probe_pit_survivorship.py` + `screen_shortlist_tier0.py --scoring bpp`.
+> 작성 2026-06-12 (77차). **상태 = 1차 구현 + 삼중 게이트 harness ✅ MERGED(PR #121 code-merge `8110e8c`, 77차).** §3 설계 + §4 게이트 메트릭/패널 로직 구현 + Claude↔omxy cross-model 적대 검토 수렴(양쪽 CONVERGED), python unittest 225 PASS, survivorship probe(step 0) PASS. **코드만 — `--apply`/Tier1 hard-block, AI 비용 0.** 남은 것 = §5 step 2~6(Gate A/B 실 12-24M PIT harvest = gated: 장시간 run + DART rcept_dt PIT + USER Tier1 ₩25k). 구현 위치: `scripts/tier0_factors.py`(공유 `score_bpp_universe`) + `scripts/validate_tier0_ic.py`(삼중 게이트, CLI fail-closed) + `scripts/probe_pit_survivorship.py` + `screen_shortlist_tier0.py --scoring bpp`.
 > **⚠️ B+ → B++ amend (2026-06-12 실증 후속):** 처음 합의한 "B+ 형태수정 + 경량 IC"는 **실증 검증 결과 단독 REJECT**.
 > production 후보 150에 대형 상승 주도주 11개 중 SK하이닉스만 진입(나머지 전부 누락)이 데이터로 확인됨 →
 > 근본원인 = **구조적 retrieval 실패**(지속추세 시그널 부재 + 소형주 구성편향), B+ 정규화로는 못 고침.
 > **Claude 퀀트 에이전트 + omxy(트레이딩/퀀트 sub-agent + 한국 모멘텀 문헌 웹리서치) 2 독립 토론 → B++ CONVERGED**
 > (main Opus 종합·판정). 사용자 합격 기준 = **recall + rank-IC + size 삼중 엄격 게이트**.
-> 본 문서 하나로 다음 세션이 B++ 구현 → 삼중 게이트 검증 → 통과 시에만 재screen/apply/Tier1(₩25k) 실행 가능.
+> 본 문서 = B++ 설계 + 삼중 게이트 실행 스펙. **1차 구현·harness ✅ MERGED(PR #121).** 남은 실행 = 실 Gate A/B harvest(step-2) → 삼중 게이트 통과 시에만 재screen/apply/Tier1(₩25k).
 
 ---
 
@@ -37,7 +37,7 @@
 6. **[HIGH] 수기 가중치 미검증**: 0.40/0.30/… IC/백테스트 0(→ §3D rank ensemble + baseline 비교).
 7. **[MED] 시그널 상호상관 무시**: momentum-volume 강상관 → 단기 bucket 사실상 모멘텀 집중(→ §3C 상관 진단 + volume 종속화).
 
-## 3. B++ 설계 (구현 — 다음 세션) — `scripts/screen_shortlist_tier0.py` + `dart_signals.py`
+## 3. B++ 설계 (✅ 구현 완료 MERGED PR #121 — `tier0_factors.py`/`screen_shortlist_tier0.py`/`dart_signals.py`)
 
 ### 3A. 후보 150 구성 = size sleeve (recall-first 퍼널)
 - 월별 eligible universe를 시총 tier 분할: **Large(시총 상위 20%) · Mid(다음 40%) · Small-liquid(하위 40%, 단 §3B 유동성 플로어 충족)**.
@@ -105,7 +105,7 @@
 6. ⏳ Claude 적대 재검토 + production 검증 + docs-sync.
 
 ## 6. 현 상태 (다음 세션 진입점)
-- ✅ **1차 구현 MERGED(PR #121, main `8110e8c`)** — Claude↔omxy cross-model 수렴(omxy R1·R2 + Claude 적대 R1·R2, 양쪽 CONVERGED), python unittest 225 PASS, mutation testing(각 fix revert→해당 test FAIL).
+- ✅ **1차 구현 MERGED(PR #121 code-merge `8110e8c`)** — Claude↔omxy cross-model 수렴(omxy R1·R2 + Claude 적대 R1·R2, 양쪽 CONVERGED), python unittest 225 PASS, mutation testing(각 fix revert→해당 test FAIL).
 - ✅ survivorship probe PASS · sector override 16(`2a66a95`) · DART quarterly 캐시 무효화+재populate.
 - ⚠️ **production `tier0_candidates_150`/`short_list_30` 2026-06은 여전히 73차 구 스코어링** — B++ `--apply`는 삼중 게이트 통과 후만(step 5). 77차 B+ dry-run CSV는 폐기.
 - ⏸ **--apply/Tier1 보류** — B++ 삼중 게이트 ALL PASS 후만.
@@ -121,5 +121,5 @@
 - **target leakage 금지**: 특정 종목(삼성전자) 진입을 합격 기준화·튜닝 타깃화 금지 — 합격은 aggregate PIT/OOS recall.
 - 표본 thin: 12-24M는 독립 대형-상승 episode가 적음 → leader-recall 분산 큼, 단일 월 recall은 noisy(CI/다월 보고).
 - volume_surge: 경제 근거 최약 → Gate B IC 음수면 제거 1순위.
-- **survivorship 미해결 = 전체 검증 타당성 최대 위협**(§5 step 0).
+- **survivorship**: step 0 probe PASS(KRX bydd_trd = PIT universe). 잔여 = harvest 실행 시 probe 아티팩트 재확인 + mid-horizon 상폐/halt forward-return(gap/delisted/insufficient 구분) PIT 라벨 유지.
 - 현 스코어링·B++ 모두 **예측력 검증 0건 상태** — 통과 전 어떤 "예측" claim도 근거 없음.
