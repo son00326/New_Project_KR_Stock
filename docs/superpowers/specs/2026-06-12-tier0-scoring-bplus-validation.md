@@ -1,6 +1,6 @@
 # Tier0 스코어링 B++ (size-sleeve recall-first) + 삼중 게이트 검증 — 다음 세션 실행 스펙
 
-> 작성 2026-06-12 (77차). **상태 = 다음 세션 실행 대기 (코드 미구현).**
+> 작성 2026-06-12 (77차). **상태 = 1차 구현 + 삼중 게이트 harness ✅ MERGED(PR #121, main `8110e8c`, 77차).** §3 설계 + §4 게이트 메트릭/패널 로직 구현 + Claude↔omxy cross-model 적대 검토 수렴(양쪽 CONVERGED), python unittest 225 PASS, survivorship probe(step 0) PASS. **코드만 — `--apply`/Tier1 hard-block, AI 비용 0.** 남은 것 = §5 step 2~6(Gate A/B 실 12-24M PIT harvest = gated: 장시간 run + DART rcept_dt PIT + USER Tier1 ₩25k). 구현 위치: `scripts/tier0_factors.py`(공유 `score_bpp_universe`) + `scripts/validate_tier0_ic.py`(삼중 게이트, CLI fail-closed) + `scripts/probe_pit_survivorship.py` + `screen_shortlist_tier0.py --scoring bpp`.
 > **⚠️ B+ → B++ amend (2026-06-12 실증 후속):** 처음 합의한 "B+ 형태수정 + 경량 IC"는 **실증 검증 결과 단독 REJECT**.
 > production 후보 150에 대형 상승 주도주 11개 중 SK하이닉스만 진입(나머지 전부 누락)이 데이터로 확인됨 →
 > 근본원인 = **구조적 retrieval 실패**(지속추세 시그널 부재 + 소형주 구성편향), B+ 정규화로는 못 고침.
@@ -95,21 +95,21 @@
 - **DART announcement-date PIT**: 현 코드는 fiscal-quarter 키 → **미래 실적 leakage**. 공시일+grace(30D)로 fix해야 IC/recall 유효.
 - entry = t close 아닌 **t+1 open/close**(스크린은 t 종가 후 실행).
 
-## 5. 다음 세션 실행 순서
-0. **survivorship feasibility 선결**(블로킹): PIT+상폐 universe 확보 가능한가? 불가 시 upper-bound 라벨 결정.
-1. **cheap deterministic wins + 재screen**(백테스트 불요): §3B 유동성 플로어 + §3C vol-adj momentum·trend·52w-high + §3A size sleeve 구현 → **Gate C smoke**(소형주 독식 소멸 + 대형 주도주 150 진입 확인). 같은 세션에 대부분 판가름.
-2. **recall+IC 하버스트**(`validate_tier0_ic.py`): Gate A(recall, visible-trend split, leader recall) + Gate B(scoped IC) PIT 12-24M + baseline(current/equal/IC-weighted) 비교. + dart_signals announcement-date PIT fix.
-3. **파라미터 sweep**(쿼터·플로어·lookback·IC임계): train window calibrate → lock → OOS 확인 + 민감도 report. **11종목 맞추려 튜닝 금지**.
-4. **omxy 적대 재검토**(B++ 구현 + 삼중 게이트 결과) → CONVERGED.
-5. **삼중 게이트 ALL PASS 시에만**: `--apply`(tier0_candidates_150 갱신, USER 비용 0) → **Tier1 재선정**(P3_FULL_RUN_CONFIRM, 실 AI ~₩25k, USER 승인 받음) → production short_list_30 갱신. **미통과 = --apply/Tier1 비용 금지** + 사용자 보고(150→210/240 확장은 별도 승인).
-6. Claude 적대 재검토 + production 검증(short_list_30 + 대형주 진입 + 삼중 게이트 통과 박제) + docs-sync.
+## 5. 실행 순서 (step 0~1 ✅ 구현 MERGED PR #121 / step 2~6 = gated 다음)
+0. ✅ **survivorship feasibility — RESOLVED**: `scripts/probe_pit_survivorship.py` PASS — KRX `bydd_trd` historical = PIT universe(상폐-at-time 포함). upper-bound 라벨 불요(harvest는 라벨 게이트 코드 유지).
+1. ✅ **cheap deterministic wins 구현 MERGED**: §3B 유동성 플로어 + §3C vol-adj trend·52w-high·결측 tiering + §3A size sleeve = `tier0_factors.score_bpp_universe` + `screen --scoring bpp`. **Gate C smoke**(소형주 독식 소멸 + 대형 주도주 150 진입 + 60/60/30 deterministic PASS/FAIL) = 실 KRX dry-run(비용 0) 본 세션 진행(KRX throttle 내성 hardening 후 재가동).
+2. ⏳ **recall+IC 하버스트(gated step-2)**: `validate_tier0_ic.py` 현재 **CLI fail-closed**(exit 2 "NOT A GATE YET"). 활성화 = 실 12-24M PIT run + Gate A(recall, visible-trend split, leader recall) + Gate B(scoped IC, PASS/FAIL/ADJUDICATE) + baseline 3종(current/equal/IC-weighted) wiring + dart_signals announcement-date rcept_dt PIT fix. (Gate A/B 메트릭·패널·forward-return[t+1·gap/delisted]·baseline_equal_rank 순수 로직은 구현+테스트 완료.)
+3. ⏳ **파라미터 sweep**: train calibrate → lock → OOS + 민감도 report. **11종목 맞추려 튜닝 금지**(tripwire-only).
+4. ⏳ **omxy 적대 재검토**(harvest 결과) → CONVERGED.
+5. ⏳ **삼중 게이트 ALL PASS 시에만**: `--scoring bpp --apply`(tier0_candidates_150 갱신, 비용 0) → **Tier1 재선정**(P3_FULL_RUN_CONFIRM, 실 AI ~₩25k, USER 비용 승인) → production short_list_30. **미통과 = --apply/Tier1 금지** + 사용자 보고.
+6. ⏳ Claude 적대 재검토 + production 검증 + docs-sync.
 
-## 6. 77차 재시드 현 상태 (다음 세션 진입점)
-- ✅ DART quarterly 캐시 무효화 + fixed 파서 재populate(annual 4,700 보존).
-- ✅ sector override 16(`scripts/sector_override.json`, commit `2a66a95`) — b89 통과.
-- ⚠️ **77차 B+ dry-run 150(`scripts/out/tier0_candidates_150_2026-06_reseed.csv`)은 B++로 supersede** — 구 스코어링 기반이라 폐기 대상(대형주 누락 그대로). production 150도 73차 구 스코어링.
-- ⏸ **--apply/Tier1 보류** — B++ 삼중 게이트 통과 후만.
-- 환경: `scripts/.venv`(pykrx/supabase/requests), .env.local(ANTHROPIC/OPENAI/KRX_OPENAPI/DART/KRX_ID/KRX_PW SET, `SUPABASE_URL`=`NEXT_PUBLIC_SUPABASE_URL` 매핑), Tier0 run ~15-50min.
+## 6. 현 상태 (다음 세션 진입점)
+- ✅ **1차 구현 MERGED(PR #121, main `8110e8c`)** — Claude↔omxy cross-model 수렴(omxy R1·R2 + Claude 적대 R1·R2, 양쪽 CONVERGED), python unittest 225 PASS, mutation testing(각 fix revert→해당 test FAIL).
+- ✅ survivorship probe PASS · sector override 16(`2a66a95`) · DART quarterly 캐시 무효화+재populate.
+- ⚠️ **production `tier0_candidates_150`/`short_list_30` 2026-06은 여전히 73차 구 스코어링** — B++ `--apply`는 삼중 게이트 통과 후만(step 5). 77차 B+ dry-run CSV는 폐기.
+- ⏸ **--apply/Tier1 보류** — B++ 삼중 게이트 ALL PASS 후만.
+- 환경: `scripts/.venv`(pykrx/supabase/requests), .env.local(ANTHROPIC/OPENAI/KRX_OPENAPI/DART/KRX_ID/KRX_PW SET, `SUPABASE_URL`=`NEXT_PUBLIC_SUPABASE_URL` 매핑). B++ run lookback 450d → KRX prefetch ~620콜(throttle 내성 retry+pacing), Tier0 run ~30-50min.
 
 ## 7. 토론 산출물 (근거 보존)
 - **1차(B+)**: quant-research 스킬 + Claude 퀀트 + omxy → "B+ + 경량 IC" CONVERGED.
