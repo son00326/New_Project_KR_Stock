@@ -291,6 +291,9 @@ class TestPitAsOfAndCacheOnly(unittest.TestCase):
             self.assertFalse(_not_yet_disclosed_is_fresh(row))
 
     def _client_empty_cache(self):
+        return self._client_with_cache([])
+
+    def _client_with_cache(self, rows):
         client = MagicMock()
         table = MagicMock()
         client.table.return_value = table
@@ -300,7 +303,7 @@ class TestPitAsOfAndCacheOnly(unittest.TestCase):
         eq1.eq.return_value = eq2
         eq2.eq.return_value = eq3
         eq3.limit.return_value = limit
-        limit.execute.return_value = MagicMock(data=[])
+        limit.execute.return_value = MagicMock(data=rows)
         table.upsert.return_value = table
         table.execute.return_value = MagicMock(data=[{}])
         return client, table
@@ -331,6 +334,87 @@ class TestPitAsOfAndCacheOnly(unittest.TestCase):
         table.upsert.assert_not_called()
         self.assertEqual(r_pending["status"], "not_yet_disclosed")
         self.assertEqual(r_nodata["status"], "no_data")
+
+    def test_cache_only_ok_row_after_as_of_is_hidden(self):
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+
+        cached = {
+            **_financial_row(),
+            "corp_code": "X",
+            "period_type": "quarterly",
+            "period_key": "2024-Q1",
+            "statement_scope": "CFS",
+            "status": "ok",
+            "calculation_basis": "standalone",
+            "rcept_dt": "20240620",
+        }
+        client, table = self._client_with_cache([cached])
+        with patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            hidden = cache_get_or_fetch_quarterly(
+                client, "X", 2024, "Q1", "KEY", as_of_date=date(2024, 6, 15), cache_only=True)
+        mock_fetch.assert_not_called()
+        table.upsert.assert_not_called()
+        self.assertEqual(hidden["status"], "no_data")
+        self.assertEqual(hidden["error_code"], "cache_only_miss")
+
+    def test_cache_only_ok_row_before_as_of_is_used(self):
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+
+        cached = {
+            **_financial_row(),
+            "corp_code": "X",
+            "period_type": "quarterly",
+            "period_key": "2024-Q1",
+            "statement_scope": "CFS",
+            "status": "ok",
+            "calculation_basis": "standalone",
+            "rcept_dt": "20240610",
+        }
+        client, _table = self._client_with_cache([cached])
+        with patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            row = cache_get_or_fetch_quarterly(
+                client, "X", 2024, "Q1", "KEY", as_of_date=date(2024, 6, 15), cache_only=True)
+        mock_fetch.assert_not_called()
+        self.assertEqual(row["revenue"], cached["revenue"])
+
+    def test_cache_only_ok_row_without_availability_is_hidden(self):
+        from scripts.dart_signals import cache_get_or_fetch_annual
+
+        cached = {
+            **_financial_row(),
+            "corp_code": "X",
+            "period_type": "annual",
+            "period_key": "2023",
+            "statement_scope": "CFS",
+            "status": "ok",
+            "calculation_basis": "annual",
+        }
+        client, table = self._client_with_cache([cached])
+        with patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            hidden = cache_get_or_fetch_annual(
+                client, "X", 2023, "KEY", as_of_date=date(2024, 6, 15), cache_only=True)
+        mock_fetch.assert_not_called()
+        table.upsert.assert_not_called()
+        self.assertEqual(hidden["status"], "no_data")
+        self.assertEqual(hidden["error_code"], "cache_only_miss")
+
+    def test_live_screen_quarterly_ok_hit_without_rcept_is_not_refetched(self):
+        # Claude adversarial R1 (Finding 1): the cache-only availability gate must NOT leak into the
+        # live screen (cache_only=False). A cached 'ok' quarterly without rcept_dt must stay a cache
+        # HIT — otherwise the monthly screen re-fetches + re-upserts every quarterly.
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+
+        cached = {**_financial_row(), "corp_code": "X", "period_type": "quarterly",
+                  "period_key": "2024-Q1", "statement_scope": "CFS", "status": "ok",
+                  "calculation_basis": "standalone"}  # no rcept_dt
+        client, table = self._client_empty_cache()
+        client.table.return_value.select.return_value.eq.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[cached])
+        with patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            row = cache_get_or_fetch_quarterly(
+                client, "X", 2024, "Q1", "KEY", as_of_date=date(2025, 6, 15), cache_only=False)
+        mock_fetch.assert_not_called()  # live screen: cache hit, no re-fetch
+        table.upsert.assert_not_called()
+        self.assertEqual(row["revenue"], cached["revenue"])
 
     def test_fetch_dart_signals_cache_only_never_calls_http(self):
         from scripts.dart_signals import fetch_dart_signals

@@ -38,6 +38,7 @@ CALCULATION_BASIS_MAP = {"annual": "annual", "Q1": "standalone", "H1": "not_appl
 QUARTERLY_DEADLINE_MD = {"Q1": (5, 15), "H1": (8, 15), "9M": (11, 15)}
 DISCLOSURE_GRACE_DAYS = 30
 NOT_YET_DISCLOSED_TTL_DAYS = 7
+AVAILABILITY_DATE_KEYS = ("rcept_dt", "available_at", "disclosed_at", "receipt_date")
 
 
 class DartNoDataError(Exception):
@@ -299,6 +300,11 @@ def _parse_date(value: object) -> Optional[date]:
     if value is None:
         return None
     text = str(value)
+    if len(text) == 8 and text.isdigit():
+        try:
+            return date(int(text[:4]), int(text[4:6]), int(text[6:8]))
+        except ValueError:
+            return None
     try:
         return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
     except ValueError:
@@ -306,6 +312,16 @@ def _parse_date(value: object) -> Optional[date]:
             return date.fromisoformat(text[:10])
         except ValueError:
             return None
+
+
+def _cache_ok_row_available_as_of(row: dict, as_of_date: Optional[date]) -> bool:
+    if row.get("status") != "ok" or as_of_date is None:
+        return True
+    for key in AVAILABILITY_DATE_KEYS:
+        available_at = _parse_date(row.get(key))
+        if available_at is not None:
+            return available_at <= as_of_date
+    return False
 
 
 def _not_yet_disclosed_is_fresh(row: dict, as_of_date: Optional[date] = None) -> bool:
@@ -383,20 +399,24 @@ def _cache_only_miss_row(corp_code: str, period_type: str, period_key: str, *, s
     NOT mutate the cache. Returns a row that _row_to_financials maps to None → the
     factor pipeline degrades the ticker to the structural-missing neutral tier (§3C).
     """
-    row = {"corp_code": corp_code, "period_type": period_type, "period_key": period_key,
-           "status": status, "statement_scope": "NONE", "error_code": "cache_only_miss"}
+    row: dict[str, object] = {
+        "corp_code": corp_code, "period_type": period_type, "period_key": period_key,
+        "status": status, "statement_scope": "NONE", "error_code": "cache_only_miss",
+    }
     for key in FINANCIAL_KEYS:
         row[key] = None
     return row
 
 
 def cache_get_or_fetch_annual(
-    client, corp_code: str, year: int, api_key: str, *, cache_only: bool = False
+    client, corp_code: str, year: int, api_key: str,
+    *, as_of_date: Optional[date] = None, cache_only: bool = False,
 ) -> dict:
     period_key = str(year)
     cached = _cache_lookup(client, corp_code, "annual", period_key)
     if cached is not None:
-        return cached
+        if not cache_only or _cache_ok_row_available_as_of(cached, as_of_date):
+            return cached
     if cache_only:
         return _cache_only_miss_row(corp_code, "annual", period_key)
     parsed, scope, _alias = fetch_financial_with_fallback(corp_code, str(year), REPORT_CODE_MAP["annual"], api_key)
@@ -422,7 +442,15 @@ def cache_get_or_fetch_quarterly(
     period_key = PERIOD_KEY_MAP[kind].format(year=year)
     cached = _cache_lookup(client, corp_code, "quarterly", period_key)
     if cached is not None:
-        if cached.get("status") != "not_yet_disclosed" or _not_yet_disclosed_is_fresh(cached, as_of_date):
+        # PIT availability gate applies ONLY to cache-only harvest (Claude adversarial R1 fix, mirrors
+        # cache_get_or_fetch_annual scoping). For the live screen (cache_only=False) a cached 'ok' row
+        # without rcept_dt must remain a cache HIT — else every monthly run re-fetches + re-upserts all
+        # quarterlies (cache defeated, extra DART HTTP). omxy scoped annual but not quarterly.
+        ok_available = (not cache_only) or _cache_ok_row_available_as_of(cached, as_of_date)
+        if (
+            ok_available
+            and (cached.get("status") != "not_yet_disclosed" or _not_yet_disclosed_is_fresh(cached, as_of_date))
+        ):
             return cached
 
     if cache_only:
@@ -475,7 +503,9 @@ def _get_standalone_quarter(
         nine_m = _row_to_financials(q("9M"))
         return compute_standalone_quarter("Q3", nine_m_cumulative=nine_m, h1_cumulative=h1), "standalone"
     if quarter == "Q4":
-        annual = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, year, api_key, cache_only=cache_only))
+        annual = _row_to_financials(
+            cache_get_or_fetch_annual(client, corp_code, year, api_key, as_of_date=as_of_date, cache_only=cache_only)
+        )
         nine_m = _row_to_financials(q("9M"))
         return compute_standalone_quarter("Q4", annual_cumulative=annual, nine_m_cumulative=nine_m), "standalone"
     raise ValueError(f"Unsupported quarter: {quarter}")
@@ -514,8 +544,12 @@ def fetch_dart_signals(
         return DartSignalsResult()
 
     annual_year = _latest_safe_annual_year(target_date)
-    annual_x = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, annual_year, api_key, cache_only=cache_only))
-    annual_x_1 = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, annual_year - 1, api_key, cache_only=cache_only))
+    annual_x = _row_to_financials(
+        cache_get_or_fetch_annual(client, corp_code, annual_year, api_key, as_of_date=as_of, cache_only=cache_only)
+    )
+    annual_x_1 = _row_to_financials(
+        cache_get_or_fetch_annual(client, corp_code, annual_year - 1, api_key, as_of_date=as_of, cache_only=cache_only)
+    )
     quality_metrics, quality_insufficient = compute_quality_score(annual_x, annual_x_1)
 
     target_year, target_quarter = determine_target_quarter(target_date)

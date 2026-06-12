@@ -963,7 +963,7 @@ def _ci90(values: Sequence[float]) -> list[float]:
 
 def aggregate_harvest(
     results: Sequence[MonthResult], *, smoke: bool, generated_at: str,
-    coverage_meta: dict, survivorship_label: str,
+    coverage_meta: dict, survivorship_label: str, leader_basket_size: int = len(LEADER_BASKET_2026_06),
 ) -> dict:
     """월별 MonthResult → 삼중 게이트 verdict + per-month + CI + 데이터품질 리포트 (§4·§9)."""
     res = [r for r in results if r is not None]
@@ -998,7 +998,7 @@ def aggregate_harvest(
     rep_a = RecallReport(
         overall=overall, random_baseline=random_baseline, random_ratio=random_ratio,
         per_horizon=per_h, largemid_recall=largemid_recall, largemid_vs_overall=largemid_vs_overall,
-        leader_hits=leader_hits_total, leader_total=11 * n, baseline_recall=binding_baseline_recall,
+        leader_hits=leader_hits_total, leader_total=leader_basket_size * n, baseline_recall=binding_baseline_recall,
     )
     if smoke:
         gate_a_verdict, gate_a_fails = ("SMOKE", ["smoke: 임계 미적용(metrics-only)"])
@@ -1024,11 +1024,24 @@ def aggregate_harvest(
     # ---- Gate C (deterministic, entry-month selection size composition) ----
     gate_c = {"verdict": "N/A"}
     if res:
-        entry = res[0]
-        ok_c, fails_c, metrics_c = gate_c_size_composition(
-            entry.selected_sleeve, entry.selected_score, entry.selected_mcap)
-        gate_c = {"verdict": "PASS" if ok_c else "FAIL", "fails": fails_c, **metrics_c,
-                  "entry_month": entry.month}
+        monthly_c = []
+        all_c_fails = []
+        for r in res:
+            ok_c, fails_c, metrics_c = gate_c_size_composition(
+                r.selected_sleeve, r.selected_score, r.selected_mcap)
+            monthly_c.append({"month": r.month, "verdict": "PASS" if ok_c else "FAIL",
+                              "fails": fails_c, **metrics_c})
+            all_c_fails.extend(f"{r.month}: {f}" for f in fails_c)
+        entry_c = monthly_c[0]
+        gate_c = {
+            "verdict": "PASS" if not all_c_fails else "FAIL",
+            "fails": all_c_fails,
+            "dist": entry_c["dist"],
+            "small_fraction": entry_c["small_fraction"],
+            "score_logmcap_corr": entry_c["score_logmcap_corr"],
+            "entry_month": entry_c["month"],
+            "per_month": monthly_c,
+        }
 
     # ---- data quality ----
     status_total = {h: {k: sum(r.status_counts[h].get(k, 0) for r in res) for k in
@@ -1054,7 +1067,7 @@ def aggregate_harvest(
             "per_horizon": per_h, "largemid_recall": largemid_recall, "largemid_vs_overall": largemid_vs_overall,
             "baseline_current_recall": baseline_current_recall, "baseline_equal_recall": baseline_equal_recall,
             "binding_baseline_recall": binding_baseline_recall,
-            "leader_hits_total": leader_hits_total, "leader_total": 11 * n,
+            "leader_hits_total": leader_hits_total, "leader_total": leader_basket_size * n,
             "leader_per_month": {r.month: r.leader_in_selected for r in res},
             "recall_ci90": _ci90([_pooled_recall(len(r.selected_all & r.winners_all), len(r.winners_all)) for r in res]),
             "per_month": [
@@ -1135,11 +1148,13 @@ def harvest_pit_months(
         if progress:
             print(f"  [{t.isoformat()}] universe={r.n_universe} eligible={r.n_eligible} "
                   f"winners={len(r.winners_all)} recall={_pooled_recall(len(r.selected_all & r.winners_all), len(r.winners_all)):.3f} "
-                  f"ic={r.composite_ic:.3f} leaders={len(r.leader_in_selected)}/11", file=sys.stderr, flush=True)
+                  f"ic={r.composite_ic:.3f} leaders={len(r.leader_in_selected)}/{len(leader_basket)}", file=sys.stderr, flush=True)
     if not results:
         raise RuntimeError("처리된 선정월이 0개입니다 (universe/패널/forward 데이터 확인).")
     return aggregate_harvest(results, smoke=smoke, generated_at=generated_at,
-                             coverage_meta=coverage_meta or {}, survivorship_label="clean (KRX bydd_trd=PIT, step-0 probe PASS)")
+                             coverage_meta=coverage_meta or {},
+                             survivorship_label="clean (KRX bydd_trd=PIT, step-0 probe PASS)",
+                             leader_basket_size=len(leader_basket))
 
 
 # ============================================================================
