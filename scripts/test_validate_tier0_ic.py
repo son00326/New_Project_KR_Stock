@@ -455,11 +455,12 @@ class TestSelectionPerformance(unittest.TestCase):
     def test_selection_performance_aggregation(self):
         # omxy R6: gross+net, eqw vs sleeve excess, monthly-independent counts.
         perf = {"short": {"bpp": [0.10, 0.20], "legacy": [0.0], "eqw_mean": 0.05,
-                          "bpp_sleeve_excess": [0.03, 0.03], "bpp_basket": 0.15},
-                "mid": {"bpp": [], "legacy": [], "eqw_mean": math.nan,
-                        "bpp_sleeve_excess": [], "bpp_basket": math.nan},
-                "long": {"bpp": [], "legacy": [], "eqw_mean": math.nan,
-                         "bpp_sleeve_excess": [], "bpp_basket": math.nan}}
+                          "bpp_sleeve_excess": [0.03, 0.03], "bpp_basket": 0.15,
+                          "bpp_sleeve_excess_basket": 0.03},
+                "mid": {"bpp": [], "legacy": [], "eqw_mean": math.nan, "bpp_sleeve_excess": [],
+                        "bpp_basket": math.nan, "bpp_sleeve_excess_basket": math.nan},
+                "long": {"bpp": [], "legacy": [], "eqw_mean": math.nan, "bpp_sleeve_excess": [],
+                         "bpp_basket": math.nan, "bpp_sleeve_excess_basket": math.nan}}
         rep = V.aggregate_harvest([_mk_month_result(selection_perf=perf)], smoke=True,
                                   generated_at="t", coverage_meta={}, survivorship_label="clean")
         sp = rep["selection_performance"]["short"]
@@ -468,6 +469,7 @@ class TestSelectionPerformance(unittest.TestCase):
         self.assertAlmostEqual(sp["bpp_hit_rate"], 1.0)
         self.assertAlmostEqual(sp["bpp_excess_vs_liquid_eqw"], 0.10)    # ((0.10-0.05)+(0.20-0.05))/2
         self.assertAlmostEqual(sp["bpp_excess_vs_own_sleeve"], 0.03)    # size-neutral skill
+        self.assertIn("bpp_sleeve_excess_monthly_ci90", sp)             # skill significance CI present
         self.assertAlmostEqual(sp["legacy_momentum_proxy_avg_return"], 0.0)
         self.assertAlmostEqual(sp["liquid_eqw_return"], 0.05)
         self.assertEqual(sp["n_bpp_picks"], 2)
