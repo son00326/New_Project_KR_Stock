@@ -905,6 +905,49 @@ class BppIntegrationTest(unittest.TestCase):
         self.assertFalse(raws[2].foreign_fetch_failed)
 
 
+class KrxPrefetchRetryTest(unittest.TestCase):
+    """B++ 450d prefetch throttle 내성: _fetch_bydd_with_retry는 일시 RuntimeError를 backoff
+    재시도하고, 소진 시 None(휴장 취급), 4xx는 전파(키 문제 surface). _krx_get contract 불변."""
+
+    def test_transient_then_success(self):
+        calls = {"n": 0}
+        sleeps = []
+
+        def flaky(market, dd):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise RuntimeError("KRX API JSON 파싱 실패")  # throttle 200-non-JSON
+            return [{"ISU_CD": "005930"}]
+
+        rows = MODULE._fetch_bydd_with_retry(flaky, "KOSPI", "20260501", attempts=3,
+                                             _sleep=lambda s: sleeps.append(s))
+        self.assertEqual(rows, [{"ISU_CD": "005930"}])
+        self.assertEqual(len(sleeps), 2)
+
+    def test_exhaustion_returns_none(self):
+        sleeps = []
+
+        def always_fail(market, dd):
+            raise RuntimeError("throttle")
+
+        rows = MODULE._fetch_bydd_with_retry(always_fail, "KOSPI", "20260501", attempts=3,
+                                             _sleep=lambda s: sleeps.append(s))
+        self.assertIsNone(rows)            # 휴장처럼 skip (전체 abort 방지)
+        self.assertEqual(len(sleeps), 2)   # attempts-1 backoff
+
+    def test_http_error_propagates_not_retried(self):
+        import requests
+        sleeps = []
+
+        def auth_fail(market, dd):
+            raise requests.HTTPError("401")
+
+        with self.assertRaises(requests.HTTPError):
+            MODULE._fetch_bydd_with_retry(auth_fail, "KOSPI", "20260501", attempts=3,
+                                          _sleep=lambda s: sleeps.append(s))
+        self.assertEqual(sleeps, [])  # 4xx 재시도 안 함
+
+
 # Source 파일 string for grep-based tests (FetchUniverseSectorTest 전용)
 MODULE_SOURCE = SCRIPT_PATH.read_text(encoding="utf-8")
 

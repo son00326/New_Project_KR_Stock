@@ -101,6 +101,7 @@ import csv
 import math
 import os
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -173,6 +174,12 @@ PRICE_WINDOW_DAYS = 90  # 60-day 모멘텀 계산용 여유 buffer (영업일 60
 # 달력 450일 ≈ 거래일 ~308(주말/공휴일 제거 후) → halt/late-listing에도 274 충분한 headroom
 # (적대검토 LOW: 400은 ~285로 헤드룸 ~11뿐 → long trend NaN-degrade 위험).
 BPP_LOOKBACK_CALENDAR_DAYS = 450
+# KRX prefetch throttle 내성 (B++ 450d = ~620 콜 → 200-non-JSON throttle 노출). _krx_get은 엄격 유지
+# (200-bad-JSON 즉시 RuntimeError, 키/포맷 문제 surface)하고, 고볼륨 prefetch loop만 일시 실패를 재시도+skip.
+KRX_PREFETCH_RETRY_ATTEMPTS = 3
+KRX_PREFETCH_BACKOFF_SEC = 1.0
+KRX_PREFETCH_PACING_SEC = 0.05            # 콜 간 간격(throttle 완화). 0이면 비활성.
+KRX_PREFETCH_MAX_SKIP_FRACTION = 0.10     # throttle-skip이 이 비율 초과면 데이터 품질 미달 → abort.
 VOLUME_MA_SHORT = 5
 VOLUME_MA_LONG = 60
 MOMENTUM_MA_WINDOW = 60
@@ -530,6 +537,32 @@ def enforce_b89_strict_block(unresolved_count: int, *, apply: bool, review_csv_p
 # Signal compute
 # ============================================================================
 
+def _fetch_bydd_with_retry(
+    fetch_bydd_trd,
+    market: str,
+    bas_dd: str,
+    *,
+    attempts: int = KRX_PREFETCH_RETRY_ATTEMPTS,
+    _sleep=time.sleep,
+):
+    """fetch_bydd_trd + 일시 throttle(200-non-JSON 등 RuntimeError) backoff 재시도.
+
+    최종 실패 시 None 반환 → 호출부가 그 날을 휴장처럼 skip(전체 abort 방지). 4xx(HTTPError)는
+    재시도 안 함(예외 전파 — 키 문제 surface). _krx_get의 엄격 contract는 건드리지 않는다.
+    """
+    last_exc = None
+    for attempt in range(attempts):
+        try:
+            return fetch_bydd_trd(market, bas_dd)
+        except RuntimeError as exc:  # _krx_get가 throttle/format 이상에 RuntimeError
+            last_exc = exc
+            if attempt < attempts - 1:
+                _sleep(KRX_PREFETCH_BACKOFF_SEC * (2 ** attempt))
+    print(f"[warn] KRX {market} {bas_dd} {attempts}회 재시도 실패 → 해당일 skip ({last_exc})",
+          file=sys.stderr, flush=True)
+    return None
+
+
 def prefetch_price_series(
     target_date: date,
     markets: tuple[str, ...] = ("KOSPI", "KOSDAQ"),
@@ -559,9 +592,17 @@ def prefetch_price_series(
     business_days = sorted(d for d in days if d.weekday() < 5)
 
     series: dict[str, dict] = {}
+    total_calls = 0
+    throttle_skips = 0
     for market in markets:
         for d in business_days:
-            rows = fetch_bydd_trd(market, d.strftime("%Y%m%d"))
+            rows = _fetch_bydd_with_retry(fetch_bydd_trd, market, d.strftime("%Y%m%d"))
+            total_calls += 1
+            if KRX_PREFETCH_PACING_SEC:
+                time.sleep(KRX_PREFETCH_PACING_SEC)
+            if rows is None:
+                throttle_skips += 1  # 재시도 소진 throttle → 휴장처럼 skip
+                continue
             if not rows:
                 continue  # 빈 영업일(휴장/미갱신) 스킵
             for r in rows:
@@ -576,6 +617,14 @@ def prefetch_price_series(
                 entry["highs"].append(_to_float(r.get("TDD_HGPRC")) or close)
                 entry["volumes"].append(_to_float(r.get("ACC_TRDVOL")))
                 entry["trdvals"].append(_to_float(r.get("ACC_TRDVAL")))
+    if total_calls and throttle_skips / total_calls > KRX_PREFETCH_MAX_SKIP_FRACTION:
+        sys.exit(
+            f"[ABORT] KRX prefetch throttle-skip {throttle_skips}/{total_calls} "
+            f"> {KRX_PREFETCH_MAX_SKIP_FRACTION:.0%} — 데이터 품질 미달. 시간을 두고 재실행하세요."
+        )
+    if throttle_skips:
+        print(f"[warn] KRX prefetch: {throttle_skips}/{total_calls}일 throttle-skip(휴장 취급).",
+              file=sys.stderr)
     return series
 
 
