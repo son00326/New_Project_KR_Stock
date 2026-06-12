@@ -50,10 +50,12 @@ export function computeAcceptGate(input: AcceptGateInput): AcceptGateResult {
   // R3.3-9: D+4 영업일 만료 시각 (addBusinessDays는 time-of-day 보존)
   const holdBizDaysExpiresAt = addBusinessDays(shortlistGeneratedAt, 4, calendar);
 
-  // holdExpiresAt = MAX(24h, D+4 영업일) — 둘 다 만료 필요 (R3.3-9)
-  // 디버깅 편의: 실제로 적용되는 최종 만료 시각 (더 늦은 쪽)
-  const holdExpiresAt =
-    hold24hExpiresAt.getTime() >= holdBizDaysExpiresAt.getTime()
+  // holdExpiresAt = 실제로 적용되는 최종 만료 시각.
+  //   strict: MAX(24h, D+4 영업일) — 둘 다 만료 필요 (R3.3-9).
+  //   relaxGate(77차 D31): D+4 면제 → 24h만 적용 (UI remaining 표시가 24h 기준이어야 함 — omxy R1 LOW).
+  const holdExpiresAt = relaxGate
+    ? hold24hExpiresAt
+    : hold24hExpiresAt.getTime() >= holdBizDaysExpiresAt.getTime()
       ? hold24hExpiresAt
       : holdBizDaysExpiresAt;
 

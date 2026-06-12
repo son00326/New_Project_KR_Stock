@@ -210,6 +210,10 @@ describe('computeAcceptGate', () => {
     expect(result.allowed).toBe(false);
     expect(result.reason).toBe('hold_24h');
     expect(result.remainingMs!).toBeGreaterThan(0);
+    // 77차 D31 LOW fix: relaxed면 holdExpiresAt = 24h 기준 (D+4 아님) — UI remaining이 24h만 표시.
+    expect(result.holdExpiresAt!.getTime()).toBe(
+      new Date('2026-04-14T01:00:00.000Z').getTime(), // shortlistGeneratedAt + 24h
+    );
   });
 
   // 케이스 9: relaxGate 미지정(undefined) → 기존 strict 동작 후방호환 (D+4 미도달 차단)

@@ -209,14 +209,10 @@ describe("acceptShortList", () => {
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:viewers_insufficient");
   });
 
-  it("77차 D31 relaxed default(strict env 미설정): viewer 미달·D+4 미도달이어도 24h 경과면 게이트 통과", async () => {
+  it("77차 D31 relaxed default(strict env 미설정): viewer 미달·D+4 미도달이어도 24h 경과면 게이트 통과 + viewer 쿼리 skip", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z")); // 24h·D+4 경과(2026-04-01 기준)
-    // PORTFOLIO_ACCEPT_GATE_STRICT 미설정 = 내부도구 default relaxed. viewer 1인이어도 차단 안 됨.
-    mocks.getDistinctViewerCountsByTicker.mockImplementationOnce(
-      async (opts: { month: string; tickers: string[] }) =>
-        new Map(opts.tickers.map((t) => [t, t === "000660" ? 1 : 2])),
-    );
+    // PORTFOLIO_ACCEPT_GATE_STRICT 미설정 = 내부도구 default relaxed.
     const { acceptShortList } = await import("../actions");
 
     const result = await acceptShortList({
@@ -224,16 +220,20 @@ describe("acceptShortList", () => {
       shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
     });
 
-    // 핵심 단언: relaxed 게이트는 D15 게이트(viewers/business_days/hold)로 막지 않는다.
+    // 단언 1: relaxed 게이트는 D15 게이트(viewers/business_days/hold)로 막지 않는다.
     //   (downstream accept 경로의 성공 여부는 본 테스트 범위 밖 — 게이트 비차단만 검증.)
     if (!result.success) {
       expect(result.error).not.toMatch(/^accept_gate_blocked/);
     }
+    // 단언 2 (omxy R1 MED fix 회귀 잠금): relaxed면 viewer DB 조회 자체를 skip — hard dependency 제거.
+    expect(mocks.getDistinctViewerCountsByTicker).not.toHaveBeenCalled();
   });
 
   it("77차: viewer 게이트는 active 전 종목을 쿼리한다 (legacy mock 5종 subset 회귀 방지)", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    // 77차 D31: viewer 쿼리는 strict 모드에서만 수행 (relaxed default는 skip). strict 경로 검증.
+    vi.stubEnv("PORTFOLIO_ACCEPT_GATE_STRICT", "true");
     const { MOCK_ADMIN_SHORTLIST } = await import(
       "@/lib/data/mock-admin-shortlist"
     );
@@ -260,6 +260,9 @@ describe("acceptShortList", () => {
   it("returns accept_gate_lookup_failed when viewer count helper throws (R2 Gödel HIGH fix)", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    // 77차 D31: viewer 쿼리(및 그 실패 차단)는 strict 모드에서만. relaxed default는 쿼리 자체를 skip하므로
+    //   lookup 실패가 accept를 막지 않는다(omxy R1 MED). 본 테스트는 strict의 try/catch 보존 검증.
+    vi.stubEnv("PORTFOLIO_ACCEPT_GATE_STRICT", "true");
     // Mock cleanup Step 1.3 R3 (omxy Goodall NEEDS FIX): regression test for try/catch wrap —
     // getDistinctViewerCountsByTicker throw → acceptShortList Server Action contract 보존.
     mocks.getDistinctViewerCountsByTicker.mockRejectedValueOnce(
