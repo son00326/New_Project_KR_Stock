@@ -172,4 +172,60 @@ describe('computeAcceptGate', () => {
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('ok');
   });
+
+  // ── 77차 D31 relaxGate (내부도구 완화 모드) ───────────────────────────────
+
+  // 케이스 7: relaxGate=true + 24h 경과 + D+4 미도달 + 0인 열람 → 통과
+  //   (strict면 케이스 5처럼 business_days_bypass로 막힐 입력)
+  it('케이스 7 — relaxGate=true: 24h 경과 후 D+4·2인 면제 → allowed=true', () => {
+    const input: AcceptGateInput = {
+      shortlistGeneratedAt: new Date('2026-09-23T01:00:00.000Z'), // KST 10:00
+      now: new Date('2026-09-24T02:00:00.000Z'),                  // 24h+1h 경과, D+4 미도달
+      distinctViewerCount: 0,
+      calendar: SEP_2026_CHUSEOK,
+      autoReliefActive: false,
+      relaxGate: true,
+    };
+
+    const result = computeAcceptGate(input);
+
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe('ok');
+    expect(result.holdExpiresAt).toBeDefined();
+  });
+
+  // 케이스 8: relaxGate=true 라도 24h 미경과면 hold_24h 차단 (최소 sanity hold 유지)
+  it('케이스 8 — relaxGate=true + 24h 미경과: hold_24h 여전히 차단', () => {
+    const input: AcceptGateInput = {
+      shortlistGeneratedAt: new Date('2026-04-13T01:00:00.000Z'),
+      now: new Date('2026-04-13T11:00:00.000Z'), // 10h 경과 (24h 미달)
+      distinctViewerCount: 0,
+      calendar: APRIL_2026,
+      autoReliefActive: false,
+      relaxGate: true,
+    };
+
+    const result = computeAcceptGate(input);
+
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('hold_24h');
+    expect(result.remainingMs!).toBeGreaterThan(0);
+  });
+
+  // 케이스 9: relaxGate 미지정(undefined) → 기존 strict 동작 후방호환 (D+4 미도달 차단)
+  it('케이스 9 — relaxGate 미지정: strict 후방호환 (business_days_bypass 유지)', () => {
+    const input: AcceptGateInput = {
+      shortlistGeneratedAt: new Date('2026-09-23T01:00:00.000Z'),
+      now: new Date('2026-09-24T02:00:00.000Z'),
+      distinctViewerCount: 2,
+      calendar: SEP_2026_CHUSEOK,
+      autoReliefActive: false,
+      // relaxGate 미지정
+    };
+
+    const result = computeAcceptGate(input);
+
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('business_days_bypass');
+  });
 });

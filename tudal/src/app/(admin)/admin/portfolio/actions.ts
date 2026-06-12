@@ -119,12 +119,17 @@ async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
     tickers: gateTickers,
   });
 
+  // 77차 D31 — 내부도구(3인·가상 포트 확정) default = 완화 모드(D+4 Hold + 2인 열람 면제, 24h만).
+  //   멤버서비스급 strict 복원 = PORTFOLIO_ACCEPT_GATE_STRICT=true opt-in. page.tsx와 동일 규칙.
+  const relaxGate = process.env.PORTFOLIO_ACCEPT_GATE_STRICT !== "true";
+
   const gate = computeAcceptGate({
     shortlistGeneratedAt: generatedAt,
     now,
     distinctViewerCount: computeMinimumViewerCount(gateTickers, viewerCountsByTicker),
     calendar: MOCK_KR_BUSINESS_DAYS_2026,
     autoReliefActive,
+    relaxGate,
   });
 
   if (!gate.allowed) {

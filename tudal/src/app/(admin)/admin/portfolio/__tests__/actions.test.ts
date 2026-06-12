@@ -189,6 +189,9 @@ describe("acceptShortList", () => {
   it("blocks accept when any active shortlist report has fewer than 2 viewers", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z"));
+    // 77차 D31: 2인 열람 게이트는 strict 모드에서만 적용 (내부도구 default=relaxed는 면제).
+    //   strict 경로 검증이므로 명시 opt-in.
+    vi.stubEnv("PORTFOLIO_ACCEPT_GATE_STRICT", "true");
     // 77차 Accept-gate fix: 게이트 대상 = active 전 종목. 전부 2인이지만 단 하나(여기선 000660)만
     //   1인 미달이면 Math.min=1 → viewers_insufficient 차단. (구 legacy mock 5종 representative 폐기.)
     mocks.getDistinctViewerCountsByTicker.mockImplementationOnce(
@@ -204,6 +207,28 @@ describe("acceptShortList", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("accept_gate_blocked:viewers_insufficient");
+  });
+
+  it("77차 D31 relaxed default(strict env 미설정): viewer 미달·D+4 미도달이어도 24h 경과면 게이트 통과", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T00:00:00.000Z")); // 24h·D+4 경과(2026-04-01 기준)
+    // PORTFOLIO_ACCEPT_GATE_STRICT 미설정 = 내부도구 default relaxed. viewer 1인이어도 차단 안 됨.
+    mocks.getDistinctViewerCountsByTicker.mockImplementationOnce(
+      async (opts: { month: string; tickers: string[] }) =>
+        new Map(opts.tickers.map((t) => [t, t === "000660" ? 1 : 2])),
+    );
+    const { acceptShortList } = await import("../actions");
+
+    const result = await acceptShortList({
+      month: "2026-04-01",
+      shortlistGeneratedAt: "2026-04-01T00:00:00.000Z",
+    });
+
+    // 핵심 단언: relaxed 게이트는 D15 게이트(viewers/business_days/hold)로 막지 않는다.
+    //   (downstream accept 경로의 성공 여부는 본 테스트 범위 밖 — 게이트 비차단만 검증.)
+    if (!result.success) {
+      expect(result.error).not.toMatch(/^accept_gate_blocked/);
+    }
   });
 
   it("77차: viewer 게이트는 active 전 종목을 쿼리한다 (legacy mock 5종 subset 회귀 방지)", async () => {

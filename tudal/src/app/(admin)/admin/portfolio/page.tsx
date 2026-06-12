@@ -150,6 +150,10 @@ export default async function AdminPortfolioPage() {
     viewerCountsByTicker,
   );
 
+  // 77차 D31 — 내부도구(3인·가상 포트 확정) default = 완화 모드(D+4 Hold + 2인 열람 면제, 24h만).
+  //   멤버서비스급 strict 복원 = PORTFOLIO_ACCEPT_GATE_STRICT=true opt-in. actions.ts와 동일 규칙.
+  const relaxGate = process.env.PORTFOLIO_ACCEPT_GATE_STRICT !== "true";
+
   // computeAcceptGate 호출
   const gateResult = computeAcceptGate({
     shortlistGeneratedAt: shortlistGeneratedAtDate,
@@ -157,6 +161,7 @@ export default async function AdminPortfolioPage() {
     distinctViewerCount,
     calendar,
     autoReliefActive,
+    relaxGate,
   });
 
   // 게이팅 메시지 생성
@@ -216,6 +221,13 @@ export default async function AdminPortfolioPage() {
       {autoReliefActive && (
         <div className="flex items-center gap-2 rounded-lg border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200">
           ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefResult.adminId}
+        </div>
+      )}
+
+      {/* 77차 D31 — 내부도구 완화 게이트 모드 표시 (silent 안전변경 방지·감사성) */}
+      {relaxGate && (
+        <div className="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
+          ℹ️ 내부도구 게이트 모드: Accept는 24h Hold만 적용(D+4 영업일 Hold·2인 열람 면제). 멤버 공개 시 <code>PORTFOLIO_ACCEPT_GATE_STRICT=true</code>로 복원.
         </div>
       )}
 
