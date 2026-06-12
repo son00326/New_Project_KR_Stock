@@ -692,14 +692,16 @@ def slice_series_at(series: dict[str, dict], sel_date_str: str) -> dict[str, dic
 
 
 def build_month_stockraws(
-    t: date, series: dict[str, dict], sel_date_str: str, universe_rows: Sequence[dict],
+    sel_date: date, series: dict[str, dict], sel_date_str: str, universe_rows: Sequence[dict],
     *, foreign_at: Callable[[str, date], tuple[float, bool]],
     dart_at: Callable[[str, date], object],
 ) -> tuple[list[F.StockRaw], dict[str, str], dict[str, int]]:
-    """선정월 t의 PIT StockRaw 리스트 구성 (§3 입력). 결측 tiering = build_stock_raw_list 매핑 정합.
+    """선정일 sel_date의 PIT StockRaw 리스트 구성 (§3 입력). 결측 tiering = build_stock_raw_list 매핑 정합.
 
-    universe_rows = {ticker,name,sector,market_cap_won}. price 시계열은 패널 슬라이스, foreign/DART는
-    주입 provider (harvest는 cache-only DART + fail-soft foreign). market_cap은 선정일 패널 mktcap.
+    sel_date = **실제 패널 거래일**(공휴일 인지) = 가격 슬라이스 날짜. foreign/DART provider에 이 날짜를
+    그대로 넘겨 disclosure/foreign 윈도우를 가격 슬라이스와 정확히 일치시킨다(PIT-001 fix: 주말-only
+    heuristic이 공휴일에 슬라이스 이후 날짜로 어긋나 미래 공시가 새는 것을 차단). universe_rows =
+    {ticker,name,sector,market_cap_won}. market_cap은 universe(=선정일 bydd) mktcap.
     Returns (stocks, name_by_ticker, quality_meta{foreign_failed, earnings_missing, quality_insufficient}).
     """
     from dart_signals import compute_quality_composite_for_universe  # lightweight import
@@ -713,8 +715,8 @@ def build_month_stockraws(
         s = sliced.get(tk)
         if not s or not s["closes"]:
             continue
-        fgn, fgn_failed = foreign_at(tk, t)
-        d = dart_at(tk, t)
+        fgn, fgn_failed = foreign_at(tk, sel_date)
+        d = dart_at(tk, sel_date)
         mcap = u.get("market_cap_won") or s.get("mktcap_at") or math.nan
         pending.append((tk, u.get("name", tk), u.get("sector", "unresolved"), mcap, s, fgn, fgn_failed, d))
         qmetrics.append(getattr(d, "quality_raw_metrics", {}))
@@ -860,8 +862,9 @@ def process_month(
     if sel_idx < 0:
         return None
     sel_date = dates[sel_idx]
+    sel_date_obj = datetime.strptime(sel_date, "%Y%m%d").date()  # 실제 패널 거래일 (공휴일 인지)
     stocks, name_by, qmeta = build_month_stockraws(
-        t, series, sel_date, universe_rows, foreign_at=foreign_at, dart_at=dart_at)
+        sel_date_obj, series, sel_date, universe_rows, foreign_at=foreign_at, dart_at=dart_at)
     if not stocks:
         return None
     tickers = [s.ticker for s in stocks]
@@ -1107,7 +1110,13 @@ def harvest_pit_months(
     prior_factor_ic: dict[str, float] = {}
     factor_ic_history: dict[str, list[float]] = {f: [] for f in _FACTORS}
     for i, t in enumerate(months):
-        universe_rows = universe_at(t)
+        sel_idx = selection_index(dates, t)
+        if sel_idx < 0:
+            if progress:
+                print(f"  [{t.isoformat()}] 선정일 직전 패널 거래일 없음 — skip", file=sys.stderr, flush=True)
+            continue
+        sel_date_obj = datetime.strptime(dates[sel_idx], "%Y%m%d").date()  # 실제 패널 거래일
+        universe_rows = universe_at(sel_date_obj)  # universe도 동일 PIT 거래일에서 fetch (PIT-001 정합)
         if not universe_rows:
             if progress:
                 print(f"  [{t.isoformat()}] universe 비어있음 — skip", file=sys.stderr, flush=True)
@@ -1265,14 +1274,14 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
               file=sys.stderr, flush=True)
     mem_client = _MemDartClient(mem_fin, mem_corp)
 
-    # universe (per month) + sector resolve (정적 induty, 합집합 1회 캐시)
+    # universe + sector resolve. sel = **실제 패널 거래일**(harvest가 전달, PIT-001 정합) — 가격 슬라이스
+    # 날짜와 동일. 주말-only heuristic 재계산 제거(공휴일 어긋남 차단). 거래일 키 캐시.
     _uni_cache: dict[str, list[dict]] = {}
 
-    def universe_at(t: date) -> list[dict]:
-        key = t.isoformat()
+    def universe_at(sel: date) -> list[dict]:
+        key = sel.isoformat()
         if key in _uni_cache:
             return _uni_cache[key]
-        sel = S.last_business_day_on_or_before(t - timedelta(days=1))  # 전월말 (선정 = 직전 완료 영업일)
         uni = S.fetch_universe(sel, limit=universe_limit)
         S.resolve_sectors_for_universe(uni, supabase_client=live_client)
         _uni_cache[key] = uni
@@ -1280,16 +1289,15 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
 
     # foreign: default OFF (feasibility) — full-universe × multi-month pykrx is ~tens of thousands of
     # flaky calls. OFF → fetch_failed penalty tier for all (constant rank → factor neutralized,
-    # documented, §3C). --with-foreign re-enables per-(ticker,month) pykrx with disk-mem cache + fail-soft.
+    # documented, §3C). --with-foreign re-enables per-(ticker, sel-date) pykrx with cache + fail-soft.
     _foreign_cache: dict[tuple[str, str], tuple[float, bool]] = {}
 
-    def foreign_at(tk: str, t: date) -> tuple[float, bool]:
+    def foreign_at(tk: str, sel: date) -> tuple[float, bool]:
         if not with_foreign:
             return (math.nan, True)  # neutralized via penalty tier (no pykrx); recorded as foreign_failed
-        key = (tk, t.strftime("%Y-%m"))
+        key = (tk, sel.isoformat())
         if key in _foreign_cache:
             return _foreign_cache[key]
-        sel = S.last_business_day_on_or_before(t - timedelta(days=1))
         try:
             val = S.fetch_foreign_signal(tk, sel)
         except Exception:  # noqa: BLE001 — pykrx 어떤 예외든 fail-soft penalty tier
@@ -1297,10 +1305,9 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
         _foreign_cache[key] = val
         return val
 
-    def dart_at(tk: str, t: date):
+    def dart_at(tk: str, sel: date):
         if not dart_key:
             return D.DartSignalsResult()
-        sel = S.last_business_day_on_or_before(t - timedelta(days=1))
         return D.fetch_dart_signals(mem_client, tk, sel, dart_key, as_of_date=sel, cache_only=True)
 
     coverage_meta = {
