@@ -241,8 +241,6 @@ def adv60(trdvals: Sequence[float], window: int = ADV_WINDOW_DAYS) -> float:
     tail = [v for v in trdvals[-window:] if not _is_nan(v) and v >= 0]
     if len(tail) < window // 2:
         return math.nan
-    if not tail:
-        return math.nan
     return median(tail)
 
 
@@ -631,14 +629,18 @@ def score_bpp_universe(
 
     # --- trend (§3C) ---
     trend_components: list[list[float]] = []
+    primary_trend_present = [False] * n
+    max_lookback = max(TREND_LOOKBACKS[bucket])
     for lb in TREND_LOOKBACKS[bucket]:
         raw = [risk_adjusted_trend(s.closes, lb) for s in stocks]
+        if lb == max_lookback:
+            primary_trend_present = [not _is_nan(v) for v in raw]
         trend_components.append(_rank_of(elig_mask(raw)))
     if is_long:
         prox_raw = [high_proximity(s.highs if s.highs is not None else s.closes) for s in stocks]
         trend_components.append(_rank_of(elig_mask(prox_raw)))
     trend_rank = _combine_ranks(trend_components)
-    eligible = [eligible[i] and not _is_nan(trend_rank[i]) for i in range(n)]
+    eligible = [eligible[i] and primary_trend_present[i] and not _is_nan(trend_rank[i]) for i in range(n)]
 
     # size sleeve — eligible 시총으로만 breakpoint 산정(§3A).
     elig_caps = [stocks[i].market_cap for i in range(n) if eligible[i]]

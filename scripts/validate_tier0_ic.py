@@ -59,6 +59,7 @@ TOP_DECILE_Q = 0.90  # forward-return 상위 decile threshold.
 # KR round-trip 거래비용 [assumption]: 거래세 0.18~0.23% + 슬리피지 ≈ 0.4% (decile spread 차감).
 ROUND_TRIP_COST = 0.004
 DELISTING_RETURN_NO_PRICE = -1.0
+MIN_DELIST_LOOKAHEAD = 5
 
 # 관측 11-leader basket (tripwire 전용, 합격 기준 아님 §4 — target leakage 금지).
 LEADER_BASKET_2026_06: dict[str, str] = {
@@ -241,6 +242,8 @@ def compute_forward_return(
         nxt, _ = _first_price_from(panel, dates, ticker, target_idx + 1, len(dates) - 1)
         if not _is_nan(nxt):
             return (nxt / p0 - 1.0, "gap")
+    if target_idx + MIN_DELIST_LOOKAHEAD > len(dates) - 1:
+        return (math.nan, "insufficient")
     return (DELISTING_RETURN_NO_PRICE, "delisted")
 
 
@@ -432,6 +435,7 @@ def gate_b_pass(
     """§4 Gate B. 반환 = (verdict, fails, metrics). Large/Mid 슬리브별 IC mean>0 포함.
 
     require_baseline=True(기본)면 baseline_ic_ir 미제공도 FAIL(§3D anti-overfitting 필수, 적대검토 MED).
+    B++ IR이 baseline보다 낮은 경우는 ADJUDICATE가 아니라 hard FAIL이다.
     """
     return _gate_b_verdict(
         monthly_ics=monthly_ics,
@@ -465,7 +469,7 @@ def _gate_b_verdict(
 
     if _is_nan(ic_mean) or ic_mean <= 0:
         fails.append(f"composite IC mean {ic_mean} ≤ 0")
-    if _is_nan(ir) or ir < GATE_B_IC_IR_MIN:
+    if _is_nan(ir) or not math.isfinite(ir) or ir < GATE_B_IC_IR_MIN:
         fails.append(f"IC IR {ir} < {GATE_B_IC_IR_MIN}")
     if _is_nan(pos) or pos < GATE_B_POS_MONTHS_MIN:
         fails.append(f"positive IC months {pos} < {GATE_B_POS_MONTHS_MIN}")
@@ -500,11 +504,10 @@ def _gate_b_verdict(
     }
     if not fails:
         return ("PASS", fails, metrics)
-    scoped_positive = not _is_nan(ic_mean) and ic_mean > 0
     sleeve_positive = any((not _is_nan(v) and v > 0) for v in sleeve_means.values())
     top_positive = not _is_nan(top_mean) and top_mean > 0
     spread_positive = not _is_nan(spread_mean) and spread_mean > 0
-    if not (scoped_positive or sleeve_positive or top_positive or spread_positive):
+    if not (sleeve_positive or top_positive or spread_positive):
         return ("FAIL", fails, metrics)
     return ("ADJUDICATE", fails, metrics)
 

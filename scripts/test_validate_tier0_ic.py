@@ -98,18 +98,32 @@ class TestForwardReturn(unittest.TestCase):
 
     def test_immediate_post_entry_delisting_gets_conservative_loss(self):
         # Given: ticker has an entry price but never trades after entry.
-        dates = ["d0", "d1", "d2", "d3"]
+        dates = [f"d{i}" for i in range(9)]
         panel = {
             "d0": {"IMD": _row(100)},
             "d1": {"IMD": _row(90)},
-            "d2": {},
-            "d3": {},
+            **{d: {} for d in dates[2:]},
         }
         # When: target horizon has no last-available post-entry price.
         ret, status = V.compute_forward_return(panel, dates, "IMD", 0, 2)
         # Then: it remains in the return distribution as a conservative delisting loss.
         self.assertEqual(status, "delisted")
         self.assertEqual(ret, V.DELISTING_RETURN_NO_PRICE)
+
+    def test_right_edge_halt_without_lookahead_is_insufficient_not_delisted(self):
+        # Given: target date is near the right edge, so absence after target is not yet delisting evidence.
+        dates = ["d0", "d1", "d2", "d3"]
+        panel = {
+            "d0": {"EDGE": _row(100)},
+            "d1": {"EDGE": _row(90)},
+            "d2": {},
+            "d3": {},
+        }
+        # When: no post-entry price exists, but the panel has no lookahead buffer after target.
+        ret, status = V.compute_forward_return(panel, dates, "EDGE", 0, 2)
+        # Then: the return is excluded as insufficient rather than forced to -100%.
+        self.assertEqual(status, "insufficient")
+        self.assertTrue(math.isnan(ret))
 
     def test_insufficient(self):
         ret, status = V.compute_forward_return(self.panel, self.dates, "OK", 2, 5)
@@ -291,6 +305,29 @@ class TestGateB(unittest.TestCase):
         self.assertEqual(verdict, "ADJUDICATE")
         self.assertGreater(metrics["top_tercile_ic_mean"], 0.0)
         self.assertTrue(any("composite IC" in f or "positive IC" in f for f in fails))
+
+    def test_gate_b_fails_when_only_whole_universe_composite_is_positive(self):
+        verdict, fails, _ = V.gate_b_pass(
+            monthly_ics=[0.04, 0.06, 0.08, 0.05],
+            sleeve_ics={"large": [-0.02], "mid": [-0.01]},
+            spreads=[-0.02],
+            baseline_ic_ir=0.5,
+            top_tercile_ics=[-0.03],
+        )
+        self.assertEqual(verdict, "FAIL")
+        self.assertTrue(any("decile spread" in f for f in fails))
+
+    def test_gate_b_requires_finite_ic_ir_even_when_signed_inf_display_is_positive(self):
+        verdict, fails, metrics = V.gate_b_pass(
+            monthly_ics=[0.10, 0.10, 0.10],
+            sleeve_ics={"large": [0.04], "mid": [0.03]},
+            spreads=[0.02],
+            baseline_ic_ir=0.5,
+            top_tercile_ics=[0.05],
+        )
+        self.assertNotEqual(verdict, "PASS")
+        self.assertEqual(metrics["ic_ir"], math.inf)
+        self.assertTrue(any("IC IR" in f for f in fails))
 
 
 class TestCliFailClosed(unittest.TestCase):
