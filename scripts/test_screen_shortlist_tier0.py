@@ -787,6 +787,80 @@ class FetchPriceSignalsFromSeriesTest(unittest.TestCase):
         self.assertEqual(result, {"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0})
 
 
+import math
+
+
+def _bpp_series(n, drift, wiggle=0.01, phase=0.0):
+    return [100.0 * ((1 + drift) ** t) * (1.0 + wiggle * math.sin(t * 0.7 + phase)) for t in range(n)]
+
+
+class BppIntegrationTest(unittest.TestCase):
+    """B++ (D30) screen 통합: build_stock_raw_list 매핑 + select_bpp_candidates 150 distinct +
+    size-sleeve 쿼터 + Gate C smoke. 실 KRX fetch 없이 합성 universe로 통합 로직 검증."""
+
+    N = 280
+
+    def _universe(self, count=350):
+        # 시총 spread(20/40/40 split 명확) + 고ADV(플로어 통과) + 다양 drift(점수 변별).
+        return [
+            MODULE.TF.StockRaw(
+                ticker=f"{k:06d}",
+                sector=["제조", "바이오", "IT/SW", "금융"][k % 4],
+                market_cap=float(k + 1) * 5e10,
+                closes=_bpp_series(self.N, 0.0005 + 0.00002 * k, phase=k * 0.1),
+                trdvals=[5e9 + k * 1e7] * self.N,
+                highs=_bpp_series(self.N, 0.0005 + 0.00002 * k, phase=k * 0.1),
+                foreign_net_60d=1e9 + k * 1e6,
+                earnings_raw=0.05 + 0.001 * k,
+                quality_composite_raw=40.0 + (k % 30),
+            )
+            for k in range(count)
+        ]
+
+    def test_select_bpp_candidates_150_distinct(self):
+        stocks = self._universe(350)
+        selections = MODULE.select_bpp_candidates(stocks)
+        all_tickers = [sc.ticker for picks in selections.values() for sc in picks]
+        self.assertEqual(len(all_tickers), 150)
+        self.assertEqual(len(set(all_tickers)), 150)  # cross-bucket disjoint
+        for bucket in MODULE.BUCKETS:
+            self.assertEqual(len(selections[bucket]), 50)
+
+    def test_gate_c_distribution_60_60_30(self):
+        stocks = self._universe(350)
+        selections = MODULE.select_bpp_candidates(stocks)
+        gc = MODULE.gate_c_smoke(selections)
+        self.assertEqual(gc["dist"], {"large": 60, "mid": 60, "small": 30})
+        self.assertEqual(gc["total"], 150)
+        self.assertAlmostEqual(gc["small_fraction"], 0.2)
+
+    def test_select_bpp_shortfall_when_universe_too_small(self):
+        # 100 종목 < 150 필요 → backfill 후에도 부족 → SleeveShortfallError (무음 truncation 금지)
+        stocks = self._universe(100)
+        with self.assertRaises(MODULE.TF.SleeveShortfallError):
+            MODULE.select_bpp_candidates(stocks)
+
+    def test_build_stock_raw_list_missing_tiering(self):
+        sigs = [
+            MODULE.StockSignal(ticker="A", name="A", sector="제조", market_cap_won=1e12,
+                               foreign_net_raw=1e9, earnings_raw=0.1, signal_4_basis="standalone",
+                               quality_insufficient=False),
+            MODULE.StockSignal(ticker="B", name="B", sector="제조", market_cap_won=1e12,
+                               foreign_net_raw=0.0, earnings_raw=0.0, signal_4_basis="not_applicable",
+                               quality_insufficient=True),
+        ]
+        price_series = {
+            "A": {"closes": [100.0] * 5, "highs": [100.0] * 5, "trdvals": [5e9] * 5},
+            "B": {"closes": [100.0] * 5, "highs": [100.0] * 5, "trdvals": [5e9] * 5},
+        }
+        raws = MODULE.build_stock_raw_list(sigs, price_series, [80.0, 80.0])
+        # A: 전부 present. B: earnings basis=not_applicable → NaN, quality_insufficient → NaN, foreign 0 → NaN
+        self.assertEqual(raws[0].earnings_raw, 0.1)
+        self.assertTrue(math.isnan(raws[1].earnings_raw))
+        self.assertTrue(math.isnan(raws[1].quality_composite_raw))
+        self.assertTrue(math.isnan(raws[1].foreign_net_60d))
+
+
 # Source 파일 string for grep-based tests (FetchUniverseSectorTest 전용)
 MODULE_SOURCE = SCRIPT_PATH.read_text(encoding="utf-8")
 

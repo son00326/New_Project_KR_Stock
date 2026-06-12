@@ -133,6 +133,13 @@ except ImportError:
 # B89 strict block exit code (plan §4.3 R1 lock-in)
 EXIT_CODE_UNRESOLVED = 2
 
+# B++ (D30, 77차) — 공유 팩터/사이징/스코어링 순수 로직.
+try:
+    import tier0_factors as TF
+except ImportError:
+    sys.path.insert(0, str(_MAPPER_DIR))
+    import tier0_factors as TF  # noqa: E402
+
 
 # ============================================================================
 # Configuration
@@ -162,6 +169,8 @@ TOP_K_PER_BUCKET = 10
 CANDIDATE_POOL_PER_BUCKET = 50  # 단/중/장 후보 50씩 (HANDOFF §2.A 박제)
 
 PRICE_WINDOW_DAYS = 90  # 60-day 모멘텀 계산용 여유 buffer (영업일 60일 ≈ 달력 90일)
+# B++ (D30): risk-adj 252D trend + 52주 고가 + 12-1 skip(21) → 영업일 ~252+21 ≈ 달력 ~400일.
+BPP_LOOKBACK_CALENDAR_DAYS = 400
 VOLUME_MA_SHORT = 5
 VOLUME_MA_LONG = 60
 MOMENTUM_MA_WINDOW = 60
@@ -521,14 +530,19 @@ def enforce_b89_strict_block(unresolved_count: int, *, apply: bool, review_csv_p
 def prefetch_price_series(
     target_date: date,
     markets: tuple[str, ...] = ("KOSPI", "KOSDAQ"),
+    span_calendar_days: int = PRICE_WINDOW_DAYS,
 ) -> dict[str, dict]:
     """KRX 날짜별 전종목 시세를 영업일 역산해 ticker별 시계열로 prefetch.
 
     per-ticker OHLCV 루프(pykrx)를 날짜별 batch 1콜로 역전한다. 각 영업일
     `fetch_bydd_trd(market, d)` → 빈([]) 응답일(주말/휴장/미갱신) 스킵 →
-    ISU_CD별 closes/volumes를 날짜 오름차순으로 축적.
+    ISU_CD별 closes/highs/volumes/trdvals를 날짜 오름차순으로 축적.
 
-    Returns: {ticker: {"closes": [...], "volumes": [...]}}
+    span_calendar_days: 역산 달력 범위. legacy=PRICE_WINDOW_DAYS(90), B++는
+    BPP_LOOKBACK_CALENDAR_DAYS(400, 252D trend + 52주 고가 + skip 21용).
+
+    Returns: {ticker: {"closes": [...], "highs": [...], "volumes": [...], "trdvals": [...]}}
+    (highs=TDD_HGPRC 52주 고가용 · trdvals=ACC_TRDVAL 거래대금 ADV/유동성 플로어용 §3B)
     """
     try:
         from krx_openapi import fetch_bydd_trd, _to_float
@@ -536,8 +550,8 @@ def prefetch_price_series(
         from scripts.krx_openapi import fetch_bydd_trd, _to_float
 
     end = last_business_day_on_or_before(target_date)
-    # 달력 PRICE_WINDOW_DAYS + 20 + 1일 역산 후 주말 제거 → 영업일 오름차순.
-    span = PRICE_WINDOW_DAYS + 20 + 1
+    # 달력 span + 20 + 1일 역산 후 주말 제거 → 영업일 오름차순.
+    span = span_calendar_days + 20 + 1
     days = [end - timedelta(days=offset) for offset in range(span)]
     business_days = sorted(d for d in days if d.weekday() < 5)
 
@@ -552,9 +566,13 @@ def prefetch_price_series(
                 close = _to_float(r.get("TDD_CLSPRC"))
                 if not ticker or close <= 0:
                     continue
-                entry = series.setdefault(ticker, {"closes": [], "volumes": []})
+                entry = series.setdefault(
+                    ticker, {"closes": [], "highs": [], "volumes": [], "trdvals": []}
+                )
                 entry["closes"].append(close)
+                entry["highs"].append(_to_float(r.get("TDD_HGPRC")) or close)
                 entry["volumes"].append(_to_float(r.get("ACC_TRDVOL")))
+                entry["trdvals"].append(_to_float(r.get("ACC_TRDVAL")))
     return series
 
 
@@ -808,6 +826,136 @@ def select_candidate_pool_per_bucket(
             )
         result[bucket] = picks
     return result
+
+
+# ============================================================================
+# B++ (D30, 77차) — StockRaw 구성 + size-sleeve 후보 선정 + Gate C smoke
+# ============================================================================
+
+def build_stock_raw_list(
+    signals: list[StockSignal],
+    price_series: dict[str, dict],
+    quality_composites: list[float],
+) -> list[TF.StockRaw]:
+    """StockSignal + price_series → B++ StockRaw 리스트 (§3 입력).
+
+    결측 tiering(§3C): earnings basis='not_applicable' → 구조적 결측(NaN, neutral 50).
+    quality_insufficient → NaN. foreign 0.0(fail-soft 또는 진짜 0) → NaN(보수적 neutral).
+    """
+    out: list[TF.StockRaw] = []
+    for s, qc in zip(signals, quality_composites):
+        entry = price_series.get(s.ticker, {})
+        closes = entry.get("closes", [])
+        highs = entry.get("highs", closes)
+        trdvals = entry.get("trdvals", [])
+        earnings = math.nan if s.signal_4_basis == "not_applicable" else s.earnings_raw
+        quality = math.nan if s.quality_insufficient else qc
+        foreign = s.foreign_net_raw if s.foreign_net_raw != 0.0 else math.nan
+        out.append(TF.StockRaw(
+            ticker=s.ticker, sector=s.sector, market_cap=s.market_cap_won,
+            closes=closes, trdvals=trdvals, highs=highs,
+            foreign_net_60d=foreign, earnings_raw=earnings, quality_composite_raw=quality,
+        ))
+    return out
+
+
+def bpp_signal_label(sc: "TF.ScoredStock") -> str:
+    """기여 최상위 factor 한국어 라벨 (signal_label용)."""
+    labels = {"trend": "추세 모멘텀", "foreign": "외국인 매수", "earnings": "실적", "quality": "퀄리티"}
+    ranks = {k: v for k, v in sc.factor_ranks.items() if not (isinstance(v, float) and math.isnan(v))}
+    if not ranks:
+        return "추세 모멘텀"
+    top = max(ranks.items(), key=lambda kv: kv[1])[0]
+    return labels.get(top, top)
+
+
+def select_bpp_candidates(
+    stocks: list[TF.StockRaw],
+    pool_size: int = CANDIDATE_POOL_PER_BUCKET,
+) -> dict[str, list["TF.ScoredStock"]]:
+    """B++ size-sleeve 후보 선정 (§3A). short→mid→long, cross-bucket disjoint.
+
+    각 bucket: score_bpp_universe(bucket) → size-sleeve select(L20/M20/S10, used 제외).
+    sleeve 쿼터 미달 시 SleeveShortfallError(무음 truncation 금지 §3A).
+    """
+    quota = dict(TF.SLEEVE_QUOTA)
+    # 합이 pool_size와 다르면 스케일(기본 20/20/10=50). 사용자 정의 pool_size 방어.
+    if sum(quota.values()) != pool_size:
+        raise ValueError(
+            f"SLEEVE_QUOTA 합 {sum(quota.values())} != pool_size {pool_size} — 쿼터/풀 불일치"
+        )
+    used: set[str] = set()
+    result: dict[str, list[TF.ScoredStock]] = {}
+    for bucket in BUCKETS:
+        scored = TF.score_bpp_universe(stocks, bucket)
+        by_ticker = {sc.ticker: sc for sc in scored}
+        picked = TF.select_size_sleeves(
+            [sc.ticker for sc in scored],
+            [sc.score for sc in scored],
+            [sc.sleeve for sc in scored],
+            quota=quota,
+            exclude=used,
+        )
+        picked_scored = sorted(
+            (by_ticker[t] for t in picked), key=lambda sc: (-sc.score, sc.ticker)
+        )
+        result[bucket] = picked_scored
+        for sc in picked_scored:
+            used.add(sc.ticker)
+    return result
+
+
+def build_bpp_candidate_rows(
+    selections: dict[str, list["TF.ScoredStock"]],
+    name_by_ticker: dict[str, str],
+    month: date,
+) -> list[Tier0CandidateRow]:
+    rows: list[Tier0CandidateRow] = []
+    for bucket, ranked in selections.items():
+        for idx, sc in enumerate(ranked, start=1):
+            rows.append(Tier0CandidateRow(
+                month=month.isoformat(),
+                ticker=sc.ticker,
+                name=name_by_ticker.get(sc.ticker, sc.ticker),
+                sector=sc.sector,
+                bucket=bucket,
+                rank=idx,
+                tier0_score=round(sc.score, 2),
+                signal_label=bpp_signal_label(sc),
+            ))
+    return rows
+
+
+def gate_c_smoke(selections: dict[str, list["TF.ScoredStock"]]) -> dict:
+    """Gate C (§4) 결정론 진입조건: 150 sleeve 분포 60/60/30 + Small ≤25% + score-log(mcap) 상관.
+
+    같은 세션 1회 산출로 '소형주 독식 소멸 + 대형 주도주 150 진입' 확인. 백테스트 불요.
+    leader basket(11) 진입 수도 tripwire로 report (합격 기준 아님 §4).
+    """
+    all_scored = [sc for picks in selections.values() for sc in picks]
+    dist = {"large": 0, "mid": 0, "small": 0}
+    for sc in all_scored:
+        dist[sc.sleeve] = dist.get(sc.sleeve, 0) + 1
+    total = sum(dist.values())
+    small_frac = dist.get("small", 0) / total if total else math.nan
+    scores = [sc.score for sc in all_scored if not (isinstance(sc.score, float) and math.isnan(sc.score))]
+    logmcaps = [math.log(sc.market_cap) for sc in all_scored
+                if sc.market_cap and sc.market_cap > 0 and not (isinstance(sc.score, float) and math.isnan(sc.score))]
+    corr = TF._pearson(scores, logmcaps) if len(scores) == len(logmcaps) and len(scores) >= 2 else math.nan
+    leader_hits = sorted(
+        sc.ticker for sc in all_scored if sc.ticker in _LEADER_BASKET
+    )
+    return {
+        "dist": dist, "total": total, "small_fraction": small_frac,
+        "score_logmcap_corr": corr, "leader_hits": leader_hits,
+    }
+
+
+# 관측 11-leader basket (tripwire 전용 — 합격 기준 아님, §4 target leakage 금지).
+_LEADER_BASKET = {
+    "005930", "000660", "267260", "042660", "329180", "012450",
+    "010140", "373220", "034020", "086520", "247540",
+}
 
 
 # ============================================================================
@@ -1085,6 +1233,94 @@ def upsert_candidates_supabase(
 
 
 # ============================================================================
+# B++ orchestration branch (D30) — emit-candidates 전용, --apply 게이트 차단
+# ============================================================================
+
+def run_bpp_candidates(
+    args,
+    signals: list[StockSignal],
+    price_series: dict[str, dict],
+    universe: list[dict],
+    dart_available: bool,
+) -> None:
+    """B++ size-sleeve 후보 150 산출 + Gate C smoke (§3·§4). dry-run/CSV 전용.
+
+    --apply는 삼중 게이트(recall+IC+size) ALL PASS 전까지 차단(§5 step 5). 미검증 스코어링으로
+    production tier0_candidates_150을 덮어쓰지 않는다.
+    """
+    if not args.emit_candidates:
+        sys.exit("--scoring bpp 는 현재 --emit-candidates(tier0_candidates_150) 전용입니다.")
+    if args.apply:
+        sys.exit(
+            "[ABORT] --scoring bpp + --apply 금지 (§5 step 5): B++ 삼중 게이트(recall+IC+size) "
+            "ALL PASS + omxy 적대검토 전까지 production tier0_candidates_150 덮어쓰기 금지. "
+            "Gate C smoke는 --dry-run 으로 실행하세요."
+        )
+
+    # quality composite (legacy와 동일 cross-section z; insufficient는 build_stock_raw_list에서 NaN).
+    if dart_available:
+        try:
+            from scripts.dart_signals import compute_quality_composite_for_universe
+        except ModuleNotFoundError:
+            from dart_signals import compute_quality_composite_for_universe
+        quality_composites = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
+    else:
+        quality_composites = [math.nan] * len(signals)
+
+    stocks = build_stock_raw_list(signals, price_series, quality_composites)
+    print(f"[4/7] B++ size-sleeve 선정 (유동성 플로어 ≥ ₩{int(TF.MIN_ADV_WON):,} + L20/M20/S10/bucket) ...",
+          file=sys.stderr, flush=True)
+    try:
+        selections = select_bpp_candidates(stocks)
+    except TF.SleeveShortfallError as exc:
+        sys.exit(f"[ABORT] B++ sleeve 쿼터 미달 (무음 truncation 금지 §3A): {exc}")
+
+    name_by_ticker = {u["ticker"]: u["name"] for u in universe}
+    rows = build_bpp_candidate_rows(selections, name_by_ticker, args.month)
+    validate_candidate_rows(rows)
+
+    # B89 strict block (canonical sector 정합 — bpp 150에도 동일 적용).
+    review_csv_path = args.sector_review_csv or args.csv_backup.replace(".csv", "_sector_review.csv")
+    if review_csv_path == args.csv_backup:
+        review_csv_path = args.csv_backup + ".sector_review.csv"
+    uni_by_ticker = {u["ticker"]: u for u in universe}
+    selected_universe_view = [
+        {
+            "ticker": sc.ticker,
+            "name": name_by_ticker.get(sc.ticker, sc.ticker),
+            "market": uni_by_ticker.get(sc.ticker, {}).get("market", ""),
+            "induty_code": uni_by_ticker.get(sc.ticker, {}).get("induty_code"),
+            "sector": sc.sector,
+            "sector_source": uni_by_ticker.get(sc.ticker, {}).get("sector_source", "unresolved"),
+        }
+        for picks in selections.values() for sc in picks
+    ]
+    unresolved_count = write_sector_review_csv(selected_universe_view, review_csv_path)
+    print(f"      [B89] sector review CSV → {review_csv_path} (unresolved selected={unresolved_count})",
+          file=sys.stderr, flush=True)
+    enforce_b89_strict_block(unresolved_count, apply=False, review_csv_path=review_csv_path)
+
+    print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
+    write_candidates_csv(args.csv_backup, rows)
+
+    # Gate C smoke (§4) — 결정론 진입조건.
+    gc = gate_c_smoke(selections)
+    print(f"[done] B++ dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · CSV={args.csv_backup}",
+          file=sys.stderr)
+    print("\n=== Gate C smoke (§4, 결정론 진입조건 — 백테스트 불요) ===")
+    print(f"  size sleeve 분포 (기대 L60/M60/S30): {gc['dist']} (총 {gc['total']})")
+    print(f"  Small 비중: {gc['small_fraction']:.1%} (한도 ≤ 25%)")
+    print(f"  score–log(시총) 상관: {gc['score_logmcap_corr']:.3f} (report 전용, 단독 pass 기준 아님)")
+    print(f"  11-leader tripwire 진입(합격기준 아님): {len(gc['leader_hits'])}/11 {gc['leader_hits']}")
+    print("\n--- preview (bucket별 top 3 후보) ---")
+    for bucket in BUCKETS:
+        picks = [r for r in rows if r.bucket == bucket][:3]
+        print(f"[{bucket}]")
+        for r in picks:
+            print(f"  #{r.rank} {r.ticker} {r.name} ({r.sector}) tier0_score={r.tier0_score} signal={r.signal_label}")
+
+
+# ============================================================================
 # Orchestration
 # ============================================================================
 
@@ -1111,6 +1347,14 @@ def main() -> None:
         help="(PR-D, ADR D-3) short_list_30 30 대신 tier0_candidates_150 (단/중/장 disjoint 50씩 = 150 후보) "
              "산출. AI 메인 path 입력 — TS getTier0Candidates consumer가 SELECT → runMonthlyBatchOrchestrator. "
              "--dry-run/--apply 와 조합 (dry-run=CSV만, apply=tier0_candidates_150 write).",
+    )
+    parser.add_argument(
+        "--scoring",
+        choices=["legacy", "bpp"],
+        default="legacy",
+        help="(D30, 77차) 스코어링 방법. legacy=5-시그널 z정규화+수기가중치(현 production). "
+             "bpp=B++ size-sleeve recall-first(유동성 플로어+risk-adj trend+52주고가+rank ensemble). "
+             "bpp는 --emit-candidates 전용 + Gate C smoke 출력 + 삼중 게이트 통과 전 --apply 차단.",
     )
     args = parser.parse_args()
 
@@ -1150,9 +1394,11 @@ def main() -> None:
     print(f"      → sector 분포: {dict(sorted(sector_dist.items()))}", file=sys.stderr, flush=True)
 
     # KRX 날짜별 전종목 batch prefetch — per-ticker OHLCV 루프를 dict[ticker→시계열] lookup으로 역전.
-    print(f"[1.7/7] KRX price series prefetch (날짜별 전종목 batch, 영업일 역산) ...",
+    # B++는 252D trend + 52주 고가용으로 lookback을 ~400 달력일로 확장(legacy=90).
+    span = BPP_LOOKBACK_CALENDAR_DAYS if args.scoring == "bpp" else PRICE_WINDOW_DAYS
+    print(f"[1.7/7] KRX price series prefetch (날짜별 전종목 batch, 영업일 역산, span={span}d) ...",
           file=sys.stderr, flush=True)
-    price_series = prefetch_price_series(target_date)
+    price_series = prefetch_price_series(target_date, span_calendar_days=span)
     print(f"      → {len(price_series)}개 ticker 시계열 prefetch", file=sys.stderr, flush=True)
 
     print(f"[2/7] per-ticker signals (가격·거래량=KRX prefetch lookup + 외국인=pykrx + DART hook) — {len(universe)}회 ...",
@@ -1186,6 +1432,11 @@ def main() -> None:
         ))
         if i % 100 == 0:
             print(f"      [{i}/{len(universe)}]", file=sys.stderr, flush=True)
+
+    # B++ (D30): size-sleeve recall-first 분기. legacy 정규화/선정과 독립 경로.
+    if args.scoring == "bpp":
+        run_bpp_candidates(args, signals, price_series, universe, dart_available)
+        return
 
     print(f"[3/7] normalize signals (cross-section z → 0~100) ...", file=sys.stderr, flush=True)
     normalize_signals(signals)
