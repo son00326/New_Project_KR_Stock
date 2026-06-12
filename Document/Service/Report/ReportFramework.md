@@ -696,7 +696,7 @@ Part A: 섹터 보드 (canonical 14인 overlay — D21 52차)
 
 > **65차 D27 Q5 supersede (2026-06-04)**: **직전 리포트가 다음 선정의 입력이 된다** — 재선정 시 기존 리스트 종목(incumbent)은 본 §8이 생성한 직전 리포트·논거·배지·점수 + 그 후 실현 성과("incumbent thesis context")를 주입받아 논거 유효성을 재점검(유지=신규 후보와 top10 랭킹 경쟁, 자동 유지 아님). 후보풀 = fresh Tier 0 ∪ incumbents(무심사 탈락 금지 — W2 union). Step 0 흐름은 "fresh 후보만 평가" 가정이 supersede됨. PR-K Reflection(Step 4 후속, 월말 전체 회고)과 별개 — Q5는 선정 시점 review(MVP). SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션 + ServicePlan-Admin §1A.5 D27.
 
-> **77차 D30 supersede (2026-06-12)**: 아래 Step 0a의 "5-Signal Composite × 시간대별 가중치 → 단/중/장 후보 50씩 = 150" 스코어링은 **예측력 미검증 + 실행 결함 다수**(cross-section z정규화 fat-tail·결측 0주입·외국인 size bias·가중치 IC 미검증)로 진단됨 → **"B+ 형태수정 + 경량 IC 검증" 채택(구현 다음 세션)**. 🔢 숫자 점수·후보 150 산출물 설명은 **검증 통과 전 "향후 상승 예측" claim 금지** — "robust factor-informed candidate shortlist"까지만. SoT spec = `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` + ServicePlan-Admin §1A.5 D30.
+> **77차 D30 supersede (2026-06-12)**: 아래 Step 0a의 "5-Signal Composite × 시간대별 가중치 → 단/중/장 후보 50씩 = 150" 스코어링은 **예측력 미검증 + 구조적 retrieval 실패**(실증: production 150 대형 주도주 10/11 누락·소형 급등주 독식; 지속추세 시그널 부재 + 소형주 구성편향)로 진단됨 → **"B++ (size-sleeve recall-first) + recall/IC/size 삼중 게이트" 채택(B+ 단독 REJECT, 구현 다음 세션)**. 🔢 숫자 점수·후보 150 산출물 설명은 **삼중 게이트 통과 전 "향후 상승 예측" claim 금지** — "robust, factor-informed, leader-inclusive candidate shortlist"까지만. SoT spec = `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`(B++ 전문) + ServicePlan-Admin §1A.5 D30.
 
 ```
 Step 0a — Tier 0: 인디케이터 자동 스크리닝 (AI 키 불필요)
