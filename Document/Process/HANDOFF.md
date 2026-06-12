@@ -21,7 +21,7 @@ Last updated: 2026-06-12 (77차 — **Accept go-live ✅ DONE(MVP② 완료, 202
 3. **[USER 키 + CLAUDE]** **S7b** 뉴스 자동제외(M12a) + 모닝 브리핑(M11) — Naver(B-8)+Telegram(B-9)+AI 키. shadow/alert-only(`M12A_AUTO_REMOVE_ENABLED` default false)부터. 이메일/Resend 전역 미사용. [SoT: ServicePlan-Admin §3.10 M12a · §2.2 Step 7]
 4. **[USER 운용 + CLAUDE]** **D11 운용 검증 → S7c → S7d → S9 → 🎉 출시** — §2.2 후속 PR/운영 Runbook 그대로. 출시 = 자동매매 제외("AI 추천+가상 포트+알림" 내부 도구), S8 자동매매는 출시 후.
 
-**[병행/선택 트랙] shortlist 정확성 — "순차적 C" 5단계 (사용자 확정, 1·2 완료 / 3·4·5 다음 세션 순서대로):**
+**[병행/선택 트랙] shortlist 정확성 — "순차적 C" 5단계 (1·2 ✅ / 3 부분완료 / 4 B++ 1차 구현 ✅ MERGED → 남은 1순위 = Gate A/B 실 harvest step-2 / 5 후속 자동화):**
 > 사용자 발견(SK하이닉스 리스트 누락처럼 보임 / 삼성전자 부재) → 14-agent 감사(wq0gi0va0) → "순차적 C"(전부 한 방에 묶지 말고 단계 검증). Accept go-live(위 #1)와 **독립** 트랙.
 > - **1단계 — UI 버그(track_pending + stale 카피)**: ✅ **DONE (76차, PR #114)**.
 > - **2단계 — DART 분기누적 파싱 버그**: ✅ **DONE (76차, PR #114)**. 코드/테스트만 — production 리스트는 3단계 재시드 전까지 옛 데이터.
@@ -207,6 +207,6 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 - **Accept 버튼 disable 진단+fix (PR #119 MERGED)**: 사용자 "Accept 비활성화" → dynamic workflow + omxy 병렬 진단 = **오늘 disable는 정상 D15 게이팅**(business_days_bypass D+4 ~06-15) — 버그 아님. 그 아래 viewer-게이트 실버그: **REQUIRED_GATE_TICKERS legacy mock 5종 하드코딩**(비결정 strictness + 실 열람 무시, page/actions 중복=split-brain) → **공유모듈 `tudal/src/lib/portfolio/shortlist-gate.ts`로 단일화**(게이트=active 전종목, 결정론) + page/action createdAt anchor MAX 통일 + 2026 달력 **근로자의날(05-01)·제헌절(07-17, 웹 독립검증 18년만 재지정·거래소 휴장)** 추가(영업일 246→244) + gateMessage D+4중 viewer 표시. omxy R1(07-17·test breadth) → R2 CONVERGED. test:ci 1989+4skip. **production Accept 게이트가 active 30종 2인열람 요구로 정합화**(약화 아님=강화). **77차 후속 D31에서 내부도구 완화로 supersede**(위 항목).
 - **shortlist 재시드 진행(비용 USER 승인)**: ① DART quarterly 캐시 **5,482행 무효화**(annual 4,700 보존, 76차 fix refetch 강제) → 직전 Tier0 run서 fixed 파서 재populate ② Tier0 dry-run b89 16 unresolved → **sector override 16 추가**(commit `2a66a95`: 반도체12/IT·SW1/바이오1/엔터·미디어1[엔피=WebSearch]/유통·소비재1) → 통과 → CSV 150 검증, **삼성전자 미진입**(SK하이닉스 long#40) ③ Tier1 보류.
 - **스코어링 방법론 2차 토론 CONVERGED → B++** (사용자 핵심질문 "정말 상승 예측하는 스코어링이냐" + 실증 요구): **production 150 MCP 쿼리 = 대형 주도주 11개 중 SK하이닉스만 진입·나머지 10 누락**(소형 급등주 독식·long 5점폭 압축) → 사용자 직감 확증. **Claude 퀀트 에이전트 + omxy(트레이딩/퀀트 sub-agent + 한국 모멘텀 KCI 문헌)** 독립 수렴 = **B+ 단독 REJECT → B++**(main Opus 종합, 2 판정[11-leader→tripwire·IC scope+escalate] omxy 수용 + spec 2 MED/1 LOW fix). 근본원인 = 구조적 retrieval 실패(지속추세 시그널 부재 + 소형주 구성편향). **B++** = size sleeve + 유동성 플로어 + 모멘텀 재설계 + 수기가중치 폐기→rank ensemble + recall/rank-IC/size 삼중 게이트. AI 2차는 누락 구제 불가 = recall은 Tier0 책임. **다음 세션 실행 = [SoT: `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`](B++ 전문)**.
-- **다음 1순위**: ①survivorship feasibility 선결 → ②Tier0 B++ 구현 + recall/IC 하버스트 → ③파라미터 train-lock-OOS → ④omxy 적대검토 → **삼중 게이트 ALL PASS 시에만** 재screen→apply→Tier1(₩25k).
+- **다음 1순위** (↑ 위 B++ 1차 구현 entry로 supersede): step 0(survivorship)·②B++ 구현/harness = ✅ DONE(PR #121). 남은 것 = ③실 Gate A/B harvest + 파라미터 train-lock-OOS → ④omxy 적대검토 → **삼중 게이트 ALL PASS 시에만** 재screen→apply→Tier1(₩25k).
 
 > B-SEL-CRON fix(77차, PR #118 MERGED — period-scoped due-gate + SELF_CONTINUE opt-out ON + orphan/stall/track alert + cost-month + finalize stale-guard, cron dormant) · 76차 이전(shortlist 정확성 PR #114, P4 75차 등) = git log + PR body.
