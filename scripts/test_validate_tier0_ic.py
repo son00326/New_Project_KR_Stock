@@ -330,23 +330,150 @@ class TestGateB(unittest.TestCase):
         self.assertTrue(any("IC IR" in f for f in fails))
 
 
-class TestCliFailClosed(unittest.TestCase):
-    def test_validate_cli_is_not_a_gate_yet(self):
+class TestCliActivatedHelp(unittest.TestCase):
+    """step-2 (77차): main() is no longer fail-closed. Smoke the CLI parser without network I/O."""
+
+    def test_cli_help_runs_and_no_longer_fail_closed(self):
         proc = subprocess.run(
-            [
-                sys.executable,
-                str(Path(V.__file__)),
-                "--start-month",
-                "2026-01-01",
-                "--end-month",
-                "2026-02-01",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
+            [sys.executable, str(Path(V.__file__)), "--help"],
+            capture_output=True, text=True, check=False,
         )
-        self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("NOT A GATE YET (step-2)", proc.stdout + proc.stderr)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("삼중 게이트", proc.stdout)
+        self.assertNotIn("NOT A GATE YET", proc.stdout + proc.stderr)
+
+
+class TestHarvestDriverPure(unittest.TestCase):
+    """Pure month-iteration helpers (no I/O)."""
+
+    def test_iter_selection_months_inclusive(self):
+        out = V.iter_selection_months(date(2024, 11, 1), date(2025, 2, 1))
+        self.assertEqual([d.isoformat() for d in out],
+                         ["2024-11-01", "2024-12-01", "2025-01-01", "2025-02-01"])
+
+    def test_selection_index_is_last_trading_day_before_month(self):
+        dates = ["20250130", "20250131", "20250203", "20250228", "20250303"]
+        # 선정 2025-02-01 → 직전 마지막 거래일 = 20250131 (index 1)
+        self.assertEqual(V.selection_index(dates, date(2025, 2, 1)), 1)
+        # 선정 2025-03-01 → 20250228 (index 3)
+        self.assertEqual(V.selection_index(dates, date(2025, 3, 1)), 3)
+        # 모든 날짜가 이후 → -1
+        self.assertEqual(V.selection_index(dates, date(2025, 1, 1)), -1)
+
+    def test_build_series_and_slice_at(self):
+        panel = {
+            "20250101": {"A": _row(100, trdval=5e9, mktcap=1e12)},
+            "20250102": {"A": _row(110), "B": _row(50)},
+            "20250103": {"A": _row(120), "B": _row(55)},
+        }
+        series = V.build_series_by_ticker(panel, V.panel_trading_days(panel))
+        self.assertEqual(series["A"]["closes"], [100.0, 110.0, 120.0])
+        sliced = V.slice_series_at(series, "20250102")  # <= 0102
+        self.assertEqual(sliced["A"]["closes"], [100.0, 110.0])
+        self.assertEqual(sliced["A"]["mktcap_at"], 1e12)
+        self.assertEqual(sliced["B"]["closes"], [50.0])
+
+    def test_canonical_size_tiers_uses_liquid_breakpoints(self):
+        import tier0_factors as F
+        big = F.StockRaw(ticker="BIG", sector="제조", market_cap=1e13, closes=[100] * 70, trdvals=[5e9] * 70)
+        mid = F.StockRaw(ticker="MID", sector="제조", market_cap=1e12, closes=[100] * 70, trdvals=[5e9] * 70)
+        smol = F.StockRaw(ticker="SMOL", sector="제조", market_cap=1e11, closes=[100] * 70, trdvals=[5e9] * 70)
+        illiquid = F.StockRaw(ticker="ILQ", sector="제조", market_cap=2e13, closes=[100] * 70, trdvals=[1e6] * 70)
+        tiers = V.canonical_size_tiers([big, mid, smol, illiquid])
+        self.assertEqual(tiers["ILQ"], "small")  # 유동성 미달 → small (보수적)
+        self.assertIn(tiers["BIG"], ("large", "mid"))
+
+    def test_baseline_select_disjoint_pool(self):
+        import tier0_factors as F
+        stocks = [F.StockRaw(ticker=f"T{i}", sector="제조", market_cap=1e12,
+                             closes=[100 + i] * 65 + [100 + i + 5], trdvals=[5e9] * 66) for i in range(200)]
+        sel = V._baseline_select(lambda ss, b: {s.ticker: float(int(s.ticker[1:])) for s in ss}, stocks, pool=10)
+        self.assertEqual(len(sel), 30)  # 3 buckets × 10 disjoint
+
+    def test_ic_weighted_falls_back_to_equal_when_no_prior(self):
+        import tier0_factors as F
+        n = 100  # ≥ 82 (short 60-day lookback + 21 skip + 1) so primary trend is present
+        stocks = [F.StockRaw(ticker=f"T{i}", sector="제조", market_cap=1e12,
+                             closes=[100.0 * (1.001 ** t) * (1.0 + 0.01 * math.sin(t + i)) for t in range(n)],
+                             trdvals=[5e9] * n, earnings_raw=0.05 + 0.001 * i) for i in range(40)]
+        out = V.ic_weighted_rank_score(stocks, "short", prior_factor_ic={})  # no prior → equal weights
+        self.assertTrue(any(not math.isnan(v) for v in out.values()))
+
+
+def _make_fake_panel(n_days: int, n_tickers: int, *, start=date(2024, 1, 1)):
+    """결정론 fake 패널 (n_days 거래일 × n_tickers). drift 차등으로 winner 존재, 3 size tier."""
+    dates = []
+    d = start
+    while len(dates) < n_days:
+        if d.weekday() < 5:
+            dates.append(d.strftime("%Y%m%d"))
+        d += __import__("datetime").timedelta(days=1)
+    panel = {}
+    for j, ds in enumerate(dates):
+        day = {}
+        for ti in range(n_tickers):
+            drift = 0.0004 + 0.0006 * (ti % 10) / 9.0  # 0.0004..0.0010
+            base = 1000.0 + 10 * ti
+            close = base * ((1 + drift) ** j) * (1.0 + 0.012 * math.sin(j * 0.5 + ti * 0.13))
+            close = max(1.0, close)
+            if ti < n_tickers * 0.2:
+                mktcap = 1e13 + ti * 1e11   # large
+            elif ti < n_tickers * 0.6:
+                mktcap = 1e12 + ti * 1e9    # mid
+            else:
+                mktcap = 1e11 + ti * 1e8    # small
+            day[f"{ti:06d}"] = V.PanelRow(close=close, high=close * 1.005, trdval=5e9, mktcap=mktcap,
+                                          name=f"종목{ti}", market="KOSPI")
+        panel[ds] = day
+    return panel, dates
+
+
+class TestSmokeHarvestNoIO(unittest.TestCase):
+    """smoke-1: harvest_pit_months end-to-end with injected fakes (no KRX/DART/pykrx I/O)."""
+
+    def test_smoke_harvest_shape_and_no_real_io(self):
+        import tier0_factors as F
+        from dart_signals import DartSignalsResult
+        panel, dates = _make_fake_panel(480, 240)
+        sectors = ["제조", "바이오", "IT/SW", "금융"]
+
+        def universe_at(t):
+            return [{"ticker": f"{ti:06d}", "name": f"종목{ti}", "sector": sectors[ti % 4],
+                     "market_cap_won": panel[dates[-1]][f"{ti:06d}"].mktcap} for ti in range(240)]
+
+        def foreign_at(tk, t):
+            return (1e9, False)  # genuine, not failed
+
+        def dart_at(tk, t):
+            return DartSignalsResult()  # neutral (structural-missing)
+
+        report = V.harvest_pit_months(
+            date(2025, 3, 1), date(2025, 4, 1), panel,
+            universe_at=universe_at, foreign_at=foreign_at, dart_at=dart_at,
+            smoke=True, generated_at="2026-06-12T00:00:00")
+
+        # shape
+        for k in ("version", "harvest", "gate_a", "gate_b", "gate_c", "data_quality",
+                  "survivorship_label", "triple_gate_all_pass"):
+            self.assertIn(k, report)
+        self.assertGreaterEqual(report["harvest"]["months_analyzed"], 1)
+        self.assertEqual(report["gate_a"]["verdict"], "SMOKE")  # 임계 미적용
+        self.assertEqual(report["gate_b"]["verdict"], "SMOKE")
+        self.assertIn(report["gate_c"]["verdict"], ("PASS", "FAIL"))  # 결정론은 smoke에도 산출
+        self.assertIn("clean", report["survivorship_label"])
+        # per-month + status counts present
+        self.assertTrue(report["gate_a"]["per_month"])
+        self.assertIn("return_status_counts", report["data_quality"])
+        # winners exist (drift 차등) → recall 산출 가능
+        self.assertGreater(report["gate_a"]["per_month"][0]["n_winners"], 0)
+
+    def test_harvest_raises_on_empty_universe(self):
+        panel, _ = _make_fake_panel(300, 60)
+        with self.assertRaises(RuntimeError):
+            V.harvest_pit_months(
+                date(2025, 3, 1), date(2025, 4, 1), panel,
+                universe_at=lambda t: [], foreign_at=lambda tk, t: (0.0, False),
+                dart_at=lambda tk, t: __import__("dart_signals").DartSignalsResult(), smoke=True)
 
 
 class TestGateC(unittest.TestCase):
