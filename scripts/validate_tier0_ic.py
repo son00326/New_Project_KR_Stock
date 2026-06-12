@@ -939,32 +939,39 @@ def process_month(
     baseline_equal = _baseline_select(baseline_equal_rank_score, stocks)
 
     # selection_performance: horizon별 픽의 **실현 수익률** (B++ vs legacy momentum proxy vs 벤치마크).
-    # recall/IC와 별개의 직관 지표. omxy R6 정합:
-    #  - 벤치마크 = 유동 eligible universe **equal-weight**(liquid_eqw, cap-weight 아님) → size 베타 미통제.
-    #  - **bpp_sleeve_excess** = 픽 수익률 − 같은 size sleeve 평균 → size 틸트 제거한 "선택 스킬" 격리(핵심).
-    #  - bpp_basket = 월별 픽 바스켓 평균 → 독립 관측은 ~월 수(950 픽 아님). net = gross − round-trip cost.
-    elig_set = {s.ticker for s in stocks if F.liquidity_floor_pass(F.adv60(s.trdvals))}
+    # recall/IC와 별개의 직관 지표. omxy R6/R7 정합:
+    #  - 벤치마크·sleeve 모두 **B++ scored eligible universe(sel[h][0])** 기준으로 통일(R7 HIGH: canonical
+    #    full-liquid tier가 아니라 **실제 선정 sleeve**(ScoredStock.sleeve)로 size 틸트 격리).
+    #  - bpp_excess_vs_own_sleeve = 픽 − 같은 **선정 sleeve** 평균 → size 베타 제거 "선택 스킬".
+    #  - bpp_sleeve_excess_basket = 월별 own-sleeve excess 평균 → 그 자체의 월별 CI로 스킬 유의성 판정(R7).
+    #  - bpp_basket = 월별 픽 바스켓 평균(독립 관측 ≈ 월 수). net = gross − round-trip cost.
     perf: dict[str, dict] = {}
     for h in HARVEST_BUCKETS:
         fwd_h = fwd[h]
-        elig_ret = [fwd_h[tk] for tk in elig_set if tk in fwd_h]
+        scored_h, ranked_h = sel[h]
+        # 벤치마크 + sleeve 평균 = B++ scored eligible universe (선정 sleeve 기준, 일관)
+        elig_ret = [fwd_h[sc.ticker] for sc in scored_h if sc.eligible and sc.ticker in fwd_h]
         eqw_mean = (sum(elig_ret) / len(elig_ret)) if elig_ret else math.nan
         sleeve_ret: dict[str, list[float]] = {"large": [], "mid": [], "small": []}
-        for tk in elig_set:
-            if tk in fwd_h:
-                sleeve_ret.setdefault(tier_of.get(tk, "small"), []).append(fwd_h[tk])
+        for sc in scored_h:
+            if sc.eligible and sc.ticker in fwd_h:
+                sleeve_ret.setdefault(sc.sleeve, []).append(fwd_h[sc.ticker])
         sleeve_mean = {s: (sum(v) / len(v) if v else math.nan) for s, v in sleeve_ret.items()}
-        bpp_ret = [fwd_h[tk] for tk in selected_by_h[h] if tk in fwd_h]
-        bpp_sleeve_exc = [
-            fwd_h[tk] - sleeve_mean.get(tier_of.get(tk, "small"), math.nan)
-            for tk in selected_by_h[h]
-            if tk in fwd_h and not _is_nan(sleeve_mean.get(tier_of.get(tk, "small"), math.nan))
-        ]
+        bpp_ret, bpp_sleeve_exc = [], []
+        for sc in ranked_h:  # 실제 선정 픽(ScoredStock) — 각 픽의 실제 선정 sleeve로 벤치마크
+            if sc.ticker not in fwd_h:
+                continue
+            r = fwd_h[sc.ticker]
+            bpp_ret.append(r)
+            sm = sleeve_mean.get(sc.sleeve, math.nan)
+            if not _is_nan(sm):
+                bpp_sleeve_exc.append(r - sm)
         leg_ret = [fwd_h[tk] for tk in legacy_by_h[h] if tk in fwd_h]
         perf[h] = {
             "bpp": bpp_ret, "legacy": leg_ret, "eqw_mean": eqw_mean,
             "bpp_sleeve_excess": bpp_sleeve_exc,
             "bpp_basket": (sum(bpp_ret) / len(bpp_ret)) if bpp_ret else math.nan,
+            "bpp_sleeve_excess_basket": (sum(bpp_sleeve_exc) / len(bpp_sleeve_exc)) if bpp_sleeve_exc else math.nan,
         }
 
     return MonthResult(
@@ -1123,7 +1130,7 @@ def aggregate_harvest(
     selection_performance: dict[str, dict] = {}
     for h in HARVEST_BUCKETS:
         bpp_all, leg_all, bpp_exc_eqw, leg_exc_eqw, eqw_means = [], [], [], [], []
-        bpp_sleeve_exc, bpp_baskets = [], []
+        bpp_sleeve_exc, bpp_baskets, sleeve_exc_baskets = [], [], []
         for r in res:
             p = r.selection_perf.get(h, {})
             mm = p.get("eqw_mean", math.nan)
@@ -1140,13 +1147,16 @@ def aggregate_harvest(
             bpp_sleeve_exc.extend(p.get("bpp_sleeve_excess", []))
             if not _is_nan(p.get("bpp_basket", math.nan)):
                 bpp_baskets.append(p["bpp_basket"])
+            if not _is_nan(p.get("bpp_sleeve_excess_basket", math.nan)):
+                sleeve_exc_baskets.append(p["bpp_sleeve_excess_basket"])
         bpp_avg = _mean(bpp_all)
         selection_performance[h] = {
             "bpp_avg_return_gross": round(bpp_avg, 4),
             "bpp_net_return_after_cost": round(bpp_avg - ROUND_TRIP_COST, 4) if not _is_nan(bpp_avg) else math.nan,
             "bpp_hit_rate": round(_hit_rate(bpp_all), 4),
-            "bpp_excess_vs_liquid_eqw": round(_mean(bpp_exc_eqw), 4),
+            "bpp_excess_vs_liquid_eqw": round(_mean(bpp_exc_eqw), 4),  # 대부분 size 베타 — 스킬 아님
             "bpp_excess_vs_own_sleeve": round(_mean(bpp_sleeve_exc), 4),  # size-neutral 선택 스킬(핵심)
+            "bpp_sleeve_excess_monthly_ci90": _ci90(sleeve_exc_baskets),  # 스킬의 월별 분포 → 유의성 판정
             "bpp_basket_monthly_ci90": _ci90(bpp_baskets),
             "n_bpp_picks": len(bpp_all), "n_independent_months": len(bpp_baskets),
             "legacy_momentum_proxy_avg_return": round(_mean(leg_all), 4),
@@ -1168,7 +1178,8 @@ def aggregate_harvest(
             "verdict": gate_a_verdict, "fails": gate_a_fails,
             "overall_recall": overall, "random_baseline": random_baseline, "random_ratio": random_ratio,
             "per_horizon": per_h, "largemid_recall": largemid_recall, "largemid_vs_overall": largemid_vs_overall,
-            "baseline_current_recall": baseline_current_recall, "baseline_equal_recall": baseline_equal_recall,
+            "baseline_legacy_momentum_proxy_recall": baseline_current_recall,  # close/MA60 proxy, NOT 73차 incumbent
+            "baseline_equal_recall": baseline_equal_recall,
             "binding_baseline_recall": binding_baseline_recall,
             "leader_hits_total": leader_hits_total, "leader_total": leader_basket_size * n,
             "leader_per_month": {r.month: r.leader_in_selected for r in res},
@@ -1203,9 +1214,11 @@ def aggregate_harvest(
             "REDUCED-FEATURE (trend+size; foreign off, earnings ~0% in this run) feasibility backtest, "
             "ONE regime (2024-06~2025-12), GROSS+net shown. Benchmarks = liquid-universe EQUAL-WEIGHT "
             "(NOT cap-weight) + a LEGACY MOMENTUM PROXY (close/MA60 only, NOT the 73차 production 5-signal "
-            "scorer). bpp_excess_vs_own_sleeve isolates selection skill from the size tilt; "
-            "bpp_excess_vs_liquid_eqw is largely size/regime beta. Independent obs ≈ n_independent_months "
-            "(NOT n_bpp_picks); 6M windows overlap. DIAGNOSTIC SIGNAL, NOT decision-grade alpha."
+            "scorer). bpp_excess_vs_liquid_eqw = APPARENT excess vs liquid EQW, largely a size/regime tilt — "
+            "NOT skill. bpp_excess_vs_own_sleeve isolates selection skill from the size tilt; judge its "
+            "significance by bpp_sleeve_excess_monthly_ci90 (CI straddling 0 ⇒ small/mixed, not inferentially "
+            "validated). Independent obs ≈ n_independent_months (NOT n_bpp_picks); 6M windows overlap. "
+            "DIAGNOSTIC SIGNAL, NOT decision-grade alpha; no deploy/apply justified on this."
         ),
         "survivorship_label": survivorship_label,
         "triple_gate_all_pass": (gate_a_verdict == "PASS" and gate_b_verdict == "PASS" and gate_c.get("verdict") == "PASS"),
