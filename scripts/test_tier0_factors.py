@@ -308,6 +308,27 @@ class TestScoreBppUniverse(unittest.TestCase):
         self.assertFalse(scored["SHORT"].eligible)
         self.assertTrue(math.isnan(scored["SHORT"].score))
 
+    def test_long_bucket_high_proximity_alone_cannot_make_stock_eligible(self):
+        short_prices = _series(40, 0.004)
+        stocks = [
+            self._raw("FULL1", 5e12, 0.002, phase=0.1),
+            self._raw("FULL2", 4e12, 0.0015, phase=0.2),
+            F.StockRaw(
+                ticker="AT_HIGH_BUT_SHORT",
+                sector="제조",
+                market_cap=3e12,
+                closes=short_prices,
+                trdvals=[5e9] * 60,
+                highs=short_prices,
+                foreign_net_60d=1e9,
+                earnings_raw=0.5,
+                quality_composite_raw=0.5,
+            ),
+        ]
+        scored = {s.ticker: s for s in F.score_bpp_universe(stocks, "long")}
+        self.assertFalse(scored["AT_HIGH_BUT_SHORT"].eligible)
+        self.assertTrue(math.isnan(scored["AT_HIGH_BUT_SHORT"].score))
+
     def test_size_sleeve_distribution(self):
         stocks = [self._raw(f"T{k}", float(k) * 1e12, 0.001) for k in range(1, 11)]
         scored = {s.ticker: s for s in F.score_bpp_universe(stocks, "mid")}
