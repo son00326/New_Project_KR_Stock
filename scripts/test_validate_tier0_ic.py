@@ -390,6 +390,30 @@ class TestHarvestDriverPure(unittest.TestCase):
         sel = V._baseline_select(lambda ss, b: {s.ticker: float(int(s.ticker[1:])) for s in ss}, stocks, pool=10)
         self.assertEqual(len(sel), 30)  # 3 buckets × 10 disjoint
 
+    def test_build_month_stockraws_threads_exact_panel_selection_date(self):
+        # PIT-001: providers must receive the actual holiday-aware panel trading day used to
+        # slice prices — NOT a weekday-only recompute that could land on a holiday after the slice.
+        from dart_signals import DartSignalsResult
+        series = {"A": {"dates": ["20250226", "20250227"], "closes": [100.0, 101.0],
+                        "highs": [100.0, 101.0], "trdvals": [5e9, 5e9], "mktcap": [1e12, 1e12]}}
+        seen = {}
+
+        def dart_at(tk, d):
+            seen["dart"] = d
+            return DartSignalsResult()
+
+        def foreign_at(tk, d):
+            seen["foreign"] = d
+            return (1e9, False)
+
+        universe = [{"ticker": "A", "name": "에이", "sector": "제조", "market_cap_won": 1e12}]
+        # 20250228(Fri) was a holiday; actual last panel trading day before 2025-03 = 20250227(Thu).
+        stocks, _name, _meta = V.build_month_stockraws(
+            date(2025, 2, 27), series, "20250227", universe, foreign_at=foreign_at, dart_at=dart_at)
+        self.assertEqual(seen["dart"], date(2025, 2, 27))
+        self.assertEqual(seen["foreign"], date(2025, 2, 27))
+        self.assertEqual(len(stocks), 1)
+
     def test_ic_weighted_falls_back_to_equal_when_no_prior(self):
         import tier0_factors as F
         n = 100  # ≥ 82 (short 60-day lookback + 21 skip + 1) so primary trend is present
