@@ -308,11 +308,19 @@ def _parse_date(value: object) -> Optional[date]:
             return None
 
 
-def _not_yet_disclosed_is_fresh(row: dict) -> bool:
+def _not_yet_disclosed_is_fresh(row: dict, as_of_date: Optional[date] = None) -> bool:
+    """TTL freshness of a 'not_yet_disclosed' cache row.
+
+    PIT fix (C1): historical harvests must evaluate freshness as-of the harvest
+    month, not date.today(). Otherwise a 2024 'not_yet_disclosed' row is judged
+    'stale' in 2026 and silently re-fetched (mutating historical signal values).
+    Defaults to _today() to preserve live-screen behavior when as_of_date is None.
+    """
     fetched_at = _parse_date(row.get("fetched_at"))
     if fetched_at is None:
         return False
-    return (_today() - fetched_at).days < NOT_YET_DISCLOSED_TTL_DAYS
+    ref = as_of_date or _today()
+    return (ref - fetched_at).days < NOT_YET_DISCLOSED_TTL_DAYS
 
 
 def _deadline_with_grace(year: int, kind: str) -> Optional[date]:
@@ -322,9 +330,18 @@ def _deadline_with_grace(year: int, kind: str) -> Optional[date]:
     return date(year, md[0], md[1]) + timedelta(days=DISCLOSURE_GRACE_DAYS)
 
 
-def _is_within_disclosure_window(year: int, kind: str) -> bool:
+def _is_within_disclosure_window(year: int, kind: str, as_of_date: Optional[date] = None) -> bool:
+    """True if (year, kind) is still inside its statutory deadline + grace window.
+
+    PIT fix (C1): for historical harvests the reference date is the harvest month
+    (as_of_date), not date.today(). A quarter not yet past deadline+grace as-of t was
+    not safely disclosed at t. Defaults to _today() for the live screen.
+    """
     deadline = _deadline_with_grace(year, kind)
-    return False if deadline is None else _today() <= deadline
+    if deadline is None:
+        return False
+    ref = as_of_date or _today()
+    return ref <= deadline
 
 
 def _upsert_cache(client, row: dict) -> None:
@@ -358,11 +375,30 @@ def _cache_row_from_fetch(
     return row
 
 
-def cache_get_or_fetch_annual(client, corp_code: str, year: int, api_key: str) -> dict:
+def _cache_only_miss_row(corp_code: str, period_type: str, period_key: str, *, status: str = "no_data") -> dict:
+    """Synthetic miss row for cache-only harvest (no HTTP, no upsert).
+
+    PIT/feasibility fix (C7): the 12-24M harvest reads dart_financial_cache only.
+    On a cache miss it must NOT issue a live DART fetch (refetch-storm guard) and must
+    NOT mutate the cache. Returns a row that _row_to_financials maps to None → the
+    factor pipeline degrades the ticker to the structural-missing neutral tier (§3C).
+    """
+    row = {"corp_code": corp_code, "period_type": period_type, "period_key": period_key,
+           "status": status, "statement_scope": "NONE", "error_code": "cache_only_miss"}
+    for key in FINANCIAL_KEYS:
+        row[key] = None
+    return row
+
+
+def cache_get_or_fetch_annual(
+    client, corp_code: str, year: int, api_key: str, *, cache_only: bool = False
+) -> dict:
     period_key = str(year)
     cached = _cache_lookup(client, corp_code, "annual", period_key)
     if cached is not None:
         return cached
+    if cache_only:
+        return _cache_only_miss_row(corp_code, "annual", period_key)
     parsed, scope, _alias = fetch_financial_with_fallback(corp_code, str(year), REPORT_CODE_MAP["annual"], api_key)
     row = _cache_row_from_fetch(
         corp_code=corp_code,
@@ -379,15 +415,24 @@ def cache_get_or_fetch_annual(client, corp_code: str, year: int, api_key: str) -
     return row
 
 
-def cache_get_or_fetch_quarterly(client, corp_code: str, year: int, kind: str, api_key: str) -> dict:
+def cache_get_or_fetch_quarterly(
+    client, corp_code: str, year: int, kind: str, api_key: str,
+    *, as_of_date: Optional[date] = None, cache_only: bool = False,
+) -> dict:
     period_key = PERIOD_KEY_MAP[kind].format(year=year)
     cached = _cache_lookup(client, corp_code, "quarterly", period_key)
     if cached is not None:
-        if cached.get("status") != "not_yet_disclosed" or _not_yet_disclosed_is_fresh(cached):
+        if cached.get("status") != "not_yet_disclosed" or _not_yet_disclosed_is_fresh(cached, as_of_date):
             return cached
 
+    if cache_only:
+        # No HTTP in harvest mode: if the quarter was not yet disclosed as-of the
+        # harvest month, it is genuinely unavailable PIT (not_yet_disclosed); else no_data.
+        status = "not_yet_disclosed" if _is_within_disclosure_window(year, kind, as_of_date) else "no_data"
+        return _cache_only_miss_row(corp_code, "quarterly", period_key, status=status)
+
     parsed, scope, _alias = fetch_financial_with_fallback(corp_code, str(year), REPORT_CODE_MAP[kind], api_key)
-    no_data_status = "not_yet_disclosed" if parsed is None and _is_within_disclosure_window(year, kind) else "no_data"
+    no_data_status = "not_yet_disclosed" if parsed is None and _is_within_disclosure_window(year, kind, as_of_date) else "no_data"
     row = _cache_row_from_fetch(
         corp_code=corp_code,
         period_type="quarterly",
@@ -409,21 +454,29 @@ def _row_to_financials(row: Optional[dict]) -> Optional[dict]:
     return {key: row.get(key) for key in FINANCIAL_KEYS}
 
 
-def _get_standalone_quarter(client, corp_code: str, year: int, quarter: str, api_key: str) -> tuple[Optional[dict], str]:
+def _get_standalone_quarter(
+    client, corp_code: str, year: int, quarter: str, api_key: str,
+    *, as_of_date: Optional[date] = None, cache_only: bool = False,
+) -> tuple[Optional[dict], str]:
+    def q(kind: str) -> dict:
+        return cache_get_or_fetch_quarterly(
+            client, corp_code, year, kind, api_key, as_of_date=as_of_date, cache_only=cache_only
+        )
+
     if quarter == "Q1":
-        row = cache_get_or_fetch_quarterly(client, corp_code, year, "Q1", api_key)
+        row = q("Q1")
         return _row_to_financials(row), row.get("calculation_basis", "not_applicable")
     if quarter == "Q2":
-        q1 = _row_to_financials(cache_get_or_fetch_quarterly(client, corp_code, year, "Q1", api_key))
-        h1 = _row_to_financials(cache_get_or_fetch_quarterly(client, corp_code, year, "H1", api_key))
+        q1 = _row_to_financials(q("Q1"))
+        h1 = _row_to_financials(q("H1"))
         return compute_standalone_quarter("Q2", h1_cumulative=h1, q1_cumulative=q1), "standalone"
     if quarter == "Q3":
-        h1 = _row_to_financials(cache_get_or_fetch_quarterly(client, corp_code, year, "H1", api_key))
-        nine_m = _row_to_financials(cache_get_or_fetch_quarterly(client, corp_code, year, "9M", api_key))
+        h1 = _row_to_financials(q("H1"))
+        nine_m = _row_to_financials(q("9M"))
         return compute_standalone_quarter("Q3", nine_m_cumulative=nine_m, h1_cumulative=h1), "standalone"
     if quarter == "Q4":
-        annual = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, year, api_key))
-        nine_m = _row_to_financials(cache_get_or_fetch_quarterly(client, corp_code, year, "9M", api_key))
+        annual = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, year, api_key, cache_only=cache_only))
+        nine_m = _row_to_financials(q("9M"))
         return compute_standalone_quarter("Q4", annual_cumulative=annual, nine_m_cumulative=nine_m), "standalone"
     raise ValueError(f"Unsupported quarter: {quarter}")
 
@@ -440,25 +493,39 @@ def _lookup_corp_code(client, ticker: str) -> Optional[str]:
     return rows[0].get("corp_code") if rows else None
 
 
-def fetch_dart_signals(client, ticker: str, target_date: date, api_key: Optional[str]) -> DartSignalsResult:
-    """Fetch Signal 4/5 raw DART values for one ticker using Supabase caches."""
+def fetch_dart_signals(
+    client, ticker: str, target_date: date, api_key: Optional[str],
+    *, as_of_date: Optional[date] = None, cache_only: bool = False,
+) -> DartSignalsResult:
+    """Fetch Signal 4/5 raw DART values for one ticker using Supabase caches.
+
+    PIT (C1): determine_target_quarter/_latest_safe_annual_year already key off target_date,
+    so the *quarter selected* is point-in-time. as_of_date (defaults to target_date) additionally
+    anchors the disclosure-window / cache-freshness checks to the harvest month — removing the
+    date.today() look-ahead when re-running historical months (live screen passes target_date≈today
+    so behavior is unchanged). cache_only=True (harvest, C7): read dart_financial_cache only, never
+    issue live DART HTTP; cache misses degrade to structural-missing (neutral 50) downstream.
+    """
     if not api_key:
         return DartSignalsResult()
+    as_of = as_of_date or target_date
     corp_code = _lookup_corp_code(client, ticker)
     if not corp_code:
         return DartSignalsResult()
 
     annual_year = _latest_safe_annual_year(target_date)
-    annual_x = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, annual_year, api_key))
-    annual_x_1 = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, annual_year - 1, api_key))
+    annual_x = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, annual_year, api_key, cache_only=cache_only))
+    annual_x_1 = _row_to_financials(cache_get_or_fetch_annual(client, corp_code, annual_year - 1, api_key, cache_only=cache_only))
     quality_metrics, quality_insufficient = compute_quality_score(annual_x, annual_x_1)
 
     target_year, target_quarter = determine_target_quarter(target_date)
     earnings_raw = math.nan
     basis = "not_applicable"
     for _ in range(3):
-        current, current_basis = _get_standalone_quarter(client, corp_code, target_year, target_quarter, api_key)
-        prior, _prior_basis = _get_standalone_quarter(client, corp_code, target_year - 1, target_quarter, api_key)
+        current, current_basis = _get_standalone_quarter(
+            client, corp_code, target_year, target_quarter, api_key, as_of_date=as_of, cache_only=cache_only)
+        prior, _prior_basis = _get_standalone_quarter(
+            client, corp_code, target_year - 1, target_quarter, api_key, as_of_date=as_of, cache_only=cache_only)
         earnings_raw = compute_yoy_earnings_momentum(current, prior)
         if not math.isnan(earnings_raw):
             basis = current_basis

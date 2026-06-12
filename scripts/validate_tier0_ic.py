@@ -33,12 +33,13 @@ PIT/OOS recall로만.
 """
 from __future__ import annotations
 
+import bisect
 import json
 import math
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Literal, Optional, Sequence
 
@@ -599,11 +600,545 @@ def baseline_equal_rank_score(
 
 
 # ============================================================================
+# Baseline — IC-weighted (§3D, no-lookahead expanding prior IC; reported diagnostic)
+# ============================================================================
+
+def ic_weighted_rank_score(
+    stocks: Sequence[F.StockRaw], bucket: str, prior_factor_ic: dict[str, float],
+    *, min_adv_won: float = F.MIN_ADV_WON,
+) -> dict[str, float]:
+    """IC-weighted baseline (§3D): factor ranks weighted by PRIOR-months mean IC (no lookahead).
+
+    prior_factor_ic = {factor: expanding-mean IC over months < t} (clipped ≥0). If empty/all-zero
+    (first months) falls back to equal weights. Cross-section over the liquid universe (same floor
+    as B++) so the comparison is on the same eligible set. Diagnostic baseline — not the binding gate
+    bar (binding = current/equal, both clean). Returns {ticker: score} for eligible tickers.
+    """
+    scored = F.score_bpp_universe(stocks, bucket, min_adv_won=min_adv_won)
+    factors = ("trend", "foreign", "earnings", "quality")
+    w = {f: max(0.0, prior_factor_ic.get(f, math.nan)) for f in factors}
+    w = {f: (0.0 if _is_nan(v) else v) for f, v in w.items()}
+    total = sum(w.values())
+    if total <= 0:
+        w = {f: 1.0 for f in factors}
+        total = float(len(factors))
+    out: dict[str, float] = {}
+    for sc in scored:
+        if not sc.eligible:
+            continue
+        parts = [(w[f] / total) * sc.factor_ranks[f] for f in factors
+                 if f in sc.factor_ranks and not _is_nan(sc.factor_ranks[f])]
+        out[sc.ticker] = sum(parts) if parts else math.nan
+    return out
+
+
+# ============================================================================
+# PIT harvest driver — month iteration over the disk-cached panel (§5 step 2)
+# ============================================================================
+
+HARVEST_BUCKETS = ("short", "mid", "long")
+GATE_A_HORIZON = {"short": "short", "mid": "mid", "long": "long"}
+_FACTORS = ("trend", "foreign", "earnings", "quality")
+
+
+def iter_selection_months(start_month: date, end_month: date) -> list[date]:
+    """[start, end] 월 1일 리스트 (step 1M, 포함)."""
+    out: list[date] = []
+    y, m = start_month.year, start_month.month
+    while date(y, m, 1) <= end_month:
+        out.append(date(y, m, 1))
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+    return out
+
+
+def selection_index(dates: Sequence[str], t_month: date) -> int:
+    """선정 = 전월말 완료 데이터로 1일 실행 → t_month(YYYY-MM-01) **직전** 마지막 패널 거래일 인덱스.
+
+    production resolve_target_date(today)='직전 완료 영업일' 정합. 없으면 -1.
+    """
+    key = t_month.strftime("%Y%m%d")
+    i = bisect.bisect_left(list(dates), key)  # dates < key 의 개수
+    return i - 1
+
+
+def build_series_by_ticker(panel: Panel, dates: Sequence[str]) -> dict[str, dict]:
+    """panel → ticker별 시계열 {dates, closes, highs, trdvals, mktcap} (거래일 오름차순, 1회 precompute)."""
+    series: dict[str, dict] = {}
+    for d in dates:
+        for tk, row in panel[d].items():
+            e = series.setdefault(tk, {"dates": [], "closes": [], "highs": [], "trdvals": [], "mktcap": []})
+            e["dates"].append(d)
+            e["closes"].append(row.close)
+            e["highs"].append(row.high)
+            e["trdvals"].append(row.trdval)
+            e["mktcap"].append(row.mktcap)
+    return series
+
+
+def slice_series_at(series: dict[str, dict], sel_date_str: str) -> dict[str, dict]:
+    """각 ticker의 sel_date_str **이하** 시계열 (closes/highs/trdvals 오름차순) + mktcap_at(선정일)."""
+    out: dict[str, dict] = {}
+    for tk, e in series.items():
+        i = bisect.bisect_right(e["dates"], sel_date_str)  # dates <= sel 의 개수
+        if i <= 0:
+            continue
+        out[tk] = {
+            "closes": e["closes"][:i], "highs": e["highs"][:i], "trdvals": e["trdvals"][:i],
+            "mktcap_at": e["mktcap"][i - 1],
+        }
+    return out
+
+
+def build_month_stockraws(
+    t: date, series: dict[str, dict], sel_date_str: str, universe_rows: Sequence[dict],
+    *, foreign_at: Callable[[str, date], tuple[float, bool]],
+    dart_at: Callable[[str, date], object],
+) -> tuple[list[F.StockRaw], dict[str, str], dict[str, int]]:
+    """선정월 t의 PIT StockRaw 리스트 구성 (§3 입력). 결측 tiering = build_stock_raw_list 매핑 정합.
+
+    universe_rows = {ticker,name,sector,market_cap_won}. price 시계열은 패널 슬라이스, foreign/DART는
+    주입 provider (harvest는 cache-only DART + fail-soft foreign). market_cap은 선정일 패널 mktcap.
+    Returns (stocks, name_by_ticker, quality_meta{foreign_failed, earnings_missing, quality_insufficient}).
+    """
+    from dart_signals import compute_quality_composite_for_universe  # lightweight import
+
+    sliced = slice_series_at(series, sel_date_str)
+    pending: list[tuple] = []
+    qmetrics: list[dict] = []
+    meta = {"foreign_failed": 0, "earnings_missing": 0, "quality_insufficient": 0}
+    for u in universe_rows:
+        tk = u["ticker"]
+        s = sliced.get(tk)
+        if not s or not s["closes"]:
+            continue
+        fgn, fgn_failed = foreign_at(tk, t)
+        d = dart_at(tk, t)
+        mcap = u.get("market_cap_won") or s.get("mktcap_at") or math.nan
+        pending.append((tk, u.get("name", tk), u.get("sector", "unresolved"), mcap, s, fgn, fgn_failed, d))
+        qmetrics.append(getattr(d, "quality_raw_metrics", {}))
+    qcomp = compute_quality_composite_for_universe(qmetrics) if qmetrics else []
+    stocks: list[F.StockRaw] = []
+    name_by: dict[str, str] = {}
+    for (tk, name, sector, mcap, s, fgn, fgn_failed, d), qc in zip(pending, qcomp):
+        basis = getattr(d, "signal_4_basis", "not_applicable")
+        q_insuff = getattr(d, "quality_insufficient", True)
+        earnings = math.nan if basis == "not_applicable" else getattr(d, "earnings_raw", math.nan)
+        quality = math.nan if q_insuff else qc
+        foreign = math.nan if fgn_failed else fgn
+        if _is_nan(earnings):
+            meta["earnings_missing"] += 1
+        if q_insuff:
+            meta["quality_insufficient"] += 1
+        if fgn_failed:
+            meta["foreign_failed"] += 1
+        stocks.append(F.StockRaw(
+            ticker=tk, sector=sector, market_cap=mcap,
+            closes=s["closes"], trdvals=s["trdvals"], highs=s["highs"],
+            foreign_net_60d=foreign, foreign_fetch_failed=fgn_failed,
+            earnings_raw=earnings, quality_composite_raw=quality,
+        ))
+        name_by[tk] = name
+    return stocks, name_by, meta
+
+
+def select_bpp_for_harvest(stocks: Sequence[F.StockRaw]) -> dict[str, tuple[list, list]]:
+    """bucket별 (full scored universe, selected ranked) — cross-bucket disjoint L20/M20/S10 (§3A).
+
+    screen.select_bpp_candidates와 동일 규칙(중복 제거 + size sleeve). 여기서 재구현해 screen import
+    의존을 끊고(테스트 격리) full scored도 함께 반환(Gate B IC 산정용).
+    """
+    used: set[str] = set()
+    result: dict[str, tuple[list, list]] = {}
+    for b in HARVEST_BUCKETS:
+        scored = F.score_bpp_universe(stocks, b)
+        by_t = {sc.ticker: sc for sc in scored}
+        picked = F.select_size_sleeves(
+            [sc.ticker for sc in scored], [sc.score for sc in scored],
+            [sc.sleeve for sc in scored], quota=dict(F.SLEEVE_QUOTA), exclude=used,
+        )
+        ranked = sorted((by_t[t] for t in picked), key=lambda sc: (-sc.score, sc.ticker))
+        result[b] = (scored, ranked)
+        for sc in ranked:
+            used.add(sc.ticker)
+    return result
+
+
+def canonical_size_tiers(stocks: Sequence[F.StockRaw]) -> dict[str, str]:
+    """유동성 플로어 통과 종목 시총으로 size breakpoint → 전 종목 tier (bucket-독립, winner 분류용)."""
+    advs = {s.ticker: F.adv60(s.trdvals) for s in stocks}
+    liquid_caps = [s.market_cap for s in stocks if F.liquidity_floor_pass(advs[s.ticker]) and not _is_nan(s.market_cap)]
+    lc, mc = F.size_breakpoints(liquid_caps)
+    return {
+        s.ticker: (F.size_tier(s.market_cap, lc, mc) if F.liquidity_floor_pass(advs[s.ticker]) else "small")
+        for s in stocks
+    }
+
+
+def compute_month_forward(
+    panel: Panel, dates: Sequence[str], tickers: Sequence[str], sel_idx: int
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, int]]]:
+    """선정일 sel_idx 기준 horizon별 forward return + status count (전 universe)."""
+    fwd: dict[str, dict[str, float]] = {h: {} for h in HARVEST_BUCKETS}
+    status: dict[str, dict[str, int]] = {
+        h: {"ok": 0, "gap": 0, "delisted": 0, "insufficient": 0, "absent": 0} for h in HARVEST_BUCKETS
+    }
+    for h in HARVEST_BUCKETS:
+        hd = HORIZON_DAYS[h]
+        for tk in tickers:
+            ret, st = compute_forward_return(panel, dates, tk, sel_idx, hd)
+            status[h][st] = status[h].get(st, 0) + 1
+            if not _is_nan(ret):
+                fwd[h][tk] = ret
+    return fwd, status
+
+
+def _baseline_select(score_by_ticker_fn, stocks: Sequence[F.StockRaw], pool: int = 50) -> set[str]:
+    """bucket별 score 상위 pool개 cross-bucket disjoint 선정 → ticker set (baseline 비교용)."""
+    used: set[str] = set()
+    selected: set[str] = set()
+    for b in HARVEST_BUCKETS:
+        scores = score_by_ticker_fn(stocks, b)
+        ranked = sorted(((tk, sc) for tk, sc in scores.items() if not _is_nan(sc)),
+                        key=lambda x: (-x[1], x[0]))
+        cnt = 0
+        for tk, _sc in ranked:
+            if tk in used:
+                continue
+            selected.add(tk)
+            used.add(tk)
+            cnt += 1
+            if cnt >= pool:
+                break
+    return selected
+
+
+def _composite_ic(per_bucket_ic: dict[str, float]) -> float:
+    present = [v for v in per_bucket_ic.values() if not _is_nan(v)]
+    return sum(present) / len(present) if present else math.nan
+
+
+@dataclass
+class MonthResult:
+    month: str
+    selection_date: str
+    n_universe: int
+    n_eligible: int
+    n_selected: int
+    selected_all: set
+    selected_by_horizon: dict
+    largemid_selected: set
+    winners_by_horizon: dict
+    winners_all: set
+    largemid_winners: set
+    baseline_current_selected: set
+    baseline_equal_selected: set
+    leader_in_selected: list
+    composite_ic: float
+    sleeve_ic: dict
+    spread: float
+    top_tercile_ic: float
+    baseline_equal_ic: float
+    baseline_ic_weighted_ic: float
+    factor_ics: dict
+    status_counts: dict
+    quality_meta: dict
+    selected_sleeve: dict
+    selected_score: dict
+    selected_mcap: dict
+    forward_insufficient_horizons: list
+
+
+def process_month(
+    t: date, panel: Panel, dates: Sequence[str], series: dict[str, dict],
+    universe_rows: Sequence[dict], *, foreign_at, dart_at, prior_factor_ic: dict[str, float],
+    leader_basket: dict[str, str],
+) -> Optional[MonthResult]:
+    """한 선정월의 선정 + forward + Gate A/B 월별 메트릭. 패널/universe 부족 시 None."""
+    sel_idx = selection_index(dates, t)
+    if sel_idx < 0:
+        return None
+    sel_date = dates[sel_idx]
+    stocks, name_by, qmeta = build_month_stockraws(
+        t, series, sel_date, universe_rows, foreign_at=foreign_at, dart_at=dart_at)
+    if not stocks:
+        return None
+    tickers = [s.ticker for s in stocks]
+    n_eligible = sum(1 for s in stocks if F.liquidity_floor_pass(F.adv60(s.trdvals)))
+
+    fwd, status = compute_month_forward(panel, dates, tickers, sel_idx)
+    winners_by_h = {h: top_decile_winners(fwd[h]) for h in HARVEST_BUCKETS}
+    winners_all: set[str] = set().union(*winners_by_h.values()) if winners_by_h else set()
+    insufficient = [h for h in HARVEST_BUCKETS if not fwd[h]]  # horizon별 forward 전무 = 데이터 부족
+
+    sel = select_bpp_for_harvest(stocks)
+    selected_by_h = {b: {sc.ticker for sc in sel[b][1]} for b in HARVEST_BUCKETS}
+    selected_all: set[str] = set().union(*selected_by_h.values())
+    tier_of = canonical_size_tiers(stocks)
+    largemid_winners = {tk for tk in winners_all if tier_of.get(tk) in ("large", "mid")}
+    largemid_selected = {tk for tk in selected_all if tier_of.get(tk) in ("large", "mid")}
+
+    # selected 150 sleeve/score/mcap (Gate C entry-month). sleeve = 선정 시점 ScoredStock.sleeve.
+    selected_sleeve, selected_score, selected_mcap = {}, {}, {}
+    for b in HARVEST_BUCKETS:
+        for sc in sel[b][1]:
+            selected_sleeve[sc.ticker] = sc.sleeve
+            selected_score[sc.ticker] = sc.score
+            selected_mcap[sc.ticker] = sc.market_cap
+
+    # Gate B — per bucket scoped IC (liquid eligible), sleeve IC, spread, top-tercile, factor ICs.
+    ic_by_b, sleeve_ic_acc, spread_by_b, top_by_b = {}, {"large": [], "mid": []}, {}, {}
+    factor_ic_acc = {f: [] for f in _FACTORS}
+    eq_ic_by_b, icw_ic_by_b = {}, {}
+    for b in HARVEST_BUCKETS:
+        scored, _ranked = sel[b]
+        elig = [sc for sc in scored if sc.eligible]
+        sc_map = {sc.ticker: sc.score for sc in elig}
+        fwd_b = fwd[b]
+        common = [tk for tk in sc_map if tk in fwd_b]
+        ic_by_b[b] = F.spearman_ic([sc_map[tk] for tk in common], [fwd_b[tk] for tk in common])
+        spread_by_b[b] = decile_spread(sc_map, fwd_b)
+        # top tercile by score
+        if len(common) >= 9:
+            thr = F.quantile(sorted(sc_map[tk] for tk in common), 2.0 / 3.0)
+            tt = [tk for tk in common if sc_map[tk] >= thr]
+            top_by_b[b] = F.spearman_ic([sc_map[tk] for tk in tt], [fwd_b[tk] for tk in tt]) if len(tt) >= 3 else math.nan
+        for sleeve in ("large", "mid"):
+            st = [tk for tk in common if tier_of.get(tk) == sleeve]
+            if len(st) >= 5:
+                sleeve_ic_acc[sleeve].append(
+                    F.spearman_ic([sc_map[tk] for tk in st], [fwd_b[tk] for tk in st]))
+        for f in _FACTORS:
+            fr = {sc.ticker: sc.factor_ranks.get(f, math.nan) for sc in elig}
+            cf = [tk for tk in fr if tk in fwd_b and not _is_nan(fr[tk])]
+            if len(cf) >= 5:
+                factor_ic_acc[f].append(F.spearman_ic([fr[tk] for tk in cf], [fwd_b[tk] for tk in cf]))
+        # equal-rank baseline IC
+        eq = baseline_equal_rank_score(stocks, b)
+        ce = [tk for tk in eq if tk in fwd_b and not _is_nan(eq[tk])]
+        eq_ic_by_b[b] = F.spearman_ic([eq[tk] for tk in ce], [fwd_b[tk] for tk in ce]) if len(ce) >= 3 else math.nan
+        # ic-weighted baseline IC (no-lookahead prior weights)
+        icw = ic_weighted_rank_score(stocks, b, prior_factor_ic)
+        ci = [tk for tk in icw if tk in fwd_b and not _is_nan(icw[tk])]
+        icw_ic_by_b[b] = F.spearman_ic([icw[tk] for tk in ci], [fwd_b[tk] for tk in ci]) if len(ci) >= 3 else math.nan
+
+    sleeve_ic = {s: (sum(v) / len(v) if v else math.nan) for s, v in sleeve_ic_acc.items()}
+    factor_ics = {f: (sum(v) / len(v) if v else math.nan) for f, v in factor_ic_acc.items()}
+
+    # baseline selections (Gate A recall comparison)
+    baseline_current = _baseline_select(
+        lambda ss, b: {s.ticker: legacy_manual_weight_score(s, b) for s in ss}, stocks)
+    baseline_equal = _baseline_select(baseline_equal_rank_score, stocks)
+
+    return MonthResult(
+        month=t.isoformat(), selection_date=sel_date, n_universe=len(stocks), n_eligible=n_eligible,
+        n_selected=len(selected_all), selected_all=selected_all, selected_by_horizon=selected_by_h,
+        largemid_selected=largemid_selected, winners_by_horizon=winners_by_h, winners_all=winners_all,
+        largemid_winners=largemid_winners, baseline_current_selected=baseline_current,
+        baseline_equal_selected=baseline_equal,
+        leader_in_selected=sorted(set(leader_basket) & selected_all),
+        composite_ic=_composite_ic(ic_by_b), sleeve_ic=sleeve_ic,
+        spread=_composite_ic(spread_by_b), top_tercile_ic=_composite_ic(top_by_b),
+        baseline_equal_ic=_composite_ic(eq_ic_by_b), baseline_ic_weighted_ic=_composite_ic(icw_ic_by_b),
+        factor_ics=factor_ics, status_counts=status, quality_meta=qmeta,
+        selected_sleeve=selected_sleeve, selected_score=selected_score, selected_mcap=selected_mcap,
+        forward_insufficient_horizons=insufficient,
+    )
+
+
+def _pooled_recall(num: int, den: int) -> float:
+    return (num / den) if den > 0 else math.nan
+
+
+def _ci90(values: Sequence[float]) -> list[float]:
+    present = sorted(v for v in values if not _is_nan(v))
+    if len(present) < 2:
+        return [math.nan, math.nan]
+    return [round(F.quantile(present, 0.05), 4), round(F.quantile(present, 0.95), 4)]
+
+
+def aggregate_harvest(
+    results: Sequence[MonthResult], *, smoke: bool, generated_at: str,
+    coverage_meta: dict, survivorship_label: str,
+) -> dict:
+    """월별 MonthResult → 삼중 게이트 verdict + per-month + CI + 데이터품질 리포트 (§4·§9)."""
+    res = [r for r in results if r is not None]
+    n = len(res)
+
+    # ---- Gate A (pooled recall, denominator = 전체 top-decile positive winners) ----
+    num_all = sum(len(r.selected_all & r.winners_all) for r in res)
+    den_all = sum(len(r.winners_all) for r in res)
+    overall = _pooled_recall(num_all, den_all)
+    sel_total = sum(len(r.selected_all) for r in res)
+    uni_total = sum(r.n_universe for r in res)
+    random_baseline = (sel_total / uni_total) if uni_total else math.nan
+    random_ratio = (overall / random_baseline) if (random_baseline and not _is_nan(overall) and random_baseline > 0) else math.nan
+    per_h = {}
+    for h in HARVEST_BUCKETS:
+        nh = sum(len(r.selected_by_horizon.get(h, set()) & r.winners_by_horizon.get(h, set())) for r in res)
+        dh = sum(len(r.winners_by_horizon.get(h, set())) for r in res)
+        per_h[h] = _pooled_recall(nh, dh)
+    lm_num = sum(len(r.largemid_selected & r.largemid_winners) for r in res)
+    lm_den = sum(len(r.largemid_winners) for r in res)
+    largemid_recall = _pooled_recall(lm_num, lm_den)
+    largemid_vs_overall = (largemid_recall / overall) if (not _is_nan(overall) and overall > 0 and not _is_nan(largemid_recall)) else math.nan
+    cur_num = sum(len(r.baseline_current_selected & r.winners_all) for r in res)
+    eq_num = sum(len(r.baseline_equal_selected & r.winners_all) for r in res)
+    baseline_current_recall = _pooled_recall(cur_num, den_all)
+    baseline_equal_recall = _pooled_recall(eq_num, den_all)
+    # binding baseline = strongest clean baseline (B++ must beat the best → 복잡도 정당화).
+    binding_baseline_recall = max(
+        [v for v in (baseline_current_recall, baseline_equal_recall) if not _is_nan(v)], default=math.nan)
+    leader_hits_total = sum(len(r.leader_in_selected) for r in res)
+
+    rep_a = RecallReport(
+        overall=overall, random_baseline=random_baseline, random_ratio=random_ratio,
+        per_horizon=per_h, largemid_recall=largemid_recall, largemid_vs_overall=largemid_vs_overall,
+        leader_hits=leader_hits_total, leader_total=11 * n, baseline_recall=binding_baseline_recall,
+    )
+    if smoke:
+        gate_a_verdict, gate_a_fails = ("SMOKE", ["smoke: 임계 미적용(metrics-only)"])
+    else:
+        ok_a, fails_a = gate_a_pass(rep_a)
+        gate_a_verdict, gate_a_fails = ("PASS" if ok_a else "FAIL"), fails_a
+
+    # ---- Gate B (composite monthly IC, scoped) ----
+    monthly_ics = [r.composite_ic for r in res]
+    sleeve_ics = {s: [r.sleeve_ic.get(s, math.nan) for r in res] for s in ("large", "mid")}
+    spreads = [r.spread for r in res]
+    top_tercile_ics = [r.top_tercile_ic for r in res]
+    baseline_equal_ir = ic_information_ratio([r.baseline_equal_ic for r in res])
+    if smoke:
+        gate_b_verdict, gate_b_fails, gate_b_metrics = (
+            "SMOKE", ["smoke: 임계 미적용(metrics-only)"],
+            {"ic_mean": (sum(v for v in monthly_ics if not _is_nan(v)) / max(1, sum(1 for v in monthly_ics if not _is_nan(v)))) if any(not _is_nan(v) for v in monthly_ics) else math.nan,
+             "ic_ir": ic_information_ratio(monthly_ics)})
+    else:
+        gate_b_verdict, gate_b_fails, gate_b_metrics = gate_b_pass(
+            monthly_ics, sleeve_ics, spreads, baseline_ic_ir=baseline_equal_ir, top_tercile_ics=top_tercile_ics)
+
+    # ---- Gate C (deterministic, entry-month selection size composition) ----
+    gate_c = {"verdict": "N/A"}
+    if res:
+        entry = res[0]
+        ok_c, fails_c, metrics_c = gate_c_size_composition(
+            entry.selected_sleeve, entry.selected_score, entry.selected_mcap)
+        gate_c = {"verdict": "PASS" if ok_c else "FAIL", "fails": fails_c, **metrics_c,
+                  "entry_month": entry.month}
+
+    # ---- data quality ----
+    status_total = {h: {k: sum(r.status_counts[h].get(k, 0) for r in res) for k in
+                        ("ok", "gap", "delisted", "insufficient", "absent")} for h in HARVEST_BUCKETS}
+    total_returns = sum(sum(v.values()) for v in status_total.values())
+    total_delisted = sum(v["delisted"] for v in status_total.values())
+    delisted_fraction = (total_delisted / total_returns) if total_returns else 0.0
+    foreign_failed = sum(r.quality_meta.get("foreign_failed", 0) for r in res)
+    foreign_total = sum(r.n_universe for r in res)
+
+    return {
+        "version": "bpp-step2-harvest-1",
+        "generated_at": generated_at,
+        "harvest": {
+            "months_analyzed": n,
+            "months": [r.month for r in res],
+            "smoke": smoke,
+            "forward_insufficient_by_month": {r.month: r.forward_insufficient_horizons for r in res if r.forward_insufficient_horizons},
+        },
+        "gate_a": {
+            "verdict": gate_a_verdict, "fails": gate_a_fails,
+            "overall_recall": overall, "random_baseline": random_baseline, "random_ratio": random_ratio,
+            "per_horizon": per_h, "largemid_recall": largemid_recall, "largemid_vs_overall": largemid_vs_overall,
+            "baseline_current_recall": baseline_current_recall, "baseline_equal_recall": baseline_equal_recall,
+            "binding_baseline_recall": binding_baseline_recall,
+            "leader_hits_total": leader_hits_total, "leader_total": 11 * n,
+            "leader_per_month": {r.month: r.leader_in_selected for r in res},
+            "recall_ci90": _ci90([_pooled_recall(len(r.selected_all & r.winners_all), len(r.winners_all)) for r in res]),
+            "per_month": [
+                {"month": r.month, "n_universe": r.n_universe, "n_eligible": r.n_eligible,
+                 "n_winners": len(r.winners_all),
+                 "recall": _pooled_recall(len(r.selected_all & r.winners_all), len(r.winners_all)),
+                 "largemid_recall": _pooled_recall(len(r.largemid_selected & r.largemid_winners), len(r.largemid_winners)),
+                 "leader_hits": len(r.leader_in_selected)} for r in res],
+        },
+        "gate_b": {
+            "verdict": gate_b_verdict, "fails": gate_b_fails, **gate_b_metrics,
+            "baseline_equal_ic_ir": baseline_equal_ir,
+            "ic_ir_ci90": _ci90(monthly_ics),
+            "monthly": [{"month": r.month, "composite_ic": r.composite_ic, "sleeve_ic": r.sleeve_ic,
+                         "spread": r.spread, "top_tercile_ic": r.top_tercile_ic,
+                         "baseline_equal_ic": r.baseline_equal_ic,
+                         "baseline_ic_weighted_ic": r.baseline_ic_weighted_ic} for r in res],
+        },
+        "gate_c": gate_c,
+        "data_quality": {
+            "return_status_counts": status_total,
+            "delisted_fraction": round(delisted_fraction, 4),
+            "foreign_fail_fraction": round((foreign_failed / foreign_total) if foreign_total else 0.0, 4),
+            "earnings_missing_fraction": round(
+                (sum(r.quality_meta.get("earnings_missing", 0) for r in res) / foreign_total) if foreign_total else 0.0, 4),
+            **coverage_meta,
+        },
+        "survivorship_label": survivorship_label,
+        "triple_gate_all_pass": (gate_a_verdict == "PASS" and gate_b_verdict == "PASS" and gate_c.get("verdict") == "PASS"),
+    }
+
+
+def harvest_pit_months(
+    start_month: date, end_month: date, panel: Panel, *,
+    universe_at: Callable[[date], list[dict]],
+    foreign_at: Callable[[str, date], tuple[float, bool]],
+    dart_at: Callable[[str, date], object],
+    smoke: bool = False, leader_basket: dict[str, str] = LEADER_BASKET_2026_06,
+    generated_at: str = "", coverage_meta: Optional[dict] = None,
+    progress: bool = False,
+) -> dict:
+    """월 반복 PIT 하버스트 오케스트레이터 (§5 step 2). 순수 — 모든 I/O는 주입 provider/panel.
+
+    panel = load_pit_panel 출력(실행 시) 또는 테스트 fake. universe_at(t)/foreign_at(tk,t)/dart_at(tk,t).
+    forward 데이터 부족 월(end_month + 6M이 미래)은 horizon별 insufficient로 보고(무음 통과 금지).
+    """
+    dates = panel_trading_days(panel)
+    if len(dates) < 2:
+        raise RuntimeError("panel 거래일이 부족합니다 (≥2 필요).")
+    series = build_series_by_ticker(panel, dates)
+    months = iter_selection_months(start_month, end_month)
+    results: list[MonthResult] = []
+    prior_factor_ic: dict[str, float] = {}
+    factor_ic_history: dict[str, list[float]] = {f: [] for f in _FACTORS}
+    for i, t in enumerate(months):
+        universe_rows = universe_at(t)
+        if not universe_rows:
+            if progress:
+                print(f"  [{t.isoformat()}] universe 비어있음 — skip", file=sys.stderr, flush=True)
+            continue
+        r = process_month(t, panel, dates, series, universe_rows,
+                           foreign_at=foreign_at, dart_at=dart_at,
+                           prior_factor_ic=dict(prior_factor_ic), leader_basket=leader_basket)
+        if r is None:
+            continue
+        results.append(r)
+        # expanding-window prior factor IC (no lookahead: month t uses months < t)
+        for f in _FACTORS:
+            if not _is_nan(r.factor_ics.get(f, math.nan)):
+                factor_ic_history[f].append(r.factor_ics[f])
+        prior_factor_ic = {f: (sum(v) / len(v) if v else math.nan) for f, v in factor_ic_history.items()}
+        if progress:
+            print(f"  [{t.isoformat()}] universe={r.n_universe} eligible={r.n_eligible} "
+                  f"winners={len(r.winners_all)} recall={_pooled_recall(len(r.selected_all & r.winners_all), len(r.winners_all)):.3f} "
+                  f"ic={r.composite_ic:.3f} leaders={len(r.leader_in_selected)}/11", file=sys.stderr, flush=True)
+    if not results:
+        raise RuntimeError("처리된 선정월이 0개입니다 (universe/패널/forward 데이터 확인).")
+    return aggregate_harvest(results, smoke=smoke, generated_at=generated_at,
+                             coverage_meta=coverage_meta or {}, survivorship_label="clean (KRX bydd_trd=PIT, step-0 probe PASS)")
+
+
+# ============================================================================
 # CLI driver (실 provider wiring — 장시간/게이트 step 2)
 # ============================================================================
 
 def _load_env() -> None:
-    env = Path("/Users/yong/New_Project_KR_Stock/tudal/.env.local")
+    env = Path(__file__).resolve().parent.parent / "tudal/.env.local"
     if not env.exists():
         return
     for line in env.read_text().splitlines():
@@ -618,26 +1153,133 @@ def _load_env() -> None:
         os.environ["SUPABASE_URL"] = os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 
 
+def _parse_month_arg(s: str) -> date:
+    return datetime.strptime(s, "%Y-%m-%d").date().replace(day=1)
+
+
+def _build_real_providers(start_month: date, end_month: date, cache_dir: Path, universe_limit: Optional[int]):
+    """실 KRX/pykrx/DART provider + 디스크 캐시 panel 구성 (장시간 step-2 전용).
+
+    Returns (panel, universe_at, foreign_at, dart_at, coverage_meta).
+    DART = cache_only(HTTP 금지) + PIT as-of. foreign = pykrx fetch-once-per-ticker(디스크 캐시) + fail-soft.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import screen_shortlist_tier0 as S  # heavy loaders (lazy)
+    from krx_openapi import fetch_bydd_trd
+    import dart_signals as D
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    # 패널 span: start_month - lookback(450d) ~ end_month + 6M forward.
+    panel_start = date(start_month.year, start_month.month, 1) - timedelta(days=S.BPP_LOOKBACK_CALENDAR_DAYS)
+    panel_end = min(date.today(), end_month + timedelta(days=210))
+    span = (panel_end - panel_start).days + 1
+    all_days = [panel_end - timedelta(days=o) for o in range(span)]
+    bas_dds = sorted(d.strftime("%Y%m%d") for d in all_days if d.weekday() < 5)
+    print(f"[panel] building PIT panel {bas_dds[0]}~{bas_dds[-1]} ({len(bas_dds)} weekdays × 2 markets) → {cache_dir}",
+          file=sys.stderr, flush=True)
+    panel = load_pit_panel(bas_dds, cache_dir=cache_dir, progress=True)
+    print(f"[panel] {len(panel)} trading days loaded", file=sys.stderr, flush=True)
+
+    dart_key = os.environ.get("DART_API_KEY")
+    dart_client = S.get_supabase_client() if dart_key else None
+
+    # universe (per month) + sector resolve (정적 induty, 합집합 1회 캐시)
+    _uni_cache: dict[str, list[dict]] = {}
+
+    def universe_at(t: date) -> list[dict]:
+        key = t.isoformat()
+        if key in _uni_cache:
+            return _uni_cache[key]
+        sel = S.last_business_day_on_or_before(t - timedelta(days=1))  # 전월말 (선정 = 직전 완료 영업일)
+        uni = S.fetch_universe(sel, limit=universe_limit)
+        S.resolve_sectors_for_universe(uni, supabase_client=dart_client)
+        _uni_cache[key] = uni
+        return uni
+
+    # foreign: fetch-once per ticker over full window → 디스크 캐시 → 선정월 trailing 60bday slice는
+    # screen.fetch_foreign_signal이 target_date 기준 60bday를 직접 산정하므로 per (ticker, 월) 호출하되
+    # pykrx 1콜/호출 → 캐시로 중복 제거. fail-soft (Length-mismatch 등 → penalty tier).
+    _foreign_cache: dict[tuple[str, str], tuple[float, bool]] = {}
+
+    def foreign_at(tk: str, t: date) -> tuple[float, bool]:
+        key = (tk, t.strftime("%Y-%m"))
+        if key in _foreign_cache:
+            return _foreign_cache[key]
+        sel = S.last_business_day_on_or_before(t - timedelta(days=1))
+        try:
+            val = S.fetch_foreign_signal(tk, sel)
+        except Exception:  # noqa: BLE001 — pykrx 어떤 예외든 fail-soft penalty tier
+            val = (math.nan, True)
+        _foreign_cache[key] = val
+        return val
+
+    def dart_at(tk: str, t: date):
+        if dart_client is None or not dart_key:
+            return D.DartSignalsResult()
+        sel = S.last_business_day_on_or_before(t - timedelta(days=1))
+        return D.fetch_dart_signals(dart_client, tk, sel, dart_key, as_of_date=sel, cache_only=True)
+
+    # DART 캐시 커버리지 라벨 (sparse quarter 보고)
+    coverage_meta = {"dart_cache_only": True, "foreign_failsoft_penalty": True}
+    return panel, universe_at, foreign_at, dart_at, coverage_meta
+
+
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Tier 0 B++ 삼중 게이트 하버스트 (§4)")
-    parser.add_argument("--start-month", required=True, help="YYYY-MM-01 (PIT 첫 선정월)")
-    parser.add_argument("--end-month", required=True, help="YYYY-MM-01 (마지막 선정월)")
-    parser.add_argument("--cache-dir", default="scripts/out/pit_cache", help="bydd_trd 캐시 디렉토리")
+    parser = argparse.ArgumentParser(
+        description="Tier 0 B++ 삼중 게이트 하버스트 (§4·§5 step 2). "
+                    "Smoke: --start-month 2026-04-01 --end-month 2026-06-01 --smoke --universe-limit 300. "
+                    "Full (forward 데이터 존재 필수, end-month ≤ today-6M): "
+                    "--start-month 2024-06-01 --end-month 2025-12-01.")
+    parser.add_argument("--start-month", required=True, type=_parse_month_arg, help="YYYY-MM-01 (PIT 첫 선정월)")
+    parser.add_argument("--end-month", required=True, type=_parse_month_arg, help="YYYY-MM-01 (마지막 선정월)")
+    parser.add_argument("--cache-dir", default="scripts/out/pit_cache", help="bydd_trd 디스크 캐시 디렉토리")
     parser.add_argument("--out", default="scripts/out/tier0_ic_report.json", help="게이트 리포트 JSON")
     parser.add_argument("--smoke", action="store_true",
-                        help="패널/포워드 로직 smoke (소수 월·universe-limit, 게이트 임계 미적용)")
-    parser.add_argument("--universe-limit", type=int, default=None)
+                        help="패널/포워드 로직 smoke (게이트 임계 미적용 — metrics-only, PASS≠실 통과)")
+    parser.add_argument("--universe-limit", type=int, default=None, help="universe cap (smoke 전용)")
     args = parser.parse_args()
 
     _load_env()
-    print(
-        "NOT A GATE YET (step-2): 실 PIT 하버스트/삼중 게이트 집계는 아직 비활성입니다. "
-        "--apply/Tier1 판단에 사용하지 마세요.",
-        file=sys.stderr,
-    )
-    sys.exit(2)
+
+    # forward-data 가드: end_month + 6M(long horizon)이 미래면 마지막 월들의 long forward 부재 → 경고.
+    six_months_ago = date.today() - timedelta(days=183)
+    if args.end_month > six_months_ago and not args.smoke:
+        print(f"[warn] end-month {args.end_month} + 6M(long)이 today({date.today()})를 넘습니다 — "
+              f"후반 월의 long horizon forward 데이터 부재 → insufficient로 제외 보고됩니다. "
+              f"완전한 6M forward를 원하면 end-month ≤ {six_months_ago.replace(day=1)} 권장.", file=sys.stderr)
+
+    panel, universe_at, foreign_at, dart_at, coverage_meta = _build_real_providers(
+        args.start_month, args.end_month, Path(args.cache_dir), args.universe_limit)
+
+    report = harvest_pit_months(
+        args.start_month, args.end_month, panel,
+        universe_at=universe_at, foreign_at=foreign_at, dart_at=dart_at,
+        smoke=args.smoke, generated_at=datetime.now().isoformat(timespec="seconds"),
+        coverage_meta=coverage_meta, progress=True)
+
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+
+    ga, gb, gc = report["gate_a"], report["gate_b"], report["gate_c"]
+    print("\n=== Tier0 B++ 삼중 게이트 하버스트 결과 ===", file=sys.stderr)
+    print(f"  months: {report['harvest']['months_analyzed']} · smoke={args.smoke}", file=sys.stderr)
+    print(f"  Gate A (recall): {ga['verdict']} · overall={ga['overall_recall']} · random_ratio={ga['random_ratio']} · "
+          f"largemid={ga['largemid_recall']} · baseline(bind)={ga['binding_baseline_recall']} · leaders={ga['leader_hits_total']}/{ga['leader_total']}",
+          file=sys.stderr)
+    print(f"  Gate B (IC):     {gb['verdict']} · ic_mean={gb.get('ic_mean')} · ic_ir={gb.get('ic_ir')} · "
+          f"baseline_ir={gb.get('baseline_equal_ic_ir')}", file=sys.stderr)
+    print(f"  Gate C (size):   {gc.get('verdict')} · dist={gc.get('dist')} · small={gc.get('small_fraction')}", file=sys.stderr)
+    print(f"  TRIPLE GATE ALL PASS: {report['triple_gate_all_pass']}", file=sys.stderr)
+    if not args.smoke and ga.get("fails"):
+        print(f"  Gate A fails: {ga['fails']}", file=sys.stderr)
+    if not args.smoke and gb.get("fails"):
+        print(f"  Gate B fails: {gb['fails']}", file=sys.stderr)
+    print(f"  report → {out_path}", file=sys.stderr)
+    print("\n⚠️  삼중 게이트 ALL PASS + omxy 적대검토 전까지 --apply/Tier1/'상승 예측' claim 금지 (§5 step 5).",
+          file=sys.stderr)
 
 
 if __name__ == "__main__":

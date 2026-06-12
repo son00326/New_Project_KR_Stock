@@ -260,5 +260,91 @@ class TestCacheLayer(unittest.TestCase):
             self.assertEqual(row["status"], "ok")
 
 
+class TestPitAsOfAndCacheOnly(unittest.TestCase):
+    """C1 (77차 B++ step-2): PIT as-of date threading + cache-only harvest mode.
+
+    Removes the date.today() look-ahead so historical harvests evaluate disclosure
+    status as-of the harvest month, and the harvest reads cache only (no DART HTTP).
+    """
+
+    def test_disclosure_window_anchors_to_as_of_not_today(self):
+        from scripts.dart_signals import _is_within_disclosure_window
+
+        # Q1 2024 statutory deadline 2024-05-15 + 30D grace = 2024-06-14.
+        # As-of 2024-01-15 (before deadline) → still within window (not yet disclosed PIT).
+        self.assertTrue(_is_within_disclosure_window(2024, "Q1", as_of_date=date(2024, 1, 15)))
+        # As-of 2024-07-01 (after deadline+grace) → disclosed (not within window).
+        self.assertFalse(_is_within_disclosure_window(2024, "Q1", as_of_date=date(2024, 7, 1)))
+        # No as_of → falls back to _today(); patch to confirm it is the fallback path.
+        with patch("scripts.dart_signals._today", return_value=date(2024, 1, 15)):
+            self.assertTrue(_is_within_disclosure_window(2024, "Q1"))
+
+    def test_not_yet_disclosed_freshness_anchors_to_as_of(self):
+        from scripts.dart_signals import _not_yet_disclosed_is_fresh
+
+        row = {"fetched_at": "2026-05-01"}
+        # Historical harvest (as_of 2024): a 2026-cached row must NOT be judged 'stale'
+        # relative to a 2024 anchor (no spurious refetch / silent mutation).
+        self.assertTrue(_not_yet_disclosed_is_fresh(row, as_of_date=date(2024, 6, 15)))
+        # Live (as_of=today 2026-06-12): >7d after fetched_at → stale.
+        with patch("scripts.dart_signals._today", return_value=date(2026, 6, 12)):
+            self.assertFalse(_not_yet_disclosed_is_fresh(row))
+
+    def _client_empty_cache(self):
+        client = MagicMock()
+        table = MagicMock()
+        client.table.return_value = table
+        select = MagicMock(); eq1 = MagicMock(); eq2 = MagicMock(); eq3 = MagicMock(); limit = MagicMock()
+        table.select.return_value = select
+        select.eq.return_value = eq1
+        eq1.eq.return_value = eq2
+        eq2.eq.return_value = eq3
+        eq3.limit.return_value = limit
+        limit.execute.return_value = MagicMock(data=[])
+        table.upsert.return_value = table
+        table.execute.return_value = MagicMock(data=[{}])
+        return client, table
+
+    def test_cache_only_annual_miss_no_http_no_upsert(self):
+        from scripts.dart_signals import cache_get_or_fetch_annual
+
+        client, table = self._client_empty_cache()
+        with patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            row = cache_get_or_fetch_annual(client, "00126380", 2024, "KEY", cache_only=True)
+        mock_fetch.assert_not_called()
+        table.upsert.assert_not_called()
+        self.assertEqual(row["status"], "no_data")
+        self.assertEqual(row["error_code"], "cache_only_miss")
+
+    def test_cache_only_quarterly_miss_no_http_status_pit(self):
+        from scripts.dart_signals import cache_get_or_fetch_quarterly
+
+        client, table = self._client_empty_cache()
+        with patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            # As-of 2024-01-15: Q1 2024 not yet past deadline+grace → not_yet_disclosed.
+            r_pending = cache_get_or_fetch_quarterly(
+                client, "X", 2024, "Q1", "KEY", as_of_date=date(2024, 1, 15), cache_only=True)
+            # As-of 2024-12-31: Q1 2024 long disclosed but uncached → no_data.
+            r_nodata = cache_get_or_fetch_quarterly(
+                client, "X", 2024, "Q1", "KEY", as_of_date=date(2024, 12, 31), cache_only=True)
+        mock_fetch.assert_not_called()
+        table.upsert.assert_not_called()
+        self.assertEqual(r_pending["status"], "not_yet_disclosed")
+        self.assertEqual(r_nodata["status"], "no_data")
+
+    def test_fetch_dart_signals_cache_only_never_calls_http(self):
+        from scripts.dart_signals import fetch_dart_signals
+
+        client, table = self._client_empty_cache()
+        with patch("scripts.dart_signals._lookup_corp_code", return_value="00126380"), \
+             patch("scripts.dart_signals.fetch_financial_with_fallback") as mock_fetch:
+            result = fetch_dart_signals(
+                client, "005930", date(2024, 6, 15), "KEY", as_of_date=date(2024, 6, 15), cache_only=True)
+        mock_fetch.assert_not_called()
+        table.upsert.assert_not_called()
+        # All caches miss → structural-missing: earnings unresolved (0.0/NaN), quality insufficient.
+        self.assertTrue(result.quality_insufficient)
+
+
 if __name__ == "__main__":
     unittest.main()
