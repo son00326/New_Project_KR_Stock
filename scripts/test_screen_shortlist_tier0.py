@@ -1,6 +1,9 @@
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 SCRIPT_PATH = Path(__file__).with_name("screen_shortlist_tier0.py")
@@ -833,6 +836,39 @@ class BppIntegrationTest(unittest.TestCase):
         self.assertEqual(gc["dist"], {"large": 60, "mid": 60, "small": 30})
         self.assertEqual(gc["total"], 150)
         self.assertAlmostEqual(gc["small_fraction"], 0.2)
+
+    def test_run_bpp_candidates_exits_nonzero_when_gate_c_fails(self):
+        selections = {}
+        for bucket in MODULE.BUCKETS:
+            selections[bucket] = [
+                MODULE.TF.ScoredStock(
+                    ticker=f"{bucket}{i:03d}",
+                    sector="제조",
+                    market_cap=1e12 + i,
+                    sleeve="large",
+                    score=100.0 - i,
+                    adv60=5e9,
+                    factor_ranks={"trend": 80.0},
+                )
+                for i in range(50)
+            ]
+        universe = [
+            {"ticker": sc.ticker, "name": sc.ticker, "market": "KOSPI"}
+            for picks in selections.values()
+            for sc in picks
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            args = SimpleNamespace(
+                emit_candidates=True,
+                apply=False,
+                csv_backup=str(Path(td) / "bpp.csv"),
+                sector_review_csv=None,
+                month=MODULE.date(2026, 6, 1),
+            )
+            with patch.object(MODULE, "select_bpp_candidates", return_value=selections):
+                with self.assertRaises(SystemExit) as cm:
+                    MODULE.run_bpp_candidates(args, [], {}, universe, dart_available=False)
+        self.assertNotEqual(cm.exception.code, 0)
 
     def test_select_bpp_shortfall_when_universe_too_small(self):
         # 100 종목 < 150 필요 → backfill 후에도 부족 → SleeveShortfallError (무음 truncation 금지)
