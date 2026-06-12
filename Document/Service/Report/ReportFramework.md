@@ -686,6 +686,8 @@ Part A: 섹터 보드 (canonical 14인 overlay — D21 52차)
 
 > **65차 Q1 supersede (2026-06-04)**: path (a) 'cron 매월 자동 / 매월 1회'는 65차 Q1으로 분리됨 — 단기 cron 주1회 + 중·장기 cron 월1회 2-track. 구 단일 `monthly-batch`는 W2(주간/월간 split + rolling composite writer) 구현 시 split. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
+> **위 표 "현 코드 상태/후속 PR" 컬럼 stale 정정 (73차~77차)**: 표의 "mock dry-run only / 실 AI 호출 0 / 후속 PR1·PR4" 표기는 **canonical 5-PR(PR2 `f85fb69`/PR3a `0813a41`/PR1 `4aa3130`/PR3b/PR4) + 73차 풀 P3(실 AI 30 선정) + 74·75차 P2b·P4(실 리포트) + 77차 B-SEL-CRON fix(PR #118 — period-scoped due-gate)가 전부 MERGED**되며 supersede됨 — 실 AI 선정/리포트 경로 live. cron 자동 가동은 flag dormant(`SELECTION_CRON_AUTO_ENABLED` USER 게이트). 라이브 SoT = `Document/Process/HANDOFF.md`.
+
 > **Hard gate (Group H) ✅ 해소** (54차 §3 PR3a MERGED `0813a41`): 위 3 path 어느 것이든 실 AI 호출 시 `commit_persona_eval` RPC → `stock_reports.section_8` 신규 partA/partB/partC/partD jsonb INSERT 발생. `/admin/report/[ticker]/page.tsx` = `as` 어서션 전면 제거 + section null guard + `SectionFallback` + Section 8 dual-shape renderer (modern + legacy 호환) + `partCToCommitteeAgg` helper로 crash 차단. canonical 순서: PR2 ✅ → PR3a ✅ → PR1 → PR3b → PR4.
 
 > **65차 Q1 supersede (2026-06-04)**: 본 Step 0 흐름은 '단/중/장 30 동시 선정' 단일 배치 가정 기반. 65차 Q1으로 선정주기가 분리됨 — 단기=주1회 / 중·장기=월1회. 상세 흐름·writer 갱신은 W2(주간/월간 split + rolling composite writer) 구현 시 정합. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
@@ -693,6 +695,8 @@ Part A: 섹터 보드 (canonical 14인 overlay — D21 52차)
 > **65차 Q4 supersede (2026-06-04)**: 아래 Step 0c '🔢 숫자 점수 vs 🤖 AI 점수 결정론 비교 → 합의 배지' 모델은 65차 Q4로 확장됨 — 실시간 멀티라운드 AI 반박 토론 loop 필수, 합의 점수로 최종안 선택. 구 'Core 11 병렬 독립 채점 + 결정론 합의 에이전트'는 토론 loop로 supersede(빌드 순서 W1). 합의 배지 5종은 토론 결과 요약 보조로 유지 가능. SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
 
 > **65차 D27 Q5 supersede (2026-06-04)**: **직전 리포트가 다음 선정의 입력이 된다** — 재선정 시 기존 리스트 종목(incumbent)은 본 §8이 생성한 직전 리포트·논거·배지·점수 + 그 후 실현 성과("incumbent thesis context")를 주입받아 논거 유효성을 재점검(유지=신규 후보와 top10 랭킹 경쟁, 자동 유지 아님). 후보풀 = fresh Tier 0 ∪ incumbents(무심사 탈락 금지 — W2 union). Step 0 흐름은 "fresh 후보만 평가" 가정이 supersede됨. PR-K Reflection(Step 4 후속, 월말 전체 회고)과 별개 — Q5는 선정 시점 review(MVP). SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션 + ServicePlan-Admin §1A.5 D27.
+
+> **77차 D30 supersede (2026-06-12)**: 아래 Step 0a의 "5-Signal Composite × 시간대별 가중치 → 단/중/장 후보 50씩 = 150" 스코어링은 **예측력 미검증 + 실행 결함 다수**(cross-section z정규화 fat-tail·결측 0주입·외국인 size bias·가중치 IC 미검증)로 진단됨 → **"B+ 형태수정 + 경량 IC 검증" 채택(구현 다음 세션)**. 🔢 숫자 점수·후보 150 산출물 설명은 **검증 통과 전 "향후 상승 예측" claim 금지** — "robust factor-informed candidate shortlist"까지만. SoT spec = `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` + ServicePlan-Admin §1A.5 D30.
 
 ```
 Step 0a — Tier 0: 인디케이터 자동 스크리닝 (AI 키 불필요)
@@ -734,18 +738,19 @@ Step 0c — 합의 에이전트 (5종 배지, 49차 Q5b CONVERGED)
 
 > **Tier 2 Sector Board 활성화**: 30종목 각자의 섹터 14명만 호출 (전체 140명 X). 종목당 Core 11 + Sector 14 = 25명 × 30종 ≈ 750 LLM call/월 (M17 hardcap 50만원 내 통제 · 65차 상향).
 
-> **(v2.6, 53차 §5 — Group E) writer Section 0~7 본문 작성 path 미구현 박제**:
-> 현재 `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 두 함수만 존재하며, **`stock_reports.section_8` jsonb commit만 가능**. Section 0~7 본문(투자 서사·산업 기초·회사 개요·이익 모델·밸류에이션·거시 민감도·시나리오·촉매&리스크) 작성 path = **미구현**. `parseSectorContentStrict`도 Section 8 parser only.
-> → 후속 **PR3b** (writer Section 0~7 본문 구현) 분리: document-specialist + analyst + writer + critic 4-step. PR1 머지 후 또는 PR1과 병렬 진행 가능.
+> **⚠️ 73~75차 supersede (2026-06-09~10) — 아래 v2.6/v2.7 "미구현 / 후속 PR3b" present-tense는 53/54차 당시 기준 stale**: **canonical 5-PR 전부 MERGED**(PR2 `f85fb69` / PR3a `0813a41` / PR1 `4aa3130` / PR3b `cf68731` / PR3c `b2a902a` / PR4 `7de9696`). **writer Section 0~7 본문 = `tudal/src/lib/report/full-report-writer.ts`(PR3b) + `full-report-orchestrator.ts`(PR3c orchestration/persistence) 구현 완료** — 74차 P2b·75차 P4 live `stock_reports` 2026-06 **30행 전부 section_0~8+appendix 완결**로 실증. 아래 두 노트(v2.6 Group E·v2.7 Group H)는 **역사 기록**으로 보존.
+>
+> **(v2.6, 53차 §5 — Group E) [HISTORICAL — 73차 supersede] writer Section 0~7 본문 작성 path 미구현 박제**:
+> (당시) `tudal/src/lib/report/writer.ts` = `commitTickerReport` + `commitSectorReport` 두 함수만 존재 → **현재는 `full-report-writer.ts`로 Section 0~7 본문 작성 path 구현 완료(PR3b)**. `parseSectorContentStrict`(Section 8 parser)는 그대로 유지.
 
 > **(v2.7, 54차 §3 — Group H ✅ 해소) `stock_reports` schema drift fix MERGED** (PR3a, main `0813a41`):
-> - `commit_persona_eval` RPC (마이그 0017) = `section_8` jsonb INSERT + `consensus_badge` ADD만. section_0~7 컬럼은 nullable 잔존 (마이그 0003) — PR3b writer 본문 구현으로 채워질 예정.
+> - `commit_persona_eval` RPC (마이그 0017) = `section_8` jsonb INSERT + `consensus_badge` ADD만. section_0~7 컬럼은 nullable (마이그 0003) — **73차 supersede: PR3b writer 본문 구현으로 채워짐**(74·75차 live 30행 section_0~7 완결).
 > - writer 신규 schema = `partA/partB/partC/partD` jsonb shape (Section 8 contract = `ServicePlan-Admin.md §4.2.1` + `tudal/src/lib/report/section-8-schema.ts` zod). `tudal/src/lib/data/report-section-schemas.ts`가 본 schema를 alias import (재정의 0).
 > - `/admin/report/[ticker]/page.tsx` = `as` 어서션 전면 제거 + section null guard + 헤더 `section0?.conviction ?? '—'` + `SectionFallback` 단일 helper + `Section8View` 3분기 (null/modern/legacy) + `Section8ModernView` partC.core_revote/sector_aggregate authoritative (`partCToCommitteeAgg` BUY→approve/HOLD→abstain/SELL→reject 매핑, RPC와 1:1 정합) + `Section8LegacyView` 기존 본문 보존.
 > - `tudal/src/lib/data/admin-reports.ts` `getReportByTicker` → `Promise<ValidatedStockReport | null>` 반환 (per-section `parseSectionSafe` + ticker/section context `console.warn` + onError 콜백).
 > - **silent null drop log 격상** (P2, 비차단): 현재 `console.warn`으로 위임. PR1 cron wire 시점에 metric/structured log로 격상 권장 (gsd CR-01 + red-team RT#2 + omxy R7 P2).
 >
-> canonical PR 순서: **PR2 ✅ → PR3a ✅ → PR1 (cron real path) → PR3b (writer Section 0~7 본문) → PR4 (UI trigger + Track Record 탭 + Regen 실 호출 + PR3a OOS findings)**.
+> canonical PR 순서 (**73~75차 = 전부 ✅ MERGED**): **PR2 ✅ → PR3a ✅ → PR1 ✅ (cron real path) → PR3b ✅ (writer Section 0~7 본문) → PR3c ✅ (orchestration/persist) → PR4 ✅ (UI trigger + Track Record 탭 + Regen 실 호출)**. 실 가동·실증 = 73차 P3 선정 + 74·75차 P2b·P4 30 리포트.
 
 ```
 Step 1: 리서치 + 분석 (병렬)

@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-11 (77차 — **B-SEL-CRON fix ✅ MERGED(PR #118)**: period-scoped due-gate + SELF_CONTINUE opt-out 기본 ON + orphan/stall/track-throw alert + panel cost-month 배선 + finalize stale-guard. workflow 27→11 fix + omxy 3 fix + Claude 최종검토 0-new 3-pass 수렴. 코드만(flag dormant — production 행동 변화 0). 다음 1순위 = **Accept go-live**(USER #1) / 매달 자동화는 USER flag 게이트). 직전 76차 — shortlist 정확성 fix ✅ MERGED(PR #114): track_pending + stale 카피 + DART 분기누적 파싱, production 리스트 반영은 재시드 필요.
+Last updated: 2026-06-12 (77차 — **B-SEL-CRON fix ✅ MERGED(PR #118)** + **Accept-gate de-mock fix ✅ MERGED(PR #119)**(viewer 게이트 legacy mock 5종 하드코딩 제거→active 전종목 공유모듈 단일화 + page/action anchor 통일 + 2026 달력 근로자의날·제헌절 + UX) + **shortlist 재시드 진행 중**(DART quarterly 캐시 5482 무효화 + 16 sector override commit `2a66a95` + Tier0 dry-run b89통과 150후보 검증; 삼성전자 미진입) + **스코어링 방법론 토론 CONVERGED**(Claude 퀀트 에이전트 + omxy 2 독립 수렴 = "B+ 형태수정 + 경량 IC 검증" 최소 필수; 현 스코어링 예측력 미검증). **다음 1순위 = Tier0 스코어링 B+ + 경량 IC 검증**(Option 1, [SoT: `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`]) → Tier0 재screen → apply → Tier1(₩25k). Accept go-live(USER #1)는 독립 잔존). 직전 76차 — shortlist 정확성 fix ✅ MERGED(PR #114).
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify. 완료된 차수의 상세 박제·배선 교차감사 기록은 **git log + PR body + memory**에 위임하고 본 파일엔 남기지 않는다.
 
@@ -11,10 +11,10 @@ Last updated: 2026-06-11 (77차 — **B-SEL-CRON fix ✅ MERGED(PR #118)**: peri
 > "HANDOFF.md 보고 이어서 진행" = 아래 1번부터 순서대로. 각 항목 옆 [SoT]가 상세 위치. USER 게이트는 §3, 출시 Runbook 상세는 §2.2.
 >
 > **▶ 지금 당장 (owner별):**
-> - **[USER, 5분]** `/admin/portfolio`에서 **Accept 클릭**(#1) → MVP② 닫힘. 가장 먼저.
-> - **[CLAUDE, 비용 0·병행 가능]** Accept를 기다리는 동안 = **토스 D0 디자인 시스템 정의**(spec-only) 착수. (B-SEL-CRON #2는 PR #118로 완료 — 아래 #2 참조.)
-> - **[USER 비용 승인 필요]** shortlist 재시드(정확성 3단계, ~₩25k) — 급하지 않음, 별도 트랙.
-> - 트랙은 3개(메인 런북 #1~4 · shortlist 정확성 5단계 · 토스 리디자인 D0~D4)지만 **메인 런북 순서가 출시 critical path**이고 나머지 둘은 거기에 결합되는 병행 트랙.
+> - **[CLAUDE, 1순위]** **Tier0 스코어링 B+ 구현 + 경량 IC 검증** (shortlist 정확성 트랙의 진짜 다음 단계 — 토론 수렴 결과). SoT = `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`. 이거 끝→Tier0 재screen→apply→Tier1(₩25k, USER 비용 승인 받음).
+> - **[USER, 5분]** `/admin/portfolio`에서 **Accept 클릭**(#1) → MVP② 닫힘. 위와 독립.
+> - **[CLAUDE, 비용 0·병행]** 토스 D0 디자인 시스템 정의(spec-only) — 여유 시.
+> - 트랙: 메인 런북 #1~4 · **shortlist 정확성(현재 = B+ 스코어링/검증)** · 토스 D0~D4. 메인 런북이 출시 critical path.
 
 1. **[USER 클릭]** **Accept go-live** — production audit(2026-06-11 직접 쿼리) 기준 `portfolio_proposal` 2026-06-01 **1건 영속**(Opus 4.8, **10종목+현금 15%**, created 2026-06-10T05:28Z → **regen 2026-06-11T02:36:21Z**, regen 콜 +₩26.91 — B-SEL-CRON과 무관한 별도 이벤트) / `portfolio_approval` 2026-06-01 **0건** / `portfolio_snapshot` **0건**. 다음은 admin `/admin/portfolio`에서 제안 표시 확인 → **Accept 클릭**(가상 포트 확정). proposal 생성·영속 경로는 동작 확인됨. Accept 관련 path(`PORTFOLIO_USE_PROPOSAL_ENABLED`, `PORTFOLIO_EXPLICIT_CASH_ROW_ENABLED`, 0035 cash-row snapshot)는 Accept 클릭으로 검증 필요. 0034/0035 마이그는 applied 상태라 재실행 금지(verify만). MVP ②(포트폴리오) 완성 단계. [SoT: §3]
 2. **[CLAUDE]** ~~**B-SEL-CRON fix**~~ ✅ **DONE (PR #118 MERGED)** — period-scoped due-gate + `SELECTION_CRON_SELF_CONTINUE` opt-out 기본 ON(load-bearing) + orphan/stall/track-throw alert + panel cost-month 배선 + finalize stale-guard. workflow 27 findings→11 fix + omxy 3 fix + Claude 최종검토 0-new로 3-pass 수렴. 코드만(production 행동 변화 0 — flag dormant). **남은 건 USER 게이트**(§3 매달 자동화: flag enable + `SELECTION_CRON_SELF_CONTINUE` env 삭제 + 주간 tier0 producer + 비용 승인).
@@ -25,9 +25,9 @@ Last updated: 2026-06-11 (77차 — **B-SEL-CRON fix ✅ MERGED(PR #118)**: peri
 > 사용자 발견(SK하이닉스 리스트 누락처럼 보임 / 삼성전자 부재) → 14-agent 감사(wq0gi0va0) → "순차적 C"(전부 한 방에 묶지 말고 단계 검증). Accept go-live(위 #1)와 **독립** 트랙.
 > - **1단계 — UI 버그(track_pending + stale 카피)**: ✅ **DONE (76차, PR #114)**.
 > - **2단계 — DART 분기누적 파싱 버그**: ✅ **DONE (76차, PR #114)**. 코드/테스트만 — production 리스트는 3단계 재시드 전까지 옛 데이터.
-> - **3단계 — 재시드+재선정 1회 [본 트랙 다음 1순위]**: ① **DART quarterly 캐시 무효화 선행 필수**(옛 wrong-value 캐시 refetch 강제) → ② Tier0 재시드(Python `screen_shortlist_tier0.py`) → ③ Tier1 재선정(~₩25k, **USER 비용 게이트**). 목적 = DART fix 적용 후 대형주(삼성전자 등) 공정 경쟁 검증.
-> - **4단계 — 결과 보고 후 스코어링 튜닝 B 결정**: 3단계 데이터로 판단 — DART fix만으로 대형주 경쟁되면 **B 불필요**. 안 되면 deliberate 2차로 B(z정규화→percentile/winsorize · S3 시총정규화 · 장기 quality 보정, 14-agent 감사 MED 3종) 적용 + 재선정(+₩25k). **묶지 말 것**(검증 해상도 보존).
-> - **5단계 — 주간 자동화(진짜 지속성)**: 주간 tier0 producer(Python→외부 스케줄) + B-SEL-CRON fix(위 #2) + `SELECTION_CRON_AUTO_ENABLED`. 1회 재시드는 그 주만 fresh — 지속성은 5단계 필수. [SoT: §3 + 14-agent 감사 wq0gi0va0]
+> - **3단계 — 재시드 검증**: ✅ **부분 완료(77차)**: ① DART quarterly 캐시 5,482행 무효화(annual 4,700 보존) ✅ → 직전 Tier0 run서 **fixed 파서로 재populate** → ② Tier0 dry-run(b89 16 unresolved → sector override 16 추가 commit `2a66a95` → 통과) **150 후보 검증** ✅. **결과: DART fix만으로 삼성전자 여전히 미진입**(SK하이닉스 long#40 진입) → 4단계 B 필요 확정. ③ Tier1 재선정은 **B+ 검증 후로 보류**(미검증 스코어링에 ₩25k 금지 — 토론 합의).
+> - **4단계 — 스코어링 튜닝 B [= 현 트랙 1순위, 토론 CONVERGED]**: **DART fix만으로 대형주 경쟁 안 됨 확정 → B 필요.** Claude 퀀트 에이전트 + omxy 2 독립 토론 수렴 = **"B+ 형태수정 + 경량 IC 검증"이 최소 필수**(B-only 불충분, 근본 재설계는 과함). **B+** = ①결측 0주입 폐기(neutral50/penalty) ②z→winsorize+percentile rank(volume/foreign log선행) ③외국인 ADV(거래대금) 정규화 ④quality sector-relative rank ⑤상관진단 ⑥가중치 검증 후 조정. **경량 IC 게이트** = rank-IC/분위스프레드/regime/cost + ensemble 비교. **"예측" claim은 검증 통과 후만**. [SoT: **`docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`**]
+> - **5단계 — 주간 자동화(진짜 지속성)**: 주간 tier0 producer(Python→외부 스케줄, pykrx) + B-SEL-CRON fix(✅ PR#118) + `SELECTION_CRON_AUTO_ENABLED`. 1회 재시드는 그 주만 fresh. [SoT: §3 + 14-agent 감사 wq0gi0va0]
 
 **[병행 트랙] 토스 스타일 리디자인 Toss-D0~D4 (시점 결정, runbook 순서 불변):**
 > **토스 스타일 전체 리디자인(폰트 포함) — 마일스톤 결합 5-슬롯 (Claude↔omxy 토론 CONVERGED, 시점 결정. 스코프 C 전체·스킬 파이프라인은 확정분):**
@@ -49,12 +49,12 @@ Last updated: 2026-06-11 (77차 — **B-SEL-CRON fix ✅ MERGED(PR #118)**: peri
 ```bash
 cd /Users/yong/New_Project_KR_Stock && git fetch origin
 git checkout main && git pull origin main
-git rev-parse --short HEAD          # 77차 B-SEL-CRON PR #118 merge 후 자손 (435a3cf)
-git status --short                  # clean
+git rev-parse --short HEAD          # 77차 PR #119 merge + sector_override commit `2a66a95` 후 자손
+git status --short                  # clean (scripts/.venv·scripts/out gitignored)
 gh pr list --state open --json number,title,headRefName,mergeable   # 기대 0 (없으면 우선 처리)
 
 cd tudal && npm run build && npm run lint && npm run test:ci && npx tsc --noEmit && cd ..
-#   기대: build OK / lint 0 err 0 warn / test:ci 1982 PASS + 4 skipped / 165 files+2skip / tsc clean (77차 B-SEL-CRON +31)
+#   기대: build OK / lint 0 err 0 warn / test:ci 1989 PASS + 4 skipped / tsc clean (77차 Accept-gate de-mock)
 ```
 
 **production audit (Supabase MCP execute_sql) — drift 감지 기준(현재 정상 상태):**
@@ -68,11 +68,12 @@ select count(*) from stock_reports where month='2026-06-01'
 select count(*) from committee_votes;  -- 기대 330 (30 reports × 11)
 select month::text, count(*), count(consensus_badge) from short_list_30 group by month order by month;
   -- 기대 2026-05-01=30/0(Tier0 incumbents 보존) + 2026-06-01=30/30(AI 선정)
-select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06 · 50/50/50 · canonical 14 · unresolved 0)
-select count(*) from portfolio_proposal where month='2026-06-01';  -- 기대 1 (proposal 영속 완료)
+select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06, 73차 선정 — B+ 재screen 전까지 갱신 안 됨)
+select count(*) from portfolio_proposal where month='2026-06-01';  -- 기대 1 (10종목/현금15%, regen 2026-06-11)
 select count(*) from portfolio_approval where month='2026-06-01';  -- 기대 0 (Accept 미완료)
 select count(*) from portfolio_snapshot;  -- 기대 0 (Accept 전)
 ```
+> 77차 재시드: `dart_financial_cache` quarterly 무효화 후 재populate(annual 보존). `short_list_30`/`tier0_candidates_150` 2026-06은 **여전히 73차 선정**(B+ 재screen→재선정 전까지 옛 데이터). Tier1 재선정 시 cost_log 증가 예상(~₩25k).
 P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01 004150 1행(section_0/7, section_8 null).
 
 ### 진입자 자동 행동 (default-progress)
@@ -87,12 +88,13 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 
 | 영역 | 상태 |
 |---|---|
-| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-11 77차 PR #118 merge 후 자손 = 435a3cf). |
-| OPEN PRs | **없음(0)** 기대. PR #19~#118 전부 머지(상세 git log). |
-| 검증 게이트 | build OK / lint 0 err 0 warn / **test:ci 1982 PASS + 4 skipped / 165 files+2skip**(77차 B-SEL-CRON +31) / tsc clean / DART pytest 18. |
+| main HEAD | **runtime verify** `git rev-parse --short origin/main` (2026-06-12 77차 PR #119 merge + sector_override commit `2a66a95` 후 자손). |
+| OPEN PRs | **없음(0)** 기대. PR #19~#119 전부 머지(상세 git log). |
+| 검증 게이트 | build OK / lint 0 err 0 warn / **test:ci 1989 PASS + 4 skipped**(77차 Accept-gate +shortlist-gate 12 + breadth/dormant) / tsc clean / DART pytest 18. |
 | **MVP 엔진** | **W0~W3b 전부 ✅ MERGED**(모델/프로바이더 추상화 + 주간/월간 split + incumbent thesis + 반박 토론 loop + judge/dual-judge + entry_price + AI 자율 포트 proposal→Accept→cash row). canonical 5-PR + B65/B66 ✅. 상세 = git log + PR body. |
 | **실 AI 검증** | P1(2026-05 4행 ₩334.71) + 73차 풀 P3 selection(2026-06 2611행 ₩24,655.64) + 74차 P2b live(42행 ₩1,695.83) + **75차 P4 30 리포트 완주(378행 ₩14,962.66 ≈ ₩554/ticker)** + **76차 W3 portfolio proposal 1콜(₩27.80)** + **77차 proposal regen 1콜(₩26.91, 2026-06-11T02:36Z → proposal=10종목/현금15%)**. 2026-06 월 누계 **3033행 ₩41,368.84**(hardcap 50만 내). 다음 실 AI 비용 이벤트 = shortlist 재시드+재선정(~₩25k, USER) 또는 후속 regen; Accept 자체는 AI 호출 없음. |
-| **선정 흐름 (production)** | `short_list_30` 2026-06-01 = **30 AI 배지/ai_score**(🟣20/🟢7/🟡2/🔵1, short/mid/long 10/10/10) · 2026-05-01 = 30 Tier0 incumbents 보존. 메인 path = short 주간 + mid·long 월간 rolling composite(자동화는 USER 게이트 + B-SEL-CRON fix 선행). **76차 정확성 fix(track_pending·DART 분기누적)는 코드만 — production 리스트는 재시드 전까지 옛 데이터(§다음할일 정확성 재시드).** |
+| **선정 흐름 (production)** | `short_list_30` 2026-06-01 = **30 AI 배지/ai_score**(🟣20/🟢7/🟡2/🔵1, 10/10/10) · 2026-05-01 = 30 Tier0 incumbents. **production 리스트는 여전히 73차 선정(2026-06-09)** — 76차 DART fix + 77차 재시드는 아직 production 미반영(Tier0 dry-run만, Tier1 재선정은 B+ 검증 후 보류). 메인 path = short 주간 + mid·long 월간 rolling. **DART quarterly 캐시는 무효화+재populate됨**(fixed 파서). |
+| **스코어링 방법론** | 토론 CONVERGED(77차): 현 Tier0 5-시그널 z정규화 스코어링 = **예측력 미검증**(rank-IC/백테스트 0건). **B+ 형태수정 + 경량 IC 검증** 필요(SoT spec 2026-06-12). 검증 전 "상승 예측" claim 금지 — "robust factor-informed candidate shortlist"까지만. |
 | **풀 리포트 (production)** | `stock_reports` 2026-06 **30행 전부 section_0~8+appendix 완결**(verdict BUY 15/HOLD 7/SELL 8) + `committee_votes` **330**(30×11, parse stub 0) — **75차 P4 완주, MVP ③ 달성**. report_batch_job 30 done. 2026-05-01 004150 1행(section_0/7, section_8 null = P1 잔존). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · **마이그 0001~0037 production applied**(0037 = claim over-claim CTE fix, 74차 USER 승인, ledger `20260610015408`). 미적용 dormant 없음. cron RPC grants = authenticated + service_role (public/anon revoke; 0031/0027 — cron은 service_role, admin은 authenticated 경로). |
 | Vercel canary | public 4/4 OK (`/`·`/login`·`/macro` 200 + `/admin` 307→login, tudal-tawny.vercel.app). cron route 5개 전부 **dormant**(flag 미설정 → spend 0). |
@@ -138,7 +140,8 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 |---|---|---|
 | ⭐ **Accept go-live** | `portfolio_proposal` 2026-06-01 **1건 영속**(**10종목+현금 15%**, Opus 4.8, **regen 2026-06-11T02:36Z** +₩26.91). `portfolio_approval` 2026-06-01 0건 + `portfolio_snapshot` 0건 → **최종 승인 미완료**. **마이그 0034/0035는 70차에 이미 production applied — 재실행 금지(verify만; 0035 add-constraint는 IF NOT EXISTS 아니라 재실행 시 실패).** | USER admin 화면 확인 + Accept 클릭 |
 | ✅ **B-SEL-CRON** (PR #118 MERGED) | CLAUDE fix 완료(period-scoped due-gate + SELF_CONTINUE opt-out ON + orphan/stall/track alert + cost-month + stale-guard). 남은 건 USER flag(아래 매달 자동화 게이트로 통합). | ~~CLAUDE fix~~ → USER flag |
-| 📊 **shortlist 정확성 재시드** (76차 fix 후속) | 76차 PR #114(DART 분기누적 파싱 버그 + UI track_pending) = 코드/테스트만. production 리스트 갱신·대형주 공정경쟁 확인하려면: ① **DART quarterly 캐시 무효화**(옛 wrong-value refetch) + Tier0 재시드(Python) + ② 재선정(~₩25k) + ③ 결과 보고 후 **스코어링 튜닝 B(z정규화/S3/quality) 추가 필요 여부 데이터 기반 결정**. 비용·외부스케줄 게이트라 Accept go-live와 독립. | USER 비용 승인 + CLAUDE 실행 |
+| 🔬 **Tier0 스코어링 B+ + 경량 IC 검증** (= shortlist 정확성 트랙 현 1순위, CLAUDE) | 토론 CONVERGED(Claude 퀀트+omxy 2 독립). 다음 세션: B+ 구현(결측 0주입 폐기 + winsorize/percentile rank + 외국인 ADV 정규화 + quality sector-relative + 상관진단) + 경량 IC 검증(rank-IC/분위/regime/cost + ensemble) → omxy 적대검토 → Tier0 재screen → apply → **Tier1(~₩25k, USER 비용 승인 받음)**. 재시드 상태: DART 캐시 무효화✅ + override 16✅(commit `2a66a95`) + Tier0 dry-run 검증✅(삼성전자 미진입), Tier1 보류. | CLAUDE 구현 → (Tier1 비용 USER 승인됨) [SoT: spec 2026-06-12] |
+| ✅ **Accept-gate de-mock** (PR #119 MERGED) | viewer 게이트 legacy mock 5종 하드코딩→active 전종목 공유모듈(shortlist-gate.ts) + page/action anchor 통일 + 2026 달력(근로자의날·제헌절) + UX. omxy R1/R2 CONVERGED. **production Accept 게이트가 active 30종 전부 2인 열람 요구로 정합화**(D+4 hold ~06-15 + 2 admin 열람 = §2.2 #3 출시 플로우). | (없음 — Accept 클릭 시 적용) |
 | 🔭 WATCH (76차 omxy 비차단) | shortage-reason는 DB-level cross-track cardinality(버킷 0/10 불변식)를 코드가 강제하진 않음 — per-bucket finalize 도입 시 규칙 갱신 필요(주석 박제됨). portfolio page는 MissingCountBanner 미사용(자체 게이팅) → track_pending 인지 후속(MED). | 별도 후속 |
 | **매달 자동화 게이트** | Vercel `SELECTION_CRON_AUTO_ENABLED=true` + **Vercel env에서 `SELECTION_CRON_SELF_CONTINUE` 삭제(미설정=ON, 구 .env.example가 false 박았으면 finding 27 함정)** + 주간 tier0 후보 producer(pykrx=Python → GitHub Actions 등 외부 cron, Vercel은 TS만) + 운영 비용 승인. (B-SEL-CRON fix 선행.) | USER + 외부 스케줄 |
 | **PR5 gates** (별도 트랙) | Vercel `PR5_CRON_AUTO_ENABLED=true` + Task 7 비용 smoke + plan tier(OPS-1). cron-system seed ✅ / 마이그 0027 ✅. | USER |
@@ -179,6 +182,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | 어드민 서비스 기획 본체 (Tier 0/1/2 + 합의 배지 + M12a 뉴스 + Section 8 contract) | `Document/Service/Planning/ServicePlan-Admin.md` (§1A.5 D19·D21·D22 / §3.10 M12a / §4.2.1 Section 8) |
 | writer Section 8 작성 가이드 | `Document/Service/Report/ReportFramework.md §8` |
 | 실데이터+실AI e2e ADR + 11-PR 로드맵 | `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` |
+| **Tier0 스코어링 B+ + 경량 IC 검증 (다음 세션 실행 스펙)** | **`docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`** (방법론 토론 CONVERGED + B+ 설계 + 검증 게이트 + 재시드 상태) |
 | omxy R-debate 적대 검토 runbook | `docs/superpowers/omxy-rdebate-runbook.md` |
 | Smoke/audit catalog (W-ticket) | `docs/superpowers/audit-catalog.md` |
 | S7 mock→real Phase/DoD (S7a~S7d + T7e.7 RLS QA) | `Document/Build/Slices/S7-RealData.md` |
@@ -191,6 +195,12 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 
 ## 6. 직전 완료 (직전 2 entry only · older = git log + PR body)
 
+### Accept-gate de-mock + shortlist 재시드 + 스코어링 방법론 토론 (77차, 2026-06-11/12)
+- **Accept 버튼 disable 진단+fix (PR #119 MERGED)**: 사용자 "Accept 비활성화" → dynamic workflow + omxy 병렬 진단 = **오늘 disable는 정상 D15 게이팅**(business_days_bypass D+4 ~06-15) — 버그 아님. 그 아래 viewer-게이트 실버그: **REQUIRED_GATE_TICKERS legacy mock 5종 하드코딩**(비결정 strictness + 실 열람 무시, page/actions 중복=split-brain) → **공유모듈 `tudal/src/lib/portfolio/shortlist-gate.ts`로 단일화**(게이트=active 전종목, 결정론) + page/action createdAt anchor MAX 통일 + 2026 달력 **근로자의날(05-01)·제헌절(07-17, 웹 독립검증 18년만 재지정·거래소 휴장)** 추가(영업일 246→244) + gateMessage D+4중 viewer 표시. omxy R1(07-17·test breadth) → R2 CONVERGED. test:ci 1989+4skip. **production Accept 게이트가 active 30종 2인열람 요구로 정합화**(약화 아님=강화).
+- **shortlist 재시드 진행(비용 USER 승인)**: ① DART quarterly 캐시 **5,482행 무효화**(annual 4,700 보존, 76차 fix refetch 강제) → 직전 Tier0 run서 fixed 파서 재populate ② Tier0 dry-run b89 16 unresolved → **sector override 16 추가**(commit `2a66a95`: 반도체12/IT·SW1/바이오1/엔터·미디어1[엔피=WebSearch]/유통·소비재1) → 통과 → CSV 150 검증, **삼성전자 미진입**(SK하이닉스 long#40) ③ Tier1 보류.
+- **스코어링 방법론 토론 CONVERGED** (사용자 핵심질문 "정말 상승 예측하는 스코어링이냐"): quant-research 스킬 + **독립 Claude 퀀트 에이전트 + omxy 2 sub-agent**(MSCI/Alphalens 웹리서치) 독립 수렴 = 현 5-시그널 z정규화 스코어링 **예측력 미검증**(rank-IC/백테스트 0건) + 실행 결함(결측 0주입 오염·z fat-tail·외국인 WON size bias·가중치 무근거·상관 무시). **"B+ 형태수정 + 경량 IC 검증"이 최소 필수**(B-only BLOCKER, 근본 재설계 과함). **사용자 채택 = Option 1**. **다음 세션 실행 = [SoT: `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md`]**.
+- **다음 1순위**: Tier0 B+ 구현 + 경량 IC 검증 → Tier0 재screen → apply → Tier1(₩25k).
+
 ### B-SEL-CRON fix (77차, 2026-06-11, PR #118 MERGED) — 매달 자동화 선행 결함 해소
 - **계기**: 74차 배선감사 catch — selection cron이 due-gate(short=월요일/midlong=1일 단발)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` 기본 off라 cron 단독으론 period당 ~130 jobs(R1+R2+judge)를 finalize 못 함 → 차주 새 period_key가 기존 미finalize period를 고아화(silent spend·산출 0). `SELECTION_CRON_AUTO_ENABLED=true` enable 전 선행 필수.
 - **fix(4 commit)**: (1) period-scoped due-gate — 날짜-단발 게이트 폐기, 두 트랙 모두 '현재 period' 매일 진행, finalize 후 acquire의 finalized_at null-guard가 cheap no-op + worker `already_finalized` skip 구분. (2) `SELECTION_CRON_SELF_CONTINUE` opt-out 기본 ON(`!== "false"`, load-bearing accelerator). (3) **orphan sweep**(flag gate 앞·hop-skip `&selfcontinue=1`·real wall-clock anchor·seam∪real union·60d lookback·spend 단정 제거) + 일반화 **stall alert**(self-continue off OR default-ON livelock) + **track-throw alert**(hop-skip) + 202 ok=every + `aborted`(cost_hardcap)→ok:false. (4) panel **costLogMonth=t.month** 배선(preflight month==insert month, 월경계 누수 차단) + finalize **stale-period guard**(수동 ?now= 역순 재개가 더 최신 finalized shortlist를 stale로 덮어쓰기 차단).
@@ -198,10 +208,4 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 - **⚠️ production 행동 변화 0**: cron route dormant(`SELECTION_CRON_AUTO_ENABLED` 미설정). 게이트 build/lint 0/test:ci 1982+4skip/tsc clean.
 - **다음**: USER 게이트(§3 매달 자동화: flag enable + `SELECTION_CRON_SELF_CONTINUE` env 삭제 + 주간 tier0 producer + 비용). Accept go-live(#1)와 독립.
 
-### shortlist 정확성 fix (76차, 2026-06-10, PR #114 MERGED) — 사용자 발견 2현상 근본원인
-- **계기**: 사용자 "AI 포트 제안엔 SK하이닉스 있는데 30-리스트엔 없고, 급등한 삼성전자가 리스트에 아예 없다 → 필터링 문제?" → 14-agent 감사(wq0gi0va0)로 원인 규명(두 현상 원인 상이).
-- **① UI**(SK하이닉스 = 실은 mid 버킷 존재): W2a 트랙 분리 + `carry_short_into_month` overlap-exclusion으로 partial 버킷(예 `[10,0,0]`·`[9,10,10]`)이 정상 발생하는데 `resolveShortageReason`이 틀린 "스크리닝 미달" 표시. → `ShortageReason`에 `track_pending` + **불변식 기반 규칙(mid==long∈{0,10}, short∈{0..10} carry; 0<total<30=전부 track timing/carry 아티팩트) → total≥30 none / 0<total<30 track_pending / 0 screening`** + 배너 over-promise 카피 완화 + stale cadence "21/42/63일 리밸런스"→"주간/월간". `src/lib/admin/shortage-reason.ts`(+7 테스트).
-- **② DART**(삼성전자 부재 한 원인): `parse_dart_financial_response`가 손익(IS/CIS)에 `thstrm_amount`(반기/3분기=3개월치)를 읽는데 `compute_standalone_quarter`는 누적 전제 차감 → Signal4(YoY 실적, 중기 0.30) 왜곡. → IS/CIS는 `thstrm_add_amount`(누적) 우선·fallback, BS는 `thstrm_amount` 유지. +3 회귀테스트.
-- **검토**: dynamic workflow 2-track 구현 + **Claude↔omxy 적대 loop R1~R3 CONVERGED** — R1 omxy 2 HIGH → Claude 독립 3-렌즈 재판정(1a/1b reject) → **omxy R2가 정확한 메커니즘(carry overlap로 [9,10,10] 도달가능)으로 sharpening → Claude 수용·규칙 정정** → omxy R3 CONVERGED(서브에이전트+Vitest 124/124+pytest 18). 게이트 build/tsc/lint 0·0/test:ci 1951+4skip/pytest 18.
-- **⚠️ behavior-neutral**: 코드/테스트만 — production 리스트는 **재시드 전까지 옛 데이터**(§다음할일 "shortlist 정확성 재시드", §3). DART 캐시 무효화 선행 필수.
-- **다음(= 현 1순위)**: **Accept go-live**(MVP ②; proposal 1건 영속 완료, 최종 승인/portfolio_snapshot 0). 정확성 재시드는 병행/선택(USER 비용).
+> 76차 이전(shortlist 정확성 fix PR #114, P4 75차 등) = git log + PR body.
