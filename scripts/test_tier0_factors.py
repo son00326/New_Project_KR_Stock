@@ -228,6 +228,10 @@ class TestForeignAndEnsemble(unittest.TestCase):
     def test_capped_volume_bonus_no_trend(self):
         self.assertEqual(F.capped_volume_bonus(80, 40), 0.0)
 
+    def test_capped_volume_bonus_negative_clamped(self):
+        # 추세 확인(70≥50)이나 거래 미동반(vol 30<50) → 음수 대신 0 (source clamp)
+        self.assertEqual(F.capped_volume_bonus(30, 70), 0.0)
+
     def test_capped_volume_bonus_long_zero(self):
         self.assertEqual(F.capped_volume_bonus(80, 70, long_bucket=True), 0.0)
 

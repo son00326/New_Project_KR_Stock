@@ -17,11 +17,16 @@ IC는 부분 상충 → IC는 scope를 건다. 11-leader는 tripwire(target leak
 PIT/OOS recall로만.
 
 데이터 PIT 정합(§4 데이터 검증 리스크):
-- **survivorship**: KRX bydd_trd historical snapshot은 PIT universe(상폐 포함, 77차 실측 확인) →
-  universe survivorship-bias-free. 잔여 = mid-horizon 상폐 forward-return은 last-available로 처리 +
-  delisted flag로 집계(아래 compute_forward_return).
-- **DART announcement-date PIT**: dart_signals.py PIT 모드 사용(미래 실적 leakage 차단).
-- entry = t 종가 후 산출 → forward return은 t→t+h 종가 기준(스크린은 t 종가 후 실행).
+- **survivorship (최대 리스크, §5 step 0 blocking)**: KRX bydd_trd historical snapshot이 PIT
+  universe(상폐-at-time 포함)인지는 `scripts/probe_pit_survivorship.py`로 검증한다(77차 1차 probe:
+  2024-12-16 KOSPI 25종목이 2026-06 universe에 부재 = 상폐/합병-at-time 포착). **이는 1차 증거이며,
+  harvest 실행 전 probe 아티팩트로 재확인이 blocking 선결**이다. probe가 상폐 종목 포착을 증명 못 하면
+  harvest report에 `survivorship_label="survivorship-biased: recall=upper-bound"` + 신뢰도 하향(§4/§5).
+  잔여 = mid-horizon 상폐/halt forward-return은 gap(생존)/delisted(상폐) 구분 + last-available 처리.
+- **DART announcement-date PIT**: dart_signals.determine_target_quarter/_latest_safe_annual_year가
+  target_date(historical t) 기준 deadline+grace로 '발표된' 분기만 선택(미래 실적 leakage 차단). 잔여
+  = restatement 버전 PIT(rcept_dt 저장)는 step-2 follow-up(캐시상 restatement 드묾, §5).
+- entry = t+1 종가(스크린은 t 종가 후 실행 → same-bar 편향 차단, §4 line 96). forward = entry→entry+h.
 
 순수 메트릭/패널 로직은 모두 테스트 가능(injectable). 실 KRX/pykrx/DART provider는 CLI에서만 wire —
 12-24M 실 run은 비용·시간 게이트(§5 step 2).
@@ -160,34 +165,81 @@ def _cached_fetch(fetch, market: str, bas_dd: str, cache_dir: Optional[Path]) ->
 # Forward returns (delisting 처리 §4)
 # ============================================================================
 
+def panel_trading_days(panel: Panel) -> list[str]:
+    """panel의 실제 거래일 키 오름차순. compute_forward_return의 `dates`는 **반드시** 이것을
+    써야 한다(business_days_desc는 KR 공휴일 포함 weekday라 fetch 범위 생성 전용 — 인덱스 금지)."""
+    return sorted(panel.keys())
+
+
+def _price_at(panel: Panel, dates: Sequence[str], ticker: str, idx: int) -> float:
+    if idx < 0 or idx >= len(dates):
+        return math.nan
+    row = panel.get(dates[idx], {}).get(ticker)
+    return row.close if (row is not None and row.close > 0) else math.nan
+
+
+def _first_price_from(panel, dates, ticker, lo: int, hi: int) -> tuple[float, int]:
+    """[lo, hi] 첫 가용 (price, idx). 없으면 (nan, -1)."""
+    for j in range(lo, min(hi, len(dates) - 1) + 1):
+        p = _price_at(panel, dates, ticker, j)
+        if not _is_nan(p):
+            return (p, j)
+    return (math.nan, -1)
+
+
+def _last_price_in(panel, dates, ticker, lo: int, hi: int) -> float:
+    for j in range(min(hi, len(dates) - 1), lo - 1, -1):
+        p = _price_at(panel, dates, ticker, j)
+        if not _is_nan(p):
+            return p
+    return math.nan
+
+
+def _any_price_after(panel, dates, ticker, idx: int) -> bool:
+    for j in range(idx + 1, len(dates)):
+        if not _is_nan(_price_at(panel, dates, ticker, j)):
+            return True
+    return False
+
+
+ENTRY_OFFSET_DAYS = 1   # 스크린은 t 종가 후 실행 → 진입은 t+1 (§4: same-bar 편향 차단).
+ENTRY_GAP_DAYS = 5      # t+1 휴장/halt 시 진입가 forward 탐색 허용 폭.
+
+
 def compute_forward_return(
-    panel: Panel, dates: Sequence[str], ticker: str, t_idx: int, horizon_days: int
+    panel: Panel, dates: Sequence[str], ticker: str, t_idx: int, horizon_days: int,
+    *, entry_offset: int = ENTRY_OFFSET_DAYS,
 ) -> tuple[float, str]:
-    """t→t+horizon forward return + status.
+    """forward return + status. **entry = t+entry_offset 종가**(기본 t+1, §4 same-bar 편향 차단).
 
-    status: 'ok'(t+h 생존) · 'delisted'(중도 상폐 → last-available 종가 사용) ·
-    'insufficient'(t+h가 panel 범위 밖) · 'absent'(t에 종목 부재).
+    `dates` = panel_trading_days(panel) (거래일 키, 공휴일 포함 weekday 금지). horizon_days는
+    거래일 오프셋.
 
-    delisting을 last-available로 처리(보통 음/중립 수익률) → winner 분모에서 임의 제외하지 않음
-    (survivorship 상향편향 차단, §4).
+    status: 'ok'(target 거래일 생존) · 'gap'(target일 부재지만 이후 재거래 = halt/누락 → 최근가용가)·
+    'delisted'(target 이후 가격 전무 = 진짜 상폐 → last-available) · 'insufficient'(범위 밖) ·
+    'absent'(진입 시점 거래 부재). gap/delisted 구분으로 halt를 상폐로 오분류하지 않는다(적대검토 MED).
     """
-    t = dates[t_idx]
-    row_t = panel.get(t, {}).get(ticker)
-    if row_t is None or row_t.close <= 0:
+    entry_idx = t_idx + entry_offset
+    if entry_idx >= len(dates):
+        return (math.nan, "insufficient")
+    p0, used_entry = _first_price_from(panel, dates, ticker, entry_idx, entry_idx + ENTRY_GAP_DAYS)
+    if _is_nan(p0):
         return (math.nan, "absent")
-    p0 = row_t.close
-    target_idx = t_idx + horizon_days
+    target_idx = entry_idx + horizon_days
     if target_idx >= len(dates):
         return (math.nan, "insufficient")
-    tgt = dates[target_idx]
-    row_tgt = panel.get(tgt, {}).get(ticker)
-    if row_tgt is not None and row_tgt.close > 0:
-        return (row_tgt.close / p0 - 1.0, "ok")
-    # 중도 상폐: (t, target] 구간 마지막 가용 종가.
-    for j in range(target_idx - 1, t_idx, -1):
-        row = panel.get(dates[j], {}).get(ticker)
-        if row is not None and row.close > 0:
-            return (row.close / p0 - 1.0, "delisted")
+    p_tgt = _price_at(panel, dates, ticker, target_idx)
+    if not _is_nan(p_tgt):
+        return (p_tgt / p0 - 1.0, "ok")
+    # target일 부재: 이후 재거래 여부로 gap(생존) vs delisted(상폐) 구분.
+    alive_after = _any_price_after(panel, dates, ticker, target_idx)
+    last_before = _last_price_in(panel, dates, ticker, used_entry + 1, target_idx)
+    if not _is_nan(last_before):
+        return (last_before / p0 - 1.0, "gap" if alive_after else "delisted")
+    if alive_after:
+        nxt, _ = _first_price_from(panel, dates, ticker, target_idx + 1, len(dates) - 1)
+        if not _is_nan(nxt):
+            return (nxt / p0 - 1.0, "gap")
     return (math.nan, "delisted")
 
 
@@ -253,9 +305,12 @@ def gate_a_recall(
     rep.random_baseline = (len(selected_all) / universe_size) if universe_size > 0 else math.nan
     if not _is_nan(rep.overall) and rep.random_baseline and rep.random_baseline > 0:
         rep.random_ratio = rep.overall / rep.random_baseline
+    # 적대검토 MED: selected/winner horizon 키의 합집합으로 — winner는 있는데 coverage 0인
+    # horizon이 누락돼 무사통과하는 것을 막는다.
+    horizon_keys = set(selected_by_horizon) | set(winners_by_horizon)
     rep.per_horizon = {
         h: recall(selected_by_horizon.get(h, set()), winners_by_horizon.get(h, set()))
-        for h in selected_by_horizon
+        for h in horizon_keys
     }
     rep.largemid_recall = recall(largemid_selected, largemid_winners)
     if not _is_nan(rep.overall) and rep.overall > 0 and not _is_nan(rep.largemid_recall):
@@ -300,7 +355,10 @@ def gate_a_pass(rep: RecallReport) -> tuple[bool, list[str]]:
         fails.append(f"Large+Mid recall {rep.largemid_recall:.3f} < {GATE_A_LARGEMID_RECALL_MIN}")
     if _is_nan(rep.largemid_vs_overall) or rep.largemid_vs_overall < GATE_A_LARGEMID_VS_OVERALL_MIN:
         fails.append(f"Large+Mid/overall {rep.largemid_vs_overall:.2f} < {GATE_A_LARGEMID_VS_OVERALL_MIN}")
-    if not _is_nan(rep.baseline_recall) and not _is_nan(rep.overall) and rep.overall <= rep.baseline_recall:
+    # baseline 비교는 필수(§3D anti-overfitting) — 미제공 시 무사통과 금지(적대검토 MED).
+    if _is_nan(rep.baseline_recall):
+        fails.append("baseline recall 미제공 — B++ 복잡도 정당화 비교 필수(§3D), gate FAIL")
+    elif not _is_nan(rep.overall) and rep.overall <= rep.baseline_recall:
         fails.append(f"baseline recall {rep.baseline_recall:.3f} ≥ B++ {rep.overall:.3f} (복잡도 미정당화)")
     return (len(fails) == 0, fails)
 
@@ -357,8 +415,12 @@ def gate_b_pass(
     spreads: Sequence[float],
     *,
     baseline_ic_ir: Optional[float] = None,
+    require_baseline: bool = True,
 ) -> tuple[bool, list[str], dict]:
-    """§4 Gate B. 반환 = (pass, fails, metrics). Large/Mid 슬리브별 IC mean>0 포함."""
+    """§4 Gate B. 반환 = (pass, fails, metrics). Large/Mid 슬리브별 IC mean>0 포함.
+
+    require_baseline=True(기본)면 baseline_ic_ir 미제공도 FAIL(§3D anti-overfitting 필수, 적대검토 MED).
+    """
     fails: list[str] = []
     present = [v for v in monthly_ics if not _is_nan(v)]
     ic_mean = sum(present) / len(present) if present else math.nan
@@ -380,7 +442,9 @@ def gate_b_pass(
         sm = sum(sic) / len(sic) if sic else math.nan
         if _is_nan(sm) or sm <= 0:
             fails.append(f"{sleeve} sleeve IC mean {sm} ≤ 0")
-    if baseline_ic_ir is not None and not _is_nan(ir) and not _is_nan(baseline_ic_ir) and ir < baseline_ic_ir:
+    if require_baseline and (baseline_ic_ir is None or _is_nan(baseline_ic_ir)):
+        fails.append("baseline IC IR 미제공 — B++ 복잡도 정당화 비교 필수(§3D), gate FAIL")
+    elif baseline_ic_ir is not None and not _is_nan(ir) and not _is_nan(baseline_ic_ir) and ir < baseline_ic_ir:
         fails.append(f"B++ IC IR {ir:.3f} < baseline {baseline_ic_ir:.3f}")
     metrics = {"ic_mean": ic_mean, "ic_ir": ir, "positive_months": pos, "decile_spread": spread_mean}
     return (len(fails) == 0, fails, metrics)
@@ -441,6 +505,35 @@ def legacy_manual_weight_score(stock: F.StockRaw, bucket: str) -> float:
     mom = (closes[-1] / ma60 - 1.0) if ma60 > 0 else 0.0
     weights = {"short": 0.40, "mid": 0.20, "long": 0.10}
     return mom * weights.get(bucket, 0.20)
+
+
+def baseline_equal_rank_score(
+    stocks: Sequence[F.StockRaw], bucket: str, *, min_adv_won: float = F.MIN_ADV_WON
+) -> dict[str, float]:
+    """naive baseline (§3D/§4): 유동 universe 내 (멀티호라이즌 trend + earnings) equal-rank.
+
+    legacy_manual_weight_score(close/MA60 momentum-only)보다 강한 control — B++가 size-sleeve·foreign·
+    quality·52주고가 없이도 trend+earnings만으로 얻는 recall/IC를 이기지 못하면 복잡도 미정당화(적대검토 MED).
+    sector-relative 아님(naive). IC-weighted/equal-weight 전체 baseline 세트는 step-2 harvest에서 wire.
+    """
+    advs = [F.adv60(s.trdvals) for s in stocks]
+    elig = [F.liquidity_floor_pass(a, min_adv_won) for a in advs]
+
+    def em(values: list[float]) -> list[float]:
+        return [values[i] if elig[i] else math.nan for i in range(len(stocks))]
+
+    comps = [F._rank_of(em([F.risk_adjusted_trend(s.closes, lb) for s in stocks]))
+             for lb in F.TREND_LOOKBACKS[bucket]]
+    trend_rank = F._combine_ranks(comps)
+    earn_rank = F.fill_missing_rank(F._rank_of(em([s.earnings_raw for s in stocks])))
+
+    out: dict[str, float] = {}
+    for i, s in enumerate(stocks):
+        if not elig[i]:
+            continue
+        present = [v for v in (trend_rank[i], earn_rank[i]) if not _is_nan(v)]
+        out[s.ticker] = sum(present) / len(present) if present else math.nan
+    return out
 
 
 # ============================================================================
