@@ -132,27 +132,33 @@ export default async function AdminPortfolioPage() {
     (d5Date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
   );
 
-  // (c) BL-20 자동 바이패스 배지 (T3.8)
-  // T7e.6 — access-logs source는 boundary stub ([]) → autoReliefActive=false 영구.
-  const accessLogs = await getRecentAdminAccessLogs(now, 7);
-  const autoReliefResult = detectSingleAdminStreak(accessLogs, now, 7);
-  const autoReliefActive = autoReliefResult.active;
-
-  // (b) 2인 열람 게이팅 — 대표 상세 리포트 전체가 2인 열람을 만족해야 통과.
-  // Mock cleanup Step 1.3 (58차): mock-admin-report-view-log 제거 → real report_view_log SELECT.
-  const tickersForGate = getGateTickers(monthShortlist);
-  const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
-    month: month.slice(0, 7),
-    tickers: tickersForGate,
-  });
-  const distinctViewerCount = computeMinimumViewerCount(
-    tickersForGate,
-    viewerCountsByTicker,
-  );
-
   // 77차 D31 — 내부도구(3인·가상 포트 확정) default = 완화 모드(D+4 Hold + 2인 열람 면제, 24h만).
   //   멤버서비스급 strict 복원 = PORTFOLIO_ACCEPT_GATE_STRICT=true opt-in. actions.ts와 동일 규칙.
+  //   relaxed면 viewer/auto-relief DB 조회를 skip — 게이트가 무시하므로 + DB/RLS 실패가 Server Component
+  //   crash를 일으키지 않도록(omxy R1 MED: relaxed인데 viewer query가 catch 없이 hard dependency로 남던 것).
   const relaxGate = process.env.PORTFOLIO_ACCEPT_GATE_STRICT !== "true";
+
+  // (c) BL-20 자동 바이패스 배지 (T3.8) + (b) 2인 열람 게이팅 — strict 모드에서만 조회.
+  // T7e.6 — access-logs source는 boundary stub ([]) → autoReliefActive=false 영구.
+  let autoReliefActive = false;
+  let autoReliefAdminId: string | null = null;
+  let distinctViewerCount = 0;
+  if (!relaxGate) {
+    const accessLogs = await getRecentAdminAccessLogs(now, 7);
+    const autoReliefResult = detectSingleAdminStreak(accessLogs, now, 7);
+    autoReliefActive = autoReliefResult.active;
+    autoReliefAdminId = autoReliefResult.adminId ?? null;
+    // Mock cleanup Step 1.3 (58차): mock-admin-report-view-log 제거 → real report_view_log SELECT.
+    const tickersForGate = getGateTickers(monthShortlist);
+    const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
+      month: month.slice(0, 7),
+      tickers: tickersForGate,
+    });
+    distinctViewerCount = computeMinimumViewerCount(
+      tickersForGate,
+      viewerCountsByTicker,
+    );
+  }
 
   // computeAcceptGate 호출
   const gateResult = computeAcceptGate({
@@ -220,7 +226,7 @@ export default async function AdminPortfolioPage() {
       {/* (c) BL-20 자동 바이패스 배지 (T3.8) — active=true 시 최상단 */}
       {autoReliefActive && (
         <div className="flex items-center gap-2 rounded-lg border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200">
-          ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefResult.adminId}
+          ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefAdminId}
         </div>
       )}
 

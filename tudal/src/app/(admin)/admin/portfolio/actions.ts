@@ -105,28 +105,35 @@ async function validateAcceptGate(month: string, shortlist: ShortListItem[]) {
   }
 
   const now = new Date();
-  // T7e.6 — access-logs source는 boundary stub ([]) → autoReliefActive=false 영구.
-  const autoReliefActive = detectSingleAdminStreak(
-    await getRecentAdminAccessLogs(now, 7),
-    now,
-    7,
-  ).active;
-
-  // Mock cleanup Step 1.3: real report_view_log SELECT (page.tsx와 동일 source — split-brain 해소).
-  const gateTickers = getGateTickers(shortlist);
-  const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
-    month: month.slice(0, 7),
-    tickers: gateTickers,
-  });
 
   // 77차 D31 — 내부도구(3인·가상 포트 확정) default = 완화 모드(D+4 Hold + 2인 열람 면제, 24h만).
   //   멤버서비스급 strict 복원 = PORTFOLIO_ACCEPT_GATE_STRICT=true opt-in. page.tsx와 동일 규칙.
+  //   relaxed면 viewer/auto-relief DB 조회 자체를 skip — 게이트가 그 값을 무시하므로, DB/RLS 실패가
+  //   accept를 막지 않도록(omxy R1 MED: relaxed인데 viewer lookup이 hard dependency로 남던 것 해소).
   const relaxGate = process.env.PORTFOLIO_ACCEPT_GATE_STRICT !== "true";
+
+  let autoReliefActive = false;
+  let distinctViewerCount = 0;
+  if (!relaxGate) {
+    // T7e.6 — access-logs source는 boundary stub ([]) → autoReliefActive=false 영구.
+    autoReliefActive = detectSingleAdminStreak(
+      await getRecentAdminAccessLogs(now, 7),
+      now,
+      7,
+    ).active;
+    // Mock cleanup Step 1.3: real report_view_log SELECT (page.tsx와 동일 source — split-brain 해소).
+    const gateTickers = getGateTickers(shortlist);
+    const viewerCountsByTicker = await getDistinctViewerCountsByTicker({
+      month: month.slice(0, 7),
+      tickers: gateTickers,
+    });
+    distinctViewerCount = computeMinimumViewerCount(gateTickers, viewerCountsByTicker);
+  }
 
   const gate = computeAcceptGate({
     shortlistGeneratedAt: generatedAt,
     now,
-    distinctViewerCount: computeMinimumViewerCount(gateTickers, viewerCountsByTicker),
+    distinctViewerCount,
     calendar: MOCK_KR_BUSINESS_DAYS_2026,
     autoReliefActive,
     relaxGate,
