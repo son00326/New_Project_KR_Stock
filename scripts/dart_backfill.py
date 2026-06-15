@@ -216,8 +216,11 @@ def main() -> None:
     out_path = Path(args.out)
     done = load_done(out_path) if args.resume else set()
     todo = [(c, pt, pk, rc) for c in corps for (pt, pk, rc) in periods if (c, pt, pk) not in done]
-    print(f"[backfill] todo {len(todo):,} (done {len(done):,}) · est @ {args.pace_sec + 0.4:.2f}s/call = "
-          f"~{len(todo) * (args.pace_sec + 0.4) / 3600:.1f}h · 일일 한도~2만 → ~{len(todo) / 19000:.1f}일",
+    # omxy BC-R2: 추정은 HTTP 콜 기준 (period당 1~2 HTTP: CFS, OFS fallback). 보수=×2.
+    http_lo, http_hi = len(todo), len(todo) * 2
+    print(f"[backfill] todo {len(todo):,} periods (done {len(done):,}) · HTTP est {http_lo:,}~{http_hi:,} "
+          f"@ {args.pace_sec + 0.4:.2f}s/call = ~{http_lo * (args.pace_sec + 0.4) / 3600:.1f}~"
+          f"{http_hi * (args.pace_sec + 0.4) / 3600:.1f}h · 일일 한도~2만 → ~{http_lo / 19000:.1f}~{http_hi / 19000:.1f}일",
           file=sys.stderr)
     if args.dry_estimate:
         print("[backfill] --dry-estimate: fetch 안 함. 위 추정치 확인 후 플래그 제거하고 실행하세요.", file=sys.stderr)
@@ -228,8 +231,9 @@ def main() -> None:
     done_periods = 0   # 이번 실행 처리한 (corp, period) 수
     with out_path.open("a") as f:
         for i, (corp, pt, pk, rc) in enumerate(todo):
-            if calls >= args.max_calls:
-                print(f"[backfill] --max-calls {args.max_calls} 도달 → 중단. 내일 --resume 으로 재개.", file=sys.stderr)
+            # omxy BC-R2: period당 최대 2 HTTP(CFS+OFS) → 시작 전 2 예약. 절대 max_calls 초과 안 함.
+            if calls + 2 > args.max_calls:
+                print(f"[backfill] --max-calls {args.max_calls} 도달(HTTP {calls:,}) → 중단. 내일 --resume 으로 재개.", file=sys.stderr)
                 break
             yr = pk.split("-")[0]
             try:
