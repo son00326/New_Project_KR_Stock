@@ -112,8 +112,10 @@
   - **Gate C PASS**: 60/60/30 · small 20% · 19개월 전부 통과.
   - **TRIPLE GATE ALL PASS: False.**
 - 🧭 **해석(Claude↔omxy 합의)**: B++는 (a) 대형 주도주 retrieval **개선 실증**(largemid 0.431, leaders 7/11, large-IC +0.08) + (b) naive baseline을 recall·IC 모두 **상회(복잡도 정당화)** 하지만, (c) earnings/foreign 부재(순수 trend+size) + 절대 임계(recall 0.20·IC IR 0.30) 미달로 **full 예측 thesis 미검증**. ⇒ 산출물 표현 = **"robust, factor-informed, leader-inclusive candidate shortlist(diagnostic)"**까지만(spec §3 문구 게이트). **"향후 상승 예측" claim 금지.**
+- 📈 **selection_performance metric (PR #123, omxy R6~R8 CONVERGED)**: 픽의 실현수익률 진단(size-neutral skill = vs 실제 선정 sleeve, net-after-cost, 월별 skill CI). **핵심 교정**: 처음 "시장 +6.8%p 초과"는 **대부분 size 베타** — size 제거 순수 스킬 = 1M −0.25%/3M +1.17%/6M +3.01%, **세 기간 CI 모두 0 포함 → 통계적 유의 스킬 없음**. "market-beating"은 regime/size 틸트지 selection skill 아님.
+- 🔬 **Stage-1 외국인 A/B (PR #123, omxy S1-R1~R3 CONVERGED, foreign full-coverage)**: per-(market,월) 전종목 1콜(get_market_net_purchases…, ~38콜) + schema-기반 fail 분류(pykrx가 오류를 bare-empty df로 삼킴 → penalty). **결과: OFF(추세+크기) vs ON(+외국인)** — leaders 138→**148/209**(외국인 매수 대형주 집중 → +10), 단 largemid 0.431→0.419·IC IR 0.26→0.206·6M skill +3.01%→+0.25%·6M net +22.6%→+19.9% **전부 악화**. 둘 다 skill CI 0 포함. ⇒ **외국인 추가 순효과 ≈ 중립~약간 마이너스; 추세+크기가 더 낫고 단순**(spec의 "외국인=약한 secondary" 정합). 외국인은 cross-section 랭킹에 노이즈.
 - ⏸ **--apply/Tier1 보류** — 삼중 게이트 ALL PASS 후만. production `tier0_candidates_150`/`short_list_30` 2026-06 = 여전히 73차 구 스코어링(미변경).
-- 🔜 **다음(USER-gated)**: full-factor 깨끗한 verdict 원하면 DART rcept_dt 스키마+backfill + foreign backfill → unchanged 게이트 rerun. 아니면 B++를 leader-inclusive diagnostic generator로 유지(no apply). 둘 다 USER 결정.
+- 🔜 **다음(USER-gated)**: ① **Stage-2** = DART rcept_dt 마이그(+backfill, rcept_no[:8]=공시일 무료 파생) → 실적 추가(외국인보다 유망: size와 덜 겹침) ② **Stage-3** = 패널 2018~2023 확장 → 다중장세 size-controlled = 진짜 결정적 verdict. 아니면 B++를 추세+크기 diagnostic generator로 유지(no apply). 전부 USER 결정.
 - 환경: `scripts/.venv`(pykrx/supabase/requests), .env.local. panel 디스크 캐시 `scripts/out/pit_cache`(~1700 콜, warm). harvest run = panel(cache warm 시 ~1-2min) + DART in-mem preload + 19개월 처리 ~수분.
 
 ## 7. 토론 산출물 (근거 보존)
