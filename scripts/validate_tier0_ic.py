@@ -62,6 +62,9 @@ ROUND_TRIP_COST = 0.004
 DELISTING_RETURN_NO_PRICE = -1.0
 MIN_DELIST_LOOKAHEAD = 5
 
+# Stage-1 외국인: 선정일 직전 trailing 외국인 순매수 누적 창 (≈60 거래일). 한 콜로 전종목 net 합산.
+FOREIGN_WINDOW_CAL_DAYS = 90
+
 # 관측 11-leader basket (tripwire 전용, 합격 기준 아님 §4 — target leakage 금지).
 LEADER_BASKET_2026_06: dict[str, str] = {
     "005930": "삼성전자", "000660": "SK하이닉스", "267260": "HD현대일렉트릭",
@@ -1011,16 +1014,17 @@ def _hit_rate(xs: Sequence[float]) -> float:
     return (sum(1 for v in present if v > 0) / len(present)) if present else math.nan
 
 
-def foreign_trailing_sum(series: dict[str, float], sel_date_str: str, window: int = 60) -> float:
-    """foreign 시계열 {YYYYMMDD: 순매수_won} 의 sel_date **이하** trailing `window`거래일 합(가용분만, ≤window).
+def classify_foreign(market_dict: Optional[dict], ticker: str) -> tuple[float, bool]:
+    """Stage-1 외국인 분류 (omxy S1-R1 #2 정합).
 
-    Stage-1 (외국인) — fetch_foreign_signal의 tail(60).sum() 의미 정합(가용 행만 합, 부족해도 fail 아님).
-    fetch 실패(시계열 None)는 호출부(foreign_at)에서 (nan, True) penalty tier로 처리; 본 helper는 합만.
+    market_dict = 해당 (market, 선정일) 전종목 외국인 순매수대금 {ticker: won}, 또는 **None**(fetch 실패).
+    - None → (nan, True): 진짜 fetch 실패 → penalty tier.
+    - present, ticker 있음 → (값, False): 실제 외국인 순매수.
+    - present, ticker 없음 → (0.0, False): **genuine no-flow**(거래 없음) → neutral. 실패로 오분류 금지.
     """
-    dates = sorted(d for d in series if d <= sel_date_str)
-    if not dates:
-        return 0.0
-    return float(sum(series[d] for d in dates[-window:]))
+    if market_dict is None:
+        return (math.nan, True)
+    return (float(market_dict.get(ticker, 0.0)), False)
 
 
 def _select_by_horizon(score_fn, stocks: Sequence[F.StockRaw], pool: int = 50) -> dict[str, list[str]]:
@@ -1416,7 +1420,9 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
     print(f"[panel] {len(panel)} trading days loaded", file=sys.stderr, flush=True)
 
     dart_key = os.environ.get("DART_API_KEY")
-    live_client = S.get_supabase_client() if (dart_key or with_foreign) else None
+    # omxy S1-R1 #3: live_client(sector resolve용)은 DART 키에만 의존 — with_foreign이 sector 경로를
+    # 바꾸지 않도록 분리(foreign on/off A/B에서 sector resolution 동일 유지).
+    live_client = S.get_supabase_client() if dart_key else None
     mem_fin, mem_corp = ({}, {})
     if dart_key and live_client is not None:
         print("[dart] pre-loading dart_financial_cache + dart_corp_codes into memory ...",
@@ -1429,6 +1435,7 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
     # universe + sector resolve. sel = **실제 패널 거래일**(harvest가 전달, PIT-001 정합) — 가격 슬라이스
     # 날짜와 동일. 주말-only heuristic 재계산 제거(공휴일 어긋남 차단). 거래일 키 캐시.
     _uni_cache: dict[str, list[dict]] = {}
+    _ticker_market: dict[str, str] = {}  # Stage-1 foreign: ticker→KOSPI/KOSDAQ (per-market 외국인 fetch용)
 
     def universe_at(sel: date) -> list[dict]:
         key = sel.isoformat()
@@ -1436,58 +1443,60 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
             return _uni_cache[key]
         uni = S.fetch_universe(sel, limit=universe_limit)
         S.resolve_sectors_for_universe(uni, supabase_client=live_client)
+        for u in uni:
+            _ticker_market[u["ticker"]] = u.get("market", "")
         _uni_cache[key] = uni
         return uni
 
-    # foreign (Stage-1): default OFF → penalty tier neutralize (feasibility). --with-foreign 시 종목당
-    # **1회 full-window fetch + 디스크 캐시 + trailing-60 슬라이스**. per-(ticker,month) 직접 호출은
-    # 19개월×~2.7k = ~5만 pykrx콜로 비현실적 → full-window 1회(~종목수 콜)로 역전. 실패=fail-soft penalty.
+    # foreign (Stage-1): default OFF → penalty tier neutralize. --with-foreign 시 per-(market, 선정일)
+    # **전종목 1콜**(get_market_net_purchases_of_equities_by_ticker, 순매수거래대금) → 선정일 직전
+    # FOREIGN_WINDOW_CAL_DAYS 창의 외국인 net 누적. per-ticker(~5만콜·7시간)를 ~38콜(19개월×2시장)로 역전.
+    # 캐시 키에 window 포함(omxy S1-R1 #1: 다른 window run이 stale 캐시 재사용 방지). 콜 실패→fail-soft.
     foreign_dir = cache_dir / "foreign"
-    pstart_s, pend_s = panel_start.strftime("%Y%m%d"), panel_end.strftime("%Y%m%d")
-    _foreign_series_mem: dict[str, Optional[dict]] = {}
+    _foreign_mkt_mem: dict[tuple[str, str], Optional[dict]] = {}
 
-    def _foreign_series(tk: str) -> Optional[dict]:
-        """ticker의 full-window 외국인 순매수 시계열 {YYYYMMDD: won}. fetch 실패 시 None (penalty)."""
-        if tk in _foreign_series_mem:
-            return _foreign_series_mem[tk]
+    def _foreign_market_dict(market: str, sel: date) -> Optional[dict]:
+        """(market, 선정일) 전종목 외국인 순매수대금 {ticker: won}. 콜 실패 시 None(penalty)."""
+        skey = sel.strftime("%Y%m%d")
+        mem_key = (market, skey)
+        if mem_key in _foreign_mkt_mem:
+            return _foreign_mkt_mem[mem_key]
         foreign_dir.mkdir(parents=True, exist_ok=True)
-        cf = foreign_dir / f"{tk}.json"
+        cf = foreign_dir / f"{market}_{skey}_w{FOREIGN_WINDOW_CAL_DAYS}.json"
         if cf.exists():
             try:
                 s = json.loads(cf.read_text())
-                series = None if s.get("failed") else s.get("series", {})
-                _foreign_series_mem[tk] = series
-                return series
+                d = None if s.get("failed") else s.get("dict", {})
+                _foreign_mkt_mem[mem_key] = d
+                return d
             except (ValueError, OSError):
                 pass
-        series: Optional[dict] = None
+        frm = (sel - timedelta(days=FOREIGN_WINDOW_CAL_DAYS)).strftime("%Y%m%d")
+        d: Optional[dict] = None
         try:
             S.ensure_pykrx()
             from pykrx import stock
-            df = stock.get_market_trading_value_by_date(pstart_s, pend_s, tk)
-            if df is not None and not df.empty:
-                col = "외국인합계" if "외국인합계" in df.columns else ("외국인" if "외국인" in df.columns else None)
-                if col is not None:
-                    series = {idx.strftime("%Y%m%d"): float(v)
-                              for idx, v in df[col].astype(float).items()}
-                else:
-                    series = {}  # genuine no-foreign-column → 0 flow (not a fetch failure)
-        except Exception:  # noqa: BLE001 — pykrx 어떤 예외든 fail-soft
-            series = None
+            df = stock.get_market_net_purchases_of_equities_by_ticker(frm, skey, market, "외국인")
+            if df is not None and not df.empty and "순매수거래대금" in df.columns:
+                d = {str(idx): float(v) for idx, v in df["순매수거래대금"].astype(float).items()}
+            else:
+                d = {}  # genuine empty (휴장/무거래) → no-flow, NOT a fetch failure (omxy #2)
+        except Exception:  # noqa: BLE001 — pykrx 예외만 진짜 실패
+            d = None
         try:
-            cf.write_text(json.dumps({"failed": series is None, "series": series or {}}))
+            cf.write_text(json.dumps({"failed": d is None, "dict": d or {}}))
         except OSError:
             pass
-        _foreign_series_mem[tk] = series
-        return series
+        _foreign_mkt_mem[mem_key] = d
+        return d
 
     def foreign_at(tk: str, sel: date) -> tuple[float, bool]:
         if not with_foreign:
             return (math.nan, True)  # neutralized via penalty tier (no pykrx); recorded as foreign_failed
-        series = _foreign_series(tk)
-        if series is None:
-            return (math.nan, True)  # fetch 실패 → penalty tier
-        return (foreign_trailing_sum(series, sel.strftime("%Y%m%d"), window=60), False)
+        market = _ticker_market.get(tk)
+        if not market:
+            return (math.nan, True)  # market 미상 → fetch 불가 → penalty
+        return classify_foreign(_foreign_market_dict(market, sel), tk)
 
     def dart_at(tk: str, sel: date):
         if not dart_key:
