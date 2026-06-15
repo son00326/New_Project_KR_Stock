@@ -1011,6 +1011,18 @@ def _hit_rate(xs: Sequence[float]) -> float:
     return (sum(1 for v in present if v > 0) / len(present)) if present else math.nan
 
 
+def foreign_trailing_sum(series: dict[str, float], sel_date_str: str, window: int = 60) -> float:
+    """foreign 시계열 {YYYYMMDD: 순매수_won} 의 sel_date **이하** trailing `window`거래일 합(가용분만, ≤window).
+
+    Stage-1 (외국인) — fetch_foreign_signal의 tail(60).sum() 의미 정합(가용 행만 합, 부족해도 fail 아님).
+    fetch 실패(시계열 None)는 호출부(foreign_at)에서 (nan, True) penalty tier로 처리; 본 helper는 합만.
+    """
+    dates = sorted(d for d in series if d <= sel_date_str)
+    if not dates:
+        return 0.0
+    return float(sum(series[d] for d in dates[-window:]))
+
+
 def _select_by_horizon(score_fn, stocks: Sequence[F.StockRaw], pool: int = 50) -> dict[str, list[str]]:
     """bucket별 score 상위 pool개, cross-bucket disjoint → {bucket: [ticker]} (select_bpp 정합).
 
@@ -1427,23 +1439,55 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
         _uni_cache[key] = uni
         return uni
 
-    # foreign: default OFF (feasibility) — full-universe × multi-month pykrx is ~tens of thousands of
-    # flaky calls. OFF → fetch_failed penalty tier for all (constant rank → factor neutralized,
-    # documented, §3C). --with-foreign re-enables per-(ticker, sel-date) pykrx with cache + fail-soft.
-    _foreign_cache: dict[tuple[str, str], tuple[float, bool]] = {}
+    # foreign (Stage-1): default OFF → penalty tier neutralize (feasibility). --with-foreign 시 종목당
+    # **1회 full-window fetch + 디스크 캐시 + trailing-60 슬라이스**. per-(ticker,month) 직접 호출은
+    # 19개월×~2.7k = ~5만 pykrx콜로 비현실적 → full-window 1회(~종목수 콜)로 역전. 실패=fail-soft penalty.
+    foreign_dir = cache_dir / "foreign"
+    pstart_s, pend_s = panel_start.strftime("%Y%m%d"), panel_end.strftime("%Y%m%d")
+    _foreign_series_mem: dict[str, Optional[dict]] = {}
+
+    def _foreign_series(tk: str) -> Optional[dict]:
+        """ticker의 full-window 외국인 순매수 시계열 {YYYYMMDD: won}. fetch 실패 시 None (penalty)."""
+        if tk in _foreign_series_mem:
+            return _foreign_series_mem[tk]
+        foreign_dir.mkdir(parents=True, exist_ok=True)
+        cf = foreign_dir / f"{tk}.json"
+        if cf.exists():
+            try:
+                s = json.loads(cf.read_text())
+                series = None if s.get("failed") else s.get("series", {})
+                _foreign_series_mem[tk] = series
+                return series
+            except (ValueError, OSError):
+                pass
+        series: Optional[dict] = None
+        try:
+            S.ensure_pykrx()
+            from pykrx import stock
+            df = stock.get_market_trading_value_by_date(pstart_s, pend_s, tk)
+            if df is not None and not df.empty:
+                col = "외국인합계" if "외국인합계" in df.columns else ("외국인" if "외국인" in df.columns else None)
+                if col is not None:
+                    series = {idx.strftime("%Y%m%d"): float(v)
+                              for idx, v in df[col].astype(float).items()}
+                else:
+                    series = {}  # genuine no-foreign-column → 0 flow (not a fetch failure)
+        except Exception:  # noqa: BLE001 — pykrx 어떤 예외든 fail-soft
+            series = None
+        try:
+            cf.write_text(json.dumps({"failed": series is None, "series": series or {}}))
+        except OSError:
+            pass
+        _foreign_series_mem[tk] = series
+        return series
 
     def foreign_at(tk: str, sel: date) -> tuple[float, bool]:
         if not with_foreign:
             return (math.nan, True)  # neutralized via penalty tier (no pykrx); recorded as foreign_failed
-        key = (tk, sel.isoformat())
-        if key in _foreign_cache:
-            return _foreign_cache[key]
-        try:
-            val = S.fetch_foreign_signal(tk, sel)
-        except Exception:  # noqa: BLE001 — pykrx 어떤 예외든 fail-soft penalty tier
-            val = (math.nan, True)
-        _foreign_cache[key] = val
-        return val
+        series = _foreign_series(tk)
+        if series is None:
+            return (math.nan, True)  # fetch 실패 → penalty tier
+        return (foreign_trailing_sum(series, sel.strftime("%Y%m%d"), window=60), False)
 
     def dart_at(tk: str, sel: date):
         if not dart_key:
