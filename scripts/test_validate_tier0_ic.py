@@ -452,6 +452,15 @@ class TestSelectionPerformance(unittest.TestCase):
         self.assertEqual(len(allp), 30)            # 3 buckets × 10
         self.assertEqual(len(set(allp)), 30)       # disjoint
 
+    def test_foreign_dict_from_df_schema_based(self):
+        # omxy S1-R2 HIGH: pykrx swallows errors into a bare empty df → must classify by SCHEMA, not .empty.
+        import pandas as pd
+        df = pd.DataFrame({"순매수거래대금": [5.0, -3.0], "종목명": ["A사", "B사"]}, index=["000001", "000002"])
+        self.assertEqual(V.foreign_dict_from_df(df), {"000001": 5.0, "000002": -3.0})
+        self.assertIsNone(V.foreign_dict_from_df(pd.DataFrame()))   # bare empty (swallowed error) → None
+        self.assertIsNone(V.foreign_dict_from_df(None))
+        self.assertEqual(V.foreign_dict_from_df(pd.DataFrame({"순매수거래대금": []})), {})  # schema, 0 rows = 휴장
+
     def test_classify_foreign(self):
         # Stage-1 (omxy S1-R1 #2): fetch-fail(None)=penalty / present=genuine (missing ticker=0 no-flow, NOT fail).
         self.assertEqual(V.classify_foreign({"A": 5.0, "B": -3.0}, "A"), (5.0, False))

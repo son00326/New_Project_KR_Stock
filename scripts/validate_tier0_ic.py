@@ -1014,6 +1014,20 @@ def _hit_rate(xs: Sequence[float]) -> float:
     return (sum(1 for v in present if v > 0) / len(present)) if present else math.nan
 
 
+def foreign_dict_from_df(df) -> Optional[dict]:
+    """pykrx 순매수 DataFrame → {ticker: 순매수거래대금} 또는 **None**(스키마 부재 = 삼킨 실패).
+
+    omxy S1-R2 HIGH: pykrx의 @dataframe_empty_handler가 내부 오류(network/parse)를 **bare DataFrame()**
+    으로 삼킨다(예외 없이 빈 df). 따라서 df.empty로 "genuine no-flow"를 판별하면 삼킨 provider 실패를
+    0-flow로 오분류한다. **기대 컬럼(순매수거래대금) 존재 = 스키마 유효**로 판별:
+    - 컬럼 존재 → dict (0행이면 {} = 휴장/무거래 genuine no-flow).
+    - df None / 컬럼 부재(bare empty) → None = 삼킨 실패 → 호출부에서 penalty tier.
+    """
+    if df is None or "순매수거래대금" not in getattr(df, "columns", []):
+        return None
+    return {str(idx): float(v) for idx, v in df["순매수거래대금"].astype(float).items()}
+
+
 def classify_foreign(market_dict: Optional[dict], ticker: str) -> tuple[float, bool]:
     """Stage-1 외국인 분류 (omxy S1-R1 #2 정합).
 
@@ -1477,11 +1491,8 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
             S.ensure_pykrx()
             from pykrx import stock
             df = stock.get_market_net_purchases_of_equities_by_ticker(frm, skey, market, "외국인")
-            if df is not None and not df.empty and "순매수거래대금" in df.columns:
-                d = {str(idx): float(v) for idx, v in df["순매수거래대금"].astype(float).items()}
-            else:
-                d = {}  # genuine empty (휴장/무거래) → no-flow, NOT a fetch failure (omxy #2)
-        except Exception:  # noqa: BLE001 — pykrx 예외만 진짜 실패
+            d = foreign_dict_from_df(df)  # 스키마 기반: 컬럼 부재(삼킨 실패)→None / 존재→dict (omxy S1-R2)
+        except Exception:  # noqa: BLE001 — pykrx 예외도 진짜 실패
             d = None
         try:
             cf.write_text(json.dumps({"failed": d is None, "dict": d or {}}))
