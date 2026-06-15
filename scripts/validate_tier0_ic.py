@@ -1409,8 +1409,32 @@ def _preload_dart_cache(client) -> tuple[dict, dict]:
     return fin, corp
 
 
+def _overlay_local_dart_cache(mem_fin: dict, backfill_path: Path) -> int:
+    """로컬 DART 백필(JSONL, rcept_dt 보유)을 production preload(mem_fin) 위에 overlay (B+C DART-BACKFILL F).
+
+    각 줄 = {corp_code, period_type, period_key, <FINANCIAL_KEYS>, rcept_dt, status}. 로컬 행은 rcept_dt가
+    있어 availability 게이트(_cache_ok_row_available_as_of)를 통과 → 실 earnings 활성. production-only 행은
+    rcept_dt 부재로 fail-closed 유지. Returns overlaid row 수.
+    """
+    n = 0
+    for line in backfill_path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        key = (row.get("corp_code"), row.get("period_type"), row.get("period_key"))
+        if all(key):
+            mem_fin[key] = row
+            n += 1
+    return n
+
+
 def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
-                          universe_limit: Optional[int], with_foreign: bool):
+                          universe_limit: Optional[int], with_foreign: bool,
+                          with_earnings: bool = False, dart_backfill_path: Optional[str] = None):
     """실 KRX/pykrx/DART provider + 디스크 캐시 panel 구성 (장시간 step-2 전용).
 
     Returns (panel, universe_at, foreign_at, dart_at, coverage_meta).
@@ -1437,12 +1461,19 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
     # omxy S1-R1 #3: live_client(sector resolve용)은 DART 키에만 의존 — with_foreign이 sector 경로를
     # 바꾸지 않도록 분리(foreign on/off A/B에서 sector resolution 동일 유지).
     live_client = S.get_supabase_client() if dart_key else None
-    mem_fin, mem_corp = ({}, {})
-    if dart_key and live_client is not None:
-        print("[dart] pre-loading dart_financial_cache + dart_corp_codes into memory ...",
+    mem_fin, mem_corp, cache_provenance = ({}, {}, "none")
+    if with_earnings and dart_key and live_client is not None:
+        # earnings 활성 시에만 financial 캐시 preload(off면 dart_at이 neutral 반환 → preload 불필요).
+        print("[dart] pre-loading production dart_financial_cache + dart_corp_codes ...",
               file=sys.stderr, flush=True)
         mem_fin, mem_corp = _preload_dart_cache(live_client)
-        print(f"[dart] {len(mem_fin)} cache rows · {len(mem_corp)} corp_codes (cache-only harvest, no HTTP)",
+        cache_provenance = "production"
+        # hybrid (B+C DART-BACKFILL): rcept_dt 보유 로컬 백필을 production 위에 overlay → availability 게이트 통과.
+        if dart_backfill_path and Path(dart_backfill_path).exists():
+            n_local = _overlay_local_dart_cache(mem_fin, Path(dart_backfill_path))
+            cache_provenance = "hybrid(local-backfill+production)"
+            print(f"[dart] overlaid {n_local} local-backfill rows (with rcept_dt)", file=sys.stderr, flush=True)
+        print(f"[dart] {len(mem_fin)} cache rows · {len(mem_corp)} corp_codes · provenance={cache_provenance}",
               file=sys.stderr, flush=True)
     mem_client = _MemDartClient(mem_fin, mem_corp)
 
@@ -1510,14 +1541,15 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
         return classify_foreign(_foreign_market_dict(market, sel), tk)
 
     def dart_at(tk: str, sel: date):
-        if not dart_key:
-            return D.DartSignalsResult()
+        if not with_earnings or not dart_key:
+            return D.DartSignalsResult()  # earnings off → 구조적 결측 neutral-50 (0 아님), 깨끗한 A/B 토글
         return D.fetch_dart_signals(mem_client, tk, sel, dart_key, as_of_date=sel, cache_only=True)
 
     coverage_meta = {
-        "dart_cache_only": bool(dart_key), "dart_cache_rows": len(mem_fin),
+        "dart_cache_only": bool(dart_key and with_earnings), "dart_cache_rows": len(mem_fin),
+        "earnings_enabled": with_earnings, "dart_cache_provenance": cache_provenance,
         "foreign_enabled": with_foreign,
-        "foreign_note": "disabled→penalty-tier neutralized (feasibility)" if not with_foreign else "pykrx fail-soft",
+        "foreign_note": "disabled→penalty-tier neutralized" if not with_foreign else "per-market net (schema-classified)",
     }
     return panel, universe_at, foreign_at, dart_at, coverage_meta
 
@@ -1538,8 +1570,12 @@ def main() -> None:
                         help="패널/포워드 로직 smoke (게이트 임계 미적용 — metrics-only, PASS≠실 통과)")
     parser.add_argument("--universe-limit", type=int, default=None, help="universe cap (smoke 전용)")
     parser.add_argument("--with-foreign", action="store_true",
-                        help="pykrx 외국인 시그널 활성 (기본 OFF — 대규모 multi-month는 비현실적이라 "
-                             "penalty-tier neutralize). 활성 시 per-(ticker,month) fail-soft.")
+                        help="외국인 시그널 활성 (기본 OFF → penalty-tier neutralize). 활성 시 per-(market,month) net.")
+    parser.add_argument("--earnings", action="store_true",
+                        help="DART 실적·퀄리티 활성 (기본 OFF → neutral-50). 활성 시 cache-only PIT(availability "
+                             "rcept_dt 게이트). --dart-backfill-path로 rcept_dt 로컬 캐시 overlay.")
+    parser.add_argument("--dart-backfill-path", default=None,
+                        help="로컬 DART 백필(JSONL, rcept_dt) 경로 — production 위에 overlay (earnings PIT 활성).")
     args = parser.parse_args()
 
     _load_env()
@@ -1552,7 +1588,8 @@ def main() -> None:
               f"완전한 6M forward를 원하면 end-month ≤ {six_months_ago.replace(day=1)} 권장.", file=sys.stderr)
 
     panel, universe_at, foreign_at, dart_at, coverage_meta = _build_real_providers(
-        args.start_month, args.end_month, Path(args.cache_dir), args.universe_limit, args.with_foreign)
+        args.start_month, args.end_month, Path(args.cache_dir), args.universe_limit, args.with_foreign,
+        with_earnings=args.earnings, dart_backfill_path=args.dart_backfill_path)
 
     report = harvest_pit_months(
         args.start_month, args.end_month, panel,

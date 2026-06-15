@@ -461,6 +461,29 @@ class TestSelectionPerformance(unittest.TestCase):
         self.assertIsNone(V.foreign_dict_from_df(None))
         self.assertEqual(V.foreign_dict_from_df(pd.DataFrame({"순매수거래대금": []})), {})  # schema, 0 rows = 휴장
 
+    def test_overlay_local_dart_cache(self):
+        # B+C: local backfill (rcept_dt) overlays production preload (no rcept_dt) so availability gate passes.
+        import json, tempfile, os
+        mem = {("C1", "annual", "2023"): {"corp_code": "C1", "period_type": "annual",
+                                          "period_key": "2023", "status": "ok"}}  # production, no rcept_dt
+        lines = [
+            json.dumps({"corp_code": "C1", "period_type": "annual", "period_key": "2023",
+                        "status": "ok", "rcept_dt": "20240312", "revenue": 100}),
+            json.dumps({"corp_code": "C2", "period_type": "quarterly", "period_key": "2024-Q1",
+                        "status": "ok", "rcept_dt": "20240516"}),
+            "",  # blank line tolerated
+        ]
+        fd, path = tempfile.mkstemp(suffix=".jsonl")
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write("\n".join(lines))
+            n = V._overlay_local_dart_cache(mem, Path(path))
+        finally:
+            os.unlink(path)
+        self.assertEqual(n, 2)
+        self.assertEqual(mem[("C1", "annual", "2023")]["rcept_dt"], "20240312")  # overlaid w/ rcept_dt
+        self.assertIn(("C2", "quarterly", "2024-Q1"), mem)                       # new row added
+
     def test_classify_foreign(self):
         # Stage-1 (omxy S1-R1 #2): fetch-fail(None)=penalty / present=genuine (missing ticker=0 no-flow, NOT fail).
         self.assertEqual(V.classify_foreign({"A": 5.0, "B": -3.0}, "A"), (5.0, False))
