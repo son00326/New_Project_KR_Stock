@@ -452,13 +452,13 @@ class TestSelectionPerformance(unittest.TestCase):
         self.assertEqual(len(allp), 30)            # 3 buckets × 10
         self.assertEqual(len(set(allp)), 30)       # disjoint
 
-    def test_foreign_trailing_sum(self):
-        # Stage-1: trailing window sum of available foreign-net dates ≤ sel (≤window), no fail on short.
-        series = {"20250102": 10.0, "20250103": 20.0, "20250203": 30.0, "20250303": 40.0, "20250403": 50.0}
-        self.assertEqual(V.foreign_trailing_sum(series, "20250303", window=2), 70.0)   # last 2 ≤ 0303 = 30+40
-        self.assertEqual(V.foreign_trailing_sum(series, "20250303", window=60), 100.0)  # all ≤ 0303 = 10+20+30+40
-        self.assertEqual(V.foreign_trailing_sum(series, "20250101", window=60), 0.0)     # none ≤ sel → 0
-        self.assertEqual(V.foreign_trailing_sum({}, "20250303"), 0.0)
+    def test_classify_foreign(self):
+        # Stage-1 (omxy S1-R1 #2): fetch-fail(None)=penalty / present=genuine (missing ticker=0 no-flow, NOT fail).
+        self.assertEqual(V.classify_foreign({"A": 5.0, "B": -3.0}, "A"), (5.0, False))
+        self.assertEqual(V.classify_foreign({"A": 5.0}, "B"), (0.0, False))  # genuine no-flow, not penalty
+        val, failed = V.classify_foreign(None, "A")                          # fetch failure → penalty
+        self.assertTrue(math.isnan(val))
+        self.assertTrue(failed)
 
     def test_selection_performance_aggregation(self):
         # omxy R6: gross+net, eqw vs sleeve excess, monthly-independent counts.
