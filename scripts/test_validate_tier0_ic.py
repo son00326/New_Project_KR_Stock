@@ -442,6 +442,32 @@ def _mk_month_result(**kw):
     return V.MonthResult(**base)
 
 
+class TestFrozenDecisionRules(unittest.TestCase):
+    """B+C anti-overfitting lock: gate thresholds + B++ params FROZEN before the 4-config × multi-regime run.
+
+    SoT: docs/superpowers/tier0-4config-decision-rules.md. A mid-run threshold tweak (p-hacking across
+    4 configs × 3 regimes × 3 gates) is caught here. Changing these requires editing BOTH this test AND
+    the decision-rules doc — a deliberate, reviewable act, not a silent in-run shop.
+    """
+
+    def test_gate_thresholds_frozen(self):
+        self.assertEqual(V.GATE_A_OVERALL_RECALL_MIN, 0.20)
+        self.assertEqual(V.GATE_A_RANDOM_RATIO_MIN, 2.5)
+        self.assertEqual(V.GATE_A_HORIZON_RECALL_MIN, 0.12)
+        self.assertEqual(V.GATE_A_LARGEMID_RECALL_MIN, 0.35)
+        self.assertEqual(V.GATE_A_LARGEMID_VS_OVERALL_MIN, 0.80)
+        self.assertEqual(V.GATE_B_IC_IR_MIN, 0.30)
+        self.assertEqual(V.GATE_B_POS_MONTHS_MIN, 0.60)
+        self.assertEqual(V.GATE_C_SMALL_MAX_FRACTION, 0.25)
+
+    def test_bpp_params_frozen(self):
+        import tier0_factors as F
+        self.assertEqual(F.MIN_ADV_WON, 2_000_000_000.0)
+        self.assertEqual(F.SLEEVE_QUOTA, {"large": 20, "mid": 20, "small": 10})
+        self.assertEqual(F.SKIP_DAYS, 21)
+        self.assertEqual(F.TREND_LOOKBACKS, {"short": (20, 60), "mid": (63, 126), "long": (126, 252)})
+
+
 class TestSelectionPerformance(unittest.TestCase):
     def test_select_by_horizon_disjoint(self):
         import tier0_factors as F
