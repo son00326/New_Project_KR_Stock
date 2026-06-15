@@ -56,10 +56,13 @@ def required_periods(start_month: date, end_month: date) -> list[tuple[str, str,
     """백필 대상 (period_type, period_key, reprt_code). determine_target_quarter + YoY + 퀄리티 annual을
     모두 덮도록: 연간 [start_year-2 .. end_year], 분기 Q1/H1/9M [start_year-1 .. end_year]."""
     import dart_signals as D
+    # omxy BC-R1 #3: signal dependency closure. 가장 이른 선정월(예 2022-01)의
+    # _latest_safe_annual_year → year-2 + 그 YoY base(-1) = annual start_year-3 까지. 분기 standalone +
+    # YoY prior-year quarter = quarterly start_year-2 까지. (이하 범위는 모든 selection-month 의존을 덮음)
     out: list[tuple[str, str, str]] = []
-    for yr in range(start_month.year - 2, end_month.year + 1):
+    for yr in range(start_month.year - 3, end_month.year + 1):
         out.append(("annual", str(yr), D.REPORT_CODE_MAP["annual"]))
-    for yr in range(start_month.year - 1, end_month.year + 1):
+    for yr in range(start_month.year - 2, end_month.year + 1):
         for kind in ("Q1", "H1", "9M"):
             out.append(("quarterly", D.PERIOD_KEY_MAP[kind].format(year=yr), D.REPORT_CODE_MAP[kind]))
     return out
@@ -114,17 +117,28 @@ def liquid_corp_universe(start_month: date, end_month: date, cache_dir: Path,
     return tk_to_corp
 
 
-def _fetch_one(corp_code: str, bsns_year: str, reprt_code: str, api_key: str) -> dict:
-    """단일 (corp, period) DART fetch (CFS→OFS) → {status, statement_scope, rcept_dt, <FINANCIAL_KEYS>}.
+def _fetch_one(corp_code: str, bsns_year: str, reprt_code: str, api_key: str) -> tuple[dict, int]:
+    """단일 (corp, period) DART fetch (CFS→OFS) → (row, http_calls).
 
-    rcept_dt = list[0].rcept_no[:8] (공시일). status 013(무자료) → no_data. 한도초과(020)/429 → RateLimit raise.
+    omxy BC-R1 정합:
+    - #1 HTTP 429 → RateLimitError **hard-stop**(raise_for_status가 일반 예외로 삼키기 전에 검사).
+    - #2 **양 scope 모두 013(무자료)** 일 때만 no_data 캐시(genuine). 예상외 status는 transient(RuntimeError →
+      호출부 skip·미기록 → resume서 재시도) — 일시 오류를 영구 no_data로 poison하지 않는다.
+    - status 020/021/한도 → RateLimitError hard-stop.
+    - #4 http_calls 반환(CFS→OFS 최대 2) → 호출부 일일 예산 정확 계수.
+    rcept_dt = list[0].rcept_no[:8] (공시일; 한 보고서 line item은 동일 rcept_no 공유).
     """
     import requests
     import dart_signals as D
+    http_calls = 0
+    saw_013 = False
     for scope in ("CFS", "OFS"):
         params = {"crtfc_key": api_key, "corp_code": corp_code, "bsns_year": bsns_year,
                   "reprt_code": reprt_code, "fs_div": scope}
         resp = requests.get(D.DART_FNLTT_URL, params=params, timeout=30)
+        http_calls += 1
+        if resp.status_code == 429:
+            raise RateLimitError("HTTP 429 rate limit")
         resp.raise_for_status()
         payload = resp.json()
         status = payload.get("status")
@@ -134,14 +148,18 @@ def _fetch_one(corp_code: str, bsns_year: str, reprt_code: str, api_key: str) ->
             rcept_no = str(items[0].get("rcept_no", "")) if items else ""
             row = {"status": "ok", "statement_scope": scope, "rcept_dt": rcept_no[:8] if len(rcept_no) >= 8 else None}
             row.update({k: parsed.get(k) for k in D.FINANCIAL_KEYS})
-            return row
+            return row, http_calls
         if status == "013":
+            saw_013 = True
             continue  # CFS 무자료 → OFS 시도
         if status in ("020", "021") or "한도" in str(payload.get("message", "")):
             raise RateLimitError(f"DART rate/quota limit: status={status}")
-        # 그 외 상태 → no_data로 기록(재시도 안 함)
-    return {"status": "no_data", "statement_scope": "NONE", "rcept_dt": None,
-            **{k: None for k in __import__("dart_signals").FINANCIAL_KEYS}}
+        # 예상외 status → transient(캐시 금지, resume서 재시도)
+        raise RuntimeError(f"unexpected DART status={status} msg={payload.get('message', '')}")
+    if saw_013:  # 양 scope 모두 013 → 진짜 무자료(캐시)
+        return ({"status": "no_data", "statement_scope": "NONE", "rcept_dt": None,
+                 **{k: None for k in D.FINANCIAL_KEYS}}, http_calls)
+    raise RuntimeError("no conclusive DART status (transient) — retry on resume")
 
 
 class RateLimitError(RuntimeError):
@@ -206,7 +224,8 @@ def main() -> None:
         return
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    calls = 0
+    calls = 0          # 실제 HTTP 콜 수 (일일 예산)
+    done_periods = 0   # 이번 실행 처리한 (corp, period) 수
     with out_path.open("a") as f:
         for i, (corp, pt, pk, rc) in enumerate(todo):
             if calls >= args.max_calls:
@@ -214,23 +233,25 @@ def main() -> None:
                 break
             yr = pk.split("-")[0]
             try:
-                row = _fetch_one(corp, yr, rc, api_key)
+                row, n_http = _fetch_one(corp, yr, rc, api_key)
             except RateLimitError as exc:
                 print(f"[backfill] {exc} → hard-stop. 내일 --resume.", file=sys.stderr)
                 break
-            except Exception as exc:  # noqa: BLE001 — 네트워크 등 일시 오류는 기록 없이 skip(다음 resume서 재시도)
-                print(f"[warn] {corp} {pk}: {type(exc).__name__} {exc} — skip", file=sys.stderr)
-                calls += 1
+            except Exception as exc:  # noqa: BLE001 — transient(네트워크/예상외 status): 기록 없이 skip(resume 재시도)
+                print(f"[warn] {corp} {pk}: {type(exc).__name__} {exc} — skip(미기록)", file=sys.stderr)
+                calls += 2  # 보수적(최대 2 HTTP 소비 가정)
                 time.sleep(args.pace_sec)
                 continue
             row.update({"corp_code": corp, "period_type": pt, "period_key": pk})
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            calls += 1
-            if calls % 200 == 0:
+            calls += n_http  # omxy #4: 실제 HTTP 콜 수(CFS→OFS 최대 2)로 일일 예산 계수
+            done_periods += 1
+            if done_periods % 200 == 0:
                 f.flush()
-                print(f"[backfill] {calls:,}/{len(todo):,} (이번 실행)", file=sys.stderr, flush=True)
+                print(f"[backfill] periods {done_periods:,}/{len(todo):,} · HTTP {calls:,} (이번 실행)",
+                      file=sys.stderr, flush=True)
             time.sleep(args.pace_sec)
-    print(f"[backfill] 이번 실행 {calls:,} fetches 완료 → {out_path}", file=sys.stderr)
+    print(f"[backfill] 이번 실행: periods {done_periods:,} · HTTP {calls:,} → {out_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":

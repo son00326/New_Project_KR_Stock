@@ -15,10 +15,12 @@ class TestRequiredPeriods(unittest.TestCase):
     def test_covers_annuals_and_quarters_with_yoy_lookback(self):
         p = B.required_periods(date(2022, 1, 1), date(2025, 12, 1))
         keys = {pk for (_pt, pk, _rc) in p}
-        # annual: start_year-2 .. end_year  (2020..2025)
-        self.assertEqual({k for k in keys if "-" not in k}, {"2020", "2021", "2022", "2023", "2024", "2025"})
-        # quarters: start_year-1 .. end_year, Q1/H1/9M
-        self.assertIn("2021-Q1", keys)   # YoY prior-year lookback
+        # omxy BC-R1 #3: annual start_year-3..end_year (2019..2025) — earliest month quality YoY base
+        self.assertEqual({k for k in keys if "-" not in k},
+                         {"2019", "2020", "2021", "2022", "2023", "2024", "2025"})
+        # quarters start_year-2..end_year (2020..2025) — earliest month standalone + YoY prior-year quarter
+        self.assertIn("2020-Q1", keys)   # YoY prior-year for the earliest selection months
+        self.assertIn("2021-H1", keys)
         self.assertIn("2024-H1", keys)
         self.assertIn("2025-9M", keys)
         # report codes correct per type
