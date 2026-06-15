@@ -488,15 +488,26 @@ class TestSelectionPerformance(unittest.TestCase):
         self.assertEqual(V.foreign_dict_from_df(pd.DataFrame({"순매수거래대금": []})), {})  # schema, 0 rows = 휴장
 
     def test_overlay_local_dart_cache(self):
-        # B+C: local backfill (rcept_dt) overlays production preload (no rcept_dt) so availability gate passes.
+        # B+C: genuine 'ok'(rcept_dt + 재무 ≥1) local backfill만 production preload 위에 overlay.
+        # omxy BC-R3 #2 belt: no_data/schema_empty/no-content/rcept_dt-결여 → skip(clobber 금지).
         import json, tempfile, os
-        mem = {("C1", "annual", "2023"): {"corp_code": "C1", "period_type": "annual",
-                                          "period_key": "2023", "status": "ok"}}  # production, no rcept_dt
+        mem = {
+            ("C1", "annual", "2023"): {"corp_code": "C1", "period_type": "annual",
+                                       "period_key": "2023", "status": "ok"},        # production, no rcept_dt
+            ("C3", "annual", "2023"): {"corp_code": "C3", "period_type": "annual",
+                                       "period_key": "2023", "status": "ok", "revenue": 999},  # 실 production 데이터
+        }
         lines = [
             json.dumps({"corp_code": "C1", "period_type": "annual", "period_key": "2023",
-                        "status": "ok", "rcept_dt": "20240312", "revenue": 100}),
+                        "status": "ok", "rcept_dt": "20240312", "revenue": 100}),      # genuine → overlay
             json.dumps({"corp_code": "C2", "period_type": "quarterly", "period_key": "2024-Q1",
-                        "status": "ok", "rcept_dt": "20240516"}),
+                        "status": "ok", "rcept_dt": "20240516", "net_income": 7}),     # genuine → add
+            json.dumps({"corp_code": "C3", "period_type": "annual", "period_key": "2023",
+                        "status": "no_data", "rcept_dt": None}),                       # no_data → skip(clobber 금지)
+            json.dumps({"corp_code": "C4", "period_type": "annual", "period_key": "2022",
+                        "status": "schema_empty", "rcept_dt": None}),                  # schema_empty → skip
+            json.dumps({"corp_code": "C5", "period_type": "annual", "period_key": "2021",
+                        "status": "ok", "rcept_dt": "20220312"}),                      # ok지만 재무 전무 → skip
             "",  # blank line tolerated
         ]
         fd, path = tempfile.mkstemp(suffix=".jsonl")
@@ -506,9 +517,12 @@ class TestSelectionPerformance(unittest.TestCase):
             n = V._overlay_local_dart_cache(mem, Path(path))
         finally:
             os.unlink(path)
-        self.assertEqual(n, 2)
+        self.assertEqual(n, 2)                                                   # C1 + C2만 overlay
         self.assertEqual(mem[("C1", "annual", "2023")]["rcept_dt"], "20240312")  # overlaid w/ rcept_dt
-        self.assertIn(("C2", "quarterly", "2024-Q1"), mem)                       # new row added
+        self.assertIn(("C2", "quarterly", "2024-Q1"), mem)                       # new genuine row added
+        self.assertEqual(mem[("C3", "annual", "2023")]["revenue"], 999)          # no_data가 production을 clobber 안 함
+        self.assertNotIn(("C4", "annual", "2022"), mem)                          # schema_empty skip
+        self.assertNotIn(("C5", "annual", "2021"), mem)                          # 재무 전무 ok skip
 
     def test_classify_foreign(self):
         # Stage-1 (omxy S1-R1 #2): fetch-fail(None)=penalty / present=genuine (missing ticker=0 no-flow, NOT fail).

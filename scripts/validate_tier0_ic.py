@@ -1415,7 +1415,11 @@ def _overlay_local_dart_cache(mem_fin: dict, backfill_path: Path) -> int:
     각 줄 = {corp_code, period_type, period_key, <FINANCIAL_KEYS>, rcept_dt, status}. 로컬 행은 rcept_dt가
     있어 availability 게이트(_cache_ok_row_available_as_of)를 통과 → 실 earnings 활성. production-only 행은
     rcept_dt 부재로 fail-closed 유지. Returns overlaid row 수.
+
+    omxy BC-R3 #2 belt: genuine 'ok' 행(rcept_dt + 재무 ≥1)만 overlay. no_data/schema_empty/malformed는
+    skip → production 행을 빈 행으로 clobber 하지 않음(producer 가드의 이중 방어).
     """
+    import dart_signals as D
     n = 0
     for line in backfill_path.read_text().splitlines():
         line = line.strip()
@@ -1426,9 +1430,14 @@ def _overlay_local_dart_cache(mem_fin: dict, backfill_path: Path) -> int:
         except ValueError:
             continue
         key = (row.get("corp_code"), row.get("period_type"), row.get("period_key"))
-        if all(key):
-            mem_fin[key] = row
-            n += 1
+        if not all(key):
+            continue
+        if row.get("status") != "ok" or not row.get("rcept_dt"):
+            continue  # no_data/schema_empty/rcept_dt 결여 → 비-available, overlay 금지
+        if not any(row.get(k) is not None for k in D.FINANCIAL_KEYS):
+            continue  # 재무 전무 → disclosed-with-data 오인 방지
+        mem_fin[key] = row
+        n += 1
     return n
 
 

@@ -27,10 +27,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from datetime import date
 from pathlib import Path
+from typing import Optional
 
 _DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_DIR))
@@ -117,21 +119,45 @@ def liquid_corp_universe(start_month: date, end_month: date, cache_dir: Path,
     return tk_to_corp
 
 
+class RateLimitError(RuntimeError):
+    """rate/quota(020/021/한도/HTTP 429) — 오늘 소진. hard-stop, 내일 --resume."""
+
+
+class FatalConfigError(RuntimeError):
+    """credential/IP/account 결함(010/011/012/901) — 재시도 무의미. hard-stop, 사람이 키/IP 점검."""
+
+
+# omxy BC-R3 #1: 재시도해도 안 풀리는 치명 status — skip-and-continue 하면 전 run을 태운다.
+_FATAL_DART_STATUS = {"010", "011", "012", "901"}
+
+
+def _redact(text: object, api_key: Optional[str]) -> str:
+    """omxy BC-R3 #3: 예외/URL 문자열의 crtfc_key 노출 차단(raise_for_status는 query 포함 URL을 담는다)."""
+    s = str(text)
+    if api_key:
+        s = s.replace(api_key, "***")
+    return re.sub(r"(crtfc_key=)[^&\s]+", r"\1***", s)
+
+
 def _fetch_one(corp_code: str, bsns_year: str, reprt_code: str, api_key: str) -> tuple[dict, int]:
     """단일 (corp, period) DART fetch (CFS→OFS) → (row, http_calls).
 
-    omxy BC-R1 정합:
+    omxy BC-R1/R3 정합:
     - #1 HTTP 429 → RateLimitError **hard-stop**(raise_for_status가 일반 예외로 삼키기 전에 검사).
     - #2 **양 scope 모두 013(무자료)** 일 때만 no_data 캐시(genuine). 예상외 status는 transient(RuntimeError →
       호출부 skip·미기록 → resume서 재시도) — 일시 오류를 영구 no_data로 poison하지 않는다.
     - status 020/021/한도 → RateLimitError hard-stop.
     - #4 http_calls 반환(CFS→OFS 최대 2) → 호출부 일일 예산 정확 계수.
+    - R3#1 010/011/012/901(키/IP/계정) → FatalConfigError hard-stop(transient skip 금지 — run 태움).
+    - R3#2 status 000 이라도 rcept_dt + 파싱된 재무 ≥1 없으면 'ok' 금지. 양 scope 모두 malformed-000 →
+      'schema_empty'(ok 아님 → availability에서 disclosed-with-data 로 오인되지 않음, resume 안정 위해 기록).
     rcept_dt = list[0].rcept_no[:8] (공시일; 한 보고서 line item은 동일 rcept_no 공유).
     """
     import requests
     import dart_signals as D
     http_calls = 0
     saw_013 = False
+    saw_malformed_000 = False
     for scope in ("CFS", "OFS"):
         params = {"crtfc_key": api_key, "corp_code": corp_code, "bsns_year": bsns_year,
                   "reprt_code": reprt_code, "fs_div": scope}
@@ -146,24 +172,31 @@ def _fetch_one(corp_code: str, bsns_year: str, reprt_code: str, api_key: str) ->
             parsed, _alias = D.parse_dart_financial_response(payload)
             items = payload.get("list", [])
             rcept_no = str(items[0].get("rcept_no", "")) if items else ""
-            row = {"status": "ok", "statement_scope": scope, "rcept_dt": rcept_no[:8] if len(rcept_no) >= 8 else None}
-            row.update({k: parsed.get(k) for k in D.FINANCIAL_KEYS})
-            return row, http_calls
+            rcept_dt = rcept_no[:8] if len(rcept_no) >= 8 else None
+            has_content = any(parsed.get(k) is not None for k in D.FINANCIAL_KEYS)
+            # R3#2: rcept_dt + 실 재무 ≥1 둘 다 있어야 genuine 'ok'. 아니면 malformed-000(다음 scope 시도).
+            if rcept_dt and has_content:
+                row = {"status": "ok", "statement_scope": scope, "rcept_dt": rcept_dt}
+                row.update({k: parsed.get(k) for k in D.FINANCIAL_KEYS})
+                return row, http_calls
+            saw_malformed_000 = True
+            continue
         if status == "013":
             saw_013 = True
             continue  # CFS 무자료 → OFS 시도
         if status in ("020", "021") or "한도" in str(payload.get("message", "")):
             raise RateLimitError(f"DART rate/quota limit: status={status}")
-        # 예상외 status → transient(캐시 금지, resume서 재시도)
+        if status in _FATAL_DART_STATUS:
+            raise FatalConfigError(f"DART fatal status={status} (키/IP/계정 점검 필요)")
+        # 예상외 status(100/800/900 등) → transient(캐시 금지, resume서 재시도)
         raise RuntimeError(f"unexpected DART status={status} msg={payload.get('message', '')}")
+    if saw_malformed_000:  # 000 이지만 양 scope 모두 rcept_dt/재무 결여 → schema_empty(ok 아님, 기록)
+        return ({"status": "schema_empty", "statement_scope": "NONE", "rcept_dt": None,
+                 **{k: None for k in D.FINANCIAL_KEYS}}, http_calls)
     if saw_013:  # 양 scope 모두 013 → 진짜 무자료(캐시)
         return ({"status": "no_data", "statement_scope": "NONE", "rcept_dt": None,
                  **{k: None for k in D.FINANCIAL_KEYS}}, http_calls)
     raise RuntimeError("no conclusive DART status (transient) — retry on resume")
-
-
-class RateLimitError(RuntimeError):
-    pass
 
 
 def load_done(out_path: Path) -> set[tuple[str, str, str]]:
@@ -227,8 +260,9 @@ def main() -> None:
         return
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    calls = 0          # 실제 HTTP 콜 수 (일일 예산)
-    done_periods = 0   # 이번 실행 처리한 (corp, period) 수
+    calls = 0           # 실제 HTTP 콜 수 (일일 예산)
+    done_periods = 0    # 이번 실행 처리한 (corp, period) 수
+    consec_skip = 0     # omxy BC-R3: 연속 transient skip — 임계 초과 시 systemic 결함으로 보고 abort
     with out_path.open("a") as f:
         for i, (corp, pt, pk, rc) in enumerate(todo):
             # omxy BC-R2: period당 최대 2 HTTP(CFS+OFS) → 시작 전 2 예약. 절대 max_calls 초과 안 함.
@@ -239,13 +273,21 @@ def main() -> None:
             try:
                 row, n_http = _fetch_one(corp, yr, rc, api_key)
             except RateLimitError as exc:
-                print(f"[backfill] {exc} → hard-stop. 내일 --resume.", file=sys.stderr)
+                print(f"[backfill] {_redact(exc, api_key)} → hard-stop. 내일 --resume.", file=sys.stderr)
+                break
+            except FatalConfigError as exc:  # omxy BC-R3 #1: 키/IP/계정 결함 → 즉시 중단(run 태움 방지)
+                print(f"[backfill] {_redact(exc, api_key)} → FATAL hard-stop. 키/IP/계정 점검 후 --resume.", file=sys.stderr)
                 break
             except Exception as exc:  # noqa: BLE001 — transient(네트워크/예상외 status): 기록 없이 skip(resume 재시도)
-                print(f"[warn] {corp} {pk}: {type(exc).__name__} {exc} — skip(미기록)", file=sys.stderr)
+                consec_skip += 1
+                print(f"[warn] {corp} {pk}: {type(exc).__name__} {_redact(exc, api_key)} — skip(미기록) [{consec_skip}연속]", file=sys.stderr)
                 calls += 2  # 보수적(최대 2 HTTP 소비 가정)
+                if consec_skip >= 50:  # omxy BC-R3: 연속 50 transient → systemic(네트워크/파서/잘못된 입력) → abort
+                    print("[backfill] 연속 50 transient skip → systemic 결함 의심, abort. 로그 점검 후 --resume.", file=sys.stderr)
+                    break
                 time.sleep(args.pace_sec)
                 continue
+            consec_skip = 0
             row.update({"corp_code": corp, "period_type": pt, "period_key": pk})
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             calls += n_http  # omxy #4: 실제 HTTP 콜 수(CFS→OFS 최대 2)로 일일 예산 계수
