@@ -58,12 +58,13 @@ Last updated: 2026-06-19 (**Tier0 스코어링 캠페인 완결 + B++ production
 
 ```bash
 cd /Users/yong/New_Project_KR_Stock && git fetch origin
-# ⚠️ 2026-06-19: Tier0 스코어링 캠페인 + B++ 적용 준비 작업은 branch `tier0-bpp-multiregime`의
-#    **미커밋 working-tree**에 있음(combo scripts·캠페인 docs·HANDOFF/spec 편집 + Obsidian). main HEAD는
-#    여전히 PR #122 merge `285339a`(campaign 미머지·production 변화 0). **main checkout 전 이 브랜치 작업
-#    보존 확인**(필요 시 stash/commit). ★ #1(B++ 적용)은 이 브랜치에서 진행.
-git status --short                  # tier0-bpp-multiregime working-tree (scripts/.venv·scripts/out gitignored)
-git rev-parse --short HEAD          # main merge-base = PR #122 `285339a` (runtime verify; 캠페인은 미머지)
+# ⚠️ 2026-06-19: Tier0 스코어링 캠페인 + B++ 적용 준비는 branch `tier0-bpp-multiregime`에
+#    **커밋+푸시 완료**(`19842c5`, 4-config verdict `444e6f8` 포함; combo scripts·캠페인 docs·HANDOFF/spec).
+#    Obsidian(JooPick.md/Key Decisions.md)도 vault에 기록됨. **main 미머지**(production 변화 0, --apply 0).
+#    ★ #1(B++ 적용)은 이 브랜치에서 진행 — main으로 checkout 말 것(또는 먼저 이 브랜치 확인).
+git checkout tier0-bpp-multiregime 2>/dev/null; git pull origin tier0-bpp-multiregime  # 캠페인 브랜치
+git status --short                  # clean 기대 (scripts/.venv·scripts/out·/out/ gitignored)
+git rev-parse --short HEAD          # tier0-bpp-multiregime `19842c5` 자손 (runtime verify; main 미머지)
 git status --short                  # clean (scripts/.venv·scripts/out gitignored)
 gh pr list --state open --json number,title,headRefName,mergeable   # 기대 0 (없으면 우선 처리)
 
