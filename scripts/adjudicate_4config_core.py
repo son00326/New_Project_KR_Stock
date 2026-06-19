@@ -18,7 +18,20 @@ CONFIGS = {
     "cfg2": "+foreign",
     "cfg3": "+earnings",
     "cfg4": "+foreign+earnings",
+    "cfg5": "regime/leading-sector tilt (EXPLORATORY)",
+    "cfg6": "multi-net union (EXPLORATORY)",
+    "cfg7": "daily surge proxy (EXPLORATORY, NOT prism)",
+    "cfg8": "daily surge proxy + largemid (EXPLORATORY, USER falsification)",
 }
+DECISION_CONFIGS = ("cfg1", "cfg2", "cfg3", "cfg4")
+
+EXPLORATORY_CONFIGS = {"cfg5", "cfg6", "cfg7", "cfg8"}
+BLOCKED_CONFIGS = {"cfg5"}  # cfg5 only: no PIT-safe offline universe-wide sector source. cfg6/cfg7/cfg8 offline-runnable.
+# cfg8 = cfg7 generator restricted to --universe largemid (un-deferred 2026-06-18). Its run JSON carries
+# generator="cfg7" (the actual generator) + universe="largemid" — load_matrix special-cases the cross-check.
+RUNNABLE_EXPLORATORY_CONFIGS = tuple(c for c in ("cfg5", "cfg6", "cfg7", "cfg8") if c not in BLOCKED_CONFIGS)
+# config → expected generator field in its run JSON (cfg8 runs the cfg7 generator).
+EXPECTED_GENERATOR = {"cfg5": "cfg5", "cfg6": "cfg6", "cfg7": "cfg7", "cfg8": "cfg7"}
 REGIMES = {"bear2022": "2022 약세", "recov2023": "2023 회복", "bull2425": "2024-25 강세"}
 HORIZONS = ("short", "mid", "long")
 VALID_GATE_VERDICTS = {"PASS", "FAIL", "ADJUDICATE"}
@@ -75,6 +88,34 @@ def load_matrix(bc_dir: Path, expected_lock_hash="17dc6d9", expected_freeze_tag=
                     f"parameter_lock_commit_hash must be {expected_lock_hash}, got {lock_hash!r}")
             if freeze_tag != expected_freeze_tag:
                 invalid_reasons.append(f"freeze_tag must be {expected_freeze_tag}, got {freeze_tag!r}")
+            # defense-in-depth: filename(cfg) ↔ JSON generator/exploratory 정합 (cross-wired run JSON
+            # 차단). cfg5/cfg6/cfg7/cfg8 = EXPLORATORY 생성기 JSON, cfg1-4 = bpp(frozen) JSON이어야 한다.
+            gen_field = j.get("generator")
+            expl_field = j.get("exploratory")
+            if cfg in EXPLORATORY_CONFIGS:
+                expected_gen = EXPECTED_GENERATOR[cfg]  # cfg8 expects 'cfg7' (its actual generator)
+                if gen_field != expected_gen:
+                    invalid_reasons.append(
+                        f"exploratory config {cfg} requires generator={expected_gen!r}, got {gen_field!r}")
+                if expl_field is not True:
+                    invalid_reasons.append(
+                        f"exploratory config {cfg} requires exploratory=true, got {expl_field!r}")
+                if cfg == "cfg8" and j.get("universe") != "largemid":
+                    invalid_reasons.append(
+                        f"cfg8 requires universe='largemid', got {j.get('universe')!r}")
+            else:
+                if gen_field not in (None, "bpp"):
+                    invalid_reasons.append(
+                        f"frozen config {cfg} requires generator in (None,'bpp'), got {gen_field!r}")
+                if expl_field not in (None, False):
+                    invalid_reasons.append(
+                        f"frozen config {cfg} must not be exploratory, got exploratory={expl_field!r}")
+                # defense-in-depth (step-4 review): symmetric universe check — a largemid/selective JSON
+                # (generator=None+exploratory=None but universe='largemid') must never be filed as a frozen
+                # cfg1-4 decision cell. frozen decision cells are all-universe.
+                if j.get("universe") not in (None, "all"):
+                    invalid_reasons.append(
+                        f"frozen config {cfg} requires universe in (None,'all'), got {j.get('universe')!r}")
             for gate_name, verdict in (
                 ("gate_a.verdict", ga.get("verdict")),
                 ("gate_b.verdict", gb.get("verdict")),
@@ -119,16 +160,25 @@ def load_matrix(bc_dir: Path, expected_lock_hash="17dc6d9", expected_freeze_tag=
     return m
 
 
-def input_issues(m):
-    missing = [f"{cfg}_{reg}" for cfg in CONFIGS for reg in REGIMES if m[(cfg, reg)].get("_missing")]
+def _input_issues_for_configs(m, configs):
+    missing = [f"{cfg}_{reg}" for cfg in configs for reg in REGIMES if m[(cfg, reg)].get("_missing")]
     invalid = []
-    for cfg in CONFIGS:
+    for cfg in configs:
         for reg in REGIMES:
             cell = m[(cfg, reg)]
             if cell.get("_missing") or not cell.get("_invalid"):
                 continue
             invalid.append({"run": f"{cfg}_{reg}", "reasons": cell.get("invalid_reasons", [])})
     return missing, invalid
+
+
+def input_issues(m, *, include_exploratory=False):
+    configs = CONFIGS if include_exploratory else DECISION_CONFIGS
+    return _input_issues_for_configs(m, configs)
+
+
+def exploratory_input_issues(m):
+    return _input_issues_for_configs(m, RUNNABLE_EXPLORATORY_CONFIGS)
 
 
 def invalid_result(lock_hash, missing, invalid):
@@ -147,8 +197,8 @@ def invalid_result(lock_hash, missing, invalid):
     }
 
 
-def gate_a_summary(m):
-    rows = [(cfg, reg, m[(cfg, reg)]) for cfg in CONFIGS for reg in REGIMES
+def gate_a_summary(m, configs=DECISION_CONFIGS):
+    rows = [(cfg, reg, m[(cfg, reg)]) for cfg in configs for reg in REGIMES
             if not m[(cfg, reg)].get("_missing") and not m[(cfg, reg)].get("_invalid")]
     horizon_rows = []
     for cfg, reg, cell in rows:
@@ -174,7 +224,7 @@ def gate_a_summary(m):
     ci_values = [cell["sleeve_ci_excl0"].get(h) for _, _, cell in rows for h in HORIZONS]
     return {
         "runs_loaded": len(rows),
-        "all_gate_a_fail": len(rows) == len(CONFIGS) * len(REGIMES)
+        "all_gate_a_fail": len(rows) == len(configs) * len(REGIMES)
         and all(cell["ga_verdict"] == "FAIL" for _, _, cell in rows),
         "max_overall_recall": metric_extreme("overall_recall", max),
         "max_random_ratio": metric_extreme("random_ratio", max),
@@ -206,11 +256,44 @@ def adjudicate(m, lock_hash):
         for reg in REGIMES:
             cell = m[(cfg, reg)]
             base = m[("cfg1", reg)]
+            if cfg in BLOCKED_CONFIGS:
+                regime_eval[reg] = {
+                    "pass": False,
+                    "input_status": "blocked_offline",
+                    "gates_all_pass": False,
+                    "triple_field": cell.get("triple"),
+                    "beats_baseline_recall_and_ic": None,
+                    "size_neutral_all_positive_sig_ci": False,
+                    "size_neutral_ci_excludes_0_all_horizons": False,
+                    "reasons": ["offline PIT-safe universe-wide sector source 없음"],
+                    "ga": cell.get("ga_verdict"), "gb": cell.get("gb_verdict"), "gc": cell.get("gc_verdict"),
+                }
+                continue
             if cell.get("_missing") or base.get("_missing"):
-                regime_eval[reg] = {"pass": False, "reason": "missing run"}
+                regime_eval[reg] = {
+                    "pass": False,
+                    "input_status": "missing",
+                    "gates_all_pass": False,
+                    "triple_field": cell.get("triple"),
+                    "beats_baseline_recall_and_ic": None,
+                    "size_neutral_all_positive_sig_ci": False,
+                    "size_neutral_ci_excludes_0_all_horizons": False,
+                    "reasons": ["run missing"],
+                    "ga": cell.get("ga_verdict"), "gb": cell.get("gb_verdict"), "gc": cell.get("gc_verdict"),
+                }
                 continue
             if cell.get("_invalid") or base.get("_invalid"):
-                regime_eval[reg] = {"pass": False, "reason": "invalid run schema"}
+                regime_eval[reg] = {
+                    "pass": False,
+                    "input_status": "invalid",
+                    "gates_all_pass": False,
+                    "triple_field": cell.get("triple"),
+                    "beats_baseline_recall_and_ic": None,
+                    "size_neutral_all_positive_sig_ci": False,
+                    "size_neutral_ci_excludes_0_all_horizons": False,
+                    "reasons": cell.get("invalid_reasons", []) or ["invalid run schema"],
+                    "ga": cell.get("ga_verdict"), "gb": cell.get("gb_verdict"), "gc": cell.get("gc_verdict"),
+                }
                 continue
             # (ii) 삼중 게이트 — triple 불리언을 직접 신뢰하지 않고 게이트 verdict 3개로 판정(defense-in-depth).
             # load_matrix가 triple↔게이트 불일치를 이미 INVALID 처리하므로 일관 데이터에서 둘은 동치.
@@ -248,9 +331,16 @@ def adjudicate(m, lock_hash):
         # (iv) 모든 장세에서 통과
         all_regimes_pass = all(regime_eval[reg].get("pass") for reg in REGIMES)
         per_config[cfg] = {"label": CONFIGS[cfg], "all_regimes_pass": all_regimes_pass,
+                           "exploratory": cfg in EXPLORATORY_CONFIGS,
+                           "blocked_offline": cfg in BLOCKED_CONFIGS,
                            "by_regime": regime_eval}
 
-    winners = [c for c in CONFIGS if c != "cfg1" and per_config[c]["all_regimes_pass"]]
+    # winner = cfg1(baseline) 제외 + EXPLORATORY 제외 + 4조건×3장세 전부 충족. EXPLORATORY config는
+    # decision-grade 자격 없음 — PASS여도 winner에 오르지 못한다(addendum: PASS-or-FAIL → no-apply).
+    winners = [c for c in DECISION_CONFIGS
+               if c != "cfg1" and per_config[c]["all_regimes_pass"]]
+    exploratory_pass = [c for c in RUNNABLE_EXPLORATORY_CONFIGS
+                        if c in per_config and per_config[c]["all_regimes_pass"]]
     if winners:
         verdict = "ADJUDICATE"
         decision = (f"winner candidate(s): {winners} — 모든 장세에서 config-1 대비 recall&IC 우위 + 삼중게이트 + "
@@ -269,5 +359,14 @@ def adjudicate(m, lock_hash):
                             "fail-closed. (일관 데이터에서 도달 불가했던 harness-ADJUDICATE 강등 분기는 제거; "
                             "triple↔게이트 불일치는 load_matrix INVALID_INPUT으로 fail-closed.)"),
         "verdict": verdict, "winners": winners, "decision": decision,
+        "exploratory_pass": exploratory_pass,
+        "blocked_configs": sorted(BLOCKED_CONFIGS),
+        "exploratory_note": (
+            "cfg5/cfg6/cfg7/cfg8 = EXPLORATORY/diagnostic-only 생성기. cfg5는 offline PIT-safe sector source 부재로 "
+            "BLOCKED이며, runnable appendix는 cfg6/cfg7/cfg8이다. 'exploratory_pass'에 오른 config는 "
+            "frozen 4조건을 충족했더라도 decision-grade winner가 아니며 --apply/Tier1/'상승 예측' 금지. "
+            "decision-grade PASS는 별도 re-frozen expanded protocol + new holdout + family/alpha 보정 필요 "
+            "(addendum: docs/superpowers/2026-06-17-tier0-cfg5-cfg6-exploratory-addendum.md)."
+        ),
         "per_config": per_config,
     }

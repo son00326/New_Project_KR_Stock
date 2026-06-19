@@ -13,3 +13,7 @@ scripts/out/
 
 # Claude Code scheduled-tasks transient lock
 .claude/scheduled_tasks.lock
+scripts/scripts/
+
+# stray script output dirs (relative-path bug — regenerable, never commit)
+/out/

@@ -61,6 +61,20 @@ VOLUME_BONUS_CAP = 10.0
 # anti-pump turnover percentile 상위 컷 (§3B).
 TURNOVER_TOP_PCT_CUT = 99.0
 
+# ----------------------------------------------------------------------------
+# (C) NET-SHARE-ISSUANCE — EXPLORATORY 신규 orthogonal 시그널 (2026-06-18, default OFF).
+# SoT: docs/superpowers/2026-06-18-tier0-net-issuance.md (pre-registered, frozen before run).
+# 이 상수/헬퍼는 score_bpp_universe(with_issuance=True) 경로에서만 쓰인다 — default(False)는
+# 5번째 factor를 ensemble에 넣지 않아 cfg1-4 score/factor_ranks가 BYTE-IDENTICAL이다.
+# ----------------------------------------------------------------------------
+ISSUANCE_LOOKBACK_3M = 63    # 3개월 ≈ 63 거래일.
+ISSUANCE_LOOKBACK_12M = 252  # 12개월 ≈ 252 거래일.
+# split/face-value-change 탐지 (mcap≈price*shares 만으론 split을 못 거른다 — 추가 검사):
+SPLIT_SHARE_JUMP_MIN = 1.5    # 발행주식 ≥1.5x 급증 = split 후보 임계.
+SPLIT_PRICE_TOL = 0.15        # 역방향 가격 이동 허용 오차(=1/jump*(1+tol) 이하면 inverse-price).
+MCAP_CONTINUITY_TOL = 0.15    # split이면 시총 연속(≈1.0) — |mcap_ratio−1| ≤ tol.
+EXTREME_SHARE_JUMP = 3.0      # ≥3x 급증 = corporate-action territory → 가격 무관 neutralize.
+
 
 # ============================================================================
 # §3C 정규화 — winsorize + percentile rank + signed-log
@@ -230,6 +244,133 @@ def recent_return(closes: Sequence[float], window: int = SPIKE_WINDOW_DAYS) -> f
     if len(closes) < window + 1 or closes[-1 - window] <= 0:
         return math.nan
     return closes[-1] / closes[-1 - window] - 1.0
+
+
+# ============================================================================
+# (C) NET-SHARE-ISSUANCE — issuance_3m/12m + split/extreme hygiene (default-OFF 경로 전용)
+# ============================================================================
+
+def issuance_return(list_shrs: Sequence[float], lookback: int) -> float:
+    """발행주식수 변화율 = list_shrs[-1]/list_shrs[-1-lookback] − 1.0 (오름차순, t에서 끝).
+
+    양수 = 발행주식 증가(희석), 음수 = 감소(자사주 소각/감자). lookback+1 미만 또는 시작값≤0 → NaN.
+    SIGNAL은 이 값을 NEGATE해 쓴다(희석은 낮은 rank). 부호는 그대로 보존(magnitude는 percentile rank).
+    """
+    if len(list_shrs) < lookback + 1:
+        return math.nan
+    denom = list_shrs[-1 - lookback]
+    if _is_nan(denom) or denom <= 0 or _is_nan(list_shrs[-1]) or list_shrs[-1] <= 0:
+        return math.nan
+    return list_shrs[-1] / denom - 1.0
+
+
+def split_like(
+    list_shrs: Sequence[float], closes: Sequence[float], lookback: int,
+    *, jump_min: float = SPLIT_SHARE_JUMP_MIN, price_tol: float = SPLIT_PRICE_TOL,
+    mcap_tol: float = MCAP_CONTINUITY_TOL, extreme_jump: float = EXTREME_SHARE_JUMP,
+) -> bool:
+    """split/face-value-change/extreme corporate-action 탐지 → True면 issuance 시그널에서 neutralize.
+
+    mcap≈price*shares 연속은 split도 만족하므로 **충분 조건이 아니다**. 두 패턴을 잡는다:
+      SPLIT  = 발행주식 ≥jump_min 급증 AND 가격이 역방향(price_ratio ≤ 1/jump*(1+price_tol)) AND
+               시총 연속(|jump*price_ratio − 1| ≤ mcap_tol) → 액면분할/무상 = 진성 희석 아님.
+      EXTREME= 발행주식 ≥extreme_jump 급증 → 가격 무관 corporate-action territory(예: 4x 무상증자류)
+               → spurious −대형 희석 시그널이 ensemble을 지배하지 않게 가격 검사 없이 neutralize.
+    데이터 부족 또는 시작값≤0 → False(판단 불가 → issuance_return의 NaN 처리에 위임).
+    """
+    if len(list_shrs) < lookback + 1 or len(closes) < lookback + 1:
+        return False
+    start = len(list_shrs) - 1 - lookback
+    end = len(list_shrs) - 1
+
+    def jump_is_split_like(prev_s: float, cur_s: float, prev_c: float, cur_c: float) -> tuple[bool, bool]:
+        if _is_nan(prev_s) or prev_s <= 0 or _is_nan(cur_s) or cur_s <= 0:
+            return (False, False)
+        jump = cur_s / prev_s
+        shrink = prev_s / cur_s
+        if jump >= extreme_jump:
+            return (True, False)
+        if shrink >= extreme_jump:
+            return (True, False)
+        if jump < jump_min:
+            if shrink < jump_min:
+                return (False, False)
+            if _is_nan(prev_c) or prev_c <= 0 or _is_nan(cur_c) or cur_c <= 0:
+                return (False, False)
+            price_ratio = cur_c / prev_c
+            inverse_price = price_ratio >= shrink * (1.0 - price_tol)
+            mcap_ratio = (1.0 / shrink) * price_ratio
+            continuous_mcap = abs(mcap_ratio - 1.0) <= mcap_tol
+            return (False, inverse_price and continuous_mcap)
+        if _is_nan(prev_c) or prev_c <= 0 or _is_nan(cur_c) or cur_c <= 0:
+            return (False, False)
+        price_ratio = cur_c / prev_c
+        inverse_price = price_ratio <= (1.0 / jump) * (1.0 + price_tol)
+        mcap_ratio = jump * price_ratio
+        continuous_mcap = abs(mcap_ratio - 1.0) <= mcap_tol
+        return (False, inverse_price and continuous_mcap)
+
+    for i in range(start + 1, end + 1):
+        extreme, split = jump_is_split_like(list_shrs[i - 1], list_shrs[i], closes[i - 1], closes[i])
+        if extreme or split:
+            return True
+
+    s0, s1 = list_shrs[start], list_shrs[end]
+    c0, c1 = closes[start], closes[end]
+    if _is_nan(s0) or s0 <= 0 or _is_nan(s1) or s1 <= 0:
+        return False
+    jump = s1 / s0
+    shrink = s0 / s1
+    if jump >= extreme_jump:
+        return True
+    if shrink >= extreme_jump:
+        return True
+    if jump < jump_min:
+        if shrink < jump_min:
+            return False
+        price_ratio = c1 / c0
+        inverse_price = price_ratio >= shrink * (1.0 - price_tol)
+        mcap_ratio = (1.0 / shrink) * price_ratio
+        continuous_mcap = abs(mcap_ratio - 1.0) <= mcap_tol
+        return inverse_price and continuous_mcap
+    if _is_nan(c0) or c0 <= 0 or _is_nan(c1) or c1 <= 0:
+        return False
+    price_ratio = c1 / c0
+    inverse_price = price_ratio <= (1.0 / jump) * (1.0 + price_tol)
+    mcap_ratio = jump * price_ratio
+    continuous_mcap = abs(mcap_ratio - 1.0) <= mcap_tol
+    return inverse_price and continuous_mcap
+
+
+def net_issuance_signed_raw(
+    list_shrs: Optional[Sequence[float]], closes: Sequence[float],
+    *, lb_3m: int = ISSUANCE_LOOKBACK_3M, lb_12m: int = ISSUANCE_LOOKBACK_12M,
+) -> tuple[float, bool, bool]:
+    """선정일 t의 NEGATED net-issuance raw + (split_flag, extreme_flag).
+
+    raw = −mean(가용 {issuance_3m, issuance_12m}). 희석(양수 issuance) → 음수 raw → 낮은 percentile rank.
+    자사주/감자(음수 issuance) → 양수 raw → 높은 rank. split/extreme이면 raw=NaN(structural neutral-50).
+    list_shrs None(미공급) 또는 두 lookback 모두 부족 → NaN.
+    Returns (raw, split_flag, extreme_flag). flag는 진단 카운트 전용.
+    """
+    if list_shrs is None or len(list_shrs) == 0:
+        return (math.nan, False, False)
+    # extreme/split은 가장 긴 가용 lookback 창으로 판정(작은 창이 큰 corporate-action을 놓치지 않게).
+    lb_for_filter = lb_12m if len(list_shrs) >= lb_12m + 1 else lb_3m
+    extreme = split = False
+    if len(list_shrs) >= lb_for_filter + 1 and len(closes) >= lb_for_filter + 1:
+        s_jump = list_shrs[-1] / list_shrs[-1 - lb_for_filter] if list_shrs[-1 - lb_for_filter] > 0 else math.nan
+        if not _is_nan(s_jump) and s_jump >= EXTREME_SHARE_JUMP:
+            extreme = True
+        elif split_like(list_shrs, closes, lb_for_filter):
+            split = True
+    if extreme or split:
+        return (math.nan, split, extreme)
+    iss = [v for v in (issuance_return(list_shrs, lb_3m), issuance_return(list_shrs, lb_12m))
+           if not _is_nan(v)]
+    if not iss:
+        return (math.nan, False, False)
+    return (-1.0 * (sum(iss) / len(iss)), False, False)
 
 
 # ============================================================================
@@ -563,6 +704,8 @@ class StockRaw:
     earnings_fetch_failed: bool = False
     quality_composite_raw: float = math.nan        # DART quality composite; 결측 NaN
     quality_fetch_failed: bool = False
+    list_shrs: Optional[Sequence[float]] = None     # (C) 상장주식수 시계열(오름차순, closes와 t-정렬);
+    #                                                 None=미공급 → with_issuance 경로에서 structural neutral-50.
 
 
 @dataclass
@@ -604,6 +747,7 @@ def score_bpp_universe(
     bucket: str,
     *,
     min_adv_won: float = MIN_ADV_WON,
+    with_issuance: bool = False,
 ) -> list[ScoredStock]:
     """B++ 전체 cross-section 스코어링 (§3A~3D). 한 horizon(bucket)에 대해 1회.
 
@@ -613,6 +757,11 @@ def score_bpp_universe(
        large/mid sponsorship 병용) + earnings(sector-relative) + quality(sector-relative).
        모두 winsorize+percentile rank, 결측 tiering.
     4. score(§3D): rank ensemble + capped volume bonus(long 0) − anti-pump penalty.
+
+    with_issuance (default False, BYTE-IDENTICAL lock): True면 (C) NET-SHARE-ISSUANCE를 ensemble에
+    **정확히 하나의 동등 signed-negated rank component**로 추가한다(no grid search/no weight tuning).
+    False면 5번째 factor가 ranks dict에 들어가지 않아 score/factor_ranks가 default와 동일하다 —
+    cfg1-4 측정 경로 byte-identical 보장. SoT: docs/superpowers/2026-06-18-tier0-net-issuance.md.
 
     Returns: 입력 순서 유지 ScoredStock 리스트(비eligible 포함, score=NaN).
     """
@@ -683,6 +832,14 @@ def score_bpp_universe(
     turn_pct = _rank_of(elig_mask(turn_raw))
     recent5 = [recent_return(s.closes) for s in stocks]
 
+    # --- (C) net-issuance (default OFF; True면 동등 signed-negated rank 1개 추가) ---
+    iss_rank: Optional[list[float]] = None
+    if with_issuance:
+        iss_raw = [net_issuance_signed_raw(s.list_shrs, s.closes)[0] for s in stocks]
+        # structural-only 결측: list_shrs는 모든 패널 행에 존재 → fetch 실패가 아닌 구조적 결측
+        # (신규상장/pre-2022 gap/split·extreme neutralize) → fill_missing_rank failure_mask=None → neutral-50.
+        iss_rank = fill_missing_rank(_rank_of(elig_mask(iss_raw)))
+
     out: list[ScoredStock] = []
     for i, s in enumerate(stocks):
         if not eligible[i]:
@@ -695,6 +852,8 @@ def score_bpp_universe(
             "earnings": earn_rank[i],
             "quality": qual_rank[i],
         }
+        if iss_rank is not None:
+            ranks["issuance"] = iss_rank[i]
         bonus = capped_volume_bonus(vol_rank[i], trend_rank[i], long_bucket=is_long)
         penalty = anti_pump_penalty(turn_pct[i], recent5[i])
         score = rank_ensemble_score(ranks, volume_bonus=bonus, penalty=penalty)
