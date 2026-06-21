@@ -737,7 +737,13 @@ begin
   delete from public.tier0_candidates_150_shadow where period_key = v_period_key;
   v_snap_count := public._shadow_write_universe_snapshot(p_payload);          -- uses p_payload.snapshot_rows
   for v_arm in select value from jsonb_array_elements(p_payload->'arms') loop
-    v_arm_payload := (p_payload - 'arms' - 'snapshot_rows' - 'unresolved_rows') || v_arm;
+    -- SECURITY (run-level authority, PR-B2 FIX-A): run-level keys MUST win over any same-named key an arm
+    --   object injects → `v_arm || run_level` (run-level on the RIGHT wins). The reverse order
+    --   (`run_level || v_arm`) would let a malicious/buggy arm override run_id/universe_hash/universe_size/
+    --   hypothesis_id/sector_view — dodging universe_size>=150, breaking candidates.run_id==snapshot.run_id
+    --   pairing, or forging sector_view past content-binding. Per-arm keys (arm/status/rows/counterfactual_cut/
+    --   sector_distribution/gate_eligible_size/error) are disjoint from run-level keys, so they survive.
+    v_arm_payload := v_arm || (p_payload - 'arms' - 'snapshot_rows' - 'unresolved_rows');
     v_one_count := public._shadow_write_candidates(v_arm_payload);            -- uses this arm's rows
     v_cand_count := v_cand_count + v_one_count;
   end loop;
@@ -786,7 +792,7 @@ commit;
 - **run_id join discipline(FIX-J)**: 동일 `period_key`에 과거 snapshot run이 남아도 evaluator/read helper가 candidate `run_id`와 같은 snapshot만 사용함을 검증. period-only snapshot join 또는 latest-snapshot 추정은 smoke 실패/`INVALID_INPUT`.
 - **finalize RPC INSERT 성공 검증(FIX-C·FIX-I b)**: owner=migration 적용자로 생성된 단일 SECURITY DEFINER `upsert_tier0_shadow_run`를 service_role API caller로 호출 시 snapshot/candidates/unresolved INSERT가 **성공**(table DML grant 없이 DEFINER 권한으로 동작)함을 round-trip으로 확인.
 - **RPC owner 검증(FIX-I b)**: `select pg_get_userbyid(proowner) from pg_proc where proname='upsert_tier0_shadow_run'`가 superuser(보통 `postgres`)여야 한다 — `service_role`이면 SECURITY DEFINER INSERT가 실패한다. 내부 helper `_shadow_write_*`도 동일 owner.
-- **hypothesis content binding(FIX-E/FIX-H)**: finalize RPC는 등록된 hypothesis row에서 `sector_view`를 derive한다. payload가 `sector_view`를 보낼 경우 row-derived view와 exact equality(`source`/`leading_sectors`/`as_of`/`selection_as_of`/`params`/`hypothesis_hash`)가 아니면 `hypothesis_content_mismatch` 또는 `hypothesis_source_mismatch` raise. 같은 period에 `absent`와 `manual_pre_registered` hypothesis가 공존할 때(table unique key `(period_key,source,hypothesis_hash)`), manual payload가 absent hypothesis_id를 참조하면 거부됨을 검증.
+- **hypothesis content binding(FIX-E/FIX-H + PR-B2 FIX-B)**: finalize RPC는 등록된 hypothesis row에서 `sector_view`를 derive하여 **저장은 항상 row-derived**다. caller payload의 `sector_view`는 identity SUBSET일 수 있으므로(PR-B3는 `source`/`leadingSectors`/`hypothesisHash`만 전송) **present 필드만** row 값과 대조한다: `source`/`leadingSectors`(jsonb canonical)/`hypothesisHash`(text)/`params`(jsonb canonical)/`asOf`·`selectionAsOf`(timestamptz INSTANT 비교 — 텍스트 렌더 byte-match foot-gun 회피). 불일치 시 `hypothesis_content_mismatch`/`hypothesis_source_mismatch` raise. absent 필드는 row-derived이므로 p-hack 불가(저장값이 caller 입력을 따르지 않음). 같은 period에 `absent`와 `manual_pre_registered` hypothesis가 공존할 때(table unique key `(period_key,source,hypothesis_hash)`), manual payload가 absent hypothesis_id를 참조하면 거부됨을 검증. **register_shadow_hypothesis도 같은 (period_key,source,hash)에 다른 content면 `hypothesis_hash_content_mismatch`로 reject**(append-only 무결성).
 - RPC(`upsert_tier0_shadow_run` + 3 internal helper) 모두 `prosecdef=true` + `search_path=public, pg_temp`. EXECUTE: `upsert_tier0_shadow_run`만 service_role=true; 3 internal helper는 public/anon/authenticated/service_role 전부 false(finalize RPC 내부에서만 호출).
 - immutable hypothesis: same `period_key` hypothesis update/delete API 없음; changed `leading_sectors`/`params`는 새 `hypothesis_hash`/id만 가능; `as_of >= selection_as_of` 거부. `absent` hypothesis는 `leading_sectors=[]`, `params={}`, `as_of is null` 외 shape 거부.
 - 150 contract: rows≠150 / duplicate ticker / bucket≠50 / rank 범위초과 INSERT 거부. `sector-hard-gate` arm은 `gate_eligible_size` non-null/non-negative required; mirror/soft arm의 `gate_eligible_size`는 null required. `period_key`/`month`/`run_id`/`hypothesis_id`/`universe_hash`/`universe_size` 누락 거부. monthly `period_key`와 `month` 불일치(`2026-06` vs `2026-07-01`) 거부.
@@ -915,6 +921,8 @@ Track 2는 **Python emit → 신규 shadow table → harness(`validate_tier0_ic.
 ---
 
 ## §10 PR decomposition (Track 2)
+
+> **구현 상태 (2026-06-21)**: **PR-B1 ✅ CONVERGED** (commit `42f5dcc`, `scripts/shadow_gen_core.py` + 50 tests). **PR-B2 ✅ Claude↔omxy CONVERGED** (omxy R1~R4 + Claude ce-* 3-패널, branch `tier0-bpp-multiregime` 미머지): `0039_tier0_candidates_150_shadow.{sql,rollback.sql}` + `scripts/pg_smoke_0039.sh`(docker-free 로컬 PG16 67 assertions LOCAL SMOKE PASS). PR-B2 구현 시 §5.2 sketch 대비 추가 확정: (a) **`register_shadow_hypothesis`** append-only RPC 신설(finalize는 pre-existing hypothesis 요구하나 table write grant 0이라 유일 write 경로; service_role+authenticated EXECUTE; 같은 (period_key,source,hash)에 다른 content면 `hypothesis_hash_content_mismatch`), (b) per-arm merge = **`v_arm || run_level`**(run-level wins, §5.2 정정 반영), (c) **symmetric fail-closed**: 모든 `::` cast(uuid/int/numeric/timestamptz/date)가 regex-선행 또는 begin/exception-wrap → 전부 typed error(`bad_hypothesis_id`/`bad_universe_size`/`bad_gate_eligible_size`/`bad_month`/`bad_run_date`/`bad_selection_as_of`/`row_invalid`/`snapshot_row_invalid`), 단 per-row format guard는 logged-전용이 아니라 전 status(INSERT cast가 전 status 적용), (d) anon RESTRICTIVE deny 정책 추가(0034 house pattern), (e) `snapshot_incomplete_after_write`는 `is distinct from`(3VL no-op 회피). **다음 = PR-B3** (Python `--shadow-sector`). **USER-only 잔여 = 0039 apply + apply후 real-conn smoke B1/B2/B3**(§5.4).
 
 | PR | Scope | Files | Production effect |
 |---|---|---|---|
