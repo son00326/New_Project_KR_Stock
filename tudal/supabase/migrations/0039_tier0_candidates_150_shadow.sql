@@ -296,8 +296,16 @@ begin
   -- append-only / immutable: hypothesis_hash는 caller가 SHA-256으로 계산한 identity 키다.
   --   server-side hash 재계산은 의도적으로 하지 않는다(pgcrypto digest()는 Supabase에서 extensions 스키마라
   --   `set search_path = public, pg_temp`와 충돌하고, cross-language hash-format 결합이 brittle하다).
-  --   대신 conflict path에서 기존 row의 content를 재대조한다. 동일 키+동일 내용 재호출만 idempotent이고,
-  --   같은 caller-supplied hash로 다른 sectors/asOf/selectionAsOf/params를 보내면 p-hack/collision으로 reject.
+  --   대신 conflict path에서 기존 row의 content를 재대조한다. 동일 키+동일 identity 내용 재호출만 idempotent이고,
+  --   같은 caller-supplied hash로 다른 sectors/asOf/params를 보내면 p-hack/collision으로 reject.
+  select coalesce(jsonb_agg(to_jsonb(s.sec) order by case s.sec
+      when '바이오' then 1 when '반도체' then 2 when '건설' then 3 when '금융' then 4
+      when '2차전지' then 5 when '자동차' then 6 when 'IT/SW' then 7
+      when '유통/소비재' then 8 when '에너지' then 9 when '엔터/미디어' then 10
+      when '통신' then 11 when '철강/소재' then 12 when '운송/물류' then 13
+      when '보험/증권' then 14 end), '[]'::jsonb)
+    into v_leading
+  from jsonb_array_elements_text(v_leading) s(sec);
   insert into public.tier0_shadow_sector_hypothesis
     (period_key, source, leading_sectors, as_of, selection_as_of, params, hypothesis_hash, created_by)
   values
@@ -306,15 +314,19 @@ begin
   returning id, created_at into v_id, v_created_at;
 
   if v_id is null then
-    -- 같은 (period_key,source,hypothesis_hash) row가 이미 있음. 내용까지 동일할 때만 idempotent.
+    -- 같은 (period_key,source,hypothesis_hash) row가 이미 있음. IDENTITY content 동일할 때만 idempotent.
     select * into v_existing
     from public.tier0_shadow_sector_hypothesis
     where period_key = v_period_key and source = v_source and hypothesis_hash = v_hash;
     if not found then raise exception 'hypothesis_conflict_not_found'; end if;
+    -- PR-B3 F3-NEW: selection_as_of는 hash IDENTITY가 아니다(caller hypothesis_hash가 제외) — 같은 가설을
+    --   다른 run에서 재선정하면 selection_as_of만 달라지므로 idempotent re-register여야 한다(append-only:
+    --   최초 등록 selection_as_of가 canonical, 유지). recheck는 identity content(leading_sectors/params/as_of)만
+    --   비교한다. selection_as_of까지 비교하면 동일 period 2회차 absent run이 hypothesis_hash_content_mismatch로
+    --   깨진다(stage-0 re-run은 정상 동작이어야 함). 진짜 hash 충돌(다른 identity, 같은 hash)은 여전히 잡힌다.
     if v_existing.leading_sectors <> v_leading
        or v_existing.params <> v_params
-       or v_existing.as_of is distinct from v_as_of
-       or v_existing.selection_as_of is distinct from v_selection_as_of then
+       or v_existing.as_of is distinct from v_as_of then
       raise exception 'hypothesis_hash_content_mismatch';
     end if;
     v_id := v_existing.id;

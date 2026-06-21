@@ -1424,6 +1424,173 @@ def run_bpp_candidates(
 
 
 # ============================================================================
+# Track 2 generator-shadow (PR-B3) — thin impure orchestrator.
+#   pure payload 조립은 shadow_gen_runner(import-safe)에, 순수 selection은 shadow_gen_core에 둔다.
+#   이 함수는 already-fetched signals/price_series/universe를 소비하고, supabase client + RPC 호출만
+#   담당한다. production write writer(upsert_candidates_supabase/upsert_supabase/enforce_b89_strict_block)는
+#   절대 호출하지 않는다 — write는 단일 finalize RPC upsert_tier0_shadow_run 경유.
+# ============================================================================
+
+def run_shadow_bpp_generation_path(
+    args,
+    signals: list[StockSignal],
+    price_series: dict[str, dict],
+    universe: list[dict],
+    dart_available: bool,
+) -> None:
+    """Track 2 stage-0 shadow 150 생성 + finalize RPC write (spec §2.2·§4·§5).
+
+    1. StockRaw 구성 (production B++ pure core와 동일 quality-composite 분기 재사용).
+    2. shadow_gen_runner로 absent/manual hypothesis 구성 → register_shadow_hypothesis (idempotent).
+    3. shadow_gen_core.compute_shadow_selections를 active arm마다 호출 (production-mirror 항상 포함).
+    4. shadow_gen_runner pure builder로 snapshot/arm/unresolved/envelope 조립.
+    5. supabase.rpc('upsert_tier0_shadow_run', {'p_payload': payload}) 1회 호출.
+
+    이 함수는 production write writer(legacy/B++ candidate upsert, short_list_30 upsert, B89 strict
+    block)를 일절 호출하지 않는다 — write는 단일 finalize RPC upsert_tier0_shadow_run 경유 + shadow
+    table 한정(T2-I-2/I-3/I-4). §11 grep gate가 그 production writer 식별자 부재를 단언한다.
+
+    default OFF: 이 함수는 --shadow-sector flag가 있을 때만 진입한다(main seam). SHADOW_GENERATOR_ENABLED
+    gate를 추가로 둬서 flag만으로는 실행되지 않게 한다(env owner = USER, T2-I-10).
+    """
+    import datetime as _dt
+
+    try:
+        import shadow_gen_core as SG
+        import shadow_gen_runner as SR
+    except ModuleNotFoundError:
+        from scripts import shadow_gen_core as SG  # type: ignore[no-redef]
+        from scripts import shadow_gen_runner as SR  # type: ignore[no-redef]
+
+    # USER-owned activation gate (flag != enabled). production byte-identical 보장 강화.
+    if (os.environ.get("SHADOW_GENERATOR_ENABLED") or "").strip().lower() != "true":
+        sys.exit(
+            "[ABORT] --shadow-sector 는 SHADOW_GENERATOR_ENABLED=true (USER 승인) 가 있어야 실행됩니다. "
+            "(Track 2 forward-only diagnostic; production 무변경)"
+        )
+
+    run_started_at = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
+    selection_as_of = run_started_at.isoformat().replace("+00:00", "Z")
+    run_id = os.environ.get("SHADOW_RUN_ID") or f"shadow-{run_started_at.strftime('%Y%m%dT%H%M%SZ')}"
+    run_date = selection_as_of
+    period_key = SR.derive_period_key(args.month)
+
+    # (1) StockRaw — production B++ pure core와 동일 quality-composite 분기 (재사용, mutation 없음).
+    if dart_available:
+        try:
+            from scripts.dart_signals import compute_quality_composite_for_universe
+        except ModuleNotFoundError:
+            from dart_signals import compute_quality_composite_for_universe
+        quality_composites = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
+    else:
+        quality_composites = [math.nan] * len(signals)
+    stocks = build_stock_raw_list(signals, price_series, quality_composites)
+
+    name_by_ticker = {u["ticker"]: u["name"] for u in universe}
+    uni_by_ticker = {u["ticker"]: u for u in universe}
+
+    # (2) hypothesis (absent 또는 manual_pre_registered) — env-derived.
+    #   absent: deterministic shape → PR-B3가 idempotent하게 auto-register(재선정해도 같은 hash).
+    #   manual_pre_registered: USER가 forward-integrity(asOf lock)로 period 시작 전 미리 register하고
+    #     SHADOW_HYPOTHESIS_ID를 넘긴다. PR-B3는 그 id를 그대로 쓰고 self-register하지 않는다(F1) —
+    #     run-time selection_as_of로 재등록하면 (a)forward-integrity 무력화 + (b)register content-recheck 거부.
+    #     finalize content-binding(source/leadingSectors/hypothesisHash)이 drift를 잡는다.
+    source = (os.environ.get("SHADOW_SECTOR_SOURCE") or "absent").strip()
+    hypothesis = SR.build_hypothesis_from_env(period_key, selection_as_of)
+
+    client = get_supabase_client()
+    if source == "absent":
+        reg = client.rpc(
+            "register_shadow_hypothesis", {"p_payload": hypothesis}
+        ).execute()
+        hypothesis_id = (reg.data or {}).get("id")
+        if not hypothesis_id:
+            sys.exit("[ABORT] register_shadow_hypothesis returned no id")
+    else:  # manual_pre_registered — USER pre-registered; PR-B3는 self-register 금지(F1).
+        hypothesis_id = (os.environ.get("SHADOW_HYPOTHESIS_ID") or "").strip()
+        if not hypothesis_id:
+            sys.exit(
+                "[ABORT] SHADOW_SECTOR_SOURCE=manual_pre_registered requires SHADOW_HYPOTHESIS_ID "
+                "(USER가 period 시작 전 register_shadow_hypothesis로 등록한 id). PR-B3는 self-register하지 않는다."
+            )
+
+    # (3) active arms — production-mirror 항상 + SHADOW_GEN_ARMS(default mirror만).
+    requested = [
+        a.strip()
+        for a in (os.environ.get("SHADOW_GEN_ARMS") or "production-mirror").split(",")
+        if a.strip()
+    ]
+    active_arms = ["production-mirror"] + [a for a in requested if a != "production-mirror"]
+    seen: set[str] = set()
+    active_arms = [a for a in active_arms if not (a in seen or seen.add(a))]
+
+    mirror_result = None
+    arm_payloads: list[dict] = []
+    for arm in active_arms:
+        status = "logged"
+        arm_result = None
+        error = None
+        try:
+            arm_result = SG.compute_shadow_selections(universe, stocks, hypothesis, arm)
+        except SG.ShadowIncompleteRunError as exc:
+            status = "incomplete_run"
+            error = str(exc)
+            if arm == "sector-hard-gate":
+                arm_result = SR.build_hard_gate_incomplete_result(stocks, hypothesis)
+        except SG.ShadowInvalidInputError as exc:
+            status = "invalid_input"
+            error = str(exc)
+        except TF.SleeveShortfallError as exc:
+            # PR-B1 contract: mirror/soft-tilt는 raw SleeveShortfall 전파(hard-gate만 ShadowIncompleteRunError).
+            #   production-mirror가 sleeve를 못 채우면 baseline 자체 불가 → shadow run 전체 abort(F2; production
+            #   B++ 경로의 sleeve-shortfall abort 규율과 동일). 그 외 arm은 그 arm만 incomplete_run으로 격리.
+            if arm == "production-mirror":
+                sys.exit(f"[ABORT] production-mirror sleeve shortfall (no baseline): {exc}")
+            status = "incomplete_run"
+            error = f"sleeve_shortfall: {exc}"
+        if arm == "production-mirror" and arm_result is not None:
+            mirror_result = arm_result   # F2: 재계산 없이 loop 결과 재사용(uncaught crash 제거).
+        arm_payloads.append(
+            SR.build_arm_payload(
+                arm, arm_result, name_by_ticker, args.month, status=status, error=error
+            )
+        )
+
+    # universe_hash / universe_size는 arm-invariant → production-mirror arm 결과 재사용(F2).
+    if mirror_result is None:
+        sys.exit("[ABORT] production-mirror produced no result (cannot derive universe_hash/size)")
+    universe_hash = mirror_result["universe_hash"]
+    universe_size = mirror_result["universe_size"]
+
+    # (4) pure builders로 snapshot/unresolved/envelope 조립.
+    snapshot_rows = SR.build_shadow_snapshot_rows(stocks, uni_by_ticker)
+    unresolved_rows = SR.build_unresolved_rows(universe)
+    payload = SR.assemble_finalize_payload(
+        period_key=period_key,
+        month=args.month,
+        run_id=run_id,
+        hypothesis_id=hypothesis_id,
+        hypothesis=hypothesis,
+        arm_payloads=arm_payloads,
+        snapshot_rows=snapshot_rows,
+        unresolved_rows=unresolved_rows,
+        universe_hash=universe_hash,
+        universe_size=universe_size,
+        run_date=run_date,
+    )
+
+    # (5) 단일 finalize RPC — shadow tables에만 write (production writer 미경유).
+    res = client.rpc("upsert_tier0_shadow_run", {"p_payload": payload}).execute()
+    out = res.data or {}
+    print(
+        f"[done] Track 2 shadow generation · period_key={period_key} run_id={run_id} "
+        f"arms={out.get('arms')} snapshot={out.get('snapshot')} candidates={out.get('candidates')} "
+        f"unresolved={out.get('unresolved')}",
+        file=sys.stderr,
+    )
+
+
+# ============================================================================
 # Orchestration
 # ============================================================================
 
@@ -1459,7 +1626,23 @@ def main() -> None:
              "bpp=B++ size-sleeve recall-first(유동성 플로어+risk-adj trend+52주고가+rank ensemble). "
              "bpp는 --emit-candidates 전용 + Gate C smoke 출력 + 삼중 게이트 통과 전 --apply 차단.",
     )
+    parser.add_argument(
+        "--shadow-sector",
+        action="store_true",
+        help="(Track 2 generator-shadow, PR-B3) sector-aware shadow 150을 tier0_candidates_150_shadow에 "
+             "기록한다(production tier0_candidates_150/short_list_30 무변경, forward-only diagnostic). "
+             "--scoring bpp 전용. SHADOW_GENERATOR_ENABLED=true + (manual arm은) SHADOW_HYPOTHESIS_ID 필요. "
+             "default OFF — 미지정 시 production behavior byte-identical.",
+    )
     args = parser.parse_args()
+
+    # PR-B3 fail-closed (ce-review HIGH/P1): --shadow-sector is consulted ONLY in the bpp branch, so under the
+    #   default --scoring legacy it would be silently dropped and the run would fall through to the production
+    #   money-path write (upsert_supabase / upsert_candidates_supabase). Enforce the "--scoring bpp 전용"
+    #   constraint here so an operator who forgets --scoring bpp gets a hard error, NOT a production write.
+    if getattr(args, "shadow_sector", False) and args.scoring != "bpp":
+        parser.error("--shadow-sector 는 --scoring bpp 전용입니다 (Track 2 generator-shadow). "
+                     "legacy 경로로 production을 덮어쓰지 않도록 fail-closed.")
 
     target_date = resolve_target_date(date.today(), args.as_of)
     if args.month > target_date:
@@ -1539,6 +1722,14 @@ def main() -> None:
 
     # B++ (D30): size-sleeve recall-first 분기. legacy 정규화/선정과 독립 경로.
     if args.scoring == "bpp":
+        if args.shadow_sector:
+            # Track 2 generator-shadow (PR-B3): shadow 150을 tier0_candidates_150_shadow에만 기록하고
+            # 즉시 return → run_bpp_candidates / upsert_candidates_supabase / upsert_supabase /
+            # enforce_b89_strict_block 어디에도 구조적으로 도달하지 않는다(T2-I-2/I-3/I-4).
+            run_shadow_bpp_generation_path(
+                args, signals, price_series, universe, dart_available
+            )
+            return
         run_bpp_candidates(args, signals, price_series, universe, dart_available)
         return
 

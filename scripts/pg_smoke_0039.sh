@@ -190,7 +190,21 @@ MAN_ID=$($PSQL -t -A -c "select (public.register_shadow_hypothesis('{\"period_ke
 # idempotent re-register returns same id:
 ABS_ID2=$($PSQL -t -A -c "select (public.register_shadow_hypothesis('{\"period_key\":\"2026-06\",\"source\":\"absent\",\"leading_sectors\":[],\"params\":{},\"selection_as_of\":\"2026-06-01T00:05:00Z\",\"hypothesis_hash\":\"absent-2026-06-h\"}'::jsonb))->>'id';")
 [ "$ABS_ID" = "$ABS_ID2" ] || fail "absent re-register not idempotent ($ABS_ID vs $ABS_ID2)"
-echo "ok: register absent=$ABS_ID manual=$MAN_ID (idempotent)"
+# F3-NEW (PR-B3): re-register SAME identity (period/source/leading/params/as_of/hash) with a DIFFERENT
+#   selection_as_of must be IDEMPOTENT (returns existing id), NOT hypothesis_hash_content_mismatch — because
+#   selection_as_of is excluded from the caller hash, so a 2nd same-period run (new run-time selection_as_of)
+#   must reuse the first registration. (Was broken: recheck compared selection_as_of.)
+ABS_ID3=$($PSQL -t -A -c "select (public.register_shadow_hypothesis('{\"period_key\":\"2026-06\",\"source\":\"absent\",\"leading_sectors\":[],\"params\":{},\"selection_as_of\":\"2026-06-01T23:59:59Z\",\"hypothesis_hash\":\"absent-2026-06-h\"}'::jsonb))->>'id';")
+[ "$ABS_ID" = "$ABS_ID3" ] || fail "F3-NEW: re-register w/ different selection_as_of not idempotent ($ABS_ID vs $ABS_ID3)"
+# and the canonical selection_as_of stays the FIRST registration's (append-only):
+SAO=$($PSQL -t -A -c "select to_char(selection_as_of at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS') from public.tier0_shadow_sector_hypothesis where id='$ABS_ID';")
+[ "$SAO" = "2026-06-01T00:05:00" ] || fail "F3-NEW: append-only selection_as_of changed (got $SAO, want first registration 00:05:00)"
+MAN_ORDER_A=$($PSQL -t -A -c "select (public.register_shadow_hypothesis('{\"period_key\":\"2026-06\",\"source\":\"manual_pre_registered\",\"leading_sectors\":[\"반도체\",\"금융\"],\"params\":{},\"as_of\":\"2026-05-31T00:00:00Z\",\"selection_as_of\":\"2026-06-01T00:05:00Z\",\"hypothesis_hash\":\"manual-order-h\"}'::jsonb))->>'id';")
+MAN_ORDER_B=$($PSQL -t -A -c "select (public.register_shadow_hypothesis('{\"period_key\":\"2026-06\",\"source\":\"manual_pre_registered\",\"leading_sectors\":[\"금융\",\"반도체\"],\"params\":{},\"as_of\":\"2026-05-31T00:00:00Z\",\"selection_as_of\":\"2026-06-01T23:59:59Z\",\"hypothesis_hash\":\"manual-order-h\"}'::jsonb))->>'id';")
+[ "$MAN_ORDER_A" = "$MAN_ORDER_B" ] || fail "manual leading_sectors order re-register not idempotent ($MAN_ORDER_A vs $MAN_ORDER_B)"
+ORDERED=$($PSQL -t -A -c "select leading_sectors::text from public.tier0_shadow_sector_hypothesis where id='$MAN_ORDER_A';")
+[ "$ORDERED" = '["반도체", "금융"]' ] || fail "manual leading_sectors not canonical-sector ordered (got $ORDERED)"
+echo "ok: register absent=$ABS_ID manual=$MAN_ID (idempotent; F3-NEW diff-selection_as_of + manual order canonical)"
 
 # register negative cases:
 assert_raises "perform public.register_shadow_hypothesis('{\"period_key\":\"2026-06\",\"source\":\"manual_pre_registered\",\"leading_sectors\":[\"조선\"],\"as_of\":\"2026-05-31T00:00:00Z\",\"selection_as_of\":\"2026-06-01T00:05:00Z\",\"hypothesis_hash\":\"x\"}'::jsonb);" "bad_canonical_sector" "register non-canonical leadingSector"
