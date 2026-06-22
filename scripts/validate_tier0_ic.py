@@ -2402,6 +2402,13 @@ def _build_real_providers(start_month: date, end_month: date, cache_dir: Path,
     return panel, universe_at, foreign_at, dart_at, coverage_meta
 
 
+def _load_shadow_json_file(path: Path, label: str, input_error_cls):
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
+        raise input_error_cls(f"{label} JSON invalid at {path}: {exc}") from exc
+
+
 def main() -> None:
     import argparse
 
@@ -2444,6 +2451,27 @@ def main() -> None:
                              "generator=bpp 에서만 허용, select_count과 상호배타. 바인딩 = recall-LIFT CI90 lower>0 "
                              "+ IC IR≥0.30 (gate_a_pass_selective_largemid 그대로 재사용, 임계 무변경). "
                              "diagnostic-only, no-apply. SoT: docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md.")
+    # === PR-B5 Track 2 shadow forward-recall evaluator (additive, default-OFF → frozen path byte-identical) ===
+    # Evaluator lives in the sibling module scripts/shadow_eval.py (imports this module for leaf reuse);
+    # these flags + the early-return dispatch below are the ONLY edits to main(). SoT:
+    # docs/superpowers/specs/2026-06-22-pathA-track2-prb5-forward-recall-evaluator.md.
+    parser.add_argument("--shadow-eval", action="store_true",
+                        help="PR-B5: shadow forward-recall post-process (default OFF = frozen B+C byte-identical).")
+    parser.add_argument("--shadow-extract-json", default=None,
+                        help="owner-psql Query-2 facts: JSON ARRAY of per-period objects (§1.2).")
+    parser.add_argument("--shadow-coverage-json", default=None,
+                        help="PR-B4 reconcile report JSON (eligibility gate; only 'complete' periods score).")
+    parser.add_argument("--shadow-arms", default="production-mirror,sector-soft-tilt,sector-hard-gate",
+                        help="active arms; production-mirror anchors FIX-J + is the paired baseline.")
+    parser.add_argument("--kill-rule-file", default=None,
+                        help="frozen pre-registration: tracks{primary_horizon,power_floor_n}, regimes, freeze_tag (§7.5a).")
+    parser.add_argument("--survivorship-artifact", default=None,
+                        help="probe_pit_survivorship --emit-artifact JSON (per-market list, §5).")
+    parser.add_argument("--shadow-out", default="scripts/out/tier0_shadow_recall_verdict.json",
+                        help="PR-B5 verdict report (NOT --out; never overwrites the frozen harvest).")
+    parser.add_argument("--print-shadow-sql", action="store_true", help="emit PR-B5 Query 2 and exit.")
+    parser.add_argument("--print-shadow-sql-inline", action="store_true",
+                        help="emit PR-B5 Query 2 single-line (json_agg wrap) and exit.")
     args = parser.parse_args()
     if args.generator == "cfg6" and not args.with_foreign:
         parser.error("--generator cfg6 requires --with-foreign because cfg6's frozen screen set includes foreign")
@@ -2474,6 +2502,58 @@ def main() -> None:
             parser.error("--winner-universe tradable applies only to --universe all (재검증 (a))")
         if args.generator != "bpp":
             parser.error("--winner-universe tradable applies only to --generator bpp (재검증 (a))")
+
+    # === PR-B5 shadow dispatch (early-return BEFORE _load_env/_build_real_providers/harvest_pit_months
+    # — the frozen B+C path never runs on the shadow path; inert when --shadow-eval absent). ===
+    if args.print_shadow_sql or args.print_shadow_sql_inline:
+        import shadow_eval as SE
+        print(SE.SHADOW_RUN_EXTRACT_SQL if args.print_shadow_sql else SE.shadow_sql_inline())
+        return
+    if args.shadow_eval:
+        import shadow_eval as SE
+        _bad = [n for n, v in (("--universe largemid", args.universe == "largemid"),
+                               ("--select-count", args.select_count is not None),
+                               ("--winner-universe tradable", args.winner_universe == "tradable"),
+                               ("--generator!=bpp", args.generator != "bpp"),
+                               ("--with-foreign", args.with_foreign), ("--earnings", args.earnings)) if v]
+        if _bad:
+            parser.error(f"--shadow-eval is incompatible with frozen-path flags: {_bad}")
+        for req in ("shadow_extract_json", "shadow_coverage_json", "kill_rule_file", "survivorship_artifact"):
+            if getattr(args, req) is None:
+                parser.error(f"--shadow-eval requires --{req.replace('_', '-')}")
+        _load_env()
+        _sh_root = Path(__file__).resolve().parents[1]
+
+        def _sh_rp(raw: str) -> Path:
+            p = Path(raw)
+            return p if p.is_absolute() else _sh_root / p
+
+        arms = [a for a in args.shadow_arms.split(",") if a]
+        try:
+            kill_rule = _load_shadow_json_file(_sh_rp(args.kill_rule_file), "kill_rule", SE.ShadowEvalInputError)
+            panel = load_pit_panel(SE.shadow_panel_days(args.start_month, args.end_month),
+                                   cache_dir=_sh_rp(args.cache_dir), progress=True)
+            extract = SE.parse_shadow_extract(_load_shadow_json_file(
+                _sh_rp(args.shadow_extract_json), "shadow_extract", SE.ShadowEvalInputError))
+            coverage = _load_shadow_json_file(_sh_rp(args.shadow_coverage_json), "shadow_coverage",
+                                              SE.ShadowEvalInputError)
+            survivorship = SE.read_survivorship_artifact(
+                _load_shadow_json_file(_sh_rp(args.survivorship_artifact), "survivorship_artifact",
+                                       SE.ShadowEvalInputError),
+                forward_window=SE.shadow_forward_window(
+                    extract, kill_rule, panel, fallback=(args.start_month, args.end_month)))
+            period_results = SE.harvest_shadow_periods(
+                panel=panel, extract=extract, coverage=coverage, kill_rule=kill_rule, arms=arms)
+            report = SE.aggregate_shadow_harvest(
+                period_results, kill_rule=kill_rule, arms=arms,
+                generated_at=datetime.now().isoformat(timespec="seconds"), survivorship=survivorship)
+        except SE.ShadowEvalInputError as exc:
+            sys.exit(f"[ABORT] PR-B5 shadow eval input invalid (fail-closed): {exc}")
+        SE.emit_shadow_verdict(report, _sh_rp(args.shadow_out))
+        print(f"[PR-B5] shadow forward-recall verdict → {_sh_rp(args.shadow_out)} · "
+              f"run_verdict={report['run_verdict']} · per_track={report.get('per_track_verdict')} · "
+              f"user_review_required={report.get('user_review_required')}", file=sys.stderr)
+        return
 
     # FROZEN provenance 스탬프 — adjudicator load_matrix가 요구(없으면 INVALID_INPUT fail-closed).
     # additive: bpp 경로에도 동일 적용(기존 cfg1-4 JSON과 동일 필드, 비파괴).
