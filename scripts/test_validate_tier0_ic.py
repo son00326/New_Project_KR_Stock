@@ -380,6 +380,22 @@ class TestCliActivatedHelp(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("cfg5/cfg6+largemid remain deferred", proc.stderr)
 
+    def test_shadow_evaluator_families_are_mutually_exclusive_before_io(self):
+        proc = subprocess.run(
+            [
+                sys.executable, str(Path(V.__file__)),
+                "--start-month", "2026-06-01",
+                "--end-month", "2026-06-01",
+                "--cache-dir", "/tmp/tier0-no-io",
+                "--out", "/tmp/tier0-no-io/out.json",
+                "--shadow-eval",
+                "--shadow-arm-eval",
+            ],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("PR-B5 shadow and PR-A5 shadow-arm modes are mutually exclusive", proc.stderr)
+
 
 class TestHarvestDriverPure(unittest.TestCase):
     """Pure month-iteration helpers (no I/O)."""

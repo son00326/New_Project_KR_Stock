@@ -2472,6 +2472,24 @@ def main() -> None:
     parser.add_argument("--print-shadow-sql", action="store_true", help="emit PR-B5 Query 2 and exit.")
     parser.add_argument("--print-shadow-sql-inline", action="store_true",
                         help="emit PR-B5 Query 2 single-line (json_agg wrap) and exit.")
+    # === PR-A5 Track 1 in-pool 30-reranking forward VERDICT evaluator (additive, default-OFF → frozen
+    # path byte-identical). Evaluator lives in the sibling module scripts/shadow_arm_eval.py (imports this
+    # module for leaf reuse); these flags + the early-return dispatch below are the ONLY edits to main().
+    # SoT: docs/superpowers/specs/2026-06-23-pathA-track1-pra5-verdict-evaluator.md. ===
+    parser.add_argument("--shadow-arm-eval", action="store_true",
+                        help="PR-A5: Track 1 shadow-arm forward verdict (default OFF = frozen B+C byte-identical).")
+    parser.add_argument("--shadow-arm-extract-json", default=None,
+                        help="owner/service-role-psql shadow-arm facts: JSON ARRAY of per-period objects (§1).")
+    parser.add_argument("--shadow-arm-coverage-json", default=None,
+                        help="PR-A4 reconcile report JSON (eligibility gate; only 'complete' periods score).")
+    parser.add_argument("--shadow-arm-arms",
+                        default="production-snapshot,sector-soft-reserve,regime-sector-soft-reserve,candidate-pool-hard-gate",
+                        help="active arms; production-snapshot is the paired baseline.")
+    parser.add_argument("--shadow-arm-out", default="scripts/out/shadow_arm_verdict.json",
+                        help="PR-A5 verdict report (NOT --out; never overwrites the frozen harvest).")
+    parser.add_argument("--print-shadow-arm-sql", action="store_true", help="emit PR-A5 extract SQL and exit.")
+    parser.add_argument("--print-shadow-arm-sql-inline", action="store_true",
+                        help="emit PR-A5 extract SQL single-line (json_agg wrap) and exit.")
     args = parser.parse_args()
     if args.generator == "cfg6" and not args.with_foreign:
         parser.error("--generator cfg6 requires --with-foreign because cfg6's frozen screen set includes foreign")
@@ -2503,6 +2521,11 @@ def main() -> None:
         if args.generator != "bpp":
             parser.error("--winner-universe tradable applies only to --generator bpp (재검증 (a))")
 
+    _shadow_b5_mode = args.shadow_eval or args.print_shadow_sql or args.print_shadow_sql_inline
+    _shadow_a5_mode = args.shadow_arm_eval or args.print_shadow_arm_sql or args.print_shadow_arm_sql_inline
+    if _shadow_b5_mode and _shadow_a5_mode:
+        parser.error("PR-B5 shadow and PR-A5 shadow-arm modes are mutually exclusive")
+
     # === PR-B5 shadow dispatch (early-return BEFORE _load_env/_build_real_providers/harvest_pit_months
     # — the frozen B+C path never runs on the shadow path; inert when --shadow-eval absent). ===
     if args.print_shadow_sql or args.print_shadow_sql_inline:
@@ -2515,7 +2538,8 @@ def main() -> None:
                                ("--select-count", args.select_count is not None),
                                ("--winner-universe tradable", args.winner_universe == "tradable"),
                                ("--generator!=bpp", args.generator != "bpp"),
-                               ("--with-foreign", args.with_foreign), ("--earnings", args.earnings)) if v]
+                               ("--with-foreign", args.with_foreign), ("--earnings", args.earnings),
+                               ("--shadow-arm-eval", args.shadow_arm_eval)) if v]
         if _bad:
             parser.error(f"--shadow-eval is incompatible with frozen-path flags: {_bad}")
         for req in ("shadow_extract_json", "shadow_coverage_json", "kill_rule_file", "survivorship_artifact"):
@@ -2551,6 +2575,63 @@ def main() -> None:
             sys.exit(f"[ABORT] PR-B5 shadow eval input invalid (fail-closed): {exc}")
         SE.emit_shadow_verdict(report, _sh_rp(args.shadow_out))
         print(f"[PR-B5] shadow forward-recall verdict → {_sh_rp(args.shadow_out)} · "
+              f"run_verdict={report['run_verdict']} · per_track={report.get('per_track_verdict')} · "
+              f"user_review_required={report.get('user_review_required')}", file=sys.stderr)
+        return
+
+    # === PR-A5 Track 1 shadow-arm dispatch (early-return BEFORE _load_env/_build_real_providers/
+    # harvest_pit_months — the frozen B+C path never runs on the shadow-arm path; inert when
+    # --shadow-arm-eval absent). Mirrors the PR-B5 dispatch structure above. ===
+    if args.print_shadow_arm_sql or args.print_shadow_arm_sql_inline:
+        import shadow_arm_eval as SAE
+        print(SAE.SHADOW_ARM_EXTRACT_SQL if args.print_shadow_arm_sql else SAE.shadow_arm_sql_inline())
+        return
+    if args.shadow_arm_eval:
+        import shadow_arm_eval as SAE
+        _bad = [n for n, v in (("--universe largemid", args.universe == "largemid"),
+                               ("--select-count", args.select_count is not None),
+                               ("--winner-universe tradable", args.winner_universe == "tradable"),
+                               ("--generator!=bpp", args.generator != "bpp"),
+                               ("--with-foreign", args.with_foreign), ("--earnings", args.earnings),
+                               ("--shadow-eval", args.shadow_eval)) if v]
+        if _bad:
+            parser.error(f"--shadow-arm-eval is incompatible with frozen-path flags: {_bad}")
+        for req in ("shadow_arm_extract_json", "shadow_arm_coverage_json", "kill_rule_file",
+                    "survivorship_artifact"):
+            if getattr(args, req) is None:
+                parser.error(f"--shadow-arm-eval requires --{req.replace('_', '-')}")
+        _load_env()
+        _sa_root = Path(__file__).resolve().parents[1]
+
+        def _sa_rp(raw: str) -> Path:
+            p = Path(raw)
+            return p if p.is_absolute() else _sa_root / p
+
+        arms = [a for a in args.shadow_arm_arms.split(",") if a]
+        try:
+            kill_rule = _load_shadow_json_file(_sa_rp(args.kill_rule_file), "kill_rule",
+                                               SAE.ShadowArmEvalInputError)
+            panel = load_pit_panel(SAE.shadow_arm_panel_days(args.start_month, args.end_month),
+                                   cache_dir=_sa_rp(args.cache_dir), progress=True)
+            extract = SAE.parse_shadow_arm_extract(_load_shadow_json_file(
+                _sa_rp(args.shadow_arm_extract_json), "shadow_arm_extract", SAE.ShadowArmEvalInputError))
+            coverage = _load_shadow_json_file(_sa_rp(args.shadow_arm_coverage_json), "shadow_arm_coverage",
+                                              SAE.ShadowArmEvalInputError)
+            survivorship = SAE.read_survivorship_artifact(
+                _load_shadow_json_file(_sa_rp(args.survivorship_artifact), "survivorship_artifact",
+                                       SAE.ShadowArmEvalInputError),
+                forward_window=SAE.shadow_arm_forward_window(
+                    extract, panel, fallback=(args.start_month, args.end_month)))
+            period_results = SAE.harvest_shadow_arm_periods(
+                panel=panel, extract=extract, coverage=coverage, kill_rule=kill_rule, arms=arms)
+            report = SAE.aggregate_shadow_arm_verdict(
+                period_results, kill_rule=kill_rule, arms=arms,
+                generated_at=datetime.now().isoformat(timespec="seconds"), survivorship=survivorship)
+            SAE.assert_verdict_integrity(report)
+        except SAE.ShadowArmEvalInputError as exc:
+            sys.exit(f"[ABORT] PR-A5 shadow-arm eval input invalid (fail-closed): {exc}")
+        SAE.emit_shadow_arm_verdict(report, _sa_rp(args.shadow_arm_out))
+        print(f"[PR-A5] shadow-arm forward verdict → {_sa_rp(args.shadow_arm_out)} · "
               f"run_verdict={report['run_verdict']} · per_track={report.get('per_track_verdict')} · "
               f"user_review_required={report.get('user_review_required')}", file=sys.stderr)
         return
