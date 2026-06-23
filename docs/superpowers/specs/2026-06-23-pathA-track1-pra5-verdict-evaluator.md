@@ -1,6 +1,6 @@
 # PR-A5 spec — Track 1 in-pool 30-reranking forward VERDICT evaluator
 
-**Status**: DESIGN SPEC + **IMPLEMENTED ✅ Claude↔omxy CONVERGED (2026-06-23)** — feature-branch `tier0-bpp-multiregime`, 미머지. as-built deviations 박제 = **§11**. Track 1 §6 (stage-1 harvest/kill)을 실행 가능하게 구체화한다. parent spec = `2026-06-19-pathA-forward-shadow-sector-layer.md` §6/§6.1~§6.6/§10(PR-A5). 측정 메트릭 = **USER-locked (2026-06-23)**.
+**Status**: DESIGN SPEC + **IMPLEMENTED ✅ Claude↔omxy CONVERGED (2026-06-23, feat `ffd84f8`)** — feature-branch `tier0-bpp-multiregime`, 미머지. as-built deviations 박제 = **§11**. Track 1 §6 (stage-1 harvest/kill)을 실행 가능하게 구체화한다. parent spec = `2026-06-19-pathA-forward-shadow-sector-layer.md` §6/§6.1~§6.6/§10(PR-A5). 측정 메트릭 = **USER-locked (2026-06-23)**.
 **Target code (계획)**: NEW sibling module `scripts/shadow_arm_eval.py` (evaluator) + `scripts/test_shadow_arm_eval.py` + `scripts/pg_smoke_0038_pra5.sh` (connection smoke) + `validate_tier0_ic.py`에 `--shadow-arm-eval` dispatch flag만 추가(+default-OFF early-return; frozen funcs byte-identical). PR-B5 `shadow_eval.py`의 sibling-module 패턴 그대로.
 **Precondition**: PR-A1(computeArmSelections) + PR-A2(worker seam + logger) + PR-A3(0038) + PR-A4(reconcile REPORT) CONVERGED. PR-B5 forward engine 재사용.
 
@@ -102,7 +102,7 @@
 
 ---
 
-## §11 — As-built amendments + build provenance (PR-A5 IMPLEMENTED, CONVERGED 2026-06-23)
+## §11 — As-built amendments + build provenance (PR-A5 IMPLEMENTED, CONVERGED 2026-06-23, feat `ffd84f8`)
 
 **Build provenance** (drafting ≠ review 분리, 다중 에이전트):
 - Claude 1차 드래프트(dynamic-workflow loop) — sibling `shadow_arm_eval.py` + `test_shadow_arm_eval.py`(unit matrix) + `pg_smoke_0038_pra5.sh`(docker-free PG16 connection smoke) + `validate_tier0_ic.py` `--shadow-arm-eval` dispatch(+`--print-shadow-arm-sql[-inline]`, default-OFF, frozen byte-identical).
