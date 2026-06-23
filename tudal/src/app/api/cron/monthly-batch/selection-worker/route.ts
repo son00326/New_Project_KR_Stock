@@ -19,6 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { createShadowArmLoggerFromEnv } from "@/lib/screening/shadow-arm-logger";
 import {
   runGuardedSelectionChunk,
   type GuardedSelectionChunkOutput,
@@ -321,6 +322,9 @@ export async function GET(request: NextRequest) {
         insertPipelineHealth,
         insertAlertEvents,
         emitCostAlert,
+        // Track 1 PR-A2 (forward-shadow) — post-finalize shadow arm logger. default OFF
+        //   (FORWARD_SHADOW_ENABLED !== 'true' → undefined → seam no-op = production effect 0).
+        logShadowArms: createShadowArmLoggerFromEnv(),
       });
       if (guarded.skipped) {
         outcomes.push({ track: t.track, ok: true, skipped: guarded.skipped });

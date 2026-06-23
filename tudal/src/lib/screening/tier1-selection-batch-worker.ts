@@ -60,6 +60,7 @@ import type {
   TickerCommentMap,
 } from "@/lib/data/admin-shortlist-persist";
 import type { PipelineHealthInsert } from "@/lib/data/admin-pipeline-health-insert";
+import type { LogShadowArms } from "./shadow-arm-logger";
 import type { AlertEvent } from "@/types/admin";
 import type { CostAlertContext } from "@/lib/data/admin-cost-alerts";
 
@@ -178,6 +179,10 @@ export interface RunTier1SelectionChunkInput {
   // W1b (D28 ③) — judge/dual-judge.
   callJudgePanel: CallJudgePanel;
   callDualJudge: CallDualJudge;
+  // Track 1 PR-A2 (forward-shadow) — post-finalize shadow arm logger. optional DI, default OFF
+  //   (route가 createShadowArmLoggerFromEnv()로 주입; FORWARD_SHADOW_ENABLED 미설정 시 undefined → no-op).
+  //   money-path 무결합(post-persist·shadow table only). 미주입 시 byte-identical 동작.
+  logShadowArms?: LogShadowArms;
 }
 
 export interface Tier1SelectionChunkResult {
@@ -1108,6 +1113,47 @@ async function finalizeSelection(
     );
   }
   await markSelectionFinalized(client, periodKey, input.runId ?? "");
+
+  // Track 1 PR-A2 (forward-shadow) — post-finalize shadow arm logging. default OFF(logShadowArms 미주입 시 skip).
+  //   persist + markSelectionFinalized **후에** 실행 → shadow 실패가 money-path/finalize를 절대 차단 못 함(I-1).
+  //   stale-skip 경로(위 return false, persist 안 함)에서는 미실행 — production baseline 부재라 비교 무의미.
+  //   structuredClone으로 입력 격리(computeArmSelections는 pure지만 logger 내부 mutation 회귀 차단).
+  if (input.logShadowArms) {
+    try {
+      await input.logShadowArms({
+        month,
+        track,
+        periodKey,
+        runId: input.runId ?? "",
+        productionResult: structuredClone(result),
+        candidates: structuredClone(candidates),
+        incumbentTickers: new Set(incumbentTickers),
+        judgeScoresByTicker: structuredClone(judgeScoresByTicker),
+        client,
+      });
+    } catch (shadowErr) {
+      const message = shadowErr instanceof Error ? shadowErr.message : String(shadowErr);
+      // best-effort 관측 alert(§7 SHADOW_LOG_FAILURE_ALERT_ENABLED, default true). status='warning'(NOT
+      //   'failed') → money-path scheduler_fail 오탐 방지. 이 insert가 또 실패하면 console.warn만 남는다.
+      if (process.env.SHADOW_LOG_FAILURE_ALERT_ENABLED !== "false") {
+        try {
+          await input.insertPipelineHealth(
+            {
+              pipeline: "ai",
+              status: "warning",
+              error: `shadow_arm_log_failed:${track}:${periodKey}:${message}`,
+            },
+            { client },
+          );
+        } catch {
+          /* console.warn fallback only */
+        }
+      }
+      console.warn(
+        JSON.stringify({ event: "shadow_arm_log_failed", month, track, periodKey, message }),
+      );
+    }
+  }
   return true;
 }
 

@@ -823,6 +823,98 @@ describe("runTier1SelectionChunk preflight-first + deferred reset (R4 HIGH-2 / R
   });
 });
 
+describe("runTier1SelectionChunk PR-A2 forward-shadow seam (logShadowArms)", () => {
+  // finalize 도달 client (line-745 패턴): R1+R2+judge fullset, nonTerminal 0 / terminal>0.
+  function finalizeReachingClient(over: Record<string, unknown> = {}) {
+    const r1RowsFull = makeTrackCandidates("midlong").map((c) => ({
+      ticker: c.ticker,
+      status: "done",
+      panel_result: makePanel(),
+      round: 1 as const,
+    }));
+    const allRows = [
+      ...r1RowsFull,
+      ...r1RowsFull.map((r) => ({ ...r, round: 2 as const })),
+      ...judgeRowsFor(r1RowsFull),
+    ];
+    return makeFakeClient({
+      claimedJobs: [],
+      openCount: 0,
+      deferredCount: 0,
+      nonTerminalCount: 0,
+      terminalCount: 100,
+      allRows,
+      ...over,
+    });
+  }
+
+  it("logShadowArms 주입 시 finalize 경로에서 1회 호출 (cloned productionResult)", async () => {
+    const logShadowArms = vi.fn(async () => {});
+    const { client } = finalizeReachingClient();
+    const deps = makeDeps("midlong", { logShadowArms });
+    const res = await runChunk(client, deps);
+    expect(res.finalized).toBe(true);
+    expect(logShadowArms).toHaveBeenCalledTimes(1);
+    const arg = (logShadowArms.mock.calls[0] as unknown[])[0] as {
+      track: string;
+      periodKey: string;
+      productionResult: { selected: unknown[] };
+      candidates: unknown[];
+    };
+    expect(arg.track).toBe("midlong");
+    expect(arg.productionResult.selected).toHaveLength(20); // midlong stub
+    expect(arg.candidates.length).toBeGreaterThan(0);
+  });
+
+  it("logShadowArms 미주입(default OFF) → finalize 정상 + no-op (byte-identical)", async () => {
+    const { client } = finalizeReachingClient();
+    const deps = makeDeps("midlong"); // no logShadowArms
+    const res = await runChunk(client, deps);
+    expect(res.finalized).toBe(true);
+    expect(deps.persist).toHaveBeenCalled();
+  });
+
+  it("logShadowArms throw → money-path 무차단(finalized true) + best-effort warning(status='warning') + console.warn", async () => {
+    const logShadowArms = vi.fn(async () => {
+      throw new Error("rpc_down");
+    });
+    const { client } = finalizeReachingClient();
+    const deps = makeDeps("midlong", { logShadowArms });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const res = await runChunk(client, deps);
+      expect(res.finalized).toBe(true); // shadow 실패가 finalize/money-path를 차단 안 함
+      expect(logShadowArms).toHaveBeenCalledTimes(1);
+      expect(deps.insertPipelineHealth).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pipeline: "ai",
+          status: "warning", // NOT 'failed' — money-path 오탐 방지
+          error: expect.stringContaining("shadow_arm_log_failed"),
+        }),
+        expect.anything(),
+      );
+      const warned = warnSpy.mock.calls.some((c) =>
+        String(c[0]).includes("shadow_arm_log_failed"),
+      );
+      expect(warned).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("stale-skip 경로(더 최신 finalized period → return false)에서는 logShadowArms 미호출", async () => {
+    const logShadowArms = vi.fn(async () => {});
+    const { client } = finalizeReachingClient({
+      newerFinalized: [{ period_key: "m:2026-12" }], // > MIDLONG_PERIOD_KEY → stale skip
+    });
+    const deps = makeDeps("midlong", { logShadowArms });
+    const res = await runChunk(client, deps);
+    expect(res.finalized).toBe(false);
+    expect(logShadowArms).not.toHaveBeenCalled();
+    expect(deps.persist).not.toHaveBeenCalled(); // stale-skip = no persist
+  });
+});
+
 describe("runTier1SelectionChunk finalize (nonTerminal===0 && terminal>0 → 30선정 + persist)", () => {
   it("미완성(nonTerminal>0) → finalized:false, runScreening 미호출, persist 0", async () => {
     const { client } = makeFakeClient({
