@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = go-live USER 게이트 + S7b 뉴스·브리핑. MVP ① 30 리스트·② 포트폴리오 Accept·③ 30 리포트는 모두 완료. Tier0 B++/B+C 검증은 NO-CONFIG-PASSES·D30 no-apply로 launch checklist에서 제거하고 research/CLOSED로 분리. Path-A PRISM식 섹터 레이어는 출시 후 “섹터 추천” UI 비교 메뉴로 전환; 통계 shadow verdict는 deferred/연구.**)
+Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = go-live USER 게이트 + S7b 뉴스·브리핑. MVP ① 30 리스트·② 포트폴리오 Accept·③ 30 리포트는 모두 완료. Tier0 B++/B+C 검증은 NO-CONFIG-PASSES·D30 no-apply로 launch checklist에서 제거하고 research/CLOSED로 분리. Path-A PRISM식 섹터 레이어의 제품 형태는 출시 전 “섹터 추천 비교 메뉴” 빌드로 확정; PR-A5/PR-B5 통계 shadow verdict는 deferred/연구.**)
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify. 완료된 차수의 상세 박제·배선 교차감사 기록은 **git log + PR body + memory**에 위임하고 본 파일엔 남기지 않는다.
 
@@ -18,21 +18,24 @@ Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = 
 4. **D11 운용 검증.** S7b 후 KIS 0개로 어드민 3인이 며칠~1주 운용 검증(의사결정 품질·승인·재생성 cap·알림 정확도). [SoT: §2.2 Step 8]
 5. **S7c 장중·Exit 알림.** KIS read-only 1개 + Telegram/`/admin` 2-layer alert + 대안 3 + T+7 outcome. [SoT: §2.2 Step 9]
 6. **S7d Silent Health.** success_rate/red_alert/heartbeat/override UI 실 연결. [SoT: §2.2 Step 10]
-7. **Pre-launch 품질 lane 정리(출시 hard gate 아님, 실행/비용은 USER 판단).** Tier2 섹터 페르소나→30 리포트 배선은 리포트 품질 상향 후보이고, Toss **D4 freeze는 S7d 후·S9 직전** `/gstack-design-review` QA + polish + 회귀 차단이다. 상세는 바로 아래 섹션.
+7. **Pre-launch 섹터 비교 메뉴 빌드 + 품질 lane 정리(S9/출시 전).** **섹터 추천 비교 메뉴는 출시 전 빌드 deliverable**이다. production AI 리스트 옆에 섹터-방식 리스트와 각 수익률을 함께 보여주고, PR-A1 `computeArmSelections` compute를 재사용한다. hard-gate live 적용은 영구 금지(soft 비교만)이며, 섹터 가설 입력은 수기 또는 별도 AI advisor다. Tier2 리포트 배선·Toss D4는 pre-launch 품질 lane으로 함께 정리한다.
 8. **S9 1개월+ 운용 검증 → 🎉 출시.** 어드민 3인 실 사용 1개월+ + §2.2 7 criteria 통과. 출시 = 자동매매 제외("AI 추천 + 가상 포트 + 알림" 내부 도구). S8 자동매매는 출시 후.
 
-## 🔧 Pre-launch 품질 lane (launch hard gate 아님)
+## 🔧 Pre-launch 섹터 비교 메뉴 + 품질 lane (S9/출시 전)
 
+- **섹터 추천 비교 메뉴 — 출시 전 빌드 deliverable.** production AI 리스트 옆에 섹터-방식 리스트와 각 수익률을 함께 보여주는 비교 메뉴를 만든다. 어드민 3인이 human-in-loop로 눈으로 비교·판단한다. PR-A1 `computeArmSelections` compute를 재사용하고, **hard-gate live 적용은 영구 금지**(soft 비교만). 섹터 가설 입력은 수기 또는 별도 AI advisor. PR-A5/PR-B5의 Bonferroni/beta 등 무거운 통계 verdict는 쓰지 않고 deferred/연구로 둔다.
 - **Tier2 섹터 페르소나 → 30 리포트 배선(PR-T2a/b/c)**: Core-11 리포트만으로 MVP ③은 완료됐지만, 출시 전 리포트 품질 상향 후보. 현상은 code bug가 아니라 **wired-but-dangling**(섹터 보드 callable/DB/RPC는 있으나 live report path 미호출). USER 비용 승인 필요(~420 calls/batch). SoT = `docs/superpowers/specs/2026-06-23-tier2-sector-persona-report-wiring.md`.
-- **Toss-D0~D4 디자인 품질 lane**: D1은 S7b UI 착수 전, D2는 D11 전, D3는 S7b/S7c 기능 PR에 동시 구현, **D4 freeze는 S7d 후·S9 직전 `/gstack-design-review` QA + polish + 회귀 차단**. 출시 순서 자체는 바꾸지 않는다. SoT = `Document/Service/Planning/ServicePlan-Admin.md §1A.1 디자인 방향 · §1A.5 D29`.
+- **Toss-D0~D4 디자인 품질 lane**: D1은 S7b UI 착수 전, D2는 D11 전, D3는 S7b/S7c 기능 PR에 동시 구현, **D4 freeze는 S7d 후·S9 직전 `/gstack-design-review` QA + polish + 회귀 차단**. SoT = `Document/Service/Planning/ServicePlan-Admin.md §1A.1 디자인 방향 · §1A.5 D29`.
 
 <details>
 <summary>Post-launch / 연구 레이어 로그 (launch checklist 밖)</summary>
 
 ### 출시 후 제품 후보
 
-- **섹터 추천 UI 비교 메뉴 — 출시 후 신규 UI(미구현).** PRISM식 섹터 레이어의 제품 형태는 production AI 리스트 옆에 섹터-방식 리스트와 각 수익률을 함께 보여주는 비교 메뉴다. 어드민 3인이 human-in-loop로 눈으로 비교·판단한다. PR-A1 `computeArmSelections` compute를 재사용하고, **hard-gate live 적용은 영구 금지**(soft re-rank/비교만). 섹터 가설 입력은 수기 또는 별도 AI advisor spec. 무거운 PR-A5/PR-B5 통계 verdict는 3인 내부 도구에는 과하고 deferred/연구로 둔다.
 - **S8 자동매매**: 출시 후 어드민 3인이 실운용하며 별도 진입(주식 KIS + Binance USDT-M, guardrail 기본 유지).
+
+### Backlog / research 후보 (launch checklist 밖)
+
 - **무료 애널리스트 컨센서스 → AI 컨텍스트 입력**: 정량 funnel 팩터가 아니라 W1 AI 토론/30 리포트 입력 후보. SoT = `docs/superpowers/2026-06-19-free-analyst-consensus-ai-input.md`.
 
 ### Research / built shadow artifacts (repo SoT 포인터만; 라운드별 서사는 git log·PR body·spec에 위임)
@@ -61,7 +64,7 @@ Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = 
 cd /Users/yong/New_Project_KR_Stock && git fetch origin
 # 2026-06-23: 현재 launch next = go-live USER gates + S7b.
 #    Tier0 B++/B+C 검증은 CLOSED(no-apply); B++ apply/Tier1 재선정 작업을 시작하지 않는다.
-#    Path-A shadow/sector work는 post-launch UI 비교 메뉴 또는 연구 레이어이며 main 미머지 상태를 runtime verify.
+#    Path-A sector UI는 pre-launch 섹터 추천 비교 메뉴 빌드로 이동; PR-A5/PR-B5 통계 verdict는 연구 레이어이며 main 미머지 상태를 runtime verify.
 git checkout tier0-bpp-multiregime 2>/dev/null; git pull origin tier0-bpp-multiregime  # 캠페인 브랜치
 git status --short                  # clean 기대 (scripts/.venv·scripts/out·/out/ gitignored)
 git rev-parse --short HEAD          # tier0-bpp-multiregime `19842c5` 자손 (runtime verify; main 미머지)
@@ -216,8 +219,8 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 |---|---|---|
 | MVP ①②③ 완료 | 30 AI 리스트(73차) + 포트폴리오 Accept(2026-06-12) + 30 풀 리포트(75차) 완료. Launch path는 이제 S7b 이후 운용 단계. | git log/PR #109, #118~#120, P4 harness 기록, 본 문서 §1/§3 |
 | Tier0 B++/B+C 검증 캠페인 | **CLOSED(no-apply)**. B++ step-2, full-factor 4-config×3-regime, tradable-denominator, combination 모두 NO-CONFIG-PASSES/FAIL. Production 150/30 변경 없음. D30 no-apply와 money-path / production effect 0 불변. | `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md`, `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md`, `docs/superpowers/2026-06-18-tier0-combination-campaign.md`, `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` |
-| Path-A PRISM식 섹터 레이어 | Built artifacts are **research/post-launch**, not launch gates. Product direction is post-launch **섹터 추천 UI 비교 메뉴**; PR-A5/PR-B5 statistical verdict runs are deferred. | Parent `docs/superpowers/specs/2026-06-19-pathA-forward-shadow-sector-layer.md`; Track2 `2026-06-20-pathA-track2-generator-shadow.md`; PR-B5 `2026-06-22-pathA-track2-prb5-forward-recall-evaluator.md` §14; PR-A5 `2026-06-23-pathA-track1-pra5-verdict-evaluator.md` §11 |
-| Tier2 섹터 페르소나 → 리포트 배선 | Pre-launch quality lane 후보. Core-11 리포트만으로 MVP③은 완료됐고, Tier2 배선은 품질 상향/비용승인 대상이지 launch hard gate가 아니다. | `docs/superpowers/specs/2026-06-23-tier2-sector-persona-report-wiring.md` |
+| Path-A PRISM식 섹터 레이어 | Product direction is **pre-launch 섹터 추천 비교 메뉴** using PR-A1 compute + simple return comparison; live hard-gate remains forbidden. PR-A5/PR-B5 statistical verdict runs are deferred/research. | Parent `docs/superpowers/specs/2026-06-19-pathA-forward-shadow-sector-layer.md`; Track2 `2026-06-20-pathA-track2-generator-shadow.md`; PR-B5 `2026-06-22-pathA-track2-prb5-forward-recall-evaluator.md` §14; PR-A5 `2026-06-23-pathA-track1-pra5-verdict-evaluator.md` §11 |
+| Tier2 섹터 페르소나 → 리포트 배선 | Pre-launch quality lane 후보. Core-11 리포트만으로 MVP③은 완료됐고, Tier2 배선은 품질 상향/비용승인 대상이다. | `docs/superpowers/specs/2026-06-23-tier2-sector-persona-report-wiring.md` |
 | Toss-D0~D4 디자인 | Pre-launch quality lane. D1/S7b 전, D2/D11 전, D3/S7b·S7c 동시, D4/S7d 후·S9 전 freeze. | `Document/Service/Planning/ServicePlan-Admin.md §1A.1 디자인 방향 · §1A.5 D29` |
 
 Older completed implementation history = `git log --oneline`, PR bodies, and `Document/Build/ProgressDashboard.md` historical entries.
