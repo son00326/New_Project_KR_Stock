@@ -402,7 +402,10 @@ function computeTier1Ranks(
   return out;
 }
 
-function compareForTimeframe(a: TickerAggregate, b: TickerAggregate, tf: Timeframe): number {
+// W2a — production Tier1 per-timeframe ranking comparator (weighted_score desc · badge priority desc ·
+// ticker asc). Track 1 forward-shadow(shadow-harness-arms.ts)가 counterfactual 재정렬에 **동일 객체**로
+// 재사용한다 (additive export — runTier1Screening 동작/시그니처 불변, I-3 유지). 재구현 금지(drift 차단).
+export function compareForTimeframe(a: TickerAggregate, b: TickerAggregate, tf: Timeframe): number {
   if (a.weighted_scores[tf] !== b.weighted_scores[tf]) {
     return b.weighted_scores[tf] - a.weighted_scores[tf];
   }
