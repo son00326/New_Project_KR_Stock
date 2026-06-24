@@ -631,6 +631,23 @@ class SeamDispatchTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self._run_main(argv)
 
+    def test_bpp_apply_without_approval_basis_rejected_in_main(self):
+        # D30 funnel fail-fast: bpp --apply without the USER funnel approval token hard-fails in main()
+        #   BEFORE dispatching to run_bpp_candidates (no production fetch/write).
+        argv = ["screen_shortlist_tier0.py", "--month", "2026-06-01", "--apply",
+                "--csv-backup", "/tmp/x.csv", "--scoring", "bpp", "--emit-candidates"]
+        with self.assertRaises(SystemExit):
+            self._run_main(argv)
+
+    def test_bpp_apply_with_approval_basis_dispatches(self):
+        # Correct token → main() dispatches to run_bpp_candidates (mocked); shadow path untouched.
+        argv = ["screen_shortlist_tier0.py", "--month", "2026-06-01", "--apply",
+                "--csv-backup", "/tmp/x.csv", "--scoring", "bpp", "--emit-candidates",
+                "--apply-approval-basis", "USER_PRODUCTION_FUNNEL_DIAGNOSTIC"]
+        rbc, shadow = self._run_main(argv)
+        rbc.assert_called_once()
+        shadow.assert_not_called()
+
 
 # ============================================================================
 # §11 grep gate: orchestrator must not reference production writers.

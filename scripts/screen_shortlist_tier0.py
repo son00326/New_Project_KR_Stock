@@ -890,11 +890,20 @@ def build_stock_raw_list(
     signals: list[StockSignal],
     price_series: dict[str, dict],
     quality_composites: list[float],
+    *,
+    cfg1_lock: bool = False,
 ) -> list[TF.StockRaw]:
     """StockSignal + price_series → B++ StockRaw 리스트 (§3 입력).
 
     결측 tiering(§3C): earnings basis='not_applicable' → 구조적 결측(NaN, neutral 50).
     quality_insufficient → NaN. foreign 0.0(fail-soft 또는 진짜 0) → NaN(보수적 neutral).
+
+    cfg1_lock (D30 funnel 적용, 2026-06-19 USER 결정): True면 foreign/earnings/quality를 전부
+    구조적 결측(NaN, *_fetch_failed=False)으로 강제한다 → score_bpp_universe에서 uniform neutral-50 →
+    cross-sectional 랭킹이 trend + size sleeve(+ volume confirmation/anti-pump)로만 결정된다.
+    검증 캠페인의 **cfg1(trend+size; foreign/DART OFF)** funnel을 production write에서 결정론적으로
+    재현(pykrx 외국인/DART 키 유무·성공/실패와 무관). B++ 예측 게이트는 NO-CONFIG-PASSES(미통과)이므로
+    이 경로는 상승 예측이 아니라 USER 승인 diagnostic funnel이다.
     """
     out: list[TF.StockRaw] = []
     for s, qc in zip(signals, quality_composites):
@@ -902,15 +911,23 @@ def build_stock_raw_list(
         closes = entry.get("closes", [])
         highs = entry.get("highs", closes)
         trdvals = entry.get("trdvals", [])
-        earnings = math.nan if s.signal_4_basis == "not_applicable" else s.earnings_raw
-        quality = math.nan if s.quality_insufficient else qc
-        # foreign: fetch 실패(예외)면 NaN+flag → score_bpp_universe가 penalty(5)로 처리(§3C).
-        # genuine 값(0.0 포함)은 그대로 전달 → foreign_adv_normalized→signed_log로 자연 rank.
-        foreign = math.nan if s.foreign_fetch_failed else s.foreign_net_raw
+        if cfg1_lock:
+            # cfg1: trend+size only. foreign/earnings/quality 전부 구조적 neutral(uniform 50) → 랭킹 무영향.
+            earnings = math.nan
+            quality = math.nan
+            foreign = math.nan
+            foreign_failed = False
+        else:
+            earnings = math.nan if s.signal_4_basis == "not_applicable" else s.earnings_raw
+            quality = math.nan if s.quality_insufficient else qc
+            # foreign: fetch 실패(예외)면 NaN+flag → score_bpp_universe가 penalty(5)로 처리(§3C).
+            # genuine 값(0.0 포함)은 그대로 전달 → foreign_adv_normalized→signed_log로 자연 rank.
+            foreign = math.nan if s.foreign_fetch_failed else s.foreign_net_raw
+            foreign_failed = s.foreign_fetch_failed
         out.append(TF.StockRaw(
             ticker=s.ticker, sector=s.sector, market_cap=s.market_cap_won,
             closes=closes, trdvals=trdvals, highs=highs,
-            foreign_net_60d=foreign, foreign_fetch_failed=s.foreign_fetch_failed,
+            foreign_net_60d=foreign, foreign_fetch_failed=foreign_failed,
             earnings_raw=earnings, quality_composite_raw=quality,
         ))
     return out
@@ -1041,6 +1058,32 @@ _LEADER_BASKET = {
     "005930", "000660", "267260", "042660", "329180", "012450",
     "010140", "373220", "034020", "086520", "247540",
 }
+
+# B++ funnel 적용(D30, 2026-06-19 USER 결정) — production tier0_candidates_150 write 승인 토큰.
+# 삼중 게이트(recall+IC+size)는 NO-CONFIG-PASSES로 미통과(예측 claim 금지)지만, USER가 73차 기존 funnel의
+# 소형주 편향(대형 주도주 1/11)을 줄이는 diagnostic funnel 업그레이드를 승인 → --apply는 이 토큰으로만 허용.
+BPP_FUNNEL_APPROVAL_BASIS = "USER_PRODUCTION_FUNNEL_DIAGNOSTIC"
+
+
+def _print_bpp_funnel_disclosure(*, apply: bool, approval: Optional[str]) -> None:
+    """B++ funnel = 예측 게이트 미통과(diagnostic) 사실을 출력에 강제(stdout + stderr, 억제 불가).
+
+    task lock-in: 모든 산출/로그에 '예측 게이트 미통과(diagnostic funnel)' 명시 유지. 상승 예측 claim 금지.
+    """
+    mode = "APPLY (production tier0_candidates_150 write)" if apply else "dry-run (no write)"
+    banner = (
+        "\n================================================================\n"
+        "⚠️  B++ DIAGNOSTIC FUNNEL — 예측 게이트 미통과 (NO-CONFIG-PASSES)\n"
+        f"   mode={mode} · approval_basis={approval or '(none)'}\n"
+        "   cfg1(trend+size; foreign/DART OFF) 고정. 산출물 표현은\n"
+        "   'robust, factor-informed, leader-inclusive candidate shortlist(diagnostic)'\n"
+        "   까지만 — '향후 상승 예측' claim 아님.\n"
+        "   (full-factor 4-config×3-regime + tradable-denominator + combination 캠페인 전부\n"
+        "    FAIL → 무료 데이터 예측 스킬 부재. USER 운영 funnel 승인 근거로만 production 적용.)\n"
+        "================================================================"
+    )
+    print(banner)
+    print(banner, file=sys.stderr)
 
 
 # ============================================================================
@@ -1328,33 +1371,38 @@ def run_bpp_candidates(
     universe: list[dict],
     dart_available: bool,
 ) -> None:
-    """B++ size-sleeve 후보 150 산출 + Gate C smoke (§3·§4). dry-run/CSV 전용.
+    """B++ cfg1 size-sleeve 후보 150 산출 + Gate C smoke (§3·§4) + (USER 승인 시) production write.
 
-    --apply는 삼중 게이트(recall+IC+size) ALL PASS 전까지 차단(§5 step 5). 미검증 스코어링으로
-    production tier0_candidates_150을 덮어쓰지 않는다.
+    cfg1(trend+size; foreign/DART OFF) 고정 — 검증 캠페인 cfg1 funnel을 결정론 재현. dry-run/apply
+    모두 동일 cfg1 산출(미리보기 == 적용). --apply는 삼중 게이트(recall+IC+size) 통과가 아니라(그것은
+    NO-CONFIG-PASSES로 미통과) USER 운영 funnel 승인 토큰(--apply-approval-basis
+    USER_PRODUCTION_FUNNEL_DIAGNOSTIC)으로만 허용된다(§5 step 5 / 2026-06-19 UPDATE). 예측 게이트
+    미통과 사실은 출력에 강제(상승 예측 claim 금지).
     """
     if not args.emit_candidates:
         sys.exit("--scoring bpp 는 현재 --emit-candidates(tier0_candidates_150) 전용입니다.")
-    if args.apply:
+
+    approval = getattr(args, "apply_approval_basis", None)
+    if args.apply and approval != BPP_FUNNEL_APPROVAL_BASIS:
         sys.exit(
-            "[ABORT] --scoring bpp + --apply 금지 (§5 step 5): B++ 삼중 게이트(recall+IC+size) "
-            "ALL PASS + omxy 적대검토 전까지 production tier0_candidates_150 덮어쓰기 금지. "
-            "Gate C smoke는 --dry-run 으로 실행하세요."
+            "[ABORT] --scoring bpp + --apply 는 USER 운영 funnel 승인 토큰 필요: "
+            f"`--apply-approval-basis {BPP_FUNNEL_APPROVAL_BASIS}` 를 명시하세요. "
+            "(B++ 예측 게이트는 NO-CONFIG-PASSES/미통과 — 이 토큰은 상승 예측 claim이 아니라 "
+            "USER 승인 diagnostic funnel 업그레이드를 의미. §5 step 5 / 2026-06-19 UPDATE.)"
         )
 
-    # quality composite (legacy와 동일 cross-section z; insufficient는 build_stock_raw_list에서 NaN).
-    if dart_available:
-        try:
-            from scripts.dart_signals import compute_quality_composite_for_universe
-        except ModuleNotFoundError:
-            from dart_signals import compute_quality_composite_for_universe
-        quality_composites = compute_quality_composite_for_universe([s.quality_metrics for s in signals])
-    else:
-        quality_composites = [math.nan] * len(signals)
+    # 강제 disclosure (예측 미통과 사실을 출력에 강제 — 억제 불가, dry-run/apply 공통).
+    _print_bpp_funnel_disclosure(apply=args.apply, approval=approval)
 
-    stocks = build_stock_raw_list(signals, price_series, quality_composites)
-    print(f"[4/7] B++ size-sleeve 선정 (유동성 플로어 ≥ ₩{int(TF.MIN_ADV_WON):,} + L20/M20/S10/bucket) ...",
-          file=sys.stderr, flush=True)
+    # cfg1 lock: trend+size only. DART/foreign 데이터는 fetch됐더라도 build_stock_raw_list(cfg1_lock=True)가
+    # 전부 neutral 처리 → pykrx/DART 키 유무·성공/실패와 무관하게 결정론적 cfg1 산출.
+    if dart_available:
+        print("[info] cfg1 lock: DART_API_KEY 감지됐으나 earnings/quality는 cfg1으로 neutral 처리됩니다 "
+              "(funnel = trend+size only).", file=sys.stderr)
+    quality_composites = [math.nan] * len(signals)
+    stocks = build_stock_raw_list(signals, price_series, quality_composites, cfg1_lock=True)
+    print(f"[4/7] B++ cfg1 size-sleeve 선정 (유동성 플로어 ≥ ₩{int(TF.MIN_ADV_WON):,} + L20/M20/S10/bucket, "
+          f"foreign/DART OFF) ...", file=sys.stderr, flush=True)
     try:
         selections = select_bpp_candidates(stocks)
     except TF.SleeveShortfallError as exc:
@@ -1367,10 +1415,7 @@ def run_bpp_candidates(
     print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
     write_candidates_csv(args.csv_backup, rows)
 
-    # B89 sector review (informational only for bpp dry-run smoke).
-    # bpp는 --apply가 이미 hard-block(§5)이므로 B89는 strict-exit 대신 unresolved 목록만 보고한다 —
-    # Gate C smoke(size 분포)는 sector 해소와 무관하므로 B89에 막혀선 안 된다. unresolved selected는
-    # 후속 --apply(삼중 게이트 통과 후) 전에 sector_override.json에 추가해야 한다.
+    # B89 sector review CSV (review trace 항상 출력). strict enforcement는 --apply에서만(아래).
     review_csv_path = args.sector_review_csv or args.csv_backup.replace(".csv", "_sector_review.csv")
     if review_csv_path == args.csv_backup:
         review_csv_path = args.csv_backup + ".sector_review.csv"
@@ -1388,8 +1433,8 @@ def run_bpp_candidates(
     ]
     unresolved_count = write_sector_review_csv(selected_universe_view, review_csv_path)
     if unresolved_count > 0:
-        print(f"      [B89 info] unresolved selected={unresolved_count} → review CSV {review_csv_path}. "
-              f"삼중 게이트 통과 후 --apply 전에 sector_override.json 추가 필요(smoke는 계속 진행).",
+        print(f"      [B89] unresolved selected={unresolved_count} → review CSV {review_csv_path}. "
+              f"--apply 전에 sector_override.json 추가 필요(dry-run smoke는 계속 진행).",
               file=sys.stderr, flush=True)
 
     # §3C 상관 진단 (매 run 로그) — trend-momentum >0.8 이면 단일 factor 통합 권고.
@@ -1401,7 +1446,7 @@ def run_bpp_candidates(
         flat = " ".join(f"{a}~{b}={v:.2f}" for (a, b), v in corr.items() if not math.isnan(v))
         print(f"  [{bucket}] {flat}" + (f"  ⚠️>0.8: {hot}" if hot else ""))
 
-    # Gate C smoke (§4) — 결정론 진입조건.
+    # Gate C smoke (§4) — 결정론 진입조건 (dry-run/apply 공통, 반드시 통과).
     gc = gate_c_smoke(selections)
     print("\n=== Gate C smoke (§4, 결정론 진입조건 — 백테스트 불요) ===")
     verdict = "✅ PASS" if gc["gate_c_pass"] else f"❌ FAIL ({', '.join(gc['gate_c_fails'])})"
@@ -1413,8 +1458,25 @@ def run_bpp_candidates(
     print(f"  11-leader tripwire 진입(합격기준 아님): {len(gc['leader_hits'])}/11 {gc['leader_hits']}")
     if not gc["gate_c_pass"]:
         sys.exit(f"[ABORT] Gate C smoke FAIL (§4): {', '.join(gc['gate_c_fails'])}. CSV={args.csv_backup}")
-    print(f"[done] B++ dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · CSV={args.csv_backup}",
-          file=sys.stderr)
+
+    if args.apply:
+        # B89 strict (apply만) — unresolved sector가 AI pipeline(Tier1Candidate.sector)에 leak되어
+        # short_list_30 canonical-14 불변식을 깨는 것을 production write 전에 차단(legacy 경로 정합).
+        enforce_b89_strict_block(unresolved_count, apply=True, review_csv_path=review_csv_path)
+        supabase = get_supabase_client()
+        print(f"[7/7] replace month rows → tier0_candidates_150 ({len(rows)} rows, cfg1 diagnostic funnel, "
+              f"on_conflict=month,ticker)", file=sys.stderr, flush=True)
+        upsert_candidates_supabase(supabase, rows)
+        _print_bpp_funnel_disclosure(apply=True, approval=approval)
+        print(f"[done] APPLIED B++ cfg1 diagnostic funnel → tier0_candidates_150 · month={args.month} · "
+              f"rows={len(rows)} · leaders {len(gc['leader_hits'])}/11 {gc['leader_hits']} · "
+              f"⚠️ 예측 게이트 미통과(diagnostic funnel — 상승 예측 claim 아님) · CSV={args.csv_backup}",
+              file=sys.stderr)
+    else:
+        print(f"[done] B++ cfg1 dry-run (emit-candidates) · month={args.month} · rows={len(rows)} · "
+              f"leaders {len(gc['leader_hits'])}/11 {gc['leader_hits']} · "
+              f"⚠️ 예측 게이트 미통과(diagnostic funnel) · CSV={args.csv_backup}",
+              file=sys.stderr)
     print("\n--- preview (bucket별 top 3 후보) ---")
     for bucket in BUCKETS:
         picks = [r for r in rows if r.bucket == bucket][:3]
@@ -1627,6 +1689,14 @@ def main() -> None:
              "bpp는 --emit-candidates 전용 + Gate C smoke 출력 + 삼중 게이트 통과 전 --apply 차단.",
     )
     parser.add_argument(
+        "--apply-approval-basis",
+        default=None,
+        help="(D30 B++ funnel 적용, 2026-06-19 USER 결정) --scoring bpp + --apply 를 허용하는 USER 운영 "
+             f"funnel 승인 토큰. 값은 정확히 '{BPP_FUNNEL_APPROVAL_BASIS}' 이어야 함. B++ 예측 게이트는 "
+             "NO-CONFIG-PASSES(미통과)이며, 이 토큰은 상승 예측 claim이 아니라 73차 소형주 편향 funnel을 "
+             "cfg1(trend+size) diagnostic funnel로 교체하는 USER 승인을 의미한다. 미지정 시 bpp --apply 차단.",
+    )
+    parser.add_argument(
         "--shadow-sector",
         action="store_true",
         help="(Track 2 generator-shadow, PR-B3) sector-aware shadow 150을 tier0_candidates_150_shadow에 "
@@ -1643,6 +1713,20 @@ def main() -> None:
     if getattr(args, "shadow_sector", False) and args.scoring != "bpp":
         parser.error("--shadow-sector 는 --scoring bpp 전용입니다 (Track 2 generator-shadow). "
                      "legacy 경로로 production을 덮어쓰지 않도록 fail-closed.")
+
+    # D30 B++ funnel fail-fast (UX): bpp --apply without the USER funnel approval token aborts BEFORE the
+    #   multi-minute universe/price fetch. run_bpp_candidates re-checks for correctness/test isolation.
+    if (
+        args.scoring == "bpp"
+        and args.apply
+        and getattr(args, "apply_approval_basis", None) != BPP_FUNNEL_APPROVAL_BASIS
+    ):
+        parser.error(
+            f"--scoring bpp + --apply 는 `--apply-approval-basis {BPP_FUNNEL_APPROVAL_BASIS}` 필요 "
+            "(B++ 예측 게이트 NO-CONFIG-PASSES/미통과 — USER 승인 diagnostic funnel만 허용)."
+        )
+    if getattr(args, "apply_approval_basis", None) is not None and args.scoring != "bpp":
+        parser.error("--apply-approval-basis 는 --scoring bpp 전용입니다.")
 
     target_date = resolve_target_date(date.today(), args.as_of)
     if args.month > target_date:

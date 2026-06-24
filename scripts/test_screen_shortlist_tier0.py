@@ -904,6 +904,151 @@ class BppIntegrationTest(unittest.TestCase):
         self.assertEqual(raws[2].foreign_net_60d, 0.0)
         self.assertFalse(raws[2].foreign_fetch_failed)
 
+    def test_build_stock_raw_list_cfg1_lock_neutralizes_foreign_dart(self):
+        # D30 funnel: cfg1_lock=True 면 present-data 시그널이어도 foreign/earnings/quality 전부 neutral.
+        sigs = [
+            MODULE.StockSignal(ticker="A", name="A", sector="제조", market_cap_won=1e12,
+                               foreign_net_raw=9e9, earnings_raw=0.3, signal_4_basis="standalone",
+                               quality_insufficient=False, foreign_fetch_failed=False),
+        ]
+        price_series = {"A": {"closes": [100.0] * 5, "highs": [100.0] * 5, "trdvals": [5e9] * 5}}
+        raws = MODULE.build_stock_raw_list(sigs, price_series, [80.0], cfg1_lock=True)
+        self.assertTrue(math.isnan(raws[0].earnings_raw))
+        self.assertTrue(math.isnan(raws[0].quality_composite_raw))
+        self.assertTrue(math.isnan(raws[0].foreign_net_60d))
+        # structural neutral (NOT penalty): foreign_fetch_failed=False → fill_missing_rank → neutral 50.
+        self.assertFalse(raws[0].foreign_fetch_failed)
+
+
+class BppFunnelApplyTest(unittest.TestCase):
+    """D30 B++ funnel 적용(2026-06-19 USER 결정): --scoring bpp + --apply 가드 완화 + 강제 disclosure +
+    cfg1 + B89 strict + production write. 삼중 게이트 미통과(예측 claim 금지)지만 USER 승인 토큰으로 apply 허용."""
+
+    def _gate_c_pass_selection(self, sector="제조"):
+        """20 large + 20 mid + 10 small per bucket = 60/60/30 Gate-C-PASS, cross-bucket disjoint."""
+        sel = {}
+        for bucket in MODULE.BUCKETS:
+            picks = []
+            n = 0
+            for sleeve, count in (("large", 20), ("mid", 20), ("small", 10)):
+                for i in range(count):
+                    picks.append(MODULE.TF.ScoredStock(
+                        ticker=f"{bucket[0]}{sleeve[0]}{i:03d}",  # unique across bucket+sleeve
+                        sector=sector,
+                        market_cap=1e12 + n,
+                        sleeve=sleeve,
+                        score=100.0 - n,
+                        adv60=5e9,
+                        factor_ranks={"trend": 80.0},
+                    ))
+                    n += 1
+            sel[bucket] = picks
+        return sel
+
+    def _args(self, td, *, apply, approval_basis):
+        return SimpleNamespace(
+            emit_candidates=True,
+            apply=apply,
+            apply_approval_basis=approval_basis,
+            csv_backup=str(Path(td) / "bpp.csv"),
+            sector_review_csv=None,
+            month=MODULE.date(2026, 6, 1),
+        )
+
+    def _universe_for(self, selections):
+        return [
+            {"ticker": sc.ticker, "name": sc.ticker, "market": "KOSPI"}
+            for picks in selections.values() for sc in picks
+        ]
+
+    def test_apply_blocked_without_approval_basis(self):
+        sel = self._gate_c_pass_selection()
+        uni = self._universe_for(sel)
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=True, approval_basis=None)
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel), \
+                 patch.object(MODULE, "upsert_candidates_supabase") as up, \
+                 patch.object(MODULE, "get_supabase_client") as gc:
+                with self.assertRaises(SystemExit) as cm:
+                    MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+            self.assertNotEqual(cm.exception.code, 0)
+            up.assert_not_called()
+            gc.assert_not_called()
+
+    def test_apply_blocked_with_wrong_approval_basis(self):
+        sel = self._gate_c_pass_selection()
+        uni = self._universe_for(sel)
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=True, approval_basis="WRONG_TOKEN")
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel), \
+                 patch.object(MODULE, "upsert_candidates_supabase") as up, \
+                 patch.object(MODULE, "get_supabase_client") as gc:
+                with self.assertRaises(SystemExit):
+                    MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+            up.assert_not_called()
+            gc.assert_not_called()
+
+    def test_apply_writes_with_correct_approval_basis(self):
+        sel = self._gate_c_pass_selection(sector="제조")
+        uni = self._universe_for(sel)
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=True, approval_basis=MODULE.BPP_FUNNEL_APPROVAL_BASIS)
+            sentinel = object()
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel), \
+                 patch.object(MODULE, "get_supabase_client", return_value=sentinel) as gc, \
+                 patch.object(MODULE, "upsert_candidates_supabase") as up:
+                MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+            gc.assert_called_once()
+            up.assert_called_once()
+            call_args = up.call_args[0]
+            self.assertIs(call_args[0], sentinel)
+            self.assertEqual(len(call_args[1]), 150)  # 150 rows written
+
+    def test_apply_b89_blocks_unresolved_sector(self):
+        # 한 종목이 unresolved sector → B89 strict block (apply) → SystemExit, write 없음.
+        sel = self._gate_c_pass_selection(sector="제조")
+        sel["short"][0].sector = MODULE.UNRESOLVED
+        uni = self._universe_for(sel)
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=True, approval_basis=MODULE.BPP_FUNNEL_APPROVAL_BASIS)
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel), \
+                 patch.object(MODULE, "get_supabase_client") as gc, \
+                 patch.object(MODULE, "upsert_candidates_supabase") as up:
+                with self.assertRaises(SystemExit) as cm:
+                    MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+            self.assertNotEqual(cm.exception.code, 0)
+            up.assert_not_called()
+            gc.assert_not_called()
+
+    def test_dry_run_does_not_write_and_no_approval_needed(self):
+        sel = self._gate_c_pass_selection()
+        uni = self._universe_for(sel)
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=False, approval_basis=None)
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel), \
+                 patch.object(MODULE, "upsert_candidates_supabase") as up, \
+                 patch.object(MODULE, "get_supabase_client") as gc:
+                MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+            up.assert_not_called()
+            gc.assert_not_called()
+
+    def test_disclosure_forced_in_output(self):
+        # 예측 미통과(diagnostic funnel) 사실이 출력에 강제되는지 (dry-run에서도).
+        import io
+        from contextlib import redirect_stdout
+        sel = self._gate_c_pass_selection()
+        uni = self._universe_for(sel)
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=False, approval_basis=None)
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel):
+                with redirect_stdout(buf):
+                    MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+        out = buf.getvalue()
+        self.assertIn("예측 게이트 미통과", out)
+        self.assertIn("DIAGNOSTIC FUNNEL", out)
+        self.assertIn("claim 아님", out)
+
 
 class KrxPrefetchRetryTest(unittest.TestCase):
     """B++ 450d prefetch throttle 내성: _fetch_bydd_with_retry는 일시 RuntimeError를 backoff
