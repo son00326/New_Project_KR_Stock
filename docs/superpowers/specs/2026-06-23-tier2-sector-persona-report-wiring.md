@@ -1,6 +1,6 @@
 # Tier 2 Sector Board — 30 리포트 작성 배선 (출시 전 deferred work 박제)
 
-- **상태**: 🟡 deferred work 스코핑 문서 (구현 PR 아님) — 출시 전 "안 잊기" 박제용.
+- **상태**: ✅ **PR-T2a 구현 완료 (2026-06-24, Claude↔omxy CONVERGED)** — §4 PR-T2a(섹터 보드 → live 리포트 cron seam) 빌드: 마이그 0040 `commit_sector_personas_cron`(0019의 service-role 변형, written-not-applied=USER apply 게이트) + writer `commitSectorReportCron`(composeSectorReportPayload DRY) + `runSectorEval` service-role DI(model-aware preflight, PR-T2b 흡수) + `sector-board-step.ts` commitSectorBoardStep + orchestrator `SECTOR_BOARD_ENABLED` seam(**section8 commit에 게이트** — omxy R1 HIGH fix). dormant default·production 무변경. test:ci 2064 pass·build·lint·tsc GREEN. 잔여 = **PR-T2c(Section 8 섹터 보드 FE 렌더)** + 새 30 리포트 생성(USER 마이그 0040 apply + flags + 비용). dangling triggerMonthlyPersonaEvalAction 삭제(D-1)는 후속. live SoT = `Document/Process/HANDOFF.md §9 #4`. (이하 원 스코핑 문서.)
 - **작성**: 2026-06-23. **검증**: Claude 코드 정독 + omxy 교차검증 (cross-runtime adversarial).
 - **SoT 연계**: parent `ServicePlan-Admin.md §1A.5 D21/D22` (Tier 2 14×14 overlay + Kevin v3.1 quality target) · `ReportFramework.md §7.2/§7.3` · `tudal/src/lib/screening/canonical-sectors.ts`.
 - **경계**: 본 문서는 **scoping/plan만**. 코드·마이그·플래그·실 LLM 비용 변경 없음.
