@@ -1,6 +1,6 @@
 # HANDOFF — 주픽 (JooPick)
 
-Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = go-live USER 게이트 + S7b 뉴스·브리핑. MVP ① 30 리스트·② 포트폴리오 Accept·③ 30 리포트는 모두 완료. Tier0 B++/B+C 검증은 NO-CONFIG-PASSES·D30 no-apply로 launch checklist에서 제거하고 research/CLOSED로 분리. Path-A PRISM식 섹터 레이어의 제품 형태는 출시 전 “섹터 추천 비교 메뉴” 빌드로 확정; Tier2 리포트 배선·Toss D4도 S9 전 pre-launch lane으로 보존; PR-A5/PR-B5 통계 shadow verdict는 deferred/연구.**)
+Last updated: 2026-06-24 (**사실 정정 — B++ 예측 검증과 B++ funnel 적용을 분리. 다음 1순위 = B++ diagnostic funnel 적용(G1 `--apply` 150 write→STOP → G2 Tier1 재선정 USER 비용승인 ~₩25k) 후 go-live USER 게이트 + S7b. 예측 검증 캠페인은 NO-CONFIG-PASSES로 research/CLOSED·상승 예측 claim 금지이나, USER 결정으로 B++은 production Tier0 150-scorer funnel 업그레이드로 출시 전 적용. 섹터 비교 메뉴·Tier2 배선·Toss D4도 S9 전 pre-launch lane 유지.**)
 
 > **이 파일 하나로 다음 세션이 진입 가능하도록 작성됨.** SHA·라운드 수·commit 체인은 self-drift 위험이 크므로 freeze 금지 — `git rev-parse --short origin/main` + `git log` + PR body로 runtime verify. 완료된 차수의 상세 박제·배선 교차감사 기록은 **git log + PR body + memory**에 위임하고 본 파일엔 남기지 않는다.
 
@@ -12,17 +12,21 @@ Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = 
 
 1. ✅ **Accept go-live — DONE (2026-06-12 10:11 KST, MVP ② 완료).** `portfolio_approval` 2026-06-01 = accept·is_final=true + `portfolio_snapshot` 14행(종목 12 + 현금 7% + aggregate, 실 entry_price). 멤버 공개(Deferred-D) 재개 시에만 `PORTFOLIO_ACCEPT_GATE_STRICT=true` strict 복원.
 2. ✅ **B-SEL-CRON fix — DONE (PR #118 MERGED).** period-scoped due-gate + `SELECTION_CRON_SELF_CONTINUE` opt-out 기본 ON + orphan/stall/track alert + cost-month + finalize stale-guard. 남은 것은 USER monthly automation gate(§3)로 통합.
-3. ★ **다음 1순위 — go-live USER 게이트 + S7b 뉴스·브리핑.**
+3. ★ **다음 1순위 — B++ diagnostic funnel 적용(G1→G2, go-live 전).**
+   - **WHY**: 현 production 30은 73차 기존 funnel 산출물이라 저가·고변동 소형주 편향이 남아 있고, 대형 주도주 11개 중 1개(SK하이닉스)만 포함됐다. B++(cfg1 trend+size, foreign/DART OFF)는 size sleeve로 대형 리더 약 7/11을 잡아 **150→30 funnel 품질을 개선**한다.
+   - **G1**: `--scoring bpp --apply`로 production Tier0 150 candidate write → **STOP**. rollback 백업을 남기고, §5 step5 가드는 `approval_basis=USER_PRODUCTION_FUNNEL_DIAGNOSTIC`로 완화한다.
+   - **G2**: USER 비용 승인 후 Tier1 재선정(~₩25k)으로 새 30 생성 → 어드민이 눈으로 확인. **캐비엇**: B++ 예측 검증은 NO-CONFIG-PASSES로 닫혔으므로 상승 예측 claim이 아니라 USER-approved diagnostic funnel 업그레이드이며, 출력에 예측 미통과 사실을 명시한다. [SoT: `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` 2026-06-19 UPDATE · §5 step5]
+4. **go-live USER 게이트 + S7b 뉴스·브리핑.**
    - **USER**: 매달 자동화 승인/flag(`SELECTION_CRON_AUTO_ENABLED=true`, Vercel env에서 `SELECTION_CRON_SELF_CONTINUE` 삭제), 주간 tier0 producer 외부 스케줄, 운영 비용 승인, S7b용 B-8 Naver + B-9 Telegram + AI 키 확인. PR5 report cron은 별도 flag(`PR5_CRON_AUTO_ENABLED`)로 §3에서 함께 관리.
    - **CLAUDE**: **S7b** 뉴스 자동제외(M12a) + 모닝 브리핑(M11) 착수. 기본은 shadow/alert-only(`M12A_AUTO_REMOVE_ENABLED=false`)이며, 이메일/Resend 전역 미사용. [SoT: `Document/Service/Planning/ServicePlan-Admin.md §3.10 M12a`, 본문 §2.2 Step 7]
-4. **D11 운용 검증.** S7b 후 KIS 0개로 어드민 3인이 며칠~1주 운용 검증(의사결정 품질·승인·재생성 cap·알림 정확도). [SoT: §2.2 Step 8]
-5. **S7c 장중·Exit 알림.** KIS read-only 1개 + Telegram/`/admin` 2-layer alert + 대안 3 + T+7 outcome. [SoT: §2.2 Step 9]
-6. **S7d Silent Health.** success_rate/red_alert/heartbeat/override UI 실 연결. [SoT: §2.2 Step 10]
-7. **Pre-launch 섹터 비교 메뉴 + Tier2 리포트 배선 + 디자인 freeze(S9/출시 전).**
+5. **D11 운용 검증.** S7b 후 KIS 0개로 어드민 3인이 며칠~1주 운용 검증(의사결정 품질·승인·재생성 cap·알림 정확도). [SoT: §2.2 Step 8]
+6. **S7c 장중·Exit 알림.** KIS read-only 1개 + Telegram/`/admin` 2-layer alert + 대안 3 + T+7 outcome. [SoT: §2.2 Step 9]
+7. **S7d Silent Health.** success_rate/red_alert/heartbeat/override UI 실 연결. [SoT: §2.2 Step 10]
+8. **Pre-launch 섹터 비교 메뉴 + Tier2 리포트 배선 + 디자인 freeze(S9/출시 전).**
    - **섹터 추천 비교 메뉴**: 출시 전 빌드 deliverable. production AI 리스트 옆에 섹터-방식 리스트와 각 수익률을 함께 보여주고, PR-A1 `computeArmSelections` compute를 재사용한다. hard-gate live 적용은 영구 금지(soft 비교만)이며, 섹터 가설 입력은 수기 또는 별도 AI advisor다.
    - **Tier2 섹터 페르소나 → 30 리포트 배선**: wired-but-dangling 상태를 출시 전 live report path로 복원한다(PR-T2a/b/c). 상세와 비용 게이트는 바로 아래 `🔧 Pre-launch` 섹션.
    - **Toss-D0~D4 디자인 lane**: D0 now/spec-only → D1 S7b UI 전 → D2 D11 전 → D3 S7b/S7c 동시 → D4 S7d 후·S9 직전 freeze(`/gstack-design-review`).
-8. **S9 1개월+ 운용 검증 → 🎉 출시.** 어드민 3인 실 사용 1개월+ + §2.2 7 criteria 통과. 출시 = 자동매매 제외("AI 추천 + 가상 포트 + 알림" 내부 도구). S8 자동매매는 출시 후.
+9. **S9 1개월+ 운용 검증 → 🎉 출시.** 어드민 3인 실 사용 1개월+ + §2.2 7 criteria 통과. 출시 = 자동매매 제외("AI 추천 + 가상 포트 + 알림" 내부 도구). S8 자동매매는 출시 후.
 
 ## 🔧 Pre-launch 섹터 비교 메뉴 + Tier2 리포트 배선 + 디자인 품질 lane (S9/출시 전)
 
@@ -43,7 +47,7 @@ Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = 
 
 ### Research / built shadow artifacts (repo SoT 포인터만; 라운드별 서사는 git log·PR body·spec에 위임)
 
-- **Tier0 B++/B+C 검증 — CLOSED(no-apply).** B++ step-2, full-factor 4-config×3-regime, tradable-denominator, combination 캠페인 모두 실행·수렴했지만 **NO-CONFIG-PASSES / D30 no-apply 재확정 / 추가 launch 작업 없음**. Production `short_list_30`/`tier0_candidates_150`은 73차 선정 기준으로 유지. SoT = `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md`, `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md`, `docs/superpowers/2026-06-18-tier0-combination-campaign.md`.
+- **Tier0 B++/B+C 예측 검증 — research/CLOSED.** B++ step-2, full-factor 4-config×3-regime, tradable-denominator, combination 캠페인은 모두 **NO-CONFIG-PASSES/FAIL**로 수렴해 예측 스킬 미검증·상승 예측 claim 금지. 단 **B++ funnel 적용은 닫히지 않았고 §9 launch-critical step**이다(USER-approved diagnostic funnel). Production `short_list_30`/`tier0_candidates_150`은 아직 73차 선정 기준으로 유지되며, G1/G2 후 교체된다. SoT = `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` 2026-06-19 UPDATE, `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md`, `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md`, `docs/superpowers/2026-06-18-tier0-combination-campaign.md`.
 - **Track1 PR-A1** — in-pool 30-reranking pure `computeArmSelections` ✅ feat `2e5c98c`; SoT = `docs/superpowers/specs/2026-06-19-pathA-forward-shadow-sector-layer.md`.
 - **Track1 PR-A2** — worker DI seam + shadow-arm-logger default OFF ✅ feat `643a8ce`; SoT = parent Path-A spec.
 - **Track1 PR-A3** — migration 0038 `shadow_arm_log` + upsert RPC + smoke ✅ feat `5dca94b`; USER apply-only; SoT = parent Path-A spec.
@@ -65,8 +69,8 @@ Last updated: 2026-06-23 (**출시 경로 재정렬 완료 — 다음 1순위 = 
 
 ```bash
 cd /Users/yong/New_Project_KR_Stock && git fetch origin
-# 2026-06-23: 현재 launch next = go-live USER gates + S7b.
-#    Tier0 B++/B+C 검증은 CLOSED(no-apply); B++ apply/Tier1 재선정 작업을 시작하지 않는다.
+# 2026-06-24: 현재 launch next = B++ diagnostic funnel 적용(G1 --apply 150 write→STOP → G2 Tier1 재선정 USER 비용승인 ~₩25k) 후 go-live USER gates + S7b.
+#    B++ 예측 검증 캠페인은 NO-CONFIG-PASSES/research-CLOSED이나, USER_PRODUCTION_FUNNEL_DIAGNOSTIC 근거로 funnel 적용은 launch-critical이다.
 #    Path-A sector UI는 pre-launch 섹터 추천 비교 메뉴 빌드로 이동; PR-A5/PR-B5 통계 verdict는 연구 레이어이며 main 미머지 상태를 runtime verify.
 git checkout tier0-bpp-multiregime 2>/dev/null; git pull origin tier0-bpp-multiregime  # 캠페인 브랜치
 git status --short                  # clean 기대 (scripts/.venv·scripts/out·/out/ gitignored)
@@ -89,12 +93,12 @@ select count(*) from stock_reports where month='2026-06-01'
 select count(*) from committee_votes;  -- 기대 330 (30 reports × 11)
 select month::text, count(*), count(consensus_badge) from short_list_30 group by month order by month;
   -- 기대 2026-05-01=30/0(Tier0 incumbents 보존) + 2026-06-01=30/30(AI 선정)
-select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06, 73차 선정 유지; B++/B+C 검증은 no-apply)
+select count(*) from tier0_candidates_150;  -- 기대 150 (2026-06, 아직 73차 선정 유지; B++ funnel G1 적용 후 교체 예정)
 select count(*) from portfolio_proposal where month='2026-06-01';  -- 기대 1 (10종목/현금15%, regen 2026-06-11)
 select count(*) from portfolio_approval where month='2026-06-01';  -- 기대 1 (accept·is_final=true, 2026-06-12 10:11 KST Accept DONE)
 select count(*) from portfolio_snapshot where month='2026-06-01';  -- 기대 14 (종목 12 + 현금 1 + aggregate 1, 실 entry_price)
 ```
-> 77차 재시드: `dart_financial_cache` quarterly 무효화 후 재populate(annual 보존). `short_list_30`/`tier0_candidates_150` 2026-06은 **여전히 73차 선정**이다. B++/B+C 검증은 CLOSED(no-apply)이므로 이 경로로 production 재screen·Tier1 재선정을 시작하지 않는다.
+> 77차 재시드: `dart_financial_cache` quarterly 무효화 후 재populate(annual 보존). `short_list_30`/`tier0_candidates_150` 2026-06은 **아직 73차 선정**이다. B++/B+C 예측 검증은 NO-CONFIG-PASSES로 닫혔지만, 2026-06-19 USER 결정에 따라 B++ diagnostic funnel 적용(G1/G2)이 다음 launch step이다.
 P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01 004150 1행(section_0/7, section_8 null).
 
 ### 진입자 자동 행동 (default-progress)
@@ -114,8 +118,8 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | 검증 게이트 | build OK / lint 0 err 0 warn / **test:ci 1989 PASS + 4 skipped**(77차 Accept-gate +shortlist-gate 12 + breadth/dormant) / tsc clean / DART pytest 18. |
 | **MVP 엔진** | **W0~W3b 전부 ✅ MERGED**(모델/프로바이더 추상화 + 주간/월간 split + incumbent thesis + 반박 토론 loop + judge/dual-judge + entry_price + AI 자율 포트 proposal→Accept→cash row). canonical 5-PR + B65/B66 ✅. 상세 = git log + PR body. |
 | **실 AI 검증** | P1(2026-05 4행 ₩334.71) + 73차 풀 P3 selection(2026-06 2611행 ₩24,655.64) + 74차 P2b live(42행 ₩1,695.83) + **75차 P4 30 리포트 완주(378행 ₩14,962.66 ≈ ₩554/ticker)** + **76차 W3 portfolio proposal 1콜(₩27.80)** + **77차 proposal regen 1콜(₩26.91, 2026-06-11T02:36Z → proposal=10종목/현금15%)**. 2026-06 월 누계 **3033행 ₩41,368.84**(hardcap 50만 내). 다음 실 AI 비용 이벤트 = shortlist 재시드+재선정(~₩25k, USER) 또는 후속 regen; Accept 자체는 AI 호출 없음. |
-| **선정 흐름 (production)** | `short_list_30` 2026-06-01 = **30 AI 배지/ai_score**(🟣20/🟢7/🟡2/🔵1, 10/10/10) · 2026-05-01 = 30 Tier0 incumbents. **production 리스트는 73차 선정(2026-06-09) 유지** — 76차 DART fix + 77차 재시드 dry-run + B++/B+C 검증은 production 미반영. 메인 path = short 주간 + mid·long 월간 rolling. **다음 launch 작업은 B++ 재선정이 아니라 go-live USER 게이트 + S7b**. |
-| **스코어링 방법론** | **캠페인 완결(2026-06-19, 전부 Claude↔omxy CONVERGED)**: frozen 4-config×3-regime NO-CONFIG-PASSES + tradable-winner-denominator ALL-12-FAIL + combination 캠페인 전부 FAIL·미개선. **결론 = 무료 데이터 정량 영역에서 게이트 통과 예측 스킬 부재, D30 no-apply/CLOSED.** Production 150-scorer/Tier1 재선정 작업은 launch checklist에서 제거. SoT = spec §6 + `2026-06-18-tier0-tradable-winner-denominator.md §8` + `2026-06-18-tier0-combination-campaign.md §7`. |
+| **선정 흐름 (production)** | `short_list_30` 2026-06-01 = **30 AI 배지/ai_score**(🟣20/🟢7/🟡2/🔵1, 10/10/10) · 2026-05-01 = 30 Tier0 incumbents. **production 리스트는 아직 73차 선정(2026-06-09) 유지** — 76차 DART fix + 77차 재시드 dry-run + B++/B+C 예측 검증 캠페인은 production 미반영. 메인 path = short 주간 + mid·long 월간 rolling. **다음 launch 작업은 B++ diagnostic funnel 적용(G1 150 write→STOP, G2 Tier1 재선정) → go-live USER 게이트 + S7b**. |
+| **스코어링 방법론** | **캠페인 완결(2026-06-19, 전부 Claude↔omxy CONVERGED)**: frozen 4-config×3-regime NO-CONFIG-PASSES + tradable-winner-denominator ALL-12-FAIL + combination 캠페인 전부 FAIL·미개선. **결론 = 무료 데이터 정량 영역에서 게이트 통과 예측 스킬 부재, 상승 예측 claim 금지.** 그러나 USER 결정으로 B++은 production Tier0 150-scorer diagnostic funnel로 출시 전 적용한다(approval_basis=`USER_PRODUCTION_FUNNEL_DIAGNOSTIC`; cfg1 trend+size·foreign/DART OFF; G1→G2). SoT = B++ spec 2026-06-19 UPDATE + `2026-06-18-tier0-tradable-winner-denominator.md §8` + `2026-06-18-tier0-combination-campaign.md §7`. |
 | **풀 리포트 (production)** | `stock_reports` 2026-06 **30행 전부 section_0~8+appendix 완결**(verdict BUY 15/HOLD 7/SELL 8) + `committee_votes` **330**(30×11, parse stub 0) — **75차 P4 완주, MVP ③ 달성**. report_batch_job 30 done. 2026-05-01 004150 1행(section_0/7, section_8 null = P1 잔존). |
 | Supabase | project `rbrpcynhphrpljbjirfo` · **마이그 0001~0037 production applied**(0037 = claim over-claim CTE fix, 74차 USER 승인, ledger `20260610015408`). 미적용 dormant 없음. cron RPC grants = authenticated + service_role (public/anon revoke; 0031/0027 — cron은 service_role, admin은 authenticated 경로). |
 | Vercel canary | public 4/4 OK (`/`·`/login`·`/macro` 200 + `/admin` 307→login, tudal-tawny.vercel.app). cron route 5개 전부 **dormant**(flag 미설정 → spend 0). |
@@ -145,7 +149,8 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | Step | Owner | Trigger | Default action |
 |---|---|---|---|
 | **PR5** cron 30 report-only 자동(report_batch_job 큐) | CLAUDE | 코드 ✅ MERGED + 마이그 0027 applied. go-live = USER 게이트(§3 PR5 gates) | cron dormant(flag off). go-live 시 매달 자동 리포트. ⚠️ B-SEL-CRON fix와 동일 due-gate/finalize 검토. |
-| **Step 7 S7b** 뉴스 자동 제외(M12a) + 모닝 브리핑(M11) | USER(Naver B-8 + Telegram B-9 + AI 키) + CLAUDE | P4 + Accept go-live(MVP② 확정) 후 | AI 페르소나(Core 11) 뉴스 평가 → per-company thesis-break → direct/material/high-conf 자동 제외(빼기만·freed→현금) + smart brake + durable ledger + 텔레그램/`/admin/alerts` 알림. **개발 순서 = S7b shadow-first**: S7b에서 M12a **shadow/alert-only**(`M12A_AUTO_REMOVE_ENABLED` default false)로 먼저 붙이고, D11 운용검증에서 Track Record 기준선과 함께 관찰 → 자동 제거 ON은 출시 후 fast-follow. **M12a 자동 mutation = 출시 게이트 아님.** spec SoT = `ServicePlan-Admin §3.10 M12a`. 이메일/Resend 전역 미사용. **디자인 결합**: D3 신규 화면 final-style 동시구현(S7b 화면 = S7b 구현과 함께), D1은 S7b UI 착수 전 필수. |
+| **B++ funnel 적용(G1→G2)** | CLAUDE + USER 비용승인 | 지금 즉시, go-live/S7b 전 | 73차 기존 funnel(소형주 편향) 150/30을 B++ diagnostic funnel로 업그레이드. G1 = cfg1 trend+size·foreign/DART OFF `--apply` 150 write→STOP + rollback backup + `approval_basis=USER_PRODUCTION_FUNNEL_DIAGNOSTIC`; G2 = USER 비용 승인 후 Tier1 재선정(~₩25k) + 새 30 눈검수. 예측 검증은 NO-CONFIG-PASSES이므로 상승 예측 claim 금지·출력에 미통과 명시. SoT = B++ spec 2026-06-19 UPDATE §5 step5. |
+| **Step 7 S7b** 뉴스 자동 제외(M12a) + 모닝 브리핑(M11) | USER(Naver B-8 + Telegram B-9 + AI 키) + CLAUDE | B++ G1/G2 + go-live USER gates 완료 후 | AI 페르소나(Core 11) 뉴스 평가 → per-company thesis-break → direct/material/high-conf 자동 제외(빼기만·freed→현금) + smart brake + durable ledger + 텔레그램/`/admin/alerts` 알림. **개발 순서 = S7b shadow-first**: S7b에서 M12a **shadow/alert-only**(`M12A_AUTO_REMOVE_ENABLED` default false)로 먼저 붙이고, D11 운용검증에서 Track Record 기준선과 함께 관찰 → 자동 제거 ON은 출시 후 fast-follow. **M12a 자동 mutation = 출시 게이트 아님.** spec SoT = `ServicePlan-Admin §3.10 M12a`. 이메일/Resend 전역 미사용. **디자인 결합**: D3 신규 화면 final-style 동시구현(S7b 화면 = S7b 구현과 함께), D1은 S7b UI 착수 전 필수. |
 | **Step 8 D11** AI 가상 포트 1차 가동 게이트 | USER 운용 + CLAUDE 모니터링 | S7b + PR-H/I/J D11 전 hard gate(manual trigger 2종 ✅ + PR5b/Section8 full path ✅ P2b + runtime mock grep 0) 완료 후, S7c 전 | KIS 0개로 어드민 3인 며칠~1주 운용 검증(의사결정 품질·승인·재생성 cap·알림 정확도). acceptance gate UI = 리포트 section_8 부재 시 '🤖 Tier 1 평가 대기' pill + Section 0 🔢🤖합의 배지 1행(✅ STEP-1). **디자인 결합**: D2 기존 핵심 플로우 정밀(홈/리스트/리포트/포트폴리오/승인)은 D11 진입 전 필수. |
 | **Step 9 S7c** 장중·KIS WS + Exit 텔레그램+/admin 2-layer | USER(Telegram B-9 + KIS B-10) + CLAUDE | D11 검증 통과 후 | 실 alert_event + KIS read-only 1개 WS + Exit 텔레그램 best-effort + `/admin/alerts` durable event + 대안 3 + T+7 outcome. **디자인 결합**: D3 신규 화면 final-style 동시구현(S7c 화면 = S7c 구현과 함께). |
 | **Step 10 S7d** Silent Health | CLAUDE | S7c 완료 후 | 5 파이프라인 success_rate + red_alert 0 + Exit outcome T+7 cron. (코드+테스트 완결, 실 DB/브라우저 실검증만 Docker/USER 대기.) |
@@ -162,7 +167,8 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 |---|---|---|
 | ✅ **Accept go-live — DONE (MVP ② 완료)** | 2026-06-12 10:11 KST USER Accept 클릭 → `portfolio_approval` 2026-06-01 **accept·is_final=true** + `portfolio_snapshot` 14행(종목 12 + 현금 7% + aggregate, 실 entry_price). D31 게이트 완화(PR #120·배포)로 버튼 활성됐고 클릭 영속 확인. 마이그 0034/0035 재실행 금지(verify만). | (완료 — 멤버 공개 시 `PORTFOLIO_ACCEPT_GATE_STRICT=true`) |
 | ✅ **B-SEL-CRON** (PR #118 MERGED) | CLAUDE fix 완료(period-scoped due-gate + SELF_CONTINUE opt-out ON + orphan/stall/track alert + cost-month + stale-guard). 남은 건 USER flag(아래 매달 자동화 게이트로 통합). | ~~CLAUDE fix~~ → USER flag |
-| ✅ **Tier0 B+C/B++ 검증 캠페인 — 완료·CLOSED(no-apply)** | USER가 (a) full-factor 깨끗한 verdict 선택 → DART PIT 백필 44,300 완료 + 4 config × 3 장세 12 harvest → **NO-CONFIG-PASSES**. 이어 tradable-winner denominator와 combination 캠페인도 전부 FAIL/미개선. frozen 미변경·production 미접촉·AI 0. **결론 = D30 no-apply 재확정, Tier0은 diagnostic generator, 추가 launch 작업 없음.** [SoT: review doc + `2026-06-18-tier0-combination-campaign.md`] | (완료 — launch checklist 밖 research/CLOSED) |
+| ✅ **Tier0 B+C/B++ 예측 검증 캠페인 — 완료·research/CLOSED** | step-2 + full-factor 4-config×3-regime + tradable-denominator + combination 모두 **NO-CONFIG-PASSES/FAIL**. 결론 = 무료 데이터로는 예측 스킬 미검증, **상승 예측 claim 금지**. 이 closed verdict는 예측 claim에만 해당하며 B++ funnel 적용 결정을 닫지 않는다. [SoT: B++ spec 2026-06-19 UPDATE + review docs] | (완료 — research/CLOSED) |
+| ★ **B++ funnel 적용 — USER 결정·출시 전 launch step** | USER 결정 = B++을 production Tier0 150-scorer로 적용. 목적은 73차 기존 funnel의 소형주 편향을 줄이고 대형 리더 recall을 보강하는 **diagnostic funnel 업그레이드**(예측 게이트 통과/claim 아님). 실행 = G1 `--scoring bpp --apply` 150 write→STOP + rollback backup + `approval_basis=USER_PRODUCTION_FUNNEL_DIAGNOSTIC` → G2 Tier1 재선정(~₩25k, USER 비용 승인) + 새 30 눈검수. cfg1 trend+size·foreign/DART OFF. | USER 비용 승인 + CLAUDE 실행 |
 | ✅ **Accept-gate de-mock** (PR #119 MERGED) | viewer 게이트 legacy mock 5종 하드코딩→active 전종목 공유모듈(shortlist-gate.ts) + page/action anchor 통일 + 2026 달력(근로자의날·제헌절) + UX. omxy R1/R2 CONVERGED. **production Accept 게이트가 active 30종 전부 2인 열람 요구로 정합화**(D+4 hold ~06-15 + 2 admin 열람 = §2.2 #3 출시 플로우). | (없음 — Accept 클릭 시 적용) |
 | 🔭 WATCH (76차 omxy 비차단) | shortage-reason는 DB-level cross-track cardinality(버킷 0/10 불변식)를 코드가 강제하진 않음 — per-bucket finalize 도입 시 규칙 갱신 필요(주석 박제됨). portfolio page는 MissingCountBanner 미사용(자체 게이팅) → track_pending 인지 후속(MED). | 별도 후속 |
 | **매달 자동화 게이트** | Vercel `SELECTION_CRON_AUTO_ENABLED=true` + **Vercel env에서 `SELECTION_CRON_SELF_CONTINUE` 삭제(미설정=ON, 구 .env.example가 false 박았으면 finding 27 함정)** + 주간 tier0 후보 producer(pykrx=Python → GitHub Actions 등 외부 cron, Vercel은 TS만) + 운영 비용 승인. (B-SEL-CRON fix 선행.) | USER + 외부 스케줄 |
@@ -204,7 +210,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | 어드민 서비스 기획 본체 (Tier 0/1/2 + 합의 배지 + M12a 뉴스 + Section 8 contract) | `Document/Service/Planning/ServicePlan-Admin.md` (§1A.5 D19·D21·D22 / §3.10 M12a / §4.2.1 Section 8) |
 | writer Section 8 작성 가이드 | `Document/Service/Report/ReportFramework.md §8` |
 | 실데이터+실AI e2e ADR + 11-PR 로드맵 | `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` |
-| **Tier0 B++/B+C 검증 캠페인 (CLOSED no-apply)** | `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` + `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md` + `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md` + `docs/superpowers/2026-06-18-tier0-combination-campaign.md` — NO-CONFIG-PASSES, D30 no-apply, production 변경 없음 |
+| **Tier0 B++ 검증 + funnel 적용 결정** | `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` 2026-06-19 UPDATE + `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md` + `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md` + `docs/superpowers/2026-06-18-tier0-combination-campaign.md` — 예측 검증은 NO-CONFIG-PASSES/research-CLOSED, USER 결정으로 B++ diagnostic funnel 적용은 §9 launch step |
 | omxy R-debate 적대 검토 runbook | `docs/superpowers/omxy-rdebate-runbook.md` |
 | Smoke/audit catalog (W-ticket) | `docs/superpowers/audit-catalog.md` |
 | S7 mock→real Phase/DoD (S7a~S7d + T7e.7 RLS QA) | `Document/Build/Slices/S7-RealData.md` |
@@ -222,7 +228,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 | 항목 | 현재 의미 | SoT 포인터 |
 |---|---|---|
 | MVP ①②③ 완료 | 30 AI 리스트(73차) + 포트폴리오 Accept(2026-06-12) + 30 풀 리포트(75차) 완료. Launch path는 이제 S7b 이후 운용 단계. | git log/PR #109, #118~#120, P4 harness 기록, 본 문서 §1/§3 |
-| Tier0 B++/B+C 검증 캠페인 | **CLOSED(no-apply)**. B++ step-2, full-factor 4-config×3-regime, tradable-denominator, combination 모두 NO-CONFIG-PASSES/FAIL. Production 150/30 변경 없음. D30 no-apply와 money-path / production effect 0 불변. | `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md`, `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md`, `docs/superpowers/2026-06-18-tier0-combination-campaign.md`, `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` |
+| Tier0 B++/B+C 예측 검증 캠페인 | **Research/CLOSED for prediction claim only**. step-2/full-factor/tradable-denominator/combination 모두 NO-CONFIG-PASSES/FAIL이라 상승 예측 claim 금지. 그러나 USER 결정으로 **B++ diagnostic funnel 적용은 §9 launch step**이며, Production 150/30은 아직 73차 기준(적용 전)이다. money-path / production effect 0 불변은 검증 캠페인에 한정. | `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` 2026-06-19 UPDATE, `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md`, `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md`, `docs/superpowers/2026-06-18-tier0-combination-campaign.md` |
 | Path-A PRISM식 섹터 레이어 | Product direction is **pre-launch 섹터 추천 비교 메뉴** using PR-A1 compute + simple return comparison; live hard-gate remains forbidden. PR-A5/PR-B5 statistical verdict runs are deferred/research. | Parent `docs/superpowers/specs/2026-06-19-pathA-forward-shadow-sector-layer.md`; Track2 `2026-06-20-pathA-track2-generator-shadow.md`; PR-B5 `2026-06-22-pathA-track2-prb5-forward-recall-evaluator.md` §14; PR-A5 `2026-06-23-pathA-track1-pra5-verdict-evaluator.md` §11 |
 | Tier2 섹터 페르소나 → 리포트 배선 | Pre-launch quality lane. 현재 **wired-but-dangling**(sector→14 matching은 `track-record/actions.ts` `triggerMonthlyPersonaEvalAction`에 있으나 live `full-report-batch-worker → orchestrateFullReport`는 Core-11 Section 8만 생성). 출시 전 PR-T2a/b/c로 live 경로 이식·비용 reconcile·렌더 확인, USER 비용 승인 ~420 calls/batch. | `docs/superpowers/specs/2026-06-23-tier2-sector-persona-report-wiring.md` |
 | Toss-D0~D4 디자인 | Pre-launch quality lane. D0=지금 spec-only, D1=S7b UI 전, D2=D11 전, D3=S7b·S7c 동시, D4=S7d 후·S9 전 `/gstack-design-review` freeze. | `Document/Service/Planning/ServicePlan-Admin.md §1A.1 디자인 방향 · §1A.5 D29` |

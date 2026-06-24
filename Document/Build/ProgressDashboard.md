@@ -1,10 +1,10 @@
 # ProgressDashboard — 주픽 어드민 빌드 상황판
 
-> **[CURRENT — 2026-06-23 launch path]**: MVP 3대 산출물 완료(① `short_list_30` 2026-06 AI 30 리스트 ✅ · ② portfolio Accept/snapshot ✅ · ③ `stock_reports` 30 풀 리포트 ✅) + B-SEL-CRON fix ✅. **다음 1순위 = go-live USER 게이트 + S7b 뉴스·브리핑**(monthly automation flags/cost/key 승인 + Naver/Telegram/AI 키 → M12a shadow/alert-only + M11). **B++/B+C 검증 캠페인은 CLOSED(no-apply)**: step-2/full-factor/tradable-denominator/combination 모두 NO-CONFIG-PASSES/FAIL로 수렴, production 150/30 변경 없음. **섹터 추천 비교 메뉴 + Tier2 리포트 배선은 출시 전 빌드 deliverable**(production AI 리스트 옆 섹터-방식 리스트+각 수익률, PR-A1 compute 재사용, hard-gate live 금지; Tier2는 wired-but-dangling을 PR-T2a/b/c로 live path 복원)이고, PR-A5/PR-B5 통계 verdict는 deferred/연구. live SoT = `Document/Process/HANDOFF.md`.
+> **[CURRENT — 2026-06-24 launch path]**: MVP 3대 산출물 완료(① `short_list_30` 2026-06 AI 30 리스트 ✅ · ② portfolio Accept/snapshot ✅ · ③ `stock_reports` 30 풀 리포트 ✅) + B-SEL-CRON fix ✅. **다음 1순위 = B++ diagnostic funnel 적용 → go-live USER 게이트 + S7b 뉴스·브리핑**. B++/B+C **예측 검증 캠페인**은 step-2/full-factor/tradable-denominator/combination 모두 NO-CONFIG-PASSES/FAIL로 research/CLOSED(상승 예측 claim 금지)이지만, **USER 결정 = B++ funnel 적용은 출시 전 launch step**이다: 73차 기존 funnel의 소형주 편향(대형 리더 1/11)을 B++ size-sleeve diagnostic funnel(약 7/11 개선)로 보강한 뒤 Tier1 재선정(~₩25k)한다. 섹터 추천 비교 메뉴 + Tier2 리포트 배선은 출시 전 빌드 deliverable이고, PR-A5/PR-B5 통계 verdict는 deferred/연구. live SoT = `Document/Process/HANDOFF.md`.
 >
 > **[76차 · ⭐ shortlist 정확성 fix MERGED PR #114 (2026-06-10)]**: 사용자 발견 2현상(SK하이닉스 리스트 누락처럼 보임·삼성전자 부재) → 14-agent 감사 → ① UI track_pending 분류(W2a 트랙 시차+carry overlap partial을 틀린 '스크리닝 미달'로 표시하던 것 정정, 불변식 mid==long∈{0,10}·short∈{0..10}) + stale 카피('21/42/63일 리밸런스'→'주간/월간') ② DART 분기누적 파싱 버그(IS/CIS는 thstrm_add_amount 누적 우선 — Signal4 실적신호 왜곡으로 대형주 불리하던 것) 수정. **코드/테스트만 — production 리스트는 재시드(₩25k USER 게이트) 후 반영.** Claude↔omxy 적대 loop R1~R3 CONVERGED(omxy R2가 carry overlap [9,10,10] 도달성 정확히 catch→Claude 수용·규칙 정정). 게이트 tsc/lint 0·0/test:ci 1951+4skip/pytest 18. **추가 production audit: W3 portfolio proposal 2026-06-01 1건 영속 완료(₩27.80) / approval·snapshot 0 → 다음 1순위 = Accept go-live(MVP ②).** live SoT = `Document/Process/HANDOFF.md`.
 >
-> **[병행 트랙 · 토스 스타일 전체 리디자인(폰트 포함) Toss-D0~D4 시점 결정]**: Accept critical path와 runbook 순서(Accept→B-SEL-CRON→S7b→D11→S7c→S7d→pre-launch 섹터 비교/Tier2/D4→S9→출시)는 유지. D0는 지금 가능한 spec-only, D1은 S7b UI 전, D2는 D11 전, D3는 S7b/S7c 기능 PR 내장, D4는 S7d 후·S9 직전 freeze(`/gstack-design-review` QA+polish+회귀 차단). AI 비용 0(제품/운영 spend 없음).
+> **[병행 트랙 · 토스 스타일 전체 리디자인(폰트 포함) Toss-D0~D4 시점 결정]**: launch-critical 순서(B++ funnel 적용→go-live/S7b→D11→S7c→S7d→pre-launch 섹터 비교/Tier2/D4→S9→출시)는 유지. D0는 지금 가능한 spec-only, D1은 S7b UI 전, D2는 D11 전, D3는 S7b/S7c 기능 PR 내장, D4는 S7d 후·S9 직전 freeze(`/gstack-design-review` QA+polish+회귀 차단). AI 비용 0(제품/운영 spend 없음).
 >
 > **[75차 · ⭐ P4 30 풀 리포트 완주 — MVP ③ 달성 (2026-06-10)]**: main = runtime verify. **P4 driver harness**(`tudal/scripts/smoke/p4-reports.p4run.test.ts`+`setup-env-p4.ts`[`P4_FULL_RUN_CONFIRM`]+`vitest.p4-run.config.ts`)로 report_batch_job 2026-06 잔여 27 pending 완주(86분, USER 비용 승인) → **stock_reports 2026-06 30행 전부 section_0~8+appendix 완결 + committee_votes 330(30×11) + parse stub 0 + verdict BUY 15/HOLD 7/SELL 8 + 30/30 done·failed 0**. run delta **₩14,962.66**(≈₩554/ticker, 예약식 ceiling 40k 내) · 월 누계 ₩41,314(hardcap 50만 내). driver = resume-tolerant pre-guard(stale 15min+skew 마진) + 예약식 ceiling(retry×3 worst) + stall guard. §2.0a 변형(①Claude→②omxy→③Claude→④omxy) R1~R4 CONVERGED(catch 5). **75차 당시 MVP 산출물: ① 30 리스트 ✅(73차) · ③ 30 리포트 ✅(75차) · ② 포트폴리오 = proposal/Accept go-live(USER flags+클릭) 잔여. 76차 현재는 proposal 1건 영속 완료, Accept 확정만 잔여.** 현재 다음 1순위 = Accept go-live → B-SEL-CRON fix → S7b. live SoT = `Document/Process/HANDOFF.md`.
 >
@@ -50,7 +50,7 @@
 
 > originally architect ID: 전체 슬라이스 통합 뷰 (`.omc/research/must-19-slice-mapping.md` §5·§7·§8·§9 기반)
 
-Last updated: 2026-06-23 (launch path cleanup — **다음 1순위 = go-live USER 게이트 + S7b**; MVP ①②③ 완료; B++/B+C = CLOSED no-apply; 섹터 추천 비교 메뉴 + Tier2 배선 + D4 = 출시 전 빌드 / 통계 verdict deferred). 이전: 2026-06-12 (77차 — Accept go-live ✅ DONE + D31 Accept-gate 완화 + B-SEL-CRON fix + B++ 검증 착수 전 stale banner).
+Last updated: 2026-06-24 (B++ fact correction — **다음 1순위 = B++ diagnostic funnel 적용 → go-live USER 게이트 + S7b**; B++ 예측 검증은 NO-CONFIG-PASSES/research-CLOSED이나 USER 결정으로 funnel 적용은 출시 전 launch step; 섹터 추천 비교 메뉴 + Tier2 배선 + D4 = 출시 전 빌드 / 통계 verdict deferred). 이전: 2026-06-23 (launch path cleanup).
 이전 갱신: 2026-06-04 (66차 종료 — **⭐ W0 모델/프로바이더 추상화 + hardcap 50만 + D28 비용가드 3종 PR #86 ✅ MERGED** · main `46a8f63` · test:ci 1658+2skip · 상세 HANDOFF.md ⭐)
 
 이전 갱신: 2026-06-03 (64차 종료 post-merge baseline — **출시前 launch-readiness 역추적 감사 5-finding fix PR #84 ✅ MERGED** · main HEAD `a5ee63e` · 검증 게이트 = build 26 routes / lint 0 err **0 warn** / **test:ci 1621 PASS / 140 files** / tsc clean / Python 95 tests PASS · 마이그 0001~0030 production applied (0031 selection worker = written-not-applied dormant) · **OPEN PRs: #2 (format-error, CONFLICTING 보류) only** · **다음 1순위 = PR-G ⓑ 실 AI 첫 30선정** [KRX 전환·150 시드·선정 청크 워커 빌드 ✅ 완료 → 잔여 = USER 마이그 0031 apply + `SELECTION_CRON_AUTO_ENABLED=true` + Anthropic 키 + 비용 승인 → 워커 수동 트리거 → D11-hard-gate lane PR-I/PR5b/PR-J → S7b → D11 → S7c → S7d → S9 → 🎉 출시] · Reflection/PR-K = launch gate 아님 (S9/go-live 후 defer) · **65차(2026-06-04) supersede**: PR-G ⓑ → W0~W3 빌드 순서(W0 모델/프로바이더 추상화+hardcap 50만 → W2 주간/월간 split → W1 토론 loop → W3 자율 포트), 상세 HANDOFF.md ⭐ 65차 · 현 진행 상태 live SoT = `Document/Process/HANDOFF.md`)
@@ -70,9 +70,9 @@ Last updated: 2026-06-23 (launch path cleanup — **다음 1순위 = go-live USE
 이전 갱신: 2026-05-19 (49차 종료 — 7c7c794 / f5b4d7a 박제, 30 commits, push 대기)
 
 이전 갱신: 2026-05-13 (48차 — **§7 P3.2 + P3.4 완료 + 마이그 0016 production apply + origin push ✅** (cmux pair-debate omxy 3 rounds CONVERGED + 사용자 트리거 후속) · 마이그 0016 `accept_shortlist_with_snapshots` RPC apply 완료 + anon revoke hotfix(Supabase default grant 차단) + acceptShortList orphan-safety RPC 일원화 + G-cron-auth 12 + G-wrapper-error 8 + G-FE-map 9 + RPC 4 = **+34 tests / 463 pass / 50 files** · 47차 P2.2~P2.4 ✅ + 46차 P0·P1 ✅ · S7e 7/8 (T7e.7 RLS QA 잔여) · 다음 1순위 = S7a Anthropic wrapper (AI 키 B-6 발급 트리거) 또는 §7 P3.1 (D20 컴포넌트, S7a 시드 후) + P3.3 (error taxonomy 사용자 결정) · HIBP 토글 B-2A 사용자 잔여)
-총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~97%, Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** + **S7 실데이터 전환 (🟢 진행 중 — MVP engine W0~W3b + P3/P4 + Accept + B-SEL-CRON ✅, ▶ YOU ARE HERE = go-live USER 게이트 + S7b)** + **pre-launch 섹터 추천 비교 메뉴 + Tier2 리포트 배선 + 디자인 D4** + **S9 운용 검증 → 🎉 출시 (자동매매 제외)** + **S8 자동매매 프레임 (출시 후 — 분리 단독)** + Deferred-D(멤버, 별도 트랙)
+총 슬라이스: 7개 (S0~S6 Mock) + **DQ-7 Admin Credential (Session 3 ~97%, Smoke #4·#5 잔여 · Smoke #3은 S8까지 유예)** + **S7 실데이터 전환 (🟢 진행 중 — MVP engine W0~W3b + P3/P4 + Accept + B-SEL-CRON ✅, ▶ YOU ARE HERE = B++ funnel 적용 → go-live USER 게이트 + S7b)** + **pre-launch 섹터 추천 비교 메뉴 + Tier2 리포트 배선 + 디자인 D4** + **S9 운용 검증 → 🎉 출시 (자동매매 제외)** + **S8 자동매매 프레임 (출시 후 — 분리 단독)** + Deferred-D(멤버, 별도 트랙)
 총 예상 세션: 9(완료) + **4(DQ-7, Session 1·2·30·32·33 = ~3 완료, Smoke #4·#5 + Session 4 QA 잔여 ~1)** + 8(S7, 36차 진입) + 4(S8) = **약 25 세션** + S9 운용 4~8주
-**진행률 (스냅샷)**: **[2026-06-23 갱신 — 권위 기준 = 상단 CURRENT banner + HANDOFF.md]** main = runtime verify · 마이그 0001~0037 production applied · MVP 3대 산출물 ①30리스트·②포트폴리오 Accept·③30리포트 전부 ✅ · B-SEL-CRON fix ✅ · D31 Accept-gate 완화 ✅ · production `short_list_30`/`tier0_candidates_150`은 73차 기준 유지 · **B++/B+C 검증 = CLOSED(no-apply, NO-CONFIG-PASSES, 추가 launch 작업 없음)** · **다음 1순위 = go-live USER 게이트 + S7b 뉴스·브리핑** · **섹터 추천 비교 메뉴 + Tier2 배선 + D4 = S9/출시 전 pre-launch lane**(통계 verdict는 deferred). (⬇ 아래 상세 진행 로그는 역사 기록 — 최신 현재값은 본 줄 + 상단 CURRENT + HANDOFF 기준)
+**진행률 (스냅샷)**: **[2026-06-24 갱신 — 권위 기준 = 상단 CURRENT banner + HANDOFF.md]** main = runtime verify · 마이그 0001~0037 production applied · MVP 3대 산출물 ①30리스트·②포트폴리오 Accept·③30리포트 전부 ✅ · B-SEL-CRON fix ✅ · D31 Accept-gate 완화 ✅ · production `short_list_30`/`tier0_candidates_150`은 **아직 73차 기준(B++ 적용 전)** · **B++/B+C 예측 검증 = NO-CONFIG-PASSES/research-CLOSED(예측 미검증·claim 금지)** · **USER 결정 = B++ funnel 적용은 출시 전 launch step** · **다음 1순위 = B++ funnel 적용 → go-live USER 게이트 + S7b 뉴스·브리핑** · **섹터 추천 비교 메뉴 + Tier2 배선 + D4 = S9/출시 전 pre-launch lane**(통계 verdict는 deferred). (⬇ 아래 상세 진행 로그는 역사 기록 — 최신 현재값은 본 줄 + 상단 CURRENT + HANDOFF 기준)
 출시 기준(현 목표) = Mock + DQ-7 Credential 인프라 + 실데이터 + S9 1개월+ 운용 검증(**자동매매 제외**) → **미달성**. 전체 완성(자동매매 포함)은 S8 출시 후 별도.
 S0 Foundation: ✅ **Mock 완료** (2026-04-17)
 S1 Short List 30 홈: ✅ **Mock 완료** (2026-04-17)
@@ -148,9 +148,13 @@ S7e · Supabase 실 SELECT/INSERT 전면 전환 (2세션)            ← BL-KRIT
 S7a · Anthropic wrapper + cost_log 실 INSERT (1세션)        ← BL-KRIT-1
      │  T7a.1~10 (Tier 1 Core 11 + Tier 2 Sector Board 30종목 + 합의 배지 4종 + Reflection)
      │  ※ 65차 supersede: "Anthropic wrapper" → 멀티프로바이더 추상화(W0), "Tier 1 Core 11 + 합의 배지" → 실시간 토론 loop(W1). 상세 HANDOFF.md ⭐ 65차.
-▶ YOU ARE HERE (2026-06-23): MVP ①30리스트·②포트폴리오 Accept·③30리포트 ✅
-     │  다음 1순위 = go-live USER 게이트(monthly flags/cost/key) + S7b 뉴스·브리핑
-     │  B++/B+C = CLOSED(no-apply); 섹터 추천 비교 메뉴 + Tier2 배선 + D4 = S9 전 pre-launch lane; PR-A5/PR-B5 통계 verdict = launch path 밖
+▶ YOU ARE HERE (2026-06-24): MVP ①30리스트·②포트폴리오 Accept·③30리포트 ✅
+     │  다음 1순위 = B++ diagnostic funnel 적용(G1 --apply 150 write→STOP → G2 Tier1 재선정 ~₩25k)
+     │  B++/B+C 예측 검증 = NO-CONFIG-PASSES/research-CLOSED(상승 예측 claim 금지); funnel 적용은 USER-approved launch step
+     ▼
+B++ funnel 적용 · 73차 소형주 편향 150/30 → B++ leader-inclusive diagnostic 150/30
+     │  cfg1 trend+size·foreign/DART OFF, approval_basis=USER_PRODUCTION_FUNNEL_DIAGNOSTIC, rollback backup
+     │  G1 후 STOP, G2 USER 비용 승인 후 Tier1 재선정·새 30 눈검수
      ▼
 S7b · 뉴스 기반 자동 제외(M12a) + 모닝 브리핑(M11) (2.5세션)  ← Naver·Telegram·AI키 (Resend X)
      │  ※ 72차 재정의(planned): AI 페르소나(Core 11) 뉴스 평가→direct/material/high-conf 자동 제외(빼기만·freed→현금)
@@ -180,7 +184,7 @@ S9 어드민 운용 검증 (본인 + 친구 3명 · "AI 추천 + 가상 포트 +
      ▼
 🎉 출시 (자동매매 제외 — "AI 추천 + 가상 포트 + 알림" 내부 도구)
      │
-     ├─ [연구/CLOSED] Path-A PR-A1~A5/PR-B1~B5 shadow artifacts + 통계 verdict는 deferred; Tier0 B++/B+C는 no-apply
+     ├─ [연구/CLOSED] Path-A PR-A1~A5/PR-B1~B5 shadow artifacts + 통계 verdict는 deferred; Tier0 B++/B+C 예측 검증은 closed, funnel 적용은 위 launch step
      │
      ▼  [출시 후 — 어드민 3인이 실운용하며 개발]
 S8 자동매매 프레임 — **분리된 단독 진입** (4세션)
@@ -191,7 +195,7 @@ S8 자동매매 프레임 — **분리된 단독 진입** (4세션)
      ▼
 [어드민 내부 도구 완성 — 자동매매 포함]
 
-총 세션 — **🎉 출시까지** = 9 (완료) + DQ-7 잔여 ~1 + S7 (a/e/b/c/d + pre-launch 섹터 비교 메뉴 + Tier2 배선 + D4 = 8+) = 약 18+ 세션 + S9 운용 4~8주 (자동매매 제외). **완성까지** = 출시 후 + S8 (4 세션, 자동매매)
+총 세션 — **🎉 출시까지** = 9 (완료) + DQ-7 잔여 ~1 + B++ funnel 적용(G1/G2) + S7 (a/e/b/c/d + pre-launch 섹터 비교 메뉴 + Tier2 배선 + D4 = 8+) = 약 18+ 세션 + S9 운용 4~8주 (자동매매 제외). **완성까지** = 출시 후 + S8 (4 세션, 자동매매)
 ※ AI 키 미발급 상태에서도 S7e + Tier 0로 D11 운용 검증 가능 (D19, AI 키는 검증 중 발급 시 plug-in)
 ```
 
