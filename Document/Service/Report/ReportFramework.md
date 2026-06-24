@@ -790,7 +790,7 @@ Step 4: 수정 반영 → 최종본 확정
 
 > 외부 레퍼런스 TradingAgents `trading_memory.md` 패턴 차용 + JooPick Track Record와 결합.
 
-> **65차 Q1 supersede (2026-06-04)**: 아래 '매월 말' 단일 주기는 65차 Q1 선정주기 분리(단기 주1회 / 중·장기 월1회) 반영 필요 — Reflection 주기도 track별 분리 검토. (Reflection/PR-K은 출시 게이트 아님 — S9/go-live 후 defer). SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션.
+> **65차 Q1 supersede (2026-06-04)**: 아래 '매월 말' 단일 주기는 65차 Q1 선정주기 분리(단기 주1회 / 중·장기 월1회) 반영 필요 — Reflection 주기도 track별 분리 검토. (**D32, 2026-06-24 USER 승격**: Reflection/PR-K은 **출시 전 빌드 + S9 운용 검증 기간 중 실가동·검증** — 구 "출시 후 defer"[62차 doc-class] supersede). SoT: HANDOFF.md ⭐ 65차 MVP 엔진 섹션 + `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`.
 
 ```
 매월 말 (또는 가상 포트 종료 시점):
