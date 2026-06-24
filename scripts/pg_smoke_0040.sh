@@ -16,6 +16,9 @@ psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
 -- minimal schema mirror (auth.users + stock_reports + committee_votes + the CHECK).
 create schema if not exists auth;
 create table auth.users (id uuid primary key);
+-- stubs so admin RPC (0041 commit_sector_personas) is testable locally (auth.uid()/is_admin()).
+create function auth.uid() returns uuid language sql stable as $f$ select '39202d8b-1042-48a6-8da0-df14a52fabea'::uuid $f$;
+create function public.is_admin() returns boolean language sql stable as $f$ select true $f$;
 create table public.stock_reports (
   id uuid primary key default gen_random_uuid(),
   ticker varchar not null, month date not null, is_latest boolean not null default true,
@@ -33,8 +36,10 @@ create table public.committee_votes (
 );
 SQL
 
-# apply the cron function under test (extract from the migration file).
-psql -v ON_ERROR_STOP=1 -d "$DB" -f "$(dirname "$0")/../tudal/supabase/migrations/0040_commit_sector_personas_cron.sql"
+# apply the cron function (0040) + corrective (0041 = admin + cron re-affirm).
+MIG="$(dirname "$0")/../tudal/supabase/migrations"
+psql -v ON_ERROR_STOP=1 -d "$DB" -f "$MIG/0040_commit_sector_personas_cron.sql"
+psql -v ON_ERROR_STOP=1 -d "$DB" -f "$MIG/0041_commit_sector_personas_sector_fix.sql"
 
 # seed cron user + a report, call RPC, assert (all server-side; no psql client vars inside DO).
 psql -v ON_ERROR_STOP=1 -d "$DB" <<SQL
@@ -63,7 +68,21 @@ begin
     '$CRON_USER'::uuid);
   select count(*) into v_total from public.committee_votes where persona_layer='sector';
   if v_total <> 14 then raise exception 'FAIL: idempotency (sector rows=% after re-call, want 14)', v_total; end if;
-  raise notice 'PASS: 0040 cron RPC — 14 sector votes, sector NOT NULL, idempotent.';
+
+  -- 3) admin RPC (0041 commit_sector_personas) — 동일 sector fix (auth.uid()/is_admin() stub).
+  insert into public.stock_reports(ticker, month, is_latest) values ('888888','2026-06-01',true);
+  v_inserted := (public.commit_sector_personas(
+    '2026-06','888888','금융',
+    (select jsonb_agg(jsonb_build_object('persona_id','sector-금융-slot-'||g,'vote','BUY')) from generate_series(1,14) g),
+    '{"buy":14,"hold":0,"sell":0}'::jsonb,
+    (select jsonb_agg(jsonb_build_object('persona_id','sector-금융-slot-'||g,'persona_layer','sector','argument_excerpt','a','vote','BUY')) from generate_series(1,14) g)
+  )->>'votes_inserted')::int;
+  if v_inserted <> 14 then raise exception 'FAIL: admin votes_inserted=% (want 14)', v_inserted; end if;
+  select count(*) into v_null from public.committee_votes cv join public.stock_reports sr on cv.report_id=sr.id
+    where sr.ticker='888888' and cv.persona_layer='sector' and cv.sector is null;
+  if v_null <> 0 then raise exception 'FAIL: admin sector-layer NULL sector (% rows)', v_null; end if;
+
+  raise notice 'PASS: 0040 cron + 0041 admin RPC — 14 sector votes each, sector NOT NULL, idempotent.';
 end \$\$;
 SQL
 echo "pg_smoke_0040: PASS"
