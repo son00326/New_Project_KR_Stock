@@ -1,7 +1,7 @@
 {
   "override_version": "v1",
   "override_date": "2026-06-03",
-  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed. | 63차(2026-06-03): 150 seed(--emit-candidates) dry-run unresolved-selected 21 추가 (Claude① WebSearch 리서치 + omxy② WebSearch 적대 검증 CONVERGED, 명백 오분류 0). | 77차(2026-06-11): DART quarterly fix reseed dry-run unresolved-selected 16 추가 (반도체12/IT·SW1/바이오1/엔터·미디어1/유통·소비재1, 엔피=WebSearch 검증).",
+  "override_source": "60차 §3 PR #55 plan §4.2 R1 evidence (OMXY spot-check). USER --backfill-induty 실행 후 dry-run review CSV에서 mapper unresolved/오분류로 확인된 ticker는 PR을 통해 본 파일에 추가한다. 본 PR scope에서는 plan에 명시된 confident examples만 seed. | 63차(2026-06-03): 150 seed(--emit-candidates) dry-run unresolved-selected 21 추가 (Claude① WebSearch 리서치 + omxy② WebSearch 적대 검증 CONVERGED, 명백 오분류 0). | 77차(2026-06-11): DART quarterly fix reseed dry-run unresolved-selected 16 추가 (반도체12/IT·SW1/바이오1/엔터·미디어1/유통·소비재1, 엔피=WebSearch 검증). | D30(2026-06-24): B++ cfg1 diagnostic funnel G1 dry-run unresolved-selected 12 추가 (반도체8: 한미반도체·이오테크닉스·원익IPS·코미코·네패스아크·에프엔에스테크·디아이티·지아이에스 / 건설3: 성도이엔지·한양이엔지·삼성E&A / 바이오1: 제이에스링크. Claude WebSearch 리서치 + omxy 적대 검증).",
   "schema_note": "tickers[<6-digit>] = {canonical: <one of CANONICAL_SECTORS 14>, reason: <non-empty>}. canonical_sector_mapper.OverrideSchemaError가 schema 위반을 fail-fast 한다.",
   "tickers": {
     "254490": {
@@ -179,6 +179,54 @@
     "094850": {
       "canonical": "유통/소비재",
       "reason": "참좋은여행 — induty 752이나 패키지 여행/레저 소비재 서비스. 77차 reseed unresolved-selected."
+    },
+    "042700": {
+      "canonical": "반도체",
+      "reason": "한미반도체 — induty 29271이나 반도체 후공정 TC본더/패키징 장비 대표주(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "039030": {
+      "canonical": "반도체",
+      "reason": "이오테크닉스 — induty 29271이나 반도체 레이저 마킹/드릴링/어닐링 장비(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "240810": {
+      "canonical": "반도체",
+      "reason": "원익IPS — induty 292이나 반도체 증착/식각 전공정 장비(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "183300": {
+      "canonical": "반도체",
+      "reason": "코미코 — induty 29271이나 반도체 부품 세정/코팅 소부장(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "330860": {
+      "canonical": "반도체",
+      "reason": "네패스아크 — induty 739이나 반도체 후공정 테스트(OSAT)(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "083500": {
+      "canonical": "반도체",
+      "reason": "에프엔에스테크 — induty 29272이나 디스플레이 습식장비 + 반도체 CMP패드/램프 소부장(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "110990": {
+      "canonical": "반도체",
+      "reason": "디아이티 — induty 29272이나 반도체/디스플레이 검사장비(AOI) + 레이저 어닐링(SK하이닉스 HBM3E)(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "306620": {
+      "canonical": "반도체",
+      "reason": "지아이에스 — induty 292이나 반도체/디스플레이/MLCC 절단장비 제조(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "037350": {
+      "canonical": "건설",
+      "reason": "성도이엔지 — induty 721이나 하이테크 산업설비(클린룸)/플랜트 EPC 시공(WebSearch 검증). 고객은 반도체이나 업종 실질은 엔지니어링·시공. D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "045100": {
+      "canonical": "건설",
+      "reason": "한양이엔지 — induty 721이나 반도체/디스플레이 설비 엔지니어링 + 산업플랜트 EPC + CCSS(엔지니어링 매출 83.5%)(WebSearch 검증). 업종 실질은 EPC·엔지니어링. D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "028050": {
+      "canonical": "건설",
+      "reason": "삼성E&A(구 삼성엔지니어링) — induty 72129, EPC 엔지니어링·시공(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
+    },
+    "127120": {
+      "canonical": "바이오",
+      "reason": "제이에스링크 — induty 70111이나 유전체 분석/맞춤의학/분자진단 바이오(DNA마이크로어레이·NGS)(WebSearch 검증). D30 B++ cfg1 funnel G1 unresolved-selected."
     }
   }
 }
