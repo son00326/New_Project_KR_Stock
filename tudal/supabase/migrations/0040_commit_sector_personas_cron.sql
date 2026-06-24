@@ -131,11 +131,15 @@ begin
   delete from public.committee_votes
   where report_id = v_report_id and persona_layer = 'sector';
 
-  insert into public.committee_votes (report_id, persona_id, persona_layer, vote, argument_excerpt)
+  -- FIX(2026-06-24 live catch): committee_votes_sector_required CHECK는 sector-layer row에 sector NOT NULL
+  --   요구. 0019(admin)도 sector 미설정 동일 버그였으나 dangling action이라 미발현. cron live 경로에서
+  --   처음 발현 → p_sector를 sector 컬럼에 명시.
+  insert into public.committee_votes (report_id, persona_id, persona_layer, sector, vote, argument_excerpt)
   select
     v_report_id,
     (v ->> 'persona_id')::text,
     'sector'::text,
+    p_sector,
     case (v ->> 'vote')
       when 'BUY' then 'approve'
       when 'HOLD' then 'abstain'
