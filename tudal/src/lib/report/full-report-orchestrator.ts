@@ -324,6 +324,7 @@ export async function orchestrateFullReport(
   //   (omxy R3 fix1). flag-off=dormant(cost 0). 배지=canonical(short_list_30); ⚪/null→not_ready skip.
   //   commit_persona_eval_cron(0036, service-role DI) — 미적용 시 throw로 fail-closed(job 재시도).
   //   Section8 throw는 의도적 propagate(body 이미 commit, worker retry/enqueue-reset가 복구).
+  let section8Committed = false;
   if (process.env.PR5B_SECTION8_ENABLED === 'true') {
     const section8 = await commitSection8Step({
       ticker: enriched.ticker,
@@ -332,7 +333,8 @@ export async function orchestrateFullReport(
       adminUserId: input.adminUserId,
       client: supabase,
     });
-    if (section8.status !== 'committed') {
+    section8Committed = section8.status === 'committed';
+    if (!section8Committed) {
       console.info(
         JSON.stringify({
           event: 'commit_section8_skipped',
@@ -344,11 +346,13 @@ export async function orchestrateFullReport(
     }
   }
 
-  // PR-T2a (Tier 2 섹터 보드) — Section 8 직후. flag-off=dormant(cost 0). Section 8(partD)와 독립이나
-  //   stock_reports row + canonical sector 필요 → body persist 이후 + Section 8 위상에서 실행.
-  //   commit_sector_personas_cron(0040, service-role)가 section_8 partA + partC.sector_aggregate를
-  //   Core 필드 보존하며 UPDATE. ⚪/null badge·비-canonical sector·degraded(<14)는 skip(no write).
-  if (process.env.SECTOR_BOARD_ENABLED === 'true') {
+  // PR-T2a (Tier 2 섹터 보드) — Section 8 **commit 직후에만** 실행(아래 section8Committed 게이트). flag-off=
+  //   dormant(cost 0). 섹터 보드는 partD 데이터를 읽지 않으나(데이터 독립), partA/partC.sector_aggregate가
+  //   Core partD 없는 section_8에 orphan write되는 것을 막기 위해 section8 commit에 게이트한다(omxy R1 HIGH fix:
+  //   Section8 off/degraded 시 14콜 spend + partial write 차단). commit_sector_personas_cron(0040, service-role)가
+  //   section_8 partA + partC.sector_aggregate를 Core 필드 보존하며 UPDATE. ⚪/null badge·비-canonical sector·
+  //   degraded(<14)는 step 내부에서 skip(no write).
+  if (process.env.SECTOR_BOARD_ENABLED === 'true' && section8Committed) {
     const sectorBoard = await commitSectorBoardStep({
       ticker: enriched.ticker,
       month: enriched.month,
@@ -366,6 +370,15 @@ export async function orchestrateFullReport(
         }),
       );
     }
+  } else if (process.env.SECTOR_BOARD_ENABLED === 'true') {
+    console.info(
+      JSON.stringify({
+        event: 'commit_sector_board_skipped',
+        ticker: enriched.ticker,
+        month: enriched.month,
+        status: 'section8_not_committed',
+      }),
+    );
   }
 
   return {

@@ -42,6 +42,12 @@ vi.mock('@/lib/data/sector-reference-backlog', () => ({
   insertOrBumpBacklog: insertOrBumpBacklogMock,
 }));
 
+const commitSection8StepMock = vi.fn();
+vi.mock('@/lib/report/section8-step', () => ({
+  commitSection8Step: (...args: unknown[]) => commitSection8StepMock(...args),
+  isAiBadge: (badge: string | null | undefined) => badge === '🟢' || badge === '🔵' || badge === '🟣' || badge === '🟡',
+}));
+
 // PR-T2a — sector board seam mock (flag-off in existing tests → not called → no impact).
 const commitSectorBoardStepMock = vi.fn();
 vi.mock('@/lib/report/sector-board-step', () => ({
@@ -99,11 +105,15 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     callReviseMock.mockReset();
     insertCriticFindingsRunMock.mockReset();
     insertOrBumpBacklogMock.mockReset();
+    commitSection8StepMock.mockReset();
+    commitSection8StepMock.mockResolvedValue({ status: 'committed', reportId: 'r-uuid-1' });
     commitSectorBoardStepMock.mockReset();
     commitSectorBoardStepMock.mockResolvedValue({ status: 'committed', reportId: 'r-uuid-1' });
+    delete process.env.PR5B_SECTION8_ENABLED;
     delete process.env.SECTOR_BOARD_ENABLED;
   });
   afterEach(() => {
+    delete process.env.PR5B_SECTION8_ENABLED;
     delete process.env.SECTOR_BOARD_ENABLED;
   });
 
@@ -157,9 +167,18 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     expect(commitSectorBoardStepMock).not.toHaveBeenCalled();
   });
 
-  it('SECTOR_BOARD_ENABLED=true → commitSectorBoardStep called with ticker/month/badge/adminUserId/client', async () => {
+  it('SECTOR_BOARD_ENABLED=true + PR5B_SECTION8_ENABLED unset → commitSectorBoardStep NOT called', async () => {
     process.env.SECTOR_BOARD_ENABLED = 'true';
     await runHappy();
+    expect(commitSection8StepMock).not.toHaveBeenCalled();
+    expect(commitSectorBoardStepMock).not.toHaveBeenCalled();
+  });
+
+  it('SECTOR_BOARD_ENABLED=true + PR5B_SECTION8_ENABLED=true + section8 committed → commitSectorBoardStep called with ticker/month/badge/adminUserId/client', async () => {
+    process.env.SECTOR_BOARD_ENABLED = 'true';
+    process.env.PR5B_SECTION8_ENABLED = 'true';
+    await runHappy();
+    expect(commitSection8StepMock).toHaveBeenCalledTimes(1);
     expect(commitSectorBoardStepMock).toHaveBeenCalledTimes(1);
     expect(commitSectorBoardStepMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -169,6 +188,26 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
         adminUserId: 'u1',
       }),
     );
+  });
+
+  it('SECTOR_BOARD_ENABLED=true + PR5B_SECTION8_ENABLED=true + section8 unavailable → commitSectorBoardStep NOT called', async () => {
+    process.env.SECTOR_BOARD_ENABLED = 'true';
+    process.env.PR5B_SECTION8_ENABLED = 'true';
+    commitSection8StepMock.mockResolvedValueOnce({ status: 'section8_unavailable' });
+
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await runHappy();
+    expect(commitSection8StepMock).toHaveBeenCalledTimes(1);
+    expect(commitSectorBoardStepMock).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: 'commit_sector_board_skipped',
+        ticker: '196170',
+        month: '2026-06',
+        status: 'section8_not_committed',
+      }),
+    );
+    infoSpy.mockRestore();
   });
 
   it('critic FAIL → revise 1회 → orchestrator success (1회 hard cap)', async () => {
