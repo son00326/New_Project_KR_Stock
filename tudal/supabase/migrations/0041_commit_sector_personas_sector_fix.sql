@@ -1,28 +1,22 @@
--- migration: 0040_commit_sector_personas_cron
--- purpose: PR-T2a (Tier 2 섹터 보드 → live 리포트 경로 배선) — service-role-DI 변형.
---          기존 commit_sector_personas(0019)는 auth.uid()+is_admin() 강제 + grant authenticated only라
---          report-worker의 service-role cron 경로(auth.uid()=null)에서 호출 불가
---          (= commit_persona_eval(0017) → commit_persona_eval_cron(0036)와 동일 문제·동일 해법).
--- 차이점 (0019 대비): auth.uid()/is_admin() 게이트 대신 p_called_by(cron-system user UUID)를 받아
---   auth.users 존재만 검증(섹터 보드 RPC는 caller를 어떤 테이블에도 저장하지 않음 — 0019 v_caller는
---   null/is_admin 게이트 전용이었음). 검증·section_8 partA/partC 보존 UPDATE·committee_votes sector layer
---   DELETE→INSERT 14는 0019와 동일 로직(auth 게이트만 차이).
--- ⚠️ FIX(2026-06-24 live catch, 0041): INSERT에 sector=p_sector 명시 — committee_votes_sector_required
---   CHECK(sector-layer row는 sector NOT NULL) 충족. 최초 0040(+0019 byte-copy)은 sector 미설정 → 23514
---   check_violation(P4 Tier2 cron live 첫 실행 발현). 0019(admin)도 동일 잠복 버그였으며 0041에서 함께 수정.
--- grant: revoke public/anon/authenticated + grant service_role only (worker cron 전용; admin path는 0019/0041 유지).
--- ref: docs/superpowers/specs/2026-06-23-tier2-sector-persona-report-wiring.md §4 PR-T2a
---      supabase/migrations/0019_commit_sector_personas.sql (admin 원본)
---      supabase/migrations/0036_commit_persona_eval_cron.sql (cron-auth 패턴)
+-- migration: 0041_commit_sector_personas_sector_fix
+-- purpose: 0040 live-catch(2026-06-24)의 corrective를 repo migration으로 공식화 + 0019(admin) 동일
+--          잠복 버그 동시 수정 (omxy R7 HIGH/MED).
+--   배경: committee_votes_sector_required CHECK(0003)는 persona_layer='sector' row에 sector NOT NULL 요구.
+--   commit_sector_personas(0019, admin) + commit_sector_personas_cron(0040, cron) 둘 다 INSERT에서 sector
+--   컬럼을 누락 → 23514 check_violation. 0040은 cron live 경로(P4 Tier2 리포트)에서 발현해 0040.sql 인플레이스
+--   수정 + prod one-off(ledger commit_sector_personas_cron_sector_fix) 적용됨. 0019는 dangling action
+--   (track-record/actions.ts, UI caller 0)이라 미발현이나 동일 결함 잔존 → 본 마이그가 0019를 수정하고
+--   0040을 re-affirm(idempotent)해 양 함수를 모든 env에서 정합화한다.
+--   ref: 0003_s2_reports.sql(committee_votes_sector_required) · 0019 · 0040 · spec 2026-06-23 PR-T2a
 
-create or replace function public.commit_sector_personas_cron(
-  p_month text,                       -- 'YYYY-MM'
-  p_ticker text,                      -- 6자리 KRX
-  p_sector text,                      -- canonical 14 enum (D21 박제)
-  p_part_a jsonb,                     -- length 14 (sectorVoteRow 14개, writer composes)
-  p_sector_aggregate jsonb,           -- exact keys {buy:int, hold:int, sell:int}
-  p_votes jsonb,                      -- length 14, persona_layer='sector', slim payload
-  p_called_by uuid                    -- cron-system user (auth.users 존재 검증; 미저장)
+-- ── admin RPC (0019) — sector=p_sector 추가 (auth.uid()/is_admin() 게이트는 0019 그대로) ──
+create or replace function public.commit_sector_personas(
+  p_month text,
+  p_ticker text,
+  p_sector text,
+  p_part_a jsonb,
+  p_sector_aggregate jsonb,
+  p_votes jsonb
 )
 returns jsonb
 language plpgsql
@@ -30,20 +24,15 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  v_caller uuid := auth.uid();
   v_report_id uuid;
   v_section_8 jsonb;
   v_partC jsonb;
   v_sector_count int;
 begin
-  -- cron 경로 인증: auth.uid()/is_admin() 대신 p_called_by(cron-system user) 존재 검증 (0036 패턴).
-  if p_called_by is null then
-    raise exception 'auth_unavailable';
-  end if;
-  if not exists (select 1 from auth.users where id = p_called_by) then
-    raise exception 'caller_not_found';
-  end if;
+  if v_caller is null then raise exception 'auth_unavailable'; end if;
+  if not public.is_admin() then raise exception 'admin_required'; end if;
 
-  -- R3 acc#2: p_sector canonical 14 drift 방지 (canonical-sectors.ts와 동일)
   if p_sector is null or p_sector not in (
     '바이오','반도체','건설','금융','2차전지','자동차','IT/SW','유통/소비재',
     '에너지','엔터/미디어','통신','철강/소재','운송/물류','보험/증권'
@@ -51,7 +40,6 @@ begin
     raise exception 'invalid_sector';
   end if;
 
-  -- R2 B2: p_part_a length=14 + vote enum 검증
   if p_part_a is null or jsonb_typeof(p_part_a) is distinct from 'array' then
     raise exception 'part_a_must_be_array';
   end if;
@@ -65,7 +53,6 @@ begin
     raise exception 'invalid_part_a_vote';
   end if;
 
-  -- R3 acc#1: p_sector_aggregate exact keys {buy,hold,sell} (extra key reject)
   if p_sector_aggregate is null or jsonb_typeof(p_sector_aggregate) is distinct from 'object' then
     raise exception 'sector_aggregate_must_be_object';
   end if;
@@ -91,7 +78,6 @@ begin
     raise exception 'sector_aggregate_values_must_be_nonneg';
   end if;
 
-  -- R1 #1: p_votes length=14 + persona_layer='sector' + vote enum + required fields
   if p_votes is null or jsonb_typeof(p_votes) is distinct from 'array' then
     raise exception 'votes_must_be_array';
   end if;
@@ -108,7 +94,6 @@ begin
     raise exception 'invalid_vote_row';
   end if;
 
-  -- R1 #2: Core가 만든 stock_reports row SELECT FOR UPDATE (race-free, no INSERT)
   select id, section_8 into v_report_id, v_section_8
   from public.stock_reports
   where ticker = p_ticker
@@ -120,7 +105,6 @@ begin
     raise exception 'core_report_missing';
   end if;
 
-  -- R1 #1 + R3 acc#4: section_8 || ... 패턴 — Core 필드(partB/partD/partC.core_revote/verdict) 보존
   v_partC := coalesce(v_section_8->'partC', '{}'::jsonb) || jsonb_build_object('sector_aggregate', p_sector_aggregate);
 
   update public.stock_reports
@@ -130,13 +114,10 @@ begin
       generated_at = now()
   where id = v_report_id;
 
-  -- R3 acc#3 idempotency: sector layer 기존 row 제거 후 14 INSERT — Core layer rows 보존
   delete from public.committee_votes
   where report_id = v_report_id and persona_layer = 'sector';
 
-  -- FIX(2026-06-24 live catch): committee_votes_sector_required CHECK는 sector-layer row에 sector NOT NULL
-  --   요구. 0019(admin)도 sector 미설정 동일 버그였으나 dangling action이라 미발현. cron live 경로에서
-  --   처음 발현 → p_sector를 sector 컬럼에 명시.
+  -- FIX: sector = p_sector (committee_votes_sector_required CHECK).
   insert into public.committee_votes (report_id, persona_id, persona_layer, sector, vote, argument_excerpt)
   select
     v_report_id,
@@ -162,9 +143,10 @@ begin
 end;
 $$;
 
--- SECURITY DEFINER triad (feedback_supabase_security_definer_pattern):
---   revoke public/anon/authenticated + grant service_role only. 0036 cron RPC와 동일 — admin path는 0019 유지.
-revoke all on function public.commit_sector_personas_cron(text, text, text, jsonb, jsonb, jsonb, uuid) from public;
-revoke all on function public.commit_sector_personas_cron(text, text, text, jsonb, jsonb, jsonb, uuid) from anon;
-revoke all on function public.commit_sector_personas_cron(text, text, text, jsonb, jsonb, jsonb, uuid) from authenticated;
-grant execute on function public.commit_sector_personas_cron(text, text, text, jsonb, jsonb, jsonb, uuid) to service_role;
+-- 0019 SECURITY DEFINER triad 유지 (admin authenticated).
+revoke execute on function public.commit_sector_personas(text, text, text, jsonb, jsonb, jsonb) from public;
+revoke execute on function public.commit_sector_personas(text, text, text, jsonb, jsonb, jsonb) from anon;
+grant execute on function public.commit_sector_personas(text, text, text, jsonb, jsonb, jsonb) to authenticated;
+
+-- 0040 cron RPC는 0040.sql(인플레이스 수정) + prod one-off로 이미 sector fix 적용됨. 본 마이그는 admin(0019)
+-- 정합화만 담당 (cron 함수는 0040.sql이 canonical). fresh DB는 0040.sql→0041 순으로 양 함수 모두 정합.

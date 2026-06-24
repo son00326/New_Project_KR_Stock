@@ -1,0 +1,4 @@
+-- rollback: 0041_commit_sector_personas_sector_fix
+-- forward-only corrective(잠복 CHECK 버그 수정). 되돌리면 23514 check_violation 버그가 재도입되므로 권장 안 함.
+-- 굳이 revert하려면 원 buggy 정의를 재적용: psql -f supabase/migrations/0019_commit_sector_personas.sql
+-- (cron 함수 0040은 0040.sql이 canonical — 본 마이그가 건드리지 않음).
