@@ -98,6 +98,7 @@ Idempotency
 # --- Standard lib ---
 import argparse
 import csv
+import json
 import math
 import os
 import sys
@@ -1086,6 +1087,46 @@ def _print_bpp_funnel_disclosure(*, apply: bool, approval: Optional[str]) -> Non
     print(banner, file=sys.stderr)
 
 
+def _write_bpp_provenance_sidecar(
+    csv_path: str,
+    *,
+    month: str,
+    apply: bool,
+    approval: Optional[str],
+    rows_count: int,
+    leader_hits: list,
+    gate_c_pass: bool,
+) -> str:
+    """durable disclosure (omxy MEDIUM fix): stdout/stderr 외에도 예측 미통과 사실을 산출물에 남긴다.
+
+    DB tier0_candidates_150 에는 marker 컬럼이 없고(스키마 변경=migration=scope 밖), CSV payload도
+    month/ticker/.../signal_label 만 담는다. 따라서 CSV 옆에 provenance JSON sidecar를 써서 funnel/cfg1/
+    approval/NO-CONFIG-PASSES 사실을 durable artifact로 보존한다(docs HANDOFF/spec와 함께 3중 기록).
+    """
+    path = (csv_path[:-4] if csv_path.endswith(".csv") else csv_path) + ".provenance.json"
+    payload = {
+        "scoring": "bpp",
+        "config": "cfg1 (trend+size; foreign/DART OFF)",
+        "approval_basis": approval,
+        "prediction_gate": "NO-CONFIG-PASSES (미통과 — '향후 상승 예측' claim 아님)",
+        "diagnostic_funnel": True,
+        "applied_to_production_tier0_candidates_150": bool(apply),
+        "month": month,
+        "rows": rows_count,
+        "leader_basket_hits": list(leader_hits),
+        "leader_basket_size": len(_LEADER_BASKET),
+        "gate_c_pass": gate_c_pass,
+        "description": ("robust, factor-informed, leader-inclusive candidate shortlist (diagnostic). "
+                        "full-factor 4-config×3-regime + tradable-denominator + combination 캠페인 전부 FAIL "
+                        "→ 무료 데이터 예측 스킬 부재. USER 운영 funnel 승인으로만 production 적용."),
+        "spec": "docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md (2026-06-19 UPDATE §5 step5)",
+    }
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return path
+
+
 # ============================================================================
 # Delta status (vs 전월)
 # ============================================================================
@@ -1459,6 +1500,13 @@ def run_bpp_candidates(
     if not gc["gate_c_pass"]:
         sys.exit(f"[ABORT] Gate C smoke FAIL (§4): {', '.join(gc['gate_c_fails'])}. CSV={args.csv_backup}")
 
+    # durable disclosure (omxy MEDIUM fix): CSV 옆 provenance sidecar에 funnel/cfg1/approval/NO-CONFIG-PASSES 보존.
+    prov_path = _write_bpp_provenance_sidecar(
+        args.csv_backup, month=str(args.month), apply=bool(args.apply), approval=approval,
+        rows_count=len(rows), leader_hits=gc["leader_hits"], gate_c_pass=gc["gate_c_pass"],
+    )
+    print(f"      [provenance] diagnostic funnel sidecar → {prov_path}", file=sys.stderr, flush=True)
+
     if args.apply:
         # B89 strict (apply만) — unresolved sector가 AI pipeline(Tier1Candidate.sector)에 leak되어
         # short_list_30 canonical-14 불변식을 깨는 것을 production write 전에 차단(legacy 경로 정합).
@@ -1741,10 +1789,20 @@ def main() -> None:
     universe = fetch_universe(target_date, limit=args.universe_limit)
     print(f"      → {len(universe)}개 종목", file=sys.stderr, flush=True)
 
+    # cfg1 funnel(D30) = bpp + not shadow. trend+size only이므로 per-ticker foreign(pykrx)/DART(HTTP+cache)
+    # fetch를 끝까지 생략한다(omxy HIGH fix) → network/key-independent + DART cache mutation 0 + 낭비 fetch 0
+    # + DART HTTP raise로 인한 write-전 abort 0. sector resolve(induty lookup)용 supabase client만 생성.
+    cfg1_funnel = args.scoring == "bpp" and not getattr(args, "shadow_sector", False)
+
     dart_key = os.environ.get("DART_API_KEY")
     dart_supabase = None
-    dart_available = bool(dart_key)
-    if dart_key:
+    dart_available = bool(dart_key) and not cfg1_funnel
+    if cfg1_funnel:
+        print("[info] cfg1 funnel: per-ticker foreign(pykrx)/DART(HTTP·cache) fetch 생략 "
+              "(trend+size only, network/key-independent). sector resolve용 Supabase client만 생성.",
+              file=sys.stderr)
+        dart_supabase = get_supabase_client()  # induty_code lookup용 (DART HTTP 아님)
+    elif dart_key:
         print("[info] DART Signal 4·5 enabled — Supabase dart_* cache tables required",
               file=sys.stderr)
         dart_supabase = get_supabase_client()
@@ -1777,6 +1835,7 @@ def main() -> None:
     for i, u in enumerate(universe, start=1):
         if (
             dart_supabase is not None
+            and not cfg1_funnel
             and i > 1
             and (i - 1) % SUPABASE_CLIENT_REFRESH_EVERY_N_TICKERS == 0
         ):
@@ -1784,8 +1843,17 @@ def main() -> None:
             print(f"      [refresh] supabase client recreated at ticker {i}",
                   file=sys.stderr, flush=True)
         price = fetch_price_signals(u["ticker"], target_date, price_series=price_series)
-        foreign, foreign_failed = fetch_foreign_signal(u["ticker"], target_date)
-        dart = fetch_dart_signals(u["ticker"], target_date, dart_key, dart_supabase)
+        if cfg1_funnel:
+            # cfg1: foreign/DART OFF end-to-end (no pykrx, no DART HTTP/cache). build_stock_raw_list(cfg1_lock)
+            # 가 어차피 neutral 처리하지만 fetch 자체를 생략해 network/key-independent + 부작용 0.
+            foreign, foreign_failed = math.nan, False
+            earnings_raw, quality_metrics = math.nan, {}
+            signal_4_basis, quality_insufficient = "not_applicable", True
+        else:
+            foreign, foreign_failed = fetch_foreign_signal(u["ticker"], target_date)
+            dart = fetch_dart_signals(u["ticker"], target_date, dart_key, dart_supabase)
+            earnings_raw, quality_metrics = dart.earnings_raw, dart.quality_raw_metrics
+            signal_4_basis, quality_insufficient = dart.signal_4_basis, dart.quality_insufficient
         signals.append(StockSignal(
             ticker=u["ticker"],
             name=u["name"],
@@ -1796,10 +1864,10 @@ def main() -> None:
             volatility_raw=price["volatility_raw"],
             foreign_net_raw=foreign,
             foreign_fetch_failed=foreign_failed,
-            earnings_raw=dart.earnings_raw,
-            quality_metrics=dart.quality_raw_metrics,
-            signal_4_basis=dart.signal_4_basis,
-            quality_insufficient=dart.quality_insufficient,
+            earnings_raw=earnings_raw,
+            quality_metrics=quality_metrics,
+            signal_4_basis=signal_4_basis,
+            quality_insufficient=quality_insufficient,
         ))
         if i % 100 == 0:
             print(f"      [{i}/{len(universe)}]", file=sys.stderr, flush=True)

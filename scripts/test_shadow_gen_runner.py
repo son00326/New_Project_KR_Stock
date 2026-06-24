@@ -583,6 +583,7 @@ class SeamDispatchTest(unittest.TestCase):
              mock.patch.object(SS, "fetch_price_signals", return_value={"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0}), \
              mock.patch.object(SS, "fetch_foreign_signal", return_value=(0.0, False)), \
              mock.patch.object(SS, "fetch_dart_signals") as dart, \
+             mock.patch.object(SS, "get_supabase_client", return_value=mock.Mock()), \
              mock.patch.object(SS, "run_bpp_candidates") as rbc, \
              mock.patch.object(SS, "run_shadow_bpp_generation_path") as shadow, \
              mock.patch.dict(os.environ, {}, clear=True):
@@ -647,6 +648,42 @@ class SeamDispatchTest(unittest.TestCase):
         rbc, shadow = self._run_main(argv)
         rbc.assert_called_once()
         shadow.assert_not_called()
+
+    def _run_main_probe_fetch(self, argv):
+        """Like _run_main but exposes the foreign/dart fetch mocks to assert cfg1-funnel skips them."""
+        def _resolve(u, **k):
+            for row in u:
+                row.setdefault("sector", "반도체")
+                row.setdefault("sector_source", "mapper")
+                row.setdefault("induty_code", "264")
+            return u
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(SS, "fetch_universe", return_value=[{"ticker": "100000", "name": "n", "market_cap_won": 5e10}]), \
+             mock.patch.object(SS, "resolve_sectors_for_universe", side_effect=_resolve), \
+             mock.patch.object(SS, "prefetch_price_series", return_value={}), \
+             mock.patch.object(SS, "fetch_price_signals", return_value={"momentum_raw": 0.0, "volume_surge_raw": 0.0, "volatility_raw": 0.0}), \
+             mock.patch.object(SS, "fetch_foreign_signal", return_value=(0.0, False)) as fgn, \
+             mock.patch.object(SS, "fetch_dart_signals") as dart, \
+             mock.patch.object(SS, "get_supabase_client", return_value=mock.Mock()) as gsc, \
+             mock.patch.object(SS, "run_bpp_candidates") as rbc, \
+             mock.patch.object(SS, "run_shadow_bpp_generation_path"), \
+             mock.patch.dict(os.environ, {}, clear=True):
+            dart.return_value = mock.Mock(
+                earnings_raw=0.0, quality_raw_metrics={}, signal_4_basis="not_applicable",
+                quality_insufficient=True,
+            )
+            SS.main()
+        return fgn, dart, gsc, rbc
+
+    def test_cfg1_funnel_skips_foreign_and_dart_fetch(self):
+        # omxy HIGH fix: cfg1 funnel(bpp & not shadow)은 per-ticker foreign(pykrx)/DART fetch를 건너뛴다.
+        argv = ["screen_shortlist_tier0.py", "--month", "2026-06-01", "--dry-run",
+                "--csv-backup", "/tmp/x.csv", "--scoring", "bpp", "--emit-candidates"]
+        fgn, dart, gsc, rbc = self._run_main_probe_fetch(argv)
+        fgn.assert_not_called()
+        dart.assert_not_called()
+        gsc.assert_called()       # sector resolve용 supabase client은 여전히 생성
+        rbc.assert_called_once()
 
 
 # ============================================================================

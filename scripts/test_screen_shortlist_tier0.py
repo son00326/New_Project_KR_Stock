@@ -1049,6 +1049,25 @@ class BppFunnelApplyTest(unittest.TestCase):
         self.assertIn("DIAGNOSTIC FUNNEL", out)
         self.assertIn("claim 아님", out)
 
+    def test_provenance_sidecar_written_durable_disclosure(self):
+        # omxy MEDIUM fix: CSV 옆 provenance.json 이 funnel/cfg1/NO-CONFIG-PASSES 사실을 durable 보존.
+        import json
+        sel = self._gate_c_pass_selection()
+        uni = self._universe_for(sel)
+        with tempfile.TemporaryDirectory() as td:
+            args = self._args(td, apply=False, approval_basis=None)
+            with patch.object(MODULE, "select_bpp_candidates", return_value=sel):
+                MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+            prov = Path(td) / "bpp.provenance.json"
+            self.assertTrue(prov.exists())
+            data = json.loads(prov.read_text(encoding="utf-8"))
+            self.assertEqual(data["scoring"], "bpp")
+            self.assertIn("cfg1", data["config"])
+            self.assertTrue(data["diagnostic_funnel"])
+            self.assertFalse(data["applied_to_production_tier0_candidates_150"])
+            self.assertIn("NO-CONFIG-PASSES", data["prediction_gate"])
+            self.assertEqual(data["rows"], 150)
+
 
 class KrxPrefetchRetryTest(unittest.TestCase):
     """B++ 450d prefetch throttle 내성: _fetch_bydd_with_retry는 일시 RuntimeError를 backoff
