@@ -558,7 +558,7 @@
 - **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·AI(Claude/GPT)·DART UI 표시는 아직 미연결 (65차 Q3 supersede: AI 키 = Anthropic 단일 아님, Claude 필수 + GPT 선택 멀티프로바이더 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션). T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
 - **실 운용 검증**: **0일**
 
-**🎉 출시(launch) 기준** = Mock + 실데이터(S7) + 운용 검증(S9) — **자동매매 제외**, "AI 추천 + 가상 포트 + 알림" 도구 (사용자 결정 2026-06-01). **어드민 내부 도구 완성 기준**(출시 후 도달) = 출시 + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물, 실운용하며 개발) → 둘 다 **미달성**. 진행 경로 = HANDOFF.md §2 Runbook(S7b~S9 후속 PR + 운영).
+**🎉 출시(launch) 기준** = Mock + 실데이터(S7) + **PR-K Reflection 자가학습 빌드(D32, 출시 전·미구현)** + 운용 검증(S9, ★ Reflection S9 중 가동·검증) — **자동매매 제외**, "AI 추천 + 가상 포트 + 알림" 도구 (사용자 결정 2026-06-01). **어드민 내부 도구 완성 기준**(출시 후 도달) = 출시 + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물, 실운용하며 개발) → 둘 다 **미달성**. 진행 경로 = HANDOFF.md §2 Runbook(S7b~S9 후속 PR + 운영).
 
 > **2026-04-21 어휘 정리 (D16)**: 구 "MVP Stage 1 완료" 어휘는 대외 서비스 프레임에서 파생된 것이며 어드민 내부 도구 트랙에는 강제 게이트가 아님. 자세한 재정의는 CLAUDE.md 상단 "⭐ 프로젝트 재정의" 참조.
 
@@ -588,6 +588,7 @@
 - [ ] 뉴스·브리핑 실 연결 (S7b · M11·M12a)
 - [ ] 장중·Exit 실 연결 (S7c · M13·M15)
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)
+- [ ] **PR-K Reflection 자가학습** (D32, 출시 전 빌드 + S9 검증) — reflection_log 마이그(0038~) + track별(주1/월1) 회고 job + 다음 선정 prompt 주입(`reflectionContext` seam). **미구현**(현재 seam 빈 문자열만 주입; Q5 incumbent thesis와 별개). SoT: `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`
 
 ### 운용 검증 (진행 중)
 - [x] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 Session 3 완료 · production live https://tudal-tawny.vercel.app)
