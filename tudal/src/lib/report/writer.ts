@@ -248,9 +248,13 @@ function parseSectorContentStrict(
   return { vote, one_line, argument_excerpt };
 }
 
-export async function commitSectorReport(
-  input: CommitSectorReportInput,
-): Promise<{ reportId: string; votesInserted: number }> {
+// 순수 payload 조립 — admin(commitSectorReport)과 cron(commitSectorReportCron) 공용 (buildSection8AndVotes 패턴).
+//   count 가드 + strict parse + partA(14) + sector_aggregate + votes(14)를 한 곳에서 산출해 RPC drift 방지.
+function composeSectorReportPayload(input: CommitSectorReportInput): {
+  partA: Array<{ persona_id: string; label: string; background: string; vote: 'BUY' | 'HOLD' | 'SELL'; one_line: string }>;
+  sectorAggregate: { buy: number; hold: number; sell: number };
+  votes: Array<{ persona_id: string; persona_layer: string; vote: 'BUY' | 'HOLD' | 'SELL'; argument_excerpt: string }>;
+} {
   // R2 B2 + R3 acc#3: length=14 가드
   if (
     input.sectorPersonaResults.length !== SECTOR_PERSONA_COUNT ||
@@ -302,6 +306,14 @@ export async function commitSectorReport(
     };
   });
 
+  return { partA, sectorAggregate, votes };
+}
+
+export async function commitSectorReport(
+  input: CommitSectorReportInput,
+): Promise<{ reportId: string; votesInserted: number }> {
+  const { partA, sectorAggregate, votes } = composeSectorReportPayload(input);
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('commit_sector_personas', {
     p_month: input.month,
@@ -317,6 +329,34 @@ export async function commitSectorReport(
   }
   if (!data?.success) {
     throw new Error('commit_sector_personas_failed:no_success');
+  }
+  return { reportId: data.report_id, votesInserted: data.votes_inserted };
+}
+
+// PR-T2a (Tier 2 → live 리포트 경로) — service-role-DI 변형. cron/worker(auth.uid()=null)에서
+//   commit_sector_personas_cron(0040, p_called_by=cron-system user) 호출. 원 admin commitSectorReport 무변경.
+//   commitTickerReportCron(Core-11)과 동일 패턴.
+export async function commitSectorReportCron(
+  input: CommitSectorReportInput,
+  options: { client: SupabaseClient; calledBy: string },
+): Promise<{ reportId: string; votesInserted: number }> {
+  const { partA, sectorAggregate, votes } = composeSectorReportPayload(input);
+
+  const { data, error } = await options.client.rpc('commit_sector_personas_cron', {
+    p_month: input.month,
+    p_ticker: input.ticker,
+    p_sector: input.sector,
+    p_part_a: partA,
+    p_sector_aggregate: sectorAggregate,
+    p_votes: votes,
+    p_called_by: options.calledBy,
+  });
+
+  if (error) {
+    throw new Error(`commit_sector_personas_cron_failed:${error.code ?? 'unknown'}`);
+  }
+  if (!data?.success) {
+    throw new Error('commit_sector_personas_cron_failed:no_success');
   }
   return { reportId: data.report_id, votesInserted: data.votes_inserted };
 }

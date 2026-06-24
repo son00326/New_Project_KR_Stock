@@ -1,4 +1,7 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { callPersona, type CallPersonaResult } from '@/lib/ai/anthropic-client';
+import { getRoleWorstCaseMaxCostPerCallKrw } from '@/lib/ai/model-registry';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 import { acquireBatchLock, releaseBatchLock } from '@/lib/data/admin-batch-runs';
 import { preflightHardcap } from '@/lib/cost/cost-logger';
@@ -160,6 +163,9 @@ export interface RunSectorEvalInput {
   sub_tags?: readonly string[];
   adminUserId: string;
   fetchFinancials: (ticker: string) => Promise<string>;
+  // PR-T2a (Tier 2 → live 리포트 cron 경로) — service-role cost DI. 미지정 시 admin 경로 무회귀.
+  //   present 시: preflight(callerKind:'service-role') + callPersona(costClient + costLogMonth=report month).
+  costClient?: SupabaseClient;
 }
 
 export interface SectorEvalResult {
@@ -185,11 +191,17 @@ export interface SectorEvalResult {
  * `unknown_persona_id:...` throw → 본 함수가 degradedCount++로 처리.
  */
 export async function runSectorEval(input: RunSectorEvalInput): Promise<SectorEvalResult> {
-  // R3 acc#3 cost guard: preflight 14 calls (TIER2_CALLS_PER_TICKER에서 Core 11 부분은 caller가 별도 계산)
-  await preflightHardcap({
-    month: input.month,
-    callCount: SECTOR_PERSONA_COUNT,
-  });
+  // R3 acc#3 cost guard: preflight 14 calls. PR-T2b model-aware — sector personas는 callPersona 기본
+  //   resolveRole('tier1_panel') 사용(modelBinding 미지정)이라 동일 role worst-case 단가로 reservation.
+  //   PR-T2a: costClient present(cron) 시 service-role cost 조회, 미지정 시 admin session(무회귀).
+  await preflightHardcap(
+    {
+      month: input.month,
+      callCount: SECTOR_PERSONA_COUNT,
+      maxCostPerCallKrw: getRoleWorstCaseMaxCostPerCallKrw('tier1_panel'),
+    },
+    input.costClient ? { client: input.costClient, callerKind: 'service-role' } : {},
+  );
 
   const slotTemplate = resolveSlotTemplate(input.sector, input.sub_tags ?? []);
   // 53차+: slot 13/14에서 sub_tag 매칭된 경우만 personaId에 sub_tag encode (dynamic resolution).
@@ -220,6 +232,10 @@ export async function runSectorEval(input: RunSectorEvalInput): Promise<SectorEv
           financials,
           reflectionContext: '',
           adminUserId: input.adminUserId,
+          // PR-T2a: cron 경로(costClient present)는 service-role cost insert + report month 정합.
+          //   admin 경로(undefined)는 callPersona 기본(session client + UTC-now month) 무회귀.
+          costClient: input.costClient,
+          costLogMonth: input.costClient ? input.month : undefined,
         });
         return { ok: true, result };
       } catch (err) {

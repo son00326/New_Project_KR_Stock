@@ -1,7 +1,7 @@
 // PR3c Task 6 — full-report-orchestrator test (3-step + conditional revise + persistence).
 // SoT = plan v6, omxy R6 CONVERGED.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const rpcMock = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
@@ -40,6 +40,12 @@ vi.mock('@/lib/data/report-critic-findings', () => ({
 const insertOrBumpBacklogMock = vi.fn();
 vi.mock('@/lib/data/sector-reference-backlog', () => ({
   insertOrBumpBacklog: insertOrBumpBacklogMock,
+}));
+
+// PR-T2a — sector board seam mock (flag-off in existing tests → not called → no impact).
+const commitSectorBoardStepMock = vi.fn();
+vi.mock('@/lib/report/sector-board-step', () => ({
+  commitSectorBoardStep: (...args: unknown[]) => commitSectorBoardStepMock(...args),
 }));
 
 const happySections = {
@@ -93,6 +99,12 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     callReviseMock.mockReset();
     insertCriticFindingsRunMock.mockReset();
     insertOrBumpBacklogMock.mockReset();
+    commitSectorBoardStepMock.mockReset();
+    commitSectorBoardStepMock.mockResolvedValue({ status: 'committed', reportId: 'r-uuid-1' });
+    delete process.env.SECTOR_BOARD_ENABLED;
+  });
+  afterEach(() => {
+    delete process.env.SECTOR_BOARD_ENABLED;
   });
 
   it('happy path (no revise) — writer 1회 + critic 1회 + revise 0회 + 3 RPC + criticRunId 반환', async () => {
@@ -125,6 +137,38 @@ describe('orchestrateFullReport — 3-step + conditional revise + persistence', 
     expect(result.revised).toBe(false);
     expect(result.costKrw).toBe(236 + 5);  // writer + critic, revise 0
     expect(result.criticRunId).toBe('critic-run-uuid-1');  // B17 fix
+  });
+
+  // PR-T2a — SECTOR_BOARD_ENABLED seam (flag-gated, dormant by default).
+  async function runHappy() {
+    callFullReportMock.mockResolvedValueOnce({
+      content: JSON.stringify(happySections),
+      usage: { input_tokens: 3000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 6000 },
+      costKrw: 236,
+    });
+    evaluateReportMock.mockResolvedValueOnce(happyCritic);
+    insertCriticFindingsRunMock.mockResolvedValueOnce({ runId: 'critic-run-uuid-1' });
+    const { orchestrateFullReport } = await import('@/lib/report/full-report-orchestrator');
+    return orchestrateFullReport(baseInput);
+  }
+
+  it('SECTOR_BOARD_ENABLED unset → commitSectorBoardStep NOT called (dormant)', async () => {
+    await runHappy();
+    expect(commitSectorBoardStepMock).not.toHaveBeenCalled();
+  });
+
+  it('SECTOR_BOARD_ENABLED=true → commitSectorBoardStep called with ticker/month/badge/adminUserId/client', async () => {
+    process.env.SECTOR_BOARD_ENABLED = 'true';
+    await runHappy();
+    expect(commitSectorBoardStepMock).toHaveBeenCalledTimes(1);
+    expect(commitSectorBoardStepMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticker: '196170',
+        month: '2026-06',
+        badge: '🟢',
+        adminUserId: 'u1',
+      }),
+    );
   });
 
   it('critic FAIL → revise 1회 → orchestrator success (1회 hard cap)', async () => {

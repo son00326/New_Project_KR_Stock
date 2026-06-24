@@ -148,12 +148,28 @@ describe('runSectorEval (Tier 2 D21, 52차)', () => {
     });
   });
 
-  it('preflightHardcap called with SECTOR_PERSONA_COUNT (14, cost guard)', async () => {
+  it('preflightHardcap called with SECTOR_PERSONA_COUNT (14, model-aware) + admin session (no costClient)', async () => {
     await runSectorEval(sectorInput);
-    expect(preflightHardcap).toHaveBeenCalledWith({
-      month: '2026-05',
-      callCount: SECTOR_PERSONA_COUNT,
-    });
+    expect(preflightHardcap).toHaveBeenCalledWith(
+      {
+        month: '2026-05',
+        callCount: SECTOR_PERSONA_COUNT,
+        maxCostPerCallKrw: expect.any(Number), // PR-T2b model-aware (tier1_panel role worst-case)
+      },
+      {}, // PR-T2a: sectorInput has no costClient → admin session path
+    );
+  });
+
+  it('costClient present → preflight service-role + callPersona costClient/costLogMonth (cron path)', async () => {
+    const costClient = {} as never;
+    await runSectorEval({ ...sectorInput, costClient });
+    expect(preflightHardcap).toHaveBeenCalledWith(
+      expect.objectContaining({ month: '2026-05', callCount: SECTOR_PERSONA_COUNT }),
+      { client: costClient, callerKind: 'service-role' },
+    );
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ costClient, costLogMonth: '2026-05' }),
+    );
   });
 
   it('available=true + degradedCount=0 시 14 callPersona invocations + length=14 personaIds', async () => {

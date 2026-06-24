@@ -32,6 +32,7 @@ import { REVISE_SYSTEM_PROMPT, buildReviseUserPrompt } from '@/lib/ai/prompts/re
 import { evaluateReport } from '@/lib/report/critic';
 import { enrichInput } from '@/lib/report/analyst';
 import { commitSection8Step } from './section8-step';
+import { commitSectorBoardStep } from './sector-board-step';
 import { preflightHardcap } from '@/lib/cost/cost-logger';
 import { getOrchestrateBudgetKrw } from '@/lib/ai/model-registry';
 import { insertCriticFindingsRun } from '@/lib/data/report-critic-findings';
@@ -338,6 +339,30 @@ export async function orchestrateFullReport(
           ticker: enriched.ticker,
           month: enriched.month,
           status: section8.status,
+        }),
+      );
+    }
+  }
+
+  // PR-T2a (Tier 2 섹터 보드) — Section 8 직후. flag-off=dormant(cost 0). Section 8(partD)와 독립이나
+  //   stock_reports row + canonical sector 필요 → body persist 이후 + Section 8 위상에서 실행.
+  //   commit_sector_personas_cron(0040, service-role)가 section_8 partA + partC.sector_aggregate를
+  //   Core 필드 보존하며 UPDATE. ⚪/null badge·비-canonical sector·degraded(<14)는 skip(no write).
+  if (process.env.SECTOR_BOARD_ENABLED === 'true') {
+    const sectorBoard = await commitSectorBoardStep({
+      ticker: enriched.ticker,
+      month: enriched.month,
+      badge: enriched.consensusBadge ?? null,
+      adminUserId: input.adminUserId,
+      client: supabase,
+    });
+    if (sectorBoard.status !== 'committed') {
+      console.info(
+        JSON.stringify({
+          event: 'commit_sector_board_skipped',
+          ticker: enriched.ticker,
+          month: enriched.month,
+          status: sectorBoard.status,
         }),
       );
     }

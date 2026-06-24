@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { commitTickerReport, commitBadgeOnly, commitSectorReport } from '../writer';
+import { commitTickerReport, commitBadgeOnly, commitSectorReport, commitSectorReportCron } from '../writer';
 import type { CallPersonaResult } from '@/lib/ai/anthropic-client';
 import { SECTOR_PERSONA_COUNT } from '@/lib/screening/canonical-sectors';
 
@@ -269,5 +269,62 @@ describe('commitSectorReport (Tier 2 D21, 52차)', () => {
       }),
     ).rejects.toThrow('sector_writer_invalid_persona_content:invalid_one_line');
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+});
+
+// PR-T2a — commitSectorReportCron (service-role-DI 변형, commit_sector_personas_cron + p_called_by)
+describe('commitSectorReportCron (PR-T2a, cron service-role)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('options.client.rpc("commit_sector_personas_cron", { ..., p_called_by }) 호출 + 동일 payload 조립', async () => {
+    const cronRpc = vi.fn().mockResolvedValue({
+      data: { success: true, report_id: 'rpt-cron', sector: '반도체', votes_inserted: 14 },
+      error: null,
+    });
+    const client = { rpc: cronRpc } as never;
+    const sectorResults = Array.from({ length: SECTOR_PERSONA_COUNT }, () => happyPersonaResult);
+    const sectorIds = Array.from({ length: SECTOR_PERSONA_COUNT }, (_, i) => `sector-반도체-slot-${i + 1}`);
+
+    const result = await commitSectorReportCron(
+      {
+        month: '2026-06',
+        ticker: '042700',
+        sector: '반도체',
+        sectorPersonaResults: sectorResults,
+        sectorPersonaIds: sectorIds,
+      },
+      { client, calledBy: '39202d8b-1042-48a6-8da0-df14a52fabea' },
+    );
+
+    expect(cronRpc).toHaveBeenCalledWith(
+      'commit_sector_personas_cron',
+      expect.objectContaining({
+        p_month: '2026-06',
+        p_ticker: '042700',
+        p_sector: '반도체',
+        p_called_by: '39202d8b-1042-48a6-8da0-df14a52fabea',
+      }),
+    );
+    const rpcArg = cronRpc.mock.calls[0][1];
+    expect(rpcArg.p_part_a).toHaveLength(14);
+    expect(rpcArg.p_votes).toHaveLength(14);
+    expect(Object.keys(rpcArg.p_sector_aggregate).sort()).toEqual(['buy', 'hold', 'sell']);
+    // admin createClient(commit_sector_personas)은 호출되지 않음 — cron 경로는 DI client만.
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(result.reportId).toBe('rpt-cron');
+    expect(result.votesInserted).toBe(14);
+  });
+
+  it('RPC error → commit_sector_personas_cron_failed throw', async () => {
+    const cronRpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST500' } });
+    const client = { rpc: cronRpc } as never;
+    const sectorResults = Array.from({ length: SECTOR_PERSONA_COUNT }, () => happyPersonaResult);
+    const sectorIds = Array.from({ length: SECTOR_PERSONA_COUNT }, (_, i) => `sector-반도체-slot-${i + 1}`);
+    await expect(
+      commitSectorReportCron(
+        { month: '2026-06', ticker: '042700', sector: '반도체', sectorPersonaResults: sectorResults, sectorPersonaIds: sectorIds },
+        { client, calledBy: 'u' },
+      ),
+    ).rejects.toThrow(/commit_sector_personas_cron_failed/);
   });
 });
