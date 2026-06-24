@@ -914,6 +914,11 @@ def build_stock_raw_list(
         trdvals = entry.get("trdvals", [])
         if cfg1_lock:
             # cfg1: trend+size only. foreign/earnings/quality 전부 구조적 neutral(uniform 50) → 랭킹 무영향.
+            # NOTE(검증 정합): step-2 harvest cfg1은 foreign을 penalty-tier(5, foreign_fetch_failed=True)로
+            # neutralize했고 본 경로는 structural-neutral(50, =False)을 쓴다. 둘 다 cross-section UNIFORM 상수라
+            # rank_ensemble 내 동일 가산상수 → **선정 150 rank-invariant(동일)**. 실증: foreign_failed True vs
+            # False score delta = (50-5)/4 = +11.25 모든 종목 동일, score-desc 순서 불변(Claude review CONFIRMED).
+            # structural-50을 택한 이유 = '의도적 OFF(구조적 생략)'이 'per-ticker fetch 실패'보다 정직한 라벨.
             earnings = math.nan
             quality = math.nan
             foreign = math.nan
@@ -1124,6 +1129,27 @@ def _write_bpp_provenance_sidecar(
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def _backup_existing_candidates_before_write(supabase, month: str, csv_backup: str) -> str:
+    """destructive delete+upsert 전 현 production tier0_candidates_150(month) rows를 JSON으로 자동 백업.
+
+    Claude review MEDIUM fix: operator 수기 rollback 백업 누락 방지. SELECT * → 타임스탬프 rollback 파일.
+    rows=0(첫 write)이면 빈 백업을 남기되 경고. 반환 = 백업 파일 경로.
+    """
+    existing = (
+        supabase.table("tier0_candidates_150").select("*").eq("month", month).execute().data
+    )
+    ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+    stem = csv_backup[:-4] if csv_backup.endswith(".csv") else csv_backup
+    path = f"{stem}.prod-rollback-{ts}.json"
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2, default=str)
+    note = "" if existing else " ⚠️ 기존 rows 0 (첫 write — rollback 시 month 삭제만)"
+    print(f"      [rollback-backup] 기존 tier0_candidates_150 month={month} {len(existing)}행 → {path}{note}",
+          file=sys.stderr, flush=True)
     return path
 
 
@@ -1497,21 +1523,26 @@ def run_bpp_candidates(
     print(f"  score–log(시총) 상관: {gc['score_logmcap_corr']:.3f} (report 전용, 단독 pass 기준 아님)")
     print(f"  long-trend NaN(데이터 부족) per bucket: {gc['nan_trend']} (0이어야 정상)")
     print(f"  11-leader tripwire 진입(합격기준 아님): {len(gc['leader_hits'])}/11 {gc['leader_hits']}")
-    if not gc["gate_c_pass"]:
-        sys.exit(f"[ABORT] Gate C smoke FAIL (§4): {', '.join(gc['gate_c_fails'])}. CSV={args.csv_backup}")
 
-    # durable disclosure (omxy MEDIUM fix): CSV 옆 provenance sidecar에 funnel/cfg1/approval/NO-CONFIG-PASSES 보존.
+    # durable disclosure (omxy MEDIUM + Claude review LOW fix): provenance sidecar를 Gate-C FAIL exit 전에 써서
+    # 실패 run의 CSV 아티팩트도 diagnostic-funnel 표기를 갖게 한다.
     prov_path = _write_bpp_provenance_sidecar(
         args.csv_backup, month=str(args.month), apply=bool(args.apply), approval=approval,
         rows_count=len(rows), leader_hits=gc["leader_hits"], gate_c_pass=gc["gate_c_pass"],
     )
     print(f"      [provenance] diagnostic funnel sidecar → {prov_path}", file=sys.stderr, flush=True)
 
+    if not gc["gate_c_pass"]:
+        sys.exit(f"[ABORT] Gate C smoke FAIL (§4): {', '.join(gc['gate_c_fails'])}. CSV={args.csv_backup}")
+
     if args.apply:
         # B89 strict (apply만) — unresolved sector가 AI pipeline(Tier1Candidate.sector)에 leak되어
         # short_list_30 canonical-14 불변식을 깨는 것을 production write 전에 차단(legacy 경로 정합).
         enforce_b89_strict_block(unresolved_count, apply=True, review_csv_path=review_csv_path)
         supabase = get_supabase_client()
+        # Claude review MEDIUM fix: destructive delete+upsert 전에 현 production rows를 자동 백업(operator
+        # 수기 백업 누락 방지). rollback 파일 경로를 로그에 남긴다.
+        _backup_existing_candidates_before_write(supabase, str(args.month), args.csv_backup)
         print(f"[7/7] replace month rows → tier0_candidates_150 ({len(rows)} rows, cfg1 diagnostic funnel, "
               f"on_conflict=month,ticker)", file=sys.stderr, flush=True)
         upsert_candidates_supabase(supabase, rows)

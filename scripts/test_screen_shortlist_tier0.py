@@ -996,13 +996,78 @@ class BppFunnelApplyTest(unittest.TestCase):
             sentinel = object()
             with patch.object(MODULE, "select_bpp_candidates", return_value=sel), \
                  patch.object(MODULE, "get_supabase_client", return_value=sentinel) as gc, \
+                 patch.object(MODULE, "_backup_existing_candidates_before_write") as bk, \
                  patch.object(MODULE, "upsert_candidates_supabase") as up:
                 MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
             gc.assert_called_once()
             up.assert_called_once()
+            # Claude review MEDIUM fix: 자동 rollback 백업이 write 전에 실행됐는지.
+            bk.assert_called_once()
             call_args = up.call_args[0]
             self.assertIs(call_args[0], sentinel)
             self.assertEqual(len(call_args[1]), 150)  # 150 rows written
+
+    def test_backup_existing_candidates_before_write_dumps_current_rows(self):
+        # Claude review MEDIUM fix: 자동 백업이 현 production rows를 JSON으로 dump.
+        import json
+
+        class _Exec:
+            def __init__(self, data):
+                self._data = data
+            def execute(self):
+                return SimpleNamespace(data=self._data)
+
+        class _Q:
+            def __init__(self, data):
+                self._data = data
+            def select(self, *a, **k):
+                return self
+            def eq(self, *a, **k):
+                return _Exec(self._data)
+
+        class _Client:
+            def __init__(self, data):
+                self._data = data
+            def table(self, name):
+                assert name == "tier0_candidates_150"
+                return _Q(self._data)
+
+        rows = [{"month": "2026-06-01", "ticker": "000660", "sector": "반도체"}]
+        with tempfile.TemporaryDirectory() as td:
+            csv_backup = str(Path(td) / "bpp.csv")
+            path = MODULE._backup_existing_candidates_before_write(_Client(rows), "2026-06-01", csv_backup)
+            self.assertTrue(Path(path).exists())
+            self.assertIn(".prod-rollback-", path)
+            self.assertEqual(json.loads(Path(path).read_text(encoding="utf-8")), rows)
+
+    def test_cfg1_lock_score_level_uniform_nontrend_factors(self):
+        # Claude review LOW fix: cfg1 neutralization을 score 레벨에서 검증 — foreign/earnings/quality rank가
+        # eligible 전종목 uniform, trend만 변별. build → score_bpp_universe로 실제 랭킹 확인.
+        sigs = [
+            MODULE.StockSignal(
+                ticker=f"{k:06d}", name=f"n{k}", sector="제조", market_cap_won=float(k + 1) * 5e10,
+                foreign_net_raw=9e9 + k * 1e7, earnings_raw=0.1 + 0.01 * k, signal_4_basis="standalone",
+                quality_insufficient=False, foreign_fetch_failed=False,
+            )
+            for k in range(40)
+        ]
+        price_series = {
+            s.ticker: {
+                "closes": _bpp_series(280, 0.0005 + 0.00003 * i),
+                "highs": _bpp_series(280, 0.0005 + 0.00003 * i),
+                "trdvals": [5e9 + i * 1e7] * 280,
+            }
+            for i, s in enumerate(sigs)
+        }
+        quality_composites = [50.0 + (k % 20) for k in range(40)]
+        stocks = MODULE.build_stock_raw_list(sigs, price_series, quality_composites, cfg1_lock=True)
+        scored = [s for s in MODULE.TF.score_bpp_universe(stocks, "short") if s.eligible]
+        self.assertGreater(len(scored), 5)
+        for factor in ("foreign", "earnings", "quality"):
+            vals = {round(s.factor_ranks[factor], 6) for s in scored}
+            self.assertEqual(len(vals), 1, f"{factor} should be uniform under cfg1_lock, got {vals}")
+        trend_vals = {round(s.factor_ranks["trend"], 6) for s in scored}
+        self.assertGreater(len(trend_vals), 1, "trend must differentiate under cfg1")
 
     def test_apply_b89_blocks_unresolved_sector(self):
         # 한 종목이 unresolved sector → B89 strict block (apply) → SystemExit, write 없음.
