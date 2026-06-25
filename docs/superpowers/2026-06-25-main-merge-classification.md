@@ -11,6 +11,7 @@
 | 항목 | 무엇 | 근거 |
 |---|---|---|
 | **B-PARTB Part B 쟁점** | `writer.ts extractIssueDebates` + `page.tsx` 찬/반/중 렌더 | 리포트 페이지가 DB를 읽어 항상 렌더(플래그 없음). 30 리포트 ₩0 백필 완료(117 결함→0). 2026-06-25 배포. |
+| **섹터 lens provenance (AI 섹터 관점 라벨)** | `page.tsx` Section 8 Part A 헤더 + `canonical-sectors.ts` `SECTOR_LENS_SUMMARY` | FE always-on(플래그 없음). 저장 데이터·재생성·스키마 무변경(라벨만 FE enrich). 2026-06-25 배포(feat `a2a1269`). 5 unit test. |
 | **PR-T2a 섹터 보드 데이터 + 렌더** | `stock_reports` 30행에 섹터보드(420 votes + partA 14 + sector_aggregate) + `Section8ModernView` Part A/Part C 렌더 | 마이그 **0040/0041 production applied**. 데이터 생성 완료(2026-06-24). 페이지 렌더는 항상 on. |
 | **B++ funnel 데이터** | `tier0_candidates_150`/`short_list_30` 2026-06 = B++ cfg1 | G1/G2로 적용(2026-06-24). **스코어링 코드는 `scripts/*.py`(Vercel 앱 미배포)** — 앱은 결과(DB)만 읽음. diagnostic funnel(예측 게이트 통과 아님, 상승예측 claim 금지). |
 | MVP ①②③ + canonical 5-PR + MVP 엔진(W0~W3b) | 기존 production | 이전 세션들에서 이미 main/배포(이번 머지 이전부터 live). |

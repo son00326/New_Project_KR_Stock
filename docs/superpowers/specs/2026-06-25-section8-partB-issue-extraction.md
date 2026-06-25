@@ -1,5 +1,7 @@
 # Spec — Section 8 Part B (쟁점) 실제 issue-extraction (B-PARTB)
 
+> **관련 기능(동시 배포, 별개 코드·spec, 상호 독립)**: **섹터 lens provenance** — Section 8 Part A 헤더에 섹터-wise 핵심판단 라벨("AI 섹터 관점 · {sector}: {lens}") + 면책 추가(FE-only, ₩0, 저장 데이터 무변경). cross-ref: `canonical-sectors.ts` `SECTOR_LENS_SUMMARY` + `page.tsx` sector-lens test. feat `a2a1269`.
+
 - **Status**: SHIPPED — IMPL CONVERGED + ₩0 in-place 백필 APPLIED + MERGED→main + Vercel prod DEPLOYED (2026-06-25). (이력: PLAN omxy R1~R3 → IMPL omxy R1+Claude 3-lens+omxy R2 → backfill omxy R1 APPLIED → merge omxy 교차검증 CONVERGED → FF-merge main ea27656 + prod deploy, canary 4/4 200.) 잔여 없음(중: arbiter render production live).
 - **Date**: 2026-06-25
 - **Branch**: `tier0-bpp-multiregime` → 2026-06-25 FF-merged into `main` (ea27656) + Vercel prod deployed.
