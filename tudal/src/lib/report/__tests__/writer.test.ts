@@ -587,12 +587,13 @@ describe('extractIssueDebates (B-PARTB)', () => {
     }
   });
 
-  it('15. raw-JSON-in-one_line → isQuoteSafe rejects → no { in output', () => {
+  it('15. raw-JSON/brace-in-one_line → isQuoteSafe rejects → no { in output', () => {
     const results = [
       raw('{"vote":"BUY","one_line":"{\\"vote\\":\\"BUY\\"}","argument_excerpt":"x"}'),
+      raw('{"vote":"BUY","one_line":"밸류 저평가 {draft}","argument_excerpt":"x"}'),
       mk('BUY', '밸류 저평가'), mk('SELL', '실적 둔화'), mk('BUY', '해자 견고'),
       mk('HOLD', '재무 안정'), mk('SELL', '거시 불확실'), mk('BUY', '혁신 기대'),
-      mk('HOLD', '배당 무난'), mk('BUY', '현금 풍부'), mk('SELL', '부채 부담'), mk('BUY', '성장 모멘텀'),
+      mk('HOLD', '배당 무난'), mk('BUY', '현금 풍부'), mk('SELL', '부채 부담'),
     ];
     const out = extractIssueDebates(results, CORE_IDS);
     assertInvariants(out);

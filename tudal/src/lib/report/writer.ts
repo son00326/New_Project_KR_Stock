@@ -72,7 +72,7 @@ interface UsablePersona {
 function isQuoteSafe(s: string): boolean {
   const t = s.trim();
   return (
-    !t.startsWith('{') &&
+    !s.includes('{') &&
     !s.includes('"vote"') &&
     !s.includes('"one_line"') &&
     t.toLowerCase() !== 'stub'
