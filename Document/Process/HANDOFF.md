@@ -213,6 +213,7 @@ P1 audit 잔존: `cost_log` 2026-05 4행(₩334.71) + `stock_reports` 2026-05-01
 |---|---|
 | 어드민 서비스 기획 본체 (Tier 0/1/2 + 합의 배지 + M12a 뉴스 + Section 8 contract) | `Document/Service/Planning/ServicePlan-Admin.md` (§1A.5 D19·D21·D22 / §3.10 M12a / §4.2.1 Section 8) |
 | writer Section 8 작성 가이드 | `Document/Service/Report/ReportFramework.md §8` |
+| **main 병합 분류 (LIVE/DORMANT/RESEARCH-CLOSED, 2026-06-25 FF-merge 후 test↔실사용 구분)** | `docs/superpowers/2026-06-25-main-merge-classification.md` |
 | **AI 자가 학습 Reflection / PR-K (D32, 출시 전 승격)** | `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md` |
 | 실데이터+실AI e2e ADR + 11-PR 로드맵 (단 D-6/PR-K Reflection = D32로 출시 전 승격 → 위 D32 spec 우선) | `docs/superpowers/specs/2026-05-31-realdata-realai-e2e-decisions.md` |
 | **Tier0 B++ 검증 + funnel 적용 결정** | `docs/superpowers/specs/2026-06-12-tier0-scoring-bplus-validation.md` 2026-06-19 UPDATE + `docs/superpowers/reviews/2026-06-17-tier0-4config-multiregime-verdict.md` + `docs/superpowers/2026-06-18-tier0-tradable-winner-denominator.md` + `docs/superpowers/2026-06-18-tier0-combination-campaign.md` — USER 결정으로 **B++ diagnostic funnel G1/G2 적용 완료(2026-06-24)**; prediction campaign remains **NO-CONFIG-PASSES/research-CLOSED**(상승 예측 claim 금지) |
