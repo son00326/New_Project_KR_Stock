@@ -167,9 +167,9 @@ usable이 아닌 응답은 **인용 후보에서 완전 제외** → raw JSON/st
 
 ---
 
-## 6. USER 비용 게이트 (재생성)
+## 6. 기존 30 리포트 반영 — ₩0 in-place 백필로 RESOLVED (2026-06-25)
 
-기존 30 리포트의 Part B는 위 코드 적용 후에도 **DB에 옛 stub/JSON이 남는다**(writer는 생성 시점에만 작동). 깨끗한 Part B 반영 = 30 리포트 재생성(실 AI 비용 ~₩30k 추정) → **USER 비용 게이트**. 본 작업은 **코드 + 단위/통합 검증까지만**; 재생성은 별도 USER 승인.
+기존 30 리포트의 Part B는 코드 적용 후에도 DB에 옛 stub/JSON이 남으므로 반영이 필요했다. USER 결정 = **₩0 in-place 백필**(실 AI 재생성 ~₩30k 경로는 reject — Part B만 고치는 데 과함). DB에 이미 있는 `section_8.partD.one_line`(11) + `committee_votes` core `argument_excerpt`(11)로 생성 시점 persona content를 재구성 → `extractIssueDebates` 재실행 → `section_8.partB`만 UPDATE(나머지 무변경). AI 호출 0원. **APPLIED ✅** (gated driver `tudal/src/lib/report/__tests__/b-partb-backfill.live.test.ts`, omxy CONVERGED): backup→apply 30→post-verify 30/30 schema-valid+clean. 결함 인용 117(stub 60 + json-leak 30 + empty 27) → 0. backup `scripts/out/b-partb-backfill-backup-2026-06-01.json`(full old section_8, rollback). idempotent(partD/votes 불변 → 재실행 동일).
 
 ---
 
@@ -207,4 +207,11 @@ usable이 아닌 응답은 **인용 후보에서 완전 제외** → raw JSON/st
 - `writer.test.ts`: B-PARTB 29 tests (20 초안 + omxy test15 보강 + Claude review 21~29).
 - `page.tsx`: 중: arbiter null-guard render.
 - `actions.test.ts` / `section8-step-preflight.test.ts`: writer mock importOriginal 하드닝(누출 방지).
+- `b-partb-backfill.live.test.ts`: ₩0 in-place 백필 driver(gated, 2-phase, §6).
 - schema/read-path/partD/votes/Sector = 무변경.
+
+### 8.5 backfill driver 적대 검토 (omxy R1) — 1 BLOCKER fix + APPLIED
+- **faithfulness fix**: 누락/중복 committee_votes가 silent `argument_excerpt:''`로 되면 theme 매칭 왜곡 → 충실성 깨짐. fix = 정확히 30×11 core votes 요구 + 중복 거부 + per-report 11 args + partD.persona_id 전수 커버 + 기존 section_8 schema 선검증.
+- **write 하드닝**: APPLY UPDATE를 id+month scope + `.select('id').single()`(0/다중 row loud fail). post-write 재검증 = schema + 3~5 + distinct titles + clean quotes.
+- **faithfulness 확인**: writer가 partD를 `personaIds.map`으로 생성 → 저장 JSON 배열순서 = 원 tie-break 순서 → 백필 산출 partB = 생성 시점 신규 writer가 냈을 partB와 동일.
+- **APPLIED 2026-06-25**: dry-run(no write) 30 검증 → APPLY 30 UPDATE → post-verify 30/30 clean. 결함 117→0. residual risk = 순차 no-txn 부분 업데이트(중단 시) but backup + idempotent rerun으로 복구 가능(one-off 허용).
