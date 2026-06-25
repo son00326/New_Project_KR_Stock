@@ -104,7 +104,12 @@ function buildUsablePersonas(
     if (!isQuoteSafe(oneLine)) continue; // JSON/stub 누출 가드
     const ax = record.argument_excerpt;
     const argument = typeof ax === 'string' ? ax.trim() : ''; // 비-string ⇒ '' (테마 매칭 전용)
-    const label = getPersonaById(personaIds[i])?.label ?? personaIds[i];
+    // label fail-soft + quote-safe (적대 리뷰): 알 수 없는/비-string id가 quote로 새지 않도록.
+    //   production은 항상 CORE_11 id(curated label) — 본 가드는 pure-함수 계약 완결(invariant 총족)용.
+    const rawId = personaIds[i];
+    const lookedUp = typeof rawId === 'string' ? getPersonaById(rawId)?.label : undefined;
+    const candidate = lookedUp ?? (typeof rawId === 'string' ? rawId : `위원 ${i + 1}`);
+    const label = isQuoteSafe(candidate) ? candidate : `위원 ${i + 1}`;
     usable.push({
       label,
       vote,

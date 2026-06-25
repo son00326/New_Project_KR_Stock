@@ -18,7 +18,9 @@ vi.mock('@/lib/data/dart-financials', () => ({
   fetchFinancialsSummary: (...args: unknown[]) => fetchFinancialsSummaryMock(...args),
 }));
 
-vi.mock('@/lib/report/writer', () => ({
+// importOriginal spread → 실 export(extractIssueDebates 등) 보존 (적대 리뷰 박제: 부분 factory leak 방지).
+vi.mock('@/lib/report/writer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/report/writer')>()),
   commitTickerReportCron: (...args: unknown[]) => commitTickerReportCronMock(...args),
 }));
 

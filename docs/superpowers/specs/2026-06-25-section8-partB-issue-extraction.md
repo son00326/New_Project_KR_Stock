@@ -179,3 +179,32 @@ usable이 아닌 응답은 **인용 후보에서 완전 제외** → raw JSON/st
 - IMPL: ①Claude dynamic Workflow 1차 드래프트(설계 패널→합성→구현→자가리뷰, subagent 필수) → ②omxy 적대 검토 + 직접 수정 → ③Claude 적대 검토(드래프팅과 다른 review-목적 에이전트/스킬) + 수정 → ④omxy 재검토 → CONVERGED. 연결포인트(buildSection8AndVotes 호출부·FE 렌더·schema·read-path) 검증 포함.
 - DOCS: 동일 프로세스로 HANDOFF/ReportFramework/ServicePlan-Admin/memory 최신화.
 - 검증 게이트: build/lint/test:ci/tsc 전부 green 유지.
+
+---
+
+## 8. 적대 검토 결과 (as-built, IMPL 단계 수렴)
+
+### 8.1 omxy 적대 검토 (impl R1, catch-only) — 1 BLOCKER fix CONVERGED
+- **isQuoteSafe brace 가드**: `!t.startsWith('{')` → `!s.includes('{')`. embedded brace(`밸류 저평가 {draft}`)가 통과해 quote에 `{` 노출 → `assertInvariants(q.includes('{')===false)` 불변식과 자기모순. 어떤 위치의 `{`든 배제로 수정 + test 15 embedded-brace 회귀 추가. (commit `ed8a559`)
+- §3.1의 "trim startsWith '{'" 표현은 본 fix로 **"어떤 `{`든 배제"로 상향** (stricter, 불변식 정합).
+
+### 8.2 Claude 적대 검토 (general-purpose 3-lens: bug-hunt / test-rigor / spec-conformance) — 보강
+드래프팅(설계패널/구현)과 다른 **리뷰-목적** 에이전트로 mutation-survive 불변식을 catch:
+- **(test-rigor HIGH) cap=5 / arbiter 경로 vacuous** → test 21(7-theme-clash→len===5) + test 22(populated arbiter `캐시 우드: 실적 중립 관망`, pro/con과 distinct) 추가.
+- **(test-rigor MED) Tier-1 primary sort(clash desc, |M| desc) + isQuoteSafe stub/"vote" 서브가드 vacuous** → test 23(clash desc) + test 24(|M| desc, theme-idx 역행) + test 25(one_line='stub' 제외, 비-vacuous) + test 26(one_line에 `"vote"` 제외) 추가.
+- **(test-rigor LOW) tie-break 방향 / con-fallback 우선순위 미검증** → test 27(pickPro idx-asc tie) + test 28(con-fallback ① lower-voteRank가 ② caution보다 우선, Tier-3) 추가.
+- **(bug-hunt LOW) label이 quote-safe 미적용 + 길이 가드 부재** → `buildUsablePersonas`에서 label fail-soft + quote-safe(`isQuoteSafe(candidate)?...:`위원 N``) + 비-string id 시 `getPersonaById` 미호출(크래시 0). test 29 추가. **production 미도달**(항상 CORE_11 id) — pure-함수 계약 완결용.
+- **(bug-hunt LOW, 의도 유지) brace one_line drop = recall 손실**: `{` 포함 one_line은 usable에서 제외(인용뿐 아니라 vote도 손실). AI 생성 80자 한국어 평가에 `{`는 매우 드묾 + 불변식 안전(Tier-3 backstop) → **의도적 단순화로 유지**(코드 변경 없음, 본 노트로 박제).
+- **(spec-conformance LOW, 문서 정정) §3.2 키워드 7개 drop**: 코드 THEME_CATALOG가 §3.2 표 대비 `싸/이익/opm/자산/점유/전환/경영` 추가 제외(sanctioned `ai` 외). 전부 over-broad/단어-부분-중복 토큰(`이익`⊂`영업이익`, `경영`⊂`경영진`, `점유`⊂`점유율`) → 비용은 mis-tag뿐(bad quote 0). spec §3.2 의도("너무 광범위 토큰 제외")와 정합. **의도적 제외로 박제**(2 sanctioned deviation에 추가).
+
+### 8.3 flaky-gate 주장 검증 (spec-conformance HIGH) — 재현 안 됨, latent hazard만 하드닝
+- 주장: 부분 `vi.mock('@/lib/report/writer')` factory(`track-record/actions.test.ts`, `section8-step-preflight.test.ts`)가 `extractIssueDebates` 누락 → fork-pool worker recycle 시 leak → writer.test.ts 간헐 FAIL.
+- **검증(§2.0a ④ 맹목 수용 X)**: 3-file 결합 25회 + full `test:ci` 12회 = **37 clean run, 0 fail**. + root-cause 모순(undefined export면 20개 전부 실패해야 하나 주장은 9·11만). 리뷰 중 3 review 에이전트가 vitest 동시 실행한 contention이 원인으로 추정. **gate는 `isolate:true`에서 flaky 아님**.
+- **단, latent hazard 실재** → 두 부분 mock을 `importOriginal` spread로 하드닝(실 export 보존, spy override 유지). 신규 export가 부분 mock에 빠지는 미래 회귀 차단.
+
+### 8.4 as-built 변경 파일
+- `writer.ts`: extractIssueDebates + helpers + partB swap + isQuoteSafe(any-brace) + label fail-soft.
+- `writer.test.ts`: B-PARTB 29 tests (20 초안 + omxy test15 보강 + Claude review 21~29).
+- `page.tsx`: 중: arbiter null-guard render.
+- `actions.test.ts` / `section8-step-preflight.test.ts`: writer mock importOriginal 하드닝(누출 방지).
+- schema/read-path/partD/votes/Sector = 무변경.

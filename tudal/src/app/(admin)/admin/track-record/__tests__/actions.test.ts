@@ -59,7 +59,10 @@ vi.mock('@/lib/screening/persona-eval', () => ({
 const mockCommitTickerReport = vi.fn();
 const mockCommitBadgeOnly = vi.fn();
 const mockCommitSectorReport = vi.fn();
-vi.mock('@/lib/report/writer', () => ({
+// importOriginal spread → 실 export(extractIssueDebates 등) 보존, 필요한 것만 spy override.
+//   부분 factory가 신규 export 누락 시 isolate 변경/cross-import에서 leak 위험 (적대 리뷰 박제).
+vi.mock('@/lib/report/writer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/report/writer')>()),
   commitTickerReport: (input: unknown) => mockCommitTickerReport(input),
   commitBadgeOnly: (input: unknown) => mockCommitBadgeOnly(input),
   commitSectorReport: (input: unknown) => mockCommitSectorReport(input),

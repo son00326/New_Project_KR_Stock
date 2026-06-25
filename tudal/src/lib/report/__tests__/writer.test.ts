@@ -707,6 +707,150 @@ describe('extractIssueDebates (B-PARTB)', () => {
     }
     expect(section8Schema.shape.partB.safeParse(partB).success).toBe(true);
   });
+
+  // ── 적대 리뷰(general-purpose 3-lens) 발견 보강: mutation-survive 불변식 pin ──
+
+  it('21. cap=5 — 7-theme-clash fixture returns exactly 5 (Tier-1 cap) + deterministic', () => {
+    // 2 BUY + 2 SELL one_line이 7 테마 전부 커버 → 모든 테마 clash=2 → Tier-1=7 → cap 5
+    const results = [
+      mk('BUY', '밸류 저평가 실적 성장 재무 탄탄'),
+      mk('BUY', '해자 견고 혁신 신사업 배당 우수 거시 우호'),
+      mk('SELL', '밸류 고평가 실적 둔화 부채 과다'),
+      mk('SELL', '해자 약화 혁신 부재 자사주 축소 거시 침체'),
+      mk('HOLD', '관망'), mk('HOLD', '관망'), mk('HOLD', '관망'),
+      mk('HOLD', '관망'), mk('HOLD', '관망'), mk('HOLD', '관망'), mk('HOLD', '관망'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    expect(out.length).toBe(5);
+    expect(extractIssueDebates(results, CORE_IDS)).toEqual(out);
+  });
+
+  it('22. arbiter populated — HOLD matcher distinct from pro/con rendered as 중재', () => {
+    const results = [
+      mk('BUY', '실적 성장 모멘텀'),  // idx0 워런 버핏 — 실적 pro
+      mk('SELL', '실적 둔화 적자'),   // idx1 스탠리 — 실적 con
+      mk('HOLD', '실적 중립 관망'),   // idx2 캐시 우드 — 실적 arbiter (HOLD, distinct)
+      mk('BUY', '밸류 저평가'), mk('SELL', '밸류 고평가'),
+      mk('BUY', '해자 견고'), mk('SELL', '해자 약화'),
+      mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    const earn = out.find((o) => o.issue === '실적·성장 모멘텀');
+    expect(earn).toBeDefined();
+    expect(earn!.arbiter_quote).toBe('캐시 우드: 실적 중립 관망');
+    expect(earn!.arbiter_quote).not.toBe(earn!.pro_quote);
+    expect(earn!.arbiter_quote).not.toBe(earn!.con_quote);
+  });
+
+  it('23. Tier-1 ordering — higher clash precedes lower clash', () => {
+    const results = [
+      mk('BUY', '밸류 저평가'), mk('SELL', '밸류 고평가'),   // 밸류 clash=2
+      mk('HOLD', '실적 관망'), mk('SELL', '실적 둔화'),      // 실적 clash=1 (HOLD-SELL)
+      mk('BUY', '해자 견고'), mk('SELL', '해자 약화'),       // 해자 clash=2
+      mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    const titles = out.map((o) => o.issue);
+    expect(titles.indexOf('밸류에이션')).toBeLessThan(titles.indexOf('실적·성장 모멘텀'));
+    expect(titles.indexOf('사업 해자·경쟁력')).toBeLessThan(titles.indexOf('실적·성장 모멘텀'));
+  });
+
+  it('24. Tier-1 ordering — equal clash, wider |M| precedes even at higher theme-idx', () => {
+    const results = [
+      mk('BUY', '거시 우호'), mk('SELL', '거시 불확실'), mk('SELL', '거시 침체'), // 거시(idx6) |M|=3
+      mk('BUY', '밸류 저평가'), mk('SELL', '밸류 고평가'),                       // 밸류(idx0) |M|=2
+      mk('BUY', '실적 성장'), mk('SELL', '실적 둔화'),                          // 실적(idx1) |M|=2
+      mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    // 거시 |M|=3 > 나머지 |M|=2 → theme-idx 6이 가장 높아도 |M| desc가 우선
+    expect(out[0].issue).toBe('거시·리스크');
+  });
+
+  it('25. isQuoteSafe stub guard — one_line "stub" persona excluded (no quote contains stub)', () => {
+    const results = [
+      mk('BUY', 'stub', '밸류 저평가 매력'),  // idx0: guard 없으면 밸류 BUY pro가 될 후보
+      mk('SELL', '밸류 고평가 부담'),          // idx1
+      mk('BUY', '밸류 저평가 견조'),           // idx2: guard 적용 시 실제 pro
+      mk('SELL', '실적 둔화'), mk('BUY', '실적 성장'),
+      mk('BUY', '해자 견고'), mk('SELL', '해자 약화'),
+      mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    for (const o of out) {
+      expect(o.pro_quote.includes('stub')).toBe(false);
+      expect(o.con_quote.includes('stub')).toBe(false);
+    }
+  });
+
+  it('26. isQuoteSafe "vote" guard — one_line containing "vote" (no brace) excluded', () => {
+    const results = [
+      raw('{"vote":"BUY","one_line":"밸류 저평가 \\"vote\\" 신호","argument_excerpt":"매력"}'), // idx0
+      mk('SELL', '밸류 고평가 부담'),
+      mk('BUY', '밸류 저평가 견조'),
+      mk('SELL', '실적 둔화'), mk('BUY', '실적 성장'),
+      mk('BUY', '해자 견고'), mk('SELL', '해자 약화'),
+      mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    for (const o of out) {
+      expect(o.pro_quote.includes('"vote"')).toBe(false);
+      expect(o.con_quote.includes('"vote"')).toBe(false);
+    }
+  });
+
+  it('27. pickPro idx-asc tie-break — lower-idx persona is pro among equal-voteRank', () => {
+    const results = [
+      mk('BUY', '밸류 저평가'),      // idx0 워런 버핏 (lower idx)
+      mk('BUY', '밸류 멀티플 할인'), // idx1 스탠리 (same voteRank)
+      mk('SELL', '밸류 고평가'),     // idx2 con
+      mk('BUY', '실적 성장'), mk('SELL', '실적 둔화'),
+      mk('BUY', '해자 견고'), mk('SELL', '해자 약화'),
+      mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'), mk('HOLD', '무난'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    const val = out.find((o) => o.issue === '밸류에이션');
+    expect(val).toBeDefined();
+    expect(val!.pro_quote).toBe('워런 버핏: 밸류 저평가');
+  });
+
+  it('28. con-fallback priority — strictly-lower voteRank chosen before caution (Tier-3)', () => {
+    // 테마 키워드 0 → Tier-1/2 공집합 → Tier-3 pad가 global pool에서 con 선택
+    const results = [
+      mk('BUY', '종목 양호'),       // idx0 워런 버핏 — proGlobal (BUY)
+      mk('SELL', '종목 평이'),      // idx1 스탠리 — strictly-lower voteRank, caution 없음
+      mk('BUY', '종목 우려 존재'),  // idx2 캐시 우드 — pro와 동일 voteRank, one_line에 caution
+      mk('HOLD', '종목 보통'), mk('HOLD', '종목 보통'), mk('HOLD', '종목 보통'),
+      mk('HOLD', '종목 보통'), mk('HOLD', '종목 보통'), mk('HOLD', '종목 보통'),
+      mk('HOLD', '종목 보통'), mk('HOLD', '종목 보통'),
+    ];
+    const out = extractIssueDebates(results, CORE_IDS);
+    assertInvariants(out);
+    expect(out.length).toBe(3);
+    for (const o of out) {
+      // priority ① lower-voteRank(스탠리 SELL, caution 없음) — 동일-vote caution(캐시) 아님
+      expect(o.con_quote).toBe('스탠리 드러켄밀러: 종목 평이');
+      expect(o.con_quote.includes('우려')).toBe(false);
+    }
+  });
+
+  it('29. label/id 하드닝 — unsafe/short personaIds도 누출·크래시 0', () => {
+    const valid = Array.from({ length: 11 }, () => mk('BUY', '밸류 실적 해자 우수'));
+    // (a) unsafe ids (JSON-ish / stub / "one_line") → label sanitize, 누출 0
+    const unsafeIds = ['{"vote":"BUY"}', 'stub', '"one_line"', ...CORE_IDS.slice(3)];
+    const outA = extractIssueDebates(valid, unsafeIds);
+    assertInvariants(outA);
+    // (b) personaIds가 results보다 짧음 → undefined id에 getPersonaById 미호출(크래시 0) + safe label
+    const outB = extractIssueDebates(valid, ['warren-buffett']);
+    assertInvariants(outB);
+  });
 });
 
 // PR-T2a — commitSectorReportCron (service-role-DI 변형, commit_sector_personas_cron + p_called_by)
