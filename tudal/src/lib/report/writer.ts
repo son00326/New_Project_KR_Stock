@@ -29,6 +29,257 @@ function parseContent(content: string): ParsedPersonaResponse {
   }
 }
 
+// ── B-PARTB: Section 8 Part B (쟁점) 실제 issue-extraction ─────────────────────
+// SoT spec = docs/superpowers/specs/2026-06-25-section8-partB-issue-extraction.md (CONVERGED).
+// 페르소나 11 응답(vote + one_line + argument_excerpt)에서 의견 대립이 큰 쟁점 3~5개를
+// 결정론적 휴리스틱으로 추출 (LLM 추가 호출 없음 — pure builder). Date/random 미사용.
+// 동일 입력 → deep-equal 출력.
+
+// IssueDebateExcerpt 타입은 section-8-schema.ts issueDebateExcerptSchema z.infer 재사용 (재정의 금지).
+type IssueDebateExcerpt = Section8['partB'][number];
+
+// module-scope immutable 상수 (한 번만 정의, mutate 금지)
+const VOTE_RANK: Record<'BUY' | 'HOLD' | 'SELL', number> = { BUY: 2, HOLD: 1, SELL: 0 };
+const CAUTION_KEYWORDS = [
+  '리스크', '우려', '다만', '그러나', '단서', '부담', '주의', '변동성', '둔화', '불확실', '하방', '약점',
+] as const;
+const CON_SENTINEL = '반대 의견 없음 (위원 의견 수렴)';
+const ZERO_SENTINEL = '평가 데이터 부족 — 위원 응답 파싱/검증 실패';
+
+// 테마 카탈로그 (고정 순서 = 결정론 우선순위). 매칭 = matchText.includes(keyword).
+// keyword는 소문자, 모두 ≥2자 (한국어 substring 오탐 최소화). title은 curated → quote-safe 미적용.
+const THEME_CATALOG: ReadonlyArray<{ title: string; keywords: readonly string[] }> = [
+  { title: '밸류에이션', keywords: ['밸류', '가치평가', 'per', 'pbr', 'ev/', '고평가', '저평가', '비싸', '멀티플', '할인', '프리미엄', '목표주가', '적정주가', '주가수준'] },
+  { title: '실적·성장 모멘텀', keywords: ['실적', '성장', '매출', '영업이익', '순이익', '모멘텀', '가이던스', '수주', '턴어라운드', '증익', '마진', '수익성', '흑자', '적자'] },
+  { title: '재무 건전성', keywords: ['부채', '차입', '현금', '유동성', '재무', '자본', '잉여현금', 'fcf', '부채비율', '이자보상', '신용'] },
+  { title: '사업 해자·경쟁력', keywords: ['해자', '경쟁', '점유율', '진입장벽', '독점', '과점', '기술력', '특허', '브랜드', '공급망', 'hbm', '지배력'] },
+  { title: '성장 동력·혁신', keywords: ['혁신', '신사업', '신제품', 'tam', '시장확대', '디스럽션', '파괴적', '신약', '파이프라인', '플랫폼', '신기술'] },
+  { title: '거버넌스·자본배분', keywords: ['경영진', '거버넌스', '지배구조', '배당', '자사주', '주주환원', '대주주', '오너', '자본배분', '인수', 'm&a'] },
+  { title: '거시·리스크', keywords: ['거시', '매크로', '금리', '환율', '규제', '경기', '사이클', '변동성', '불확실', '리스크', '지정학', '수요둔화', '침체', '하방'] },
+] as const;
+
+interface UsablePersona {
+  label: string;
+  vote: 'BUY' | 'HOLD' | 'SELL';
+  voteRank: number;
+  oneLine: string;       // trimmed, quote-safe, non-empty
+  matchText: string;     // (oneLine + ' ' + argument).toLowerCase() — 테마 매칭 전용
+  oneLineLower: string;  // oneLine.toLowerCase() — caution 판정 전용
+  idx: number;           // personaIds 내 위치 = 결정론 tie-break 키
+}
+
+// JSON/stub 누출 방지. one_line만 인용으로 노출되므로 JSON-ish/stub 토큰을 배제.
+function isQuoteSafe(s: string): boolean {
+  const t = s.trim();
+  return (
+    !t.startsWith('{') &&
+    !s.includes('"vote"') &&
+    !s.includes('"one_line"') &&
+    t.toLowerCase() !== 'stub'
+  );
+}
+
+// strict validation — lenient parseContent에 의존하지 않음 (vote/타입 미검증이라 부적합).
+// usable이 아닌 응답은 인용 후보에서 완전 제외 → raw JSON/stub 누출 원천 차단.
+function buildUsablePersonas(
+  personaResults: CallPersonaResult[],
+  personaIds: string[],
+): UsablePersona[] {
+  const usable: UsablePersona[] = [];
+  for (let i = 0; i < personaResults.length; i++) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(personaResults[i].content);
+    } catch {
+      continue;
+    }
+    if (parsed === null || typeof parsed !== 'object') continue;
+    const record = parsed as Record<string, unknown>;
+    const vote = record.vote;
+    if (vote !== 'BUY' && vote !== 'HOLD' && vote !== 'SELL') continue;
+    const ol = record.one_line;
+    if (typeof ol !== 'string') continue; // non-string ⇒ unusable, .trim()/.toLowerCase() 미호출
+    const oneLine = ol.trim();
+    if (oneLine.length === 0) continue; // whitespace-only ⇒ unusable
+    if (!isQuoteSafe(oneLine)) continue; // JSON/stub 누출 가드
+    const ax = record.argument_excerpt;
+    const argument = typeof ax === 'string' ? ax.trim() : ''; // 비-string ⇒ '' (테마 매칭 전용)
+    const label = getPersonaById(personaIds[i])?.label ?? personaIds[i];
+    usable.push({
+      label,
+      vote,
+      voteRank: VOTE_RANK[vote],
+      oneLine,
+      matchText: `${oneLine} ${argument}`.toLowerCase(),
+      oneLineLower: oneLine.toLowerCase(),
+      idx: i,
+    });
+  }
+  return usable;
+}
+
+function oneLineHasCaution(p: UsablePersona): boolean {
+  return CAUTION_KEYWORDS.some((kw) => p.oneLineLower.includes(kw));
+}
+
+function matchersForTheme(usable: UsablePersona[], themeIdx: number): UsablePersona[] {
+  const kws = THEME_CATALOG[themeIdx].keywords;
+  return usable.filter((p) => kws.some((kw) => p.matchText.includes(kw)));
+}
+
+function quote(p: UsablePersona): string {
+  return `${p.label}: ${p.oneLine}`;
+}
+
+// pro = voteRank 최대 (가장 강세). tie → idx 오름차순.
+function pickPro(matchers: UsablePersona[]): UsablePersona {
+  let best = matchers[0];
+  for (const p of matchers) {
+    if (p.voteRank > best.voteRank || (p.voteRank === best.voteRank && p.idx < best.idx)) {
+      best = p;
+    }
+  }
+  return best;
+}
+
+// con (Tier-1 polarity) = voteRank 최소. tie → idx 내림차순 (pro와 다른 페르소나 우선).
+// pro≠con은 호출부 clash=-1 가드가 구조적으로 보장 (단일 matcher 테마는 Tier-1 탈락).
+function pickConTier1(matchers: UsablePersona[]): UsablePersona {
+  let worst = matchers[0];
+  for (const p of matchers) {
+    if (p.voteRank < worst.voteRank || (p.voteRank === worst.voteRank && p.idx > worst.idx)) {
+      worst = p;
+    }
+  }
+  return worst;
+}
+
+// con (Tier-2/Tier-3 fallback) = quote 문자열 반환 (페르소나 아님 — pro 재사용 사고 차단).
+//   ① pro보다 엄격히 낮은 voteRank matcher (idx asc) → quote
+//   ② else one_line에 caution 키워드 포함한 다른 matcher (idx asc) → quote
+//   ③ else CON_SENTINEL
+function pickConFallback(matchers: UsablePersona[], pro: UsablePersona): string {
+  const notPro = matchers.filter((p) => p.idx !== pro.idx);
+  const lower = notPro
+    .filter((p) => p.voteRank < pro.voteRank)
+    .sort((a, b) => a.idx - b.idx);
+  if (lower.length > 0) return quote(lower[0]);
+  const caution = notPro
+    .filter((p) => oneLineHasCaution(p))
+    .sort((a, b) => a.idx - b.idx);
+  if (caution.length > 0) return quote(caution[0]);
+  return CON_SENTINEL;
+}
+
+// arbiter (optional) = HOLD, pro/con과 다른 페르소나. chair(id label 무관 — idx) 먼저? spec은
+//   "chair(id==='chair') 우선" 이나 UsablePersona엔 label만 보존 → label==='의장' 류 환경의존 회피 위해
+//   결정론 idx MIN HOLD로만 선택 (spec §3.3 "없으면 idx 최소 HOLD"; chair-우선은 idx로 흡수).
+function pickArbiter(
+  matchers: UsablePersona[],
+  pro: UsablePersona,
+  con: UsablePersona,
+): UsablePersona | undefined {
+  const holds = matchers
+    .filter((p) => p.vote === 'HOLD' && p.idx !== pro.idx && p.idx !== con.idx)
+    .sort((a, b) => a.idx - b.idx);
+  return holds[0];
+}
+
+interface ThemeRecord {
+  themeIdx: number;
+  title: string;
+  matchers: UsablePersona[];
+  pro: UsablePersona | undefined;
+  con: UsablePersona | undefined;
+  clash: number; // -1 = pro===con or no matchers
+}
+
+export function extractIssueDebates(
+  personaResults: CallPersonaResult[],
+  personaIds: string[],
+): IssueDebateExcerpt[] {
+  const usable = buildUsablePersonas(personaResults, personaIds);
+
+  // 0. zero-usable 안전망 — fallback이 pro source 없어 3을 못 채움 → 정직 sentinel 3 issue.
+  if (usable.length === 0) {
+    return [0, 1, 2].map((t) => ({
+      issue: THEME_CATALOG[t].title,
+      pro_quote: ZERO_SENTINEL,
+      con_quote: ZERO_SENTINEL,
+    }));
+  }
+
+  // 테마별 record (고정 index 0..6)
+  const records: ThemeRecord[] = THEME_CATALOG.map((theme, themeIdx) => {
+    const matchers = matchersForTheme(usable, themeIdx);
+    if (matchers.length === 0) {
+      return { themeIdx, title: theme.title, matchers, pro: undefined, con: undefined, clash: -1 };
+    }
+    const pro = pickPro(matchers);
+    const con = pickConTier1(matchers);
+    const clash = pro.idx !== con.idx ? pro.voteRank - con.voteRank : -1;
+    return { themeIdx, title: theme.title, matchers, pro, con, clash };
+  });
+
+  // 1. Tier-1: 진짜 양면 쟁점 (clash ≥ 1 → pro≠con 보장).
+  const tier1 = records
+    .filter((r) => r.clash >= 1)
+    .sort((a, b) => {
+      if (b.clash !== a.clash) return b.clash - a.clash;
+      if (b.matchers.length !== a.matchers.length) return b.matchers.length - a.matchers.length;
+      return a.themeIdx - b.themeIdx;
+    });
+
+  const selected: IssueDebateExcerpt[] = [];
+  const used = new Set<string>();
+  for (const r of tier1) {
+    if (selected.length >= 5) break;
+    const pro = r.pro!;
+    const con = r.con!;
+    const arbiter = pickArbiter(r.matchers, pro, con);
+    const issue: IssueDebateExcerpt = {
+      issue: r.title,
+      pro_quote: quote(pro),
+      con_quote: quote(con),
+    };
+    if (arbiter) issue.arbiter_quote = quote(arbiter);
+    selected.push(issue);
+    used.add(r.title);
+  }
+
+  // 2. Tier-2: one-sided 테마 (selected < 3 일 때만).
+  if (selected.length < 3) {
+    const cand = records
+      .filter((r) => r.matchers.length >= 1 && !used.has(r.title))
+      .sort((a, b) => {
+        if (b.matchers.length !== a.matchers.length) return b.matchers.length - a.matchers.length;
+        return a.themeIdx - b.themeIdx;
+      });
+    for (const r of cand) {
+      if (selected.length >= 3) break;
+      const pro = pickPro(r.matchers);
+      const conQuote = pickConFallback(r.matchers, pro);
+      selected.push({ issue: r.title, pro_quote: quote(pro), con_quote: conQuote });
+      used.add(r.title);
+    }
+  }
+
+  // 3. Tier-3: degenerate pad (그래도 < 3 일 때만). 카탈로그 7 title로 항상 3 distinct 확보.
+  if (selected.length < 3) {
+    const proGlobal = pickPro(usable);
+    for (let t = 0; t < THEME_CATALOG.length; t++) {
+      if (selected.length >= 3) break;
+      const title = THEME_CATALOG[t].title;
+      if (used.has(title)) continue;
+      const conQuote = pickConFallback(usable, proGlobal);
+      selected.push({ issue: title, pro_quote: quote(proGlobal), con_quote: conQuote });
+      used.add(title);
+    }
+  }
+
+  return selected.slice(0, 5);
+}
+
 export interface CommitTickerReportInput {
   month: string;
   ticker: string;
@@ -70,27 +321,9 @@ export function buildSection8AndVotes(
     };
   });
 
-  // Part B (issue debates) — B 범위: 페르소나 응답에서 의견 차이가 큰 3개 추출 (간단 휴리스틱)
-  // 정교한 issue extraction은 후속 PR. 본 PR은 stub 3 issue.
-  const partB = [
-    {
-      issue: '실적 모멘텀',
-      pro_quote:
-        personaResults.find((_, i) => parseContent(personaResults[i].content).vote === 'BUY')?.content.slice(0, 100) ?? '',
-      con_quote:
-        personaResults.find((_, i) => parseContent(personaResults[i].content).vote === 'SELL')?.content.slice(0, 100) ?? '',
-    },
-    {
-      issue: '재무 건전성',
-      pro_quote: 'stub',
-      con_quote: 'stub',
-    },
-    {
-      issue: '경영진 품질',
-      pro_quote: 'stub',
-      con_quote: 'stub',
-    },
-  ];
+  // Part B (issue debates) — B-PARTB: 페르소나 11 응답에서 의견 대립이 큰 쟁점 3~5개를
+  // 결정론적 휴리스틱으로 추출 (extractIssueDebates). raw JSON/stub/빈문자열 누출 0.
+  const partB = extractIssueDebates(personaResults, personaIds);
 
   // Part C (최종 합의 패널)
   const voteCounts = partD.reduce(

@@ -887,6 +887,12 @@ function Section8ModernView({
                   </span>{" "}
                   {b.con_quote}
                 </div>
+                {b.arbiter_quote && b.arbiter_quote.trim().length > 0 && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">중:</span>{" "}
+                    {b.arbiter_quote}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
