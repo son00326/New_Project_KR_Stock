@@ -782,6 +782,9 @@ function Section8ModernView({
   // 매핑 convention drift 시 partCToCommitteeAgg unit test가 즉시 catch.
   const partCCoreAgg = partCToCommitteeAgg(data.partC.core_revote);
   const partCSectorAgg = partCToCommitteeAgg(data.partC.sector_aggregate);
+  const sectorLensSummary = isCanonicalSector(sector)
+    ? SECTOR_LENS_SUMMARY[sector]
+    : null;
 
   return (
     <div className="space-y-4">
@@ -819,17 +822,17 @@ function Section8ModernView({
           <div className="text-xs font-semibold text-muted-foreground">
             섹터 14인 패널 의견 (Part A)
           </div>
-          {isCanonicalSector(sector) && (
-            <div className="mb-1.5 text-[11px] leading-tight text-muted-foreground">
-              <span className="truncate">
-                AI 섹터 관점 · {sector}: {SECTOR_LENS_SUMMARY[sector]}
+          {sectorLensSummary !== null && (
+            <div className="mb-1.5 text-xs leading-snug text-muted-foreground">
+              <span className="block">
+                AI 섹터 관점 · {sector}: {sectorLensSummary}
               </span>
               <span className="block opacity-70">
-                (가상의 분석 프레임 · 실제 인물 아님 · 정보 제공, 자문 아님)
+                (가상 분석 프레임 · 실제 인물 아님 · 정보 제공, 투자 자문 아님)
               </span>
             </div>
           )}
-          {!isCanonicalSector(sector) && <div className="mb-1.5" />}
+          {sectorLensSummary === null && <div className="mb-1.5" />}
           <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {data.partA.map((p) => (
               <li

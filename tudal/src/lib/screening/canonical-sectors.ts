@@ -117,7 +117,8 @@ export const PRIMARY_OVERLAY_BY_SECTOR: Record<CanonicalSector, readonly [string
 /**
  * FE render-time sector lens summary (provenance framing for Section 8 Part A panel).
  *
- * 각 값 = SECTOR_PHILOSOPHIES (sector-persona-builder.ts)의 `핵심 판단:` 축을 ≤30자로 압축.
+ * 각 값 = SECTOR_PHILOSOPHIES (sector-persona-builder.ts)의 `핵심 판단:` 축을 ≤30자로 압축
+ *   (표준 약어·동의어 허용 — 예: 보험/증권 "ROE" = 핵심판단 축 "자기자본수익률").
  * 저장 데이터 아님 — 렌더 시점 파생. report page 헤더에 "AI 섹터 관점"으로 1회 표시.
  * 회사명·실제 인물명 0 (정보제공·자문 아님 제약). Record로 14 sector exhaustive 강제.
  */
@@ -125,17 +126,17 @@ export const SECTOR_LENS_SUMMARY: Record<CanonicalSector, string> = {
   "바이오": "파이프라인 단계·FDA 일정·현금 소진",
   "반도체": "메모리 가격·CAPEX·재고 사이클",
   "건설": "미분양·PF 잔액·원자재 전가력",
-  "금융": "연체율·BIS 비율·핵심예금 비중",
-  "2차전지": "셀 화학 mix·OEM 분산·원가",
-  "자동차": "EV 비중·자율주행·중국 노출",
+  "금융": "연체율·BIS·디지털 전환·예금",
+  "2차전지": "셀 mix·OEM 분산·원가·전고체",
+  "자동차": "EV 비중·자율주행·중국·반도체 공급",
   "IT/SW": "ARR 성장·NRR·플랫폼 락인",
   "유통/소비재": "매장당 매출·이커머스·재고 회전",
-  "에너지": "신재생 capacity·전력가·정책 노출",
-  "엔터/미디어": "글로벌 라이센스·IP 다양성·계약",
-  "통신": "5G 회수·B2B 비중·ARPU 안정성",
-  "철강/소재": "글로벌 수급·스프레드·고부가 비중",
+  "에너지": "신재생 capacity·전력가·정책·CAPEX",
+  "엔터/미디어": "글로벌 라이센스·IP 다양성·계약 안정성",
+  "통신": "5G/6G 회수·B2B·MVNO 위협",
+  "철강/소재": "강재 수급·중국 정책·고부가 비중",
   "운송/물류": "운임 사이클·선대 규모·연료비",
-  "보험/증권": "운용자산·운용수익률·계약유지율",
+  "보험/증권": "운용자산·계약유지율·ROE·디지털",
 };
 
 /**

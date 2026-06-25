@@ -397,8 +397,19 @@ describe("SECTOR_LENS_SUMMARY — FE render lens map (D21 provenance)", () => {
     }
   });
 
-  it("바이오 lens carries pipeline/FDA semantics (source fidelity spot-check)", () => {
-    expect(SECTOR_LENS_SUMMARY["바이오"]).toContain("파이프라인");
-    expect(SECTOR_LENS_SUMMARY["바이오"]).toContain("FDA");
-  });
+  it.each([
+    ["바이오", ["파이프라인", "FDA"]],
+    ["금융", ["연체율", "BIS", "디지털", "예금"]],
+    ["2차전지", ["셀", "OEM", "원가", "전고체"]],
+    ["엔터/미디어", ["글로벌", "IP", "계약 안정성"]],
+    ["철강/소재", ["강재", "중국 정책", "고부가"]],
+    ["보험/증권", ["운용자산", "계약유지율", "ROE", "디지털"]],
+  ] satisfies [CanonicalSector, readonly string[]][])(
+    "%s lens carries source 핵심판단 terms",
+    (sector, expectedTerms) => {
+      for (const term of expectedTerms) {
+        expect(SECTOR_LENS_SUMMARY[sector]).toContain(term);
+      }
+    },
+  );
 });
