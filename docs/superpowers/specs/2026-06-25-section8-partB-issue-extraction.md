@@ -1,8 +1,8 @@
 # Spec — Section 8 Part B (쟁점) 실제 issue-extraction (B-PARTB)
 
-- **Status**: AS-BUILT — IMPL CONVERGED + ₩0 in-place 백필 APPLIED (2026-06-25). (이력: PLAN Claude→omxy R1~R3 CONVERGED → IMPL omxy R1+Claude 3-lens review+omxy R2 CONVERGED → backfill omxy R1 CONVERGED+APPLIED.) 잔여 = branch merge/deploy(중: arbiter FE 렌더 production 노출용).
+- **Status**: SHIPPED — IMPL CONVERGED + ₩0 in-place 백필 APPLIED + MERGED→main + Vercel prod DEPLOYED (2026-06-25). (이력: PLAN omxy R1~R3 → IMPL omxy R1+Claude 3-lens+omxy R2 → backfill omxy R1 APPLIED → merge omxy 교차검증 CONVERGED → FF-merge main ea27656 + prod deploy, canary 4/4 200.) 잔여 없음(중: arbiter render production live).
 - **Date**: 2026-06-25
-- **Branch**: `tier0-bpp-multiregime` (main 미머지)
+- **Branch**: `tier0-bpp-multiregime` → 2026-06-25 FF-merged into `main` (ea27656) + Vercel prod deployed.
 - **SoT 연계**: `Document/Service/Report/ReportFramework.md §5.1~5.3 + §8` (Part B "쟁점별 찬반 대결") · `tudal/src/lib/report/section-8-schema.ts` (`issueDebateExcerptSchema`, `partB` min3/max5)
 - **HANDOFF**: §"🔧 Pre-launch" B-PARTB (코드 ✅ + ₩0 백필 APPLIED ✅, omxy 교차검증 CONVERGED 2026-06-25)
 
@@ -138,7 +138,7 @@ usable이 아닌 응답은 **인용 후보에서 완전 제외** → raw JSON/st
    - partD/partC/votes/Sector 경로 **무변경** (parseContent core 정책 유지).
    - `IssueDebateExcerpt` 타입은 `section-8-schema.ts`의 `issueDebateExcerptSchema` z.infer 재사용(재정의 금지).
 2. `tudal/src/lib/report/__tests__/writer.test.ts`: `extractIssueDebates` + buildSection8AndVotes partB 단위 테스트 추가 (아래 §5).
-3. **(in-scope, 소규모 — omxy R1 #7 확인)** `page.tsx` Part B 카드(~889)에 `b.arbiter_quote` 있을 때 "중:" 1줄 null-guard 렌더 추가 — §5.3 중재자 형식 완성. **백필 전** 옛 리포트엔 arbiter_quote 없음(contract-safe); **백필 후** 일부 리포트는 arbiter_quote 포함(중재자 HOLD 존재 시). ⚠️ 단 `중:` 렌더 자체는 branch-only 코드(main 미머지·미배포) → merge/deploy 전까지 production FE 비노출(DB엔 arbiter_quote 존재, 배포 FE는 찬/반만 렌더).
+3. **(in-scope, 소규모 — omxy R1 #7 확인)** `page.tsx` Part B 카드(~889)에 `b.arbiter_quote` 있을 때 "중:" 1줄 null-guard 렌더 추가 — §5.3 중재자 형식 완성. **백필 전** 옛 리포트엔 arbiter_quote 없음(contract-safe); **백필 후** 일부 리포트는 arbiter_quote 포함(중재자 HOLD 존재 시). `중:` 렌더 = 2026-06-25 main FF-merge(ea27656) + Vercel prod deploy 완료 → production FE에서 노출(arbiter 존재 리포트에 한해).
 
 **비변경**: schema(section-8-schema.ts) — 이미 partB min3/max5 + issueDebateExcerpt 정의 충족. 변경 불필요·금지. report-section-schemas.ts(read-path alias) 무변경.
 
