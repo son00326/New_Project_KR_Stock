@@ -66,43 +66,58 @@ describe.skipIf(!CONFIRM)('B-PARTB ₩0 in-place backfill (live, USER 승인 후
       .eq('month', MONTH_DATE)
       .order('ticker');
     if (error) throw new Error(`read reports failed: ${error.code ?? error.message}`);
-    expect(reports).not.toBeNull();
-    expect(reports!.length).toBe(EXPECTED_REPORTS);
+    if (!reports) throw new Error('read reports failed:null_data');
+    expect(reports.length).toBe(EXPECTED_REPORTS);
 
     // 2. 해당 리포트의 core committee_votes (persona_id → argument_excerpt)
-    const ids = reports!.map((r) => r.id as string);
+    const ids = reports.map((r) => r.id as string);
     const { data: votes, error: vErr } = await client
       .from('committee_votes')
       .select('report_id, persona_id, argument_excerpt')
       .in('report_id', ids)
       .eq('persona_layer', 'core');
     if (vErr) throw new Error(`read votes failed: ${vErr.code ?? vErr.message}`);
+    if (!votes) throw new Error('read votes failed:null_data');
+    expect(votes.length).toBe(EXPECTED_REPORTS * CORE_COUNT);
     const argByReport = new Map<string, Map<string, string>>();
-    for (const v of votes!) {
+    for (const v of votes) {
       const rid = v.report_id as string;
-      if (!argByReport.has(rid)) argByReport.set(rid, new Map());
-      argByReport.get(rid)!.set(v.persona_id as string, (v.argument_excerpt as string) ?? '');
+      const pid = v.persona_id as string;
+      let reportArgs = argByReport.get(rid);
+      if (!reportArgs) {
+        reportArgs = new Map<string, string>();
+        argByReport.set(rid, reportArgs);
+      }
+      if (reportArgs.has(pid)) throw new Error(`duplicate core vote: report=${rid}, persona=${pid}`);
+      reportArgs.set(pid, (v.argument_excerpt as string) ?? '');
     }
 
     // 3. compute newPartB + 검증 + 백업 수집
     const backup: Array<{ id: string; ticker: string; old_section_8: unknown }> = [];
     const updates: Array<{ id: string; ticker: string; newSection8: Record<string, unknown> }> = [];
-    for (const r of reports!) {
+    for (const r of reports) {
       const id = r.id as string;
       const ticker = r.ticker as string;
       const s8 = r.section_8 as Record<string, unknown>;
-      const partD = s8.partD as PartDRow[];
-      expect(Array.isArray(partD)).toBe(true);
+      const parsedSection8 = section8Schema.safeParse(s8);
+      expect(parsedSection8.success).toBe(true);
+      if (!parsedSection8.success) throw new Error(`invalid section_8 before backfill: ${ticker}`);
+      const partD: PartDRow[] = parsedSection8.data.partD;
       expect(partD.length).toBe(CORE_COUNT);
 
-      const argMap = argByReport.get(id) ?? new Map<string, string>();
+      const argMap = argByReport.get(id);
+      if (!argMap) throw new Error(`missing core votes for report: ${ticker}`);
+      expect(argMap.size).toBe(CORE_COUNT);
       // partD 배열 순서 = 원 personaIds 순서 (충실성 핵심)
       const personaIds = partD.map((d) => d.persona_id);
+      for (const personaId of personaIds) {
+        if (!argMap.has(personaId)) throw new Error(`missing core vote: ticker=${ticker}, persona=${personaId}`);
+      }
       const personaResults: CallPersonaResult[] = partD.map((d) => ({
         content: JSON.stringify({
           vote: d.vote,
           one_line: d.one_line,
-          argument_excerpt: argMap.get(d.persona_id) ?? '',
+          argument_excerpt: argMap.get(d.persona_id),
         }),
         usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 },
         costKrw: 0,
@@ -149,7 +164,10 @@ describe.skipIf(!CONFIRM)('B-PARTB ₩0 in-place backfill (live, USER 승인 후
       const { error: uErr } = await client
         .from('stock_reports')
         .update({ section_8: u.newSection8 })
-        .eq('id', u.id);
+        .eq('id', u.id)
+        .eq('month', MONTH_DATE)
+        .select('id')
+        .single();
       if (uErr) throw new Error(`update ${u.ticker} failed: ${uErr.code ?? uErr.message}`);
       applied++;
     }
@@ -162,16 +180,20 @@ describe.skipIf(!CONFIRM)('B-PARTB ₩0 in-place backfill (live, USER 승인 후
       .select('ticker, section_8')
       .eq('month', MONTH_DATE);
     if (aErr) throw new Error(`reverify read failed: ${aErr.code ?? aErr.message}`);
-    expect(after!.length).toBe(EXPECTED_REPORTS);
-    for (const r of after!) {
+    if (!after) throw new Error('reverify read failed:null_data');
+    expect(after.length).toBe(EXPECTED_REPORTS);
+    for (const r of after) {
       const pb = (r.section_8 as Record<string, unknown>).partB as Array<Record<string, unknown>>;
       expect(section8Schema.shape.partB.safeParse(pb).success).toBe(true);
+      expect(pb.length).toBeGreaterThanOrEqual(3);
+      expect(pb.length).toBeLessThanOrEqual(5);
+      expect(new Set(pb.map((b) => b.issue)).size).toBe(pb.length);
       for (const b of pb) {
         assertQuoteClean(b.pro_quote as string);
         assertQuoteClean(b.con_quote as string);
         if (typeof b.arbiter_quote === 'string') assertQuoteClean(b.arbiter_quote);
       }
     }
-    console.log(`[backfill] post-write verify OK: ${after!.length} reports, partB schema-valid + clean.`);
+    console.log(`[backfill] post-write verify OK: ${after.length} reports, partB schema-valid + clean.`);
   }, 180_000);
 });
