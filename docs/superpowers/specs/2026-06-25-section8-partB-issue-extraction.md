@@ -23,7 +23,7 @@ const partB = [
 ];
 ```
 
-**production 실증** (`stock_reports` 2026-06-01, 30/30 동일):
+**production 실증 (백필 전 증거 — 2026-06-25 ₩0 in-place 백필로 해소, §6)** (`stock_reports` 2026-06-01, 백필 전 30/30 동일):
 - issue1 pro/con = `content.slice(0,100)` = `{\n  "vote": "SELL",\n  "one_line": "...",\n  "argument_excerpt": "티` — JSON 봉투가 그대로 노출 + 단어 중간 절단.
 - BUY/SELL 페르소나가 한쪽만 있으면 반대편은 `""` (빈 문자열). 예: 000660은 SELL 0표라 con_quote=`""`, 000500은 BUY 0표라 pro_quote=`""`.
 - issue2/3 = 리터럴 `"stub"`.
@@ -136,7 +136,7 @@ usable이 아닌 응답은 **인용 후보에서 완전 제외** → raw JSON/st
    - partD/partC/votes/Sector 경로 **무변경** (parseContent core 정책 유지).
    - `IssueDebateExcerpt` 타입은 `section-8-schema.ts`의 `issueDebateExcerptSchema` z.infer 재사용(재정의 금지).
 2. `tudal/src/lib/report/__tests__/writer.test.ts`: `extractIssueDebates` + buildSection8AndVotes partB 단위 테스트 추가 (아래 §5).
-3. **(in-scope, 소규모 — omxy R1 #7 확인)** `page.tsx` Part B 카드(~889)에 `b.arbiter_quote` 있을 때 "중:" 1줄 null-guard 렌더 추가 — §5.3 중재자 형식 완성. 기존 30 리포트엔 arbiter_quote 없음 → 비노출(contract-safe, 옛 리포트 valid 유지).
+3. **(in-scope, 소규모 — omxy R1 #7 확인)** `page.tsx` Part B 카드(~889)에 `b.arbiter_quote` 있을 때 "중:" 1줄 null-guard 렌더 추가 — §5.3 중재자 형식 완성. **백필 전** 옛 리포트엔 arbiter_quote 없음(contract-safe); **백필 후** 일부 리포트는 arbiter_quote 포함(중재자 HOLD 존재 시). ⚠️ 단 `중:` 렌더 자체는 branch-only 코드(main 미머지·미배포) → merge/deploy 전까지 production FE 비노출(DB엔 arbiter_quote 존재, 배포 FE는 찬/반만 렌더).
 
 **비변경**: schema(section-8-schema.ts) — 이미 partB min3/max5 + issueDebateExcerpt 정의 충족. 변경 불필요·금지. report-section-schemas.ts(read-path alias) 무변경.
 
