@@ -1,6 +1,6 @@
 # main 병합 분류 (LIVE / DORMANT / RESEARCH-CLOSED) — 2026-06-25
 
-> **왜 이 문서**: 2026-06-25 `tier0-bpp-multiregime`(72 commits) FF-merge → `main ea27656`(이후 d83326a) + Vercel prod 배포. fast-forward라 B-PARTB뿐 아니라 캠페인 전체가 한 번에 main에 들어왔다. 이 문서는 **"main에 있는 코드 중 무엇이 실제 사용(LIVE) / 빌드됐으나 꺼짐(DORMANT) / 안 쓰기로 결정(RESEARCH-CLOSED)인가"** 를 못 박아, 테스트·연구와 실사용 결정을 명확히 구분한다.
+> **왜 이 문서**: 2026-06-25 `tier0-bpp-multiregime`(72 commits) FF-merge → main(B-PARTB stable merge point `ea27656`; 현 HEAD = runtime verify `git rev-parse --short origin/main`) + Vercel prod 배포. fast-forward라 B-PARTB뿐 아니라 캠페인 전체가 한 번에 main에 들어왔다. 이 문서는 **"main에 있는 코드 중 무엇이 실제 사용(LIVE) / 빌드됐으나 꺼짐(DORMANT) / 안 쓰기로 결정(RESEARCH-CLOSED)인가"** 를 못 박아, 테스트·연구와 실사용 결정을 명확히 구분한다.
 >
 > **핵심 가드 3종**: ① env 플래그(미설정=OFF) ② 마이그레이션 적용 여부 ③ 배포 경계(Python 스크립트는 Vercel 앱 미배포). dormant/research 코드는 자동 활성되지 않는다 — 누가 플래그를 명시적으로 켜야만 동작.
 
