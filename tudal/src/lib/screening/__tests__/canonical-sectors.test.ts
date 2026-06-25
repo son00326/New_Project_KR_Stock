@@ -9,6 +9,7 @@ import {
   BASE_SLOTS,
   OVERLAY_SLOTS,
   PRIMARY_OVERLAY_BY_SECTOR,
+  SECTOR_LENS_SUMMARY,
   SUB_TAG_CROSSWALK,
   SUB_TAG_OVERLAY_ROLES,
   LEGACY_ALIAS_MAP,
@@ -371,5 +372,33 @@ describe("SQL/TS canonical 14 drift 방지 snapshot (R3 acc#2)", () => {
     for (let i = 0; i < CANONICAL_SECTORS.length; i++) {
       expect(MIG_0019_IN_LIST[i]).toBe(CANONICAL_SECTORS[i]);
     }
+  });
+});
+
+describe("SECTOR_LENS_SUMMARY — FE render lens map (D21 provenance)", () => {
+  it("covers all 14 canonical sectors exactly", () => {
+    expect(Object.keys(SECTOR_LENS_SUMMARY).sort()).toEqual(
+      [...CANONICAL_SECTORS].sort(),
+    );
+  });
+
+  it("every lens is a non-empty trimmed string ≤ 30 chars", () => {
+    for (const sector of CANONICAL_SECTORS) {
+      const lens = SECTOR_LENS_SUMMARY[sector];
+      expect(typeof lens).toBe("string");
+      expect(lens.trim().length).toBeGreaterThan(0);
+      expect(lens.length).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it("contains no real person names or attribution (framing-safe)", () => {
+    for (const sector of CANONICAL_SECTORS) {
+      expect(SECTOR_LENS_SUMMARY[sector]).not.toMatch(/Kevin|케빈/i);
+    }
+  });
+
+  it("바이오 lens carries pipeline/FDA semantics (source fidelity spot-check)", () => {
+    expect(SECTOR_LENS_SUMMARY["바이오"]).toContain("파이프라인");
+    expect(SECTOR_LENS_SUMMARY["바이오"]).toContain("FDA");
   });
 });

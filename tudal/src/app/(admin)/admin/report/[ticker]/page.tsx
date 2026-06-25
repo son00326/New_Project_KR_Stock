@@ -43,6 +43,10 @@ import {
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { recordReportView } from "@/app/(admin)/admin/report/[ticker]/record-view";
 import type { CommitteeVote, ConsensusBadge } from "@/types/admin";
+import {
+  SECTOR_LENS_SUMMARY,
+  isCanonicalSector,
+} from "@/lib/screening/canonical-sectors";
 
 // PR3b STEP-1 — 5종 합의 배지 한국어 라벨 (shortlist-row.tsx BADGE_LABEL 미러; 그쪽은 non-export private).
 const BADGE_LABEL: Record<ConsensusBadge, string> = {
@@ -812,9 +816,20 @@ function Section8ModernView({
           14 = Tier 2 active (섹터 14인 패널) / 0 = B scope (Core 11 only). 1~13은 invalid. */}
       {data.partA.length === 14 && (
         <div>
-          <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">
             섹터 14인 패널 의견 (Part A)
           </div>
+          {isCanonicalSector(sector) && (
+            <div className="mb-1.5 text-[11px] leading-tight text-muted-foreground">
+              <span className="truncate">
+                AI 섹터 관점 · {sector}: {SECTOR_LENS_SUMMARY[sector]}
+              </span>
+              <span className="block opacity-70">
+                (가상의 분석 프레임 · 실제 인물 아님 · 정보 제공, 자문 아님)
+              </span>
+            </div>
+          )}
+          {!isCanonicalSector(sector) && <div className="mb-1.5" />}
           <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {data.partA.map((p) => (
               <li
