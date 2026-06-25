@@ -1,16 +1,18 @@
 # Spec — Section 8 Part B (쟁점) 실제 issue-extraction (B-PARTB)
 
-- **Status**: PLAN (Claude-authored → omxy catch-only → Claude fix → CONVERGED 후 impl)
+- **Status**: AS-BUILT — IMPL CONVERGED + ₩0 in-place 백필 APPLIED (2026-06-25). (이력: PLAN Claude→omxy R1~R3 CONVERGED → IMPL omxy R1+Claude 3-lens review+omxy R2 CONVERGED → backfill omxy R1 CONVERGED+APPLIED.) 잔여 = branch merge/deploy(중: arbiter FE 렌더 production 노출용).
 - **Date**: 2026-06-25
 - **Branch**: `tier0-bpp-multiregime` (main 미머지)
 - **SoT 연계**: `Document/Service/Report/ReportFramework.md §5.1~5.3 + §8` (Part B "쟁점별 찬반 대결") · `tudal/src/lib/report/section-8-schema.ts` (`issueDebateExcerptSchema`, `partB` min3/max5)
-- **HANDOFF**: §"🔧 Pre-launch" B-PARTB (출시 전 품질 후보, omxy 교차검증 CONVERGED 2026-06-25)
+- **HANDOFF**: §"🔧 Pre-launch" B-PARTB (코드 ✅ + ₩0 백필 APPLIED ✅, omxy 교차검증 CONVERGED 2026-06-25)
 
 ---
 
-## 1. 문제 (현 상태 = 문서화된 deferral, 우발 버그 아님)
+## 1. 문제 (백필 전 상태 = 문서화된 deferral, 우발 버그 아님 — 2026-06-25 해소)
 
-`tudal/src/lib/report/writer.ts` `buildSection8AndVotes:73-93` 의 Part B는 스텁이다:
+> 아래는 **수정 전(as-was)** 상태. `extractIssueDebates` 구현 + ₩0 백필로 해소됨(§6·§8).
+
+수정 전 `tudal/src/lib/report/writer.ts` `buildSection8AndVotes:73-93` 의 Part B는 스텁이었다:
 
 ```ts
 // 정교한 issue extraction은 후속 PR. 본 PR은 stub 3 issue.
