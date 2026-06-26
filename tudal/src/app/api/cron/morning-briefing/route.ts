@@ -1,19 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { composeBriefing, toBriefingLogRecord } from "@/lib/briefing/compose";
-import { sendEmail } from "@/lib/email/resend";
 import { sendTelegram, isTelegramConfigured } from "@/lib/notify/telegram";
 import { getRecentNewsEvents } from "@/lib/data/admin-news";
 import { insertBriefingLog } from "@/lib/data/admin-briefing-log";
-import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import type { AlertEvent, NewsEvent } from "@/types/admin";
+import { getMacroContextString } from "@/lib/macro/source";
+import type { NewsEvent } from "@/types/admin";
 
-// Vercel Cron 매일 23:00 UTC = 08:00 KST. ServicePlan-Admin §3.9 R3.9-1.
-// Step 2.6 (2026-05-28): MOCK_ADMIN_NEWS → 실 news_event SELECT 전환.
-// Step 2.7b.1 (2026-05-28): admin-news.getRecentNewsEvents() 호출 시 createServiceRoleClient()
-// 주입 → cron context RLS using(is_admin()) 우회. W-news-cron-service-role-read 완전 해소.
-// portfolio_snapshot / attentionTickers 실 SELECT는 별도 트랙 (briefing 메인 콘텐츠 미정).
-// production news_event 행 부재 시 topNews=[] (정상 — "오늘의 주요 뉴스 없음" 라인).
+// Vercel Cron 매일 23:00 UTC = 08:00 KST. ServicePlan-Admin §3.10 R3.10-1~2 (M11).
+// 72차/D10: 이메일/Resend 전역 미사용 → 채널 = telegram(best-effort) + dashboard(/admin) 2-layer.
+// G4 (D33 §4): getMacroContextString()으로 거시 컨텍스트 1줄 주입(flag MACRO_CONTEXT_ENABLED off면
+//   "" → 라인 생략·현행 동작; Tier0 factor 아님·M12a와 범주 분리).
+// production news_event 행 부재 시 topNews=[] (정상 — "핵심 뉴스 없음" 라인).
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,14 +31,6 @@ function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return !isProductionLikeForAuth();
   return request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
-function isProductionLike(): boolean {
-  return (
-    process.env.NODE_ENV === "production" ||
-    process.env.VERCEL_ENV === "production" ||
-    process.env.NEXT_PUBLIC_APP_ENV === "production"
-  );
 }
 
 function pickTopNews(items: NewsEvent[]): NewsEvent[] {
@@ -69,15 +59,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const recipients = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  // Step 2.7b.1: service-role client 주입 → cron context RLS 우회 (W-news-cron-service-role-read
-  // 완전 해소). production news_event rows=0 → topNews=[] (정상). helper throw 시 (DB error)
-  // Server route는 500을 자연스럽게 반환 (Next.js default).
-  // Step 2.7b.3: service-role client 변수 추출 → news SELECT + briefing_log/alert INSERT 재사용.
+  // Step 2.7b.1: service-role client 주입 → cron context RLS 우회. production rows=0 → topNews=[].
   const serviceRoleClient = createServiceRoleClient();
   const recentNewsEvents = await getRecentNewsEvents({
     client: serviceRoleClient,
@@ -88,31 +70,12 @@ export async function GET(request: NextRequest) {
     portfolioSnapshot: null, // mock-mode: null → "어제 포트 데이터 없음" 라인 (Step 2.7 scope)
     attentionTickers: [],
     topNews: pickTopNews(recentNewsEvents),
+    macroContext: getMacroContextString(), // G4 (off/stale → "" → 라인 생략)
   });
 
-  const sentChannels: string[] = ["dashboard"]; // 대시보드는 항상
-  let emailError: string | null = null;
-  let configError: string | null = null;
-
-  if (recipients.length === 0 && isProductionLike()) {
-    configError = "모닝 브리핑 수신자 ADMIN_EMAILS가 설정되지 않았습니다";
-  }
-
-  if (recipients.length > 0) {
-    const result = await sendEmail({
-      to: recipients,
-      subject: composed.email.subject,
-      html: composed.email.html,
-      text: composed.email.text,
-      tag: "morning-briefing",
-    });
-    if (result.success) sentChannels.push("email");
-    else emailError = result.error ?? "email send failed";
-  }
-
-  // PR-fix2 (C) — telegram best-effort. composeBriefing이 composed.telegram을 만들지만 종전엔 미발송(dead branch).
-  //   isTelegramConfigured()일 때만 시도(미설정 prod에서 sendTelegram success:false 잡음 회피). 성공 시 채널 기록.
-  //   ※ telegram 실패/미설정은 generationFailed/finalStatus에 절대 반영 안 함 (best-effort, silent-health 정합).
+  // 채널: dashboard(/admin 홈 카드)는 항상 + telegram best-effort.
+  // telegram 실패/미설정은 finalStatus에 절대 미반영(best-effort, silent-health 정합).
+  const sentChannels: string[] = ["dashboard"];
   let telegramError: string | null = null;
   if (isTelegramConfigured()) {
     const tg = await sendTelegram({ text: composed.telegram });
@@ -120,60 +83,26 @@ export async function GET(request: NextRequest) {
     else telegramError = tg.error ?? "telegram send failed";
   }
 
-  const generationFailed = Boolean(configError || (emailError && recipients.length > 0));
-  const logPayload = toBriefingLogRecord(composed, sentChannels, generationFailed);
-
-  let alertPayload: Omit<AlertEvent, "id" | "isRead"> | null = null;
-  if (generationFailed) {
-    alertPayload = {
-      alertType: "briefing_failed",
-      ticker: null,
-      severity: "warning",
-      triggerReason: configError ?? `모닝 브리핑 이메일 발송 실패: ${emailError}`,
-      signalSentAt: new Date().toISOString(),
-      outcomeAt: null,
-      t7PriceChange: null,
-      decisionRecorded: null,
-      decisionMemo: null,
-    };
-  }
-
-  // Step 2.7b.3: briefing_log INSERT (date upsert) + briefing_failed alert_event INSERT.
-  // independent best-effort (plan §0 D6 omxy R1 MED-2): 둘 다 독립 시도. dbError ??= 첫 실패 보존.
+  // briefing_log INSERT (date upsert). 브리핑은 항상 생성됨 → generationFailed=false.
+  // DB persist 실패만 dbError로 502 (telegram best-effort는 미반영).
+  const logPayload = toBriefingLogRecord(composed, sentChannels, false);
   let dbError: string | null = null;
   try {
     await insertBriefingLog(logPayload, { client: serviceRoleClient });
   } catch (err) {
-    dbError ??= err instanceof Error ? err.message : "briefing_log_insert_failed:unknown";
+    dbError = err instanceof Error ? err.message : "briefing_log_insert_failed:unknown";
   }
-  try {
-    await insertAlertEvents(alertPayload ? [alertPayload] : [], {
-      client: serviceRoleClient,
-    });
-  } catch (err) {
-    dbError ??= err instanceof Error ? err.message : "alert_event_insert_failed:unknown";
-  }
-
-  // status 우선순위: configError(500) → generationFailed(502) → dbError(502) → 200.
-  const finalStatus = configError
-    ? 500
-    : generationFailed
-    ? 502
-    : dbError
-    ? 502
-    : 200;
 
   return NextResponse.json(
     {
-      ok: !generationFailed && !dbError,
+      ok: !dbError,
       date: composed.date,
       sentChannels,
       contentPreview: composed.contentSummary.slice(0, 120),
       log: logPayload,
-      alertEmitted: alertPayload?.triggerReason ?? null,
       dbError,
       telegramError,
     },
-    { status: finalStatus },
+    { status: dbError ? 502 : 200 },
   );
 }

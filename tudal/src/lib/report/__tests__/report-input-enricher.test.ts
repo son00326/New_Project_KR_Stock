@@ -169,3 +169,32 @@ describe("enrichReportInput (async DB-read, cost 0)", () => {
     expect(result.consensusBadge).toBe("🟡");
   });
 });
+
+describe("enrichReportInput — G4 macroSummary seam (dormant default)", () => {
+  it("default(flag off) → macroSummary === '근거 부족' (현행 회귀)", async () => {
+    // 테스트 env는 MACRO_CONTEXT_ENABLED 미설정 → getMacroContextString() === '' → NO_BASIS.
+    const result = await enrichReportInput(makeItem(), {
+      client: {} as never,
+      fetchFinancials: vi.fn().mockResolvedValue("[005930] 재무 데이터 없음"),
+    });
+    expect(result.macroSummary).toBe("근거 부족");
+  });
+
+  it("buildMacroSummary 주입 시 macroSummary 대체 (DI seam)", async () => {
+    const result = await enrichReportInput(makeItem(), {
+      client: {} as never,
+      fetchFinancials: vi.fn().mockResolvedValue("[005930] 재무 데이터 없음"),
+      buildMacroSummary: () => "거시 컨텍스트: 강세(예측 아님)",
+    });
+    expect(result.macroSummary).toBe("거시 컨텍스트: 강세(예측 아님)");
+  });
+
+  it("buildMacroSummary가 '' 반환 시 NO_BASIS 폴백", async () => {
+    const result = await enrichReportInput(makeItem(), {
+      client: {} as never,
+      fetchFinancials: vi.fn().mockResolvedValue("[005930] 재무 데이터 없음"),
+      buildMacroSummary: () => "",
+    });
+    expect(result.macroSummary).toBe("근거 부족");
+  });
+});

@@ -2,10 +2,12 @@ import type { BriefingLog, NewsEvent, PortfolioSnapshot } from "@/types/admin";
 
 // ---------------------------------------------------------------------------
 // 모닝 브리핑 작성기 (M11, S5a T5a.2)
-// ref: ServicePlan-Admin §3.9 R3.9-1~5
+// ref: ServicePlan-Admin §3.9 R3.9-1~5 · §3.10 R3.10-1~2 (M11)
 //
-// 입력: 전일 포트 스냅샷(E5) + 주의 종목 리스트 + 핵심 뉴스 3건
-// 출력: 3~5줄 요약 텍스트 + email/telegram/dashboard 채널별 포맷
+// 입력: 전일 포트 스냅샷(E5) + 주의 종목 리스트 + 핵심 뉴스 3건 + (G4) 거시 컨텍스트
+// 출력: 3~5줄 요약 텍스트 + telegram/dashboard 채널 포맷
+// ⚠️ 72차/D10: 이메일/Resend 전역 미사용 → email 채널 제거. Telegram + /admin(dashboard) 2-layer.
+// G4(D33 §4): macroContext는 "컨텍스트 입력" 1줄(거시/뉴스 distill, ₩0). 미지정 시 현행 동작.
 // ---------------------------------------------------------------------------
 
 export interface BriefingInput {
@@ -13,12 +15,12 @@ export interface BriefingInput {
   portfolioSnapshot: PortfolioSnapshot | null;
   attentionTickers: Array<{ ticker: string; name: string; reason: string }>;
   topNews: NewsEvent[]; // 최대 3건 사용
+  macroContext?: string; // G4 거시 컨텍스트 1줄(off/stale면 "" → 라인 생략)
 }
 
 export interface ComposedBriefing {
   date: string;
   contentSummary: string; // 대시보드 카드·로그용
-  email: { subject: string; html: string; text: string };
   telegram: string;
 }
 
@@ -58,40 +60,25 @@ function formatNewsLine(items: NewsEvent[]): string {
 }
 
 export function composeBriefing(input: BriefingInput): ComposedBriefing {
+  // G4: macroContext(distill 1줄)는 portfolio 다음, attention 앞에 삽입. 빈 값이면 생략(현행 동작).
+  const macroLine = input.macroContext?.trim() ?? "";
   const lines = [
     formatPortfolioLine(input.portfolioSnapshot),
+    ...(macroLine ? [macroLine] : []),
     formatAttentionLine(input.attentionTickers),
     formatNewsLine(input.topNews),
   ];
   const contentSummary = lines.join(" ");
 
   const subject = `[주픽] ${input.date} 모닝 브리핑`;
-  const text = [subject, "", ...lines].join("\n");
-  const html = `<!doctype html><html lang="ko"><body>
-<h2>${subject}</h2>
-${lines.map((l) => `<p>${escapeHtml(l)}</p>`).join("\n")}
-<hr>
-<p style="color:#777;font-size:12px">정보 제공 목적이며, 투자 자문이 아닙니다.</p>
-</body></html>`;
-
-  // Telegram 4096 char 제한. 본 3줄 요약은 수백 자 수준 — 여유.
+  // Telegram 4096 char 제한. 본 요약은 수백 자 수준 — 여유. (이메일/Resend 미사용: telegram + dashboard만.)
   const telegram = [`*${subject}*`, "", ...lines].join("\n");
 
   return {
     date: input.date,
     contentSummary,
-    email: { subject, html, text },
     telegram,
   };
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 // BriefingLog 레코드 페이로드 (briefing_log INSERT용)

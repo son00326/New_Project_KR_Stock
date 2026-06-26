@@ -102,18 +102,26 @@ describe("composeBriefing", () => {
     expect(out.contentSummary).not.toMatch(/ D\b/); // D는 미포함
   });
 
-  it("email subject에 날짜 포함 · html escape 적용", () => {
+  it("G4: macroContext 미지정 → macro 라인 없음 (현행 회귀)", () => {
     const out = composeBriefing({
       date: "2026-04-19",
-      portfolioSnapshot: snap(0, 0, 0),
-      attentionTickers: [
-        { ticker: "000001", name: "<script>alert(1)</script>", reason: "xss" },
-      ],
+      portfolioSnapshot: snap(0.001, 0.001, 0),
+      attentionTickers: [],
       topNews: [],
     });
-    expect(out.email.subject).toContain("2026-04-19");
-    expect(out.email.html).not.toContain("<script>alert(1)</script>");
-    expect(out.email.html).toContain("&lt;script&gt;");
+    expect(out.contentSummary).not.toMatch(/거시/);
+  });
+
+  it("G4: macroContext 지정 → contentSummary·telegram에 macro 라인 삽입", () => {
+    const out = composeBriefing({
+      date: "2026-04-19",
+      portfolioSnapshot: snap(0.001, 0.001, 0),
+      attentionTickers: [],
+      topNews: [],
+      macroContext: "거시: 강세(예측 아님)",
+    });
+    expect(out.contentSummary).toContain("거시: 강세(예측 아님)");
+    expect(out.telegram).toContain("거시: 강세(예측 아님)");
   });
 
   it("telegram 본문에 3줄 모두 포함 + 제목 굵기", () => {
@@ -136,9 +144,9 @@ describe("toBriefingLogRecord", () => {
       attentionTickers: [],
       topNews: [],
     });
-    const rec = toBriefingLogRecord(out, ["email", "dashboard"], false);
+    const rec = toBriefingLogRecord(out, ["telegram", "dashboard"], false);
     expect(rec.date).toBe("2026-04-19");
-    expect(rec.sentChannels).toEqual(["email", "dashboard"]);
+    expect(rec.sentChannels).toEqual(["telegram", "dashboard"]);
     expect(rec.generationFailed).toBe(false);
     expect(rec.contentSummary).toContain("포트");
   });

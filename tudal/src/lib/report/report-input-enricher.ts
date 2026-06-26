@@ -15,6 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ShortListItem } from "@/types/admin";
 import { fetchFinancialsSummary } from "@/lib/data/dart-financials";
 import { hasLevelABodyReference } from "@/lib/data/sector-reference-backlog";
+import { getMacroContextString } from "@/lib/macro/source";
 
 // prompt 계약(FullReportUserPromptInput) 정합 — consensusBadge는 ⚪ 불허(4종).
 export interface ReportEnrichResult {
@@ -89,6 +90,12 @@ export function deriveEnrichFromShortlist(
   };
 }
 
+/**
+ * G4 거시 컨텍스트(dormant default) — flag MACRO_CONTEXT_ENABLED off면 "" → NO_BASIS(현행).
+ * D33 §4: 거시 = 리포트 writer "컨텍스트 입력"(Tier0 factor 아님). DI 가능(테스트).
+ */
+const defaultMacroSummary = (): string => getMacroContextString() || NO_BASIS;
+
 export interface EnrichReportInputOptions {
   client: SupabaseClient;
   // DI seam (테스트). default = 실 fetchFinancialsSummary(dart_corp_codes + dart_financial_cache SELECT).
@@ -96,6 +103,8 @@ export interface EnrichReportInputOptions {
     ticker: string,
     options: { client: SupabaseClient },
   ) => Promise<string>;
+  // G4 DI seam (테스트). default = getMacroContextString() || NO_BASIS (flag off면 NO_BASIS).
+  buildMacroSummary?: () => string;
 }
 
 /**
@@ -111,11 +120,15 @@ export async function enrichReportInput(
   options: EnrichReportInputOptions,
 ): Promise<ReportEnrichResult> {
   const fetchFinancials = options.fetchFinancials ?? fetchFinancialsSummary;
+  const buildMacroSummary = options.buildMacroSummary ?? defaultMacroSummary;
   const financialsSummary = await fetchFinancials(item.ticker, {
     client: options.client,
   });
+  // G4: deriveEnrichFromShortlist는 pure하게 NO_BASIS를 반환 → 여기서 컨텍스트로 override.
+  // buildMacroSummary가 ""을 반환하면 NO_BASIS 폴백(빈 macroSummary 방지).
   return {
     ...deriveEnrichFromShortlist(item),
     financialsSummary,
+    macroSummary: buildMacroSummary() || NO_BASIS,
   };
 }
