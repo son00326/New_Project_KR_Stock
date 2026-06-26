@@ -15,6 +15,9 @@ const afterCallbacks = vi.hoisted(() => [] as Array<() => void | Promise<void>>)
 const serviceRoleState = vi.hoisted(() => ({
   throwOnCreate: null as Error | null,
 }));
+const macroMock = vi.hoisted(() => ({
+  getMacroContextString: vi.fn(() => ""),
+}));
 // 고아 period sweep — service-role client.from('tier1_selection_run') SELECT 결과 + filter 인자 캡처 seam.
 const orphanQueryState = vi.hoisted(() => ({
   rows: [] as Array<{ period_key: string; track: string; created_at: string }>,
@@ -70,6 +73,9 @@ vi.mock("@/lib/supabase/service-role", () => ({
 }));
 vi.mock("@/lib/screening/tier1-selection-batch-worker", () => ({
   runGuardedSelectionChunk: (...a: unknown[]) => guardedMock(...a),
+}));
+vi.mock("@/lib/macro/source", () => ({
+  getMacroContextString: macroMock.getMacroContextString,
 }));
 // route가 DI 배선용으로 import하는 실 모듈들 — 호출 안 되므로 light stub.
 vi.mock("@/lib/data/admin-tier0-candidates", () => ({
@@ -170,6 +176,8 @@ beforeEach(() => {
   delete process.env.VERCEL_ENV;
   delete process.env.NEXT_PUBLIC_APP_ENV;
   serviceRoleState.throwOnCreate = null;
+  macroMock.getMacroContextString.mockReset();
+  macroMock.getMacroContextString.mockReturnValue("");
   guardedMock.mockResolvedValue({ result: chunkResult() });
 });
 
@@ -207,6 +215,7 @@ describe("selection-worker flag gate", () => {
     expect(body.skipped).toBe(true);
     expect(body.reason).toBe("selection_cron_auto_disabled");
     expect(guardedMock).not.toHaveBeenCalled();
+    expect(macroMock.getMacroContextString).not.toHaveBeenCalled();
   });
 
   it("flag off + service-role client 생성 실패 → 200 skipped 유지 (dormant merge-safe)", async () => {
@@ -396,6 +405,30 @@ describe("selection-worker run-mutex + result", () => {
       .calls[0][0] as { costLogMonth?: string };
     expect(panelDeps.costLogMonth).toBe("2026-06");
     expect(debateDeps.costLogMonth).toBe("2026-06");
+  });
+
+  it("G4 — live selection route가 macroContextString을 1회 계산해 R1/R2 패널에 동일 주입", async () => {
+    const macroContextString = "[거시 컨텍스트] 강세(예측 아님)";
+    macroMock.getMacroContextString.mockReturnValue(macroContextString);
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const { makeCallPersonaPanel, makeCallDebatePanel } = await import(
+      "@/lib/screening/persona-panel-adapter"
+    );
+    expect(macroMock.getMacroContextString).toHaveBeenCalledTimes(1);
+    const panelCalls = (makeCallPersonaPanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ macroContextString?: string }]
+    >;
+    const debateCalls = (makeCallDebatePanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ macroContextString?: string }]
+    >;
+    expect(panelCalls).toHaveLength(2);
+    expect(debateCalls).toHaveLength(2);
+    for (const [deps] of panelCalls) {
+      expect(deps.macroContextString).toBe(macroContextString);
+    }
+    for (const [deps] of debateCalls) {
+      expect(deps.macroContextString).toBe(macroContextString);
+    }
   });
 
   it("W1b — judgeEnqueued>0 + remaining>0 → self-continue 202 (forward-progress)", async () => {

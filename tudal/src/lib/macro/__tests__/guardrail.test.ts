@@ -46,7 +46,8 @@ function walkTsFiles(dir: string): string[] {
   return out;
 }
 
-const MACRO_IMPORT_RE = /from\s+["']@\/lib\/macro/;
+const MACRO_IMPORT_RE =
+  /(?:from\s+["']@\/lib\/macro|import\s+["']@\/lib\/macro|import\s*\(\s*["']@\/lib\/macro)/;
 
 describe("G4 guardrail — @/lib/macro import allowlist (박제)", () => {
   it("only the allowlisted consumers import @/lib/macro (no Tier0/funnel leak)", () => {
