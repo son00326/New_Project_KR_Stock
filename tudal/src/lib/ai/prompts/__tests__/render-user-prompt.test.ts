@@ -40,3 +40,37 @@ describe("renderUserPrompt — G4 macroContext (dormant append)", () => {
     expect(out.endsWith(macro)).toBe(true); // 끝에 붙음
   });
 });
+
+describe("renderUserPrompt — M12a negativeNewsContext (dormant append)", () => {
+  it("no/empty/whitespace negativeNewsContext → byte-identical (dormant)", () => {
+    const out = renderUserPrompt(TEMPLATE, BASE);
+    expect(
+      renderUserPrompt(TEMPLATE, { ...BASE, negativeNewsContext: "" }),
+    ).toBe(out);
+    expect(
+      renderUserPrompt(TEMPLATE, { ...BASE, negativeNewsContext: "  " }),
+    ).toBe(out);
+    expect(out.endsWith("출력: JSON")).toBe(true);
+  });
+
+  it("non-empty negativeNewsContext → appended at end", () => {
+    const neg = "[최근 부정 뉴스 컨텍스트 · AI 컨텍스트 입력...]\n005930: 실적 쇼크";
+    const out = renderUserPrompt(TEMPLATE, { ...BASE, negativeNewsContext: neg });
+    expect(out).toContain(neg);
+    expect(out.endsWith(neg)).toBe(true);
+  });
+
+  it("macro + negative 둘 다 → macro 먼저, negative 끝 (별개 블록·순서 고정)", () => {
+    const macro = "[거시 컨텍스트]\n시장 국면: 강세";
+    const neg = "[최근 부정 뉴스 컨텍스트]\n005930: 실적 쇼크";
+    const out = renderUserPrompt(TEMPLATE, {
+      ...BASE,
+      macroContext: macro,
+      negativeNewsContext: neg,
+    });
+    expect(out).toContain(macro);
+    expect(out).toContain(neg);
+    expect(out.indexOf(macro)).toBeLessThan(out.indexOf(neg)); // macro 먼저
+    expect(out.endsWith(neg)).toBe(true);
+  });
+});

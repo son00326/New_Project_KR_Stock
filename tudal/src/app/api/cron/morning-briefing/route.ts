@@ -5,6 +5,7 @@ import { getRecentNewsEvents } from "@/lib/data/admin-news";
 import { insertBriefingLog } from "@/lib/data/admin-briefing-log";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getMacroContextString } from "@/lib/macro/source";
+import { runM12aForBriefing } from "@/lib/news/m12a/briefing-integration";
 import type { NewsEvent } from "@/types/admin";
 
 // Vercel Cron 매일 23:00 UTC = 08:00 KST. ServicePlan-Admin §3.10 R3.10-1~2 (M11).
@@ -65,10 +66,17 @@ export async function GET(request: NextRequest) {
     client: serviceRoleClient,
     limit: 20,
   });
+  // M12a (R3.10-2/5): dormant 뉴스 자동제외 평가 → 주의 종목(attentionTickers). flag off → { [] } (브리핑 byte-identical).
+  const m12a = await runM12aForBriefing({
+    client: serviceRoleClient,
+    nowIso: new Date().toISOString(),
+    adminUserId: process.env.CRON_SYSTEM_USER_ID ?? "",
+    alertsUrl: "/admin/alerts",
+  });
   const composed = composeBriefing({
     date: todayKstIsoDate(),
     portfolioSnapshot: null, // mock-mode: null → "어제 포트 데이터 없음" 라인 (Step 2.7 scope)
-    attentionTickers: [],
+    attentionTickers: m12a.attentionTickers, // M12a off → [] → 현행 동작
     topNews: pickTopNews(recentNewsEvents),
     macroContext: getMacroContextString(), // G4 (off/stale → "" → 라인 생략)
   });

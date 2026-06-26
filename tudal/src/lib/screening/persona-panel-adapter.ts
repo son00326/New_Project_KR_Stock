@@ -177,6 +177,12 @@ export interface CallPersonaPanelDeps {
    *   Tier0 factor 아님·M12a와 범주 분리. R1 패널 + R2 반박 패널 동일 컨텍스트.
    */
   macroContextString?: string;
+  /**
+   * M12a (R3.10-7c): 부정 뉴스 재진입 컨텍스트(컨텍스트 입력 only). selection 진입 시 1회 계산해 주입
+   *   (flag off / ledger 부재면 "" → callPersona 프롬프트 byte-identical·선정 무회귀). macro와 별개 범주.
+   *   R1 패널 + R2 반박 패널 동일 컨텍스트.
+   */
+  negativeNewsContext?: string;
 }
 
 /**
@@ -210,6 +216,8 @@ export function makeCallPersonaPanel(
             costLogMonth: deps.costLogMonth,
             // G4 (D33 §4): 거시 컨텍스트(off면 ""→byte-identical). Tier0 factor 아님.
             macroContextString: deps.macroContextString,
+            // M12a (R3.10-7c): 부정 뉴스 재진입 컨텍스트(off/부재면 ""→byte-identical). macro와 별개 범주.
+            negativeNewsContext: deps.negativeNewsContext,
             // W1a (D28 ①): per-slot 모델 binding. 미지정 시 기존 역할 resolve.
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
@@ -264,6 +272,8 @@ export function makeCallDebatePanel(
             costLogMonth: deps.costLogMonth,
             // G4 (D33 §4): R2 반박 패널도 동일 거시 컨텍스트(off면 ""→byte-identical).
             macroContextString: deps.macroContextString,
+            // M12a (R3.10-7c): R2 반박 패널도 동일 부정 뉴스 재진입 컨텍스트(off/부재면 ""→byte-identical).
+            negativeNewsContext: deps.negativeNewsContext,
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
         );
