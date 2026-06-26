@@ -67,7 +67,7 @@ function latestAsOf(src: MacroContextSource): string {
   let maxMs = Date.parse(src.verdict.updatedAt);
   for (const ind of src.indicators) {
     const ms = Date.parse(ind.updatedAt);
-    if (Number.isFinite(ms) && ms > maxMs) {
+    if (Number.isFinite(ms) && (!Number.isFinite(maxMs) || ms > maxMs)) {
       max = ind.updatedAt;
       maxMs = ms;
     }

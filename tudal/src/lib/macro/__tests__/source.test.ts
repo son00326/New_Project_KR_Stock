@@ -73,6 +73,36 @@ describe("getMacroContextString — flag + stale fail-safe", () => {
     });
     expect(s).not.toBe("");
   });
+
+  it("parses non-Z ISO asOf and respects injected now at the stale boundary", () => {
+    vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
+    const boundaryMs = Date.parse("2026-04-18T10:00:00");
+    expect(
+      getMacroContextString({
+        now: new Date(boundaryMs),
+        maxStaleDays: 7,
+        source: sourceWithAsOf("2026-04-11T10:00:00"),
+      }),
+    ).not.toBe("");
+    expect(
+      getMacroContextString({
+        now: new Date(boundaryMs + 1),
+        maxStaleDays: 7,
+        source: sourceWithAsOf("2026-04-11T10:00:00"),
+      }),
+    ).toBe("");
+  });
+
+  it("returns '' when source asOf cannot be parsed", () => {
+    vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
+    expect(
+      getMacroContextString({
+        now: NOW,
+        maxStaleDays: 7,
+        source: sourceWithAsOf("not-a-date"),
+      }),
+    ).toBe("");
+  });
 });
 
 describe("getMacroContextSource (default mock seam)", () => {

@@ -124,6 +124,22 @@ describe("composeBriefing", () => {
     expect(out.telegram).toContain("거시: 강세(예측 아님)");
   });
 
+  it("G4: multiline macroContext → briefing macro 라인 1줄로 정규화", () => {
+    const out = composeBriefing({
+      date: "2026-04-19",
+      portfolioSnapshot: snap(0.001, 0.001, 0),
+      attentionTickers: [],
+      topNews: [],
+      macroContext: "[거시 컨텍스트 · asOf 2026-04-11]\n시장 국면: 강세\n주요 동인: 금리.",
+    });
+    const macroLine = out.telegram
+      .split("\n")
+      .find((line) => line.includes("[거시 컨텍스트"));
+    expect(macroLine).toBe(
+      "[거시 컨텍스트 · asOf 2026-04-11] 시장 국면: 강세 주요 동인: 금리.",
+    );
+  });
+
   it("telegram 본문에 3줄 모두 포함 + 제목 굵기", () => {
     const out = composeBriefing({
       date: "2026-04-19",

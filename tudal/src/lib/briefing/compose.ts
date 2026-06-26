@@ -59,9 +59,13 @@ function formatNewsLine(items: NewsEvent[]): string {
   return `핵심 뉴스 ${picks.length}건: ${body}.`;
 }
 
+function formatMacroLine(value: string | undefined): string {
+  return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
 export function composeBriefing(input: BriefingInput): ComposedBriefing {
   // G4: macroContext(distill 1줄)는 portfolio 다음, attention 앞에 삽입. 빈 값이면 생략(현행 동작).
-  const macroLine = input.macroContext?.trim() ?? "";
+  const macroLine = formatMacroLine(input.macroContext);
   const lines = [
     formatPortfolioLine(input.portfolioSnapshot),
     ...(macroLine ? [macroLine] : []),

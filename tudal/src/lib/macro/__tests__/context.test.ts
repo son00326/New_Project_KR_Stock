@@ -74,6 +74,23 @@ describe("buildMacroContext (pure distill)", () => {
     expect(ctx.asOf).toBe("2026-04-11T10:00:00");
   });
 
+  it("uses the latest valid indicator asOf when verdict.updatedAt is invalid", () => {
+    const ctx = buildMacroContext({
+      indicators: INDICATORS,
+      verdict: { ...VERDICT, updatedAt: "not-a-date" },
+    });
+    expect(ctx.asOf).toBe("2026-04-12T03:00:00");
+  });
+
+  it("trims headline to 160 characters", () => {
+    const ctx = buildMacroContext({
+      indicators: [],
+      verdict: { ...VERDICT, summary: "가".repeat(180) },
+    });
+    expect(ctx.headline.length).toBeLessThanOrEqual(160);
+    expect(ctx.headline.endsWith("…")).toBe(true);
+  });
+
   it("is deterministic (same input → same output)", () => {
     const a = buildMacroContext({ indicators: INDICATORS, verdict: VERDICT, source: "mock" });
     const b = buildMacroContext({ indicators: INDICATORS, verdict: VERDICT, source: "mock" });
@@ -96,6 +113,11 @@ describe("renderMacroContextString (forward-validate framing)", () => {
     const s = renderMacroContextString(ctx);
     expect(s).toContain("예측 아님");
     expect(s).toContain("Tier0 스크리닝 팩터 아님");
+  });
+
+  it("does not render upward/downward prediction wording", () => {
+    const s = renderMacroContextString(ctx);
+    expect(s).not.toMatch(/상승 예측|하락 예측|상승할|하락할|목표가|매수 신호|매도 신호/);
   });
 
   it("renders a Korean regime label, not the raw enum", () => {
