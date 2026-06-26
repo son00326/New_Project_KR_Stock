@@ -45,6 +45,7 @@ import { renderPeerArguments } from "@/lib/ai/prompts/debate-round-template";
 import type { PersonaScore } from "@/lib/screening/tier1-schema";
 import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
 import { callPersona } from "@/lib/ai/anthropic-client";
+import { getMacroContextString } from "@/lib/macro/source";
 import { fetchFinancialsSummary } from "@/lib/data/dart-financials";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
 import { upsertShortListTrack } from "@/lib/data/admin-shortlist-persist";
@@ -246,6 +247,9 @@ export async function GET(request: NextRequest) {
   ];
 
   const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? "";
+  // G4 (D33 §4): live Tier1 선정 거시 컨텍스트 1회 계산(flag MACRO_CONTEXT_ENABLED off → "" → R1/R2
+  //   패널 프롬프트 byte-identical·선정 무회귀). Tier0 factor 아님·M12a와 범주 분리. R1·R2 동일 값.
+  const macroContextString = getMacroContextString();
 
   // per-track try/catch/continue — 한 트랙 실패가 다른 트랙을 막지 않음(부분실패 보고, 전체 502 단일화 금지).
   const outcomes: TrackOutcome[] = [];
@@ -275,6 +279,8 @@ export async function GET(request: NextRequest) {
           costClient: supabase,
           // B-SEL-CRON (cluster D) — preflight month == insert month 정합 (period 월경계 누수 차단).
           costLogMonth: t.month,
+          // G4 (D33 §4) — 거시 컨텍스트(off→""→무회귀). Tier0 factor 아님·M12a와 범주 분리.
+          macroContextString,
           // W1a (D28 ①) — per-slot 모델 mix (Sonnet×6 + GPT mid×5, GPT-off 시 전원 Sonnet).
           slotResolver: resolveTier1PanelSlot,
         }),
@@ -286,6 +292,8 @@ export async function GET(request: NextRequest) {
           adminUserId: cronSystemUserId,
           costClient: supabase,
           costLogMonth: t.month,
+          // G4 (D33 §4) — R2 반박 패널도 동일 거시 컨텍스트(off→""→무회귀).
+          macroContextString,
           slotResolver: resolveTier1PanelSlot,
         }),
         // W1b (D28 ③) — per-ticker 최종 judge(Opus) + 경계 dual-judge(GPT↔Opus auto-detect).

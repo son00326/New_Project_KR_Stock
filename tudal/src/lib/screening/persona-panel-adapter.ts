@@ -171,6 +171,12 @@ export interface CallPersonaPanelDeps {
    *   judge/preflight와 다른 달 버킷에 적재되는 hardcap 회계 누수가 발생하므로 cron 경로는 반드시 주입.
    */
   costLogMonth?: string;
+  /**
+   * G4 (D33 §4): Tier1 평가 거시 컨텍스트(컨텍스트 입력 only). selection-worker가 getMacroContextString()
+   *   1회 계산해 주입(flag MACRO_CONTEXT_ENABLED off면 "" → callPersona 프롬프트 byte-identical·선정 무회귀).
+   *   Tier0 factor 아님·M12a와 범주 분리. R1 패널 + R2 반박 패널 동일 컨텍스트.
+   */
+  macroContextString?: string;
 }
 
 /**
@@ -202,6 +208,8 @@ export function makeCallPersonaPanel(
             costClient: deps.costClient,
             // B-SEL-CRON (cluster D): preflight month == insert month 정합.
             costLogMonth: deps.costLogMonth,
+            // G4 (D33 §4): 거시 컨텍스트(off면 ""→byte-identical). Tier0 factor 아님.
+            macroContextString: deps.macroContextString,
             // W1a (D28 ①): per-slot 모델 binding. 미지정 시 기존 역할 resolve.
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
@@ -254,6 +262,8 @@ export function makeCallDebatePanel(
             costClient: deps.costClient,
             // B-SEL-CRON (cluster D): preflight month == insert month 정합.
             costLogMonth: deps.costLogMonth,
+            // G4 (D33 §4): R2 반박 패널도 동일 거시 컨텍스트(off면 ""→byte-identical).
+            macroContextString: deps.macroContextString,
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
         );

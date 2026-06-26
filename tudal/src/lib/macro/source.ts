@@ -51,6 +51,9 @@ export function getMacroContextString(
 
   const now = opts.now ?? new Date();
   const maxStaleDays = opts.maxStaleDays ?? DEFAULT_MAX_STALE_DAYS;
+  // ⚠️ TZ note: Date.parse 는 timezone-naive ISO("2026-04-11T10:00:00")를 로컬시각으로 해석한다.
+  //   현재 source(mock·Vercel UTC)에선 무해하나, 실 FRED/source drop-in 시 asOf는 반드시
+  //   Z 또는 offset-qualified(예 ...+09:00/Z)로 공급해 host-TZ 경계 드리프트를 차단할 것.
   const asOfMs = Date.parse(ctx.asOf);
   if (!Number.isFinite(asOfMs)) return EMPTY_MACRO_CONTEXT;
   const ageDays = (now.getTime() - asOfMs) / MS_PER_DAY;

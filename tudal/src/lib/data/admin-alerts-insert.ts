@@ -1,7 +1,8 @@
 // alert_event INSERT helpers.
 // - recordSchedulerFailAlert: DI-only (input.supabase) — scheduler_fail 전용, 변경 0 (PR1 B2+B8).
 // - insertAlertEvents (60차 Step 2.7b.3): options.client? seam + createClient fallback — cron
-//   3-source (heartbeat_missing / news_critical / briefing_failed) 통합 batch INSERT.
+//   통합 batch INSERT (현 발행 source: heartbeat_missing / news_critical).
+//   ※ briefing_failed = 72차/D10 이메일/Resend 제거로 morning-briefing 미발행(enum·DB CHECK·alerts UI 라벨은 보존).
 //   service-role.ts B17 boundary "허용 DI seam" 목록 정합 (plan §0 D7).
 // B8 (omxy R2): 0010 schema alert_event 9 컬럼 (snake_case) 정합 매핑.
 import {

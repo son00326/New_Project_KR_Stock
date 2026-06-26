@@ -91,10 +91,11 @@ export function deriveEnrichFromShortlist(
 }
 
 /**
- * G4 거시 컨텍스트(dormant default) — flag MACRO_CONTEXT_ENABLED off면 "" → NO_BASIS(현행).
+ * G4 거시 컨텍스트(dormant default) — flag MACRO_CONTEXT_ENABLED off면 "".
  * D33 §4: 거시 = 리포트 writer "컨텍스트 입력"(Tier0 factor 아님). DI 가능(테스트).
+ * NO_BASIS 폴백은 enrichReportInput 호출부에서 단일화(빈 문자열 → NO_BASIS).
  */
-const defaultMacroSummary = (): string => getMacroContextString() || NO_BASIS;
+const defaultMacroSummary = (): string => getMacroContextString();
 
 export interface EnrichReportInputOptions {
   client: SupabaseClient;

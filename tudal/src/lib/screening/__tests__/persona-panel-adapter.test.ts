@@ -207,6 +207,35 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     );
   });
 
+  it("G4 — macroContextString을 callPersona로 전파 (live Tier1 selection 컨텍스트)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      macroContextString: "[거시 컨텍스트] 강세(예측 아님)",
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ macroContextString: "[거시 컨텍스트] 강세(예측 아님)" }),
+    );
+  });
+
+  it("G4 — macroContextString 미지정 → callPersona에 undefined (dormant)", async () => {
+    const callPersona = vi.fn(async () => callResult(validJson));
+    const panel = makeCallPersonaPanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+    });
+    await panel({ ticker: "005930", financials: "f" });
+    expect(callPersona).toHaveBeenCalledWith(
+      expect.objectContaining({ macroContextString: undefined }),
+    );
+  });
+
   it("한 페르소나 parse 실패 → panel 전체 reject (ticker ⚪)", async () => {
     const callPersona = vi.fn(async (input: { personaId: string }) =>
       callResult(input.personaId === "core-5" ? "평가 불가" : validJson),
@@ -407,6 +436,23 @@ describe("W1a makeCallDebatePanel — R2 반박 라운드", () => {
     await debate({ ticker: "005930", financials: "f", r1Panel });
     for (const call of callPersona.mock.calls) {
       expect(call[0].costLogMonth).toBe("2026-07");
+    }
+  });
+
+  it("G4 — R2 패널도 macroContextString을 callPersona로 전파", async () => {
+    const callPersona = vi.fn<
+      (input: CallPersonaInput) => Promise<CallPersonaResult>
+    >(async () => callResult(validJson));
+    const debate = makeCallDebatePanel({
+      callPersona,
+      personas,
+      reflectionContext: "",
+      adminUserId: "u",
+      macroContextString: "[거시 컨텍스트] 강세(예측 아님)",
+    });
+    await debate({ ticker: "005930", financials: "f", r1Panel });
+    for (const call of callPersona.mock.calls) {
+      expect(call[0].macroContextString).toBe("[거시 컨텍스트] 강세(예측 아님)");
     }
   });
 

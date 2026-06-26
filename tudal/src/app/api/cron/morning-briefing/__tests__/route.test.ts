@@ -15,6 +15,8 @@ const telegramMock = vi.hoisted(() => ({
   sendTelegram: vi.fn(),
   isTelegramConfigured: vi.fn(),
 }));
+// G4: macro source DI via module mock — flag/stale 게이트 거친 문자열을 결정론적으로 주입.
+const macroMock = vi.hoisted(() => ({ getMacroContextString: vi.fn(() => "") }));
 
 vi.mock("@/lib/data/admin-news", () => ({
   getRecentNewsEvents: adminNewsMock.getRecentNewsEvents,
@@ -28,6 +30,9 @@ vi.mock("@/lib/data/admin-briefing-log", () => ({
 vi.mock("@/lib/notify/telegram", () => ({
   sendTelegram: telegramMock.sendTelegram,
   isTelegramConfigured: telegramMock.isTelegramConfigured,
+}));
+vi.mock("@/lib/macro/source", () => ({
+  getMacroContextString: macroMock.getMacroContextString,
 }));
 
 function req() {
@@ -55,6 +60,8 @@ describe("GET /api/cron/morning-briefing", () => {
     telegramMock.isTelegramConfigured.mockReturnValue(false);
     telegramMock.sendTelegram.mockReset();
     telegramMock.sendTelegram.mockResolvedValue({ success: true, mockMode: false });
+    macroMock.getMacroContextString.mockReset();
+    macroMock.getMacroContextString.mockReturnValue(""); // 기본 dormant
   });
 
   afterEach(() => {
@@ -146,17 +153,9 @@ describe("GET /api/cron/morning-briefing", () => {
     });
   });
 
-  describe("G4 macro context (dormant default)", () => {
-    it("flag off → contentPreview에 거시 라인 없음", async () => {
-      const { GET } = await import("../route");
-      const res = await GET(req());
-      const body = await res.json();
-      expect(body.contentPreview).not.toMatch(/거시/);
-    });
-
-    it("flag on + fresh source → telegram 본문에 거시 컨텍스트 포함", async () => {
-      // 실 source는 mock-macro(asOf 2026-04-11)라 staleness fail-safe로 ""가 될 수 있으나,
-      // 라우트가 getMacroContextString()를 호출하는 연결만 검증(텔레그램 전송).
+  describe("G4 macro context (wiring pinned)", () => {
+    it("getMacroContextString()=='' (dormant) → contentPreview·telegram에 거시 라인 없음", async () => {
+      macroMock.getMacroContextString.mockReturnValue("");
       telegramMock.isTelegramConfigured.mockReturnValue(true);
       const captured: Array<{ text: string }> = [];
       telegramMock.sendTelegram.mockImplementation(async (arg: { text: string }) => {
@@ -164,9 +163,32 @@ describe("GET /api/cron/morning-briefing", () => {
         return { success: true, mockMode: false };
       });
       const { GET } = await import("../route");
-      await GET(req());
+      const res = await GET(req());
+      const body = await res.json();
+      expect(macroMock.getMacroContextString).toHaveBeenCalled();
+      expect(body.contentPreview).not.toMatch(/거시 컨텍스트/);
+      expect(captured[0].text).not.toMatch(/거시 컨텍스트/);
+    });
+
+    it("getMacroContextString() 비어있지 않음 → telegram 본문에 거시 컨텍스트 도달 (배선 pin)", async () => {
+      // 이 assertion이 route.ts의 `macroContext: getMacroContextString()` 배선을 pin한다
+      // (해당 줄 삭제 시 telegram 본문에 거시 컨텍스트가 사라져 실패).
+      macroMock.getMacroContextString.mockReturnValue(
+        "[거시 컨텍스트 · asOf 2026-06-26 · 예측 아님] 시장 국면: 강세",
+      );
+      telegramMock.isTelegramConfigured.mockReturnValue(true);
+      const captured: Array<{ text: string }> = [];
+      telegramMock.sendTelegram.mockImplementation(async (arg: { text: string }) => {
+        captured.push(arg);
+        return { success: true, mockMode: false };
+      });
+      const { GET } = await import("../route");
+      const res = await GET(req());
+      const body = await res.json();
       expect(captured).toHaveLength(1);
-      expect(typeof captured[0].text).toBe("string");
+      expect(captured[0].text).toContain("거시 컨텍스트");
+      expect(captured[0].text).toContain("시장 국면: 강세");
+      expect(body.contentPreview).toContain("거시 컨텍스트");
     });
   });
 
