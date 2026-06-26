@@ -73,12 +73,24 @@ function autoRemoveJson(ticker = "005930"): string {
   });
 }
 
-const client = { from: vi.fn() } as unknown as SupabaseClient;
+const VALID_UUID = "39202d8b-1042-48a6-8da0-df14a52fabea";
+const authGetUserById = vi.fn(async () => ({
+  data: { user: { id: VALID_UUID } },
+  error: null,
+}));
+const client = {
+  from: vi.fn(),
+  auth: { admin: { getUserById: authGetUserById } },
+} as unknown as SupabaseClient;
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
   isAnthropicAvailable.mockReturnValue(true);
+  authGetUserById.mockResolvedValue({
+    data: { user: { id: VALID_UUID } },
+    error: null,
+  });
   callPersona.mockResolvedValue({
     content: autoRemoveJson(),
     usage: { input_tokens: 1, output_tokens: 1 },
@@ -95,7 +107,7 @@ describe("runM12aForBriefing — dormancy pin", () => {
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",
-      adminUserId: "cron-1",
+      adminUserId: VALID_UUID,
     });
     expect(res).toEqual({ ran: false, attentionTickers: [] });
     expect(getActiveShortList).not.toHaveBeenCalled();
@@ -105,9 +117,57 @@ describe("runM12aForBriefing — dormancy pin", () => {
   });
 });
 
+describe("runM12aForBriefing — fail-closed step-0 (go-live 게이트)", () => {
+  beforeEach(() => {
+    vi.stubEnv("M12A_NEWS_EVAL_ENABLED", "true");
+    getActiveShortList.mockResolvedValue([]);
+    getRecentNewsEvents.mockResolvedValue([]);
+  });
+
+  it("AI_COST_LOG_REAL_INSERT_ENABLED off → skip(ran:false), 데이터/AI 0", async () => {
+    // M12A_NEWS_EVAL_ENABLED on이지만 cost logging off → hardcap fail-open 차단
+    const res = await runM12aForBriefing({
+      client,
+      nowIso: "2026-06-26T00:00:00.000Z",
+      adminUserId: VALID_UUID,
+    });
+    expect(res).toEqual({ ran: false, attentionTickers: [] });
+    expect(getActiveShortList).not.toHaveBeenCalled();
+    expect(callPersona).not.toHaveBeenCalled();
+  });
+
+  it("CRON_SYSTEM_USER_ID 비-UUID → skip(빈/잘못된 FK로 AI burn 차단)", async () => {
+    vi.stubEnv("AI_COST_LOG_REAL_INSERT_ENABLED", "true");
+    const res = await runM12aForBriefing({
+      client,
+      nowIso: "2026-06-26T00:00:00.000Z",
+      adminUserId: "",
+    });
+    expect(res).toEqual({ ran: false, attentionTickers: [] });
+    expect(authGetUserById).not.toHaveBeenCalled();
+    expect(callPersona).not.toHaveBeenCalled();
+  });
+
+  it("cron user 미존재(getUserById error) → skip", async () => {
+    vi.stubEnv("AI_COST_LOG_REAL_INSERT_ENABLED", "true");
+    authGetUserById.mockResolvedValue({
+      data: { user: null },
+      error: { message: "not found" },
+    } as never);
+    const res = await runM12aForBriefing({
+      client,
+      nowIso: "2026-06-26T00:00:00.000Z",
+      adminUserId: VALID_UUID,
+    });
+    expect(res).toEqual({ ran: false, attentionTickers: [] });
+    expect(callPersona).not.toHaveBeenCalled();
+  });
+});
+
 describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestrator→ledger→alert)", () => {
   beforeEach(() => {
     vi.stubEnv("M12A_NEWS_EVAL_ENABLED", "true");
+    vi.stubEnv("AI_COST_LOG_REAL_INSERT_ENABLED", "true");
     // shadow(M12A_AUTO_REMOVE_ENABLED 미설정)
     // 실제 유니버스 크기(short 10 + midlong 20) — 1건 제거가 트랙 floor를 깨지 않도록.
     const universe = [
@@ -138,7 +198,7 @@ describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestr
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",
-      adminUserId: "cron-1",
+      adminUserId: VALID_UUID,
       alertsUrl: "/admin/alerts",
     });
 
@@ -162,7 +222,7 @@ describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestr
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",
-      adminUserId: "cron-1",
+      adminUserId: VALID_UUID,
     });
     expect(res.ran).toBe(true);
     expect(res.attentionTickers).toEqual([]);
@@ -176,7 +236,7 @@ describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestr
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",
-      adminUserId: "cron-1",
+      adminUserId: VALID_UUID,
     });
     expect(res.ran).toBe(false);
     expect(callPersona).not.toHaveBeenCalled();

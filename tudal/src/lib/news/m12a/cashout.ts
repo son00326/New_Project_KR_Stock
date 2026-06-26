@@ -7,12 +7,18 @@ import type { CashoutRecord } from "@/lib/news/m12a/types";
 // SoT: docs/superpowers/specs/2026-06-26-m12a-news-auto-remove-shadow-first.md
 // ---------------------------------------------------------------------------
 
+const PRICE_BASIS_DATE_RE = /^\d{8}$/;
+
 export function buildCashoutRecord(input: {
   ticker: string;
   price: number;
   priceBasisDate: string;
 }): CashoutRecord | null {
-  if (!Number.isFinite(input.price) || input.price <= 0 || !input.priceBasisDate) {
+  if (
+    !Number.isFinite(input.price) ||
+    input.price <= 0 ||
+    !PRICE_BASIS_DATE_RE.test(input.priceBasisDate)
+  ) {
     return null;
   }
   return {

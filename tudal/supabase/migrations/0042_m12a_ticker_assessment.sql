@@ -11,7 +11,7 @@ create table if not exists public.m12a_ticker_assessment (
   id uuid primary key default gen_random_uuid(),
   news_event_id uuid not null references public.news_event(id) on delete cascade,
   run_id text not null,                 -- 1 eval run 그룹(브레이크 "1 run" 의미)
-  month text not null,                  -- YYYY-MM-01 (cost/attribution 정합)
+  month text not null check (month ~ '^[0-9]{4}-(0[1-9]|1[0-2])-01$'),  -- YYYY-MM-01 (cost/attribution 정합)
   ticker text not null check (ticker ~ '^[0-9]{6}$'),
   surface text not null check (surface in ('list','portfolio')),  -- 홈 리스트 vs 가상포트
   scope text not null check (scope in ('company','sector','market','unknown')),  -- 메타데이터(게이트 아님)
@@ -24,7 +24,7 @@ create table if not exists public.m12a_ticker_assessment (
   recommended_action text not null check (recommended_action in ('auto_remove','alert_only','hold_for_review')),
   action_taken text not null check (action_taken in ('shadowed','held_by_brake','removed')),  -- GAP1 m12a_risk_action 귀속
   held_by_brake boolean not null default false,
-  price_basis_date text,                -- GAP2 (removed만)
+  price_basis_date text check (price_basis_date is null or price_basis_date ~ '^[0-9]{8}$'), -- GAP2 (removed만)
   price_source text check (price_source in ('KRX_EOD')),
   execution_assumption text check (execution_assumption in ('virtual_eod')),
   alert_event_id uuid references public.alert_event(id) on delete set null,  -- optional link

@@ -73,7 +73,22 @@ begin
   end;
   if not v_failed then raise exception 'FAIL: removed without price should violate price-consistency CHECK'; end if;
 
-  -- 4) shadowed WITH price → consistency CHECK must reject
+  -- 4) removed WITH malformed price_basis_date → KRX EOD basis CHECK must reject
+  v_failed := false;
+  begin
+    insert into public.m12a_ticker_assessment(
+      news_event_id, run_id, month, ticker, surface, scope, severity, confidence, materiality,
+      directness, thesis_break, recommended_action, action_taken,
+      price_basis_date, price_source, execution_assumption
+    ) values (
+      v_news, 'run-1', '2026-06-01', '051910', 'list', 'company', 'critical', 'high', 'high',
+      'direct', true, 'auto_remove', 'removed', '2026-06-25', 'KRX_EOD', 'virtual_eod'
+    );
+  exception when check_violation then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: malformed price_basis_date should violate CHECK'; end if;
+
+  -- 5) shadowed WITH price → consistency CHECK must reject
   v_failed := false;
   begin
     insert into public.m12a_ticker_assessment(
@@ -88,7 +103,21 @@ begin
   end;
   if not v_failed then raise exception 'FAIL: shadowed with price should violate price-consistency CHECK'; end if;
 
-  -- 5) bad ticker (non 6-digit) → CHECK reject
+  -- 6) bad month (not YYYY-MM-01) → CHECK reject
+  v_failed := false;
+  begin
+    insert into public.m12a_ticker_assessment(
+      news_event_id, run_id, month, ticker, surface, scope, severity, confidence, materiality,
+      directness, thesis_break, recommended_action, action_taken
+    ) values (
+      v_news, 'run-1', '2026-06', '005380', 'list', 'company', 'critical', 'high', 'high',
+      'direct', true, 'auto_remove', 'shadowed'
+    );
+  exception when check_violation then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: malformed month should violate CHECK'; end if;
+
+  -- 7) bad ticker (non 6-digit) → CHECK reject
   v_failed := false;
   begin
     insert into public.m12a_ticker_assessment(
@@ -102,7 +131,7 @@ begin
   end;
   if not v_failed then raise exception 'FAIL: 5-digit ticker should violate CHECK'; end if;
 
-  -- 6) bad action_taken enum → CHECK reject
+  -- 8) bad action_taken enum → CHECK reject
   v_failed := false;
   begin
     insert into public.m12a_ticker_assessment(
@@ -116,16 +145,16 @@ begin
   end;
   if not v_failed then raise exception 'FAIL: invalid action_taken should violate CHECK'; end if;
 
-  -- 7) RLS enabled
+  -- 9) RLS enabled
   select relrowsecurity into v_failed from pg_class where relname = 'm12a_ticker_assessment';
   if not v_failed then raise exception 'FAIL: RLS not enabled on m12a_ticker_assessment'; end if;
 
-  -- 8) FK cascade: deleting news_event removes its assessments
+  -- 10) FK cascade: deleting news_event removes its assessments
   delete from public.news_event where id = v_news;
   select count(*) into v_count from public.m12a_ticker_assessment;
   if v_count <> 0 then raise exception 'FAIL: news_event delete should cascade (got %)', v_count; end if;
 
-  raise notice 'PASS: 0042 m12a_ticker_assessment — 8 assertions';
+  raise notice 'PASS: 0042 m12a_ticker_assessment — 10 assertions';
 end $$;
 SQL
 

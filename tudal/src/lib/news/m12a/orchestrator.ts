@@ -6,8 +6,16 @@ import {
 import { DEFAULT_BRAKE_CONFIG } from "@/lib/news/m12a/config";
 import { decideRecommendedAction } from "@/lib/news/m12a/verdict";
 import { applySmartBrake } from "@/lib/news/m12a/brake";
-import { buildCashoutRecord } from "@/lib/news/m12a/cashout";
+import {
+  applyAutoRemoveMutation,
+  resolveCachedCashout,
+} from "@/lib/news/m12a/auto-remove";
 import { buildM12aLedgerRow } from "@/lib/news/m12a/ledger";
+import {
+  emptyM12aRunResult,
+  type M12aAttentionTicker,
+  type M12aRunResult,
+} from "@/lib/news/m12a/run-result";
 import { buildM12aTelegramText } from "@/lib/news/m12a/telegram-text";
 import type {
   ActionTaken,
@@ -19,12 +27,14 @@ import type {
   RecommendedAction,
 } from "@/lib/news/m12a/types";
 
+export type { M12aAttentionTicker, M12aRunResult } from "@/lib/news/m12a/run-result";
+
 // ---------------------------------------------------------------------------
 // M12a — 뉴스 기반 자동 제외 오케스트레이터 (shadow-first DI 코디네이터)
 // SoT: ServicePlan-Admin §3.10 R3.10-5~7g · docs/superpowers/specs/2026-06-26-m12a-news-auto-remove-shadow-first.md §4
 //
 // 흐름: gate → preflight → evaluateNews(AI) → verdict(per-ticker) → brake(run-level)
-//       → ledger 영속 → (auto ON만) mutate → 알림(텔레그램 + /admin) → 결과(브리핑 attention).
+//       → (auto ON만) mutate → ledger 영속 → 알림(텔레그램 + /admin) → 결과(브리핑 attention).
 //
 // 불변식:
 //   - M12A_NEWS_EVAL_ENABLED off → skipped(비용/알림/mutation 0).
@@ -62,56 +72,16 @@ export interface M12aOrchestratorDeps {
   ) => Promise<{ success: boolean; mockMode?: boolean; error?: string }>;
 }
 
-export interface M12aAttentionTicker {
-  ticker: string;
-  reason: string;
-}
-
-export interface M12aRunResult {
-  skipped: boolean;
-  reason?: "flag_off" | "ai_unavailable";
-  runId: string;
-  shadow: boolean; // !autoRemoveEnabled
-  assessmentCount: number;
-  autoRemoveCandidates: number; // verdict=auto_remove
-  removedCount: number; // 실제 mutation(auto ON + brake pass + cashout 유효)
-  shadowedCount: number;
-  heldByBrakeCount: number;
-  alertOnlyCount: number;
-  brakeTriggered: boolean;
-  brakeReasons: string[];
-  telegramsSent: number;
-  attentionTickers: M12aAttentionTicker[];
-}
-
-function emptyResult(
-  runId: string,
-  reason: "flag_off" | "ai_unavailable",
-): M12aRunResult {
-  return {
-    skipped: true,
-    reason,
-    runId,
-    shadow: !isM12aAutoRemoveEnabled(),
-    assessmentCount: 0,
-    autoRemoveCandidates: 0,
-    removedCount: 0,
-    shadowedCount: 0,
-    heldByBrakeCount: 0,
-    alertOnlyCount: 0,
-    brakeTriggered: false,
-    brakeReasons: [],
-    telegramsSent: 0,
-    attentionTickers: [],
-  };
-}
-
 export async function runM12aNewsEvaluation(
   deps: M12aOrchestratorDeps,
 ): Promise<M12aRunResult> {
   // ── gate: flag off / AI 미가용 → skip(byte-identical, 비용/알림/mutation 0) ──
-  if (!isM12aNewsEvalEnabled()) return emptyResult(deps.runId, "flag_off");
-  if (!deps.aiAvailable) return emptyResult(deps.runId, "ai_unavailable");
+  if (!isM12aNewsEvalEnabled()) {
+    return emptyM12aRunResult(deps.runId, "flag_off");
+  }
+  if (!deps.aiAvailable) {
+    return emptyM12aRunResult(deps.runId, "ai_unavailable");
+  }
 
   await deps.preflight?.(); // 비용 hardcap 초과 시 throw → 차단
 
@@ -144,9 +114,8 @@ export async function runM12aNewsEvaluation(
   const alerts: AlertInput[] = [];
   const telegrams: string[] = [];
   const attentionTickers: M12aAttentionTicker[] = [];
-  const removedTickers: string[] = [];
-  const removedCashouts: CashoutRecord[] = [];
-  let removedCount = 0;
+  const cashoutByTicker = new Map<string, CashoutRecord | null>();
+  const removedCashoutByTicker = new Map<string, CashoutRecord>();
   let shadowedCount = 0;
   let heldByBrakeCount = 0;
   let alertOnlyCount = 0;
@@ -165,19 +134,14 @@ export async function runM12aNewsEvaluation(
         heldByBrakeCount += 1;
       } else if (autoRemoveEnabled) {
         // GAP2 fail-closed: 가격 미확정이면 자동 청산 금지 → shadow 유지
-        const px = await deps.resolveCashout?.(a.ticker);
-        cashout = px
-          ? buildCashoutRecord({
-              ticker: a.ticker,
-              price: px.price,
-              priceBasisDate: px.priceBasisDate,
-            })
-          : null;
+        cashout = await resolveCachedCashout({
+          ticker: a.ticker,
+          cache: cashoutByTicker,
+          resolveCashout: deps.resolveCashout,
+        });
         if (cashout) {
           actionTaken = "removed";
-          removedTickers.push(a.ticker);
-          removedCashouts.push(cashout);
-          removedCount += 1;
+          removedCashoutByTicker.set(a.ticker, cashout);
         } else {
           actionTaken = "shadowed";
           shadowedCount += 1;
@@ -272,16 +236,16 @@ export async function runM12aNewsEvaluation(
     );
   }
 
-  // ── 4) durable ledger 영속(shadow/held/removed 전부 기록) ──
-  await deps.insertAssessments(rows);
+  // ── 4) mutation: auto ON + brake pass + 실 removed만 (shadow면 미호출 = mutation 0) ──
+  const removed = await applyAutoRemoveMutation({
+    enabled: autoRemoveEnabled,
+    brakeTriggered: brake.brakeTriggered,
+    cashoutByTicker: removedCashoutByTicker,
+    applyAutoRemove: deps.applyAutoRemove,
+  });
 
-  // ── 5) mutation: auto ON + brake pass + 실 removed만 (shadow면 미호출 = mutation 0) ──
-  if (autoRemoveEnabled && !brake.brakeTriggered && removedTickers.length > 0) {
-    await deps.applyAutoRemove?.({
-      tickers: removedTickers,
-      cashouts: removedCashouts,
-    });
-  }
+  // ── 5) durable ledger 영속(shadow/held/removed 전부 기록) ──
+  await deps.insertAssessments(rows);
 
   // ── 6) 알림: /admin durable + 텔레그램 best-effort(실패해도 미escalate) ──
   if (alerts.length > 0) await deps.insertAlertEvents(alerts);
@@ -301,7 +265,7 @@ export async function runM12aNewsEvaluation(
     shadow: !autoRemoveEnabled,
     assessmentCount: assessments.length,
     autoRemoveCandidates: autoCandidates.length,
-    removedCount,
+    removedCount: removed.tickers.length,
     shadowedCount,
     heldByBrakeCount,
     alertOnlyCount,

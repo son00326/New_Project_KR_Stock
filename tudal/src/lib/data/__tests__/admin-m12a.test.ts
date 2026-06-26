@@ -97,6 +97,38 @@ describe("insertM12aAssessments", () => {
     expect(insertMock).not.toHaveBeenCalled();
   });
 
+  it("month YYYY-MM-01 위반 → throw (ledger/cost 월 정합 가드)", async () => {
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
+    const client = { from: fromMock } as unknown as SupabaseClient;
+    await expect(
+      insertM12aAssessments([row({ month: "2026-06" })], { client }),
+    ).rejects.toThrow("m12a_assessment_invalid_month:2026-06");
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("removed priceBasisDate YYYYMMDD 위반 → throw", async () => {
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const fromMock = vi.fn().mockReturnValue({ insert: insertMock });
+    const client = { from: fromMock } as unknown as SupabaseClient;
+    await expect(
+      insertM12aAssessments(
+        [
+          row({
+            actionTaken: "removed",
+            priceBasisDate: "2026-06-25",
+            priceSource: "KRX_EOD",
+            executionAssumption: "virtual_eod",
+          }),
+        ],
+        { client },
+      ),
+    ).rejects.toThrow(
+      "m12a_assessment_invalid_price_basis_date:2026-06-25",
+    );
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
   it("action_taken enum 위반 → throw", async () => {
     const insertMock = vi.fn().mockResolvedValue({ error: null });
     const fromMock = vi.fn().mockReturnValue({ insert: insertMock });

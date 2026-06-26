@@ -22,7 +22,8 @@ export function applySmartBrake(input: ApplySmartBrakeInput): BrakeOutcome {
   const reasons: Exclude<BrakeReason, null>[] = [];
 
   // (1) mass_removal — 후보 수가 1 run 상한 초과
-  if (candidates.length > config.maxAutoRemovalsPerRun) {
+  const uniqueCompanyCount = new Set(candidates.map((c) => c.ticker)).size;
+  if (uniqueCompanyCount > config.maxAutoRemovalsPerRun) {
     reasons.push("mass_removal");
   }
 

@@ -98,8 +98,8 @@ function majorityCount(n: number): number {
 
 // 보수적 consensus level: 과반이 도달한 최고 level(없으면 low). auto_remove 게이트가 high를 요구하므로
 //   high는 진짜 과반 합의일 때만.
-function consensusLevel(levels: M12aLevel[]): M12aLevel {
-  const need = majorityCount(levels.length);
+function consensusLevel(levels: M12aLevel[], panelSize: number): M12aLevel {
+  const need = majorityCount(panelSize);
   for (let i = LEVELS.length - 1; i >= 0; i -= 1) {
     const L = LEVELS[i];
     const atLeast = levels.filter((v) => LEVELS.indexOf(v) >= i).length;
@@ -130,6 +130,7 @@ export interface AggregateNewsAssessmentInput {
   newsTitle: string;
   newsUrl: string;
   judgments: NewsPersonaJudgment[];
+  totalPanelSize?: number;
 }
 
 /**
@@ -144,7 +145,8 @@ export function aggregateNewsAssessment(
   if (js.length === 0) {
     throw new Error("m12a_aggregate_empty_judgments");
   }
-  const need = majorityCount(js.length);
+  const panelSize = input.totalPanelSize ?? js.length;
+  const need = majorityCount(panelSize);
   const thesisBreak = js.filter((j) => j.thesisBreak).length >= need;
   const directness: M12aDirectness =
     js.filter((j) => j.directness === "direct").length >= need
@@ -174,8 +176,14 @@ export function aggregateNewsAssessment(
       js.map((j) => j.severity),
       "info",
     ),
-    confidence: consensusLevel(js.map((j) => j.confidence)),
-    materiality: consensusLevel(js.map((j) => j.materiality)),
+    confidence: consensusLevel(
+      js.map((j) => j.confidence),
+      panelSize,
+    ),
+    materiality: consensusLevel(
+      js.map((j) => j.materiality),
+      panelSize,
+    ),
     directness,
     thesisBreak,
     thesisBreakReason,
@@ -262,6 +270,7 @@ export function makeM12aNewsEvaluator(
             newsTitle: item.title,
             newsUrl: item.url,
             judgments,
+            totalPanelSize: deps.personas.length,
           }),
         );
       }

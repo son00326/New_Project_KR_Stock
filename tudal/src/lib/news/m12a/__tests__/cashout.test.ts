@@ -65,6 +65,23 @@ describe("buildCashoutRecord", () => {
     ).toBeNull();
   });
 
+  it("priceBasisDate가 KRX EOD YYYYMMDD 형식이 아니면 null", () => {
+    expect(
+      buildCashoutRecord({
+        ticker: "005930",
+        price: 71800,
+        priceBasisDate: "2026-06-26",
+      }),
+    ).toBeNull();
+    expect(
+      buildCashoutRecord({
+        ticker: "005930",
+        price: 71800,
+        priceBasisDate: "2026062x",
+      }),
+    ).toBeNull();
+  });
+
   it("유효 입력 → ticker 보존(다른 종목)", () => {
     const record = buildCashoutRecord({
       ticker: "000660",

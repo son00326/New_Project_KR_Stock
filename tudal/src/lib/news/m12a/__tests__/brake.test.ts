@@ -62,6 +62,20 @@ describe("applySmartBrake", () => {
     expect(out).toEqual({ brakeTriggered: true, reasons: ["mass_removal"], heldByBrake: true });
   });
 
+  it("mass_removal은 동일 ticker의 list+portfolio 이중 surface를 1개 회사로 계산", () => {
+    const out = applySmartBrake(
+      makeInput({
+        candidates: [
+          { ticker: "005930", surface: "list", track: "short" },
+          { ticker: "005930", surface: "portfolio" },
+          { ticker: "000660", surface: "list", track: "midlong" },
+          { ticker: "000660", surface: "portfolio" },
+        ],
+      }),
+    );
+    expect(out).toEqual({ brakeTriggered: false, reasons: [], heldByBrake: false });
+  });
+
   it("short 트랙 floor 경계 (size 7, 1건 제외 → 남은 6 < 7) → list_track_floor", () => {
     const out = applySmartBrake(
       makeInput({

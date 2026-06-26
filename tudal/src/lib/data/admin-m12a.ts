@@ -17,6 +17,8 @@ import type {
 } from "@/lib/news/m12a/types";
 
 const TICKER_RE = /^\d{6}$/;
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
+const PRICE_BASIS_DATE_RE = /^\d{8}$/;
 const SURFACE_SET: ReadonlySet<M12aSurface> = new Set<M12aSurface>([
   "list",
   "portfolio",
@@ -54,6 +56,9 @@ export async function insertM12aAssessments(
     if (!TICKER_RE.test(r.ticker)) {
       throw new Error(`m12a_assessment_invalid_ticker:${r.ticker}`);
     }
+    if (!MONTH_RE.test(r.month)) {
+      throw new Error(`m12a_assessment_invalid_month:${r.month}`);
+    }
     if (!SURFACE_SET.has(r.surface)) {
       throw new Error(`m12a_assessment_invalid_surface:${r.surface}`);
     }
@@ -67,6 +72,14 @@ export async function insertM12aAssessments(
     }
     if (!TAKEN_SET.has(r.actionTaken)) {
       throw new Error(`m12a_assessment_invalid_action_taken:${r.actionTaken}`);
+    }
+    if (
+      r.priceBasisDate !== null &&
+      !PRICE_BASIS_DATE_RE.test(r.priceBasisDate)
+    ) {
+      throw new Error(
+        `m12a_assessment_invalid_price_basis_date:${r.priceBasisDate}`,
+      );
     }
   }
   const supabase = options.client ?? (await createClient());

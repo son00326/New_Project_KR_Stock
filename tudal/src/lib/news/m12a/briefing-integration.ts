@@ -24,7 +24,16 @@ import { getRoleWorstCaseMaxCostPerCallKrw } from "@/lib/ai/model-registry";
 // shadow-first 코드 guard(GAP4): 자동 제거 mutation/현금화는 "출시 후 fast-follow"이므로 throw-stub.
 //   flag M12A_AUTO_REMOVE_ENABLED를 켜도 orchestrator가 resolveCashout/applyAutoRemove에서 throw → 부분 mutation 차단.
 //   (orchestrator의 removed 경로는 단위 테스트에서 mock DI로 검증. 실 mutation 배선은 D11 운용검증 후.)
+//
+// fail-closed step-0 (sibling tier1-selection-batch-worker parity, deep-review HIGH #3/#4):
+//   실 Core 11 AI spend 전에 (a) AI_COST_LOG_REAL_INSERT_ENABLED!=='true'면 skip(로깅 off → insertCostLog
+//   noop → getMonthlyTotal=0 → preflightHardcap fail-open으로 50만 hardcap 무력화) + (b) CRON_SYSTEM_USER_ID
+//   가 유효 UUID이고 auth.users에 존재해야 함(cost_log.called_by FK + 빈 문자열 silent burn 차단). 미충족 시
+//   M12a AI run 자체를 skip(₩0). shadow phase도 실 AI 평가비를 쓰므로 동일 게이트 적용.
 // ---------------------------------------------------------------------------
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface RunM12aForBriefingInput {
   client: SupabaseClient;
@@ -49,6 +58,28 @@ export async function runM12aForBriefing(
 ): Promise<RunM12aForBriefingResult> {
   // dormant: flag off → 즉시 반환(DB/AI 0). 브리핑 attentionTickers=[] → byte-identical.
   if (!isM12aNewsEvalEnabled()) return { ran: false, attentionTickers: [] };
+
+  // fail-closed step-0 (실 AI spend 전 — 미충족이면 skip, ₩0). sibling worker step-0 parity.
+  if (process.env.AI_COST_LOG_REAL_INSERT_ENABLED !== "true") {
+    console.warn(
+      JSON.stringify({ event: "m12a_skip", reason: "cost_logging_disabled" }),
+    );
+    return { ran: false, attentionTickers: [] };
+  }
+  if (!UUID_RE.test(input.adminUserId)) {
+    console.warn(
+      JSON.stringify({ event: "m12a_skip", reason: "cron_system_user_id_invalid" }),
+    );
+    return { ran: false, attentionTickers: [] };
+  }
+  const { data: userData, error: userErr } =
+    await input.client.auth.admin.getUserById(input.adminUserId);
+  if (userErr || !userData?.user) {
+    console.warn(
+      JSON.stringify({ event: "m12a_skip", reason: "cron_system_user_not_found" }),
+    );
+    return { ran: false, attentionTickers: [] };
+  }
 
   const costMonth = input.nowIso.slice(0, 7); // YYYY-MM (cost_log/preflight 정합)
   const ledgerMonth = `${costMonth}-01`; // YYYY-MM-01 (ledger/short_list_30 정합)

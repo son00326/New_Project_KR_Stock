@@ -223,4 +223,27 @@ describe("makeM12aNewsEvaluator — Core 11 패널 + 유니버스 필터", () =>
     expect(out).toHaveLength(1); // 8명 성공분으로 aggregate
     expect(out[0].thesisBreak).toBe(true);
   });
+
+  it("성공분이 Core 11 과반 미만이면 high/direct/break로 승격하지 않음", async () => {
+    let n = 0;
+    const callPersona = vi.fn(async () => {
+      n += 1;
+      if (n <= 5) return personaResult(judgment());
+      throw new Error("ai_call_failed:transient:429");
+    });
+    const evaluate = makeM12aNewsEvaluator(evalDeps(callPersona));
+    const out = await evaluate({
+      newsItems: [
+        { newsEventId: "evt-1", ticker: "005930", title: "t", url: "u" },
+      ],
+      listTracks: new Map([["005930", "short"]]),
+      portfolioTickers: new Set(),
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].confidence).toBe("low");
+    expect(out[0].materiality).toBe("low");
+    expect(out[0].directness).toBe("indirect");
+    expect(out[0].thesisBreak).toBe(false);
+    expect(out[0].affectedTickers).toEqual([]);
+  });
 });
