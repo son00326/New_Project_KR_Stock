@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { callPersona, type CallPersonaResult } from '@/lib/ai/anthropic-client';
+import { getMacroContextString } from '@/lib/macro/source';
 import { getRoleWorstCaseMaxCostPerCallKrw } from '@/lib/ai/model-registry';
 import { CORE_11_PERSONAS } from '@/lib/ai/prompts/personas';
 import { acquireBatchLock, releaseBatchLock } from '@/lib/data/admin-batch-runs';
@@ -34,6 +35,9 @@ export interface RunMonthlyPersonaEvalInput {
   tickers: string[];
   adminUserId: string;
   fetchFinancials: (ticker: string) => Promise<string>;
+  // G4 (D33 §4): Tier1 평가 거시 컨텍스트(컨텍스트 입력 only). 미지정 시 getMacroContextString()
+  //   (flag MACRO_CONTEXT_ENABLED off면 "" → 프롬프트 byte-identical·선정 무회귀). Tier0 factor 아님.
+  macroContextString?: string;
 }
 
 export interface PersonaEvalResult {
@@ -46,6 +50,9 @@ export async function runMonthlyPersonaEval(
   input: RunMonthlyPersonaEvalInput
 ): Promise<PersonaEvalResult> {
   await acquireBatchLock(input.month);
+
+  // G4: 거시 컨텍스트 1회 계산(off → ""). 모든 callPersona에 동일 주입 → render가 끝에 조건부 append.
+  const macroContextString = input.macroContextString ?? getMacroContextString();
 
   let callCountDone = 0;
   const byTicker: Record<string, CallPersonaResult[]> = {};
@@ -74,6 +81,7 @@ export async function runMonthlyPersonaEval(
           ticker: warmTicker,
           financials,
           reflectionContext: '', // 첫달은 빈 문자열
+          macroContextString,
           adminUserId: input.adminUserId,
         });
         byTicker[warmTicker].push(warmResult);
@@ -101,6 +109,7 @@ export async function runMonthlyPersonaEval(
               ticker,
               financials: f,
               reflectionContext: '',
+              macroContextString,
               adminUserId: input.adminUserId,
             });
             return { ticker, ok: true, result };

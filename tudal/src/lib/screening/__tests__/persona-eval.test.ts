@@ -48,6 +48,29 @@ describe('persona-eval (Q6 + Design R4)', () => {
     expect(new Set(firstBlockPersonas).size).toBe(1);
   });
 
+  it('G4: default(flag off) → callPersona가 macroContextString="" 받음 (선정 무회귀)', async () => {
+    delete process.env.MACRO_CONTEXT_ENABLED;
+    await runMonthlyPersonaEval({ ...baseInput, tickers: tickers.slice(0, 2) });
+    const calls = vi.mocked(callPersona).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) {
+      expect(c[0].macroContextString).toBe('');
+    }
+  });
+
+  it('G4: input.macroContextString 주입 → 모든 callPersona에 전달', async () => {
+    await runMonthlyPersonaEval({
+      ...baseInput,
+      tickers: tickers.slice(0, 2),
+      macroContextString: '[거시 컨텍스트] 강세(예측 아님)',
+    });
+    const calls = vi.mocked(callPersona).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) {
+      expect(c[0].macroContextString).toBe('[거시 컨텍스트] 강세(예측 아님)');
+    }
+  });
+
   it('warm-first: ticker[0] resolves before ticker[1..29] start (deferred mock)', async () => {
     let warmResolved = false;
     let fanoutStartedBeforeWarmResolve = false;

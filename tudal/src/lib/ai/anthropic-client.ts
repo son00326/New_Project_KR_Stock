@@ -24,6 +24,9 @@ export interface CallPersonaInput {
   // W1a (D5): R2 반박 라운드 placeholder — DEBATE_R2_USER_PROMPT_TEMPLATE 전용. 미지정 시 no-op.
   peerArguments?: string;
   ownPrior?: string;
+  // G4 (D33 §4): 거시 컨텍스트(컨텍스트 입력 only). 미지정/"" → 프롬프트 byte-identical(dormant).
+  //   Tier0 factor 아님·M12a와 범주 분리. renderUserPrompt가 끝에 조건부 append.
+  macroContextString?: string;
   // P2 (PR5b, omxy R4 fix2): cost_log.month DI. 미지정 시 현 UTC월(기존 동작 무회귀).
   //   report-time Section 8 pass는 report month를 주입해 preflightHardcap month == insertCostLog month 정합
   //   (UTC-월 경계에서 hardcap/accounting drift 차단 — W1b judge cost_log month 버그와 동일 클래스).
@@ -57,6 +60,7 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
     reflectionContext: input.reflectionContext,
     peerArguments: input.peerArguments,
     ownPrior: input.ownPrior,
+    macroContext: input.macroContextString,
   });
 
   // W1a (D28 ① / D2): per-slot binding override 우선. 미지정 시 tier1_panel 역할 resolve(무회귀).
