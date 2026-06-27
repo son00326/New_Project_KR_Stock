@@ -3,7 +3,7 @@
 - **Status**: ✅ **빌드 완료 (dormant·코드만, flag off → 무회귀)**. 결정 SoT = `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`(D32) + `ServicePlan-Admin §1A.5 D32`.
 - **Date**: 2026-06-27
 - **Author**: Claude (이어서 진행 · ultracode) ↔ omxy R-debate
-- **수렴**: Claude dynamic-workflow 5-lens 적대 리뷰(4 HIGH catch+fix) → omxy §2.0a R1 적대 검토(7 confirmed defect 직접 수정 — LLM fail-closed/atomic claim/예측 출력 필터/now seam/period_key 정규식) → Claude 2차 독립 검증(게이트 green·테스트 substantive·H1 보존) **CONVERGED**. 게이트 green(build/lint/test:ci 2345/tsc + PG smoke 0043). 코드만(flag dormant·production 미접촉).
+- **수렴**: Claude dynamic-workflow 5-lens 적대 리뷰(4 HIGH catch+fix) → omxy §2.0a R1 적대 검토(7 confirmed defect 직접 수정 — LLM fail-closed/atomic claim/예측 출력 필터/now seam/period_key 정규식) → Claude 2차 독립 검증(게이트 green·테스트 substantive·H1 보존) **CONVERGED**. 게이트 green(build/lint/test:ci 2345/tsc + PG smoke 0043). **코드 flag dormant(REFLECTION_ENABLED off → 선정 byte-identical·무동작)** + **마이그 0043 production applied(2026-06-27 — empty·dormant table, 코드가 flag off라 write 0).**
 - **Scope guardrail**: **shadow-first / dormant** — `REFLECTION_ENABLED=false`(default) → 회고 job 미실행 + 선정 prompt **byte-identical**(선정 무회귀·mutation 0). 실 선정/cron/KRX/snapshot 미가동 → 빈 입력 **fail-soft no-op**.
 - **범주 분리(혼동 금지)**: PR-K Reflection(전체 회고 — 페르소나 강점 누적 → 선정 prompt 주입, track별 주기) ≠ **D27 Q5 incumbent thesis(선정 시점 per-incumbent 재점검, 구현됨 PR #91, `reflectionContext` seam)** ≠ M12a(뉴스 thesis-break 제거) ≠ G4(거시 컨텍스트). 서로 섞지 않는다. **두 seam은 별개 필드** — Q5 = `reflectionContext`(per-ticker), PR-K = `reflectionLearningContext`(run/track-level, 신규).
 - **불변**: MVP 핵심 3종(30리스트/포트/30리포트, 65차 USER 잠금) = Reflection은 **대체 아님·launch-readiness 추가 항목**. **NO-CONFIG-PASSES / 예측 claim 영구 금지** — Reflection은 과거 실현 성과 *회고(retrospective)*지 미래 *예측*이 아님(문구·로그·DB에 명시). 이메일/Resend 전역 미사용.
@@ -175,7 +175,7 @@ metrics + 대상 사이클 메타(month/track/periodKey/finalizedAt) + price-bas
 - [ ] fail-soft no-op: cron-live/KRX/snapshot 미가동 / prior cycle 부재 → 빈 입력 no-op(throw 0).
 - [ ] 예측 claim 0: reflection_kind='retrospective'(DB CHECK) + 컨텍스트 면책 + 예측 어휘 0 테스트.
 - [ ] no-email: 이메일/Resend 호출 0(전 모듈).
-- [ ] 마이그 dormant + .sql/.rollback 짝 + PG smoke 0043 + cost_log 분리.
+- [x] 마이그 0043 ✅ production applied(empty·dormant table — 코드 flag off라 write 0) + .sql/.rollback 짝 + PG smoke 0043 + cost_log 분리.
 - [ ] 비용: 기본 무비용(KRX) + LLM 요약 별 flag + hardcap reservation + 실 비용 게이트.
 - [ ] 연결포인트 end-to-end(cron→job→reflection_log→선정 주입) 테스트로 배선 검증(LIVE selection-worker 경로, dangling 금지).
 
