@@ -17,6 +17,8 @@ import {
 import { computeAcceptGate } from "@/lib/portfolio/gating";
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
+import { getRiskDebateForMonth } from "@/lib/data/admin-risk-debate";
+import { RiskDebateAdvisory } from "@/components/admin/risk/risk-debate-advisory";
 import { TriggerFullReportButton } from "./trigger-full-report-button";
 import { PortfolioPanel } from "./portfolio-panel";
 import type { BucketKind } from "@/types/admin";
@@ -102,6 +104,9 @@ export default async function AdminPortfolioPage() {
   const removedCount = monthShortlist.filter(
     (r) => r.deltaStatus === "removed",
   ).length;
+
+  // G3 위험 재판정 (advisory only — Accept 비차단·fail-soft null). RISK_DEBATE_ENABLED off / 0048 미적용 → null.
+  const riskDebate = await getRiskDebateForMonth(month);
 
   // 이번 달 승인 상태
   const thisMonthApprovals = await getApprovalsByMonth(month);
@@ -236,6 +241,9 @@ export default async function AdminPortfolioPage() {
           ℹ️ 내부도구 게이트 모드: Accept는 24h Hold만 적용(D+4 영업일 Hold·2인 열람 면제). 멤버 공개 시 <code>PORTFOLIO_ACCEPT_GATE_STRICT=true</code>로 복원.
         </div>
       )}
+
+      {/* G3 위험 재판정 advisory (D33) — Accept 비차단·참고용. 부재 시 미표시. */}
+      <RiskDebateAdvisory assessment={riskDebate} />
 
       {/* 헤더 */}
       <header className="flex flex-wrap items-end justify-between gap-2">
