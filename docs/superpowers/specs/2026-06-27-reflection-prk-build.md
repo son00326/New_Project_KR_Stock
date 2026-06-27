@@ -1,6 +1,6 @@
 # PR-K Reflection (AI 자가 학습) · shadow-first 빌드 spec
 
-- **Status**: ✅ **빌드 완료 (dormant·코드만, flag off → 무회귀)**. 결정 SoT = `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`(D32) + `ServicePlan-Admin §1A.5 D32`.
+- **Status**: ✅ **빌드 완료 (dormant) + 마이그 0043 production applied(2026-06-27, version `20260627120308` · empty·dormant table)**. 코드 flag off(REFLECTION_ENABLED) → 선정 byte-identical·무동작·reflection_log write 0. 결정 SoT = `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`(D32) + `ServicePlan-Admin §1A.5 D32`.
 - **Date**: 2026-06-27
 - **Author**: Claude (이어서 진행 · ultracode) ↔ omxy R-debate
 - **수렴**: Claude dynamic-workflow 5-lens 적대 리뷰(4 HIGH catch+fix) → omxy §2.0a R1 적대 검토(7 confirmed defect 직접 수정 — LLM fail-closed/atomic claim/예측 출력 필터/now seam/period_key 정규식) → Claude 2차 독립 검증(게이트 green·테스트 substantive·H1 보존) **CONVERGED**. 게이트 green(build/lint/test:ci 2345/tsc + PG smoke 0043). **코드 flag dormant(REFLECTION_ENABLED off → 선정 byte-identical·무동작)** + **마이그 0043 production applied(2026-06-27 — empty·dormant table, 코드가 flag off라 write 0).**
