@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   insertReflectionLog,
+  claimReflectionLog,
   getLatestReflectionLog,
   getPriorFinalizedCycle,
   getCyclePanels,
-  reflectionExists,
 } from "@/lib/data/admin-reflection";
 import type { ReflectionLogRow } from "@/lib/reflection/types";
 
@@ -81,9 +81,49 @@ describe("insertReflectionLog", () => {
     ).rejects.toThrow(/reflection_log_invalid_track/);
   });
 
+  it("invalid period_key → throw", async () => {
+    const { client } = upsertClient({ error: null });
+    await expect(
+      insertReflectionLog(validRow({ periodKey: "s:not-a-date" }), { client }),
+    ).rejects.toThrow(/reflection_log_invalid_period_key/);
+  });
+
   it("DB error → throw with code", async () => {
     const { client } = upsertClient({ error: { code: "23514" } });
     await expect(insertReflectionLog(validRow(), { client })).rejects.toThrow(/23514/);
+  });
+});
+
+describe("claimReflectionLog", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function insertClient(result: { error: { code?: string } | null }) {
+    const insert = vi.fn().mockResolvedValue(result);
+    const from = vi.fn().mockReturnValue({ insert });
+    return { client: { from } as unknown as SupabaseClient, spies: { from, insert } };
+  }
+
+  it("insert 성공 → true (LLM summary atomic claim 획득)", async () => {
+    const { client, spies } = insertClient({ error: null });
+    await expect(claimReflectionLog(validRow(), { client })).resolves.toBe(true);
+    expect(spies.from).toHaveBeenCalledWith("reflection_log");
+    expect(spies.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        month: "2026-06-01",
+        track: "short",
+        period_key: "s:2026-06-22",
+      }),
+    );
+  });
+
+  it("unique_violation(23505) → false (이미 claim/reflected, re-burn 방지)", async () => {
+    const { client } = insertClient({ error: { code: "23505" } });
+    await expect(claimReflectionLog(validRow(), { client })).resolves.toBe(false);
+  });
+
+  it("기타 DB error → throw", async () => {
+    const { client } = insertClient({ error: { code: "42P01" } });
+    await expect(claimReflectionLog(validRow(), { client })).rejects.toThrow(/42P01/);
   });
 });
 
@@ -128,11 +168,12 @@ function priorClient(result: { data: { period_key: string; track: string; month:
   const maybeSingle = vi.fn().mockResolvedValue(result);
   const limit = vi.fn().mockReturnValue({ maybeSingle });
   const order = vi.fn().mockReturnValue({ limit });
-  const not = vi.fn().mockReturnValue({ order });
+  const lt = vi.fn().mockReturnValue({ order });
+  const not = vi.fn().mockReturnValue({ lt });
   const eq = vi.fn().mockReturnValue({ not });
   const select = vi.fn().mockReturnValue({ eq });
   const from = vi.fn().mockReturnValue({ select });
-  return { client: { from } as unknown as SupabaseClient, spies: { from, select, eq, not, order, limit, maybeSingle } };
+  return { client: { from } as unknown as SupabaseClient, spies: { from, select, eq, not, lt, order, limit, maybeSingle } };
 }
 
 describe("getPriorFinalizedCycle", () => {
@@ -143,9 +184,11 @@ describe("getPriorFinalizedCycle", () => {
       data: { period_key: "s:2026-06-22", track: "short", month: "2026-06", finalized_at: "2026-06-26T01:00:00Z" },
       error: null,
     });
-    const cycle = await getPriorFinalizedCycle({ track: "short", client });
+    const now = new Date("2026-06-27T00:00:00Z");
+    const cycle = await getPriorFinalizedCycle({ track: "short", now, client });
     expect(spies.eq).toHaveBeenCalledWith("track", "short");
     expect(spies.not).toHaveBeenCalledWith("finalized_at", "is", null);
+    expect(spies.lt).toHaveBeenCalledWith("finalized_at", "2026-06-27T00:00:00.000Z");
     // load-bearing recency: '가장 최근 finalize' — ascending mutation 시 oldest 반환 → 회귀 박제.
     expect(spies.order).toHaveBeenCalledWith("finalized_at", { ascending: false });
     expect(spies.limit).toHaveBeenCalledWith(1);
@@ -261,49 +304,5 @@ describe("getCyclePanels", () => {
   it("DB error → throw", async () => {
     const { client } = panelsClient({ data: null, error: { code: "42P01" } });
     await expect(getCyclePanels({ periodKey: "s:2026-06-22", client })).rejects.toThrow(/42P01/);
-  });
-});
-
-// ── reflectionExists: from → select → eq → eq → eq → limit → maybeSingle ──
-function existsClient(result: { data: { id: string } | null; error: { code?: string } | null }) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
-  const limit = vi.fn().mockReturnValue({ maybeSingle });
-  const eq3 = vi.fn().mockReturnValue({ limit });
-  const eq2 = vi.fn().mockReturnValue({ eq: eq3 });
-  const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
-  const select = vi.fn().mockReturnValue({ eq: eq1 });
-  const from = vi.fn().mockReturnValue({ select });
-  return { client: { from } as unknown as SupabaseClient, spies: { from, eq1, eq2, eq3 } };
-}
-
-describe("reflectionExists", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("row 존재 → true (month/track/period_key 3중 eq)", async () => {
-    const { client, spies } = existsClient({ data: { id: "x" }, error: null });
-    const out = await reflectionExists({
-      month: "2026-06-01",
-      track: "short",
-      periodKey: "s:2026-06-22",
-      client,
-    });
-    expect(out).toBe(true);
-    expect(spies.eq1).toHaveBeenCalledWith("month", "2026-06-01");
-    expect(spies.eq2).toHaveBeenCalledWith("track", "short");
-    expect(spies.eq3).toHaveBeenCalledWith("period_key", "s:2026-06-22");
-  });
-
-  it("row 부재 → false", async () => {
-    const { client } = existsClient({ data: null, error: null });
-    expect(
-      await reflectionExists({ month: "2026-06-01", track: "short", periodKey: "s:2026-06-22", client }),
-    ).toBe(false);
-  });
-
-  it("DB error → throw", async () => {
-    const { client } = existsClient({ data: null, error: { code: "42P01" } });
-    await expect(
-      reflectionExists({ month: "2026-06-01", track: "short", periodKey: "s:2026-06-22", client }),
-    ).rejects.toThrow(/42P01/);
   });
 });

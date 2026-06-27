@@ -141,12 +141,12 @@ begin
     where table_name = 'reflection_log' and constraint_type = 'FOREIGN KEY';
   if v_count <> 0 then raise exception 'FAIL: reflection_log should have no FK (cost_log/타 테이블 분리, got %)', v_count; end if;
 
-  -- 14) malformed period_key (s:/m: prefix 아님) → CHECK reject (idempotency 키 보호)
+  -- 14) malformed period_key (prefix만 맞고 날짜 형식 불량) → CHECK reject (idempotency 키 보호)
   v_failed := false;
   begin
     insert into public.reflection_log(month, track, period_key, finalized_at,
       selected_count, priced_count, per_persona_metrics)
-    values ('2026-06-01', 'short', 'bogus-key', now(), 1, 0, '[]'::jsonb);
+    values ('2026-06-01', 'short', 's:not-a-date', now(), 1, 0, '[]'::jsonb);
   exception when check_violation then v_failed := true;
   end;
   if not v_failed then raise exception 'FAIL: malformed period_key should violate CHECK'; end if;

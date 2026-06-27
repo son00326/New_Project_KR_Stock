@@ -28,7 +28,7 @@ import {
   getPriorFinalizedCycle,
   getCyclePanels,
   insertReflectionLog,
-  reflectionExists,
+  claimReflectionLog,
 } from "@/lib/data/admin-reflection";
 import { resolveEntryPricesKrw } from "@/lib/data/krx-eod";
 import { loadKrBusinessDays } from "@/lib/portfolio/calendar";
@@ -136,7 +136,8 @@ export async function GET(request: NextRequest) {
       const result = await runReflectionJob({
         track,
         personaRoster: PERSONA_ROSTER,
-        getPriorFinalizedCycle: () => getPriorFinalizedCycle({ track, client: supabase }),
+        getPriorFinalizedCycle: () =>
+          getPriorFinalizedCycle({ track, now, client: supabase }),
         getCyclePanels: (periodKey) => getCyclePanels({ periodKey, client: supabase }),
         // KRX EOD(무비용). 키 부재 → EMPTY(fail-soft → metrics null·영속은 진행).
         resolvePrices: ({ tickers, finalizedAt }) =>
@@ -177,18 +178,12 @@ export async function GET(request: NextRequest) {
                 track,
                 month: costMonth,
                 adminUserId: cronSystemUserId,
+                costPreflightReserved: true,
                 costClient: supabase,
               })
           : undefined,
-        // M4 cost-idempotency — 이미 회고된 사이클이면 LLM 요약 재실행 skip(re-burn 방지). LLM on일 때만 필요.
-        alreadyReflected: llmSummary
-          ? (cycle) =>
-              reflectionExists({
-                month: cycle.month,
-                track,
-                periodKey: cycle.periodKey,
-                client: supabase,
-              })
+        claimReflectionLog: llmSummary
+          ? (row) => claimReflectionLog(row, { client: supabase })
           : undefined,
       });
       outcomes.push({ track, ok: true, result });

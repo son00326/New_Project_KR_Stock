@@ -12,7 +12,9 @@ create table if not exists public.reflection_log (
   id uuid primary key default gen_random_uuid(),
   month text not null check (month ~ '^[0-9]{4}-(0[1-9]|1[0-2])-01$'),  -- YYYY-MM-01 (회계/감사 정합)
   track text not null check (track in ('short','midlong')),
-  period_key text not null check (period_key ~ '^[sm]:'),  -- 's:YYYY-MM-DD' | 'm:YYYY-MM' (회고 대상 사이클; idempotency 키 일부라 malformed 차단)
+  period_key text not null check (
+    period_key ~ '^(s:[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])|m:[0-9]{4}-(0[1-9]|1[0-2]))$'
+  ),                                                -- 's:YYYY-MM-DD' | 'm:YYYY-MM' (회고 대상 사이클; idempotency 키 일부라 malformed 차단)
   finalized_at timestamptz not null,             -- 대상 run의 finalize 시각
   reflection_kind text not null default 'retrospective'
     check (reflection_kind = 'retrospective'),   -- 예측 아님 박제(코드+DB 양면)

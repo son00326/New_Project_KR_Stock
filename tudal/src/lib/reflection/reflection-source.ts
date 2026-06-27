@@ -24,6 +24,17 @@ export async function getReflectionLearningContextString(
 ): Promise<string> {
   // flag off → DB read 없이 즉시 "" (선정 byte-identical 보장).
   if (!isReflectionEnabled() || !opts.fetchLatest) return "";
-  const row = await opts.fetchLatest(opts.track);
-  return row?.injectedContextSnapshot ?? "";
+  try {
+    const row = await opts.fetchLatest(opts.track);
+    return row?.injectedContextSnapshot ?? "";
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "reflection_context_read_failed",
+        track: opts.track,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return "";
+  }
 }

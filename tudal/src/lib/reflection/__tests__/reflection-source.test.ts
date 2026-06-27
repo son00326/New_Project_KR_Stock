@@ -57,4 +57,15 @@ describe("getReflectionLearningContextString", () => {
     });
     expect(out).toBe("");
   });
+
+  it("fetchLatest throw → '' (reflection read fail-soft, 선정 무중단)", async () => {
+    process.env.REFLECTION_ENABLED = "true";
+    const out = await getReflectionLearningContextString({
+      track: "short",
+      fetchLatest: async () => {
+        throw new Error("reflection_log_latest_failed:42P01");
+      },
+    });
+    expect(out).toBe("");
+  });
 });

@@ -143,6 +143,7 @@ describe("runReflectionJob", () => {
       baseDeps({
         preflight,
         summarize,
+        claimReflectionLog: async () => true,
         insertReflectionLog: async (row) => {
           saved = row;
         },
@@ -164,6 +165,7 @@ describe("runReflectionJob", () => {
           throw new Error("cost_hardcap_exceeded");
         },
         summarize,
+        claimReflectionLog: async () => true,
         insertReflectionLog: async (row) => {
           saved = row;
         },
@@ -175,6 +177,50 @@ describe("runReflectionJob", () => {
     expect(saved!.injectedContextSnapshot).toContain("회고"); // base snapshot 유지(요약 부가 안 됨)
   });
 
+  it("LLM summary on + preflight DI 부재 → fail-closed: summarize 미호출 + 무비용 base 회고 영속", async () => {
+    process.env.REFLECTION_ENABLED = "true";
+    process.env.REFLECTION_LLM_SUMMARY_ENABLED = "true";
+    const summarize = vi.fn(async () => "요약");
+    let saved: ReflectionLogRow | null = null;
+    const res = await runReflectionJob(
+      baseDeps({
+        summarize,
+        insertReflectionLog: async (row) => {
+          saved = row;
+        },
+      }),
+    );
+    expect(res.skipped).toBe(false);
+    expect(summarize).not.toHaveBeenCalled();
+    expect(saved).not.toBeNull();
+    expect(saved!.injectedContextSnapshot).toContain("회고");
+  });
+
+  it("LLM summary on + claim throw → degrade: 요약 skip + 무비용 base 회고 영속", async () => {
+    process.env.REFLECTION_ENABLED = "true";
+    process.env.REFLECTION_LLM_SUMMARY_ENABLED = "true";
+    const preflight = vi.fn(async () => {});
+    const summarize = vi.fn(async () => "요약");
+    let saved: ReflectionLogRow | null = null;
+    const res = await runReflectionJob(
+      baseDeps({
+        claimReflectionLog: async () => {
+          throw new Error("reflection_log_claim_failed:42P01");
+        },
+        preflight,
+        summarize,
+        insertReflectionLog: async (row) => {
+          saved = row;
+        },
+      }),
+    );
+    expect(res.skipped).toBe(false);
+    expect(preflight).not.toHaveBeenCalled();
+    expect(summarize).not.toHaveBeenCalled();
+    expect(saved).not.toBeNull();
+    expect(saved!.injectedContextSnapshot).toContain("회고");
+  });
+
   it("LLM summary on + summarize transient throw → degrade: base 회고 영속(throw 안 함)", async () => {
     process.env.REFLECTION_ENABLED = "true";
     process.env.REFLECTION_LLM_SUMMARY_ENABLED = "true";
@@ -182,6 +228,7 @@ describe("runReflectionJob", () => {
     const res = await runReflectionJob(
       baseDeps({
         preflight: async () => {},
+        claimReflectionLog: async () => true,
         summarize: async () => {
           throw new Error("ai_call_failed:transient:429");
         },
@@ -195,7 +242,7 @@ describe("runReflectionJob", () => {
     expect(saved!.injectedContextSnapshot).toContain("회고");
   });
 
-  it("M4 cost-idempotency: alreadyReflected true → preflight/summarize 미호출(re-burn 방지) + base upsert는 진행", async () => {
+  it("M4 cost-idempotency: claim false → preflight/summarize/upsert 미호출(re-burn·overwrite 방지)", async () => {
     process.env.REFLECTION_ENABLED = "true";
     process.env.REFLECTION_LLM_SUMMARY_ENABLED = "true";
     const preflight = vi.fn(async () => {});
@@ -203,7 +250,7 @@ describe("runReflectionJob", () => {
     const insertReflectionLog = vi.fn(async () => {});
     await runReflectionJob(
       baseDeps({
-        alreadyReflected: async () => true,
+        claimReflectionLog: async () => false,
         preflight,
         summarize,
         insertReflectionLog,
@@ -211,7 +258,7 @@ describe("runReflectionJob", () => {
     );
     expect(preflight).not.toHaveBeenCalled();
     expect(summarize).not.toHaveBeenCalled();
-    expect(insertReflectionLog).toHaveBeenCalledTimes(1); // base는 idempotent upsert
+    expect(insertReflectionLog).not.toHaveBeenCalled();
   });
 
   it("가격 전부 부재(resolvePrices 빈 Map) → metrics null이어도 영속(fail-soft)", async () => {
@@ -235,6 +282,30 @@ describe("runReflectionJob", () => {
     expect(res.overallHitRate).toBeNull();
     expect(saved!.priceSource).toBeNull();
     expect(saved!.injectedContextSnapshot).toBe(""); // pricedCount 0 → 빈 컨텍스트
+  });
+
+  it("LLM summary on + 가격 전부 부재 → claim/preflight/summarize 0콜(빈 회고에 비용 사용 금지)", async () => {
+    process.env.REFLECTION_ENABLED = "true";
+    process.env.REFLECTION_LLM_SUMMARY_ENABLED = "true";
+    const claimReflectionLog = vi.fn(async () => true);
+    const preflight = vi.fn(async () => {});
+    const summarize = vi.fn(async () => "요약");
+    await runReflectionJob(
+      baseDeps({
+        resolvePrices: async () => ({
+          entryPrices: new Map(),
+          currentPrices: new Map(),
+          entryDate: null,
+          currentDate: null,
+        }),
+        claimReflectionLog,
+        preflight,
+        summarize,
+      }),
+    );
+    expect(claimReflectionLog).not.toHaveBeenCalled();
+    expect(preflight).not.toHaveBeenCalled();
+    expect(summarize).not.toHaveBeenCalled();
   });
 
   it("resolvePrices throw → fail-soft(빈 가격으로 진행, throw 전파 안 함)", async () => {

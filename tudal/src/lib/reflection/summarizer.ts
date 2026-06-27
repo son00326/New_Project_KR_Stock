@@ -15,6 +15,14 @@ import {
 import type { ReflectionMetrics, ReflectionTrack } from "@/lib/reflection/types";
 
 const SUMMARY_MAX_CHARS = 300;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PREDICTION_CLAIM_RE =
+  /예측|전망|예상|오를|상승할|하락할|다음|사이클|늘리면|줄이면|좋은 결과|날 것입니다|forecast|predict|next cycle|should|would|will|improve|higher|lower/i;
+const NEGATED_PREDICTION_RE =
+  /(?:예측\s*(?:아님|금지)|예측하지\s*(?:않|마세요|말)|전망\s*(?:아님|금지)|예상\s*(?:아님|금지))/g;
+const RETROSPECTIVE_SUMMARY_RE =
+  /회고|과거|실현|정렬|결과와|표본|평가군|직전|was aligned|were aligned|retrospective|realized|past/i;
 
 export interface SummarizeReflectionInput {
   metrics: ReflectionMetrics;
@@ -22,12 +30,22 @@ export interface SummarizeReflectionInput {
   /** cost_log.month — LLM 비용이 발생하는 실행 시점 월(YYYY-MM). preflight month와 정합. */
   month: string;
   adminUserId: string;
+  costPreflightReserved?: true;
   costClient?: SupabaseClient;
 }
 
 export async function summarizeReflection(
   input: SummarizeReflectionInput,
 ): Promise<string> {
+  if (process.env.AI_COST_LOG_REAL_INSERT_ENABLED !== "true") {
+    throw new Error("reflection_summary_cost_logging_required");
+  }
+  if (!UUID_RE.test(input.adminUserId)) {
+    throw new Error("reflection_summary_admin_user_id_invalid");
+  }
+  if (input.costPreflightReserved !== true) {
+    throw new Error("reflection_summary_preflight_required");
+  }
   // D28 A — Claude 필수 primary 불변 (GPT-only 미지원).
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ai_key_unavailable");
@@ -79,5 +97,10 @@ export async function summarizeReflection(
     { client: input.costClient },
   );
 
-  return result.text.trim().slice(0, SUMMARY_MAX_CHARS);
+  const summary = result.text.trim().slice(0, SUMMARY_MAX_CHARS);
+  const claimText = summary.replace(NEGATED_PREDICTION_RE, "");
+  if (PREDICTION_CLAIM_RE.test(claimText) || !RETROSPECTIVE_SUMMARY_RE.test(summary)) {
+    throw new Error("reflection_summary_prediction_claim");
+  }
+  return summary;
 }

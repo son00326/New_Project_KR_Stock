@@ -23,6 +23,8 @@ import type { PersonaScore } from "@/lib/screening/tier1-schema";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 const RUN_MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const PERIOD_KEY_RE =
+  /^(s:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])|m:\d{4}-(0[1-9]|1[0-2]))$/;
 const TRACK_SET: ReadonlySet<ReflectionTrack> = new Set<ReflectionTrack>([
   "short",
   "midlong",
@@ -36,17 +38,39 @@ export async function insertReflectionLog(
   row: ReflectionLogRow,
   options: { client?: SupabaseClient } = {},
 ): Promise<void> {
+  const supabase = options.client ?? (await createClient());
+  const payload = reflectionLogPayload(row);
+  const { error } = await supabase
+    .from("reflection_log")
+    .upsert(payload, { onConflict: "month,track,period_key" });
+  if (error) {
+    throw new Error(`reflection_log_upsert_failed:${error.code ?? "unknown"}`);
+  }
+}
+
+export async function claimReflectionLog(
+  row: ReflectionLogRow,
+  options: { client?: SupabaseClient } = {},
+): Promise<boolean> {
+  const supabase = options.client ?? (await createClient());
+  const payload = reflectionLogPayload(row);
+  const { error } = await supabase.from("reflection_log").insert(payload);
+  if (!error) return true;
+  if (error.code === "23505") return false;
+  throw new Error(`reflection_log_claim_failed:${error.code ?? "unknown"}`);
+}
+
+function reflectionLogPayload(row: ReflectionLogRow) {
   if (!MONTH_RE.test(row.month)) {
     throw new Error(`reflection_log_invalid_month:${row.month}`);
   }
   if (!TRACK_SET.has(row.track)) {
     throw new Error(`reflection_log_invalid_track:${row.track}`);
   }
-  if (!row.periodKey || typeof row.periodKey !== "string") {
+  if (!PERIOD_KEY_RE.test(row.periodKey)) {
     throw new Error(`reflection_log_invalid_period_key:${row.periodKey}`);
   }
-  const supabase = options.client ?? (await createClient());
-  const payload = {
+  return {
     month: row.month,
     track: row.track,
     period_key: row.periodKey,
@@ -62,12 +86,6 @@ export async function insertReflectionLog(
     price_basis_entry_date: row.priceBasisEntryDate,
     price_basis_current_date: row.priceBasisCurrentDate,
   };
-  const { error } = await supabase
-    .from("reflection_log")
-    .upsert(payload, { onConflict: "month,track,period_key" });
-  if (error) {
-    throw new Error(`reflection_log_upsert_failed:${error.code ?? "unknown"}`);
-  }
 }
 
 /**
@@ -99,31 +117,6 @@ export async function getLatestReflectionLog(options: {
   };
 }
 
-/**
- * 이 사이클(month,track,period_key)에 이미 reflection_log row가 존재하는가 — M4 cost-idempotency.
- * true면 orchestrator가 LLM 요약 재실행을 skip(re-burn 방지). base upsert는 idempotent라 무관.
- */
-export async function reflectionExists(options: {
-  month: string;
-  track: ReflectionTrack;
-  periodKey: string;
-  client?: SupabaseClient;
-}): Promise<boolean> {
-  const supabase = options.client ?? (await createClient());
-  const { data, error } = await supabase
-    .from("reflection_log")
-    .select("id")
-    .eq("month", options.month)
-    .eq("track", options.track)
-    .eq("period_key", options.periodKey)
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    throw new Error(`reflection_exists_failed:${error.code ?? "unknown"}`);
-  }
-  return data !== null;
-}
-
 interface PriorRunRow {
   period_key: string;
   track: string;
@@ -137,14 +130,17 @@ interface PriorRunRow {
  */
 export async function getPriorFinalizedCycle(options: {
   track: ReflectionTrack;
+  now?: Date;
   client?: SupabaseClient;
 }): Promise<PriorFinalizedCycle | null> {
   const supabase = options.client ?? (await createClient());
+  const now = options.now ?? new Date();
   const { data, error } = await supabase
     .from("tier1_selection_run")
     .select("period_key, track, month, finalized_at")
     .eq("track", options.track)
     .not("finalized_at", "is", null)
+    .lt("finalized_at", now.toISOString())
     .order("finalized_at", { ascending: false })
     .limit(1)
     .maybeSingle();

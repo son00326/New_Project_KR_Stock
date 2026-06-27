@@ -134,13 +134,13 @@ describe("reflection-job cron route", () => {
   // ── H2/H3/M4/L5: LLM 요약 fail-closed 게이트 + DI 구성 ──
   const VALID_UUID = "11111111-2222-3333-4444-555555555555";
 
-  it("LLM flag off → deps.preflight/summarize/alreadyReflected 미주입(무비용 base만)", async () => {
+  it("LLM flag off → deps.preflight/summarize/claimReflectionLog 미주입(무비용 base만)", async () => {
     process.env.REFLECTION_ENABLED = "true";
     await GET(req({ secret: "s3cr3t" }));
     const deps = runReflectionJobMock.mock.calls[0][0];
     expect(deps.preflight).toBeUndefined();
     expect(deps.summarize).toBeUndefined();
-    expect(deps.alreadyReflected).toBeUndefined();
+    expect(deps.claimReflectionLog).toBeUndefined();
   });
 
   it("H2: LLM on + AI_COST_LOG_REAL_INSERT_ENABLED off → LLM 요약 비활성(hardcap fail-open 차단)", async () => {
@@ -175,7 +175,7 @@ describe("reflection-job cron route", () => {
     expect(deps.summarize).toBeUndefined();
   });
 
-  it("LLM on + 3중 게이트 충족 → deps.preflight/summarize/alreadyReflected 주입", async () => {
+  it("LLM on + 3중 게이트 충족 → deps.preflight/summarize/claimReflectionLog 주입", async () => {
     process.env.REFLECTION_ENABLED = "true";
     process.env.REFLECTION_LLM_SUMMARY_ENABLED = "true";
     process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
@@ -184,7 +184,7 @@ describe("reflection-job cron route", () => {
     const deps = runReflectionJobMock.mock.calls[0][0];
     expect(deps.preflight).toBeTypeOf("function");
     expect(deps.summarize).toBeTypeOf("function");
-    expect(deps.alreadyReflected).toBeTypeOf("function");
+    expect(deps.claimReflectionLog).toBeTypeOf("function");
   });
 
   it("L5: KRX_OPENAPI_KEY 부재 → resolvePrices가 EMPTY(빈 Map·null dates) 반환", async () => {

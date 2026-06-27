@@ -56,8 +56,7 @@ export interface ReflectionJobDeps {
   preflight?: () => Promise<void>;
   /** (선택) 페르소나 케이스 LLM 요약. default OFF/DI 부재 → skip(무비용). */
   summarize?: (metrics: ReflectionMetrics) => Promise<string>;
-  /** (선택) cost-idempotency: 이 사이클이 이미 회고됐으면 LLM 요약 재실행 skip(re-burn 방지). cycle을 받아 (month,track,period_key) 조회. */
-  alreadyReflected?: (cycle: PriorFinalizedCycle) => Promise<boolean>;
+  claimReflectionLog?: (row: ReflectionLogRow) => Promise<boolean>;
   maxPersonas?: number;
 }
 
@@ -119,19 +118,50 @@ export async function runReflectionJob(
 
   // ── 회고 컨텍스트 snapshot(₩0) ──
   let snapshot = buildReflectionContext(metrics, { maxPersonas: deps.maxPersonas });
+  const hadPrices = prices.entryDate !== null && prices.currentDate !== null;
+  const baseRow = buildReflectionLogRow({
+    metrics,
+    cycle: {
+      month: cycle.month,
+      track: deps.track,
+      periodKey: cycle.periodKey,
+      finalizedAt: cycle.finalizedAt,
+    },
+    priceBasis: {
+      source: hadPrices ? REFLECTION_PRICE_SOURCE : null,
+      entryDate: prices.entryDate,
+      currentDate: prices.currentDate,
+    },
+    snapshot,
+  });
+  let shouldUpsertReflectionLog = true;
 
   // ── (선택) LLM 케이스 요약 — 별 flag + hardcap reservation + cost-idempotency + degrade-don't-abort ──
   //   M4 cost-idempotency: 이미 회고된 사이클이면 LLM 재실행 skip(re-burn 방지). base upsert는 무비용·idempotent라 진행.
   //   M3 degrade-don't-abort: preflight(하드캡)/summarize(transient) 실패는 catch → 무비용 base 회고는 보존·영속.
   //     preflight throw가 summarize 호출 전에 잡히므로 burn 0(하드캡 차단)이면서 free 회고는 유지.
-  if (isReflectionLlmSummaryEnabled() && deps.summarize) {
-    const already = deps.alreadyReflected ? await deps.alreadyReflected(cycle) : false;
-    if (!already) {
+  if (isReflectionLlmSummaryEnabled() && deps.summarize && metrics.pricedCount > 0) {
+    if (!deps.preflight || !deps.claimReflectionLog) {
+      console.error(
+        JSON.stringify({
+          event: "reflection_summary_skipped",
+          track: deps.track,
+          message: !deps.preflight
+            ? "reflection_summary_preflight_required"
+            : "reflection_summary_claim_required",
+        }),
+      );
+    } else {
       try {
-        await deps.preflight?.(); // 하드캡 초과 → throw → catch → 요약 skip(burn 0)
-        const llmSummary = await deps.summarize(metrics);
-        if (llmSummary.trim()) {
-          snapshot = snapshot ? `${snapshot}\n${llmSummary.trim()}` : llmSummary.trim();
+        const claimed = await deps.claimReflectionLog(baseRow);
+        if (claimed) {
+          await deps.preflight(); // 하드캡 초과 → throw → catch → 요약 skip(burn 0)
+          const llmSummary = await deps.summarize(metrics);
+          if (llmSummary.trim()) {
+            snapshot = snapshot ? `${snapshot}\n${llmSummary.trim()}` : llmSummary.trim();
+          }
+        } else {
+          shouldUpsertReflectionLog = false;
         }
       } catch (err) {
         console.error(
@@ -146,7 +176,6 @@ export async function runReflectionJob(
   }
 
   // ── reflection_log row 조립 + idempotent upsert ──
-  const hadPrices = prices.entryDate !== null && prices.currentDate !== null;
   const row = buildReflectionLogRow({
     metrics,
     cycle: {
@@ -162,7 +191,9 @@ export async function runReflectionJob(
     },
     snapshot,
   });
-  await deps.insertReflectionLog(row);
+  if (shouldUpsertReflectionLog) {
+    await deps.insertReflectionLog(row);
+  }
 
   return {
     skipped: false,
