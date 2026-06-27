@@ -1,8 +1,9 @@
 # PR-K Reflection (AI 자가 학습) · shadow-first 빌드 spec
 
-- **Status**: BUILD spec (코드 빌드). 결정 SoT = `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`(D32) + `ServicePlan-Admin §1A.5 D32`.
+- **Status**: ✅ **빌드 완료 (dormant·코드만, flag off → 무회귀)**. 결정 SoT = `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`(D32) + `ServicePlan-Admin §1A.5 D32`.
 - **Date**: 2026-06-27
 - **Author**: Claude (이어서 진행 · ultracode) ↔ omxy R-debate
+- **수렴**: Claude dynamic-workflow 5-lens 적대 리뷰(4 HIGH catch+fix) → omxy §2.0a R1 적대 검토(7 confirmed defect 직접 수정 — LLM fail-closed/atomic claim/예측 출력 필터/now seam/period_key 정규식) → Claude 2차 독립 검증(게이트 green·테스트 substantive·H1 보존) **CONVERGED**. 게이트 green(build/lint/test:ci 2345/tsc + PG smoke 0043). 코드만(flag dormant·production 미접촉).
 - **Scope guardrail**: **shadow-first / dormant** — `REFLECTION_ENABLED=false`(default) → 회고 job 미실행 + 선정 prompt **byte-identical**(선정 무회귀·mutation 0). 실 선정/cron/KRX/snapshot 미가동 → 빈 입력 **fail-soft no-op**.
 - **범주 분리(혼동 금지)**: PR-K Reflection(전체 회고 — 페르소나 강점 누적 → 선정 prompt 주입, track별 주기) ≠ **D27 Q5 incumbent thesis(선정 시점 per-incumbent 재점검, 구현됨 PR #91, `reflectionContext` seam)** ≠ M12a(뉴스 thesis-break 제거) ≠ G4(거시 컨텍스트). 서로 섞지 않는다. **두 seam은 별개 필드** — Q5 = `reflectionContext`(per-ticker), PR-K = `reflectionLearningContext`(run/track-level, 신규).
 - **불변**: MVP 핵심 3종(30리스트/포트/30리포트, 65차 USER 잠금) = Reflection은 **대체 아님·launch-readiness 추가 항목**. **NO-CONFIG-PASSES / 예측 claim 영구 금지** — Reflection은 과거 실현 성과 *회고(retrospective)*지 미래 *예측*이 아님(문구·로그·DB에 명시). 이메일/Resend 전역 미사용.
@@ -178,4 +179,14 @@ metrics + 대상 사이클 메타(month/track/periodKey/finalizedAt) + price-bas
 
 ## 9. USER-only 게이트 (CLAUDE 미실행 — 체크리스트만)
 
-`REFLECTION_ENABLED=true` + (선택)`REFLECTION_LLM_SUMMARY_ENABLED=true` + `SELECTION_CRON_AUTO_ENABLED=true`(선정 가동) + 마이그 0043 apply + `KRX_OPENAPI_KEY`(실현 수익률) + AI 키/비용 승인(LLM 요약 시) + vercel.json reflection-job schedule 추가(또는 외부 스케줄). CLAUDE는 명령/체크리스트만, 실행 X.
+`REFLECTION_ENABLED=true` + (선택)`REFLECTION_LLM_SUMMARY_ENABLED=true` + `SELECTION_CRON_AUTO_ENABLED=true`(선정 가동) + 마이그 0043 apply + `KRX_OPENAPI_KEY`(실현 수익률) + AI 키/비용 승인(LLM 요약 시) + **reflection-job 스케줄(vercel.json 또는 외부)** 추가. CLAUDE는 명령/체크리스트만, 실행 X.
+
+⚠️ **scheduling 비대칭(go-live 페어 액션)**: `REFLECTION_ENABLED`는 read seam(selection-worker가 reflection_log 조회→주입)과 write seam(reflection-job이 reflection_log 기록) **둘 다** 게이트한다. read는 selection-worker daily cron에 올라타지만 **write(reflection-job)는 vercel.json에 schedule 미등록**(CLAUDE는 production schedule 미변경 — USER). flag만 켜고 reflection-job을 스케줄 안 하면 read는 빈 결과("")→byte-identical로 **조용히 무동작**(에러 없음). go-live 시 flag flip + reflection-job schedule(직전 사이클 finalize 후·다음 선정 전 발화)을 **함께** 처리한다.
+
+## 10. omxy R1 적용 사항 (as-built — §3/§4/§6 보강)
+
+- **LLM 요약 fail-closed(orchestrator)**: `REFLECTION_LLM_SUMMARY_ENABLED` + `deps.summarize` + **`pricedCount>0`** + **`deps.preflight`** + **`deps.claimReflectionLog`** 전부 충족해야 요약 실행. 빈 가격/DI 부재 → 요약 skip + 무비용 base 회고는 영속(degrade-don't-abort).
+- **atomic claim(cost-idempotency)**: 구 `reflectionExists`(read-before-write, TOCTOU) → **`claimReflectionLog`(INSERT, unique_violation 23505→false)** 교체. 동시/재실행이 LLM 비용을 재지출하지 않도록 슬롯을 원자적으로 선점. base 경로(LLM off)는 idempotent **upsert** 유지(자유 갱신). **claim-once 트레이드오프**: LLM 경로에서 첫 시도 후엔 같은 사이클 재시도가 claim 실패(no-op)라 transient 요약 실패 시 그 사이클은 base-only로 남는다(재-burn 방지 우선 — 무비용 base 회고가 핵심이므로 허용).
+- **예측 출력 필터(summarizer)**: provider 호출 전 cost gate(AI_COST_LOG + UUID + costPreflightReserved) + 응답에 예측 어휘(부정형 제외) 또는 retrospective 어휘 부재 시 `reflection_summary_prediction_claim` throw → 컨텍스트 주입 차단(보수적 — false-positive는 base로 degrade, 예측 누출 0 우선).
+- **now seam**: `getPriorFinalizedCycle`에 `finalized_at < now` 가드(미래 finalize 사이클 오선택 차단).
+- **period_key**: DB CHECK + TS 정규식 둘 다 full `'s:YYYY-MM-DD' | 'm:YYYY-MM'`.
