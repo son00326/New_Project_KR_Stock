@@ -31,29 +31,25 @@ create table public.alert_event (
   decision_memo text,
   is_read boolean not null default false
 );
+-- LOAD-BEARING setup: 함수 STUB 선생성 + anon/authenticated 직접 grant.
+-- 0044가 `create or replace`(grant 보존)이므로, 마이그 본문의 revoke가 이 grant를 제거해야 통과.
+-- → 마이그 0044.sql의 revoke 줄을 삭제하면 anon/authenticated가 grant를 유지해 아래 assertion이 FAIL
+--   (revoke가 vacuous-copy가 아니라 마이그 본문 자체를 load-bearing 검증).
+create or replace function public.record_alert_exit_outcome(p_alert_id uuid, p_t7_price_change numeric, p_outcome_at timestamptz)
+  returns boolean language sql as $f$ select false $f$;
+grant execute on function public.record_alert_exit_outcome(uuid, numeric, timestamptz) to anon, authenticated;
+do $$ begin
+  if not has_function_privilege('anon', 'public.record_alert_exit_outcome(uuid, numeric, timestamptz)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.record_alert_exit_outcome(uuid, numeric, timestamptz)', 'EXECUTE') then
+    raise exception 'FAIL(setup): pre-grant did not take';
+  end if;
+end $$;
 SQL
 
 MIG="$(dirname "$0")/../tudal/supabase/migrations"
 
-# Pre-grant anon+authenticated EXECUTE so 0044's revoke-from-anon/authenticated lines are LOAD-BEARING
-# (Supabase가 신규 함수에 default EXECUTE 부여하는 상황 모델 — revoke가 vacuous 아님을 보장).
-# 함수가 먼저 존재해야 grant 가능 → 0044 apply 직후 grant → 같은 revoke를 재적용해 load-bearing 검증.
+# Apply migration — create-or-replace는 위 grant를 보존하고, 본문 revoke가 anon/authenticated를 제거해야 함.
 psql -v ON_ERROR_STOP=1 -d "$DB" -f "$MIG/0044_alert_exit_outcome.sql"
-psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
--- 시뮬레이션: 외부에서 anon/authenticated에 직접 grant된 상태를 만든 뒤,
-grant execute on function public.record_alert_exit_outcome(uuid, numeric, timestamptz) to anon, authenticated;
--- sanity: 지금은 anon/authenticated가 EXECUTE 보유(아래 재-revoke가 load-bearing임을 보장).
-do $$ begin
-  if not has_function_privilege('anon', 'public.record_alert_exit_outcome(uuid, numeric, timestamptz)', 'EXECUTE') then
-    raise exception 'FAIL(setup): anon grant did not take';
-  end if;
-end $$;
--- 0044 revoke 블록 재적용 (마이그 본문의 revoke가 직접 grant를 제거하는지 검증).
-revoke execute on function public.record_alert_exit_outcome(uuid, numeric, timestamptz) from public;
-revoke execute on function public.record_alert_exit_outcome(uuid, numeric, timestamptz) from anon;
-revoke execute on function public.record_alert_exit_outcome(uuid, numeric, timestamptz) from authenticated;
-grant execute on function public.record_alert_exit_outcome(uuid, numeric, timestamptz) to service_role;
-SQL
 
 # assertions — all server-side (raise exception on failure).
 psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'

@@ -75,7 +75,9 @@ const SNAPSHOT_SELECT_COLUMNS =
  * 현재 보유 종목(가상 포트) — 최신 스냅샷 일자의 ticker 행(현금·집계행 제외). S7c Exit 평가 입력.
  *
  * - 최신 date를 먼저 조회(ticker non-null) → 그 일자의 보유 행 반환.
- * - 부재/오류 시 [] (fail-soft — cron caller가 0건 처리).
+ * - 보유 부재 시 [] (no-rows = 정상 빈 포트).
+ * - DB 오류 시 throw `portfolio_snapshot_select_failed:<code>` — caller(cron)가 5xx로 표면화(관측/재시도).
+ *   (flag-off 시 호출되지 않으므로 dormant 경로 무영향.)
  */
 export async function getCurrentHoldings(
   options: { client?: SupabaseClient } = {},

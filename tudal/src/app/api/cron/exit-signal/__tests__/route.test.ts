@@ -80,6 +80,10 @@ const req = () =>
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
+  // 고정 시계 — holdingDays(month-start 2026-06-01 → now)가 wall-clock에 따라 커지면
+  // 'mid' horizon(90d) time_expired가 ~2026-08-30부터 발동해 'no trigger' 테스트가 깨지는 time-bomb 방지.
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-06-05T00:00:00Z")); // holdingDays ≈ 4 (< short 30 < mid 90)
   process.env.CRON_SECRET = "cron-secret";
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("VERCEL_ENV", "");
@@ -92,6 +96,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
