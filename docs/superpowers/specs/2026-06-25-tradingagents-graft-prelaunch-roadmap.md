@@ -38,7 +38,7 @@ sequencing: 기존 pre-launch 순서(S7b→D11→S7c→S7d→[pre-launch 섹터 
 **가드레일 (4종, 전부 필수)**:
 1. **자동 적용 절대 금지 → USER 승인.** 산출 = `champion_config`(대안 가중치) + `challenger_config`(현행 incumbent 가중치) **제안 후보**일 뿐. production B++는 미변경. 채택 = S9 관찰 후 USER 승인(off-cycle), **절대 자동 아님**.
 2. **diagnostic only.** "이 가중치가 향후 상승을 예측한다"는 claim 금지. NO-CONFIG-PASSES / research-CLOSED verdict가 상위 제약. 산출/로그에 "예측 게이트 미통과(diagnostic funnel)" 명시.
-3. **PR-K Reflection(D32)과 다른 층.** PR-K = Tier1 선정 **prompt**에 직전 학습 주입(페르소나 가중치 자가조정). G1 = numeric **funnel(Tier0 B++) 가중치** 회고. seam은 공유하지 않으며(PR-K=`reflectionContext` prompt seam / G1=별도 funnel-config 회고), 보완 관계다.
+3. **PR-K Reflection(D32)과 다른 층.** PR-K = Tier1 선정 **prompt**에 직전 학습 주입(페르소나 가중치 자가조정). G1 = numeric **funnel(Tier0 B++) 가중치** 회고. seam은 공유하지 않으며(PR-K=**신규 `reflectionLearningContext` prompt seam** — D27 Q5 `reflectionContext` per-ticker와 별개 필드 / G1=별도 funnel-config 회고), 보완 관계다. **(2026-06-27) PR-K Reflection = ✅ shadow-first 빌드 완료(dormant)** — 빌드 SoT `docs/superpowers/specs/2026-06-27-reflection-prk-build.md`.
 4. **B++ production decision logic 불변.** G1은 B++ "위"의 관찰/제안 레이어지 대체 구현이 아니다.
 
 **비용**: 낮음(필요 데이터 — 과거 150/30 + 실현 수익률 — 이미 DB에 있음. 신규 AI inference 최소).
@@ -134,7 +134,7 @@ sequencing: 기존 pre-launch 순서(S7b→D11→S7c→S7d→[pre-launch 섹터 
 
 ```
 go-live USER gates + S7b(여기에 G4) → D11 → S7c → S7d
-  → [pre-launch lane: 섹터 비교 메뉴(여기에 G2) · PR-T2c 렌더 · G1 Reflection Lab · G3 Risk 3자 · PR-K Reflection(D32) · Toss-D4 freeze]
+  → [pre-launch lane: 섹터 비교 메뉴(여기에 G2) · PR-T2c 렌더 · G1 Reflection Lab · G3 Risk 3자 · PR-K Reflection(D32, ✅ 빌드 완료 2026-06-27 — USER 활성화·S9 검증만) · Toss-D4 freeze]
   → S9(1개월+ · G1/G3 동작·품질 soft 관찰) → 🎉 출시(자동매매 제외)
   → [출시 후] S8
 ```
