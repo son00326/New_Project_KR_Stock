@@ -76,6 +76,9 @@ const KNOWN_ACTION_CODES = [
   // S7c — Exit 결정 기록 RPC
   "exit_decision_write_failed",
   "exit_decision_grant_missing",
+  // G1 funnel reflection
+  "funnel_reflection_decide_failed",
+  "funnel_reflection_not_found_or_decided",
   // mock-only fallback
   "real_persistence_not_configured",
   "unknown_error",

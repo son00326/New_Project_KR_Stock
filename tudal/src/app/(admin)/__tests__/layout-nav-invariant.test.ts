@@ -20,6 +20,11 @@ describe("admin layout nav invariant", () => {
     expect(source).toContain('label: "섹터 추천 비교"');
   });
 
+  it("sidebar exposes funnel reflection lab route (G1/B-2)", () => {
+    expect(source).toContain('href: "/admin/funnel-reflection"');
+    expect(source).toContain('label: "Reflection Lab (G1)"');
+  });
+
   it("header exposes alert history bell link", () => {
     expect(source).toContain('href="/admin/alerts"');
     // aria-label은 미확인 알림 배지(S7c)로 조건부가 됐으나 base 라벨은 항상 포함.

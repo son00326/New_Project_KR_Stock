@@ -86,6 +86,9 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   exit_decision_write_failed: "Exit 결정 저장에 실패했습니다 — 다시 시도해주세요",
   exit_decision_grant_missing:
     "Exit 결정 기록 권한이 적용되지 않았습니다 (운영자: 마이그 0045 apply 확인)",
+  // G1 Tier0 Reflection Lab — funnel 회고 제안 승인/거절(기록만).
+  funnel_reflection_decide_failed: "회고 제안 처리에 실패했습니다 — 다시 시도해주세요",
+  funnel_reflection_not_found_or_decided: "이미 처리되었거나 존재하지 않는 제안입니다",
   // mock-only 액션 (settings/alerts; production에서 isProductionLike() 분기로 노출)
   real_persistence_not_configured: "이 기능은 production 실 저장이 아직 연결되지 않았습니다",
   unknown_error: "알 수 없는 오류가 발생했습니다",
