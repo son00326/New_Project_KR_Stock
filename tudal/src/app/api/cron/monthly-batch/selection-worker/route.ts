@@ -47,6 +47,8 @@ import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
 import { callPersona } from "@/lib/ai/anthropic-client";
 import { getMacroContextString } from "@/lib/macro/source";
 import { getNegativeNewsContextString } from "@/lib/news/m12a/selection-context";
+import { getReflectionLearningContextString } from "@/lib/reflection/reflection-source";
+import { getLatestReflectionLog } from "@/lib/data/admin-reflection";
 import { fetchFinancialsSummary } from "@/lib/data/dart-financials";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
 import { upsertShortListTrack } from "@/lib/data/admin-shortlist-persist";
@@ -259,6 +261,19 @@ export async function GET(request: NextRequest) {
   const outcomes: TrackOutcome[] = [];
   for (const t of dueTracks) {
     try {
+      // PR-K Reflection (D32): track별 직전 회고 컨텍스트 1회 계산(macro/negative는 global이나 reflection은
+      //   track-scoped — short 사이클은 직전 short 회고, midlong은 직전 midlong 회고). flag REFLECTION_ENABLED
+      //   off면 DB read 없이 "" → R1/R2 패널 프롬프트 byte-identical·선정 무회귀. flag on이면 최신 reflection_log
+      //   스냅샷 주입. read 실패는 fail-soft("") — 회고는 supplementary라 선정을 막지 않는다. Q5 incumbent와 별개 필드.
+      let reflectionLearningContextString = "";
+      try {
+        reflectionLearningContextString = await getReflectionLearningContextString({
+          track: t.track,
+          fetchLatest: (track) => getLatestReflectionLog({ track, client: supabase! }),
+        });
+      } catch {
+        reflectionLearningContextString = "";
+      }
       const guarded = await runGuardedSelectionChunk({
         month: t.month,
         track: t.track,
@@ -287,6 +302,8 @@ export async function GET(request: NextRequest) {
           macroContextString,
           // M12a (R3.10-7c) — 재진입 negative-news 컨텍스트(off/부재→""→무회귀). macro와 별개 범주.
           negativeNewsContext: negativeNewsContextString,
+          // PR-K Reflection (D32) — track별 직전 회고 컨텍스트(off/부재→""→무회귀). Q5와 별개 필드.
+          reflectionLearningContext: reflectionLearningContextString,
           // W1a (D28 ①) — per-slot 모델 mix (Sonnet×6 + GPT mid×5, GPT-off 시 전원 Sonnet).
           slotResolver: resolveTier1PanelSlot,
         }),
@@ -302,6 +319,8 @@ export async function GET(request: NextRequest) {
           macroContextString,
           // M12a (R3.10-7c) — R2 반박 패널도 동일 재진입 negative-news 컨텍스트(off/부재→""→무회귀).
           negativeNewsContext: negativeNewsContextString,
+          // PR-K Reflection (D32) — R2 반박 패널도 동일 track별 회고 컨텍스트(off/부재→""→무회귀).
+          reflectionLearningContext: reflectionLearningContextString,
           slotResolver: resolveTier1PanelSlot,
         }),
         // W1b (D28 ③) — per-ticker 최종 judge(Opus) + 경계 dual-judge(GPT↔Opus auto-detect).

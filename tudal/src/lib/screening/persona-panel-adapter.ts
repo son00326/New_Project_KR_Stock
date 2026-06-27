@@ -183,6 +183,12 @@ export interface CallPersonaPanelDeps {
    *   R1 패널 + R2 반박 패널 동일 컨텍스트.
    */
   negativeNewsContext?: string;
+  /**
+   * PR-K Reflection (D32): 직전 사이클 회고 컨텍스트(컨텍스트 입력 only, run/track-level). selection 진입 시
+   *   track별 1회 계산해 주입(flag off / reflection_log 부재면 "" → callPersona 프롬프트 byte-identical·선정 무회귀).
+   *   D27 Q5 reflectionContext(per-ticker thesis)와 별개 필드·별개 블록. R1 패널 + R2 반박 패널 동일 컨텍스트.
+   */
+  reflectionLearningContext?: string;
 }
 
 /**
@@ -218,6 +224,8 @@ export function makeCallPersonaPanel(
             macroContextString: deps.macroContextString,
             // M12a (R3.10-7c): 부정 뉴스 재진입 컨텍스트(off/부재면 ""→byte-identical). macro와 별개 범주.
             negativeNewsContext: deps.negativeNewsContext,
+            // PR-K Reflection (D32): 직전 사이클 회고 컨텍스트(off/부재면 ""→byte-identical). Q5와 별개 필드.
+            reflectionLearningContext: deps.reflectionLearningContext,
             // W1a (D28 ①): per-slot 모델 binding. 미지정 시 기존 역할 resolve.
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
@@ -274,6 +282,8 @@ export function makeCallDebatePanel(
             macroContextString: deps.macroContextString,
             // M12a (R3.10-7c): R2 반박 패널도 동일 부정 뉴스 재진입 컨텍스트(off/부재면 ""→byte-identical).
             negativeNewsContext: deps.negativeNewsContext,
+            // PR-K Reflection (D32): R2 반박 패널도 동일 회고 컨텍스트(off/부재면 ""→byte-identical).
+            reflectionLearningContext: deps.reflectionLearningContext,
             modelBinding: deps.slotResolver?.(slotIndex),
           }),
         );

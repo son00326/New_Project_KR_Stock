@@ -18,6 +18,12 @@ const serviceRoleState = vi.hoisted(() => ({
 const macroMock = vi.hoisted(() => ({
   getMacroContextString: vi.fn(() => ""),
 }));
+// PR-K Reflection (D32) — getLatestReflectionLog mock: 회고 스냅샷을 track별로 반환(live 배선 회귀 박제).
+const reflectionMock = vi.hoisted(() => ({
+  getLatestReflectionLog: vi.fn(async (opts: { track: string }) => ({
+    injectedContextSnapshot: `refl-${opts.track}`,
+  })),
+}));
 // 고아 period sweep — service-role client.from('tier1_selection_run') SELECT 결과 + filter 인자 캡처 seam.
 const orphanQueryState = vi.hoisted(() => ({
   rows: [] as Array<{ period_key: string; track: string; created_at: string }>,
@@ -76,6 +82,9 @@ vi.mock("@/lib/screening/tier1-selection-batch-worker", () => ({
 }));
 vi.mock("@/lib/macro/source", () => ({
   getMacroContextString: macroMock.getMacroContextString,
+}));
+vi.mock("@/lib/data/admin-reflection", () => ({
+  getLatestReflectionLog: reflectionMock.getLatestReflectionLog,
 }));
 // route가 DI 배선용으로 import하는 실 모듈들 — 호출 안 되므로 light stub.
 vi.mock("@/lib/data/admin-tier0-candidates", () => ({
@@ -178,6 +187,11 @@ beforeEach(() => {
   serviceRoleState.throwOnCreate = null;
   macroMock.getMacroContextString.mockReset();
   macroMock.getMacroContextString.mockReturnValue("");
+  delete process.env.REFLECTION_ENABLED;
+  reflectionMock.getLatestReflectionLog.mockReset();
+  reflectionMock.getLatestReflectionLog.mockImplementation(async (opts: { track: string }) => ({
+    injectedContextSnapshot: `refl-${opts.track}`,
+  }));
   guardedMock.mockResolvedValue({ result: chunkResult() });
 });
 
@@ -429,6 +443,61 @@ describe("selection-worker run-mutex + result", () => {
     for (const [deps] of debateCalls) {
       expect(deps.macroContextString).toBe(macroContextString);
     }
+  });
+
+  it("PR-K — REFLECTION_ENABLED on → 직전 회고 스냅샷을 track별로 R1/R2 패널에 주입 (live 배선 회귀 박제·track-scoping)", async () => {
+    process.env.REFLECTION_ENABLED = "true";
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    const { makeCallPersonaPanel, makeCallDebatePanel } = await import(
+      "@/lib/screening/persona-panel-adapter"
+    );
+    // 두 트랙 모두 직전 회고를 조회(per-track fetch).
+    expect(reflectionMock.getLatestReflectionLog).toHaveBeenCalled();
+    const panelCalls = (makeCallPersonaPanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ reflectionLearningContext?: string }]
+    >;
+    const debateCalls = (makeCallDebatePanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ reflectionLearningContext?: string }]
+    >;
+    expect(panelCalls).toHaveLength(2);
+    expect(debateCalls).toHaveLength(2);
+    // dueTracks 순서 = [short, midlong]. track-scoping: short는 short 회고, midlong은 midlong 회고.
+    //   route가 track을 하드코딩하면(예 항상 short) 둘 다 refl-short → 이 단언이 실패(회귀 박제).
+    expect(panelCalls[0][0].reflectionLearningContext).toBe("refl-short");
+    expect(panelCalls[1][0].reflectionLearningContext).toBe("refl-midlong");
+    expect(debateCalls[0][0].reflectionLearningContext).toBe("refl-short");
+    expect(debateCalls[1][0].reflectionLearningContext).toBe("refl-midlong");
+  });
+
+  it("PR-K — REFLECTION_ENABLED off → getLatestReflectionLog 미호출(DB read 0) + reflectionLearningContext '' (byte-identical)", async () => {
+    // REFLECTION_ENABLED 미설정(default off)
+    await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    expect(reflectionMock.getLatestReflectionLog).not.toHaveBeenCalled();
+    const { makeCallPersonaPanel, makeCallDebatePanel } = await import(
+      "@/lib/screening/persona-panel-adapter"
+    );
+    const panelCalls = (makeCallPersonaPanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ reflectionLearningContext?: string }]
+    >;
+    const debateCalls = (makeCallDebatePanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ reflectionLearningContext?: string }]
+    >;
+    for (const [deps] of panelCalls) expect(deps.reflectionLearningContext).toBe("");
+    for (const [deps] of debateCalls) expect(deps.reflectionLearningContext).toBe("");
+  });
+
+  it("PR-K — 회고 조회 throw → fail-soft '' (회고는 supplementary, 선정 무중단)", async () => {
+    process.env.REFLECTION_ENABLED = "true";
+    reflectionMock.getLatestReflectionLog.mockRejectedValue(new Error("reflection_log_latest_failed:42P01"));
+    const res = await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
+    // 선정은 정상 완료(회고 read 실패가 트랙을 막지 않음).
+    expect([200, 202]).toContain(res.status);
+    const { makeCallPersonaPanel } = await import("@/lib/screening/persona-panel-adapter");
+    const panelCalls = (makeCallPersonaPanel as ReturnType<typeof vi.fn>).mock.calls as Array<
+      [{ reflectionLearningContext?: string }]
+    >;
+    expect(panelCalls.length).toBeGreaterThan(0);
+    for (const [deps] of panelCalls) expect(deps.reflectionLearningContext).toBe("");
   });
 
   it("W1b — judgeEnqueued>0 + remaining>0 → self-continue 202 (forward-progress)", async () => {

@@ -13,6 +13,10 @@ export const renderInputSchema = z.object({
   // M12a (R3.10-7c) — 부정 뉴스 재진입 컨텍스트(supplementary). 비어 있으면 append 안 함 → byte-identical(dormant).
   //   macro와 별개 범주(per-ticker thesis-break 재판단). macro 뒤에 조건부 append.
   negativeNewsContext: z.string().optional(),
+  // PR-K Reflection (D32) — 직전 사이클 회고 컨텍스트(supplementary). 비어 있으면 append 안 함 → byte-identical(dormant).
+  //   D27 Q5 reflectionContext(per-ticker, {{REFLECTION_CONTEXT}} placeholder)와 별개 필드·별개 블록.
+  //   macro/negative-news 뒤(3번째)에 조건부 append. 회고지 예측 아님.
+  reflectionLearningContext: z.string().optional(),
 });
 
 export type RenderInput = z.infer<typeof renderInputSchema>;
@@ -25,9 +29,13 @@ export function renderUserPrompt(template: string, input: RenderInput): string {
     .replaceAll('{{REFLECTION_CONTEXT}}', validated.reflectionContext)
     .replaceAll('{{PEER_ARGUMENTS}}', validated.peerArguments ?? '')
     .replaceAll('{{OWN_PRIOR}}', validated.ownPrior ?? '');
-  // supplementary 컨텍스트(macro → negative-news 순)를 끝에 조건부 append.
-  //   둘 다 빈 값이면 base 그대로 → byte-identical(dormant). 별개 범주이므로 각자 블록 분리.
-  const suffixes = [validated.macroContext, validated.negativeNewsContext]
+  // supplementary 컨텍스트(macro → negative-news → reflection 순)를 끝에 조건부 append.
+  //   전부 빈 값이면 base 그대로 → byte-identical(dormant). 별개 범주이므로 각자 블록 분리.
+  const suffixes = [
+    validated.macroContext,
+    validated.negativeNewsContext,
+    validated.reflectionLearningContext,
+  ]
     .map((s) => s?.trim())
     .filter((s): s is string => Boolean(s));
   return suffixes.length > 0 ? `${base}\n\n${suffixes.join('\n\n')}` : base;

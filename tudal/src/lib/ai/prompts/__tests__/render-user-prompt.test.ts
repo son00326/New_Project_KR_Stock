@@ -74,3 +74,53 @@ describe("renderUserPrompt — M12a negativeNewsContext (dormant append)", () =>
     expect(out.endsWith(neg)).toBe(true);
   });
 });
+
+describe("renderUserPrompt — PR-K reflectionLearningContext (dormant append)", () => {
+  it("no/empty/whitespace reflectionLearningContext → byte-identical (dormant)", () => {
+    const out = renderUserPrompt(TEMPLATE, BASE);
+    expect(
+      renderUserPrompt(TEMPLATE, { ...BASE, reflectionLearningContext: "" }),
+    ).toBe(out);
+    expect(
+      renderUserPrompt(TEMPLATE, { ...BASE, reflectionLearningContext: "  " }),
+    ).toBe(out);
+    expect(out.endsWith("출력: JSON")).toBe(true);
+  });
+
+  it("non-empty reflectionLearningContext → appended at end (3번째 supplementary)", () => {
+    const refl = "[직전 사이클 회고 · 예측 아님]\n직전 사이클 실현 성과: 평균 +3.2%";
+    const out = renderUserPrompt(TEMPLATE, { ...BASE, reflectionLearningContext: refl });
+    expect(out).toContain(refl);
+    expect(out.endsWith(refl)).toBe(true);
+  });
+
+  it("3-block 순서 고정: macro → negative → reflection", () => {
+    const macro = "[거시 컨텍스트]\n강세";
+    const neg = "[부정 뉴스 컨텍스트]\n005930";
+    const refl = "[직전 사이클 회고]\n평균 +3.2%";
+    const out = renderUserPrompt(TEMPLATE, {
+      ...BASE,
+      macroContext: macro,
+      negativeNewsContext: neg,
+      reflectionLearningContext: refl,
+    });
+    expect(out.indexOf(macro)).toBeLessThan(out.indexOf(neg));
+    expect(out.indexOf(neg)).toBeLessThan(out.indexOf(refl));
+    expect(out.endsWith(refl)).toBe(true);
+  });
+
+  it("Q5 seam 분리 회귀: reflectionContext(per-ticker)와 reflectionLearningContext(run-level) 동시 → 별개 블록·상호 무간섭", () => {
+    const q5 = "기존 선정 종목 재점검: 직전 논거 유효성";
+    const refl = "[직전 사이클 회고]\n평균 +3.2%";
+    const out = renderUserPrompt(TEMPLATE, {
+      ...BASE,
+      reflectionContext: q5, // {{REFLECTION_CONTEXT}} placeholder(D27 Q5)
+      reflectionLearningContext: refl, // 3번째 supplementary block(PR-K)
+    });
+    // Q5는 본문 placeholder에, PR-K는 끝 블록에 — 둘 다 존재, 별개 위치.
+    expect(out).toContain(`회고: ${q5}`); // placeholder 자리
+    expect(out).toContain(refl);
+    expect(out.endsWith(refl)).toBe(true);
+    expect(out.indexOf(q5)).toBeLessThan(out.indexOf(refl)); // 본문(Q5) 먼저, 끝블록(PR-K) 나중
+  });
+});
