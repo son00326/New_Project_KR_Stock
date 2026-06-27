@@ -157,6 +157,33 @@ export async function getUnreadAlertCount(
 }
 
 /**
+ * outcome 미적재 exit_signal alert을 DB-level로 필터·정렬 조회 (S7c T+7 outcome cron).
+ *
+ * - WHERE alert_type='exit_signal' AND outcome_at IS NULL, ORDER BY signal_sent_at ASC.
+ * - newest-N 전체 알림 fetch(starvation) 대신 due 대상만 oldest-first로 → 오래된 due 우선 처리.
+ * - SELECT 실패 → throw (cron caller가 5xx 처리).
+ */
+export async function getDueExitOutcomeAlerts(
+  options: { limit?: number; client?: SupabaseClient } = {},
+): Promise<AlertEvent[]> {
+  const supabase = options.client ?? (await createClient());
+  let query = supabase
+    .from("alert_event")
+    .select(ALERT_SELECT_COLUMNS)
+    .eq("alert_type", "exit_signal")
+    .is("outcome_at", null)
+    .order("signal_sent_at", { ascending: true });
+  if (typeof options.limit === "number" && options.limit > 0) {
+    query = query.limit(options.limit);
+  }
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`alert_event_select_failed:${error.code ?? "unknown"}`);
+  }
+  return (data ?? []).map((r) => transformAlertEventRow(r as AlertEventDbRow));
+}
+
+/**
  * 단일 alert_event row 조회. 부재 시 null (UI notFound 처리).
  *
  * - PGRST116 (no rows) → null

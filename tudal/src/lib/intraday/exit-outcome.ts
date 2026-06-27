@@ -68,6 +68,27 @@ export function nowKstBasDd(now: Date): string {
   return isoToKstBasDd(now.getTime());
 }
 
+export const KRX_CLOSE_READY_HOUR_KST = 18;
+
+/**
+ * T+7 기준일 종가가 확정됐는지. anchor가 오늘(KST)이고 장마감 cutoff 전이면 종가 미확정 → false
+ * (false면 호출부가 skip → 다음 cron 재시도; T+6 종가를 T+7로 잘못 박는 것 방지).
+ * anchor가 과거(어제 이전)면 항상 true.
+ */
+export function isT7AnchorReady(
+  t7BasDd: string | null,
+  now: Date,
+  cutoffHourKst: number = KRX_CLOSE_READY_HOUR_KST,
+): boolean {
+  if (!t7BasDd) return false;
+  const today = nowKstBasDd(now);
+  if (t7BasDd < today) return true; // 과거 거래일 → 종가 확정
+  if (t7BasDd > today) return false; // 미래(이론상 t7TargetBasDd cap으로 불가)
+  // anchor == 오늘: KST 시각이 cutoff 이후라야 확정.
+  const kstHour = new Date(now.getTime() + 9 * 3600 * 1000).getUTCHours();
+  return kstHour >= cutoffHourKst;
+}
+
 /** YYYYMMDD를 deltaDays만큼 이동(음수=과거). 잘못된 형식 → null. */
 export function shiftBasDd(basDd: string, deltaDays: number): string | null {
   if (!/^\d{8}$/.test(basDd)) return null;

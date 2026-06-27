@@ -37,13 +37,15 @@ S5/S6 mock skeleton이 alerts/monitoring 토대를 이미 박았다. 본 lane = 
 - `EXIT_OUTCOME_ENABLED` (default off) — T+7 outcome cron write 게이트. off → 200 skip·writes 0.
 - 패턴 = m12a/macro flags.ts(`=== "true"`). KIS 키 auto-detect는 `isKisWebSocketConfigured()` 별도(키 부재 → mock-mode).
 
-### 1.2 M13/M14 장중 모니터 (순수 orchestrator `lib/intraday/monitor.ts`)
+> **2026-06-28 적대 리뷰 후속(Claude 6-lens Workflow + verify, 20 confirmed)**: 아래 §1.7 grant claim 정정(0015a revoke → 0045 re-grant) + §1.2/§1.3 producer 배선(flag 소비) + §1.5 exit-outcome 보강(DB-due-filter/cache/close-ready). 리뷰 SoT = `docs/superpowers/reviews/2026-06-28-s7c-s7d-adversarial-review.md`.
+
+### 1.2 M13/M14 장중 모니터 (순수 orchestrator `lib/intraday/monitor.ts` + producer `run-monitor.ts`)
 - `buildIntradayMonitorOutput(input)` 순수 함수:
   - input: `{ ticks: IntradayTick[], contexts: Map<ticker, IntradayContext>, prefs: Map<ticker,boolean>, customThresholds?: Map<ticker,{priceChange?,volumeMultiplier?}>, now }`
   - 각 ticker: M14 토글 OFF(`isTickerEnabledForIntraday`)면 skip → `detectIntradayAnomaly` → 감지 시 `toIntradayAnomalyRecord` + `buildIntradayAnomalyAlert` + telegram 텍스트.
   - 반환: `{ anomalies: Omit<IntradayAnomalyEvent,"id">[], alerts: Omit<AlertEvent,"id"|"isRead">[], telegramTexts: string[], evaluated, detected }`.
   - **컨텍스트/틱 부재 ticker는 skip(throw 아님)** — fail-soft.
-- I/O는 호출부 책임(순수 로직 패턴, heartbeat.ts 동일). 연속 KIS WS 워커는 **USER 키 게이트 seam**(Vercel Hobby는 sub-daily cron 불가 → 연속 구독은 키 발급 후 worker). flag off / KIS 미설정 → no-op.
+- **producer = `runIntradayMonitorPass(input, deps)`(`lib/intraday/run-monitor.ts`)** — `isIntradayMonitorEnabled` 게이트 소비(off→skip·writes 0) → buildIntradayMonitorOutput → `insertIntradayAnomalies`(0007 dedup_key UNIQUE ignoreDuplicates) + `insertAlertEvents` + 텔레그램 best-effort. tick/context 공급(KIS WS)은 **USER 키 게이트 seam**(Vercel Hobby는 sub-daily cron 불가 → 연속 구독은 키 발급 후 worker가 runIntradayMonitorPass 호출). flag off / KIS 미설정 → no-op.
 - M14 종목 토글·커스텀 임계치는 `ticker_alert_pref` + (Phase 2) 커스텀 임계치 입력. MVP는 기본 임계치(±5%/3×) + 토글.
 
 ### 1.3 M15 Exit 시그널 (순수 `lib/notify/exit-signal.ts`)
@@ -54,9 +56,9 @@ S5/S6 mock skeleton이 alerts/monitoring 토대를 이미 박았다. 본 lane = 
     2. `momentum_break` — entry 대비 수익률 ≤ `-stopLossPct`(기본 -15%) **또는** peak 대비 drawdown ≥ `trailingDrawdownPct`(기본 12%, peakPrice 있을 때). severity=critical (thesis break/악재).
     3. `time_expired` — `holdingDays >= maxHoldingDays[bucket]`(short 30·mid 90·long 365). severity=warning.
   - 반환: `{ ticker, trigger, severity, reason(한국어), returnPct, holdingDays }`.
-- `buildExitAlternatives(signal)` → 3종 결정론 시나리오(`sell_all`/`partial_sell`/`hold`) + trigger 맞춤 한국어 rationale. `/admin/alerts/[id]` 정적 stub 대체(개선).
+- `buildExitAlternatives(signal)` → 3종 결정론 시나리오(`sell_all`/`partial_sell`/`hold`) + trigger 맞춤 한국어 rationale. **notification-time 헬퍼**(시그널 생성 시점 컨텍스트용). `/admin/alerts/[id]` 정적 대안은 유지 — 상세 페이지는 AlertEvent만 보유(서명 시점 ExitSignal 컨텍스트 미영속)라 trigger-aware 대안 derive 불가. (리뷰 verify에서 page-orphan은 NONE 판정.)
 - `buildExitSignalAlert(signal)` → `Omit<AlertEvent,"id"|"isRead">`(alert_type=exit_signal, signalSentAt=now).
-- 입력 source = `portfolio_snapshot`(보유: entryPrice/currentPrice/ticker/month) + (선택) report section_7 target. shadow-first: `EXIT_SIGNAL_ENABLED` off → 평가 미실행.
+- **producer = `/api/cron/exit-signal`(dormant) + `runExitSignalEval(positions, deps)`(`lib/notify/run-exit-eval.ts`)**: cron이 `isExitSignalEnabled` 게이트 소비(off→skip) → `getCurrentHoldings`(portfolio_snapshot 최신 보유) + bucket(`getActiveShortList`) + holdingDays(month-start) → ExitPosition → evaluateExitSignal → **durable insert 항상 선행** + dispatchExitSignal(telegram best-effort). vercel.json 미스케줄(USER go-live). 입력 = entryPrice/currentPrice(snapshot); target/peak 미영속이라 momentum_break+time_expired 위주(target_reached는 target 연결 후).
 
 ### 1.4 Exit 디스패치 rework (`lib/notify/exit-dispatch.ts`)
 - **이메일 채널 전면 제거**(buildExitEmail*/sendEmail/D10 이메일 재시도 삭제). 신 계약:
@@ -65,11 +67,13 @@ S5/S6 mock skeleton이 alerts/monitoring 토대를 이미 박았다. 본 lane = 
 - `buildExitTelegramText` 유지(이메일 prompt 문구 갱신). exit-dispatch.test.ts 갱신(이메일 케이스 제거 + telegram best-effort + durable-always).
 
 ### 1.5 T+7 outcome (`lib/intraday/exit-outcome.ts` + cron)
-- 순수: `selectAlertsNeedingOutcome(alerts, now, holdDays=7)` — alertType=exit_signal ∧ outcomeAt=null ∧ signalSentAt ≤ now-7d. `computeT7PriceChangePct(signalClose, t7Close)` → `(t7-signal)/signal*100`.
+- 순수: `selectAlertsNeedingOutcome(alerts, now, holdDays=7)` — alertType=exit_signal ∧ outcomeAt=null ∧ signalSentAt ≤ now-7d. `computeT7PriceChangePct(signalClose, t7Close)` → `(t7-signal)/signal*100`(3-decimal). `isT7AnchorReady`(T+6/T+7 race guard).
 - cron `/api/cron/exit-outcome/route.ts`(daily, service-role, `EXIT_OUTCOME_ENABLED`+`KRX_OPENAPI_KEY` 게이트):
-  - due exit alerts → 각 ticker의 signal-date 종가 + T+7 거래일 종가(KRX EOD, `fetchEodCloseMap`/`resolveLatestCompletedTradingDay`) → t7_price_change → **RPC `record_alert_exit_outcome`** UPDATE.
-  - 가격 누락 = skip(fail-soft, 다음 cron 재시도). off → 200 skip·writes 0.
-- vercel.json: `exit-outcome` daily entry 추가(Hobby OK). flag off라 dormant.
+  - **DB-level due-filter `getDueExitOutcomeAlerts`**(alert_type=exit_signal ∧ outcome_at null ∧ signal_sent_at ASC) — newest-N 전체 fetch starvation 방지(리뷰 MED).
+  - **close-ready guard `isT7AnchorReady`**: T+7 anchor가 오늘(KST)이고 장마감 cutoff(18 KST) 전이면 skip(다음 cron) — T+6 종가 오적재 방지(리뷰 MED).
+  - **basDd별 전종목 종가 1회 fetch 캐시**(per-ticker 재조회 제거 — 리뷰 MED): `resolveEntryPricesKrw(allDueTickers, {basDd})` 캐시 후 lookup + walk-back(휴장 보정).
+  - t7_price_change → **RPC `record_alert_exit_outcome`** UPDATE. 가격 누락 = skip(fail-soft). off → 200 skip·writes 0.
+- vercel.json: 미스케줄(dormant 패턴, reflection-job 동일 — USER go-live 시 schedule 추가; Hobby cron-count 회피).
 
 ### 1.6 마이그 0044 `record_alert_exit_outcome` RPC
 - `record_alert_exit_outcome(p_alert_id uuid, p_t7 numeric, p_outcome_at timestamptz)` SECURITY DEFINER:
@@ -78,8 +82,11 @@ S5/S6 mock skeleton이 alerts/monitoring 토대를 이미 박았다. 본 lane = 
 - `.rollback.sql` + `scripts/pg_smoke_0044.sh`(docker-free PG: 함수 생성·grant matrix·idempotent·non-exit no-op).
 - **USER apply-only**(DORMANT) — flag off라 코드가 RPC 미호출 → 미적용 안전.
 
-### 1.7 recordExitDecision 배선
-- `recordExitDecision` action: `real_persistence_not_configured` 제거 → 0010 RPC `record_alert_exit_decision(p_alert_id, p_decision, p_memo)` 호출(authenticated grant, 내부 admin/소유 가드). 검증(decision enum·alertType=exit_signal·미결정)은 유지. 결과 `{success:true,data:{decisionRecorded}}`. action 테스트 갱신(RPC mock).
+### 1.7 recordExitDecision 배선 + 마이그 0045 (grant 정정 — 리뷰 HIGH)
+- `recordExitDecision` action: `real_persistence_not_configured` 제거 → 0010 RPC `record_alert_exit_decision(p_alert_id, p_decision, p_memo)` 호출(authenticated 세션 client, 내부 `is_admin()` self-gate). 검증(decision enum·alertType=exit_signal·미결정) 유지.
+- **⚠️ grant 정정(적대 리뷰 HIGH)**: 0010이 authenticated grant했으나 **0015a(46차)가 authenticated EXECUTE revoke**("미사용 → least privilege, 필요 시 활성화 시점에 re-grant"). S7c가 이 RPC를 실배선 → **마이그 0045 `grant ... to authenticated` 재부여**(0015a 예고대로). 0045 미적용 시 authenticated 세션 호출은 **42501 permission denied**(SECURITY DEFINER 본문 이전 차단) → action이 `exit_decision_grant_missing`(0045 apply 안내)으로 명시 매핑. 0045 = USER apply-only(DORMANT); `EXIT_SIGNAL_ENABLED` off면 exit_signal alert 0 → 기록 대상 없음(미적용 안전).
+- 0045 `.rollback`(authenticated revoke 복귀) + `scripts/pg_smoke_0045.sh`(0010 grant→0015a revoke→0045 re-grant 모델: authenticated present·anon absent·public absent, load-bearing pre-assert).
+- pg_smoke_0044도 load-bearing 보강(anon/authenticated 직접 grant 후 revoke 검증 — vacuous 제거, 리뷰 MED).
 
 ### 1.8 unread badge
 - `lib/data/admin-alerts.ts::getUnreadAlertCount(opts?)` — `select count head where is_read=false`. 0 rows → 0.
@@ -123,7 +130,8 @@ S5/S6 mock skeleton이 alerts/monitoring 토대를 이미 박았다. 본 lane = 
 - [ ] mutation-resistant 테스트(우선순위·경계·dedup·fail-soft) + vacuous 0.
 
 ## 5. USER 게이트 (활성화)
-- `INTRADAY_MONITOR_ENABLED=true` + KIS 키(B-10) + 연속 WS 워커(외부) → 장중 모니터.
-- `EXIT_SIGNAL_ENABLED=true` → Exit 평가/디스패치.
+- **마이그 0045 apply** (record_alert_exit_decision authenticated re-grant) → Exit 결정 기록 동작(미적용 시 `exit_decision_grant_missing`).
+- `INTRADAY_MONITOR_ENABLED=true` + KIS 키(B-10) + 연속 WS 워커(외부, runIntradayMonitorPass 호출) → 장중 모니터.
+- `EXIT_SIGNAL_ENABLED=true` + exit-signal cron schedule(vercel.json 또는 외부) + `TELEGRAM_BOT_TOKEN` → Exit 평가/디스패치.
 - `EXIT_OUTCOME_ENABLED=true` + `KRX_OPENAPI_KEY` + 마이그 0044 apply + exit-outcome cron schedule → T+7 적재.
 - `TELEGRAM_BOT_TOKEN`+chat_id(B-9) → 텔레그램 발송(미설정 = /admin durable+badge만).

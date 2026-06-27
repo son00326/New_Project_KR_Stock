@@ -83,6 +83,12 @@ export async function recordExitDecision(input: {
   });
   if (error) {
     const msg = error.message ?? "";
+    const code = (error as { code?: string }).code ?? "";
+    // 42501 = permission denied: 마이그 0045(authenticated EXECUTE 재부여) 미적용 상태.
+    // 0015a가 revoke했고 0045가 복원 → apply 전까지 fail-closed로 명시 진단.
+    if (code === "42501" || /permission denied/i.test(msg)) {
+      return { success: false, error: "exit_decision_grant_missing" };
+    }
     if (msg.includes("admin_required")) {
       return { success: false, error: "auth_unavailable" };
     }

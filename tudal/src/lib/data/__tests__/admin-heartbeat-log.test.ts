@@ -138,6 +138,18 @@ describe("getLatestHeartbeatLog", () => {
     expect(out?.sendFailed).toBe(true);
   });
 
+  it("valid 'ok' status passes through (mutation-pin: not always-red_alert)", async () => {
+    const { client } = makeClient({
+      data: { ...dbRow, status: "ok" },
+      error: null,
+    });
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    const out = await getLatestHeartbeatLog({ client });
+    expect(out?.status).toBe("ok");
+  });
+
   it("unknown status → red_alert (fail-closed display)", async () => {
     const { client } = makeClient({
       data: { ...dbRow, status: "weird" },

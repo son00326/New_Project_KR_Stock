@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -77,12 +79,13 @@ describe("GET /api/cron/silent-health (telegram-only, 이메일 제거)", () => 
     expect(body.alertEmitted).toMatch(/하트비트|채널 미설정/);
   });
 
-  it("never imports/sends email (Resend 전역 제거)", async () => {
-    // 라우트 소스가 resend/이메일을 참조하지 않음 — import 실패 없이 동작 + 본문에 email 채널 없음.
-    const { GET } = await import("../route");
-    const res = await GET(req());
-    const body = await res.json();
-    expect(body.sentChannels).not.toContain("email");
+  it("route source imports no email/Resend (72차 전역 제거 — non-vacuous)", () => {
+    // 본문 sentChannels 검사는 vacuous(email은 후보값이 아님) → 소스 정적 검사로 격상.
+    const src = fs.readFileSync(
+      path.resolve(__dirname, "..", "route.ts"),
+      "utf8",
+    );
+    expect(src).not.toMatch(/@\/lib\/email\/resend|sendEmail|RESEND/);
   });
 
   it("injects one service-role client into both Supabase read helpers", async () => {

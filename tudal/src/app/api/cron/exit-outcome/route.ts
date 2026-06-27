@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getRecentAlertEvents } from "@/lib/data/admin-alerts";
+import { getDueExitOutcomeAlerts } from "@/lib/data/admin-alerts";
 import { resolveEntryPricesKrw } from "@/lib/data/krx-eod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isExitOutcomeEnabled } from "@/lib/intraday/flags";
 import {
   candidateBasDdsBackFrom,
   computeT7PriceChangePct,
+  isT7AnchorReady,
   selectAlertsNeedingOutcome,
   signalDateToBasDd,
   t7TargetBasDd,
@@ -20,7 +21,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BACK_DAYS = 5; // 휴장/주말 walk-back 상한
-const ALERT_LIMIT = 500;
+const DUE_LIMIT = 500; // DB-level exit_signal∧outcome-null oldest-first (starvation 방지)
 
 function isProductionLikeForAuth(): boolean {
   return (
@@ -53,62 +54,62 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const serviceRoleClient = createServiceRoleClient();
-  const alerts = await getRecentAlertEvents({
+  // DB-level: exit_signal ∧ outcome_at null ∧ oldest-first (전체 알림 newest-N 대신 due만).
+  const candidates = await getDueExitOutcomeAlerts({
     client: serviceRoleClient,
-    limit: ALERT_LIMIT,
+    limit: DUE_LIMIT,
   });
-  const due = selectAlertsNeedingOutcome(alerts, now);
+  const due = selectAlertsNeedingOutcome(candidates, now);
   if (due.length === 0) {
     return NextResponse.json({ ok: true, processed: 0, due: 0 });
   }
 
-  // basDd별 KRX 종가 Map 캐시 (동일 날짜 중복 조회 방지). null = 휴장/조회 실패(빈 결과).
+  const allTickers = Array.from(new Set(due.map((a) => a.ticker!)));
+
+  // basDd별 전종목 종가 Map 캐시 (날짜당 1회 KOSPI+KOSDAQ fetch — per-ticker 재조회 방지).
   const closeCache = new Map<string, Map<string, number>>();
-  async function closeFor(ticker: string, basDd: string): Promise<number | null> {
-    let map = closeCache.get(basDd);
-    if (!map) {
-      try {
-        map = await resolveEntryPricesKrw([ticker], { authKey: authKey!, basDd });
-      } catch {
-        map = new Map();
-      }
-      closeCache.set(basDd, map);
-    } else if (!map.has(ticker)) {
-      // 다른 ticker로 캐시된 날짜 — 이 ticker 재조회(병합 캐시 정확도).
-      try {
-        const extra = await resolveEntryPricesKrw([ticker], { authKey: authKey!, basDd });
-        for (const [k, v] of extra) map.set(k, v);
-      } catch {
-        /* keep cached */
-      }
+  async function closeMapFor(basDd: string): Promise<Map<string, number>> {
+    const cached = closeCache.get(basDd);
+    if (cached) return cached;
+    let map: Map<string, number>;
+    try {
+      map = await resolveEntryPricesKrw(allTickers, { authKey: authKey!, basDd });
+    } catch {
+      map = new Map(); // 휴장/조회 실패 → 빈 결과 (walk-back이 다음 후보로 진행).
     }
-    return map.get(ticker) ?? null;
+    closeCache.set(basDd, map);
+    return map;
   }
 
-  // walk-back: basDd 후보를 과거로 훑어 첫 종가 채택(휴장 보정).
+  // walk-back: anchor부터 과거로 훑어 첫 종가 채택(휴장 보정).
   async function resolveClose(
     ticker: string,
     anchorBasDd: string | null,
   ): Promise<number | null> {
     for (const basDd of candidateBasDdsBackFrom(anchorBasDd, MAX_BACK_DAYS)) {
-      const close = await closeFor(ticker, basDd);
-      if (close !== null) return close;
+      const map = await closeMapFor(basDd);
+      const close = map.get(ticker);
+      if (close !== undefined) return close;
     }
     return null;
   }
 
   let processed = 0;
   let skipped = 0;
+  let notReady = 0;
   for (const alert of due) {
     const ticker = alert.ticker!;
+    const t7Anchor = t7TargetBasDd(alert.signalSentAt, now);
+    // 종가 미확정(T+7 당일 cutoff 전) → skip, 다음 cron 재시도 (T+6 종가 오적재 방지).
+    if (!isT7AnchorReady(t7Anchor, now)) {
+      notReady += 1;
+      continue;
+    }
     const signalClose = await resolveClose(
       ticker,
       signalDateToBasDd(alert.signalSentAt),
     );
-    const t7Close = await resolveClose(
-      ticker,
-      t7TargetBasDd(alert.signalSentAt, now),
-    );
+    const t7Close = await resolveClose(ticker, t7Anchor);
     const t7Pct =
       signalClose !== null && t7Close !== null
         ? computeT7PriceChangePct(signalClose, t7Close)
@@ -130,5 +131,11 @@ export async function GET(request: NextRequest) {
     processed += 1;
   }
 
-  return NextResponse.json({ ok: true, due: due.length, processed, skipped });
+  return NextResponse.json({
+    ok: true,
+    due: due.length,
+    processed,
+    skipped,
+    notReady,
+  });
 }

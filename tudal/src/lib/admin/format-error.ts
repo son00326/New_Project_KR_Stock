@@ -82,6 +82,10 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   not_exit_signal: "Exit 신호 알림이 아닙니다",
   // Mock cleanup Step 2.1 R1 (omxy MEDIUM fix): real alert_event lookup이 throw 시 한국어 매핑.
   alert_lookup_failed: "알림 조회 실패 — 다시 시도해주세요",
+  // S7c — Exit 결정 기록 RPC 실배선(record_alert_exit_decision).
+  exit_decision_write_failed: "Exit 결정 저장에 실패했습니다 — 다시 시도해주세요",
+  exit_decision_grant_missing:
+    "Exit 결정 기록 권한이 적용되지 않았습니다 (운영자: 마이그 0045 apply 확인)",
   // mock-only 액션 (settings/alerts; production에서 isProductionLike() 분기로 노출)
   real_persistence_not_configured: "이 기능은 production 실 저장이 아직 연결되지 않았습니다",
   unknown_error: "알 수 없는 오류가 발생했습니다",

@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAlertEventById,
+  getDueExitOutcomeAlerts,
   getRecentAlertEvents,
   getUnreadAlertCount,
   transformAlertEventRow,
@@ -335,7 +336,7 @@ describe("getUnreadAlertCount", () => {
     expect(injectedFrom).toHaveBeenCalledWith("alert_event");
   });
 
-  it("filters on is_read=false", async () => {
+  it("filters on is_read=false (mutation-pin: eq arg load-bearing)", async () => {
     const chain = makeCountChain();
     countResult = { count: 0, error: null };
     mocks.from.mockReturnValue(chain);
@@ -344,5 +345,76 @@ describe("getUnreadAlertCount", () => {
       count: "exact",
       head: true,
     });
+    expect(chain.eq).toHaveBeenCalledWith("is_read", false);
+  });
+});
+
+interface DueChain {
+  select: (...args: unknown[]) => DueChain;
+  eq: (...args: unknown[]) => DueChain;
+  is: (...args: unknown[]) => DueChain;
+  order: (...args: unknown[]) => DueChain;
+  limit: (...args: unknown[]) => DueChain;
+  then: <T>(
+    onFulfilled: (value: {
+      data: AlertEventDbRow[] | null;
+      error: { code?: string } | null;
+    }) => T,
+  ) => Promise<T>;
+}
+
+describe("getDueExitOutcomeAlerts", () => {
+  let dueResult: { data: AlertEventDbRow[] | null; error: { code?: string } | null };
+  let chain: DueChain;
+
+  function makeDueChain(): DueChain {
+    const c: DueChain = {
+      select: vi.fn(() => c),
+      eq: vi.fn(() => c),
+      is: vi.fn(() => c),
+      order: vi.fn(() => c),
+      limit: vi.fn(() => c),
+      then: (onFulfilled) => Promise.resolve(dueResult).then(onFulfilled),
+    };
+    return c;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dueResult = { data: [], error: null };
+    chain = makeDueChain();
+    mocks.from.mockReturnValue(chain);
+  });
+
+  it("filters exit_signal + outcome_at null, oldest-first (mutation-pin)", async () => {
+    dueResult = { data: [baseRow], error: null };
+    const out = await getDueExitOutcomeAlerts({ limit: 500 });
+    expect(out).toHaveLength(1);
+    expect(chain.eq).toHaveBeenCalledWith("alert_type", "exit_signal");
+    expect(chain.is).toHaveBeenCalledWith("outcome_at", null);
+    expect(chain.order).toHaveBeenCalledWith("signal_sent_at", {
+      ascending: true,
+    });
+    expect(chain.limit).toHaveBeenCalledWith(500);
+  });
+
+  it("empty result → []", async () => {
+    dueResult = { data: [], error: null };
+    expect(await getDueExitOutcomeAlerts()).toEqual([]);
+  });
+
+  it("throws wrapped error on supabase error", async () => {
+    dueResult = { data: null, error: { code: "PGRST301" } };
+    await expect(getDueExitOutcomeAlerts()).rejects.toThrow(
+      /alert_event_select_failed/,
+    );
+  });
+
+  it("uses injected client without session createClient", async () => {
+    const injectedFrom = vi.fn(() => chain);
+    const { createClient } = await import("@/lib/supabase/server");
+    await getDueExitOutcomeAlerts({ client: { from: injectedFrom } as never });
+    expect(createClient).not.toHaveBeenCalled();
+    expect(injectedFrom).toHaveBeenCalledWith("alert_event");
   });
 });

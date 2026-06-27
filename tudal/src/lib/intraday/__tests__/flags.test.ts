@@ -33,8 +33,12 @@ describe("S7c shadow-first flags (default off)", () => {
     expect(isExitSignalEnabled()).toBe(true);
   });
 
-  it("isExitOutcomeEnabled defaults off, true only for 'true'", () => {
+  it("isExitOutcomeEnabled defaults off, true only for 'true' (truthy non-'true' stays off)", () => {
     vi.stubEnv("EXIT_OUTCOME_ENABLED", "");
+    expect(isExitOutcomeEnabled()).toBe(false);
+    vi.stubEnv("EXIT_OUTCOME_ENABLED", "yes"); // truthy but not "true" → false (=== mutation pin)
+    expect(isExitOutcomeEnabled()).toBe(false);
+    vi.stubEnv("EXIT_OUTCOME_ENABLED", "1");
     expect(isExitOutcomeEnabled()).toBe(false);
     vi.stubEnv("EXIT_OUTCOME_ENABLED", "true");
     expect(isExitOutcomeEnabled()).toBe(true);

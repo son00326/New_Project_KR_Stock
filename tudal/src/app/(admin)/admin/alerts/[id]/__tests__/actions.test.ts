@@ -206,6 +206,37 @@ describe("recordExitDecision", () => {
     if (!result.success) expect(result.error).toBe("already_decided");
   });
 
+  it("maps 42501 permission-denied (0045 미적용) to exit_decision_grant_missing", async () => {
+    mocks.rpc.mockResolvedValue({
+      error: {
+        code: "42501",
+        message: "permission denied for function record_alert_exit_decision",
+      },
+    });
+    const { recordExitDecision } = await import("../actions");
+    const result = await recordExitDecision({
+      alertId: "alert-exit-1",
+      decision: "hold",
+      memo: "0045 미적용",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("exit_decision_grant_missing");
+  });
+
+  it("maps permission-denied by message even without code", async () => {
+    mocks.rpc.mockResolvedValue({
+      error: { message: "permission denied for function record_alert_exit_decision" },
+    });
+    const { recordExitDecision } = await import("../actions");
+    const result = await recordExitDecision({
+      alertId: "alert-exit-1",
+      decision: "hold",
+      memo: "msg only",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("exit_decision_grant_missing");
+  });
+
   it("maps admin_required RPC error to auth_unavailable", async () => {
     mocks.rpc.mockResolvedValue({ error: { message: "admin_required" } });
     const { recordExitDecision } = await import("../actions");

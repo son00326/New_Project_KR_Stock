@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   candidateBasDdsBackFrom,
   computeT7PriceChangePct,
+  isT7AnchorReady,
   nowKstBasDd,
   selectAlertsNeedingOutcome,
   shiftBasDd,
@@ -83,8 +84,9 @@ describe("computeT7PriceChangePct", () => {
     expect(computeT7PriceChangePct(100, 90)).toBe(-10);
   });
 
-  it("rounds to 3 decimals", () => {
-    expect(computeT7PriceChangePct(99000, 100000)).toBe(1.01);
+  it("rounds to 3 decimals (mutation-pin: toFixed(2) would give 3.33)", () => {
+    // (31000-30000)/30000*100 = 3.33333… → toFixed(3)=3.333 (toFixed(2)=3.33 mutant dies).
+    expect(computeT7PriceChangePct(30000, 31000)).toBe(3.333);
   });
 
   it("fail-soft on non-positive prices → null", () => {
@@ -130,5 +132,31 @@ describe("date helpers", () => {
     ]);
     expect(candidateBasDdsBackFrom(null, 3)).toEqual([]);
     expect(candidateBasDdsBackFrom("bad", 3)).toEqual([]);
+  });
+});
+
+describe("isT7AnchorReady (T+6/T+7 race guard)", () => {
+  it("past anchor (< today KST) → ready", () => {
+    // now KST 2026-06-20, anchor 2026-06-19 (yesterday) → ready regardless of hour
+    expect(isT7AnchorReady("20260619", new Date("2026-06-20T05:00:00Z"))).toBe(true);
+  });
+
+  it("anchor == today KST + before cutoff (18 KST) → NOT ready", () => {
+    // 2026-06-20T05:00Z = 14:00 KST < 18 → close 미확정
+    expect(isT7AnchorReady("20260620", new Date("2026-06-20T05:00:00Z"))).toBe(false);
+  });
+
+  it("anchor == today KST + after cutoff (18 KST) → ready", () => {
+    // 2026-06-20T10:00Z = 19:00 KST >= 18 → close 확정
+    expect(isT7AnchorReady("20260620", new Date("2026-06-20T10:00:00Z"))).toBe(true);
+  });
+
+  it("cutoff boundary: exactly 18:00 KST → ready", () => {
+    // 2026-06-20T09:00Z = 18:00 KST
+    expect(isT7AnchorReady("20260620", new Date("2026-06-20T09:00:00Z"))).toBe(true);
+  });
+
+  it("null anchor → not ready", () => {
+    expect(isT7AnchorReady(null, new Date("2026-06-20T10:00:00Z"))).toBe(false);
   });
 });

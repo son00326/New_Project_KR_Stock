@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { PortfolioSnapshot } from "@/types/admin";
 
@@ -65,6 +66,47 @@ function toInsertPayload(row: NewPortfolioSnapshot) {
     alpha: row.alpha,
     sharpe: row.sharpe,
   };
+}
+
+const SNAPSHOT_SELECT_COLUMNS =
+  "id, date, month, ticker, entry_price, current_price, weight, is_cash, daily_return, total_return, kospi_return, alpha, sharpe";
+
+/**
+ * 현재 보유 종목(가상 포트) — 최신 스냅샷 일자의 ticker 행(현금·집계행 제외). S7c Exit 평가 입력.
+ *
+ * - 최신 date를 먼저 조회(ticker non-null) → 그 일자의 보유 행 반환.
+ * - 부재/오류 시 [] (fail-soft — cron caller가 0건 처리).
+ */
+export async function getCurrentHoldings(
+  options: { client?: SupabaseClient } = {},
+): Promise<PortfolioSnapshot[]> {
+  const supabase = options.client ?? (await createClient());
+  // 최신 보유 스냅샷 일자.
+  const { data: latest, error: latestErr } = await supabase
+    .from("portfolio_snapshot")
+    .select("date")
+    .not("ticker", "is", null)
+    .eq("is_cash", false)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestErr) {
+    throw new Error(`portfolio_snapshot_select_failed:${latestErr.code ?? "unknown"}`);
+  }
+  const latestDate = (latest as { date?: string } | null)?.date;
+  if (!latestDate) return [];
+  const { data, error } = await supabase
+    .from("portfolio_snapshot")
+    .select(SNAPSHOT_SELECT_COLUMNS)
+    .eq("date", latestDate)
+    .eq("is_cash", false)
+    .not("ticker", "is", null);
+  if (error) {
+    throw new Error(`portfolio_snapshot_select_failed:${error.code ?? "unknown"}`);
+  }
+  return (data ?? []).map((r) =>
+    transformPortfolioSnapshotRow(r as PortfolioSnapshotDbRow),
+  );
 }
 
 export async function insertPortfolioSnapshots(

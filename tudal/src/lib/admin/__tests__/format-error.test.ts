@@ -73,6 +73,9 @@ const KNOWN_ACTION_CODES = [
   "already_decided",
   "not_exit_signal",
   "alert_lookup_failed",
+  // S7c — Exit 결정 기록 RPC
+  "exit_decision_write_failed",
+  "exit_decision_grant_missing",
   // mock-only fallback
   "real_persistence_not_configured",
   "unknown_error",
@@ -202,6 +205,9 @@ describe("formatErrorMessage", () => {
       }
       // proposal_schema_missing은 plain code(직접 매핑).
       expect(formatErrorMessage("proposal_schema_missing")).toContain("마이그 0034");
+      // S7c — exit_decision_grant_missing은 0045 apply 안내를 포함.
+      expect(formatErrorMessage("exit_decision_grant_missing")).toContain("마이그 0045");
+      expect(formatErrorMessage("exit_decision_write_failed")).toContain("Exit 결정");
     });
 
     it("71차 salvage — unknown_persona_id:/commit_persona_eval_failed: suffix throw 호환 + ai_billing_exhausted (raw 노출 금지)", () => {

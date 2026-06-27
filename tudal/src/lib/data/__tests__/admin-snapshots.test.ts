@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getCurrentHoldings,
   insertPortfolioSnapshots,
   transformPortfolioSnapshotRow,
   type NewPortfolioSnapshot,
@@ -122,5 +123,69 @@ describe("insertPortfolioSnapshots", () => {
     await expect(insertPortfolioSnapshots(rows)).rejects.toMatchObject({
       code: "23505",
     });
+  });
+});
+
+describe("getCurrentHoldings (S7c Exit 입력)", () => {
+  // 2-query: 최신 date(maybeSingle) → 그 date의 보유행(thenable).
+  function makeLatestChain(date: string | null, error: unknown = null) {
+    const c: Record<string, unknown> = {};
+    c.select = vi.fn(() => c);
+    c.not = vi.fn(() => c);
+    c.eq = vi.fn(() => c);
+    c.order = vi.fn(() => c);
+    c.limit = vi.fn(() => c);
+    c.maybeSingle = vi.fn(async () => ({
+      data: date ? { date } : null,
+      error,
+    }));
+    return c;
+  }
+
+  function makeHoldingsChain(rows: PortfolioSnapshotDbRow[], error: unknown = null) {
+    const c: Record<string, unknown> = {};
+    c.select = vi.fn(() => c);
+    c.eq = vi.fn(() => c);
+    c.not = vi.fn(() => c);
+    // thenable: select/eq/not 후 await로 결과 resolve.
+    c.then = (onFulfilled: (v: unknown) => unknown) =>
+      Promise.resolve({ data: rows, error }).then(onFulfilled);
+    return c;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns latest-date non-cash holdings", async () => {
+    const client = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(makeLatestChain("2026-06-20"))
+        .mockReturnValueOnce(makeHoldingsChain([baseRow])),
+    };
+    const out = await getCurrentHoldings({ client: client as never });
+    expect(out).toHaveLength(1);
+    expect(out[0].ticker).toBe("005930");
+    expect(out[0].entryPrice).toBe(75000);
+  });
+
+  it("returns [] when no holdings exist", async () => {
+    const client = {
+      from: vi.fn().mockReturnValueOnce(makeLatestChain(null)),
+    };
+    const out = await getCurrentHoldings({ client: client as never });
+    expect(out).toEqual([]);
+  });
+
+  it("throws on latest-date query error", async () => {
+    const client = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(makeLatestChain(null, { code: "PGRST301" })),
+    };
+    await expect(
+      getCurrentHoldings({ client: client as never }),
+    ).rejects.toThrow(/portfolio_snapshot_select_failed/);
   });
 });
