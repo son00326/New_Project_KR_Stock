@@ -7,6 +7,8 @@
 
 ---
 
+> **2026-06-28 적대 리뷰 후속(4-lens Workflow + verify, 7 confirmed)**: (1) [process/false-green] 신규 테스트 2종이 commit a7ccb99에 미포함(untracked) → 후속 commit에 포함. (2) [MED] 실현 수익률 walk-back 사문화(`candidateBasDdsBackFrom(...)[0]`=anchor 그대로) → entry/current 모두 거래일 walk-back 루프 + per-basDd 공유 캐시로 수정(휴장/주말/pre-close 보정). (3) [LOW] 0046 search_path += pg_temp(0039/프로젝트 표준 정합). (4) [LOW] current>0 가드·default limit·매핑 테스트 보강. refuted: clamp boundary/multi-bucket smoke·created_at anchor·redundant fetch(공유 캐시로 자연 해소)·nav grep.
+
 ## 0. 핵심 개념 + 제약 (grounding)
 
 - **비교 대상**: ① production **B++ 30** = `short_list_30`(최신 month, Tier-1 AI 선정) vs ② Track-2 **sector-soft-tilt 30** = `tier0_candidates_150_shadow` arm=`sector-soft-tilt`의 **top-30**(버킷별 rank≤10). 각 set의 **KRX 실현 수익률**(선정 시점가→현재가).

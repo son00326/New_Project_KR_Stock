@@ -22,6 +22,8 @@ import type { ShortListItem } from "@/types/admin";
 
 export const dynamic = "force-dynamic";
 
+const MAX_BACK_DAYS = 5; // 휴장/주말/장중-pre-close walk-back 상한
+
 function fmtPct(n: number | null): string {
   if (n === null) return "—";
   return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
@@ -36,22 +38,27 @@ function pctColor(n: number | null): string {
       : "text-muted-foreground";
 }
 
-async function maybeComputeReturns(
+// anchor부터 과거로 walk-back하며 첫 "거래일(가격 존재)" 종가 Map 반환 — 휴장/주말/pre-close 보정.
+// per-basDd 캐시 공유(union tickers 1회 fetch) → production/shadow 양 set 재조회 방지.
+async function resolveCloseMapWalkBack(
+  anchorBasDd: string | null,
   tickers: string[],
-  entryBasDd: string | null,
-  currentBasDd: string,
-): Promise<RealizedReturnSummary | null> {
-  const authKey = process.env.KRX_OPENAPI_KEY?.trim();
-  if (!authKey || tickers.length === 0 || !entryBasDd) return null;
-  try {
-    const [entry, current] = await Promise.all([
-      resolveEntryPricesKrw(tickers, { authKey, basDd: entryBasDd }),
-      resolveEntryPricesKrw(tickers, { authKey, basDd: currentBasDd }),
-    ]);
-    return computeRealizedReturns(tickers, entry, current);
-  } catch {
-    return null; // KRX 조회 실패 → "—" (read-only 페이지 깨짐 방지).
+  authKey: string,
+  cache: Map<string, Map<string, number>>,
+): Promise<Map<string, number>> {
+  for (const basDd of candidateBasDdsBackFrom(anchorBasDd, MAX_BACK_DAYS)) {
+    let map = cache.get(basDd);
+    if (!map) {
+      try {
+        map = await resolveEntryPricesKrw(tickers, { authKey, basDd });
+      } catch {
+        map = new Map();
+      }
+      cache.set(basDd, map);
+    }
+    if (map.size > 0) return map; // 가격 존재 = 거래일 → 채택.
   }
+  return new Map();
 }
 
 function ListCard({
@@ -133,18 +140,27 @@ export default async function SectorComparisonPage() {
   const prodSet = new Set(prodTickers);
   const shadowSet = new Set(shadowTickers);
 
-  // 실현 수익률 — KRX 키 있을 때만(USER 게이트). entry=선정월 기준일 / current=최신 거래일.
+  // 실현 수익률 — KRX 키 있을 때만(USER 게이트). entry=선정 기준일 / current=최신 거래일(walk-back).
+  // union tickers 1회 fetch(공유 캐시) → entry/current Map 해석 후 양 set 동일 기준 비교(apples-to-apples).
   const now = new Date();
-  const currentBasDd = nowKstBasDd(now);
-  const entryBasDd = production[0]?.createdAt
-    ? (candidateBasDdsBackFrom(signalDateToBasDd(production[0].createdAt), 5)[0] ?? null)
-    : null;
-  const [prodReturns, shadowReturns] = await Promise.all([
-    maybeComputeReturns(prodTickers, entryBasDd, currentBasDd),
-    shadowTickers.length > 0
-      ? maybeComputeReturns(shadowTickers, entryBasDd, currentBasDd)
-      : Promise.resolve(null),
-  ]);
+  const authKey = process.env.KRX_OPENAPI_KEY?.trim();
+  let prodReturns: RealizedReturnSummary | null = null;
+  let shadowReturns: RealizedReturnSummary | null = null;
+  const allTickers = Array.from(new Set([...prodTickers, ...shadowTickers]));
+  if (authKey && allTickers.length > 0 && production[0]?.createdAt) {
+    const cache = new Map<string, Map<string, number>>();
+    const entryAnchor = signalDateToBasDd(production[0].createdAt);
+    const currentAnchor = nowKstBasDd(now);
+    const [entryMap, currentMap] = await Promise.all([
+      resolveCloseMapWalkBack(entryAnchor, allTickers, authKey, cache),
+      resolveCloseMapWalkBack(currentAnchor, allTickers, authKey, cache),
+    ]);
+    prodReturns = computeRealizedReturns(prodTickers, entryMap, currentMap);
+    shadowReturns =
+      shadowTickers.length > 0
+        ? computeRealizedReturns(shadowTickers, entryMap, currentMap)
+        : null;
+  }
 
   return (
     <div className="space-y-6">
