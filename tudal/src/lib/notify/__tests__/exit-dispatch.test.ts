@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  buildExitEmailSubject,
-  buildExitEmailText,
   buildExitTelegramText,
   dispatchExitSignal,
-  type ExitDispatchInput,
 } from "@/lib/notify/exit-dispatch";
 import type { AlertEvent } from "@/types/admin";
 
@@ -25,98 +22,55 @@ function makeAlert(
   };
 }
 
-function buildInput(
-  sendTelegram: ExitDispatchInput["sendTelegram"],
-  sendEmail: ExitDispatchInput["sendEmail"],
-): ExitDispatchInput {
-  const alert = makeAlert();
-  return {
-    alert,
-    telegramText: buildExitTelegramText(alert),
-    emailSubject: buildExitEmailSubject(alert),
-    emailText: buildExitEmailText(alert),
-    recipients: ["admin1@example.com", "admin2@example.com"],
-    sendTelegram,
-    sendEmail,
-  };
-}
-
-describe("dispatchExitSignal", () => {
-  it("marks both channels success when both succeed", async () => {
-    const tel = vi.fn().mockResolvedValue({ success: true, mockMode: true });
-    const mail = vi.fn().mockResolvedValue({ success: true, mockMode: true });
-
-    const outcome = await dispatchExitSignal(buildInput(tel, mail));
-    expect(outcome.telegram.success).toBe(true);
-    expect(outcome.email.success).toBe(true);
-    expect(outcome.email.attempts).toBe(1);
-    expect(outcome.d10Triggered).toBe(false);
-    expect(outcome.allFailed).toBe(false);
-    expect(outcome.badgeRequired).toBe(false);
-    expect(tel).toHaveBeenCalledTimes(1);
-    expect(mail).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips D10 retry when only telegram fails (email catches up)", async () => {
-    const tel = vi
-      .fn()
-      .mockResolvedValue({ success: false, mockMode: false, error: "timeout" });
-    const mail = vi.fn().mockResolvedValue({ success: true, mockMode: false });
-
-    const outcome = await dispatchExitSignal(buildInput(tel, mail));
-    expect(outcome.telegram.success).toBe(false);
-    expect(outcome.email.success).toBe(true);
-    expect(outcome.d10Triggered).toBe(false);
-    expect(outcome.allFailed).toBe(false);
-    expect(outcome.email.attempts).toBe(1);
-    expect(mail).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips D10 retry when only email fails (telegram catches up)", async () => {
+describe("dispatchExitSignal (telegram best-effort + durable-always, 이메일 제거)", () => {
+  it("marks telegram delivered when send succeeds (real)", async () => {
     const tel = vi.fn().mockResolvedValue({ success: true, mockMode: false });
-    const mail = vi
-      .fn()
-      .mockResolvedValue({ success: false, mockMode: false, error: "quota" });
-
-    const outcome = await dispatchExitSignal(buildInput(tel, mail));
+    const outcome = await dispatchExitSignal({
+      telegramText: "x",
+      sendTelegram: tel,
+    });
     expect(outcome.telegram.success).toBe(true);
-    expect(outcome.email.success).toBe(false);
-    expect(outcome.d10Triggered).toBe(false);
-    expect(outcome.allFailed).toBe(false);
-    expect(mail).toHaveBeenCalledTimes(1);
+    expect(outcome.telegramDelivered).toBe(true);
+    expect(outcome.durableRequired).toBe(true);
+    expect(tel).toHaveBeenCalledTimes(1);
   });
 
-  it("triggers D10 retry when both fail initially (retry succeeds)", async () => {
-    const tel = vi
-      .fn()
-      .mockResolvedValue({ success: false, mockMode: false, error: "timeout" });
-    const mail = vi
-      .fn()
-      .mockResolvedValueOnce({ success: false, mockMode: false, error: "5xx" })
-      .mockResolvedValueOnce({ success: true, mockMode: false });
-
-    const outcome = await dispatchExitSignal(buildInput(tel, mail));
-    expect(outcome.d10Triggered).toBe(true);
-    expect(outcome.allFailed).toBe(false);
-    expect(outcome.email.success).toBe(true);
-    expect(outcome.email.attempts).toBe(2);
-    expect(mail).toHaveBeenCalledTimes(2);
+  it("mock-mode success is NOT counted as delivered (durable still required)", async () => {
+    const tel = vi.fn().mockResolvedValue({ success: true, mockMode: true });
+    const outcome = await dispatchExitSignal({
+      telegramText: "x",
+      sendTelegram: tel,
+    });
+    expect(outcome.telegram.success).toBe(true);
+    expect(outcome.telegram.mockMode).toBe(true);
+    expect(outcome.telegramDelivered).toBe(false);
+    expect(outcome.durableRequired).toBe(true);
   });
 
-  it("marks allFailed and badgeRequired when retry also fails", async () => {
+  it("telegram failure is best-effort — durable still required, no throw", async () => {
     const tel = vi
       .fn()
-      .mockResolvedValue({ success: false, mockMode: false, error: "timeout" });
-    const mail = vi
-      .fn()
-      .mockResolvedValue({ success: false, mockMode: false, error: "5xx" });
+      .mockResolvedValue({ success: false, mockMode: false, error: "HTTP 429" });
+    const outcome = await dispatchExitSignal({
+      telegramText: "x",
+      sendTelegram: tel,
+    });
+    expect(outcome.telegram.success).toBe(false);
+    expect(outcome.telegram.error).toBe("HTTP 429");
+    expect(outcome.telegramDelivered).toBe(false);
+    expect(outcome.durableRequired).toBe(true);
+  });
 
-    const outcome = await dispatchExitSignal(buildInput(tel, mail));
-    expect(outcome.d10Triggered).toBe(true);
-    expect(outcome.allFailed).toBe(true);
-    expect(outcome.badgeRequired).toBe(true);
-    expect(outcome.email.attempts).toBe(2);
-    expect(mail).toHaveBeenCalledTimes(2);
+  it("telegram exception is swallowed (best-effort) — durable still required", async () => {
+    const tel = vi.fn().mockRejectedValue(new Error("socket reset"));
+    const outcome = await dispatchExitSignal({
+      telegramText: "x",
+      sendTelegram: tel,
+    });
+    expect(outcome.telegram.success).toBe(false);
+    expect(outcome.telegram.error).toContain("socket reset");
+    expect(outcome.telegramDelivered).toBe(false);
+    expect(outcome.durableRequired).toBe(true);
   });
 });
 
@@ -135,16 +89,9 @@ describe("buildExitTelegramText", () => {
       "시장 전체",
     );
   });
-});
 
-describe("buildExitEmailSubject", () => {
-  it("prefixes Critical for critical severity", () => {
-    expect(buildExitEmailSubject(makeAlert())).toMatch(/^\[Critical\]/);
-  });
-
-  it("prefixes Warning for warning severity", () => {
-    expect(
-      buildExitEmailSubject(makeAlert({ severity: "warning" })),
-    ).toMatch(/^\[Warning\]/);
+  it("does not reference email/Resend (72차 전역 제거)", () => {
+    const text = buildExitTelegramText(makeAlert());
+    expect(text).not.toMatch(/이메일|email|resend/i);
   });
 });

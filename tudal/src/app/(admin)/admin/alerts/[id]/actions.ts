@@ -4,20 +4,16 @@ import { getAlertEventById } from "@/lib/data/admin-alerts";
 import { createClient } from "@/lib/supabase/server";
 import type { ExitDecision } from "@/types/admin";
 
-const REAL_PERSISTENCE_ERROR = "real_persistence_not_configured";
-
 // ---------------------------------------------------------------------------
-// /admin/alerts/[id] Exit 결정 기록 Server Action (S5b T5b.3)
+// /admin/alerts/[id] Exit 결정 기록 Server Action (S5b T5b.3 · S7c 실배선)
 // ref: ServicePlan-Admin §3.10 R3.10-14
 //
 // 어드민이 "매도 전량 / 분할매도 / 홀딩" 중 하나 선택 + 메모 입력 → 이력에 저장.
 //
-// Mock cleanup Step 2.1 (58차):
-//   - MOCK_ADMIN_ALERTS in-memory mutation 제거 (dev에서 "성공" 응답이 새 요청에서
-//     reset되며 거짓 성공을 보이던 mock 패턴).
-//   - alert_event 실 SELECT로 존재성·alertType·이미 결정됨 검증.
-//   - 실 persistence는 모든 환경에서 real_persistence_not_configured (boundary).
-//     S5b 후속 PR에서 update_alert_event_decision RPC + cost_log 정합으로 교체 예정.
+// S7c (2026-06-27): real_persistence boundary 해소 — 0010 SECURITY DEFINER RPC
+//   record_alert_exit_decision(p_alert_id, p_decision, p_memo)로 영속.
+//   RPC가 admin 게이트 + decision enum + (exit_signal ∧ 미결정) 조건을 권위적으로 검증·UPDATE.
+//   action 사전검증(존재/alertType/미결정)은 친절한 에러 UX용이며, 최종 권위는 RPC.
 // ---------------------------------------------------------------------------
 
 const ALLOWED_DECISIONS: readonly ExitDecision[] = [
@@ -25,18 +21,6 @@ const ALLOWED_DECISIONS: readonly ExitDecision[] = [
   "partial_sell",
   "hold",
 ];
-
-async function resolveAdminId(): Promise<string | null> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export async function recordExitDecision(input: {
   alertId: string;
@@ -60,10 +44,21 @@ export async function recordExitDecision(input: {
     return { success: false, error: "invalid_input" };
   }
 
-  if (!(await resolveAdminId())) {
+  let supabase;
+  let user;
+  try {
+    supabase = await createClient();
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch {
+    return { success: false, error: "auth_unavailable" };
+  }
+  if (!user) {
     return { success: false, error: "auth_unavailable" };
   }
 
+  // 친절 에러 UX용 사전검증 (최종 권위는 RPC).
   let alert;
   try {
     alert = await getAlertEventById(alertId);
@@ -80,7 +75,26 @@ export async function recordExitDecision(input: {
     return { success: false, error: "already_decided" };
   }
 
-  // S5b real persistence (update_alert_event_decision RPC) 미연결 — boundary.
-  // 어떤 환경에서도 가짜 성공 응답 금지 (Mock cleanup Step 1.3 lesson).
-  return { success: false, error: REAL_PERSISTENCE_ERROR };
+  // 0010 RPC — admin 게이트 + (exit_signal ∧ 미결정) UPDATE + is_read=true.
+  const { error } = await supabase.rpc("record_alert_exit_decision", {
+    p_alert_id: alertId,
+    p_decision: decision,
+    p_memo: input.memo,
+  });
+  if (error) {
+    const msg = error.message ?? "";
+    if (msg.includes("admin_required")) {
+      return { success: false, error: "auth_unavailable" };
+    }
+    if (msg.includes("invalid_decision")) {
+      return { success: false, error: "invalid_decision" };
+    }
+    // 사전검증 통과 후 not_found = check↔RPC 사이 동시 결정(race).
+    if (msg.includes("alert_not_found_or_already_decided")) {
+      return { success: false, error: "already_decided" };
+    }
+    return { success: false, error: "exit_decision_write_failed" };
+  }
+
+  return { success: true, data: { decisionRecorded: decision } };
 }

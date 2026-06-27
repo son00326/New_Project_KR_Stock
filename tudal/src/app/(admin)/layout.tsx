@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { LogoutButton } from "@/app/(admin)/logout-button";
 import { JoopickLogo } from "@/components/layout/logo";
+import { getUnreadAlertCount } from "@/lib/data/admin-alerts";
 import { createClient } from "@/lib/supabase/server";
 
 // ServicePlan-Admin.md §2 — 메인 sidebar nav.
@@ -31,6 +32,9 @@ export default async function AdminLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // S7c: 미확인 알림 배지 (read-only·fail-soft — 오류 시 0). flag 무관(기존 alert_event 읽기).
+  const unreadCount = await getUnreadAlertCount();
+  const unreadLabel = unreadCount > 99 ? "99+" : String(unreadCount);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -44,11 +48,23 @@ export default async function AdminLayout({
           <div className="flex items-center gap-3">
             <Link
               href="/admin/alerts"
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              aria-label="알림 이력 보기"
+              className="relative inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              aria-label={
+                unreadCount > 0
+                  ? `알림 이력 보기 — 미확인 ${unreadCount}건`
+                  : "알림 이력 보기"
+              }
             >
               <Bell className="h-4 w-4" aria-hidden />
               <span className="hidden md:inline">알림</span>
+              {unreadCount > 0 && (
+                <span
+                  className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--color-market-down,#dc2626)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white tabular-nums"
+                  aria-hidden
+                >
+                  {unreadLabel}
+                </span>
+              )}
             </Link>
             {user?.email && (
               <span className="hidden text-xs text-muted-foreground md:inline">
@@ -68,9 +84,17 @@ export default async function AdminLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.href === "/admin/alerts" && unreadCount > 0 && (
+                  <span
+                    className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--color-market-down,#dc2626)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white tabular-nums"
+                    aria-label={`미확인 ${unreadCount}건`}
+                  >
+                    {unreadLabel}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

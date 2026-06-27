@@ -92,3 +92,99 @@ describe("insertHeartbeatLog", () => {
     expect(upsertMock).not.toHaveBeenCalled();
   });
 });
+
+describe("getLatestHeartbeatLog", () => {
+  function makeClient(result: { data: unknown; error: unknown }) {
+    const maybeSingle = vi.fn().mockResolvedValue(result);
+    const chain = {
+      select: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi.fn(() => chain),
+      maybeSingle,
+    };
+    const from = vi.fn(() => chain);
+    return { client: { from } as unknown as SupabaseClient, from, chain };
+  }
+
+  const dbRow = {
+    id: "hb-1",
+    date: "2026-06-27",
+    status: "red_alert",
+    generated_at: "2026-06-27T15:00:00.000Z",
+    pipeline_summary: [{ pipeline: "ai", successRate: 0.9, severity: "warning" }],
+    critical_alert_count: "2",
+    warning_alert_count: 1,
+    sent_channels: ["dashboard"],
+    send_failed: true,
+    message: "적색 경보",
+  };
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("returns transformed latest row (string counts coerced, ordered by date desc)", async () => {
+    const { client, from, chain } = makeClient({ data: dbRow, error: null });
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    const out = await getLatestHeartbeatLog({ client });
+    expect(from).toHaveBeenCalledWith("heartbeat_log");
+    expect(chain.order).toHaveBeenCalledWith("date", { ascending: false });
+    expect(out).not.toBeNull();
+    expect(out?.status).toBe("red_alert");
+    expect(out?.criticalAlertCount).toBe(2);
+    expect(out?.warningAlertCount).toBe(1);
+    expect(out?.sendFailed).toBe(true);
+  });
+
+  it("unknown status → red_alert (fail-closed display)", async () => {
+    const { client } = makeClient({
+      data: { ...dbRow, status: "weird" },
+      error: null,
+    });
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    const out = await getLatestHeartbeatLog({ client });
+    expect(out?.status).toBe("red_alert");
+  });
+
+  it("non-array pipeline_summary → [] (defensive)", async () => {
+    const { client } = makeClient({
+      data: { ...dbRow, pipeline_summary: null },
+      error: null,
+    });
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    const out = await getLatestHeartbeatLog({ client });
+    expect(out?.pipelineSummary).toEqual([]);
+  });
+
+  it("returns null when no row", async () => {
+    const { client } = makeClient({ data: null, error: null });
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    expect(await getLatestHeartbeatLog({ client })).toBeNull();
+  });
+
+  it("fail-soft to null on supabase error", async () => {
+    const { client } = makeClient({ data: null, error: { code: "PGRST301" } });
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    expect(await getLatestHeartbeatLog({ client })).toBeNull();
+  });
+
+  it("fail-soft to null when session client creation throws", async () => {
+    vi.doMock("@/lib/supabase/server", () => ({
+      createClient: vi.fn().mockRejectedValue(new Error("no cookies")),
+    }));
+    const { getLatestHeartbeatLog } = await import(
+      "@/lib/data/admin-heartbeat-log"
+    );
+    expect(await getLatestHeartbeatLog()).toBeNull();
+  });
+});

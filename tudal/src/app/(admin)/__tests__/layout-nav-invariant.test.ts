@@ -17,7 +17,13 @@ describe("admin layout nav invariant", () => {
 
   it("header exposes alert history bell link", () => {
     expect(source).toContain('href="/admin/alerts"');
-    expect(source).toContain('aria-label="알림 이력 보기"');
+    // aria-label은 미확인 알림 배지(S7c)로 조건부가 됐으나 base 라벨은 항상 포함.
+    expect(source).toContain("알림 이력 보기");
     expect(source).toContain('<Bell className="h-4 w-4" aria-hidden />');
+  });
+
+  it("header + sidebar expose unread alert badge (S7c)", () => {
+    expect(source).toContain("getUnreadAlertCount");
+    expect(source).toContain("unreadCount");
   });
 });

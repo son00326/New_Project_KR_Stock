@@ -135,6 +135,28 @@ export async function getRecentAlertEvents(
 }
 
 /**
+ * 미확인(is_read=false) alert_event 개수 — admin 레이아웃 unread badge용 (S7c).
+ *
+ * - head count 쿼리(행 미전송, 가벼움). 0 rows → 0.
+ * - 오류/권한 미확인 시 0 반환(fail-soft) — 레이아웃이 throw로 깨지지 않게.
+ */
+export async function getUnreadAlertCount(
+  options: { client?: SupabaseClient } = {},
+): Promise<number> {
+  try {
+    const supabase = options.client ?? (await createClient());
+    const { count, error } = await supabase
+      .from("alert_event")
+      .select("id", { count: "exact", head: true })
+      .eq("is_read", false);
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * 단일 alert_event row 조회. 부재 시 null (UI notFound 처리).
  *
  * - PGRST116 (no rows) → null

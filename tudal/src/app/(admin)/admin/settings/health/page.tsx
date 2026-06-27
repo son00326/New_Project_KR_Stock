@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getRecentPipelineHealth } from "@/lib/data/admin-pipeline-health";
+import { getLatestHeartbeatLog } from "@/lib/data/admin-heartbeat-log";
 import {
   aggregatePipelineHealth,
   overallSeverity,
@@ -65,6 +66,8 @@ export default async function AdminHealthPage() {
   const summaries = aggregatePipelineHealth(records, { now: refNow });
   const overall = overallSeverity(summaries);
   const failures = recentFailures(records, 50);
+  // M19 Silent Health 최신 하트비트 — red_alert 0 / success_rate 측정 가능 (출시 criterion #4).
+  const heartbeat = await getLatestHeartbeatLog({ client: supabase });
 
   return (
     <div className="space-y-6">
@@ -102,6 +105,55 @@ export default async function AdminHealthPage() {
           <span className="ml-2 text-xs font-normal">
             — 95% 미달 파이프라인 존재. 즉시 확인 필요.
           </span>
+        )}
+      </section>
+
+      <section
+        aria-label="Silent Health 하트비트 (M19)"
+        className={`rounded-lg border p-4 ${
+          heartbeat
+            ? heartbeat.status === "red_alert"
+              ? SEVERITY_STYLE.critical
+              : SEVERITY_STYLE.info
+            : "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+        }`}
+      >
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">
+            Silent Health 하트비트 (M19)
+          </h2>
+          <span className="text-xs">
+            {heartbeat
+              ? heartbeat.status === "red_alert"
+                ? "적색 경보"
+                : "오늘 이상 없음"
+              : "기록 대기"}
+          </span>
+        </div>
+        {heartbeat ? (
+          <>
+            <p className="mt-2 text-sm">{heartbeat.message}</p>
+            <dl className="mt-2 grid grid-cols-2 gap-1 text-xs sm:grid-cols-4">
+              <dt>일자</dt>
+              <dd className="tabular-nums">{heartbeat.date}</dd>
+              <dt>Critical 알림</dt>
+              <dd className="tabular-nums">{heartbeat.criticalAlertCount}</dd>
+              <dt>Warning 알림</dt>
+              <dd className="tabular-nums">{heartbeat.warningAlertCount}</dd>
+              <dt>발송 채널</dt>
+              <dd>
+                {heartbeat.sentChannels.length > 0
+                  ? heartbeat.sentChannels.join(", ")
+                  : "—"}
+                {heartbeat.sendFailed && " (발송 실패)"}
+              </dd>
+            </dl>
+          </>
+        ) : (
+          <p className="mt-2 text-xs">
+            ※ 매일 24:00 KST silent-health cron이 전일 24h 헬스를 적재합니다. 적재 전에는
+            기록 대기 상태입니다.
+          </p>
         )}
       </section>
 

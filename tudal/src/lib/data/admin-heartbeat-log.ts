@@ -21,6 +21,70 @@ export interface HeartbeatLogInsertOptions {
   client?: SupabaseClient;
 }
 
+interface HeartbeatLogDbRow {
+  id: string;
+  date: string;
+  status: string;
+  generated_at: string;
+  pipeline_summary: HeartbeatLog["pipelineSummary"] | null;
+  critical_alert_count: number | string | null;
+  warning_alert_count: number | string | null;
+  sent_channels: string[] | null;
+  send_failed: boolean | null;
+  message: string | null;
+}
+
+function toIntOrZero(v: number | string | null): number {
+  if (v === null || v === undefined) return 0;
+  const n = typeof v === "string" ? Number(v) : v;
+  return Number.isFinite(n) ? n : 0;
+}
+
+function transformHeartbeatLogRow(row: HeartbeatLogDbRow): HeartbeatLog {
+  const status: HeartbeatStatus = STATUS_SET.has(row.status as HeartbeatStatus)
+    ? (row.status as HeartbeatStatus)
+    : "red_alert"; // 알 수 없는 status는 보수적으로 red_alert 취급 (fail-closed 표시).
+  return {
+    id: row.id,
+    date: row.date,
+    status,
+    generatedAt: row.generated_at,
+    pipelineSummary: Array.isArray(row.pipeline_summary)
+      ? row.pipeline_summary
+      : [],
+    criticalAlertCount: toIntOrZero(row.critical_alert_count),
+    warningAlertCount: toIntOrZero(row.warning_alert_count),
+    sentChannels: Array.isArray(row.sent_channels) ? row.sent_channels : [],
+    sendFailed: Boolean(row.send_failed),
+    message: row.message ?? "",
+  };
+}
+
+const HEARTBEAT_SELECT_COLUMNS =
+  "id, date, status, generated_at, pipeline_summary, critical_alert_count, warning_alert_count, sent_channels, send_failed, message";
+
+/**
+ * 최신 heartbeat_log 1건 (date desc). 부재/오류 시 null (fail-soft — 대시보드 표시용).
+ * M19 Silent Health 상태 카드(ok/red_alert) — admin 페이지 표시.
+ */
+export async function getLatestHeartbeatLog(
+  options: HeartbeatLogInsertOptions = {},
+): Promise<HeartbeatLog | null> {
+  try {
+    const supabase = options.client ?? (await createClient());
+    const { data, error } = await supabase
+      .from("heartbeat_log")
+      .select(HEARTBEAT_SELECT_COLUMNS)
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return transformHeartbeatLogRow(data as HeartbeatLogDbRow);
+  } catch {
+    return null;
+  }
+}
+
 export async function insertHeartbeatLog(
   record: Omit<HeartbeatLog, "id">,
   options: HeartbeatLogInsertOptions = {},

@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAlertEventById,
   getRecentAlertEvents,
+  getUnreadAlertCount,
   transformAlertEventRow,
   type AlertEventDbRow,
 } from "@/lib/data/admin-alerts";
@@ -268,5 +269,80 @@ describe("getAlertEventById", () => {
     await expect(getAlertEventById("any-id")).rejects.toThrow(
       /alert_event_lookup_failed/,
     );
+  });
+});
+
+interface CountChain {
+  select: (...args: unknown[]) => CountChain;
+  eq: (...args: unknown[]) => Promise<{
+    count: number | null;
+    error: { code?: string; message?: string } | null;
+  }>;
+}
+
+describe("getUnreadAlertCount", () => {
+  let countResult: {
+    count: number | null;
+    error: { code?: string; message?: string } | null;
+  };
+
+  function makeCountChain(): CountChain {
+    const chain: CountChain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(async () => countResult),
+    };
+    return chain;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    countResult = { count: 0, error: null };
+    mocks.from.mockReturnValue(makeCountChain());
+  });
+
+  it("returns the unread count on success", async () => {
+    countResult = { count: 7, error: null };
+    expect(await getUnreadAlertCount()).toBe(7);
+    expect(mocks.from).toHaveBeenCalledWith("alert_event");
+  });
+
+  it("returns 0 when count is null", async () => {
+    countResult = { count: null, error: null };
+    expect(await getUnreadAlertCount()).toBe(0);
+  });
+
+  it("fails soft to 0 on supabase error (layout must not throw)", async () => {
+    countResult = { count: null, error: { code: "PGRST301", message: "rls" } };
+    expect(await getUnreadAlertCount()).toBe(0);
+  });
+
+  it("fails soft to 0 when client creation throws", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    vi.mocked(createClient).mockRejectedValueOnce(new Error("no cookies"));
+    expect(await getUnreadAlertCount()).toBe(0);
+  });
+
+  it("uses injected client without creating a session client", async () => {
+    const chain = makeCountChain();
+    countResult = { count: 3, error: null };
+    const injectedFrom = vi.fn(() => chain);
+    const { createClient } = await import("@/lib/supabase/server");
+    const out = await getUnreadAlertCount({
+      client: { from: injectedFrom } as never,
+    });
+    expect(out).toBe(3);
+    expect(createClient).not.toHaveBeenCalled();
+    expect(injectedFrom).toHaveBeenCalledWith("alert_event");
+  });
+
+  it("filters on is_read=false", async () => {
+    const chain = makeCountChain();
+    countResult = { count: 0, error: null };
+    mocks.from.mockReturnValue(chain);
+    await getUnreadAlertCount();
+    expect(chain.select).toHaveBeenCalledWith("id", {
+      count: "exact",
+      head: true,
+    });
   });
 });
