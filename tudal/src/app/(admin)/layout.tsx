@@ -14,6 +14,7 @@ const ADMIN_NAV = [
   { href: "/admin/portfolio", label: "포트폴리오" },
   { href: "/admin/alerts", label: "알림" },
   { href: "/admin/track-record", label: "Track Record" },
+  { href: "/admin/sector-comparison", label: "섹터 추천 비교" },
   { href: "/admin/decision-tree", label: "Decision Tree" },
   { href: "/admin/settings", label: "설정" },
   { href: "/admin/settings/notifications", label: "알림 채널" },
