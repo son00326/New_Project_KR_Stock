@@ -614,7 +614,7 @@
 - [ ] 뉴스·브리핑 실 연결 (S7b · M11·M12a)
 - [ ] 장중·Exit 실 연결 (S7c · M13·M15)
 - [ ] Silent Health 실 INSERT + override UI (S7d · M18·M19)
-- [ ] **PR-K Reflection 자가학습** (D32, 출시 전 빌드 + S9 검증) — reflection_log 마이그(0038~) + track별(주1/월1) 회고 job + 다음 선정 prompt 주입(`reflectionContext` seam). **미구현**(현재 seam 빈 문자열만 주입; Q5 incumbent thesis와 별개). SoT: `docs/superpowers/specs/2026-06-24-reflection-prk-pre-launch-promotion.md`
+- [x] **PR-K Reflection 자가학습** (D32, 출시 전 빌드 + S9 검증) — ✅ **shadow-first 빌드 완료(dormant, 2026-06-27)**: 마이그 **0043** `reflection_log`(DORMANT) + track별(주1/월1) 회고 job(cron `/api/cron/reflection-job`) + 다음 선정 prompt 주입(**신규 `reflectionLearningContext` 필드** — Q5 `reflectionContext` per-ticker와 별개 필드). `REFLECTION_ENABLED` off→선정 byte-identical(seam이 DB read 없이 "")·회고 미실행. 회고지 예측 아님(reflection_kind CHECK + summarizer 예측 출력 필터). 실 가동·S9 검증 = USER 게이트. SoT: `docs/superpowers/specs/2026-06-27-reflection-prk-build.md`(빌드) + `2026-06-24-reflection-prk-pre-launch-promotion.md`(D32)
 
 ### 운용 검증 (진행 중)
 - [x] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 Session 3 완료 · production live https://tudal-tawny.vercel.app)

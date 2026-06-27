@@ -12,7 +12,7 @@
 
 ## 0. 한 줄 요약
 
-직전 finalize된 선정 사이클(track별)의 **추천 종목 실현 수익률**(KRX EOD entry→current, **무비용**) 산출 → **페르소나별 적중률·conviction-가중 수익률**(pure `computeReflectionMetrics`) → forward-validate 회고 컨텍스트(pure `buildReflectionContext`) → `reflection_log`(per-persona jsonb + 주입 스냅샷) 영속 → 다음 선정 W1 패널 prompt에 **신규 `reflectionLearningContext` 필드**로 주입(off→byte-identical, macro/negative-news 패턴). (선택) 페르소나 케이스 LLM 요약은 별도 default-OFF flag + hardcap reservation.
+직전 finalize된 선정 사이클(track별)의 **평가 후보 풀(전체 평가군 — `tier1_selection_job` done) 실현 수익률**(KRX EOD entry→current, **무비용**) 산출(선정 30 subset 아님 — short_list_30 rolling 교체로 period별 선정 subset historical source 부재) → **페르소나별 적중률·conviction-가중 수익률**(pure `computeReflectionMetrics`) → forward-validate 회고 컨텍스트(pure `buildReflectionContext`) → `reflection_log`(per-persona jsonb + 주입 스냅샷) 영속 → 다음 선정 W1 패널 prompt에 **신규 `reflectionLearningContext` 필드**로 주입(off→byte-identical, macro/negative-news 패턴). (선택) 페르소나 케이스 LLM 요약은 별도 default-OFF flag + hardcap reservation.
 
 ---
 
@@ -31,7 +31,7 @@
 
 데이터 레이어: `src/lib/data/admin-reflection.ts` =
 - `insertReflectionLog(row, {client})` — service-role **upsert**(onConflict `month,track,period_key`) **idempotent**(재실행 중복 0). 단일 테이블 → SECURITY DEFINER RPC 불요(m12a 패턴).
-- `getLatestReflectionLog({track, client})` — 최신(created_at desc) reflection_log 1건 → 주입 스냅샷 source.
+- `getLatestReflectionLog({track, client})` — 최신(**finalized_at desc** — 회고 대상 사이클 recency, created_at INSERT 시각 아님; backfill robust) reflection_log 1건 → 주입 스냅샷 source. + `claimReflectionLog(row, {client})` — atomic insert-claim(unique_violation 23505→false), LLM 요약 cost-idempotency. + `reflectionExists` 폐기(claim으로 대체).
 - `getPriorFinalizedCycle({track, now, client})` — 가장 최근 finalize된 `tier1_selection_run`(track, finalized_at not null, < now) 1건.
 - `getCyclePanels({periodKey, client})` — 해당 run의 `tier1_selection_job`(status done, panel_result not null) → `CycleSelection[]`.
 
@@ -46,7 +46,9 @@ create table if not exists public.reflection_log (
   id uuid primary key default gen_random_uuid(),
   month text not null check (month ~ '^[0-9]{4}-(0[1-9]|1[0-2])-01$'),  -- YYYY-MM-01 (회계/감사 정합)
   track text not null check (track in ('short','midlong')),
-  period_key text not null,                      -- 's:YYYY-MM-DD' | 'm:YYYY-MM' (회고 대상 사이클)
+  period_key text not null check (
+    period_key ~ '^(s:[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])|m:[0-9]{4}-(0[1-9]|1[0-2]))$'
+  ),                                             -- 's:YYYY-MM-DD' | 'm:YYYY-MM' (회고 대상 사이클; idempotency 키 보호)
   finalized_at timestamptz not null,             -- 대상 run의 finalize 시각
   reflection_kind text not null default 'retrospective'
     check (reflection_kind = 'retrospective'),   -- 예측 아님 박제(코드+DB 양면)
@@ -84,7 +86,7 @@ alter table public.reflection_log enable row level security;
 
 입력:
 ```
-{ selections: { ticker, panel: PersonaScore[] }[],   // finalize된 추천 종목 + 11-persona 패널
+{ selections: { ticker, panel: PersonaScore[] }[],   // finalize된 사이클 평가 후보 풀(평가군, 선정 30 subset 아님) + 11-persona 패널
   entryPrices: Map<ticker, number>,                  // KRX EOD close @ 사이클 finalize 거래일
   currentPrices: Map<ticker, number>,                // KRX EOD close @ 회고 실행 거래일
   personaRoster: string[] }                          // CORE_11 persona_id (권위 명부 — 누락 페르소나도 표본 0으로 표기)
@@ -105,7 +107,7 @@ alter table public.reflection_log enable row level security;
 ### 3.2 회고 컨텍스트 — `buildReflectionContext(metrics, opts)`
 
 - 빈 입력(selectedCount 0 또는 pricedCount 0) → `""`(dormant — consumer가 아무것도 append 안 함).
-- 비어 있지 않으면: forward-validate 면책 헤더 `[직전 사이클 회고 · AI 컨텍스트 입력(과거 실현 성과 · 예측 아님 · Tier0 스크리닝 팩터 아님)]` + 1줄 요약(평균 실현 수익률·적중 N/M) + **강점 페르소나 top-N**(convictionWeightedReturn desc, label) digest. 예측/전망 어휘 금지(테스트로 박제).
+- 비어 있지 않으면: forward-validate 면책 헤더 `[직전 사이클 평가군 회고 · AI 컨텍스트 입력(평가 후보 풀 과거 실현 성과 · 예측 아님 · Tier0 스크리닝 팩터 아님)]` + 1줄 요약(평균 실현 수익률·적중 N/M, raw `overallHitCount` 사용) + **강점 페르소나 top-N**(convictionWeightedReturn desc, label) digest. 예측/전망 어휘 금지(테스트로 박제).
 
 ### 3.3 ledger row — `buildReflectionLogRow(input)`
 
@@ -121,7 +123,7 @@ metrics + 대상 사이클 메타(month/track/periodKey/finalizedAt) + price-bas
 3. `const selections = await deps.getCyclePanels({ periodKey: cycle.periodKey })`. 비면 `{ skipped:true, reason:'no_panels' }`.
 4. 가격(KRX EOD·**무비용**): `const { entryPrices, currentPrices, entryDate, currentDate } = await deps.resolvePrices({ tickers, finalizedAt: cycle.finalizedAt })`. 실패/부재 → 빈 Map(fail-soft → metrics 전부 null·priced 0, throw 아님).
 5. `const metrics = computeReflectionMetrics({ selections, entryPrices, currentPrices, personaRoster })`.
-6. **(선택) LLM 케이스 요약**: `if (isReflectionLlmSummaryEnabled() && deps.summarize)` → `await deps.preflight?.()`(hardcap reservation, 초과 throw 차단) → `deps.summarize(metrics)`. default OFF / DI 부재 → skip(**무비용**). 요약 텍스트는 컨텍스트에 부가(선택).
+6. **(선택) LLM 케이스 요약 — fail-closed + degrade-don't-abort(omxy R1 §10)**: `if (isReflectionLlmSummaryEnabled() && deps.summarize && metrics.pricedCount>0)` 진입; **`deps.preflight`·`deps.claimReflectionLog` 둘 다 필수**(부재 시 요약 skip + base 영속). `claimed = await deps.claimReflectionLog(baseRow)`(atomic insert-claim) → claimed면 `await deps.preflight()`(하드캡 throw → catch → 요약 skip·burn 0) → `deps.summarize(metrics)`(transient throw → catch → degrade) → 성공 시 snapshot에 부가; **claim 실패(23505)면 다른 runner 소유 → 최종 upsert도 skip**(overwrite·re-burn 방지). 무비용 base 회고는 항상 영속(degrade-don't-abort). default OFF / 빈 가격 → skip(**무비용**).
 7. `const snapshot = buildReflectionContext(metrics, {...})`.
 8. `const row = buildReflectionLogRow({ metrics, cycle, priceBasis, snapshot, llmSummary })`.
 9. `await deps.insertReflectionLog(row)` — **idempotent upsert**(month,track,period_key).
