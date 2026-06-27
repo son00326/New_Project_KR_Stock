@@ -37,9 +37,9 @@
 
 ---
 
-## 2. DB — 마이그 0043 `reflection_log` · DORMANT(USER apply-only)
+## 2. DB — 마이그 0043 `reflection_log` · ✅ **production applied (2026-06-27, version `20260627120308`)**
 
-`0043_reflection_log.sql` + `.rollback.sql` + `scripts/pg_smoke_0043.sh`(docker-free PG). **cost_log와 분리**(별 테이블). 0038/0039/0042와 동일 USER apply-only — REFLECTION_ENABLED off면 job 미호출이라 미적용도 안전.
+`0043_reflection_log.sql` + `.rollback.sql` + `scripts/pg_smoke_0043.sh`(docker-free PG). **cost_log와 분리**(별 테이블). **production apply 검증**: 10 CHECK + RLS admin-only policy + unique(month,track,period_key) + FK 0 + 4 indexes + SECURITY DEFINER 0 + anon 기본 grant(RLS default-deny 무력화 — short_list_30/stock_reports/portfolio_snapshot와 동일 패턴) + get_advisors(security) reflection_log 신규 finding 0. table empty(dormant — REFLECTION_ENABLED off면 미기록).
 
 ```sql
 create table if not exists public.reflection_log (
@@ -181,7 +181,7 @@ metrics + 대상 사이클 메타(month/track/periodKey/finalizedAt) + price-bas
 
 ## 9. USER-only 게이트 (CLAUDE 미실행 — 체크리스트만)
 
-`REFLECTION_ENABLED=true` + (선택)`REFLECTION_LLM_SUMMARY_ENABLED=true` + `SELECTION_CRON_AUTO_ENABLED=true`(선정 가동) + 마이그 0043 apply + `KRX_OPENAPI_KEY`(실현 수익률) + AI 키/비용 승인(LLM 요약 시) + **reflection-job 스케줄(vercel.json 또는 외부)** 추가. CLAUDE는 명령/체크리스트만, 실행 X.
+`REFLECTION_ENABLED=true` + (선택)`REFLECTION_LLM_SUMMARY_ENABLED=true` + `SELECTION_CRON_AUTO_ENABLED=true`(선정 가동) + ~~마이그 0043 apply~~ **✅ 0043 production applied (2026-06-27)** + `KRX_OPENAPI_KEY`(실현 수익률) + AI 키/비용 승인(LLM 요약 시) + **reflection-job 스케줄(vercel.json 또는 외부)** 추가. CLAUDE는 명령/체크리스트만, 실행 X.
 
 ⚠️ **scheduling 비대칭(go-live 페어 액션)**: `REFLECTION_ENABLED`는 read seam(selection-worker가 reflection_log 조회→주입)과 write seam(reflection-job이 reflection_log 기록) **둘 다** 게이트한다. read는 selection-worker daily cron에 올라타지만 **write(reflection-job)는 vercel.json에 schedule 미등록**(CLAUDE는 production schedule 미변경 — USER). flag만 켜고 reflection-job을 스케줄 안 하면 read는 빈 결과("")→byte-identical로 **조용히 무동작**(에러 없음). go-live 시 flag flip + reflection-job schedule(직전 사이클 finalize 후·다음 선정 전 발화)을 **함께** 처리한다.
 
