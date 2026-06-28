@@ -635,7 +635,7 @@ export function PortfolioPanel({
                 className={`text-xs font-mono tabular-nums ${
                   disputeReason.length >= DISPUTE_REASON_MIN_LENGTH
                     ? "text-success"
-                    : "text-red-500 dark:text-red-400"
+                    : "text-destructive"
                 }`}
               >
                 {disputeReason.length} / {DISPUTE_REASON_MIN_LENGTH}자
@@ -653,7 +653,7 @@ export function PortfolioPanel({
               }}
             />
             {disputeError && (
-              <p className="text-xs text-red-500 dark:text-red-400">{disputeError}</p>
+              <p className="text-xs text-destructive">{disputeError}</p>
             )}
           </div>
 

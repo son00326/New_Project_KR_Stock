@@ -230,7 +230,7 @@ export default async function AdminPortfolioPage() {
     <div className="space-y-6">
       {/* (c) BL-20 자동 바이패스 배지 (T3.8) — active=true 시 최상단 */}
       {autoReliefActive && (
-        <div className="flex items-center gap-2 rounded-2xl border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200 shadow-toss-sm">
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive shadow-toss-sm">
           ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefAdminId}
         </div>
       )}
