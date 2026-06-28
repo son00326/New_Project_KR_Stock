@@ -22,6 +22,9 @@ const {
   preflightMock,
   assertReadyMock,
   upsertProposalMock,
+  hasRiskDebateMock,
+  insertRiskDebateMock,
+  callRiskDebatorMock,
   SESSION_CLIENT,
 } = vi.hoisted(() => {
   const getUserMock = vi.fn();
@@ -35,6 +38,9 @@ const {
     preflightMock: vi.fn(),
     assertReadyMock: vi.fn(),
     upsertProposalMock: vi.fn(),
+    hasRiskDebateMock: vi.fn(),
+    insertRiskDebateMock: vi.fn(),
+    callRiskDebatorMock: vi.fn(),
     SESSION_CLIENT: { auth: { getUser: getUserMock }, rpc: rpcMock },
   };
 });
@@ -54,6 +60,13 @@ vi.mock("@/lib/cost/cost-logger", () => ({
 vi.mock("@/lib/data/admin-proposals", () => ({
   assertProposalPersistenceReady: assertReadyMock,
   upsertProposalRpc: upsertProposalMock,
+}));
+vi.mock("@/lib/data/admin-risk-debate", () => ({
+  hasRiskDebateAssessment: hasRiskDebateMock,
+  insertRiskDebateAssessment: insertRiskDebateMock,
+}));
+vi.mock("@/lib/risk/risk-debate-client", () => ({
+  callRiskDebator: callRiskDebatorMock,
 }));
 // callPortfolioProposal만 mock — renderPortfolioShortlistSummary는 real(액션이 실제 요약 빌드).
 vi.mock("@/lib/ai/portfolio-proposal-client", async (importOriginal) => {
@@ -121,9 +134,20 @@ beforeEach(() => {
   assertReadyMock.mockResolvedValue(undefined);
   upsertProposalMock.mockReset();
   upsertProposalMock.mockResolvedValue({ id: "prop-1", createdAt: "2026-06-05T00:00:00Z" });
+  hasRiskDebateMock.mockReset();
+  hasRiskDebateMock.mockResolvedValue(false);
+  insertRiskDebateMock.mockReset();
+  insertRiskDebateMock.mockResolvedValue(undefined);
+  callRiskDebatorMock.mockReset();
+  callRiskDebatorMock.mockResolvedValue({
+    concern_level: "low",
+    key_risks: [],
+    verdict_vote: "pass",
+  });
   process.env.PORTFOLIO_AI_PROPOSAL_ENABLED = "true";
   process.env.ANTHROPIC_API_KEY = "sk-test";
   delete process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED; // default off (W3b-1 동작)
+  delete process.env.RISK_DEBATE_ENABLED;
 });
 
 describe("proposePortfolio", () => {
@@ -210,6 +234,34 @@ describe("proposePortfolio", () => {
     // W3b-2a — persist flag off(default) → 영속 helper 미호출 (W3b-1 동작 1:1).
     expect(assertReadyMock).not.toHaveBeenCalled();
     expect(upsertProposalMock).not.toHaveBeenCalled();
+    expect(hasRiskDebateMock).not.toHaveBeenCalled();
+    expect(callRiskDebatorMock).not.toHaveBeenCalled();
+    expect(insertRiskDebateMock).not.toHaveBeenCalled();
+  });
+
+  it("G3 flag on → proposal composition triggers one advisory risk debate after portfolio AI", async () => {
+    process.env.RISK_DEBATE_ENABLED = "true";
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: true, data: { proposal: VALID_PROPOSAL } });
+    expect(hasRiskDebateMock).toHaveBeenCalledWith("2026-06-01", {
+      client: SESSION_CLIENT,
+    });
+    expect(preflightMock).toHaveBeenCalledTimes(2);
+    expect(preflightMock.mock.calls[1][0].month).toBe("2026-06");
+    expect(preflightMock.mock.calls[1][0].lines[0].callCount).toBe(3);
+    expect(callRiskDebatorMock).toHaveBeenCalledTimes(3);
+    expect(insertRiskDebateMock).toHaveBeenCalledTimes(1);
+    const payload = insertRiskDebateMock.mock.calls[0][0];
+    expect(payload.month).toBe("2026-06-01");
+    expect(payload.finalVerdict).toBe("pass");
+    expect(payload.votes).toHaveLength(3);
+  });
+
+  it("G3 advisory failure does not block portfolio proposal success", async () => {
+    process.env.RISK_DEBATE_ENABLED = "true";
+    insertRiskDebateMock.mockRejectedValueOnce(new Error("risk_debate_insert_failed:42501"));
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    expect(res).toEqual({ success: true, data: { proposal: VALID_PROPOSAL } });
   });
 
   it("W3b-2a — persist flag on → assertReady(AI 前) + upsertProposalRpc 후 data.proposalId 반환", async () => {

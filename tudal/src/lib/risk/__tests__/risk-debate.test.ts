@@ -23,10 +23,10 @@ describe("aggregateRiskVerdict (deterministic, advisory)", () => {
     ).toBe("pass");
   });
 
-  it("2 pass + 1 reject → conditional (reject present blocks pass)", () => {
+  it("2 pass + 1 reject → pass (SoT majority-pass rule, advisory only)", () => {
     expect(
       aggregateRiskVerdict([j("aggressive", "pass"), j("conservative", "pass"), j("neutral", "reject")]),
-    ).toBe("conditional");
+    ).toBe("pass");
   });
 
   it("mixed conditional → conditional", () => {
@@ -49,13 +49,13 @@ describe("aggregateRiskVerdict (deterministic, advisory)", () => {
 describe("parseRiskJudgment", () => {
   it("parses valid LLM JSON", () => {
     const out = parseRiskJudgment("aggressive", {
-      concern_level: "high",
+      concern_level: "medium",
       key_risks: ["섹터 집중", "유동성"],
       verdict_vote: "reject",
     });
     expect(out).toEqual({
       stance: "aggressive",
-      concernLevel: "high",
+      concernLevel: "medium",
       keyRisks: ["섹터 집중", "유동성"],
       verdictVote: "reject",
     });
@@ -76,7 +76,7 @@ describe("parseRiskJudgment", () => {
 
   it("caps keyRisks at 5 + drops non-strings", () => {
     const out = parseRiskJudgment("neutral", {
-      concern_level: "low",
+      concern_level: "medium",
       verdict_vote: "pass",
       key_risks: ["a", 1, "b", "c", "d", "e", "f"],
     });

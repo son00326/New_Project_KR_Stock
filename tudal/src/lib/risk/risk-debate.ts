@@ -32,7 +32,7 @@ const CONCERN_SET: ReadonlySet<string> = new Set(["low", "medium", "high"]);
 
 /**
  * 3 stance 표 → 최종 verdict (결정론·advisory):
- *   reject ≥2 → reject / (pass 과반 ∧ reject 0) → pass / else conditional.
+ *   reject ≥2 → reject / pass 과반 → pass / else conditional.
  * 입력 부족(<1) → conditional(보수적, advisory).
  */
 export function aggregateRiskVerdict(votes: RiskJudgment[]): RiskVote {
@@ -40,7 +40,7 @@ export function aggregateRiskVerdict(votes: RiskJudgment[]): RiskVote {
   const rejects = votes.filter((v) => v.verdictVote === "reject").length;
   const passes = votes.filter((v) => v.verdictVote === "pass").length;
   if (rejects >= 2) return "reject";
-  if (passes > votes.length / 2 && rejects === 0) return "pass";
+  if (passes > votes.length / 2) return "pass";
   return "conditional";
 }
 

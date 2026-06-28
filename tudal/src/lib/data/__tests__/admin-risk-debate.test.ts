@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getRiskDebateForMonth,
+  hasRiskDebateAssessment,
   insertRiskDebateAssessment,
 } from "@/lib/data/admin-risk-debate";
 
@@ -12,9 +13,9 @@ vi.mock("@/lib/supabase/server", () => ({
 beforeEach(() => vi.clearAllMocks());
 
 describe("insertRiskDebateAssessment", () => {
-  it("upserts with onConflict month + final_verdict + votes (is_advisory omitted = default true)", async () => {
-    const upsert = vi.fn().mockResolvedValue({ error: null });
-    mocks.from.mockReturnValue({ upsert });
+  it("inserts month + final_verdict + votes without overwriting an existing advisory", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    mocks.from.mockReturnValue({ insert });
     await insertRiskDebateAssessment({
       month: "2026-06-01",
       finalVerdict: "conditional",
@@ -22,16 +23,24 @@ describe("insertRiskDebateAssessment", () => {
       summary: "s",
     });
     expect(mocks.from).toHaveBeenCalledWith("risk_debate_assessment");
-    const [payload, opts] = upsert.mock.calls[0];
+    const [payload] = insert.mock.calls[0];
     expect(payload.month).toBe("2026-06-01");
     expect(payload.final_verdict).toBe("conditional");
     expect(payload).not.toHaveProperty("is_advisory"); // default true (CHECK 박제), 클라이언트 미지정.
-    expect(opts).toEqual({ onConflict: "month" });
   });
 
-  it("throws wrapped error", async () => {
+  it("treats duplicate month as idempotent no-op (does not overwrite prior cost-capped result)", async () => {
     mocks.from.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: { code: "23505" } }),
+      insert: vi.fn().mockResolvedValue({ error: { code: "23505" } }),
+    });
+    await expect(
+      insertRiskDebateAssessment({ month: "2026-06-01", finalVerdict: "pass", votes: [], summary: "" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws wrapped non-duplicate error", async () => {
+    mocks.from.mockReturnValue({
+      insert: vi.fn().mockResolvedValue({ error: { code: "42501" } }),
     });
     await expect(
       insertRiskDebateAssessment({ month: "2026-06-01", finalVerdict: "pass", votes: [], summary: "" }),
@@ -76,5 +85,33 @@ describe("getRiskDebateForMonth", () => {
   it("fail-soft null when absent", async () => {
     mocks.from.mockReturnValue(chain({ data: null, error: null }));
     expect(await getRiskDebateForMonth("2026-06-01")).toBeNull();
+  });
+});
+
+describe("hasRiskDebateAssessment", () => {
+  function chain(result: { data: unknown; error: unknown }) {
+    const c: Record<string, unknown> = {};
+    c.select = vi.fn(() => c);
+    c.eq = vi.fn(() => c);
+    c.limit = vi.fn(() => c);
+    c.maybeSingle = vi.fn(async () => result);
+    return c;
+  }
+
+  it("returns true when a month row exists", async () => {
+    mocks.from.mockReturnValue(chain({ data: { id: "r1" }, error: null }));
+    await expect(hasRiskDebateAssessment("2026-06-01")).resolves.toBe(true);
+  });
+
+  it("returns false when absent", async () => {
+    mocks.from.mockReturnValue(chain({ data: null, error: null }));
+    await expect(hasRiskDebateAssessment("2026-06-01")).resolves.toBe(false);
+  });
+
+  it("throws on select error so caller skips before AI", async () => {
+    mocks.from.mockReturnValue(chain({ data: null, error: { code: "42P01" } }));
+    await expect(hasRiskDebateAssessment("2026-06-01")).rejects.toThrow(
+      "risk_debate_select_failed:42P01",
+    );
   });
 });

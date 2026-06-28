@@ -17,7 +17,6 @@ export interface RiskDebateAssessment {
 const SELECT_COLUMNS =
   "id, month, created_at, final_verdict, votes, summary, is_advisory";
 
-/** 위험 재판정 적재 (month upsert — 포트 구성당 1회 idempotent). is_advisory 미지정(=default true). */
 export async function insertRiskDebateAssessment(
   input: {
     month: string;
@@ -28,18 +27,33 @@ export async function insertRiskDebateAssessment(
   options: { client?: SupabaseClient } = {},
 ): Promise<void> {
   const supabase = options.client ?? (await createClient());
-  const { error } = await supabase.from("risk_debate_assessment").upsert(
-    {
-      month: input.month,
-      final_verdict: input.finalVerdict,
-      votes: input.votes,
-      summary: input.summary,
-    },
-    { onConflict: "month" },
-  );
+  const { error } = await supabase.from("risk_debate_assessment").insert({
+    month: input.month,
+    final_verdict: input.finalVerdict,
+    votes: input.votes,
+    summary: input.summary,
+  });
+  if (error?.code === "23505") return;
   if (error) {
     throw new Error(`risk_debate_insert_failed:${error.code ?? "unknown"}`);
   }
+}
+
+export async function hasRiskDebateAssessment(
+  month: string,
+  options: { client?: SupabaseClient } = {},
+): Promise<boolean> {
+  const supabase = options.client ?? (await createClient());
+  const { data, error } = await supabase
+    .from("risk_debate_assessment")
+    .select("id")
+    .eq("month", month)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`risk_debate_select_failed:${error.code ?? "unknown"}`);
+  }
+  return data !== null;
 }
 
 /** 특정 월 최신 위험 재판정 (advisory 표시용). 부재/오류 → null (fail-soft — Accept 페이지 비차단). */

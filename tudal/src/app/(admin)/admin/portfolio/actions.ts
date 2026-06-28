@@ -22,6 +22,10 @@ import {
   getProposalByMonth,
   upsertProposalRpc,
 } from "@/lib/data/admin-proposals";
+import {
+  hasRiskDebateAssessment,
+  insertRiskDebateAssessment,
+} from "@/lib/data/admin-risk-debate";
 import { buildSnapshotRowsFromProposal } from "@/lib/portfolio/proposal-snapshots";
 import {
   callPortfolioProposal,
@@ -57,6 +61,10 @@ import {
   type ShortListItem,
   SHORTLIST_TARGET_COUNT,
 } from "@/types/admin";
+import { isRiskDebateEnabled } from "@/lib/risk/flags";
+import { runRiskDebate } from "@/lib/risk/risk-debate-orchestrator";
+import { callRiskDebator } from "@/lib/risk/risk-debate-client";
+import type { RiskPortfolioInput } from "@/lib/risk/risk-debate";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 
@@ -619,6 +627,76 @@ export async function resolveDispute(input: {
 // ---------------------------------------------------------------------------
 
 const TRIGGER_MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function toRiskPortfolioInput(
+  month: string,
+  proposal: PortfolioProposal,
+  active: ShortListItem[],
+): RiskPortfolioInput {
+  const byTicker = new Map(active.map((item) => [item.ticker, item]));
+  const bucketMix = { short: 0, mid: 0, long: 0 };
+  const holdings = proposal.positions.map((position) => {
+    bucketMix[position.timeframe] += 1;
+    const item = byTicker.get(position.ticker);
+    return {
+      ticker: position.ticker,
+      sector: item?.sector ?? "",
+      weight: position.weight,
+    };
+  });
+  return {
+    month,
+    holdings,
+    cashWeight: proposal.cashWeight,
+    bucketMix,
+  };
+}
+
+async function runRiskDebateAdvisory(input: {
+  month: string;
+  costMonth: string;
+  proposal: PortfolioProposal;
+  active: ShortListItem[];
+  adminUserId: string;
+  client: Awaited<ReturnType<typeof createClient>>;
+}): Promise<void> {
+  if (!isRiskDebateEnabled()) return;
+  try {
+    await runRiskDebate(toRiskPortfolioInput(input.month, input.proposal, input.active), {
+      hasExistingAssessment: (month) =>
+        hasRiskDebateAssessment(month, { client: input.client }),
+      preflightCost: async () => {
+        try {
+          await preflightHardcap(
+            {
+              month: input.costMonth,
+              lines: [
+                {
+                  callCount: 3,
+                  maxCostPerCallKrw: getRoleWorstCaseMaxCostPerCallKrw("critic"),
+                },
+              ],
+            },
+            { client: input.client },
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      callRiskDebator: (prompt, stance) =>
+        callRiskDebator({
+          prompt,
+          stance,
+          month: input.costMonth,
+          adminUserId: input.adminUserId,
+          costClient: input.client,
+        }),
+      insert: (assessment) =>
+        insertRiskDebateAssessment(assessment, { client: input.client }),
+    });
+  } catch {}
+}
 const MONTHLY_BATCH_SINGLE_SHOT_DEPRECATED =
   "monthly_batch_single_shot_deprecated";
 
@@ -990,6 +1068,15 @@ export async function proposePortfolio(input: {
       };
     }
   }
+
+  await runRiskDebateAdvisory({
+    month: input.month,
+    costMonth: monthYm,
+    proposal,
+    active,
+    adminUserId: user.id,
+    client: supabase,
+  });
 
   return {
     success: true,

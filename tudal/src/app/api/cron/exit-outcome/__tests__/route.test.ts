@@ -157,6 +157,28 @@ describe("GET /api/cron/exit-outcome", () => {
     expect(srMock.rpc).not.toHaveBeenCalled();
   });
 
+  it("RPC failure → 500 with sanitized code, not a successful price skip", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-20T10:00:00Z"));
+    alertsMock.getDueExitOutcomeAlerts.mockResolvedValue([
+      alert({ signalSentAt: "2026-06-12T10:00:00Z" }),
+    ]);
+    krxMock.resolveEntryPricesKrw.mockImplementation(
+      async (_tickers: string[], deps: { basDd: string }) =>
+        new Map([["005930", deps.basDd === "20260612" ? 100000 : 107000]]),
+    );
+    srMock.rpc.mockResolvedValueOnce({ error: { code: "42883", message: "missing rpc" } });
+    const { GET } = await import("../route");
+    const res = await GET(req());
+    const body = await res.json();
+    expect(res.status).toBe(500);
+    expect(body.ok).toBe(false);
+    expect(body.processed).toBe(0);
+    expect(body.skipped).toBe(0);
+    expect(body.rpcFailed).toBe(1);
+    expect(body.rpcErrorCodes).toEqual(["42883"]);
+  });
+
   it("uses DB-level due helper with limit (starvation 방지)", async () => {
     const { GET } = await import("../route");
     await GET(req());

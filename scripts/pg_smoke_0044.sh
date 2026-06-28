@@ -6,6 +6,20 @@
 #   Mirrors pg_smoke_0042/0043 pattern: createdb temp → roles + alert_event stub → apply 0044 → assert → dropdb.
 #   Requires a LOCAL running PostgreSQL (createdb/psql on PATH). NOT a production test.
 set -euo pipefail
+
+if [[ "${PG_SMOKE_ALLOW_REMOTE:-}" != "1" ]]; then
+  if [[ -n "${PGSERVICE:-}" ]]; then
+    echo "Refusing pg smoke with PGSERVICE=${PGSERVICE}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+    exit 2
+  fi
+  case "${PGHOST:-}" in
+    ""|localhost|127.0.0.1|::1|/*) ;;
+    *)
+      echo "Refusing pg smoke with non-local PGHOST=${PGHOST}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+      exit 2
+      ;;
+  esac
+fi
 DB="pg_smoke_0044_$$"
 cleanup() { dropdb --if-exists "$DB" 2>/dev/null || true; }
 trap cleanup EXIT
@@ -96,8 +110,16 @@ begin
   if has_function_privilege('authenticated', 'public.record_alert_exit_outcome(uuid, numeric, timestamptz)', 'EXECUTE') then
     raise exception 'FAIL: authenticated should NOT have EXECUTE (cron-only)';
   end if;
+  if not exists (
+    select 1
+    from pg_proc
+    where proname = 'record_alert_exit_outcome'
+      and 'search_path=public, pg_temp' = any(coalesce(proconfig, '{}'))
+  ) then
+    raise exception 'FAIL: search_path should be public, pg_temp';
+  end if;
 
-  raise notice 'PASS: 0044 record_alert_exit_outcome — grant matrix + idempotent + non-exit (4 groups)';
+  raise notice 'PASS: 0044 record_alert_exit_outcome — grant matrix + idempotent + non-exit + search_path (5 groups)';
 end $$;
 SQL
 

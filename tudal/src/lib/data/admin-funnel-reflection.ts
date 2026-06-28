@@ -35,24 +35,21 @@ function toRow(r: Record<string, unknown>): FunnelReflectionRow {
   };
 }
 
-/** 회고 제안 적재 (period_key upsert — 월/주기당 1 제안 idempotent). status='proposed'. */
 export async function insertFunnelReflectionProposal(
   proposal: FunnelReflectionOutput,
   options: { client?: SupabaseClient } = {},
 ): Promise<void> {
   const supabase = options.client ?? (await createClient());
-  const { error } = await supabase.from("tier0_funnel_reflection").upsert(
-    {
-      period_key: proposal.periodKey,
-      reflection_kind: "funnel_weight_retro",
-      champion_config: proposal.championConfig,
-      challenger_config: proposal.challengerConfig,
-      rationale: proposal.rationale,
-      evidence: proposal.evidence,
-      status: "proposed",
-    },
-    { onConflict: "period_key" },
-  );
+  const { error } = await supabase.from("tier0_funnel_reflection").insert({
+    period_key: proposal.periodKey,
+    reflection_kind: "funnel_weight_retro",
+    champion_config: proposal.championConfig,
+    challenger_config: proposal.challengerConfig,
+    rationale: proposal.rationale,
+    evidence: proposal.evidence,
+    status: "proposed",
+  });
+  if (error?.code === "23505") return;
   if (error) {
     throw new Error(`funnel_reflection_insert_failed:${error.code ?? "unknown"}`);
   }

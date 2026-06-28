@@ -5,6 +5,20 @@
 #   anon absent, service_role present (definer self-gates is_admin). rollback re-revokes authenticated.
 #   Requires a LOCAL running PostgreSQL (createdb/psql on PATH). NOT a production test.
 set -euo pipefail
+
+if [[ "${PG_SMOKE_ALLOW_REMOTE:-}" != "1" ]]; then
+  if [[ -n "${PGSERVICE:-}" ]]; then
+    echo "Refusing pg smoke with PGSERVICE=${PGSERVICE}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+    exit 2
+  fi
+  case "${PGHOST:-}" in
+    ""|localhost|127.0.0.1|::1|/*) ;;
+    *)
+      echo "Refusing pg smoke with non-local PGHOST=${PGHOST}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+      exit 2
+      ;;
+  esac
+fi
 DB="pg_smoke_0045_$$"
 cleanup() { dropdb --if-exists "$DB" 2>/dev/null || true; }
 trap cleanup EXIT
@@ -39,6 +53,7 @@ $f$;
 -- 0010 state: revoke from public(기본 PUBLIC EXECUTE 제거) + grant authenticated.
 revoke execute on function public.record_alert_exit_decision(uuid, text, text) from public;
 grant execute on function public.record_alert_exit_decision(uuid, text, text) to authenticated;
+grant execute on function public.record_alert_exit_decision(uuid, text, text) to service_role;
 -- 0015a state: revoke anon + authenticated (least privilege, 미사용).
 revoke execute on function public.record_alert_exit_decision(uuid, text, text) from anon;
 revoke execute on function public.record_alert_exit_decision(uuid, text, text) from authenticated;
@@ -51,6 +66,9 @@ psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
 do $$ begin
   if has_function_privilege('authenticated', 'public.record_alert_exit_decision(uuid, text, text)', 'EXECUTE') then
     raise exception 'FAIL(pre): authenticated should NOT have EXECUTE before 0045 (0015a revoke)';
+  end if;
+  if not has_function_privilege('service_role', 'public.record_alert_exit_decision(uuid, text, text)', 'EXECUTE') then
+    raise exception 'FAIL(pre): service_role should retain EXECUTE from 0015a baseline';
   end if;
   raise notice 'PASS(pre): authenticated EXECUTE absent before 0045';
 end $$;
@@ -71,7 +89,18 @@ do $$ begin
   if has_function_privilege('public', 'public.record_alert_exit_decision(uuid, text, text)', 'EXECUTE') then
     raise exception 'FAIL: public should NOT have EXECUTE (revoked in 0010)';
   end if;
-  raise notice 'PASS: 0045 grant matrix (authenticated=yes, anon=no, public=no)';
+  if not has_function_privilege('service_role', 'public.record_alert_exit_decision(uuid, text, text)', 'EXECUTE') then
+    raise exception 'FAIL: service_role should retain EXECUTE';
+  end if;
+  if not exists (
+    select 1
+    from pg_proc
+    where oid = 'public.record_alert_exit_decision(uuid, text, text)'::regprocedure
+      and proconfig @> array['search_path=public, pg_temp']
+  ) then
+    raise exception 'FAIL: record_alert_exit_decision search_path should be public, pg_temp';
+  end if;
+  raise notice 'PASS: 0045 grant matrix (authenticated/service_role=yes, anon/public=no) + search_path';
 end $$;
 SQL
 
@@ -81,6 +110,9 @@ psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
 do $$ begin
   if has_function_privilege('authenticated', 'public.record_alert_exit_decision(uuid, text, text)', 'EXECUTE') then
     raise exception 'FAIL: rollback should re-revoke authenticated EXECUTE';
+  end if;
+  if not has_function_privilege('service_role', 'public.record_alert_exit_decision(uuid, text, text)', 'EXECUTE') then
+    raise exception 'FAIL: rollback should preserve service_role EXECUTE';
   end if;
   raise notice 'PASS: 0045 rollback re-revokes authenticated';
 end $$;

@@ -97,6 +97,8 @@ export async function GET(request: NextRequest) {
   let processed = 0;
   let skipped = 0;
   let notReady = 0;
+  let rpcFailed = 0;
+  const rpcErrorCodes = new Set<string>();
   for (const alert of due) {
     const ticker = alert.ticker!;
     const t7Anchor = t7TargetBasDd(alert.signalSentAt, now);
@@ -125,17 +127,21 @@ export async function GET(request: NextRequest) {
       p_outcome_at: now.toISOString(),
     });
     if (error) {
-      skipped += 1;
+      rpcFailed += 1;
+      rpcErrorCodes.add(error.code ?? "unknown");
       continue;
     }
     processed += 1;
   }
 
+  const ok = rpcFailed === 0;
   return NextResponse.json({
-    ok: true,
+    ok,
     due: due.length,
     processed,
     skipped,
     notReady,
-  });
+    rpcFailed,
+    rpcErrorCodes: [...rpcErrorCodes],
+  }, { status: ok ? 200 : 500 });
 }

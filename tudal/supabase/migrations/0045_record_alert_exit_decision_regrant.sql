@@ -12,4 +12,7 @@
 -- DORMANT (USER apply-only): 미적용 시 action이 42501(permission denied)로 fail-closed → 명시 에러 매핑.
 --   EXIT_SIGNAL_ENABLED off(default)면 exit_signal alert 생성 0 → 기록 대상 없음(미적용 안전).
 
+alter function public.record_alert_exit_decision(uuid, text, text)
+  set search_path = public, pg_temp;
+
 grant execute on function public.record_alert_exit_decision(uuid, text, text) to authenticated;

@@ -16,7 +16,7 @@ create or replace function public.record_alert_exit_outcome(
 returns boolean
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_updated int;

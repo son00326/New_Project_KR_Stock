@@ -4,6 +4,20 @@
 #   · arm/rank 필터 + 정렬 · grant matrix(authenticated yes / anon·public no) · rollback clean.
 #   minimal tier0_candidates_150_shadow stub(0039 subset). Requires LOCAL PostgreSQL. NOT production.
 set -euo pipefail
+
+if [[ "${PG_SMOKE_ALLOW_REMOTE:-}" != "1" ]]; then
+  if [[ -n "${PGSERVICE:-}" ]]; then
+    echo "Refusing pg smoke with PGSERVICE=${PGSERVICE}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+    exit 2
+  fi
+  case "${PGHOST:-}" in
+    ""|localhost|127.0.0.1|::1|/*) ;;
+    *)
+      echo "Refusing pg smoke with non-local PGHOST=${PGHOST}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+      exit 2
+      ;;
+  esac
+fi
 DB="pg_smoke_0046_$$"
 cleanup() { dropdb --if-exists "$DB" 2>/dev/null || true; }
 trap cleanup EXIT

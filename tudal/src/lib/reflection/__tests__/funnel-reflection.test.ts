@@ -80,16 +80,15 @@ describe("buildFunnelReflection", () => {
         ],
         championConfig: { trend: 0.5 },
         realizedReturns: new Map([
-          ["001", 5],
-          ["002", 1],
-          ["003", 9],
-          ["004", 3], // jumbled → low corr
+          ["001", 2],
+          ["002", 4],
+          ["003", 1],
+          ["004", 3],
         ]),
       }),
     );
-    if (Math.abs(out.evidence.factorReturnRankCorr.trend) < 0.1) {
-      expect(out.challengerConfig.trend).toBe(0.5);
-    }
+    expect(out.evidence.factorReturnRankCorr.trend).toBe(0);
+    expect(out.challengerConfig.trend).toBe(0.5);
   });
 
   it("low sample (<2 priced) → no proposal + diagnostic rationale", () => {

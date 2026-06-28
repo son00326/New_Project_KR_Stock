@@ -12,6 +12,7 @@ import {
   nowKstBasDd,
   signalDateToBasDd,
 } from "@/lib/intraday/exit-outcome";
+import { resolveShortlistGeneratedAt } from "@/lib/portfolio/shortlist-gate";
 import type { ShortListItem } from "@/types/admin";
 
 // B-1 섹터 추천 비교 메뉴 (출시 전 read-only deliverable).
@@ -128,12 +129,27 @@ export default async function SectorComparisonPage() {
   const { data: isAdmin, error: adminErr } = await supabase.rpc("is_admin");
   const adminVerified = !(adminErr || !isAdmin);
 
-  const production: ShortListItem[] = await getActiveShortList({ client: supabase });
+  let production: ShortListItem[] = [];
+  let productionLoadError = false;
+  try {
+    production = await getActiveShortList({ client: supabase });
+  } catch {
+    productionLoadError = true;
+  }
   const month = production[0]?.month ?? null;
   const periodKey = month ? monthToPeriodKey(month) : null;
-  const shadow: ShadowArmRow[] = periodKey
-    ? await getShadowArmTop("sector-soft-tilt", periodKey, { client: supabase, limitPerBucket: 10 })
-    : [];
+  let shadow: ShadowArmRow[] = [];
+  let shadowLoadError = false;
+  if (periodKey) {
+    try {
+      shadow = await getShadowArmTop("sector-soft-tilt", periodKey, {
+        client: supabase,
+        limitPerBucket: 10,
+      });
+    } catch {
+      shadowLoadError = true;
+    }
+  }
 
   const prodTickers = production.map((p) => p.ticker);
   const shadowTickers = shadow.map((s) => s.ticker);
@@ -147,9 +163,10 @@ export default async function SectorComparisonPage() {
   let prodReturns: RealizedReturnSummary | null = null;
   let shadowReturns: RealizedReturnSummary | null = null;
   const allTickers = Array.from(new Set([...prodTickers, ...shadowTickers]));
-  if (authKey && allTickers.length > 0 && production[0]?.createdAt) {
+  const shortlistGeneratedAt = resolveShortlistGeneratedAt(production);
+  if (authKey && allTickers.length > 0 && shortlistGeneratedAt) {
     const cache = new Map<string, Map<string, number>>();
-    const entryAnchor = signalDateToBasDd(production[0].createdAt);
+    const entryAnchor = signalDateToBasDd(shortlistGeneratedAt.toISOString());
     const currentAnchor = nowKstBasDd(now);
     const [entryMap, currentMap] = await Promise.all([
       resolveCloseMapWalkBack(entryAnchor, allTickers, authKey, cache),
@@ -186,6 +203,13 @@ export default async function SectorComparisonPage() {
           </p>
         )}
       </header>
+
+      {(productionLoadError || shadowLoadError) && (
+        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          데이터 조회 일부 실패 — 읽기 전용 비교 화면이므로 가능한 목록만 표시합니다. 빈 데이터는
+          migration/RLS/권한 상태를 확인하세요.
+        </p>
+      )}
 
       {shadow.length === 0 && (
         <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">

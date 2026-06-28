@@ -3,13 +3,31 @@
 #   Asserts: month CHECK · final_verdict enum · is_advisory always-true CHECK(비강제 박제)
 #   · month UNIQUE(포트당 1회) · RLS enabled · rollback clean. Requires LOCAL PostgreSQL. NOT production.
 set -euo pipefail
+
+if [[ "${PG_SMOKE_ALLOW_REMOTE:-}" != "1" ]]; then
+  if [[ -n "${PGSERVICE:-}" ]]; then
+    echo "Refusing pg smoke with PGSERVICE=${PGSERVICE}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+    exit 2
+  fi
+  case "${PGHOST:-}" in
+    ""|localhost|127.0.0.1|::1|/*) ;;
+    *)
+      echo "Refusing pg smoke with non-local PGHOST=${PGHOST}; set PG_SMOKE_ALLOW_REMOTE=1 to override" >&2
+      exit 2
+      ;;
+  esac
+fi
 DB="pg_smoke_0048_$$"
 cleanup() { dropdb --if-exists "$DB" 2>/dev/null || true; }
 trap cleanup EXIT
 createdb "$DB"
 
 psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
-create function public.is_admin() returns boolean language sql stable as $f$ select true $f$;
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname='anon') then create role anon; end if;
+  if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
+end $$;
+create function public.is_admin() returns boolean language sql stable as $f$ select current_user = 'authenticated' $f$;
 SQL
 
 MIG="$(dirname "$0")/../tudal/supabase/migrations"
@@ -64,6 +82,40 @@ begin
 
   raise notice 'PASS: 0048 risk_debate_assessment — 7 assertions';
 end $$;
+SQL
+
+psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
+grant usage on schema public to authenticated, anon;
+grant select, insert, update, delete on public.risk_debate_assessment to authenticated, anon;
+
+set role authenticated;
+insert into public.risk_debate_assessment(month, final_verdict, summary)
+values ('2026-11-01', 'conditional', 'auth rls ok');
+do $$
+declare v_count int;
+begin
+  select count(*) into v_count
+  from public.risk_debate_assessment
+  where month='2026-11-01';
+  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot read (got %)', v_count; end if;
+end $$;
+reset role;
+
+set role anon;
+do $$
+declare v_count int; v_failed boolean := false;
+begin
+  select count(*) into v_count from public.risk_debate_assessment;
+  if v_count <> 0 then raise exception 'FAIL: anon should see 0 rows through RLS (got %)', v_count; end if;
+  begin
+    insert into public.risk_debate_assessment(month, final_verdict, summary)
+    values ('2026-12-01', 'pass', 'anon denied');
+  exception when insufficient_privilege then v_failed := true; end;
+  if not v_failed then raise exception 'FAIL: anon insert should be denied by RLS'; end if;
+end $$;
+reset role;
+
+do $$ begin raise notice 'PASS: 0048 admin RLS policy exercised'; end $$;
 SQL
 
 psql -v ON_ERROR_STOP=1 -d "$DB" -f "$MIG/0048_risk_debate_assessment.rollback.sql"

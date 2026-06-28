@@ -28,22 +28,28 @@ const proposal: FunnelReflectionOutput = {
 };
 
 describe("insertFunnelReflectionProposal", () => {
-  it("upserts with reflection_kind retro + status proposed + onConflict period_key", async () => {
-    const upsert = vi.fn().mockResolvedValue({ error: null });
-    mocks.from.mockReturnValue({ upsert });
+  it("inserts with reflection_kind retro + status proposed without overwriting existing decisions", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    mocks.from.mockReturnValue({ insert });
     await insertFunnelReflectionProposal(proposal);
     expect(mocks.from).toHaveBeenCalledWith("tier0_funnel_reflection");
-    const [payload, opts] = upsert.mock.calls[0];
+    const [payload] = insert.mock.calls[0];
     expect(payload.reflection_kind).toBe("funnel_weight_retro");
     expect(payload.status).toBe("proposed");
     expect(payload.period_key).toBe("2026-06");
     expect(payload.challenger_config).toEqual({ trend: 0.55 });
-    expect(opts).toEqual({ onConflict: "period_key" });
   });
 
-  it("throws wrapped error on supabase error", async () => {
+  it("treats duplicate period_key as idempotent no-op (does not reset approval state)", async () => {
     mocks.from.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: { code: "23505" } }),
+      insert: vi.fn().mockResolvedValue({ error: { code: "23505" } }),
+    });
+    await expect(insertFunnelReflectionProposal(proposal)).resolves.toBeUndefined();
+  });
+
+  it("throws wrapped error on non-duplicate supabase error", async () => {
+    mocks.from.mockReturnValue({
+      insert: vi.fn().mockResolvedValue({ error: { code: "42501" } }),
     });
     await expect(insertFunnelReflectionProposal(proposal)).rejects.toThrow(
       /funnel_reflection_insert_failed/,
