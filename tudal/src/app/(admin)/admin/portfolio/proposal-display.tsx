@@ -20,8 +20,8 @@ export function ProposalDisplay({
   rationale: string;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-1.5 text-sm">
+    <div className="space-y-4">
+      <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2 text-sm">
         <div className="text-xs font-medium text-muted-foreground">코드</div>
         <div className="text-xs font-medium text-muted-foreground">종목</div>
         <div className="text-right text-xs font-medium text-muted-foreground">
@@ -43,7 +43,7 @@ export function ProposalDisplay({
           </Fragment>
         ))}
       </div>
-      <div className="flex items-center justify-between border-t pt-2 text-sm">
+      <div className="flex items-center justify-between border-t border-border/60 pt-3 text-sm">
         <span className="text-muted-foreground">현금 비중</span>
         <span className="font-medium tabular-nums">
           {formatProposalWeightPct(cashWeight)}

@@ -59,16 +59,16 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
     isPending || !label.trim() || !apiKey || !apiSecret;
 
   return (
-    <section aria-label="새 Binance 키 추가" className="rounded-lg border bg-card p-4">
+    <section aria-label="새 Binance 키 추가" className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
       <h2 className="mb-4 text-sm font-semibold">새 Binance 키 추가</h2>
 
       {banner && (
         <div
           role="alert"
-          className={`mb-4 rounded-md border px-3 py-2 text-sm ${
+          className={`mb-4 rounded-xl border px-3 py-2 text-sm ${
             banner.kind === "success"
               ? "border-emerald-400/50 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200"
-              : "border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 text-[var(--color-market-down)]"
+              : "border-market-down/40 bg-market-down/10 text-market-down"
           }`}
         >
           {banner.message}
@@ -87,7 +87,7 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
           <select
             id="exchange-display"
             disabled
-            className="w-full rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+            className="w-full rounded-xl border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
           >
             <option>Binance USDT-M Futures (현재 유일)</option>
           </select>
@@ -109,9 +109,9 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
             required
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
           />
-          <span className="block text-right font-mono text-xs text-muted-foreground">
+          <span className="block text-right font-mono text-xs tabular-nums text-muted-foreground">
             ({label.length}/40)
           </span>
         </div>
@@ -168,6 +168,7 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
                 name="testnetMode"
                 checked={testnetMode}
                 onChange={() => setTestnetMode(true)}
+                className="accent-primary"
               />
               테스트넷 (testnet.binancefuture.com)
             </label>
@@ -181,6 +182,7 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
                 checked={!testnetMode}
                 onChange={() => setTestnetMode(false)}
                 disabled={!isRep}
+                className="accent-primary"
               />
               메인넷{" "}
               {!isRep && (

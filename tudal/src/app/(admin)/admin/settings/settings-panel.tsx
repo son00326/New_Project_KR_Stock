@@ -63,7 +63,7 @@ export function SettingsPanel({
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 px-3 py-2 text-sm text-[var(--color-market-down)]"
+          className="rounded-xl border border-market-down/40 bg-market-down/10 px-3 py-2 text-sm text-market-down"
         >
           {formatErrorMessage(error)}
         </p>
@@ -71,7 +71,7 @@ export function SettingsPanel({
 
       <section
         aria-label="상시 모니터링 모드"
-        className="rounded-lg border bg-card p-4"
+        className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm"
       >
         <header className="flex items-start justify-between gap-3">
           <div>
@@ -83,7 +83,7 @@ export function SettingsPanel({
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
-              className="h-4 w-4"
+              className="h-4 w-4 accent-primary"
               checked={intradayMode}
               onChange={(e) => onModeChange(e.target.checked)}
               disabled={isPending}
@@ -99,7 +99,7 @@ export function SettingsPanel({
 
       <section
         aria-label="종목별 알림 토글"
-        className="rounded-lg border bg-card"
+        className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-toss-sm"
       >
         <header className="flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3">
           <h2 className="text-sm font-semibold">
@@ -117,7 +117,7 @@ export function SettingsPanel({
                 key={item.ticker}
                 className="flex items-center gap-3 px-4 py-2.5"
               >
-                <span className="w-16 font-mono text-xs text-muted-foreground">
+                <span className="w-16 font-mono text-xs tabular-nums text-muted-foreground">
                   {item.ticker}
                 </span>
                 <span className="flex-1 text-sm">{item.name}</span>
@@ -134,7 +134,7 @@ export function SettingsPanel({
                 <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
                   <input
                     type="checkbox"
-                    className="h-4 w-4"
+                    className="h-4 w-4 accent-primary"
                     checked={enabled}
                     onChange={(e) =>
                       onTickerToggle(item.ticker, e.target.checked)

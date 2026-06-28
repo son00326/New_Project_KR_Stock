@@ -69,7 +69,7 @@ export default async function AdminCostPage() {
   const banner: { tone: string; label: string; body: string } | null =
     summary.hardcapTriggered
       ? {
-          tone: "border-[var(--color-market-down)] bg-[var(--color-market-down)]/10 text-[var(--color-market-down)]",
+          tone: "border-market-down bg-market-down/10 text-market-down",
           label: "🚨 50만 Hardcap 도달",
           body: "이번 달 AI 비용이 50만원을 초과했습니다. M9 수동 재생성·M7 Reject 재분석 모두 차단됩니다. 대표 1인 override 토글로만 해제 가능 (BL-17 B).",
         }
@@ -117,7 +117,7 @@ export default async function AdminCostPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">AI 비용 모니터</h1>
+        <h1 className="text-2xl font-bold tracking-tight">AI 비용 모니터</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           M17 R3.12-1~3 · 월간 누적 + 45만 경보 + 50만 hardcap. 임계 도달 시
           M9 수동 재생성·M7 Reject 재분석 동시 차단. 자세한 의사결정은{" "}
@@ -149,7 +149,7 @@ export default async function AdminCostPage() {
       {banner && (
         <section
           aria-label="비용 경보"
-          className={`rounded-lg border p-4 text-sm ${banner.tone}`}
+          className={`rounded-2xl border p-5 text-sm ${banner.tone}`}
         >
           <div className="font-semibold">{banner.label}</div>
           <p className="mt-1 text-xs leading-relaxed">{banner.body}</p>
@@ -158,9 +158,9 @@ export default async function AdminCostPage() {
 
       <section
         aria-label="당월 누적 위젯"
-        className="grid gap-3 md:grid-cols-3"
+        className="grid gap-4 md:grid-cols-3"
       >
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
           <div className="text-xs text-muted-foreground">{summary.month.slice(0, 7)} 누적</div>
           <div className="mt-1 text-3xl font-semibold tabular-nums">
             {formatKrw(summary.totalKrw)}
@@ -172,7 +172,7 @@ export default async function AdminCostPage() {
             </strong>
           </div>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
           <div className="text-xs text-muted-foreground">45만 경보</div>
           <div className="mt-1 text-2xl font-semibold tabular-nums">
             {formatKrw(COST_WARNING_THRESHOLD_KRW)}
@@ -184,7 +184,7 @@ export default async function AdminCostPage() {
             </strong>
           </div>
         </article>
-        <article className="rounded-lg border bg-card p-4">
+        <article className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
           <div className="text-xs text-muted-foreground">50만 Hardcap</div>
           <div className="mt-1 text-2xl font-semibold tabular-nums">
             {formatKrw(COST_HARDCAP_KRW)}
@@ -200,7 +200,7 @@ export default async function AdminCostPage() {
 
       <section
         aria-label="시나리오 비교"
-        className="rounded-lg border bg-card p-4"
+        className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm"
       >
         <header className="flex items-baseline justify-between">
           <h2 className="text-sm font-semibold">시나리오 비교</h2>
@@ -223,7 +223,7 @@ export default async function AdminCostPage() {
                 <td className="py-2 text-right">{formatKrw(s.total)}</td>
                 <td className="py-2 text-right text-xs">
                   {s.triggered === "hardcap" ? (
-                    <span className="text-[var(--color-market-down)]">
+                    <span className="text-market-down">
                       Hardcap
                     </span>
                   ) : s.triggered === "warning" ? (
@@ -231,7 +231,7 @@ export default async function AdminCostPage() {
                       Warning
                     </span>
                   ) : (
-                    <span className="text-[var(--color-market-up)]">정상</span>
+                    <span className="text-market-up">정상</span>
                   )}
                 </td>
               </tr>
@@ -247,7 +247,7 @@ export default async function AdminCostPage() {
 
       <section
         aria-label="Purpose별 비중"
-        className="rounded-lg border bg-card p-4"
+        className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm"
       >
         <h2 className="text-sm font-semibold">Purpose별 비용 비중</h2>
         {summary.byPurpose.length === 0 ? (
@@ -278,7 +278,7 @@ export default async function AdminCostPage() {
 
       <section
         aria-label="Top 5 비용 기여"
-        className="rounded-lg border bg-card p-4"
+        className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm"
       >
         <h2 className="text-sm font-semibold">Top 5 비용 기여 (이번 달)</h2>
         {summary.topContributors.length === 0 ? (

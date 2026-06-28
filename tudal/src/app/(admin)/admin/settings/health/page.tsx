@@ -21,10 +21,10 @@ export const dynamic = "force-dynamic";
 
 const SEVERITY_STYLE: Record<Severity, string> = {
   critical:
-    "border-[var(--color-market-down)] bg-[var(--color-market-down)]/10 text-[var(--color-market-down)]",
+    "border-market-down bg-market-down/10 text-market-down",
   warning:
     "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-  info: "border-[var(--color-market-up)] bg-[var(--color-market-up)]/10 text-[var(--color-market-up)]",
+  info: "border-market-up bg-market-up/10 text-market-up",
 };
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -72,7 +72,7 @@ export default async function AdminHealthPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">Health 대시보드</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Health 대시보드</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           5개 파이프라인 × 최근 {PIPELINE_HEALTH_WINDOW_HOURS}h 성공률. 임계치:
           Critical &lt; {formatRate(PIPELINE_HEALTH_CRITICAL_THRESHOLD)} ·
@@ -98,7 +98,7 @@ export default async function AdminHealthPage() {
 
       <section
         aria-label="전체 파이프라인 상태"
-        className={`rounded-lg border p-4 text-sm font-medium ${SEVERITY_STYLE[overall]}`}
+        className={`rounded-2xl border p-5 text-sm font-medium ${SEVERITY_STYLE[overall]}`}
       >
         전체 상태: {SEVERITY_LABEL[overall]}
         {overall === "critical" && (
@@ -110,7 +110,7 @@ export default async function AdminHealthPage() {
 
       <section
         aria-label="Silent Health 하트비트 (M19)"
-        className={`rounded-lg border p-4 ${
+        className={`rounded-2xl border p-5 ${
           heartbeat
             ? heartbeat.status === "red_alert"
               ? SEVERITY_STYLE.critical
@@ -159,12 +159,12 @@ export default async function AdminHealthPage() {
 
       <section
         aria-label="파이프라인별 성공률"
-        className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+        className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
       >
         {summaries.map((s) => (
           <article
             key={s.pipeline}
-            className={`rounded-lg border p-4 ${SEVERITY_STYLE[s.severity]}`}
+            className={`rounded-2xl border p-5 ${SEVERITY_STYLE[s.severity]}`}
           >
             <div className="flex items-baseline justify-between">
               <h2 className="text-sm font-semibold">
@@ -196,7 +196,7 @@ export default async function AdminHealthPage() {
         ))}
       </section>
 
-      <section aria-label="실패 트레이스" className="rounded-lg border bg-card p-4">
+      <section aria-label="실패 트레이스" className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
         <header className="flex items-baseline justify-between">
           <h2 className="text-sm font-semibold">
             실패 트레이스 (최근 {failures.length}건)

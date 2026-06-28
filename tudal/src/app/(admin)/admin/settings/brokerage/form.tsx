@@ -51,16 +51,16 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
   }
 
   return (
-    <section aria-label="새 KIS 계좌 추가" className="rounded-lg border bg-card p-4">
+    <section aria-label="새 KIS 계좌 추가" className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
       <h2 className="mb-4 text-base font-semibold">새 KIS 계좌 추가</h2>
 
       {banner && (
         <div
           role="alert"
-          className={`mb-4 rounded-md border px-3 py-2 text-sm ${
+          className={`mb-4 rounded-xl border px-3 py-2 text-sm ${
             banner.kind === "success"
               ? "border-emerald-400/40 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200"
-              : "border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 text-[var(--color-market-down)]"
+              : "border-market-down/40 bg-market-down/10 text-market-down"
           }`}
         >
           {banner.message}
@@ -76,7 +76,7 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
           <select
             id="broker-select"
             disabled
-            className="w-full rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground"
+            className="w-full rounded-xl border bg-muted px-3 py-2 text-sm text-muted-foreground"
           >
             <option>KIS (현재 유일)</option>
           </select>
@@ -96,7 +96,7 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
             required
             value={accountNo}
             onChange={(e) => setAccountNo(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
+            className="w-full rounded-xl border bg-background px-3 py-2 font-mono text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
           />
         </div>
 
@@ -144,7 +144,7 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
                 name="mockMode"
                 checked={mockMode}
                 onChange={() => setMockMode(true)}
-                className="h-4 w-4"
+                className="h-4 w-4 accent-primary"
               />
               모의투자
             </label>
@@ -158,7 +158,7 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
                 checked={!mockMode}
                 onChange={() => setMockMode(false)}
                 disabled={!isRep}
-                className="h-4 w-4"
+                className="h-4 w-4 accent-primary"
               />
               실계좌{" "}
               {!isRep && (
@@ -180,7 +180,7 @@ export function BrokerageForm({ isRep }: BrokerageFormProps) {
             placeholder="단기 모멘텀"
             value={strategyLabel}
             onChange={(e) => setStrategyLabel(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
           />
         </div>
 

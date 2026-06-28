@@ -32,7 +32,7 @@ export default async function BinancePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-2xl font-bold tracking-tight">
           거래소 키 (Binance USDT-M Futures)
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -49,12 +49,12 @@ export default async function BinancePage() {
         {loadError ? (
           <p
             role="alert"
-            className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
+            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
           >
             {loadError.message}
           </p>
         ) : rows.length === 0 ? (
-          <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-2xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
             등록된 Binance 키 없음. 아래에서 추가하세요.
           </p>
         ) : (
@@ -62,7 +62,7 @@ export default async function BinancePage() {
             {rows.map((row) => (
               <li
                 key={row.id}
-                className="rounded-lg border bg-card px-4 py-3"
+                className="rounded-2xl border border-border/60 bg-card px-4 py-3 shadow-toss-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -77,8 +77,8 @@ export default async function BinancePage() {
                               }
                             : {
                                 background:
-                                  "color-mix(in srgb, var(--color-market-up) 15%, transparent)",
-                                color: "var(--color-market-up)",
+                                  "color-mix(in srgb, var(--market-up) 15%, transparent)",
+                                color: "var(--market-up)",
                               }
                         }
                       >

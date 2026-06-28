@@ -55,7 +55,7 @@ export function DeleteButton({ id, accountNoMasked }: DeleteButtonProps) {
           {error && (
             <p
               role="alert"
-              className="rounded-md border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 px-3 py-2 text-sm text-[var(--color-market-down)]"
+              className="rounded-xl border border-market-down/40 bg-market-down/10 px-3 py-2 text-sm text-market-down"
             >
               {formatErrorMessage(error)}
             </p>

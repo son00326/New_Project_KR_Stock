@@ -35,7 +35,7 @@ export default async function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">설정</h1>
+        <h1 className="text-2xl font-bold tracking-tight">설정</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           상시 모니터링 모드 · 종목별 알림 토글 · (파이프라인 헬스는{" "}
           <Link
