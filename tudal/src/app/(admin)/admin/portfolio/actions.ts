@@ -65,6 +65,7 @@ import { isRiskDebateEnabled } from "@/lib/risk/flags";
 import { runRiskDebate } from "@/lib/risk/risk-debate-orchestrator";
 import { callRiskDebator } from "@/lib/risk/risk-debate-client";
 import type { RiskPortfolioInput } from "@/lib/risk/risk-debate";
+import { logStructured } from "@/lib/log/structured-log";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 
@@ -695,7 +696,11 @@ async function runRiskDebateAdvisory(input: {
       insert: (assessment) =>
         insertRiskDebateAssessment(assessment, { client: input.client }),
     });
-  } catch {}
+  } catch (err) {
+    logStructured("warn", "risk_debate_advisory_skipped", {
+      reason: err instanceof Error ? err.message : "unknown",
+    });
+  }
 }
 const MONTHLY_BATCH_SINGLE_SHOT_DEPRECATED =
   "monthly_batch_single_shot_deprecated";

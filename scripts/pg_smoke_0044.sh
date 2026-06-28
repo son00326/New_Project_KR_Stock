@@ -74,22 +74,28 @@ declare
   v_ret boolean;
   v_t7 numeric;
   v_outcome timestamptz;
+  v_expected_outcome constant timestamptz := '2026-06-27T06:00:00Z'::timestamptz;
 begin
   insert into public.alert_event(alert_type, ticker) values ('exit_signal', '005930') returning id into v_exit;
   insert into public.alert_event(alert_type, ticker) values ('intraday_anomaly', '000660') returning id into v_intraday;
 
   -- 1) exit_signal, outcome null → returns true + sets t7/outcome
-  select public.record_alert_exit_outcome(v_exit, 3.210, '2026-06-27T06:00:00Z'::timestamptz) into v_ret;
+  select public.record_alert_exit_outcome(v_exit, 3.210, v_expected_outcome) into v_ret;
   if not v_ret then raise exception 'FAIL: first outcome write should return true'; end if;
   select t7_price_change, outcome_at into v_t7, v_outcome from public.alert_event where id = v_exit;
   if v_t7 is distinct from 3.210 then raise exception 'FAIL: t7_price_change not set (got %)', v_t7; end if;
-  if v_outcome is null then raise exception 'FAIL: outcome_at not set'; end if;
+  if v_outcome is distinct from v_expected_outcome then
+    raise exception 'FAIL: outcome_at mismatch (got %, want %)', v_outcome, v_expected_outcome;
+  end if;
 
-  -- 2) idempotent: already-set (outcome_at not null) → returns false, no overwrite
+  -- 2) idempotent: already-set (outcome_at not null) → returns false, no overwrite(t7/outcome_at)
   select public.record_alert_exit_outcome(v_exit, 9.999, now()) into v_ret;
   if v_ret then raise exception 'FAIL: second write should return false (idempotent)'; end if;
-  select t7_price_change into v_t7 from public.alert_event where id = v_exit;
+  select t7_price_change, outcome_at into v_t7, v_outcome from public.alert_event where id = v_exit;
   if v_t7 is distinct from 3.210 then raise exception 'FAIL: idempotent call overwrote t7 (got %)', v_t7; end if;
+  if v_outcome is distinct from v_expected_outcome then
+    raise exception 'FAIL: idempotent call overwrote outcome_at (got %, want %)', v_outcome, v_expected_outcome;
+  end if;
 
   -- 3) non-exit alert → returns false, no change
   select public.record_alert_exit_outcome(v_intraday, 1.5, now()) into v_ret;

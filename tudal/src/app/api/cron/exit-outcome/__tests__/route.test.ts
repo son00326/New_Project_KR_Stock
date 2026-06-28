@@ -123,7 +123,7 @@ describe("GET /api/cron/exit-outcome", () => {
     expect(srMock.rpc).toHaveBeenCalledWith("record_alert_exit_outcome", {
       p_alert_id: "a1",
       p_t7_price_change: 7,
-      p_outcome_at: expect.any(String),
+      p_outcome_at: "2026-06-20T10:00:00.000Z",
     });
   });
 

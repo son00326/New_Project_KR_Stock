@@ -94,19 +94,33 @@ values ('2026-11-01', 'conditional', 'auth rls ok');
 do $$
 declare v_count int;
 begin
+  update public.risk_debate_assessment
+  set summary='auth rls updated'
+  where month='2026-11-01';
+  get diagnostics v_count = row_count;
+  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot update (got %)', v_count; end if;
   select count(*) into v_count
   from public.risk_debate_assessment
-  where month='2026-11-01';
-  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot read (got %)', v_count; end if;
+  where month='2026-11-01' and summary='auth rls updated';
+  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot read updated row (got %)', v_count; end if;
 end $$;
 reset role;
 
 set role anon;
 do $$
-declare v_count int; v_failed boolean := false;
+declare v_count int; v_touched int; v_failed boolean := false;
 begin
   select count(*) into v_count from public.risk_debate_assessment;
   if v_count <> 0 then raise exception 'FAIL: anon should see 0 rows through RLS (got %)', v_count; end if;
+  update public.risk_debate_assessment
+  set summary='anon touched'
+  where month='2026-11-01';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then raise exception 'FAIL: anon update should touch 0 rows through RLS (got %)', v_touched; end if;
+  delete from public.risk_debate_assessment
+  where month='2026-11-01';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then raise exception 'FAIL: anon delete should touch 0 rows through RLS (got %)', v_touched; end if;
   begin
     insert into public.risk_debate_assessment(month, final_verdict, summary)
     values ('2026-12-01', 'pass', 'anon denied');
@@ -114,6 +128,17 @@ begin
   if not v_failed then raise exception 'FAIL: anon insert should be denied by RLS'; end if;
 end $$;
 reset role;
+
+do $$
+declare v_summary text;
+begin
+  select summary into v_summary
+  from public.risk_debate_assessment
+  where month='2026-11-01';
+  if v_summary is distinct from 'auth rls updated' then
+    raise exception 'FAIL: anon update/delete changed row (summary %)', v_summary;
+  end if;
+end $$;
 
 do $$ begin raise notice 'PASS: 0048 admin RLS policy exercised'; end $$;
 SQL

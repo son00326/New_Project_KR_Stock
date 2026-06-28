@@ -103,19 +103,33 @@ values ('2026-W26', '{"trend":0.5}'::jsonb, '{"trend":0.55}'::jsonb, 'auth rls o
 do $$
 declare v_count int;
 begin
+  update public.tier0_funnel_reflection
+  set status = 'approved'
+  where period_key='2026-W26';
+  get diagnostics v_count = row_count;
+  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot update (got %)', v_count; end if;
   select count(*) into v_count
   from public.tier0_funnel_reflection
-  where period_key='2026-W26';
-  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot read (got %)', v_count; end if;
+  where period_key='2026-W26' and status='approved';
+  if v_count <> 1 then raise exception 'FAIL: authenticated admin policy cannot read updated row (got %)', v_count; end if;
 end $$;
 reset role;
 
 set role anon;
 do $$
-declare v_count int; v_failed boolean := false;
+declare v_count int; v_touched int; v_failed boolean := false;
 begin
   select count(*) into v_count from public.tier0_funnel_reflection;
   if v_count <> 0 then raise exception 'FAIL: anon should see 0 rows through RLS (got %)', v_count; end if;
+  update public.tier0_funnel_reflection
+  set status='rejected'
+  where period_key='2026-W26';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then raise exception 'FAIL: anon update should touch 0 rows through RLS (got %)', v_touched; end if;
+  delete from public.tier0_funnel_reflection
+  where period_key='2026-W26';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then raise exception 'FAIL: anon delete should touch 0 rows through RLS (got %)', v_touched; end if;
   begin
     insert into public.tier0_funnel_reflection(period_key, champion_config, challenger_config, rationale)
     values ('2026-W27', '{}'::jsonb, '{}'::jsonb, 'anon denied');
@@ -123,6 +137,17 @@ begin
   if not v_failed then raise exception 'FAIL: anon insert should be denied by RLS'; end if;
 end $$;
 reset role;
+
+do $$
+declare v_status text;
+begin
+  select status into v_status
+  from public.tier0_funnel_reflection
+  where period_key='2026-W26';
+  if v_status is distinct from 'approved' then
+    raise exception 'FAIL: anon update/delete changed row (status %)', v_status;
+  end if;
+end $$;
 
 do $$ begin raise notice 'PASS: 0047 admin RLS policy exercised'; end $$;
 SQL

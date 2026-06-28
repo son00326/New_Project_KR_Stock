@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 // /admin/report/[ticker]는 종목 클릭 전용이라 sidebar에서 제외.
 // S6: AI 비용 모니터(/admin/settings/cost) 추가 노출.
 // DQ-7: 증권사·거래소 키(Flat 추가 · S8에서 그룹 재편 예정 · spec §5.2).
-const ADMIN_NAV = [
+export const ADMIN_NAV = [
   { href: "/admin", label: "홈" },
   { href: "/admin/portfolio", label: "포트폴리오" },
   { href: "/admin/alerts", label: "알림" },

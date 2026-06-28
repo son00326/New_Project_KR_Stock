@@ -12,7 +12,7 @@
 - 비용 중(3 debator LLM) → **포트 구성당 1회 + hardcap reservation** 준수.
 
 ## 1. 순수 로직 `lib/risk/risk-debate.ts`
-- 3 stance(`aggressive`/`conservative`/`neutral`) 각: 포트(종목·비중·현금·섹터집중·단중장 분배) 위험 평가 → 구조화 판정 `{ stance, concern_level('low'|'med'|'high'), key_risks[], verdict_vote('pass'|'conditional'|'reject') }`.
+- 3 stance(`aggressive`/`conservative`/`neutral`) 각: 포트(종목·비중·현금·섹터집중·단중장 분배) 위험 평가 → 구조화 판정 `{ stance, concern_level('low'|'medium'|'high'), key_risks[], verdict_vote('pass'|'conditional'|'reject') }`.
 - `aggregateRiskVerdict(votes)` 결정론: 3표 → 최종 `pass`(과반 pass) / `conditional`(혼합/1+ conditional) / `reject`(2+ reject). **advisory** = Accept 비차단(결과는 표시만).
 - LLM 호출은 DI(`callRiskDebator`) — 순수 aggregation은 env/AI 미접근(테스트 친화).
 
