@@ -508,7 +508,8 @@ export async function runReportBatchChunk(
             });
             deferred += 1;
           } else {
-            // sector_board_unavailable(degraded <14, transient AI flake) 등 → failed(claim 재시도 attempts<3).
+            // sector_board_unavailable(degraded <14) 등 → failed(운영자 가시화).
+            // claim_next_report_jobs는 failed를 재claim하지 않으므로 "자동 재시도" 의미가 아니다.
             await markJob(client, {
               id: job.id,
               status: "failed",

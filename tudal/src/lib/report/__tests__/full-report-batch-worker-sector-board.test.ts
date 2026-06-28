@@ -226,7 +226,7 @@ describe("runReportBatchChunk PR-T2a sector-board completeness branch", () => {
     expect(commitSectorBoardStepMock).not.toHaveBeenCalled();
   });
 
-  it("flag on + degraded (sector_board_unavailable) → failed (claim 재시도)", async () => {
+  it("flag on + degraded (sector_board_unavailable) → failed terminal + scheduler_fail signal", async () => {
     process.env.SECTOR_BOARD_ENABLED = "true";
     commitSectorBoardStepMock.mockResolvedValue({
       status: "sector_board_unavailable",
@@ -243,6 +243,11 @@ describe("runReportBatchChunk PR-T2a sector-board completeness branch", () => {
 
     expect(result.failed).toBe(1);
     expect(result.deferred).toBe(0);
+    expect(insertPipelineHealthMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pipeline: "ai", status: "failed" }),
+      expect.anything(),
+    );
+    expect(insertAlertEventsMock).toHaveBeenCalled();
     expect(rpcCalls.find((c) => c.name === "mark_report_job")?.args).toMatchObject(
       { p_status: "failed", p_error: "sector_board_unavailable" },
     );

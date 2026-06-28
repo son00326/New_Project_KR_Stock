@@ -6,7 +6,7 @@
 #     · section_8 null → NOT reset (section8 reset 영역)
 #     · deferred(sector_board_not_ready) → reset / deferred(sector_unresolved) → NOT reset (terminal·무한루프 차단)
 #     · ⚪/null·비-AI 배지 → NOT reset
-#     · partA non-array(jsonb_typeof guard) → reset 없이 error 없음
+#     · partA non-array(jsonb_typeof guard) → error 없이 reset 대상
 #     · grants: service_role execute / public·anon·authenticated revoked
 #     · rollback clean
 #   Requires LOCAL PostgreSQL. NOT production.
