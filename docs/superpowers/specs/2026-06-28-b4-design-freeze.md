@@ -1,5 +1,7 @@
 # B-4 디자인 D2~D4 결합 + freeze — 신규 화면 design QA/polish (S9 직전)
 
+> **⚠️ SUPERSEDED (2026-06-28, D34): 본 문서의 "풀 리디자인 아님" 범위를 USER가 전면 리디자인으로 확장.** 토스 스타일 전체 리디자인이 단일 세션에 실행됨 — 전 화면·전 컴포넌트·전 상태 통일 + 다크모드 실 배선. 본 freeze 체크리스트(신규 화면 consistency)는 그 부분집합으로 흡수됨. 신 SoT = `docs/superpowers/specs/2026-06-28-toss-design-system.md` + `ServicePlan-Admin.md §1A.1/D34`. 라이브 `/gstack-design-review`(populated+auth)만 S9 직전 USER 단계로 잔존.
+
 - Date: 2026-06-28
 - Branch: `tier0-bpp-multiregime`
 - SoT 선행: `ServicePlan-Admin.md §1A.1 디자인 방향 · §1A.5 D29` · HANDOFF "Toss-D0~D4 디자인 lane"
