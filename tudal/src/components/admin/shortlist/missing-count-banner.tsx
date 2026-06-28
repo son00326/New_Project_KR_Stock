@@ -25,14 +25,14 @@ export function MissingCountBanner({
     return (
       <div
         role="status"
-        className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-50/60 px-4 py-3 text-sm shadow-toss-sm dark:border-amber-500/30 dark:bg-amber-950/20"
+        className="flex flex-wrap items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm shadow-toss-sm"
       >
         <Clock
-          className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+          className="mt-0.5 h-5 w-5 shrink-0 text-warning"
           aria-hidden
         />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-amber-700 dark:text-amber-300">
+          <div className="font-semibold text-warning">
             단기/중장기 트랙 선정 시차 — 갱신 진행 중
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">

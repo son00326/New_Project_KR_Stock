@@ -528,24 +528,26 @@ function Section2View({ data }: { data: ReportSection2 | null }) {
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
-      <table className="w-full text-xs">
-        <thead className="text-muted-foreground">
-          <tr className="border-b">
-            <th className="py-1 text-left">FY</th>
-            <th className="py-1 text-right">매출</th>
-            <th className="py-1 text-right">YoY</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.revenue.map((r) => (
-            <tr key={r.fy} className="border-b last:border-0">
-              <td className="py-1">{r.fy}</td>
-              <td className="text-right font-mono tabular-nums">{r.value}</td>
-              <td className="text-right font-mono tabular-nums">{r.yoy}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-muted-foreground">
+            <tr className="border-b">
+              <th className="py-1 text-left">FY</th>
+              <th className="py-1 text-right">매출</th>
+              <th className="py-1 text-right">YoY</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.revenue.map((r) => (
+              <tr key={r.fy} className="border-b last:border-0">
+                <td className="py-1">{r.fy}</td>
+                <td className="text-right font-mono tabular-nums">{r.value}</td>
+                <td className="text-right font-mono tabular-nums">{r.yoy}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="flex flex-wrap gap-4 text-xs">
         <span>
           OPM <b className="font-mono">{data.margins.operating}</b>
@@ -570,26 +572,28 @@ function Section3View({ data }: { data: ReportSection3 | null }) {
     <div className="space-y-3">
       <p>{data.summary}</p>
       {data.multiples.length > 0 && (
-        <table className="w-full text-xs">
-          <thead className="text-muted-foreground">
-            <tr className="border-b">
-              <th className="py-1 text-left">지표</th>
-              <th className="py-1 text-right">값</th>
-              <th className="py-1 text-right">피어</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.multiples.map((m) => (
-              <tr key={m.metric} className="border-b last:border-0">
-                <td className="py-1">{m.metric}</td>
-                <td className="text-right font-mono tabular-nums">{m.value}</td>
-                <td className="text-right font-mono tabular-nums text-muted-foreground">
-                  {m.peer}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="text-muted-foreground">
+              <tr className="border-b">
+                <th className="py-1 text-left">지표</th>
+                <th className="py-1 text-right">값</th>
+                <th className="py-1 text-right">피어</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.multiples.map((m) => (
+                <tr key={m.metric} className="border-b last:border-0">
+                  <td className="py-1">{m.metric}</td>
+                  <td className="text-right font-mono tabular-nums">{m.value}</td>
+                  <td className="text-right font-mono tabular-nums text-muted-foreground">
+                    {m.peer}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

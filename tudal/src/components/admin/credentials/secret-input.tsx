@@ -85,8 +85,8 @@ export function SecretInput({
             counterState === "neutral"
               ? "text-muted-foreground"
               : counterState === "ok"
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-red-500 dark:text-red-400"
+                ? "text-success"
+                : "text-destructive"
           }`}
           aria-live="polite"
         >

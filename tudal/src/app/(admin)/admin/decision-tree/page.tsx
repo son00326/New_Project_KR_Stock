@@ -112,7 +112,7 @@ export default async function AdminDecisionTreePage() {
                 result.overall === "○"
                   ? "text-market-up"
                   : result.overall === "△"
-                  ? "text-amber-500"
+                  ? "text-warning"
                   : "text-market-down"
               }`}
             >
@@ -169,7 +169,7 @@ export default async function AdminDecisionTreePage() {
               result.overall === "○"
                 ? "text-market-up"
                 : result.overall === "△"
-                ? "text-amber-500"
+                ? "text-warning"
                 : "text-market-down"
             }
           >

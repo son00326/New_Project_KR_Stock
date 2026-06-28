@@ -24,7 +24,7 @@ const SIGNAL_CONFIG = {
   },
   neutral: {
     label: "중립",
-    color: "text-chart-5",
+    color: "text-warning",
     bg: "bg-chart-5/5 border-chart-5/20",
     icon: Minus,
   },
@@ -45,7 +45,7 @@ const SIGNAL_CONFIG = {
 const DETAIL_SIGNAL = {
   bullish: { label: "긍정", color: "bg-market-up/10 text-market-up" },
   bearish: { label: "부정", color: "bg-market-down/10 text-market-down" },
-  neutral: { label: "중립", color: "bg-chart-5/10 text-chart-5" },
+  neutral: { label: "중립", color: "bg-chart-5/10 text-warning" },
 };
 
 export function VerdictPanel({ verdict }: VerdictPanelProps) {

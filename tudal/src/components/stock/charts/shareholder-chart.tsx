@@ -61,6 +61,7 @@ export function ShareholderChart({ shareholders }: ShareholderChartProps) {
 
       {/* 상세 표 */}
       <div className="w-full md:w-1/2">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b">
@@ -96,6 +97,7 @@ export function ShareholderChart({ shareholders }: ShareholderChartProps) {
             ))}
           </tbody>
         </table>
+        </div>
 
         {/* 핵심 포인트 */}
         <div className="mt-4 rounded-xl bg-muted/50 p-3">

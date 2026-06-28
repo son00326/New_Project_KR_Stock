@@ -30,7 +30,7 @@ const TRIGGER_COLOR: Record<IntradayTriggerType, string> = {
   price_drop:
     "bg-market-down/15 text-market-down border-market-down/40",
   volume_spike:
-    "bg-yellow-500/15 text-yellow-700 border-yellow-500/40 dark:text-yellow-400",
+    "bg-warning/15 text-warning border-warning/40",
 };
 
 function formatDelta(ev: IntradayAnomalyEvent): string {

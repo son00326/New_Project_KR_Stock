@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { recordExitDecision } from "@/app/(admin)/admin/alerts/[id]/actions";
+import { Button } from "@/components/ui/button";
 import { formatErrorMessage } from "@/lib/admin/format-error";
 import type { ExitDecision } from "@/types/admin";
 
@@ -122,13 +123,9 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending || !decision}
-        className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-toss-sm transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50"
-      >
+      <Button type="submit" disabled={isPending || !decision}>
         {isPending ? "저장 중..." : "결정 기록 저장"}
-      </button>
+      </Button>
     </form>
   );
 }

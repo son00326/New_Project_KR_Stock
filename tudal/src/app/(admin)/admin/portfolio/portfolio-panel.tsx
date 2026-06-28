@@ -268,8 +268,8 @@ export function PortfolioPanel({
     <div className="space-y-4">
       {/* 경고 배너 — reanalysisCount >= 1: 전월 포트 유지 경고 */}
       {reanalysisCount >= 1 && !isAlreadyFinalized && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">
               Reject {reanalysisCount}회 — 전월 포트 유지 중 · CAP Months 미포함 경고
@@ -283,15 +283,15 @@ export function PortfolioPanel({
 
       {/* 결과 배너 */}
       {banner?.kind === "accept_done" && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-400/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success shadow-toss-sm">
           <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
           <span className="font-semibold">{monthLabel} 포트가 확정되었습니다.</span>
         </div>
       )}
 
       {banner?.kind === "reject_done" && banner.portfolioHoldWarning && (
-        <div className="flex items-start gap-3 rounded-lg border border-orange-400/50 bg-orange-50 px-4 py-3 text-sm text-orange-900 dark:border-orange-500/40 dark:bg-orange-950/30 dark:text-orange-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">Reject 2회 달성 — 전월 포트 유지 확정</p>
             <p className="mt-0.5 text-xs opacity-80">
@@ -302,8 +302,8 @@ export function PortfolioPanel({
       )}
 
       {banner?.kind === "reject_done" && !banner.portfolioHoldWarning && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">
               Reject 기록 완료 (요청 {banner.reanalysisCount}회)
@@ -316,14 +316,14 @@ export function PortfolioPanel({
       )}
 
       {banner?.kind === "propose_done" && (
-        <div className="flex items-start gap-3 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
-          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm text-info shadow-toss-sm">
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
           <span>AI 포트 제안이 생성되었습니다. 결과 창에서 확인하세요.</span>
         </div>
       )}
 
       {banner?.kind === "error" && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           <span>{formatPortfolioActionError(banner.message)}</span>
         </div>
@@ -331,7 +331,7 @@ export function PortfolioPanel({
 
       {/* PR-H scope 1a — 30 재선정 완료 배너 */}
       {banner?.kind === "reanalyze_done" && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-400/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success shadow-toss-sm">
           <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
           <span className="font-semibold">
             30 재선정 완료 — {banner.selectedCount}종목 선정. 표를 새로고침합니다.
@@ -341,7 +341,7 @@ export function PortfolioPanel({
 
       {/* PR-H scope 4 — report-worker chunk 결과 배너 */}
       {banner?.kind === "report_worker_done" && (
-        <div className="flex items-start gap-3 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
+        <div className="flex items-start gap-3 rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm text-info shadow-toss-sm">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <div>
             <p className="font-semibold">
@@ -358,14 +358,14 @@ export function PortfolioPanel({
       )}
 
       {banner?.kind === "report_worker_skipped" && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           <span>리포트 배치가 이미 진행 중입니다 (다른 워커 보유).</span>
         </div>
       )}
 
       {banner?.kind === "report_worker_not_ready" && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           <span>Short List가 아직 30종목이 아닙니다 — W2a 선정 청크를 먼저 완료하세요.</span>
         </div>
@@ -373,14 +373,14 @@ export function PortfolioPanel({
 
       {/* 이의 제기 완료 배너 */}
       {banner?.kind === "dispute_done" && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           <span className="font-semibold">이의 제기가 접수되었습니다. 48h Hold가 시작됩니다.</span>
         </div>
       )}
 
       {banner?.kind === "dispute_resolved" && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-400/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success shadow-toss-sm">
           <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
           <span className="font-semibold">이의가 해결되었습니다. Accept Hold를 다시 계산합니다.</span>
         </div>
@@ -388,7 +388,7 @@ export function PortfolioPanel({
 
       {/* 이의 제기 48h Hold 배너 — disputeBlocked=true 시 */}
       {disputeBlocked && disputeHoldExpiresAt && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-400/50 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-900 dark:border-orange-500/40 dark:bg-orange-950/30 dark:text-orange-200">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning shadow-toss-sm">
           <span>
             ⏳ 이의 제기 48h Hold — 만료{" "}
             {disputeHoldExpiresAt.toLocaleString("ko-KR", {
@@ -412,7 +412,7 @@ export function PortfolioPanel({
 
       {/* (b) 게이팅 상태 라벨 — allowed=false 시 표시 */}
       {!isAlreadyFinalized && !acceptAllowed && gateMessage && (
-        <div className="flex items-center gap-2 rounded-lg border border-sky-400/50 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm text-info shadow-toss-sm">
           <span>{gateMessage}</span>
         </div>
       )}
@@ -557,7 +557,7 @@ export function PortfolioPanel({
 
           {/* 게이팅 차단 메시지 — 모달 내에도 표시 (오인 방지) */}
           {!acceptAllowed && gateMessage && (
-            <div className="flex items-center gap-2 rounded-lg border border-sky-400/50 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-500/40 dark:bg-sky-950/30 dark:text-sky-200">
+            <div className="flex items-center gap-2 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-info">
               <span>{gateMessage}</span>
             </div>
           )}
@@ -634,7 +634,7 @@ export function PortfolioPanel({
               <span
                 className={`text-xs font-mono tabular-nums ${
                   disputeReason.length >= DISPUTE_REASON_MIN_LENGTH
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-success"
                     : "text-red-500 dark:text-red-400"
                 }`}
               >

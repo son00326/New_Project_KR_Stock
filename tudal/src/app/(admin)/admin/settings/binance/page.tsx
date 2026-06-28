@@ -49,7 +49,7 @@ export default async function BinancePage() {
         {loadError ? (
           <p
             role="alert"
-            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
+            className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-4 text-sm text-warning"
           >
             {loadError.message}
           </p>

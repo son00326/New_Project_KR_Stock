@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { LogoutButton } from "@/app/(admin)/logout-button";
 import { JoopickLogo } from "@/components/layout/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { getUnreadAlertCount } from "@/lib/data/admin-alerts";
 import { createClient } from "@/lib/supabase/server";
 
@@ -73,6 +74,7 @@ export default async function AdminLayout({
                 {user.email}
               </span>
             )}
+            <ThemeToggle />
             <LogoutButton />
           </div>
         </div>

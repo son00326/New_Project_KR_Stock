@@ -7,7 +7,7 @@ interface FearGreedGaugeProps {
 function getZoneInfo(value: number) {
   if (value <= 20) return { label: "극단적 공포", color: "text-market-down", bg: "bg-market-down" };
   if (value <= 40) return { label: "공포", color: "text-market-down", bg: "bg-chart-1" };
-  if (value <= 60) return { label: "중립", color: "text-chart-5", bg: "bg-chart-5" };
+  if (value <= 60) return { label: "중립", color: "text-warning", bg: "bg-chart-5" };
   if (value <= 80) return { label: "탐욕", color: "text-market-up", bg: "bg-market-up" };
   return { label: "극단적 탐욕", color: "text-market-up", bg: "bg-destructive" };
 }

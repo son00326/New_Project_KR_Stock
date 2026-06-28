@@ -230,14 +230,14 @@ export default async function AdminPortfolioPage() {
     <div className="space-y-6">
       {/* (c) BL-20 자동 바이패스 배지 (T3.8) — active=true 시 최상단 */}
       {autoReliefActive && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200">
+        <div className="flex items-center gap-2 rounded-2xl border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200 shadow-toss-sm">
           ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefAdminId}
         </div>
       )}
 
       {/* 77차 D31 — 내부도구 완화 게이트 모드 표시 (silent 안전변경 방지·감사성) */}
       {relaxGate && (
-        <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning shadow-toss-sm">
           ℹ️ 내부도구 게이트 모드: Accept는 24h Hold만 적용(D+4 영업일 Hold·2인 열람 면제). 멤버 공개 시 <code>PORTFOLIO_ACCEPT_GATE_STRICT=true</code>로 복원.
         </div>
       )}

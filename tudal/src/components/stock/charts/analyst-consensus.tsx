@@ -66,25 +66,28 @@ export function AnalystConsensus({ ticker, currentPrice }: AnalystConsensusProps
           <span>최저 {minTP.toLocaleString()}원</span>
           <span>최고 {maxTP.toLocaleString()}원</span>
         </div>
-        <div className="relative h-8 bg-muted rounded-full overflow-hidden">
-          {/* 현재가 마커 */}
+        <div className="relative pt-5">
+          {/* 현재가 라벨 — overflow-hidden 트랙 밖에 배치(클리핑 방지) */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-foreground z-10"
-            style={{ left: `${((currentPrice - minTP) / (maxTP - minTP)) * 100}%` }}
-          />
-          <div
-            className="absolute -top-5 text-[10px] font-medium"
+            className="absolute top-0 text-[10px] font-medium"
             style={{ left: `${((currentPrice - minTP) / (maxTP - minTP)) * 100}%`, transform: "translateX(-50%)" }}
           >
             현재가
           </div>
-          {/* 평균 TP 마커 */}
-          <div
-            className="absolute top-0 bottom-0 w-1 bg-primary z-10 rounded-full"
-            style={{ left: `${((avgTP - minTP) / (maxTP - minTP)) * 100}%` }}
-          />
-          {/* 그라디언트 */}
-          <div className="absolute inset-0 bg-gradient-to-r from-market-down/30 via-chart-3/30 to-market-up/30 opacity-70" />
+          <div className="relative h-8 bg-muted rounded-full overflow-hidden">
+            {/* 현재가 마커 */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-foreground z-10"
+              style={{ left: `${((currentPrice - minTP) / (maxTP - minTP)) * 100}%` }}
+            />
+            {/* 평균 TP 마커 */}
+            <div
+              className="absolute top-0 bottom-0 w-1 bg-primary z-10 rounded-full"
+              style={{ left: `${((avgTP - minTP) / (maxTP - minTP)) * 100}%` }}
+            />
+            {/* 그라디언트 */}
+            <div className="absolute inset-0 bg-gradient-to-r from-market-down/30 via-chart-3/30 to-market-up/30 opacity-70" />
+          </div>
         </div>
       </div>
 

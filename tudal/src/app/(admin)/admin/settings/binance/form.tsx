@@ -67,7 +67,7 @@ export function ExchangeForm({ isRep }: ExchangeFormProps) {
           role="alert"
           className={`mb-4 rounded-xl border px-3 py-2 text-sm ${
             banner.kind === "success"
-              ? "border-emerald-400/50 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-200"
+              ? "border-success/40 bg-success/10 text-success"
               : "border-market-down/40 bg-market-down/10 text-market-down"
           }`}
         >

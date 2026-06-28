@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { StockSearch } from "@/components/stock/stock-search";
 import { JoopickLogo } from "@/components/layout/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
   return (
@@ -29,6 +30,7 @@ export function Header() {
           >
             매크로 현황판
           </Link>
+          <ThemeToggle />
           <Link href="/login">
             <Button variant="ghost" size="sm">
               로그인
@@ -51,12 +53,15 @@ export function Header() {
               <div className="flex flex-col gap-6 mt-8">
                 <StockSearch variant="header" placeholder="종목명 검색" />
                 <nav className="flex flex-col gap-4">
-                  <Link
-                    href="/macro"
-                    className="text-sm font-medium hover:text-foreground transition-colors"
-                  >
-                    매크로 현황판
-                  </Link>
+                  <div className="flex items-center justify-between">
+                    <Link
+                      href="/macro"
+                      className="text-sm font-medium hover:text-foreground transition-colors"
+                    >
+                      매크로 현황판
+                    </Link>
+                    <ThemeToggle />
+                  </div>
                   <Link href="/login">
                     <Button variant="ghost" className="w-full justify-start">
                       로그인

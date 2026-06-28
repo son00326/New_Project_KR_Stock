@@ -319,13 +319,13 @@ function ApprovalBadge({ approval }: { approval: TrackRecordArchiveEntry['approv
   }
   if (approval.approvalType === 'accept') {
     return (
-      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+      <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
         {approval.isFinal ? '승인 확정' : '승인 (미확정)'}
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+    <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
       반려{approval.isFinal ? ' 확정' : ''}
     </span>
   );

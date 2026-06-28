@@ -96,7 +96,7 @@ export default async function AdminAlertDetailPage({
           <p
             role="status"
             aria-live="polite"
-            className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 404/알림 부재는 실제
             미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.

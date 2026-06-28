@@ -75,7 +75,7 @@ export default async function AdminCostPage() {
         }
       : summary.warningTriggered
         ? {
-            tone: "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+            tone: "border-warning bg-warning/10 text-warning",
             label: "⚠️ 45만 경보",
             body: "이번 달 AI 비용이 45만원을 넘었습니다. 50만 hardcap까지 잔여 ₩" +
               Math.round(summary.remainingKrw).toLocaleString("ko-KR") +
@@ -138,7 +138,7 @@ export default async function AdminCostPage() {
           <p
             role="status"
             aria-live="polite"
-            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 totalKrw=0/미도달은
             실제 미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
@@ -227,7 +227,7 @@ export default async function AdminCostPage() {
                       Hardcap
                     </span>
                   ) : s.triggered === "warning" ? (
-                    <span className="text-yellow-600 dark:text-yellow-400">
+                    <span className="text-warning">
                       Warning
                     </span>
                   ) : (

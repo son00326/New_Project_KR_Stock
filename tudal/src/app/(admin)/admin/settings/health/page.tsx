@@ -23,7 +23,7 @@ const SEVERITY_STYLE: Record<Severity, string> = {
   critical:
     "border-market-down bg-market-down/10 text-market-down",
   warning:
-    "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    "border-warning bg-warning/10 text-warning",
   info: "border-market-up bg-market-up/10 text-market-up",
 };
 
@@ -88,7 +88,7 @@ export default async function AdminHealthPage() {
           <p
             role="status"
             aria-live="polite"
-            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 0건/Warning은 실제
             미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
@@ -115,7 +115,7 @@ export default async function AdminHealthPage() {
             ? heartbeat.status === "red_alert"
               ? SEVERITY_STYLE.critical
               : SEVERITY_STYLE.info
-            : "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+            : "border-warning bg-warning/10 text-warning"
         }`}
       >
         <div className="flex items-baseline justify-between gap-2">

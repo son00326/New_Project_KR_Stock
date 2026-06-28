@@ -9,7 +9,7 @@ import {
 
 const VERDICT_STYLE: Record<RiskVote, string> = {
   pass: "border-market-up bg-market-up/10 text-market-up",
-  conditional: "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+  conditional: "border-warning bg-warning/10 text-warning",
   reject: "border-market-down bg-market-down/10 text-market-down",
 };
 

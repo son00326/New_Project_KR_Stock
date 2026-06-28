@@ -117,8 +117,8 @@ describe('TriggerFullReportButton (PR4 Task 1 Step 1.3)', () => {
       const status = screen.getByRole('status');
       // B26 invariant: 한국어 매핑 확인 (raw 'auth_unavailable' 회귀 시 fail).
       expect(status).toHaveTextContent('로그인이 필요합니다');
-      // 색상 visual cue 보조 검증.
-      expect(status.className).toContain('text-rose');
+      // 색상 visual cue 보조 검증 (토스 리디자인: rose → destructive 토큰, 의미 동일).
+      expect(status.className).toContain('text-destructive');
     });
   });
 });

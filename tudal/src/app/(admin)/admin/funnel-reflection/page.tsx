@@ -46,7 +46,7 @@ export default async function FunnelReflectionPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           B++ funnel 가중치 champion/challenger 회고 제안 — 과거 150/30 + 실현 수익률 진단 기반.
         </p>
-        <p className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+        <p className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning shadow-toss-sm">
           ⚠ diagnostic only — <strong>자동 적용 영구 금지</strong>(승인=기록만, funnel/production 무변경) ·
           예측 아님(forward-validate 후에만 채택) · PR-K(prompt 주입 회고)와 <strong>다른 층</strong>(numeric
           funnel 가중치).
@@ -54,7 +54,7 @@ export default async function FunnelReflectionPage() {
         {!adminVerified && (
           <p
             role="status"
-            className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요.
           </p>
@@ -62,13 +62,13 @@ export default async function FunnelReflectionPage() {
       </header>
 
       {loadError && (
-        <p className="rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+        <p className="rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning shadow-toss-sm">
           제안 조회 실패 — 마이그 0047 미적용 또는 권한 문제일 수 있습니다.
         </p>
       )}
 
       {!loadError && proposals.length === 0 ? (
-        <p className="rounded-xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-2xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground shadow-toss-sm">
           제안 없음 — 마이그 0047 apply + `FUNNEL_REFLECTION_ENABLED=true` + KRX 키 + funnel reflection
           job 실행 후 회고 제안이 쌓입니다. (계측 먼저 · 완성 늦게)
         </p>

@@ -19,6 +19,14 @@ const TYPE_STYLE = {
   expansion: "bg-chart-5",
 };
 
+const TYPE_BADGE_STYLE = {
+  founding: "bg-chart-1/15 text-chart-1",
+  milestone: "bg-chart-3/15 text-chart-3",
+  product: "bg-chart-4/15 text-chart-4",
+  crisis: "bg-chart-2/15 text-chart-2",
+  expansion: "bg-chart-5/15 text-chart-5",
+};
+
 const TYPE_LABEL = {
   founding: "설립",
   milestone: "주요 성과",
@@ -55,7 +63,7 @@ export function BusinessTimeline({ events }: BusinessTimelineProps) {
             <div className="rounded-xl border bg-card p-4 hover:shadow-toss-sm transition-shadow">
               <div className="flex items-center gap-3 mb-1.5">
                 <span className="text-sm font-bold text-primary tabular-nums">{event.year}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full text-white ${TYPE_STYLE[event.type]}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${TYPE_BADGE_STYLE[event.type]}`}>
                   {TYPE_LABEL[event.type]}
                 </span>
               </div>
