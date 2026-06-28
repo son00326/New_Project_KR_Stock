@@ -208,9 +208,18 @@ export async function reportExistsAndCompleteForMonth(
   ticker: string,
   month: string,
   options?: { client?: SupabaseClient },
-): Promise<{ exists: boolean; complete: boolean; hasSection8: boolean }> {
+): Promise<{
+  exists: boolean;
+  complete: boolean;
+  hasSection8: boolean;
+  hasSectorBoard: boolean;
+}> {
   const client = options?.client ?? (await createClient());
   // P2 (PR5b): section_8 presence도 반환 — worker needsSection8 분기(body complete + section_8 null)용.
+  // PR-T2a 완결성 갭 fix: hasSectorBoard(Tier2 섹터 보드 = section_8.partA 14인) 추가 —
+  //   worker needsSectorBoardOnly 분기(section_8 present + 섹터 보드 누락)용. Core-11(partD)만
+  //   commit되고 섹터 보드(partA/partC.sector_aggregate)가 실패(commitSectorBoardStep은 throw 없이
+  //   log만)한 리포트를 "done"으로 영구 skip하지 않도록 완결성 게이트에 섹터 보드 단계를 포함.
   const { data, error } = await client
     .from("stock_reports")
     .select("id, section_0, section_7, section_8")
@@ -225,7 +234,12 @@ export async function reportExistsAndCompleteForMonth(
     );
   }
   if (data === null) {
-    return { exists: false, complete: false, hasSection8: false };
+    return {
+      exists: false,
+      complete: false,
+      hasSection8: false,
+      hasSectorBoard: false,
+    };
   }
   const row = data as {
     section_0: unknown;
@@ -234,7 +248,15 @@ export async function reportExistsAndCompleteForMonth(
   };
   const complete = row.section_0 !== null && row.section_7 !== null;
   const hasSection8 = row.section_8 !== null;
-  return { exists: true, complete, hasSection8 };
+  // section_8.partA = sectorVoteRow[] (schema refine: length 0[Tier2 미활성/누락] 또는 14[Tier2 committed]).
+  // 14인이면 섹터 보드 commit 완료. unknown jsonb → 안전 접근(typeof object + Array.isArray).
+  const s8 =
+    row.section_8 !== null && typeof row.section_8 === "object"
+      ? (row.section_8 as Record<string, unknown>)
+      : null;
+  const partA = s8?.partA;
+  const hasSectorBoard = Array.isArray(partA) && partA.length === 14;
+  return { exists: true, complete, hasSection8, hasSectorBoard };
 }
 
 // ---------------------------------------------------------------------------

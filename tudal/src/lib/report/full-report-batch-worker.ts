@@ -18,6 +18,7 @@ import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { reportExistsAndCompleteForMonth } from "@/lib/data/admin-reports";
 import { orchestrateFullReport } from "@/lib/report/full-report-orchestrator";
 import { commitSection8Step, isAiBadge } from "@/lib/report/section8-step";
+import { commitSectorBoardStep } from "@/lib/report/sector-board-step";
 import { enrichReportInput } from "@/lib/report/report-input-enricher";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
@@ -280,6 +281,26 @@ export async function runReportBatchChunk(
     }
   }
 
+  // ── PR-T2a 완결성 갭 fix: 섹터 보드(Tier2) enqueue-step reset ──
+  //   배경: Core-11 Section 8(partD)은 commit됐으나 섹터 보드(partA 14인 + partC.sector_aggregate)가
+  //   실패(commitSectorBoardStep은 throw 없이 log만)한 리포트는 job=done으로 영구 skip → 섹터 보드 영구 누락.
+  //   reset_section8_eligible_jobs는 "section_8 null"만 잡아 이 케이스를 못 잡음.
+  //   → flag-on(SECTOR_BOARD_ENABLED)일 때만, "body complete + section_8 present + partA<14 + canonical AI 배지"
+  //   인 done 또는 deferred(sector_board_not_ready) job만 pending reset해 needsSectorBoardOnly 경로로 targeted
+  //   재commit. sector_unresolved deferred(비-canonical 종목)는 reset 제외 → 무한 reset 루프 차단. flag-off=no-op.
+  const sectorBoardEnabled = process.env.SECTOR_BOARD_ENABLED === "true";
+  if (sectorBoardEnabled) {
+    const { error: resetErr } = await client.rpc(
+      "reset_sector_board_eligible_jobs",
+      { p_month: month },
+    );
+    if (resetErr) {
+      throw new Error(
+        `reset_sector_board_eligible_jobs_failed:${resetErr.code ?? "unknown"}`,
+      );
+    }
+  }
+
   // ── claim 1 chunk (atomic, SKIP LOCKED, attempts<3, stale sweep) ──
   const { data: claimed, error: claimErr } = await client.rpc(
     "claim_next_report_jobs",
@@ -372,17 +393,21 @@ export async function runReportBatchChunk(
   // ── 순차 처리 (병렬 fan-out 금지 — cost gate 직렬화, R2 HIGH-1) ──
   for (const job of jobs) {
     const meta = metaByTicker.get(job.ticker);
-    // idempotent skip: 이미 완성된 본문이면 LLM 0 (P2: section_8 presence도 함께 판정).
-    const { complete, hasSection8 } = await reportExistsAndCompleteForMonth(
-      job.ticker,
-      `${month}-01`,
-      { client },
-    );
+    // idempotent skip: 이미 완성된 본문이면 LLM 0 (P2: section_8 + 섹터 보드 presence도 함께 판정).
+    const { complete, hasSection8, hasSectorBoard } =
+      await reportExistsAndCompleteForMonth(job.ticker, `${month}-01`, {
+        client,
+      });
     // P2 (PR5b, omxy R3): flag-on + 본문 complete + Section 8 누락 → Section 8만 추가 (본문 재생성 skip).
     const needsSection8Only = section8Enabled && complete && !hasSection8;
+    // PR-T2a 완결성 갭 fix: flag-on + 본문 complete + Section 8 present + 섹터 보드 누락 →
+    //   섹터 보드만 targeted 재commit (본문/Section 8 재생성 skip). needsSection8Only와 상호배타
+    //   (hasSection8 분기). 섹터 보드 실패 후 reset+rerun이 ₩0 skip하던 갭을 닫음.
+    const needsSectorBoardOnly =
+      sectorBoardEnabled && complete && hasSection8 && !hasSectorBoard;
 
-    if (complete && !needsSection8Only) {
-      // 본문 완성 + (flag-off 또는 Section 8 present) → LLM 0 skip.
+    if (complete && !needsSection8Only && !needsSectorBoardOnly) {
+      // 본문 완성 + Section 8 + (flag-off 또는 섹터 보드 present) → LLM 0 skip.
       await markJob(client, {
         id: job.id,
         status: "done",
@@ -434,6 +459,56 @@ export async function runReportBatchChunk(
             });
             done += 1;
           } else {
+            await markJob(client, {
+              id: job.id,
+              status: "failed",
+              reportId: null,
+              error: r.status,
+            });
+            failed += 1;
+            failedTickers.push(job.ticker);
+          }
+        }
+      } else if (needsSectorBoardOnly) {
+        // PR-T2a 완결성 갭 fix: 섹터 보드만 targeted 재commit (본문/Section 8 보존 — LLM 14콜만).
+        const badge = meta.consensusBadge ?? null;
+        if (!isAiBadge(badge)) {
+          // ⚪/null 배지 — Core 11 미진입(섹터 보드 무의미). 배지 생기면 reset이 재pending.
+          await markJob(client, {
+            id: job.id,
+            status: "deferred",
+            reportId: null,
+            error: "sector_board_not_ready",
+          });
+          deferred += 1;
+        } else {
+          const r = await commitSectorBoardStep({
+            ticker: job.ticker,
+            month,
+            badge,
+            adminUserId: cronSystemUserId,
+            client,
+          });
+          if (r.status === "committed") {
+            await markJob(client, {
+              id: job.id,
+              status: "done",
+              reportId: r.reportId ?? null,
+              error: null,
+            });
+            done += 1;
+          } else if (r.status === "sector_unresolved") {
+            // 비-canonical 종목 — 섹터 보드 적용 불가(terminal). deferred(sector_unresolved)는
+            //   reset_sector_board_eligible_jobs가 재pending 안 함 → 무한 reset 루프 차단(failed 아님 = 정상 종료).
+            await markJob(client, {
+              id: job.id,
+              status: "deferred",
+              reportId: null,
+              error: "sector_unresolved",
+            });
+            deferred += 1;
+          } else {
+            // sector_board_unavailable(degraded <14, transient AI flake) 등 → failed(claim 재시도 attempts<3).
             await markJob(client, {
               id: job.id,
               status: "failed",
