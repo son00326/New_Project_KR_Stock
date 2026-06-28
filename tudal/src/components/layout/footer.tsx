@@ -4,7 +4,7 @@ import { JoopickLogo } from "@/components/layout/logo";
 
 export function Footer() {
   return (
-    <footer className="border-t bg-muted/30">
+    <footer className="border-t border-border/70 bg-card">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* 브랜드 */}

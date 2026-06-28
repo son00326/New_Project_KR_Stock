@@ -39,94 +39,121 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: calc(var(--radius) * 0.5); /* 8px */
+  --radius-md: calc(var(--radius) * 0.75); /* 12px */
+  --radius-lg: var(--radius); /* 16px */
+  --radius-xl: calc(var(--radius) * 1.25); /* 20px */
+  --radius-2xl: calc(var(--radius) * 1.5); /* 24px */
+  --radius-3xl: calc(var(--radius) * 2); /* 32px */
+  --radius-4xl: calc(var(--radius) * 2.5); /* 40px */
   /* 주픽 어드민 — 한국 증시 관례 (T0.6a Q3 확정): 빨강=상승·파랑=하락 */
   --color-market-up: var(--market-up);
   --color-market-down: var(--market-down);
   --color-market-neutral: var(--market-neutral);
+  /* 토스 소프트 그림자 (ring 대체) */
+  --shadow-toss-sm: var(--shadow-toss-sm-value);
+  --shadow-toss-md: var(--shadow-toss-md-value);
+  --shadow-toss-lg: var(--shadow-toss-lg-value);
+  --shadow-toss-xl: var(--shadow-toss-xl-value);
+  /* 토스 모션 */
+  --ease-toss: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --radius: 1rem; /* 토스 — 16px 기본 반경 */
+  /* 폰트: Pretendard(토스 계열 한글 오픈폰트) → next/font 변수 + 한글 시스템 폴백 */
+  --font-sans: var(--font-pretendard), -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+
+  /* 토스 라이트 팔레트 */
+  --background: oklch(0.985 0.002 247); /* #F9FAFB Toss gray-50 (앱 배경) */
+  --foreground: oklch(0.23 0.013 256); /* #191F28 (본문) */
+  --card: oklch(1 0 0); /* 흰 카드 floating */
+  --card-foreground: oklch(0.23 0.013 256);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  /* 한국 증시 색상 관례 (T0.6a Q3) */
-  --market-up: oklch(0.58 0.23 28);       /* 빨강 — 상승 */
-  --market-down: oklch(0.55 0.22 250);    /* 파랑 — 하락 */
-  --market-neutral: oklch(0.65 0 0);      /* 회색 — 보합 */
+  --popover-foreground: oklch(0.23 0.013 256);
+  --primary: oklch(0.62 0.19 256); /* #3182F6 토스 블루 */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.965 0.004 250); /* #F2F4F6 */
+  --secondary-foreground: oklch(0.32 0.012 256);
+  --muted: oklch(0.965 0.004 250);
+  --muted-foreground: oklch(0.55 0.018 256); /* #6B7684 Toss gray-600 */
+  --accent: oklch(0.95 0.012 256); /* 옅은 블루-그레이 hover 면 */
+  --accent-foreground: oklch(0.3 0.04 256);
+  --destructive: oklch(0.6 0.22 18);
+  --border: oklch(0.925 0.005 256); /* #E5E8EB */
+  --input: oklch(0.925 0.005 256);
+  --ring: oklch(0.62 0.19 256); /* primary 포커스 링 */
+  --chart-1: oklch(0.62 0.19 256); /* 블루 */
+  --chart-2: oklch(0.62 0.22 18); /* 레드 */
+  --chart-3: oklch(0.7 0.15 155); /* 그린 */
+  --chart-4: oklch(0.58 0.2 295); /* 퍼플 */
+  --chart-5: oklch(0.76 0.15 75); /* 앰버 */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.23 0.013 256);
+  --sidebar-primary: oklch(0.62 0.19 256);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.965 0.004 250);
+  --sidebar-accent-foreground: oklch(0.3 0.04 256);
+  --sidebar-border: oklch(0.925 0.005 256);
+  --sidebar-ring: oklch(0.62 0.19 256);
+  /* 한국 증시 색상 관례 (T0.6a Q3): 빨강=상승·파랑=하락 — market-down은 primary와 hue 살짝 분리 */
+  --market-up: oklch(0.62 0.22 18); /* #F04452 토스 레드 — 상승 */
+  --market-down: oklch(0.58 0.16 250); /* #3485FA — 하락 */
+  --market-neutral: oklch(0.62 0.01 256); /* 회색 — 보합 */
+  /* 토스 소프트 그림자 값 */
+  --shadow-toss-sm-value: 0 1px 2px oklch(0.23 0.013 256 / 0.05),
+    0 1px 3px oklch(0.23 0.013 256 / 0.04);
+  --shadow-toss-md-value: 0 2px 4px oklch(0.23 0.013 256 / 0.05),
+    0 4px 12px oklch(0.23 0.013 256 / 0.06);
+  --shadow-toss-lg-value: 0 4px 8px oklch(0.23 0.013 256 / 0.05),
+    0 12px 28px oklch(0.23 0.013 256 / 0.08);
+  --shadow-toss-xl-value: 0 8px 16px oklch(0.23 0.013 256 / 0.06),
+    0 24px 48px oklch(0.23 0.013 256 / 0.12);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  /* 토스 다크 팔레트 */
+  --background: oklch(0.165 0.008 260); /* #17171C */
+  --foreground: oklch(0.97 0.003 250);
+  --card: oklch(0.205 0.008 260); /* #1E2128 floating 카드 */
+  --card-foreground: oklch(0.97 0.003 250);
+  --popover: oklch(0.205 0.008 260);
+  --popover-foreground: oklch(0.97 0.003 250);
+  --primary: oklch(0.68 0.17 256); /* 다크에서 약간 밝은 토스 블루 */
+  --primary-foreground: oklch(0.16 0.01 260);
+  --secondary: oklch(0.27 0.008 260);
+  --secondary-foreground: oklch(0.97 0.003 250);
+  --muted: oklch(0.27 0.008 260);
+  --muted-foreground: oklch(0.7 0.02 256);
+  --accent: oklch(0.32 0.02 256);
+  --accent-foreground: oklch(0.97 0.003 250);
+  --destructive: oklch(0.7 0.19 18);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  /* 한국 증시 색상 관례 (T0.6a Q3) — 다크 모드는 v2 (S6 이후) */
-  --market-up: oklch(0.68 0.20 28);
-  --market-down: oklch(0.65 0.18 250);
-  --market-neutral: oklch(0.55 0 0);
+  --ring: oklch(0.68 0.17 256);
+  --chart-1: oklch(0.68 0.17 256);
+  --chart-2: oklch(0.7 0.19 18);
+  --chart-3: oklch(0.74 0.15 155);
+  --chart-4: oklch(0.66 0.19 295);
+  --chart-5: oklch(0.8 0.14 75);
+  --sidebar: oklch(0.205 0.008 260);
+  --sidebar-foreground: oklch(0.97 0.003 250);
+  --sidebar-primary: oklch(0.68 0.17 256);
+  --sidebar-primary-foreground: oklch(0.16 0.01 260);
+  --sidebar-accent: oklch(0.27 0.008 260);
+  --sidebar-accent-foreground: oklch(0.97 0.003 250);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.68 0.17 256);
+  /* 한국 증시 색상 관례 (T0.6a Q3) — 다크 */
+  --market-up: oklch(0.7 0.19 18);
+  --market-down: oklch(0.68 0.15 250);
+  --market-neutral: oklch(0.6 0.01 256);
+  /* 다크 그림자 — 더 깊고 옅게 */
+  --shadow-toss-sm-value: 0 1px 2px oklch(0 0 0 / 0.4), 0 1px 3px oklch(0 0 0 / 0.3);
+  --shadow-toss-md-value: 0 2px 4px oklch(0 0 0 / 0.4), 0 4px 12px oklch(0 0 0 / 0.35);
+  --shadow-toss-lg-value: 0 4px 8px oklch(0 0 0 / 0.45), 0 12px 28px oklch(0 0 0 / 0.45);
+  --shadow-toss-xl-value: 0 8px 16px oklch(0 0 0 / 0.5), 0 24px 48px oklch(0 0 0 / 0.55);
 }
 
 @layer base {
@@ -135,8 +162,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  /* 토스 — 금액/숫자 데이터는 tabular-nums 권장 (컴포넌트에서 opt-in) */
+  ::selection {
+    background-color: oklch(0.62 0.19 256 / 0.18);
   }
 }

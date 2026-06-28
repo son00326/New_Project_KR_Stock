@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// 토스 계열 한글 오픈폰트 Pretendard (self-host · variable · no CLS)
+const pretendard = localFont({
+  src: "./fonts/PretendardVariable.woff2",
+  variable: "--font-pretendard",
+  display: "swap",
+  weight: "45 920",
+  fallback: [
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+    "system-ui",
+    "sans-serif",
+  ],
 });
 
 const geistMono = Geist_Mono({
@@ -27,7 +39,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${pretendard.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

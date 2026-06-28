@@ -9,7 +9,7 @@ import { JoopickLogo } from "@/components/layout/logo";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* 로고 */}
         <Link href="/" className="shrink-0">
@@ -43,7 +43,7 @@ export function Header() {
         <div className="md:hidden">
           <Sheet>
             <SheetTrigger
-              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="inline-flex items-center justify-center rounded-lg p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <Menu className="h-5 w-5" />
             </SheetTrigger>
