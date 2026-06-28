@@ -82,7 +82,7 @@ export default async function AdminHomePage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">홈 — Short List 30</h1>
+          <h1 className="text-2xl font-bold tracking-tight">홈 — Short List 30</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {monthLabel} · 단기 주간 · 중·장기 월간 선정 · 단·중·장 각 10종
           </p>

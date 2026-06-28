@@ -12,6 +12,7 @@ import {
   ComposedChart,
 } from "recharts";
 import type { DividendHistory } from "@/types/corporate";
+import { chartColor, CHART_GRID, CHART_AXIS } from "@/lib/chart-colors";
 
 interface DividendChartProps {
   dividends: DividendHistory[];
@@ -34,41 +35,41 @@ export function DividendChart({ dividends }: DividendChartProps) {
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-            <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} unit="%" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID} />
+            <XAxis dataKey="year" tick={{ fontSize: 12, fill: CHART_AXIS }} />
+            <YAxis yAxisId="left" tick={{ fontSize: 12, fill: CHART_AXIS }} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: CHART_AXIS }} unit="%" />
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar yAxisId="left" dataKey="주당배당금 (원)" fill="#9333ea" radius={[4, 4, 0, 0]} barSize={32} />
-            <Line yAxisId="right" type="monotone" dataKey="배당수익률 (%)" stroke="#ea580c" strokeWidth={2} dot={{ r: 4 }} />
-            <Line yAxisId="right" type="monotone" dataKey="배당성향 (%)" stroke="#16a34a" strokeWidth={2} dot={{ r: 4 }} strokeDasharray="5 5" />
+            <Bar yAxisId="left" dataKey="주당배당금 (원)" fill={chartColor(3)} radius={[4, 4, 0, 0]} barSize={32} />
+            <Line yAxisId="right" type="monotone" dataKey="배당수익률 (%)" stroke={chartColor(4)} strokeWidth={2} dot={{ r: 4 }} />
+            <Line yAxisId="right" type="monotone" dataKey="배당성향 (%)" stroke={chartColor(2)} strokeWidth={2} dot={{ r: 4 }} strokeDasharray="5 5" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
       {/* 배당 요약 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-lg border p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">주당배당금 (DPS)</p>
-          <p className="text-xl font-bold mt-1">{latest.dps.toLocaleString()}원</p>
+          <p className="text-xl font-bold mt-1 tabular-nums">{latest.dps.toLocaleString()}원</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">배당수익률</p>
-          <p className="text-xl font-bold mt-1">{latest.dividendYield}%</p>
+          <p className="text-xl font-bold mt-1 tabular-nums">{latest.dividendYield}%</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">배당성향</p>
-          <p className="text-xl font-bold mt-1">{latest.payoutRatio}%</p>
+          <p className="text-xl font-bold mt-1 tabular-nums">{latest.payoutRatio}%</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">연간 총배당금</p>
-          <p className="text-xl font-bold mt-1">{Math.round(latest.totalDividend / 1_0000_0000_0000)}조원</p>
+          <p className="text-xl font-bold mt-1 tabular-nums">{Math.round(latest.totalDividend / 1_0000_0000_0000)}조원</p>
         </div>
       </div>
 
-      <div className="rounded-lg bg-muted/50 p-4">
-        <p className="text-sm font-medium mb-2">배당 분석</p>
+      <div className="rounded-xl bg-muted/50 p-4">
+        <p className="text-sm font-semibold mb-2">배당 분석</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           삼성전자는 4년 연속 주당 1,444원의 <strong>안정적인 배당금</strong>을 유지하고 있습니다.
           배당수익률은 주가에 따라 변동되며, 현재 약 {latest.dividendYield}% 수준입니다.

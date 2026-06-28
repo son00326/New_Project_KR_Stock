@@ -7,7 +7,7 @@ export default function AdminNotFound() {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 px-4 text-center">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">관리자 페이지를 찾을 수 없습니다</h1>
+        <h1 className="text-2xl font-bold tracking-tight">관리자 페이지를 찾을 수 없습니다</h1>
         <p className="text-sm text-muted-foreground">
           잘못된 경로이거나 권한이 없는 메뉴일 수 있습니다.
         </p>

@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { formatKRW } from "@/lib/constants";
 import { SAMSUNG_QUARTERLY } from "@/lib/data/mock-quarterly";
+import { CHART_PRIMARY, CHART_GRID, CHART_AXIS } from "@/lib/chart-colors";
 
 interface QuarterlyFinancialsProps {
   ticker: string;
@@ -55,11 +56,11 @@ export function QuarterlyFinancials({ ticker }: QuarterlyFinancialsProps) {
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: CHART_AXIS }} />
+            <YAxis tick={{ fontSize: 11, fill: CHART_AXIS }} />
             <Tooltip formatter={(value) => [`${Number(value)}조원`]} />
-            <Bar dataKey={metricKey} fill="#2563eb" radius={[4, 4, 0, 0]} barSize={24} />
+            <Bar dataKey={metricKey} fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} barSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -82,17 +83,17 @@ export function QuarterlyFinancials({ ticker }: QuarterlyFinancialsProps) {
           <tbody>
             {SAMSUNG_QUARTERLY.map((q) => (
               <tr key={`${q.year}Q${q.quarter}`} className="border-b last:border-0">
-                <td className="py-2 px-2 font-medium">{q.year} Q{q.quarter}</td>
-                <td className="text-right py-2 px-2">{formatKRW(q.revenue)}</td>
+                <td className="py-2 px-2 font-medium tabular-nums">{q.year} Q{q.quarter}</td>
+                <td className="text-right py-2 px-2 tabular-nums">{formatKRW(q.revenue)}</td>
                 <td className="text-right py-2 px-2">
                   <YoYBadge value={q.revYoY} />
                 </td>
-                <td className="text-right py-2 px-2">{formatKRW(q.operatingIncome)}</td>
+                <td className="text-right py-2 px-2 tabular-nums">{formatKRW(q.operatingIncome)}</td>
                 <td className="text-right py-2 px-2">
                   <YoYBadge value={q.opIncYoY} />
                 </td>
-                <td className="text-right py-2 px-2 font-medium">{q.operatingMargin}%</td>
-                <td className="text-right py-2 px-2">{formatKRW(q.netIncome)}</td>
+                <td className="text-right py-2 px-2 font-medium tabular-nums">{q.operatingMargin}%</td>
+                <td className="text-right py-2 px-2 tabular-nums">{formatKRW(q.netIncome)}</td>
                 <td className="text-right py-2 px-2">
                   <YoYBadge value={q.netIncYoY} />
                 </td>
@@ -109,7 +110,7 @@ function YoYBadge({ value }: { value?: number }) {
   if (value === undefined) return <span className="text-muted-foreground">-</span>;
   const isPositive = value > 0;
   return (
-    <span className={`font-medium ${isPositive ? "text-red-600" : "text-blue-600"}`}>
+    <span className={`font-medium tabular-nums ${isPositive ? "text-market-up" : "text-market-down"}`}>
       {isPositive ? "+" : ""}{value > 999 ? `${Math.round(value)}` : value.toFixed(1)}%
     </span>
   );

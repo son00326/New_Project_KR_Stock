@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { LineChart as LineChartIcon, CandlestickChart, AreaChart as AreaChartIcon } from "lucide-react";
 import { SAMSUNG_OHLCV, calcMA, calcBollingerBands } from "@/lib/data/mock-ohlcv";
+import { chartColor, CHART_UP, CHART_DOWN, CHART_GRID, CHART_AXIS, CHART_LABEL } from "@/lib/chart-colors";
 
 interface StockPriceChartProps {
   ticker: string;
@@ -116,7 +117,7 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
                   key={ct}
                   onClick={() => setChartType(ct)}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                    chartType === ct ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    chartType === ct ? "bg-background text-foreground shadow-toss-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
                   title={label}
                 >
@@ -144,7 +145,7 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
         </div>
 
         {/* 기간 수익률 */}
-        <span className={`text-sm font-semibold ${priceChange >= 0 ? "text-red-600" : "text-blue-600"}`}>
+        <span className={`text-sm font-semibold tabular-nums ${priceChange >= 0 ? "text-market-up" : "text-market-down"}`}>
           {PERIOD_LABELS[period]} {priceChange >= 0 ? "+" : ""}{priceChange.toLocaleString()}원 ({priceChange >= 0 ? "+" : ""}{priceChangePercent}%)
         </span>
       </div>
@@ -153,7 +154,7 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground">보조지표:</span>
         {indicators.map((ind) => {
-          const colors: Record<string, string> = { ma5: "bg-red-500", ma20: "bg-blue-500", ma60: "bg-green-500", ma120: "bg-purple-500", bb: "bg-yellow-500" };
+          const colors: Record<string, string> = { ma5: "bg-market-up", ma20: "bg-market-down", ma60: "bg-chart-3", ma120: "bg-chart-4", bb: "bg-chart-5" };
           return (
             <button
               key={ind.key}
@@ -173,26 +174,26 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
       <div className="h-[400px] min-h-[400px] min-w-0">
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <ComposedChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} interval={Math.floor(data.length / 8)} />
-            <YAxis domain={[yMin, yMax]} tick={{ fontSize: 10 }} tickLine={false} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} width={45} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID} />
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: CHART_AXIS }} tickLine={false} interval={Math.floor(data.length / 8)} />
+            <YAxis domain={[yMin, yMax]} tick={{ fontSize: 10, fill: CHART_AXIS }} tickLine={false} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} width={45} />
             <Tooltip
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
                 const d = payload[0]?.payload;
                 if (!d) return null;
                 return (
-                  <div className="rounded-lg border bg-background p-3 shadow-md text-xs space-y-1">
+                  <div className="rounded-lg border bg-background p-3 shadow-toss-md text-xs space-y-1">
                     <p className="font-semibold">{d.fullDate}</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 tabular-nums">
                       <span className="text-muted-foreground">시가</span><span className="text-right">{d.open?.toLocaleString()}</span>
-                      <span className="text-muted-foreground">고가</span><span className="text-right text-red-600">{d.high?.toLocaleString()}</span>
-                      <span className="text-muted-foreground">저가</span><span className="text-right text-blue-600">{d.low?.toLocaleString()}</span>
-                      <span className="text-muted-foreground">종가</span><span className={`text-right font-semibold ${d.isUp ? "text-red-600" : "text-blue-600"}`}>{d.close?.toLocaleString()}</span>
+                      <span className="text-muted-foreground">고가</span><span className="text-right text-market-up">{d.high?.toLocaleString()}</span>
+                      <span className="text-muted-foreground">저가</span><span className="text-right text-market-down">{d.low?.toLocaleString()}</span>
+                      <span className="text-muted-foreground">종가</span><span className={`text-right font-semibold ${d.isUp ? "text-market-up" : "text-market-down"}`}>{d.close?.toLocaleString()}</span>
                       <span className="text-muted-foreground">거래량</span><span className="text-right">{d.volume?.toLocaleString()}</span>
                     </div>
                     {d.bbUpper && isActive("bb") && (
-                      <div className="border-t pt-1 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      <div className="border-t pt-1 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 tabular-nums">
                         <span className="text-muted-foreground">BB상단</span><span className="text-right">{d.bbUpper?.toLocaleString()}</span>
                         <span className="text-muted-foreground">BB하단</span><span className="text-right">{d.bbLower?.toLocaleString()}</span>
                       </div>
@@ -204,20 +205,20 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
 
             {/* 볼린저밴드 영역 */}
             {isActive("bb") && (
-              <Area type="monotone" dataKey="bbRange" fill="#eab308" fillOpacity={0.08} stroke="none" />
+              <Area type="monotone" dataKey="bbRange" fill={chartColor(4)} fillOpacity={0.08} stroke="none" />
             )}
             {isActive("bb") && (
               <>
-                <Line type="monotone" dataKey="bbUpper" stroke="#eab308" strokeWidth={1} strokeDasharray="4 2" dot={false} />
-                <Line type="monotone" dataKey="bbLower" stroke="#eab308" strokeWidth={1} strokeDasharray="4 2" dot={false} />
+                <Line type="monotone" dataKey="bbUpper" stroke={chartColor(4)} strokeWidth={1} strokeDasharray="4 2" dot={false} />
+                <Line type="monotone" dataKey="bbLower" stroke={chartColor(4)} strokeWidth={1} strokeDasharray="4 2" dot={false} />
               </>
             )}
 
             {/* 이동평균선 */}
-            {isActive("ma5") && <Line type="monotone" dataKey="ma5" stroke="#ef4444" strokeWidth={1.2} dot={false} />}
-            {isActive("ma20") && <Line type="monotone" dataKey="ma20" stroke="#3b82f6" strokeWidth={1.2} dot={false} />}
-            {isActive("ma60") && <Line type="monotone" dataKey="ma60" stroke="#22c55e" strokeWidth={1.2} dot={false} />}
-            {isActive("ma120") && <Line type="monotone" dataKey="ma120" stroke="#a855f7" strokeWidth={1.2} dot={false} />}
+            {isActive("ma5") && <Line type="monotone" dataKey="ma5" stroke={CHART_UP} strokeWidth={1.2} dot={false} />}
+            {isActive("ma20") && <Line type="monotone" dataKey="ma20" stroke={CHART_DOWN} strokeWidth={1.2} dot={false} />}
+            {isActive("ma60") && <Line type="monotone" dataKey="ma60" stroke={chartColor(2)} strokeWidth={1.2} dot={false} />}
+            {isActive("ma120") && <Line type="monotone" dataKey="ma120" stroke={chartColor(3)} strokeWidth={1.2} dot={false} />}
 
             {/* 캔들 차트 */}
             {chartType === "candle" && (
@@ -225,8 +226,8 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
                 {data.map((entry, index) => (
                   <Cell
                     key={`candle-${index}`}
-                    fill={entry.isUp ? "#ef4444" : "#3b82f6"}
-                    stroke={entry.isUp ? "#dc2626" : "#2563eb"}
+                    fill={entry.isUp ? CHART_UP : CHART_DOWN}
+                    stroke={entry.isUp ? CHART_UP : CHART_DOWN}
                     strokeWidth={1}
                   />
                 ))}
@@ -235,7 +236,7 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
 
             {/* 라인 차트 */}
             {chartType === "line" && (
-              <Line type="monotone" dataKey="close" stroke="#0f172a" strokeWidth={1.8} dot={false} />
+              <Line type="monotone" dataKey="close" stroke={CHART_LABEL} strokeWidth={1.8} dot={false} />
             )}
 
             {/* 영역 차트 */}
@@ -243,9 +244,9 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
               <Area
                 type="monotone"
                 dataKey="close"
-                stroke="#0f172a"
+                stroke={CHART_LABEL}
                 strokeWidth={1.5}
-                fill="#0f172a"
+                fill={CHART_LABEL}
                 fillOpacity={0.08}
               />
             )}
@@ -258,13 +259,13 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <ComposedChart data={data} margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
             <XAxis dataKey="date" tick={false} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 9 }} tickLine={false} tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}M`} width={45} />
+            <YAxis tick={{ fontSize: 9, fill: CHART_AXIS }} tickLine={false} tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}M`} width={45} />
             <Tooltip
               content={({ active, payload }) => {
                 if (!active || !payload?.[0]) return null;
                 const d = payload[0].payload;
                 return (
-                  <div className="rounded border bg-background px-2 py-1 shadow text-xs">
+                  <div className="rounded-lg border bg-background px-2 py-1 shadow-toss-sm text-xs tabular-nums">
                     {d.fullDate} 거래량: {d.volume?.toLocaleString()}주
                   </div>
                 );
@@ -272,7 +273,7 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
             />
             <Bar dataKey="volume" radius={[1, 1, 0, 0]} isAnimationActive={false}>
               {data.map((entry, index) => (
-                <Cell key={`vol-${index}`} fill={entry.isUp ? "#ef444480" : "#3b82f680"} />
+                <Cell key={`vol-${index}`} fill={entry.isUp ? CHART_UP : CHART_DOWN} fillOpacity={0.5} />
               ))}
             </Bar>
           </ComposedChart>
@@ -283,17 +284,17 @@ export function StockPriceChart({ ticker }: StockPriceChartProps) {
       <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground border-t pt-3">
         {chartType === "candle" && (
           <>
-            <span className="flex items-center gap-1"><span className="h-3 w-2 bg-red-500 inline-block rounded-sm" /> 양봉 (상승)</span>
-            <span className="flex items-center gap-1"><span className="h-3 w-2 bg-blue-500 inline-block rounded-sm" /> 음봉 (하락)</span>
+            <span className="flex items-center gap-1"><span className="h-3 w-2 bg-market-up inline-block rounded-sm" /> 양봉 (상승)</span>
+            <span className="flex items-center gap-1"><span className="h-3 w-2 bg-market-down inline-block rounded-sm" /> 음봉 (하락)</span>
           </>
         )}
-        {chartType === "line" && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-black inline-block" /> 종가</span>}
-        {chartType === "area" && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-black inline-block" /> 종가 영역</span>}
-        {isActive("ma5") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-red-500 inline-block" /> MA5</span>}
-        {isActive("ma20") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-blue-500 inline-block" /> MA20</span>}
-        {isActive("ma60") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-green-500 inline-block" /> MA60</span>}
-        {isActive("ma120") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-purple-500 inline-block" /> MA120</span>}
-        {isActive("bb") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-yellow-500 inline-block" /> BB(20,2)</span>}
+        {chartType === "line" && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-foreground inline-block" /> 종가</span>}
+        {chartType === "area" && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-foreground inline-block" /> 종가 영역</span>}
+        {isActive("ma5") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-market-up inline-block" /> MA5</span>}
+        {isActive("ma20") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-market-down inline-block" /> MA20</span>}
+        {isActive("ma60") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-chart-3 inline-block" /> MA60</span>}
+        {isActive("ma120") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-chart-4 inline-block" /> MA120</span>}
+        {isActive("bb") && <span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-chart-5 inline-block" /> BB(20,2)</span>}
       </div>
     </div>
   );

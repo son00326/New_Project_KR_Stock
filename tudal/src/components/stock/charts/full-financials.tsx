@@ -27,7 +27,7 @@ export function FullFinancials({ ticker }: FullFinancialsProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* 탭 */}
       <div className="flex gap-2">
         <button
@@ -90,7 +90,7 @@ function IncomeStatementTable({ statements }: { statements: IncomeStatement[] })
               손익계산서
             </th>
             {sorted.map((s) => (
-              <th key={s.year} className="text-right py-2.5 px-3 font-semibold min-w-[110px]">
+              <th key={s.year} className="text-right py-2.5 px-3 font-semibold min-w-[110px] tabular-nums">
                 {s.year}
               </th>
             ))}
@@ -110,7 +110,7 @@ function IncomeStatementTable({ statements }: { statements: IncomeStatement[] })
                 return (
                   <td
                     key={s.year}
-                    className={`text-right py-2 px-3 ${row.isBold ? "font-semibold bg-muted/10" : ""} ${row.isPercent ? "text-xs italic text-muted-foreground" : ""}`}
+                    className={`text-right py-2 px-3 tabular-nums ${row.isBold ? "font-semibold bg-muted/10" : ""} ${row.isPercent ? "text-xs italic text-muted-foreground" : ""}`}
                   >
                     {row.isPercent ? `${value.toFixed(1)}%` : formatKRW(value)}
                   </td>
@@ -156,7 +156,7 @@ function BalanceSheetTable({ sheets }: { sheets: BalanceSheet[] }) {
               재무상태표
             </th>
             {sorted.map((s) => (
-              <th key={s.year} className="text-right py-2.5 px-3 font-semibold min-w-[110px]">
+              <th key={s.year} className="text-right py-2.5 px-3 font-semibold min-w-[110px] tabular-nums">
                 {s.year}
               </th>
             ))}
@@ -187,7 +187,7 @@ function BalanceSheetTable({ sheets }: { sheets: BalanceSheet[] }) {
                   return (
                     <td
                       key={s.year}
-                      className={`text-right py-2 px-3 ${row.isBold ? "font-semibold bg-muted/10" : ""}`}
+                      className={`text-right py-2 px-3 tabular-nums ${row.isBold ? "font-semibold bg-muted/10" : ""}`}
                     >
                       {row.isRatio
                         ? row.key === "debtToEquity"

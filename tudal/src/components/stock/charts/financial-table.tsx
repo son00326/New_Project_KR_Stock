@@ -32,7 +32,7 @@ export function FinancialTable({ financials }: FinancialTableProps) {
             {sorted.map((f) => (
               <th
                 key={f.year}
-                className="text-right py-3 px-3 font-semibold min-w-[100px]"
+                className="text-right py-3 px-3 font-semibold min-w-[100px] tabular-nums"
               >
                 {f.year}
               </th>
@@ -41,7 +41,7 @@ export function FinancialTable({ financials }: FinancialTableProps) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.key} className="border-b last:border-0">
+            <tr key={row.key} className="border-b last:border-0 transition-colors hover:bg-muted/30">
               <td className="py-3 pr-4 text-muted-foreground">{row.label}</td>
               {sorted.map((f) => {
                 const value = f[row.key];
@@ -54,18 +54,18 @@ export function FinancialTable({ financials }: FinancialTableProps) {
 
                 return (
                   <td key={f.year} className="text-right py-3 px-3">
-                    <div className="font-medium">
+                    <div className="font-medium tabular-nums">
                       {row.unit
                         ? `${value.toLocaleString("ko-KR")}${row.unit}`
                         : formatKRW(value)}
                     </div>
                     {yoyChange !== null && (
                       <div
-                        className={`text-xs mt-0.5 ${
+                        className={`text-xs mt-0.5 tabular-nums ${
                           yoyChange > 0
-                            ? "text-red-600"
+                            ? "text-market-up"
                             : yoyChange < 0
-                            ? "text-blue-600"
+                            ? "text-market-down"
                             : "text-muted-foreground"
                         }`}
                       >

@@ -77,7 +77,7 @@ export default async function AdminPortfolioPage() {
       <div className="space-y-6">
         <header className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-semibold">이번 달 포트 확정</h1>
+            <h1 className="text-2xl font-bold tracking-tight">이번 달 포트 확정</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               short_list_30 테이블에 활성 종목이 없습니다.
             </p>
@@ -87,8 +87,8 @@ export default async function AdminPortfolioPage() {
           </div>
         </header>
 
-        <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-          <p className="text-sm font-medium">포트 확정 대기</p>
+        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 px-6 py-12 text-center">
+          <p className="text-base font-semibold">포트 확정 대기</p>
           <p className="mt-2 text-sm text-muted-foreground">
             Tier 0 스크리너가 Short List 30을 INSERT하면 이 화면에서
             D+5 게이트와 Accept/Reject를 검증할 수 있습니다.
@@ -230,14 +230,14 @@ export default async function AdminPortfolioPage() {
     <div className="space-y-6">
       {/* (c) BL-20 자동 바이패스 배지 (T3.8) — active=true 시 최상단 */}
       {autoReliefActive && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200">
+        <div className="flex items-center gap-2 rounded-xl border border-red-400/60 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-200">
           ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefAdminId}
         </div>
       )}
 
       {/* 77차 D31 — 내부도구 완화 게이트 모드 표시 (silent 안전변경 방지·감사성) */}
       {relaxGate && (
-        <div className="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
           ℹ️ 내부도구 게이트 모드: Accept는 24h Hold만 적용(D+4 영업일 Hold·2인 열람 면제). 멤버 공개 시 <code>PORTFOLIO_ACCEPT_GATE_STRICT=true</code>로 복원.
         </div>
       )}
@@ -248,20 +248,17 @@ export default async function AdminPortfolioPage() {
       {/* 헤더 */}
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-2xl font-bold tracking-tight">
             이번 달 포트 확정 — {monthLabel}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Short List 30 · 편입{" "}
-            <span className="font-mono font-semibold" style={{ color: "var(--color-market-up)" }}>
+            <span className="font-mono font-semibold tabular-nums text-market-up">
               {newCount}
             </span>{" "}
             · 유지{" "}
-            <span className="font-mono font-semibold">{holdCount}</span> · 제외{" "}
-            <span
-              className="font-mono font-semibold"
-              style={{ color: "var(--color-market-down)" }}
-            >
+            <span className="font-mono font-semibold tabular-nums">{holdCount}</span> · 제외{" "}
+            <span className="font-mono font-semibold tabular-nums text-market-down">
               {removedCount}
             </span>
           </p>

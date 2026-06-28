@@ -13,11 +13,10 @@ import type { AlertEvent, AlertType, NewsEvent, Severity } from "@/types/admin";
 export const dynamic = "force-dynamic";
 
 const SEVERITY_BADGE: Record<Severity, string> = {
-  critical:
-    "bg-[var(--color-market-down)]/15 text-[var(--color-market-down)] border-[var(--color-market-down)]/40",
+  critical: "bg-market-down/15 text-market-down border-market-down/40",
   warning:
     "bg-yellow-500/15 text-yellow-700 border-yellow-500/40 dark:text-yellow-400",
-  info: "bg-[var(--color-market-up)]/15 text-[var(--color-market-up)] border-[var(--color-market-up)]/40",
+  info: "bg-market-up/15 text-market-up border-market-up/40",
 };
 
 const ALERT_TYPE_LABEL: Record<AlertType, string> = {
@@ -91,7 +90,7 @@ export default async function AdminAlertsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">알림 이력</h1>
+        <h1 className="text-2xl font-bold tracking-tight">알림 이력</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           M12 뉴스 Critical · M10 스케줄러 실패 · M11 브리핑 실패 이력. Critical은
           즉시 알림, Warning은 대시보드 전용.
@@ -105,7 +104,7 @@ export default async function AdminAlertsPage() {
           <p
             role="status"
             aria-live="polite"
-            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 0건은 실제 미발생이
             아니라 권한 검증 실패(RLS deny)일 수 있습니다.
@@ -113,7 +112,7 @@ export default async function AdminAlertsPage() {
         )}
       </header>
 
-      <section aria-label="알림 이벤트" className="rounded-lg border bg-card">
+      <section aria-label="알림 이벤트" className="rounded-2xl border bg-card shadow-toss-sm">
         <header className="flex items-baseline justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">AlertEvent ({alerts.length}건)</h2>
           <span className="text-xs text-muted-foreground">최신순</span>
@@ -128,7 +127,7 @@ export default async function AdminAlertsPage() {
               <li key={a.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span
-                    className={`rounded-sm border px-1.5 py-0.5 text-xs ${SEVERITY_BADGE[a.severity]}`}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[a.severity]}`}
                   >
                     {a.severity.toUpperCase()}
                   </span>
@@ -136,7 +135,7 @@ export default async function AdminAlertsPage() {
                     {ALERT_TYPE_LABEL[a.alertType]}
                   </span>
                   {a.ticker && (
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-xs font-mono tabular-nums text-muted-foreground">
                       {a.ticker}
                     </span>
                   )}
@@ -147,7 +146,7 @@ export default async function AdminAlertsPage() {
                 <p className="mt-1 text-sm">{a.triggerReason}</p>
                 <div className="mt-1 text-xs">
                   <Link
-                    className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    className="text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
                     href={`/admin/alerts/${a.id}`}
                   >
                     상세 →
@@ -159,7 +158,7 @@ export default async function AdminAlertsPage() {
         )}
       </section>
 
-      <section aria-label="Critical 뉴스" className="rounded-lg border bg-card">
+      <section aria-label="Critical 뉴스" className="rounded-2xl border bg-card shadow-toss-sm">
         <header className="flex items-baseline justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">
             Critical 뉴스 ({criticalNews.length}건)
@@ -178,12 +177,12 @@ export default async function AdminAlertsPage() {
               <li key={n.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span
-                    className={`rounded-sm border px-1.5 py-0.5 text-xs ${SEVERITY_BADGE.critical}`}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE.critical}`}
                   >
                     CRITICAL
                   </span>
                   {n.ticker && (
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-xs font-mono tabular-nums text-muted-foreground">
                       {n.ticker}
                     </span>
                   )}
@@ -206,7 +205,7 @@ export default async function AdminAlertsPage() {
         )}
       </section>
 
-      <section aria-label="Warning 뉴스" className="rounded-lg border bg-card">
+      <section aria-label="Warning 뉴스" className="rounded-2xl border bg-card shadow-toss-sm">
         <header className="flex items-baseline justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">
             Warning 뉴스 ({warningNews.length}건)
@@ -225,12 +224,12 @@ export default async function AdminAlertsPage() {
               <li key={n.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span
-                    className={`rounded-sm border px-1.5 py-0.5 text-xs ${SEVERITY_BADGE.warning}`}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE.warning}`}
                   >
                     WARNING
                   </span>
                   {n.ticker && (
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-xs font-mono tabular-nums text-muted-foreground">
                       {n.ticker}
                     </span>
                   )}

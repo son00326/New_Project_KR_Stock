@@ -23,7 +23,7 @@ export function DecideButtons({ id }: { id: string }) {
         type="button"
         disabled={pending}
         onClick={() => decide("approved")}
-        className="rounded-md border border-[var(--color-market-up)] px-2 py-1 text-xs text-[var(--color-market-up)] disabled:opacity-50"
+        className="rounded-lg border border-market-up px-2.5 py-1 text-xs font-medium text-market-up transition-colors hover:bg-market-up/10 disabled:opacity-50"
       >
         승인(기록)
       </button>
@@ -31,7 +31,7 @@ export function DecideButtons({ id }: { id: string }) {
         type="button"
         disabled={pending}
         onClick={() => decide("rejected")}
-        className="rounded-md border px-2 py-1 text-xs text-muted-foreground disabled:opacity-50"
+        className="rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
       >
         거절
       </button>
@@ -39,7 +39,7 @@ export function DecideButtons({ id }: { id: string }) {
         ※ 승인=기록만, funnel 자동 적용 아님
       </span>
       {error && (
-        <span role="status" className="text-xs text-[var(--color-market-down)]">
+        <span role="status" className="text-xs text-market-down">
           {formatErrorMessage(error)}
         </span>
       )}

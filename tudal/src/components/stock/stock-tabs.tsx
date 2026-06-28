@@ -12,7 +12,7 @@ interface StockTabsProps {
 }
 
 const TAB_STYLE =
-  "rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-medium";
+  "rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold px-6 py-3 text-sm font-medium transition-colors";
 
 export function StockTabs({ ticker }: StockTabsProps) {
   return (

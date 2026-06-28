@@ -16,27 +16,27 @@ interface KeyMetricsCardsProps {
 
 export function KeyMetricsCards({ metrics }: KeyMetricsCardsProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {metrics.map((metric) => (
         <div
           key={metric.label}
-          className="rounded-lg border bg-gradient-to-br from-background to-muted/20 p-4 space-y-2"
+          className="rounded-xl border bg-gradient-to-br from-background to-muted/20 p-4 space-y-2 shadow-toss-sm"
         >
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               {metric.icon}
             </div>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">{metric.label}</p>
-            <p className="text-lg font-bold mt-0.5">{metric.value}</p>
+            <p className="text-lg font-bold mt-0.5 tabular-nums">{metric.value}</p>
             {metric.subtext && (
               <p
-                className={`text-xs mt-0.5 font-medium ${
+                className={`text-xs mt-0.5 font-medium tabular-nums ${
                   metric.trend === "up"
-                    ? "text-red-600"
+                    ? "text-market-up"
                     : metric.trend === "down"
-                    ? "text-blue-600"
+                    ? "text-market-down"
                     : "text-muted-foreground"
                 }`}
               >

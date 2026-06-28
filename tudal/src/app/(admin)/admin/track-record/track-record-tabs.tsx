@@ -34,9 +34,7 @@ const BUCKET_LABEL: Record<'short' | 'mid' | 'long', string> = {
 };
 
 function colorClass(n: number): string {
-  return n >= 0
-    ? 'text-[color:var(--color-market-up)]'
-    : 'text-[color:var(--color-market-down)]';
+  return n >= 0 ? 'text-market-up' : 'text-market-down';
 }
 
 function formatMonthLabel(month: string): string {
@@ -78,7 +76,7 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
 
   if (isEmpty) {
     return (
-      <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
+      <div className="rounded-2xl border border-dashed bg-muted/20 px-6 py-10 text-center">
         <p className="text-sm font-medium">운용 데이터 누적 후 산출</p>
         <p className="mt-2 text-sm text-muted-foreground">
           가상 포트 스냅샷이 적재되면 누적 성과 · 월별 · 버킷별 분해가 표시됩니다.
@@ -93,31 +91,31 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
       {summary && (
         <section aria-label="누적 성과 요약">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-2xl border bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">누적 수익률</p>
               <p className={`mt-1 text-xl font-semibold tabular-nums ${colorClass(summary.cumulativeReturn)}`}>
                 {fmtPct(summary.cumulativeReturn)}
               </p>
             </div>
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-2xl border bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">KOSPI 동기간</p>
               <p className={`mt-1 text-xl font-semibold tabular-nums ${colorClass(summary.cumulativeKospi)}`}>
                 {fmtPct(summary.cumulativeKospi)}
               </p>
             </div>
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-2xl border bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">Alpha</p>
               <p className={`mt-1 text-xl font-semibold tabular-nums ${colorClass(summary.cumulativeAlpha)}`}>
                 {fmtPct(summary.cumulativeAlpha)}
               </p>
             </div>
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-2xl border bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">Sharpe</p>
               <p className={`mt-1 text-xl font-semibold tabular-nums ${colorClass(summary.cumulativeSharpe - 0.5)}`}>
                 {fmtNum(summary.cumulativeSharpe)}
               </p>
             </div>
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-2xl border bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">MDD</p>
               <p className={`mt-1 text-xl font-semibold tabular-nums ${colorClass(summary.cumulativeMdd)}`}>
                 {fmtPct(summary.cumulativeMdd)}
@@ -129,12 +127,12 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
 
       {/* R3.11-4: CAP Months 참조 카드 */}
       <section aria-label="NSM CAP Months">
-        <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
+        <div className="flex items-center justify-between rounded-2xl border bg-muted/50 p-4">
           <div>
             <p className="text-xs text-muted-foreground">NSM · CAP Months</p>
             <p className="mt-1 text-lg font-semibold">{capMonths}/12개월 진행 중</p>
           </div>
-          <Link href="/admin/decision-tree" className="text-sm font-medium text-primary underline">
+          <Link href="/admin/decision-tree" className="text-sm font-medium text-primary underline underline-offset-2 transition-colors hover:text-primary/80">
             Decision Tree에서 상세 보기 →
           </Link>
         </div>
@@ -146,7 +144,7 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
           <h2 id="cumulative-monthly-heading" className="mb-3 text-lg font-semibold">
             월별 성과
           </h2>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-2xl border shadow-toss-sm">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/30">
                 <tr className="text-xs text-muted-foreground">
@@ -161,7 +159,7 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
               <tbody className="divide-y">
                 {monthly.map((row) => (
                   <tr key={row.month} className="hover:bg-muted/20">
-                    <td className="py-2.5 pl-4 font-mono">{row.month}</td>
+                    <td className="py-2.5 pl-4 font-mono tabular-nums">{row.month}</td>
                     <td className={`py-2.5 pr-3 text-right tabular-nums ${colorClass(row.portfolioReturn)}`}>
                       {fmtPct(row.portfolioReturn)}
                     </td>
@@ -193,23 +191,23 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {buckets.map((b) => (
-              <div key={b.bucket} className="rounded-lg border bg-card p-4 space-y-2">
+              <div key={b.bucket} className="rounded-2xl border bg-card p-4 space-y-2 shadow-toss-sm">
                 <p className="text-sm font-semibold">{BUCKET_LABEL[b.bucket]}</p>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>누적 수익률</span>
-                  <span className={`font-mono font-semibold ${colorClass(b.cumulativeReturn)}`}>
+                  <span className={`font-mono font-semibold tabular-nums ${colorClass(b.cumulativeReturn)}`}>
                     {fmtPct(b.cumulativeReturn)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>Sharpe</span>
-                  <span className={`font-mono font-semibold ${colorClass(b.sharpe - 0.5)}`}>
+                  <span className={`font-mono font-semibold tabular-nums ${colorClass(b.sharpe - 0.5)}`}>
                     {fmtNum(b.sharpe)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>편입 종목</span>
-                  <span className="font-mono font-semibold">{b.tickerCount}종</span>
+                  <span className="font-mono font-semibold tabular-nums">{b.tickerCount}종</span>
                 </div>
               </div>
             ))}
@@ -223,14 +221,14 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
           Counterfactual
         </h2>
         {counterfactual === null ? (
-          <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-6 text-center">
+          <div className="rounded-2xl border border-dashed bg-muted/20 px-6 py-6 text-center">
             <p className="text-sm font-medium">운용 데이터 누적 후 산출</p>
             <p className="mt-2 text-sm text-muted-foreground">
               AI 비중 시계열 저장 정책은 D11/S9 이후 결정됩니다.
             </p>
           </div>
         ) : (
-          <div className="rounded-lg border bg-card p-4 space-y-2">
+          <div className="rounded-2xl border bg-card p-4 space-y-2 shadow-toss-sm">
             <p className="text-sm">
               AI 비중 그대로 따랐으면 수익률:{' '}
               <strong className={colorClass(counterfactual.aiOnlyReturn)}>
@@ -264,7 +262,7 @@ function CumulativeContent({ data }: { data: TrackRecordCumulative }) {
 function ArchiveContent({ entries }: { entries: TrackRecordArchiveEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
+      <div className="rounded-2xl border border-dashed bg-muted/20 px-6 py-10 text-center">
         <p className="text-sm font-medium">월별 아카이브 없음</p>
         <p className="mt-2 text-sm text-muted-foreground">
           풀 리포트가 생성된 월부터 여기에 누적됩니다.
@@ -279,7 +277,7 @@ function ArchiveContent({ entries }: { entries: TrackRecordArchiveEntry[] }) {
         <section
           key={entry.month}
           aria-labelledby={`archive-month-${entry.month}`}
-          className="rounded-lg border bg-card p-4 space-y-3"
+          className="rounded-2xl border bg-card p-4 space-y-3 shadow-toss-sm"
         >
           <header className="flex items-center justify-between">
             <h3 id={`archive-month-${entry.month}`} className="text-base font-semibold">
@@ -295,9 +293,9 @@ function ArchiveContent({ entries }: { entries: TrackRecordArchiveEntry[] }) {
               <li key={`${entry.month}-${r.ticker}`}>
                 <Link
                   href={archiveReportHref(r.ticker, entry.month)}
-                  className="flex items-center justify-between rounded border px-2 py-1.5 text-sm hover:bg-muted/30"
+                  className="flex items-center justify-between rounded-lg border px-2 py-1.5 text-sm transition-colors hover:bg-muted/30"
                 >
-                  <span className="font-mono">{r.ticker}</span>
+                  <span className="font-mono tabular-nums">{r.ticker}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {r.name ?? '-'}{r.sector ? ` · ${r.sector}` : ''}
                   </span>

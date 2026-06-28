@@ -18,14 +18,14 @@ interface FutureOutlookVisualProps {
 }
 
 const IMPACT_ICON = {
-  positive: <TrendingUp className="h-4 w-4 text-green-600" />,
-  negative: <TrendingDown className="h-4 w-4 text-red-600" />,
-  neutral: <AlertTriangle className="h-4 w-4 text-yellow-600" />,
+  positive: <TrendingUp className="h-4 w-4 text-chart-3" />,
+  negative: <TrendingDown className="h-4 w-4 text-chart-2" />,
+  neutral: <AlertTriangle className="h-4 w-4 text-chart-5" />,
 };
 
 const IMPORTANCE_STYLE = {
-  high: "bg-red-100 text-red-700 border-0",
-  medium: "bg-yellow-100 text-yellow-700 border-0",
+  high: "bg-chart-2/10 text-chart-2 border-0",
+  medium: "bg-chart-5/10 text-chart-5 border-0",
 };
 
 export function FutureOutlookVisual({
@@ -36,7 +36,7 @@ export function FutureOutlookVisual({
   return (
     <div className="space-y-6">
       {/* 투자 포인트 요약 */}
-      <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-5">
+      <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-5">
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb className="h-5 w-5 text-primary" />
           <h4 className="font-semibold">핵심 투자 포인트</h4>
@@ -47,7 +47,7 @@ export function FutureOutlookVisual({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 성장 기회 */}
         <div>
-          <h4 className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-chart-3 mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             성장 기회 (Opportunities)
           </h4>
@@ -60,7 +60,7 @@ export function FutureOutlookVisual({
 
         {/* 리스크 요인 */}
         <div>
-          <h4 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-chart-2 mb-3 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             리스크 요인 (Risks)
           </h4>
@@ -77,7 +77,7 @@ export function FutureOutlookVisual({
 
 function OutlookCard({ item }: { item: OutlookItem }) {
   return (
-    <div className="rounded-lg border p-3 hover:shadow-sm transition-shadow">
+    <div className="rounded-xl border p-3 hover:shadow-toss-sm transition-shadow">
       <div className="flex items-center gap-2 mb-1.5">
         {IMPACT_ICON[item.impact]}
         <span className="text-sm font-medium">{item.title}</span>

@@ -18,9 +18,9 @@ interface CompetitiveMapProps {
 }
 
 const POSITION_STYLE = {
-  leader: { label: "선도", color: "bg-green-100 text-green-700 border-0" },
-  challenger: { label: "도전", color: "bg-yellow-100 text-yellow-700 border-0" },
-  follower: { label: "추격", color: "bg-red-100 text-red-700 border-0" },
+  leader: { label: "선도", color: "bg-chart-3/10 text-chart-3 border-0" },
+  challenger: { label: "도전", color: "bg-chart-5/10 text-chart-5 border-0" },
+  follower: { label: "추격", color: "bg-chart-2/10 text-chart-2 border-0" },
 };
 
 export function CompetitiveMap({
@@ -33,28 +33,28 @@ export function CompetitiveMap({
     <div className="space-y-6">
       {/* SWOT 요약 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-lg border border-green-200 bg-green-50/50 p-4">
-          <h4 className="text-sm font-semibold text-green-700 mb-3">
+        <div className="rounded-xl border border-chart-3/20 bg-chart-3/5 p-4">
+          <h4 className="text-sm font-semibold text-chart-3 mb-3">
             강점 (Strengths)
           </h4>
           <ul className="space-y-2">
             {strengths.map((s, i) => (
               <li key={i} className="flex items-start gap-2 text-sm">
-                <span className="text-green-600 mt-0.5 shrink-0">+</span>
-                <span className="text-green-900/80">{s}</span>
+                <span className="text-chart-3 mt-0.5 shrink-0">+</span>
+                <span className="text-foreground/80">{s}</span>
               </li>
             ))}
           </ul>
         </div>
-        <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
-          <h4 className="text-sm font-semibold text-red-700 mb-3">
+        <div className="rounded-xl border border-chart-2/20 bg-chart-2/5 p-4">
+          <h4 className="text-sm font-semibold text-chart-2 mb-3">
             약점 (Weaknesses)
           </h4>
           <ul className="space-y-2">
             {weaknesses.map((w, i) => (
               <li key={i} className="flex items-start gap-2 text-sm">
-                <span className="text-red-600 mt-0.5 shrink-0">-</span>
-                <span className="text-red-900/80">{w}</span>
+                <span className="text-chart-2 mt-0.5 shrink-0">-</span>
+                <span className="text-foreground/80">{w}</span>
               </li>
             ))}
           </ul>
@@ -79,7 +79,7 @@ export function CompetitiveMap({
               {competitors.map((comp) => {
                 const pos = POSITION_STYLE[comp.position];
                 return (
-                  <tr key={comp.name} className="border-b last:border-0">
+                  <tr key={comp.name} className="border-b last:border-0 transition-colors hover:bg-muted/30">
                     <td className="py-3 pr-3 font-medium">{comp.name}</td>
                     <td className="py-3 px-3">
                       <Badge variant="secondary" className="text-xs">

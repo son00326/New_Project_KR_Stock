@@ -141,7 +141,7 @@ export function StockSearch({
               setQuery("");
               inputRef.current?.focus();
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
           >
             <X className={isHero ? "h-5 w-5" : "h-4 w-4"} />
           </button>
@@ -150,7 +150,7 @@ export function StockSearch({
 
       {/* 드롭다운 */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-background border rounded-lg shadow-lg z-50 overflow-hidden max-h-[400px] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-xl shadow-toss-lg z-50 overflow-hidden max-h-[400px] overflow-y-auto">
           {/* 검색 결과 */}
           {query.trim() ? (
             results.length > 0 ? (
@@ -184,7 +184,7 @@ export function StockSearch({
                     </span>
                     <button
                       onClick={handleClearRecent}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       전체 삭제
                     </button>
@@ -260,15 +260,15 @@ function StockItem({
 
       <div className="flex items-center gap-3 shrink-0">
         <div className="text-right">
-          <div className="text-sm font-medium">
+          <div className="text-sm font-medium tabular-nums">
             {stock.currentPrice.toLocaleString("ko-KR")}원
           </div>
           <div
-            className={`text-xs font-medium ${
+            className={`text-xs font-medium tabular-nums ${
               isPositive
-                ? "text-red-600"
+                ? "text-market-up"
                 : isNegative
-                ? "text-blue-600"
+                ? "text-market-down"
                 : "text-muted-foreground"
             }`}
           >

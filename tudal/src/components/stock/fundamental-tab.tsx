@@ -101,13 +101,13 @@ export function FundamentalTab({ ticker }: FundamentalTabProps) {
                 <p className="text-sm leading-relaxed">
                   <strong>삼성전자</strong>는 대한민국을 대표하는 글로벌 전자기업입니다. 우리가 일상에서 사용하는 스마트폰(갤럭시), TV, 냉장고 등을 만드는 회사로 잘 알려져 있지만, <strong>실제로 가장 중요한 사업은 &apos;반도체&apos;입니다.</strong>
                 </p>
-                <div className="rounded-lg bg-muted/50 p-4">
+                <div className="rounded-xl bg-muted/50 p-4">
                   <p className="text-sm font-medium mb-2">반도체가 뭔가요?</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     반도체는 컴퓨터, 스마트폰, 자동차, AI 서버 등 거의 모든 전자기기에 들어가는 <strong>핵심 부품</strong>입니다. 쉽게 말해 &quot;전자기기의 두뇌&quot;와 같은 역할을 합니다. 삼성전자는 이 반도체, 그중에서도 데이터를 저장하는 <strong>&apos;메모리 반도체&apos;</strong> 분야에서 세계 1위 기업입니다.
                   </p>
                 </div>
-                <div className="rounded-lg bg-muted/50 p-4">
+                <div className="rounded-xl bg-muted/50 p-4">
                   <p className="text-sm font-medium mb-2">왜 중요한가요?</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     최근 ChatGPT 같은 AI 서비스가 폭발적으로 성장하면서, AI를 구동하는 데 필요한 <strong>고성능 반도체 수요가 급증</strong>하고 있습니다. 삼성전자는 이 시장에서 핵심 플레이어 중 하나이며, 향후 성장의 가장 큰 동력이 됩니다.
@@ -174,7 +174,7 @@ export function FundamentalTab({ ticker }: FundamentalTabProps) {
           <Card>
             <CardContent className="pt-6">
               {level === "beginner" && (
-                <div className="rounded-lg bg-muted/50 p-4 mb-6">
+                <div className="rounded-xl bg-muted/50 p-4 mb-6">
                   <p className="text-sm font-medium mb-2">재무제표가 뭔가요?</p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     <strong>손익계산서</strong>는 &quot;일정 기간 동안 얼마 벌고 얼마 썼는지&quot;를 보여줍니다 (성적표).
@@ -227,7 +227,7 @@ export function FundamentalTab({ ticker }: FundamentalTabProps) {
                 );
               })()}
               {level === "beginner" && (
-                <div className="mt-6 rounded-lg bg-muted/50 p-4">
+                <div className="mt-6 rounded-xl bg-muted/50 p-4">
                   <p className="text-sm font-medium mb-2">쉽게 정리하면</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     삼성전자는 <strong>메모리 반도체와 디스플레이에서는 세계 1위</strong>로 강력한 위치에 있지만,
@@ -254,9 +254,9 @@ export function FundamentalTab({ ticker }: FundamentalTabProps) {
             <CardContent className="pt-6">
               <FutureOutlookVisual {...getSamsungOutlookData()} />
               {level === "beginner" && (
-                <div className="mt-6 rounded-lg bg-yellow-50 border border-yellow-200 p-4">
-                  <p className="text-sm font-medium text-yellow-800 mb-2">초보자를 위한 한줄 요약</p>
-                  <p className="text-sm text-yellow-900/80 leading-relaxed">
+                <div className="mt-6 rounded-xl bg-chart-5/10 border border-chart-5/20 p-4">
+                  <p className="text-sm font-semibold text-foreground mb-2">초보자를 위한 한줄 요약</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     삼성전자의 미래는 <strong>&quot;AI 시대에 얼마나 좋은 반도체를 만들 수 있느냐&quot;</strong>에 달려 있습니다.
                     AI 반도체(HBM) 시장이 폭발적으로 성장하고 있어 큰 기회가 있지만,
                     현재 SK하이닉스보다 기술적으로 뒤처져 있다는 점이 단기 리스크입니다.
@@ -355,7 +355,7 @@ function FinancialPeriodSelector({
       <RevenueTrendChart financials={filtered} />
 
       {level === "beginner" && (
-        <div className="rounded-lg bg-muted/50 p-4">
+        <div className="rounded-xl bg-muted/50 p-4">
           <p className="text-sm font-medium mb-2">차트 읽는 법</p>
           <p className="text-sm text-muted-foreground leading-relaxed">
             <strong>파란색 막대(매출액)</strong>는 회사가 번 총 금액, <strong>초록색(영업이익)</strong>은 사업으로 실제 남긴 이익, <strong>보라색(순이익)</strong>은 세금 등을 다 내고 최종적으로 남은 이익입니다.

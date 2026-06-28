@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatKRW } from "@/lib/constants";
 import { ProductTooltip } from "@/components/stock/charts/product-tooltip";
 import type { RevenueSegment } from "@/types/stock";
+import { CHART_COLORS, CHART_LABEL } from "@/lib/chart-colors";
 
 // 사업부별 상세 정보
 interface SegmentDetail {
@@ -72,12 +73,12 @@ const SAMSUNG_SEGMENT_DETAILS: SegmentDetail[] = [
   },
 ];
 
-const COLORS = ["#2563eb", "#16a34a", "#ea580c", "#9333ea", "#e11d48"];
+const COLORS = CHART_COLORS;
 
 const OUTLOOK_BADGE = {
-  positive: { label: "긍정적", className: "bg-green-100 text-green-700 border-0" },
-  neutral: { label: "보통", className: "bg-yellow-100 text-yellow-700 border-0" },
-  negative: { label: "부정적", className: "bg-red-100 text-red-700 border-0" },
+  positive: { label: "긍정적", className: "bg-market-up/10 text-market-up border-0" },
+  neutral: { label: "보통", className: "bg-market-neutral/10 text-market-neutral border-0" },
+  negative: { label: "부정적", className: "bg-market-down/10 text-market-down border-0" },
 };
 
 interface RevenueBreakdownProps {
@@ -121,7 +122,7 @@ export function RevenueBreakdown({ segments, level }: RevenueBreakdownProps) {
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
                     opacity={selectedSegment && selectedSegment !== segments[index].segmentName ? 0.3 : 1}
-                    stroke={selectedSegment === segments[index].segmentName ? "#000" : "none"}
+                    stroke={selectedSegment === segments[index].segmentName ? CHART_LABEL : "none"}
                     strokeWidth={selectedSegment === segments[index].segmentName ? 2 : 0}
                   />
                 ))}
@@ -144,8 +145,8 @@ export function RevenueBreakdown({ segments, level }: RevenueBreakdownProps) {
               <button
                 key={segment.segmentName}
                 onClick={() => setSelectedSegment(isSelected ? null : segment.segmentName)}
-                className={`w-full text-left rounded-lg border p-3 transition-all ${
-                  isSelected ? "border-primary bg-primary/5 shadow-sm" : "hover:bg-muted/50"
+                className={`w-full text-left rounded-xl border border-border p-3 transition-all ${
+                  isSelected ? "border-primary bg-primary/5 shadow-toss-sm" : "hover:bg-muted/50"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -164,8 +165,8 @@ export function RevenueBreakdown({ segments, level }: RevenueBreakdownProps) {
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-sm font-bold">{segment.proportion}%</span>
-                    <p className="text-xs text-muted-foreground">{formatKRW(segment.revenue)}</p>
+                    <span className="text-sm font-bold tabular-nums">{segment.proportion}%</span>
+                    <p className="text-xs text-muted-foreground tabular-nums">{formatKRW(segment.revenue)}</p>
                   </div>
                 </div>
               </button>
@@ -203,8 +204,8 @@ export function RevenueBreakdown({ segments, level }: RevenueBreakdownProps) {
           </div>
 
           {/* 전망 코멘트 */}
-          <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-xs font-medium mb-1">주픽 AI 코멘트</p>
+          <div className="rounded-xl bg-muted/50 p-3">
+            <p className="text-xs font-semibold mb-1">주픽 AI 코멘트</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
               {activeDetail.outlookComment}
             </p>
@@ -214,8 +215,8 @@ export function RevenueBreakdown({ segments, level }: RevenueBreakdownProps) {
 
       {/* 초보자 요약 */}
       {level === "beginner" && !activeDetail && (
-        <div className="rounded-lg bg-muted/50 p-4">
-          <p className="text-sm font-medium mb-2">한마디 정리</p>
+        <div className="rounded-xl bg-muted/50 p-4">
+          <p className="text-sm font-semibold mb-2">한마디 정리</p>
           <p className="text-sm text-muted-foreground leading-relaxed">
             삼성전자의 가장 큰 매출원은 <strong>스마트폰(MX) 사업으로 전체의 37%</strong>를 차지합니다.
             하지만 <strong>실제로 돈을 가장 많이 버는 곳은 반도체(DS) 부문</strong>입니다.

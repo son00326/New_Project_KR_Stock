@@ -62,9 +62,9 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="border-0 shadow-toss-sm hover:shadow-toss-md transition-shadow">
               <CardContent className="pt-6 space-y-4">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                   <Search className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold">종목 검색</h3>
@@ -74,9 +74,9 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="border-0 shadow-toss-sm hover:shadow-toss-md transition-shadow">
               <CardContent className="pt-6 space-y-4">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                   <BarChart3 className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold">난이도별 분석</h3>
@@ -86,9 +86,9 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="border-0 shadow-toss-sm hover:shadow-toss-md transition-shadow">
               <CardContent className="pt-6 space-y-4">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                   <TrendingUp className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold">Peer 비교</h3>
@@ -98,9 +98,9 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="border-0 shadow-toss-sm hover:shadow-toss-md transition-shadow">
               <CardContent className="pt-6 space-y-4">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                   <Shield className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold">신뢰도 최우선</h3>
@@ -124,25 +124,25 @@ export default function Home() {
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-2xl bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">공포·탐욕 지수</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">38</p>
-              <p className="text-xs text-blue-600 font-medium">공포</p>
+              <p className="text-2xl font-bold text-market-down tabular-nums mt-1">38</p>
+              <p className="text-xs text-market-down font-medium">공포</p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-2xl bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">미국 CPI</p>
-              <p className="text-2xl font-bold mt-1">3.2%</p>
-              <p className="text-xs text-red-600 font-medium">둔화 추세</p>
+              <p className="text-2xl font-bold tabular-nums mt-1">3.2%</p>
+              <p className="text-xs text-market-up font-medium">둔화 추세</p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-2xl bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">Fed 기준금리</p>
-              <p className="text-2xl font-bold mt-1">4.75%</p>
-              <p className="text-xs text-red-600 font-medium">인하 진행</p>
+              <p className="text-2xl font-bold tabular-nums mt-1">4.75%</p>
+              <p className="text-xs text-market-up font-medium">인하 진행</p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-2xl bg-card p-4 shadow-toss-sm">
               <p className="text-xs text-muted-foreground">원/달러 환율</p>
-              <p className="text-2xl font-bold mt-1">1,345</p>
-              <p className="text-xs text-blue-600 font-medium">-0.5%</p>
+              <p className="text-2xl font-bold tabular-nums mt-1">1,345</p>
+              <p className="text-xs text-market-down font-medium">-0.5%</p>
             </div>
           </div>
 
@@ -169,7 +169,7 @@ export default function Home() {
             <Card className="relative">
               <CardContent className="pt-8 pb-8 space-y-4">
                 <h3 className="text-lg font-semibold">Free</h3>
-                <div className="text-3xl font-bold">
+                <div className="text-3xl font-bold tabular-nums">
                   0<span className="text-base font-normal text-muted-foreground">원/월</span>
                 </div>
                 <ul className="text-sm text-muted-foreground space-y-2 text-left">
@@ -186,7 +186,7 @@ export default function Home() {
             </Card>
 
             {/* Standard */}
-            <Card className="relative border-primary shadow-lg">
+            <Card className="relative border-primary shadow-toss-lg">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
                   인기
@@ -194,7 +194,7 @@ export default function Home() {
               </div>
               <CardContent className="pt-8 pb-8 space-y-4">
                 <h3 className="text-lg font-semibold">Standard</h3>
-                <div className="text-3xl font-bold">
+                <div className="text-3xl font-bold tabular-nums">
                   14,900<span className="text-base font-normal text-muted-foreground">원/월</span>
                 </div>
                 <ul className="text-sm text-muted-foreground space-y-2 text-left">
@@ -213,7 +213,7 @@ export default function Home() {
             <Card className="relative">
               <CardContent className="pt-8 pb-8 space-y-4">
                 <h3 className="text-lg font-semibold">Pro</h3>
-                <div className="text-3xl font-bold">
+                <div className="text-3xl font-bold tabular-nums">
                   34,900<span className="text-base font-normal text-muted-foreground">원/월</span>
                 </div>
                 <ul className="text-sm text-muted-foreground space-y-2 text-left">

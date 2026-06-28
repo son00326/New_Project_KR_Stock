@@ -44,7 +44,9 @@ export function RegenerateConfirmPanel({
   return (
     <div className="space-y-4">
       {errorMsg && (
-        <p className="text-sm text-destructive">{errorMsg}</p>
+        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {errorMsg}
+        </p>
       )}
 
       <div className="flex flex-wrap items-center gap-3">

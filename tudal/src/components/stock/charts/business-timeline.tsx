@@ -12,11 +12,11 @@ interface BusinessTimelineProps {
 }
 
 const TYPE_STYLE = {
-  founding: "bg-blue-500",
-  milestone: "bg-green-500",
-  product: "bg-purple-500",
-  crisis: "bg-red-500",
-  expansion: "bg-yellow-500",
+  founding: "bg-chart-1",
+  milestone: "bg-chart-3",
+  product: "bg-chart-4",
+  crisis: "bg-chart-2",
+  expansion: "bg-chart-5",
 };
 
 const TYPE_LABEL = {
@@ -52,9 +52,9 @@ export function BusinessTimeline({ events }: BusinessTimelineProps) {
             />
 
             {/* 콘텐츠 */}
-            <div className="rounded-lg border bg-card p-4 hover:shadow-sm transition-shadow">
+            <div className="rounded-xl border bg-card p-4 hover:shadow-toss-sm transition-shadow">
               <div className="flex items-center gap-3 mb-1.5">
-                <span className="text-sm font-bold text-primary">{event.year}</span>
+                <span className="text-sm font-bold text-primary tabular-nums">{event.year}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full text-white ${TYPE_STYLE[event.type]}`}>
                   {TYPE_LABEL[event.type]}
                 </span>

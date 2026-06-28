@@ -10,9 +10,9 @@ interface IndicatorCardProps {
 }
 
 const SIGNAL_BADGE = {
-  bullish: { label: "호재", className: "bg-red-100 text-red-700 border-0" },
-  bearish: { label: "악재", className: "bg-blue-100 text-blue-700 border-0" },
-  neutral: { label: "중립", className: "bg-yellow-100 text-yellow-700 border-0" },
+  bullish: { label: "호재", className: "bg-market-up/10 text-market-up border-0" },
+  bearish: { label: "악재", className: "bg-market-down/10 text-market-down border-0" },
+  neutral: { label: "중립", className: "bg-chart-5/10 text-chart-5 border-0" },
 };
 
 export function IndicatorCard({ indicator, compact = false }: IndicatorCardProps) {
@@ -21,7 +21,7 @@ export function IndicatorCard({ indicator, compact = false }: IndicatorCardProps
   const badgeConfig = SIGNAL_BADGE[indicator.signal];
 
   return (
-    <div className="rounded-lg border p-4 hover:shadow-sm transition-shadow">
+    <div className="rounded-2xl border p-4 transition-shadow hover:shadow-toss-sm">
       {/* 상단: 이름 + 시그널 */}
       <div className="flex items-start justify-between mb-2">
         <div>
@@ -35,7 +35,7 @@ export function IndicatorCard({ indicator, compact = false }: IndicatorCardProps
 
       {/* 중간: 수치 */}
       <div className="flex items-end gap-2 mb-2">
-        <span className="text-2xl font-bold">
+        <span className="text-2xl font-bold tabular-nums">
           {indicator.unit === "%"
             ? `${indicator.value}%`
             : indicator.unit === "$/배럴" || indicator.unit === "$/oz"
@@ -45,11 +45,11 @@ export function IndicatorCard({ indicator, compact = false }: IndicatorCardProps
             : indicator.value.toLocaleString()}
         </span>
         <div
-          className={`flex items-center gap-1 text-sm font-medium mb-0.5 ${
+          className={`flex items-center gap-1 text-sm font-medium tabular-nums mb-0.5 ${
             isPositive
-              ? "text-red-600"
+              ? "text-market-up"
               : isNegative
-              ? "text-blue-600"
+              ? "text-market-down"
               : "text-muted-foreground"
           }`}
         >

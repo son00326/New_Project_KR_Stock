@@ -81,10 +81,10 @@ export function ProductTooltip({ product }: ProductTooltipProps) {
   }
 
   const cycleColors = {
-    upcycle: { bg: "bg-red-50 border-red-200", text: "text-red-700", icon: <TrendingUp className="h-3 w-3" /> },
-    downcycle: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", icon: <TrendingDown className="h-3 w-3" /> },
-    recovery: { bg: "bg-green-50 border-green-200", text: "text-green-700", icon: <TrendingUp className="h-3 w-3" /> },
-    peak: { bg: "bg-yellow-50 border-yellow-200", text: "text-yellow-700", icon: <Minus className="h-3 w-3" /> },
+    upcycle: { bg: "bg-market-up/10 border-market-up/20", text: "text-market-up", icon: <TrendingUp className="h-3 w-3" /> },
+    downcycle: { bg: "bg-market-down/10 border-market-down/20", text: "text-market-down", icon: <TrendingDown className="h-3 w-3" /> },
+    recovery: { bg: "bg-chart-3/10 border-chart-3/20", text: "text-chart-3", icon: <TrendingUp className="h-3 w-3" /> },
+    peak: { bg: "bg-chart-5/10 border-chart-5/20", text: "text-chart-5", icon: <Minus className="h-3 w-3" /> },
   };
 
   return (
@@ -105,7 +105,7 @@ export function ProductTooltip({ product }: ProductTooltipProps) {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 
           {/* 툴팁 팝오버 */}
-          <div className="absolute left-0 top-full mt-2 z-50 w-80 sm:w-96 rounded-xl border bg-background shadow-lg p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute left-0 top-full mt-2 z-50 w-80 sm:w-96 rounded-xl border bg-background shadow-toss-lg p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div>
               <h5 className="font-bold text-sm">{info.term}</h5>
               <p className="text-xs text-primary font-medium mt-0.5">{info.simple}</p>

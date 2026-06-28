@@ -25,7 +25,7 @@ export function MissingCountBanner({
     return (
       <div
         role="status"
-        className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-400/40 bg-amber-50/60 px-4 py-3 text-sm dark:border-amber-500/30 dark:bg-amber-950/20"
+        className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-50/60 px-4 py-3 text-sm shadow-toss-sm dark:border-amber-500/30 dark:bg-amber-950/20"
       >
         <Clock
           className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
@@ -49,14 +49,14 @@ export function MissingCountBanner({
     return (
       <div
         role="alert"
-        className="flex flex-wrap items-start gap-3 rounded-lg border border-[color:var(--color-market-up)]/40 bg-[color:var(--color-market-up)]/5 px-4 py-3 text-sm"
+        className="flex flex-wrap items-start gap-3 rounded-2xl border border-market-up/40 bg-market-up/5 px-4 py-3 text-sm shadow-toss-sm"
       >
         <SearchX
-          className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--color-market-up)]"
+          className="mt-0.5 h-5 w-5 shrink-0 text-market-up"
           aria-hidden
         />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[color:var(--color-market-up)]">
+          <div className="font-semibold text-market-up tabular-nums">
             스크리닝 미달 — {activeCount}/{SHORTLIST_TARGET_COUNT}종
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -73,7 +73,7 @@ export function MissingCountBanner({
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm"
+      className="flex flex-wrap items-start gap-3 rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm shadow-toss-sm"
     >
       <CalendarX
         className="mt-0.5 h-5 w-5 shrink-0 text-destructive"

@@ -54,8 +54,8 @@ export function PeerGroupTable({
             return (
               <tr
                 key={stock.ticker}
-                className={`border-b last:border-0 ${
-                  isTarget ? "bg-primary/5" : ""
+                className={`border-b last:border-0 transition-colors ${
+                  isTarget ? "bg-primary/5" : "hover:bg-muted/30"
                 }`}
               >
                 <td className="py-3 pr-4">
@@ -73,22 +73,22 @@ export function PeerGroupTable({
                     {stock.ticker}
                   </span>
                 </td>
-                <td className="text-right py-3 px-3">
+                <td className="text-right py-3 px-3 tabular-nums">
                   {formatKRW(stock.marketCap)}
                 </td>
-                <td className="text-right py-3 px-3 font-medium">
+                <td className="text-right py-3 px-3 font-medium tabular-nums">
                   {multiples?.per?.toFixed(1) ?? "N/A"}
                 </td>
-                <td className="text-right py-3 px-3">
+                <td className="text-right py-3 px-3 tabular-nums">
                   {multiples?.pbr?.toFixed(2) ?? "N/A"}
                 </td>
-                <td className="text-right py-3 px-3">
+                <td className="text-right py-3 px-3 tabular-nums">
                   {multiples?.psr?.toFixed(2) ?? "N/A"}
                 </td>
-                <td className="text-right py-3 px-3">
+                <td className="text-right py-3 px-3 tabular-nums">
                   {multiples?.evEbitda?.toFixed(1) ?? "N/A"}
                 </td>
-                <td className="text-right py-3 px-3">
+                <td className="text-right py-3 px-3 tabular-nums">
                   {multiples?.roe ? `${multiples.roe.toFixed(1)}%` : "N/A"}
                 </td>
               </tr>

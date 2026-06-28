@@ -64,12 +64,12 @@ export function SecretInput({
           required={required}
           aria-label={ariaLabel}
           maxLength={maxLength}
-          className="w-full rounded-md border bg-background px-3 py-2 pr-10 font-mono text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50"
+          className="w-full rounded-xl border bg-background px-3 py-2.5 pr-10 font-mono text-sm outline-none ring-1 ring-transparent transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-ring/50"
         />
         <button
           type="button"
           onClick={() => setRevealed((v) => !v)}
-          className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+          className="absolute inset-y-0 right-0 flex items-center rounded-r-xl px-3 text-muted-foreground transition-colors hover:text-foreground"
           aria-label={revealed ? "시크릿 숨기기" : "시크릿 표시"}
         >
           {revealed ? (
@@ -81,7 +81,7 @@ export function SecretInput({
       </div>
       {showCounter && (
         <p
-          className={`text-right font-mono text-xs ${
+          className={`text-right font-mono text-xs tabular-nums ${
             counterState === "neutral"
               ? "text-muted-foreground"
               : counterState === "ok"

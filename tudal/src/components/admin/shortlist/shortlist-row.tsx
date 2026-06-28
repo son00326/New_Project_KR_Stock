@@ -43,8 +43,8 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
   const isCrisis = item.volatilityScore < CRISIS_VOL_THRESHOLD;
   const divergenceUp = item.divergencePct >= 0;
   const divergenceColor = divergenceUp
-    ? "var(--color-market-up)"
-    : "var(--color-market-down)";
+    ? "var(--market-up)"
+    : "var(--market-down)";
 
   const divergenceText =
     (divergenceUp ? "+" : "") + item.divergencePct.toFixed(1) + "%";
@@ -71,7 +71,7 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
         </div>
 
         {/* sector */}
-        <span className="hidden md:inline-flex w-20 items-center rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+        <span className="hidden md:inline-flex w-20 items-center rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground">
           {item.sector}
         </span>
 
@@ -91,7 +91,7 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
         {/* Crisis badge */}
         <span className="w-14 text-center">
           {isCrisis ? (
-            <span className="inline-flex items-center gap-0.5 rounded bg-[color:var(--color-market-up)]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[color:var(--color-market-up)]">
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-market-up/10 px-1.5 py-0.5 text-[10px] font-semibold text-market-up">
               <AlertTriangle className="h-3 w-3" aria-hidden />
               Crisis
             </span>
@@ -150,7 +150,7 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
             </p>
             {/* PR-F: AI 코멘트 (있을 때만 — Tier 1 평가 완료 종목). ⚪/null 대기 상태와 lockstep. */}
             {!isAiPending(item.consensusBadge) && item.aiCommentKr ? (
-              <div className="mt-2 rounded border border-border/60 bg-background/60 px-2.5 py-1.5">
+              <div className="mt-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-1.5">
                 <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   🤖 AI 코멘트
                   <span className="ml-1 font-normal normal-case">
@@ -209,7 +209,7 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
             </dl>
             <Link
               href={`/admin/report/${item.ticker}`}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2.5 py-1 text-xs font-medium hover:bg-background"
+              className="inline-flex items-center gap-1 rounded-lg border border-border/70 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-background"
             >
               <FileText className="h-3 w-3" aria-hidden />
               풀 리포트
@@ -271,7 +271,7 @@ function Sparkline({
       return `${x},${y}`;
     })
     .join(" ");
-  const color = up ? "var(--color-market-up)" : "var(--color-market-down)";
+  const color = up ? "var(--market-up)" : "var(--market-down)";
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -296,20 +296,20 @@ function Sparkline({
 function DeltaBadge({ status }: { status: ShortListItem["deltaStatus"] }) {
   if (status === "new") {
     return (
-      <span className="inline-flex w-14 justify-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-[color:var(--color-market-up)]/15 text-[color:var(--color-market-up)]">
+      <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-market-up/15 text-market-up">
         NEW
       </span>
     );
   }
   if (status === "removed") {
     return (
-      <span className="inline-flex w-14 justify-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-[color:var(--color-market-down)]/15 text-[color:var(--color-market-down)]">
+      <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-market-down/15 text-market-down">
         REMOVED
       </span>
     );
   }
   return (
-    <span className="inline-flex w-14 justify-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+    <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
       HOLD
     </span>
   );
@@ -326,7 +326,7 @@ function AiBadge({
   if (isAiPending(badge)) {
     return (
       <span
-        className="inline-flex w-16 items-center justify-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+        className="inline-flex w-16 items-center justify-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
         title="AI 분석 대기 (Tier 0 지표만)"
         aria-label="AI 분석 대기"
       >

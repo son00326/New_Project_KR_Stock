@@ -22,9 +22,9 @@ export function GovernanceTree({ companyName, companyTicker, subsidiaries }: Gov
       {/* 트리 루트 */}
       <div className="flex flex-col items-center">
         {/* 루트 노드 */}
-        <div className="rounded-xl border-2 border-primary bg-primary/5 px-6 py-3 text-center shadow-sm">
+        <div className="rounded-xl border-2 border-primary bg-primary/5 px-6 py-3 text-center shadow-toss-sm">
           <p className="font-bold text-base">{companyName}</p>
-          <p className="text-xs text-muted-foreground">{companyTicker} | KOSPI</p>
+          <p className="text-xs text-muted-foreground tabular-nums">{companyTicker} | KOSPI</p>
         </div>
 
         {/* 1차 연결선 - 자회사 */}
@@ -110,19 +110,19 @@ function TreeNode({
   level: "child" | "affiliate" | "group";
 }) {
   const borderColor = {
-    child: "border-blue-300 bg-blue-50/50",
-    affiliate: "border-green-300 bg-green-50/50",
-    group: "border-gray-200 bg-muted/30 border-dashed",
+    child: "border-chart-1/30 bg-chart-1/5",
+    affiliate: "border-chart-3/30 bg-chart-3/5",
+    group: "border-border bg-muted/30 border-dashed",
   }[level];
 
   const ownershipColor = {
-    child: "text-blue-700 bg-blue-100",
-    affiliate: "text-green-700 bg-green-100",
-    group: "text-gray-500 bg-gray-100",
+    child: "text-chart-1 bg-chart-1/10",
+    affiliate: "text-chart-3 bg-chart-3/10",
+    group: "text-muted-foreground bg-muted",
   }[level];
 
   const content = (
-    <div className={`rounded-lg border p-3 ${borderColor} transition-shadow ${subsidiary.ticker ? "hover:shadow-md hover:border-primary/50 cursor-pointer group" : "hover:shadow-sm"}`}>
+    <div className={`rounded-xl border p-3 ${borderColor} transition-shadow ${subsidiary.ticker ? "hover:shadow-toss-md hover:border-primary/50 cursor-pointer group" : "hover:shadow-toss-sm"}`}>
       {/* 상단: 이름 + 지분율 */}
       <div className="flex items-start justify-between mb-1.5">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -132,7 +132,7 @@ function TreeNode({
           )}
         </div>
         {subsidiary.ownership > 0 && (
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${ownershipColor}`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 tabular-nums ${ownershipColor}`}>
             {subsidiary.ownership}%
           </span>
         )}
@@ -147,10 +147,10 @@ function TreeNode({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           {subsidiary.ticker && (
-            <span className="font-mono">{subsidiary.ticker}</span>
+            <span className="font-mono tabular-nums">{subsidiary.ticker}</span>
           )}
           {subsidiary.marketCap && (
-            <span>시총 {formatKRW(subsidiary.marketCap)}</span>
+            <span className="tabular-nums">시총 {formatKRW(subsidiary.marketCap)}</span>
           )}
         </div>
         {subsidiary.ticker && (

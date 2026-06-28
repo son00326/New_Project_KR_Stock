@@ -56,7 +56,7 @@ export default async function AdminReportRegeneratePage({
     <div className="space-y-6">
       {/* 헤더 */}
       <header>
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-2xl font-bold tracking-tight">
           리포트 재생성 — {ticker}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -65,25 +65,21 @@ export default async function AdminReportRegeneratePage({
       </header>
 
       {/* cap 현황 카드 */}
-      <div className="rounded-lg border bg-muted/30 px-4 py-4 space-y-2">
-        <p className="text-sm font-medium">이번 달 재생성 현황</p>
-        <div className="grid grid-cols-2 gap-4 mt-2">
+      <div className="space-y-2 rounded-2xl border bg-muted/30 px-4 py-4 shadow-toss-sm">
+        <p className="text-sm font-semibold">이번 달 재생성 현황</p>
+        <div className="mt-2 grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-muted-foreground">자동 재분석</p>
-            <p className="mt-0.5 font-mono text-sm font-semibold">
+            <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
               {autoUsed} / 1회 사용
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">수동 재생성</p>
-            <p className="mt-0.5 font-mono text-sm font-semibold">
+            <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
               {manualUsed} / 2회 사용{" "}
               <span
-                className={
-                  allowed
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-destructive"
-                }
+                className={allowed ? "text-primary" : "text-destructive"}
               >
                 · 이번 달 {remaining}회 남음
               </span>

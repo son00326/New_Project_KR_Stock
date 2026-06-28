@@ -479,7 +479,7 @@ export function PortfolioPanel({
 
       {/* W3b-3 — 영속된 AI 제안 read-only 카드 (page.tsx getProposalByMonth 로드분). */}
       {persistedProposal ? (
-        <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+        <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
           {(() => {
             const summary = computeProposalSummary(persistedProposal.proposal);
             return (
@@ -534,22 +534,22 @@ export function PortfolioPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-3 gap-3 rounded-lg border bg-muted/30 px-4 py-3 text-center text-sm">
+          <div className="grid grid-cols-3 gap-3 rounded-xl border bg-muted/30 px-4 py-3 text-center text-sm">
             <div>
               <div className="text-xs text-muted-foreground">신규 편입</div>
-              <div className="mt-1 font-mono text-lg font-semibold" style={{ color: "var(--color-market-up)" }}>
+              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-market-up">
                 {newCount}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">유지</div>
-              <div className="mt-1 font-mono text-lg font-semibold text-muted-foreground">
+              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-muted-foreground">
                 {holdCount}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">제외</div>
-              <div className="mt-1 font-mono text-lg font-semibold" style={{ color: "var(--color-market-down)" }}>
+              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-market-down">
                 {removedCount}
               </div>
             </div>
@@ -594,7 +594,7 @@ export function PortfolioPanel({
             <textarea
               id="reject-reason"
               rows={4}
-              className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50 focus-visible:ring-ring/50"
               placeholder="재분석이 필요한 이유를 입력하세요 (선택)"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
@@ -632,7 +632,7 @@ export function PortfolioPanel({
                 이의 사유 (필수 · 20자 이상)
               </label>
               <span
-                className={`text-xs font-mono ${
+                className={`text-xs font-mono tabular-nums ${
                   disputeReason.length >= DISPUTE_REASON_MIN_LENGTH
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-red-500 dark:text-red-400"
@@ -644,7 +644,7 @@ export function PortfolioPanel({
             <textarea
               id="dispute-reason"
               rows={4}
-              className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-1 ring-transparent placeholder:text-muted-foreground focus:ring-ring/50 focus-visible:ring-ring/50"
               placeholder="이의 사유를 20자 이상 입력하세요..."
               value={disputeReason}
               onChange={(e) => {

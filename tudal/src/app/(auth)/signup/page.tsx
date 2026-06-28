@@ -110,7 +110,7 @@ export default function SignupPage() {
           {/* 이메일 회원가입 폼 */}
           <form onSubmit={handleSignup} className="space-y-4">
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -156,7 +156,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -199,7 +199,7 @@ export default function SignupPage() {
                   type="checkbox"
                   checked={agreeTerms}
                   onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                  className="mt-0.5 h-4 w-4 rounded border-input"
                 />
                 <span className="text-sm text-muted-foreground">
                   <Link href="#" className="text-foreground underline">이용약관</Link>에 동의합니다 (필수)
@@ -210,7 +210,7 @@ export default function SignupPage() {
                   type="checkbox"
                   checked={agreePrivacy}
                   onChange={(e) => setAgreePrivacy(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                  className="mt-0.5 h-4 w-4 rounded border-input"
                 />
                 <span className="text-sm text-muted-foreground">
                   <Link href="#" className="text-foreground underline">개인정보처리방침</Link>에 동의합니다 (필수)
@@ -231,7 +231,7 @@ export default function SignupPage() {
             이미 계정이 있으신가요?{" "}
             <Link
               href="/login"
-              className="font-medium text-foreground hover:underline"
+              className="font-medium text-primary hover:underline"
             >
               로그인
             </Link>
@@ -247,12 +247,12 @@ function PasswordCheck({ passed, label }: { passed: boolean; label: string }) {
     <div className="flex items-center gap-2">
       <Check
         className={`h-3.5 w-3.5 ${
-          passed ? "text-green-600" : "text-muted-foreground/40"
+          passed ? "text-primary" : "text-muted-foreground/40"
         }`}
       />
       <span
         className={`text-xs ${
-          passed ? "text-green-600" : "text-muted-foreground"
+          passed ? "text-primary" : "text-muted-foreground"
         }`}
       >
         {label}

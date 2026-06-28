@@ -8,18 +8,19 @@ import {
   Tooltip,
 } from "recharts";
 import type { ShareholderInfo } from "@/types/corporate";
+import { chartColor, CHART_NEUTRAL } from "@/lib/chart-colors";
 
 interface ShareholderChartProps {
   shareholders: ShareholderInfo[];
 }
 
 const COLORS: Record<string, string> = {
-  "최대주주": "#2563eb",
-  "특수관계인": "#3b82f6",
-  "국민연금": "#16a34a",
-  "외국인": "#ea580c",
-  "자사주": "#9333ea",
-  "기타": "#94a3b8",
+  "최대주주": chartColor(0),
+  "특수관계인": chartColor(5),
+  "국민연금": chartColor(2),
+  "외국인": chartColor(4),
+  "자사주": chartColor(3),
+  "기타": CHART_NEUTRAL,
 };
 
 export function ShareholderChart({ shareholders }: ShareholderChartProps) {
@@ -47,7 +48,7 @@ export function ShareholderChart({ shareholders }: ShareholderChartProps) {
               {data.map((entry) => (
                 <Cell
                   key={entry.name}
-                  fill={COLORS[entry.category] || "#94a3b8"}
+                  fill={COLORS[entry.category] || CHART_NEUTRAL}
                 />
               ))}
             </Pie>
@@ -75,7 +76,7 @@ export function ShareholderChart({ shareholders }: ShareholderChartProps) {
                   <div className="flex items-center gap-2">
                     <div
                       className="h-3 w-3 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[s.category] || "#94a3b8" }}
+                      style={{ backgroundColor: COLORS[s.category] || CHART_NEUTRAL }}
                     />
                     <div>
                       <span className="text-sm font-medium">{s.name}</span>
@@ -85,10 +86,10 @@ export function ShareholderChart({ shareholders }: ShareholderChartProps) {
                     </div>
                   </div>
                 </td>
-                <td className="text-right py-2.5 font-semibold">
+                <td className="text-right py-2.5 font-semibold tabular-nums">
                   {s.ownership.toFixed(2)}%
                 </td>
-                <td className="text-right py-2.5 text-muted-foreground text-xs">
+                <td className="text-right py-2.5 text-muted-foreground text-xs tabular-nums">
                   {s.shares.toLocaleString("ko-KR")}주
                 </td>
               </tr>
@@ -97,7 +98,7 @@ export function ShareholderChart({ shareholders }: ShareholderChartProps) {
         </table>
 
         {/* 핵심 포인트 */}
-        <div className="mt-4 rounded-lg bg-muted/50 p-3">
+        <div className="mt-4 rounded-xl bg-muted/50 p-3">
           <p className="text-xs text-muted-foreground leading-relaxed">
             <strong>외국인 지분율 51.84%</strong> — 외국인 투자자가 과반 이상을 보유하고 있어 글로벌 자금 흐름에 영향을 크게 받습니다. 환율, 글로벌 금리 변화가 외국인 매매에 직접적으로 영향을 줍니다.
           </p>

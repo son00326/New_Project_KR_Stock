@@ -26,9 +26,9 @@ const TRIGGER_LABEL: Record<IntradayTriggerType, string> = {
 
 const TRIGGER_COLOR: Record<IntradayTriggerType, string> = {
   price_spike:
-    "bg-[var(--color-market-up)]/15 text-[var(--color-market-up)] border-[var(--color-market-up)]/40",
+    "bg-market-up/15 text-market-up border-market-up/40",
   price_drop:
-    "bg-[var(--color-market-down)]/15 text-[var(--color-market-down)] border-[var(--color-market-down)]/40",
+    "bg-market-down/15 text-market-down border-market-down/40",
   volume_spike:
     "bg-yellow-500/15 text-yellow-700 border-yellow-500/40 dark:text-yellow-400",
 };
@@ -76,24 +76,24 @@ export function IntradayBadge({
   return (
     <aside
       aria-label="장중 이상 감지"
-      className="rounded-lg border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/5 p-4"
+      className="rounded-2xl border border-market-down/40 bg-market-down/5 p-4 shadow-toss-sm"
     >
       <header className="flex items-baseline gap-2">
-        <span className="text-sm font-semibold text-[var(--color-market-down)]">
+        <span className="text-sm font-semibold text-market-down">
           🚨 장중 이상 감지 ({recent.length}건)
         </span>
         <span className="text-xs text-muted-foreground">
           최근 15분 · 상시 모니터링 모드 ON
         </span>
       </header>
-      <ul className="mt-2 space-y-1">
+      <ul className="mt-2 space-y-1.5">
         {recent.map((ev) => (
           <li
             key={ev.id}
             className="flex flex-wrap items-baseline gap-2 text-sm"
           >
             <span
-              className={`rounded-sm border px-1.5 py-0.5 text-xs ${TRIGGER_COLOR[ev.triggerType]}`}
+              className={`rounded-full border px-2 py-0.5 text-xs ${TRIGGER_COLOR[ev.triggerType]}`}
             >
               {TRIGGER_LABEL[ev.triggerType]}
             </span>
@@ -106,7 +106,7 @@ export function IntradayBadge({
                 last {ev.lastPrice.toLocaleString("ko-KR")}
               </span>
             )}
-            <span className="ml-auto text-xs text-muted-foreground">
+            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
               {new Date(ev.detectedAt).toLocaleTimeString("ko-KR", {
                 hour12: false,
               })}

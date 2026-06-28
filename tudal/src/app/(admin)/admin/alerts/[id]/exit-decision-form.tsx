@@ -60,7 +60,7 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
 
   if (success) {
     return (
-      <p className="rounded-md border border-[var(--color-market-up)]/40 bg-[var(--color-market-up)]/10 px-3 py-2 text-sm text-[var(--color-market-up)]">
+      <p className="rounded-xl border border-market-up/40 bg-market-up/10 px-3 py-2 text-sm text-market-up">
         결정 기록 저장 완료. 페이지를 새로 고치면 이력에 반영됩니다.
       </p>
     );
@@ -75,10 +75,10 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
         {OPTIONS.map((opt) => (
           <label
             key={opt.value}
-            className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition-colors ${
               decision === opt.value
-                ? "border-foreground/50 bg-foreground/5"
-                : "border-border hover:bg-foreground/[.02]"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:bg-muted"
             }`}
           >
             <input
@@ -87,7 +87,7 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
               value={opt.value}
               checked={decision === opt.value}
               onChange={() => setDecision(opt.value)}
-              className="mt-0.5 h-4 w-4"
+              className="mt-0.5 h-4 w-4 accent-primary"
             />
             <span>
               <span className="font-medium">{opt.label}</span>
@@ -104,7 +104,7 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
           근거 메모 (선택)
         </span>
         <textarea
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
           rows={3}
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
@@ -116,7 +116,7 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 px-3 py-2 text-sm text-[var(--color-market-down)]"
+          className="rounded-xl border border-market-down/40 bg-market-down/10 px-3 py-2 text-sm text-market-down"
         >
           {formatErrorMessage(error)}
         </p>
@@ -125,7 +125,7 @@ export function ExitDecisionForm({ alertId }: ExitDecisionFormProps) {
       <button
         type="submit"
         disabled={isPending || !decision}
-        className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+        className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-toss-sm transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50"
       >
         {isPending ? "저장 중..." : "결정 기록 저장"}
       </button>

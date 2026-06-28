@@ -18,7 +18,7 @@ export function StockHeader({ stock }: StockHeaderProps) {
       <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold md:text-3xl">{stock.name}</h1>
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{stock.name}</h1>
             <Badge variant="secondary">{stock.market}</Badge>
             <Badge variant="outline">{stock.industry}</Badge>
           </div>
@@ -26,17 +26,17 @@ export function StockHeader({ stock }: StockHeaderProps) {
         </div>
 
         <div className="sm:ml-auto text-left sm:text-right">
-          <div className="text-3xl font-bold">
+          <div className="text-3xl font-bold tabular-nums tracking-tight">
             {stock.currentPrice.toLocaleString("ko-KR")}
             <span className="text-base font-normal text-muted-foreground ml-1">원</span>
           </div>
           <div className="flex items-center gap-2 sm:justify-end mt-1">
             <span
-              className={`text-lg font-semibold ${
+              className={`text-lg font-semibold tabular-nums ${
                 isPositive
-                  ? "text-red-600"
+                  ? "text-market-up"
                   : isNegative
-                  ? "text-blue-600"
+                  ? "text-market-down"
                   : "text-muted-foreground"
               }`}
             >
@@ -50,13 +50,13 @@ export function StockHeader({ stock }: StockHeaderProps) {
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground border-t pt-4">
         <div>
           <span className="text-xs">시가총액</span>
-          <span className="ml-2 font-medium text-foreground">
+          <span className="ml-2 font-medium text-foreground tabular-nums">
             {formatKRW(stock.marketCap)}
           </span>
         </div>
         <div>
           <span className="text-xs">거래량</span>
-          <span className="ml-2 font-medium text-foreground">
+          <span className="ml-2 font-medium text-foreground tabular-nums">
             {stock.volume.toLocaleString("ko-KR")}주
           </span>
         </div>

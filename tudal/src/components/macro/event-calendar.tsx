@@ -17,8 +17,8 @@ const COUNTRY_FLAG: Record<string, string> = {
 };
 
 const IMPORTANCE_STYLE = {
-  high: "bg-red-100 text-red-700 border-0",
-  medium: "bg-yellow-100 text-yellow-700 border-0",
+  high: "bg-destructive/10 text-destructive border-0",
+  medium: "bg-chart-5/10 text-chart-5 border-0",
   low: "bg-muted text-muted-foreground border-0",
 };
 
@@ -76,7 +76,7 @@ export function EventCalendar({ events }: EventCalendarProps) {
                       className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-2"
                     >
                       {/* 시간 */}
-                      <span className="text-xs text-muted-foreground font-mono w-12 shrink-0">
+                      <span className="text-xs text-muted-foreground font-mono tabular-nums w-12 shrink-0">
                         {event.time}
                       </span>
 
@@ -92,7 +92,7 @@ export function EventCalendar({ events }: EventCalendarProps) {
                       </div>
 
                       {/* 전/예상/실제 */}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums shrink-0">
                         {event.previous && (
                           <span>
                             이전: <span className="font-medium text-foreground">{event.previous}</span>

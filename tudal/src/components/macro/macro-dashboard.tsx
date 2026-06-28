@@ -22,19 +22,19 @@ export function MacroDashboard() {
       {/* 헤더 */}
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <Activity className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold md:text-3xl">매크로 현황판</h1>
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">매크로 현황판</h1>
             <p className="text-sm text-muted-foreground">
               JARVIS - 글로벌 매크로 지표 실시간 모니터링
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 mt-3">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs text-muted-foreground">
+          <div className="h-2 w-2 rounded-full bg-chart-3 animate-pulse" />
+          <span className="text-xs text-muted-foreground tabular-nums">
             마지막 업데이트: 2026년 4월 11일 10:00 KST
           </span>
         </div>
@@ -119,7 +119,7 @@ export function MacroDashboard() {
       </div>
 
       {/* 면책 */}
-      <div className="text-xs text-muted-foreground text-center py-4 border-t">
+      <div className="text-xs text-muted-foreground text-center py-4 border-t border-border">
         매크로 데이터는 각국 통계청, 중앙은행, 거래소 데이터를 기반으로 합니다.
         투자 판단의 최종 책임은 이용자 본인에게 있습니다.
       </div>
@@ -129,7 +129,7 @@ export function MacroDashboard() {
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+    <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
       {title}
     </h3>
   );

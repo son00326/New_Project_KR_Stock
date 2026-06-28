@@ -62,9 +62,9 @@ function computeT7Badge(t7PriceChange: number | null): {
   if (t7PriceChange === null) return null;
   const color =
     t7PriceChange < 0
-      ? "text-[var(--color-market-down)]"
+      ? "text-market-down"
       : t7PriceChange > 0
-        ? "text-[var(--color-market-up)]"
+        ? "text-market-up"
         : "text-muted-foreground";
   const sign = t7PriceChange > 0 ? "+" : "";
   return { label: `${sign}${t7PriceChange.toFixed(2)}%`, color };
@@ -88,15 +88,15 @@ export default async function AdminAlertDetailPage({
         <header>
           <Link
             href="/admin/alerts"
-            className="text-xs text-muted-foreground underline underline-offset-2"
+            className="text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
           >
             ← 알림 이력
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold">알림 상세</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">알림 상세</h1>
           <p
             role="status"
             aria-live="polite"
-            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 404/알림 부재는 실제
             미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
@@ -114,11 +114,11 @@ export default async function AdminAlertDetailPage({
       <header>
         <Link
           href="/admin/alerts"
-          className="text-xs text-muted-foreground underline underline-offset-2"
+          className="text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
         >
           ← 알림 이력
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">
+        <h1 className="mt-2 text-2xl font-bold tracking-tight">
           {ALERT_TYPE_LABEL[alert.alertType]}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -130,13 +130,13 @@ export default async function AdminAlertDetailPage({
         </p>
       </header>
 
-      <section className="rounded-lg border bg-card p-4">
+      <section className="rounded-2xl border bg-card p-4 shadow-toss-sm">
         <h2 className="text-sm font-semibold">트리거 사유</h2>
         <p className="mt-2 text-sm leading-relaxed">{alert.triggerReason}</p>
       </section>
 
       {isExit && (
-        <section className="rounded-lg border bg-card p-4">
+        <section className="rounded-2xl border bg-card p-4 shadow-toss-sm">
           <header className="flex items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">§7 Exit 조건 대조</h2>
             <span className="text-xs text-muted-foreground">
@@ -145,7 +145,7 @@ export default async function AdminAlertDetailPage({
           </header>
           <ul className="mt-2 space-y-2">
             {EXIT_SCENARIOS.map((s) => (
-              <li key={s.key} className="rounded-md border bg-background p-3">
+              <li key={s.key} className="rounded-xl border bg-background p-3">
                 <div className="text-sm font-medium">{s.title}</div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {s.body}
@@ -160,7 +160,7 @@ export default async function AdminAlertDetailPage({
       )}
 
       {isExit && t7Badge && (
-        <section className="rounded-lg border bg-card p-4">
+        <section className="rounded-2xl border bg-card p-4 shadow-toss-sm">
           <h2 className="text-sm font-semibold">T+7 Outcome</h2>
           <p className="mt-2 text-sm">
             T+7일 가격 변화:{" "}
@@ -174,7 +174,7 @@ export default async function AdminAlertDetailPage({
         </section>
       )}
 
-      <section className="rounded-lg border bg-card p-4">
+      <section className="rounded-2xl border bg-card p-4 shadow-toss-sm">
         <h2 className="text-sm font-semibold">결정 기록</h2>
         {alert.decisionRecorded ? (
           <dl className="mt-2 space-y-1 text-sm">

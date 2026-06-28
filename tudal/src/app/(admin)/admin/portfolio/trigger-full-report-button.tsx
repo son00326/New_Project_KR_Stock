@@ -69,8 +69,8 @@ export function TriggerFullReportButton({
         <span
           className={
             feedback.kind === 'success'
-              ? 'text-xs text-emerald-600'
-              : 'text-xs text-rose-600'
+              ? 'text-xs text-emerald-600 dark:text-emerald-400'
+              : 'text-xs text-rose-600 dark:text-rose-400'
           }
           role="status"
         >

@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { SAMSUNG_MULTIPLES_HISTORY, SAMSUNG_GLOBAL_PEERS } from "@/lib/data/mock-quarterly";
+import { chartColor, CHART_PRIMARY, CHART_GRID, CHART_AXIS } from "@/lib/chart-colors";
 
 interface MultiplesHistoryProps {
   ticker: string;
@@ -62,7 +63,7 @@ export function MultiplesHistory({ ticker }: MultiplesHistoryProps) {
           </table>
         </div>
 
-        <div className="rounded-lg bg-muted/50 p-3 mt-3">
+        <div className="rounded-xl bg-muted/50 p-3 mt-3">
           <p className="text-xs text-muted-foreground leading-relaxed">
             <strong>Trailing</strong>은 과거 실적 기반, <strong>Forward</strong>는 향후 추정 실적 기반입니다.
             Forward PER이 Trailing보다 낮아지고 있다는 것은 <strong>시장이 삼성전자의 이익이 크게 늘어날 것으로 기대</strong>한다는 의미입니다.
@@ -77,14 +78,14 @@ export function MultiplesHistory({ ticker }: MultiplesHistoryProps) {
         <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_GRID} />
+              <XAxis dataKey="year" tick={{ fontSize: 11, fill: CHART_AXIS }} />
+              <YAxis tick={{ fontSize: 11, fill: CHART_AXIS }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <ReferenceLine x="2025E" stroke="#ddd" strokeDasharray="3 3" label={{ value: "Forward →", fontSize: 10, fill: "#999" }} />
-              <Line type="monotone" dataKey="PER" stroke="#2563eb" strokeWidth={2} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="PBR" stroke="#16a34a" strokeWidth={2} dot={{ r: 4 }} />
+              <ReferenceLine x="2025E" stroke={CHART_GRID} strokeDasharray="3 3" label={{ value: "Forward →", fontSize: 10, fill: CHART_AXIS }} />
+              <Line type="monotone" dataKey="PER" stroke={CHART_PRIMARY} strokeWidth={2} dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="PBR" stroke={chartColor(2)} strokeWidth={2} dot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -118,13 +119,13 @@ export function MultiplesHistory({ ticker }: MultiplesHistoryProps) {
                   삼성전자 <Badge variant="default" className="text-[9px] ml-1">분석 대상</Badge>
                 </td>
                 <td className="py-2 px-2">KR</td>
-                <td className="text-right py-2 px-2">$267B</td>
-                <td className="text-right py-2 px-2 font-medium">{latest.per?.toFixed(1)}</td>
-                <td className="text-right py-2 px-2 font-bold text-primary">{fwd2025?.per?.toFixed(1)}</td>
-                <td className="text-right py-2 px-2">{latest.pbr?.toFixed(2)}</td>
-                <td className="text-right py-2 px-2">{latest.evEbitda?.toFixed(1)}</td>
-                <td className="text-right py-2 px-2">{latest.roe?.toFixed(1)}%</td>
-                <td className="text-right py-2 px-2">2.41%</td>
+                <td className="text-right py-2 px-2 tabular-nums">$267B</td>
+                <td className="text-right py-2 px-2 font-medium tabular-nums">{latest.per?.toFixed(1)}</td>
+                <td className="text-right py-2 px-2 font-bold text-primary tabular-nums">{fwd2025?.per?.toFixed(1)}</td>
+                <td className="text-right py-2 px-2 tabular-nums">{latest.pbr?.toFixed(2)}</td>
+                <td className="text-right py-2 px-2 tabular-nums">{latest.evEbitda?.toFixed(1)}</td>
+                <td className="text-right py-2 px-2 tabular-nums">{latest.roe?.toFixed(1)}%</td>
+                <td className="text-right py-2 px-2 tabular-nums">2.41%</td>
               </tr>
               {SAMSUNG_GLOBAL_PEERS.map((peer) => (
                 <tr key={peer.ticker} className="border-b last:border-0 hover:bg-muted/30">
@@ -132,20 +133,20 @@ export function MultiplesHistory({ ticker }: MultiplesHistoryProps) {
                     {peer.name} <span className="text-muted-foreground">({peer.ticker})</span>
                   </td>
                   <td className="py-2 px-2">{peer.country}</td>
-                  <td className="text-right py-2 px-2">${(peer.marketCap / 1_000_000_000).toFixed(0)}B</td>
-                  <td className="text-right py-2 px-2 font-medium">{peer.per?.toFixed(1) ?? "적자"}</td>
-                  <td className="text-right py-2 px-2 font-bold text-primary">{peer.forwardPer?.toFixed(1)}</td>
-                  <td className="text-right py-2 px-2">{peer.pbr?.toFixed(2)}</td>
-                  <td className="text-right py-2 px-2">{peer.evEbitda?.toFixed(1)}</td>
-                  <td className="text-right py-2 px-2">{peer.roe?.toFixed(1)}%</td>
-                  <td className="text-right py-2 px-2">{peer.dividendYield?.toFixed(1)}%</td>
+                  <td className="text-right py-2 px-2 tabular-nums">${(peer.marketCap / 1_000_000_000).toFixed(0)}B</td>
+                  <td className="text-right py-2 px-2 font-medium tabular-nums">{peer.per?.toFixed(1) ?? "적자"}</td>
+                  <td className="text-right py-2 px-2 font-bold text-primary tabular-nums">{peer.forwardPer?.toFixed(1)}</td>
+                  <td className="text-right py-2 px-2 tabular-nums">{peer.pbr?.toFixed(2)}</td>
+                  <td className="text-right py-2 px-2 tabular-nums">{peer.evEbitda?.toFixed(1)}</td>
+                  <td className="text-right py-2 px-2 tabular-nums">{peer.roe?.toFixed(1)}%</td>
+                  <td className="text-right py-2 px-2 tabular-nums">{peer.dividendYield?.toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        <div className="rounded-lg bg-muted/50 p-3 mt-3">
+        <div className="rounded-xl bg-muted/50 p-3 mt-3">
           <p className="text-xs text-muted-foreground leading-relaxed">
             <strong>삼성전자의 Forward PER({fwd2025?.per?.toFixed(1)}배)</strong>은 Micron({SAMSUNG_GLOBAL_PEERS[0].forwardPer}배)과 유사하며,
             TSMC({SAMSUNG_GLOBAL_PEERS[1].forwardPer}배)보다 크게 낮습니다.
@@ -170,11 +171,11 @@ function MultiplesRow({
   return (
     <tr className="border-b last:border-0">
       <td className="py-2.5 px-3 font-medium">{label}</td>
-      <td className="text-right py-2.5 px-3">{trailing != null ? `${trailing.toFixed(1)}${suffix}` : "N/A"}</td>
-      <td className="text-right py-2.5 px-3 text-primary font-medium">{fwd25 != null ? `${fwd25.toFixed(1)}${suffix}` : "N/A"}</td>
-      <td className="text-right py-2.5 px-3 text-primary font-bold">{fwd26 != null ? `${fwd26.toFixed(1)}${suffix}` : "N/A"}</td>
+      <td className="text-right py-2.5 px-3 tabular-nums">{trailing != null ? `${trailing.toFixed(1)}${suffix}` : "N/A"}</td>
+      <td className="text-right py-2.5 px-3 text-primary font-medium tabular-nums">{fwd25 != null ? `${fwd25.toFixed(1)}${suffix}` : "N/A"}</td>
+      <td className="text-right py-2.5 px-3 text-primary font-bold tabular-nums">{fwd26 != null ? `${fwd26.toFixed(1)}${suffix}` : "N/A"}</td>
       <td className="text-right py-2.5 px-3">
-        <span className={`text-xs ${improving ? "text-green-700" : "text-muted-foreground"}`}>
+        <span className={`text-xs ${improving ? "text-market-up" : "text-muted-foreground"}`}>
           {meaning}
         </span>
       </td>

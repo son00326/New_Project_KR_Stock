@@ -24,14 +24,14 @@ export function BucketSection({
 }: BucketSectionProps) {
   return (
     <section aria-labelledby={`bucket-${bucket}-heading`}>
-      <header className="flex flex-wrap items-end justify-between gap-2 border-b pb-2 mb-3">
+      <header className="flex flex-wrap items-end justify-between gap-2 border-b pb-3 mb-4">
         <div className="flex items-baseline gap-3">
           <h2
             id={`bucket-${bucket}-heading`}
-            className="text-lg font-semibold"
+            className="text-base font-semibold"
           >
             {label}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+            <span className="ml-2 text-sm font-normal text-muted-foreground tabular-nums">
               · {items.length}종
             </span>
           </h2>
@@ -42,11 +42,11 @@ export function BucketSection({
       </header>
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
+        <p className="rounded-2xl border border-dashed bg-muted/20 py-10 text-center text-sm text-muted-foreground">
           {label} 섹션에 종목이 없습니다.
         </p>
       ) : (
-        <div className="divide-y rounded-lg border bg-card">
+        <div className="divide-y overflow-hidden rounded-2xl border bg-card shadow-toss-sm">
           {items.map((item) => (
             <ShortlistRow
               key={item.id}

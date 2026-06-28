@@ -16,13 +16,13 @@ export default async function AdminDecisionTreePage() {
     return (
       <div className="space-y-8">
         <header>
-          <h1 className="text-2xl font-semibold">Decision Tree</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Decision Tree</h1>
           <p className="text-sm text-muted-foreground">
             CAP Months · 누적 Alpha · Sharpe 게이지 3종 · 복합 AND 판정 (BL-8 A).
           </p>
         </header>
-        <div className="rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center">
-          <p className="text-sm font-medium">운용 데이터 누적 후 산출</p>
+        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 px-6 py-12 text-center">
+          <p className="text-base font-semibold">운용 데이터 누적 후 산출</p>
           <p className="mt-2 text-sm text-muted-foreground">
             가상 포트 스냅샷이 적재되면 게이지 · 판정 · 월별 추이가 표시됩니다.
           </p>
@@ -41,7 +41,7 @@ export default async function AdminDecisionTreePage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Decision Tree</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Decision Tree</h1>
         <p className="text-sm text-muted-foreground">
           CAP Months · 누적 Alpha · Sharpe 게이지 3종 · 복합 AND 판정 (BL-8 A).
         </p>
@@ -51,14 +51,14 @@ export default async function AdminDecisionTreePage() {
       <section aria-label="게이지">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* CAP Months gauge */}
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
             <p className="text-xs text-muted-foreground">CAP Months</p>
-            <p className="mt-1 text-2xl font-semibold">
+            <p className="mt-1 text-2xl font-bold tabular-nums">
               {capMonths.currentStreak}/{CAP_MONTHS_TARGET}
             </p>
-            <div className="mt-3 h-2 w-full rounded bg-muted overflow-hidden">
+            <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full bg-primary"
+                className="h-full rounded-full bg-primary transition-[width]"
                 style={{
                   width: `${(capMonths.currentStreak / CAP_MONTHS_TARGET) * 100}%`,
                 }}
@@ -70,13 +70,13 @@ export default async function AdminDecisionTreePage() {
           </div>
 
           {/* Alpha gauge */}
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
             <p className="text-xs text-muted-foreground">누적 Alpha</p>
             <p
-              className={`mt-1 text-2xl font-semibold ${
+              className={`mt-1 text-2xl font-bold tabular-nums ${
                 snap.cumulativeAlpha >= 0
-                  ? "text-[color:var(--color-market-up)]"
-                  : "text-[color:var(--color-market-down)]"
+                  ? "text-market-up"
+                  : "text-market-down"
               }`}
             >
               {(snap.cumulativeAlpha * 100).toFixed(2)}%
@@ -87,9 +87,9 @@ export default async function AdminDecisionTreePage() {
           </div>
 
           {/* Sharpe gauge */}
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
             <p className="text-xs text-muted-foreground">Sharpe</p>
-            <p className="mt-1 text-2xl font-semibold">
+            <p className="mt-1 text-2xl font-bold tabular-nums">
               {snap.cumulativeSharpe.toFixed(2)}
             </p>
             <p className="mt-3 text-xs text-muted-foreground">
@@ -102,7 +102,7 @@ export default async function AdminDecisionTreePage() {
       {/* Verdict badge + breakdown (R3.11-9 + judge) */}
       <section
         aria-label="판정 결과"
-        className="rounded-lg border bg-card p-4"
+        className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm"
       >
         <div className="flex items-center justify-between">
           <div>
@@ -110,10 +110,10 @@ export default async function AdminDecisionTreePage() {
             <p
               className={`mt-1 text-3xl font-bold ${
                 result.overall === "○"
-                  ? "text-[color:var(--color-market-up)]"
+                  ? "text-market-up"
                   : result.overall === "△"
                   ? "text-amber-500"
-                  : "text-[color:var(--color-market-down)]"
+                  : "text-market-down"
               }`}
             >
               {result.overall}
@@ -134,10 +134,10 @@ export default async function AdminDecisionTreePage() {
 
       {/* R3.11-7: 월별 추이 라인 차트 */}
       <section aria-labelledby="trend-heading">
-        <h2 id="trend-heading" className="text-lg font-semibold mb-3">
+        <h2 id="trend-heading" className="text-base font-semibold mb-3">
           월별 추이
         </h2>
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
           <DecisionTreeTrendChart
             data={snap.monthlyHistory.map((m) => ({
               month: m.month,
@@ -160,17 +160,17 @@ export default async function AdminDecisionTreePage() {
       {/* R3.11-9: Y1 요약 + BusinessPlan 참조 */}
       <section
         aria-label="Y1 목표"
-        className="rounded-lg border bg-muted/50 p-4"
+        className="rounded-2xl border border-border/60 bg-muted/40 p-5"
       >
         <p className="text-sm">
           <strong>Y1 목표 달성 예상</strong>: 현재 경로 기준{" "}
           <strong
             className={
               result.overall === "○"
-                ? "text-[color:var(--color-market-up)]"
+                ? "text-market-up"
                 : result.overall === "△"
                 ? "text-amber-500"
-                : "text-[color:var(--color-market-down)]"
+                : "text-market-down"
             }
           >
             {result.overall}
@@ -182,7 +182,7 @@ export default async function AdminDecisionTreePage() {
         </p>
         <Link
           href="/admin/track-record"
-          className="mt-2 inline-block text-xs text-primary underline"
+          className="mt-2 inline-block text-xs text-primary underline underline-offset-2 transition-colors hover:text-primary/80"
         >
           ← Track Record로 돌아가기
         </Link>

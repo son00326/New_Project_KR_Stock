@@ -12,40 +12,40 @@ interface VerdictPanelProps {
 const SIGNAL_CONFIG = {
   strong_bullish: {
     label: "매우 긍정",
-    color: "text-red-600",
-    bg: "bg-red-50 border-red-200",
+    color: "text-market-up",
+    bg: "bg-market-up/5 border-market-up/20",
     icon: TrendingUp,
   },
   bullish: {
     label: "긍정",
-    color: "text-red-600",
-    bg: "bg-red-50 border-red-200",
+    color: "text-market-up",
+    bg: "bg-market-up/5 border-market-up/20",
     icon: TrendingUp,
   },
   neutral: {
     label: "중립",
-    color: "text-yellow-600",
-    bg: "bg-yellow-50 border-yellow-200",
+    color: "text-chart-5",
+    bg: "bg-chart-5/5 border-chart-5/20",
     icon: Minus,
   },
   bearish: {
     label: "부정",
-    color: "text-blue-600",
-    bg: "bg-blue-50 border-blue-200",
+    color: "text-market-down",
+    bg: "bg-market-down/5 border-market-down/20",
     icon: TrendingDown,
   },
   strong_bearish: {
     label: "매우 부정",
-    color: "text-blue-600",
-    bg: "bg-blue-50 border-blue-200",
+    color: "text-market-down",
+    bg: "bg-market-down/5 border-market-down/20",
     icon: TrendingDown,
   },
 };
 
 const DETAIL_SIGNAL = {
-  bullish: { label: "긍정", color: "bg-red-100 text-red-700" },
-  bearish: { label: "부정", color: "bg-blue-100 text-blue-700" },
-  neutral: { label: "중립", color: "bg-yellow-100 text-yellow-700" },
+  bullish: { label: "긍정", color: "bg-market-up/10 text-market-up" },
+  bearish: { label: "부정", color: "bg-market-down/10 text-market-down" },
+  neutral: { label: "중립", color: "bg-chart-5/10 text-chart-5" },
 };
 
 export function VerdictPanel({ verdict }: VerdictPanelProps) {
@@ -83,7 +83,7 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-xl font-bold ${config.color}`}>
+                <span className={`text-xl font-bold tabular-nums ${config.color}`}>
                   {verdict.score}
                 </span>
               </div>
@@ -115,7 +115,7 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
             return (
               <div
                 key={detail.category}
-                className="rounded-lg border bg-background/80 p-3"
+                className="rounded-xl border bg-background/80 p-3"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-sm font-medium">{detail.category}</span>

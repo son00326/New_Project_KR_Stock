@@ -202,22 +202,22 @@ function ValuationVerdict({
 
   if (discount < -20) {
     verdict = "저평가";
-    verdictColor = "text-blue-600 bg-blue-50 border-blue-200";
+    verdictColor = "text-market-down bg-market-down/10 border-market-down/20";
     reason = `${stock!.name}의 PER(${targetPer.toFixed(1)}배)은 Peer 평균(${avgPeerPer.toFixed(1)}배) 대비 ${Math.abs(discount).toFixed(1)}% 할인된 수준입니다. 이는 시장이 ${stock!.name}의 성장성을 보수적으로 평가하고 있거나, 구조적 리스크를 반영하고 있을 가능성이 있습니다.`;
   } else if (discount > 20) {
     verdict = "고평가";
-    verdictColor = "text-red-600 bg-red-50 border-red-200";
+    verdictColor = "text-market-up bg-market-up/10 border-market-up/20";
     reason = `${stock!.name}의 PER(${targetPer.toFixed(1)}배)은 Peer 평균(${avgPeerPer.toFixed(1)}배) 대비 ${discount.toFixed(1)}% 프리미엄이 부여되어 있습니다. 이는 시장이 ${stock!.name}의 성장 잠재력을 높게 평가하고 있음을 의미합니다.`;
   } else {
     verdict = "적정";
-    verdictColor = "text-green-600 bg-green-50 border-green-200";
+    verdictColor = "text-chart-3 bg-chart-3/10 border-chart-3/20";
     reason = `${stock!.name}의 PER(${targetPer.toFixed(1)}배)은 Peer 평균(${avgPeerPer.toFixed(1)}배)과 유사한 수준으로, 시장에서 적정한 밸류에이션을 받고 있는 것으로 판단됩니다.`;
   }
 
   return (
-    <div className={`rounded-lg border p-6 ${verdictColor}`}>
+    <div className={`rounded-xl border p-6 ${verdictColor}`}>
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-2xl font-bold">{verdict}</span>
+        <span className="text-2xl font-bold tracking-tight">{verdict}</span>
         <Badge variant="outline" className="text-xs">
           Peer 대비 PER 기준
         </Badge>

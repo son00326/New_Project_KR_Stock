@@ -9,7 +9,7 @@ export default function NotFound() {
         <div className="flex justify-center mb-6 opacity-30">
           <JoopickMark size={64} />
         </div>
-        <h1 className="text-4xl font-bold mb-2">404</h1>
+        <h1 className="text-4xl font-bold tracking-tight tabular-nums mb-2">404</h1>
         <p className="text-lg text-muted-foreground mb-6">
           페이지를 찾을 수 없습니다
         </p>

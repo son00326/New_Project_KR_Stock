@@ -153,7 +153,7 @@ export default async function AdminReportPage({
       <aside className="shrink-0 text-sm md:sticky md:top-20 md:h-fit md:w-52">
         <Link
           href="/admin"
-          className="mb-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          className="mb-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           Short List 30
@@ -164,7 +164,7 @@ export default async function AdminReportPage({
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
-                  className="block border-l-2 border-transparent px-3 py-1.5 hover:border-foreground hover:bg-muted/40"
+                  className="block rounded-r-lg border-l-2 border-transparent px-3 py-1.5 transition-colors hover:border-foreground hover:bg-muted/40"
                 >
                   {s.label}
                 </a>
@@ -174,12 +174,12 @@ export default async function AdminReportPage({
         </nav>
 
         {/* D15 R3.3-8 2인 열람 게이팅 카운터 */}
-        <div className="mt-4 rounded-md border bg-muted/30 p-2.5 text-xs">
+        <div className="mt-4 rounded-xl border bg-muted/30 p-3 text-xs shadow-toss-sm">
           <div className="mb-0.5 font-semibold">열람 게이팅</div>
           <div className="tabular-nums">
             {viewerCount}/2명 열람 완료
             {viewerCount >= 2 ? (
-              <span className="ml-1 text-[color:var(--color-market-up)]">✓</span>
+              <span className="ml-1 text-market-up">✓</span>
             ) : null}
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
@@ -202,7 +202,7 @@ export default async function AdminReportPage({
             <span>rank {shortListRow.rank}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
-            <h1 className="flex flex-wrap items-baseline gap-3 text-2xl font-semibold">
+            <h1 className="flex flex-wrap items-baseline gap-3 text-2xl font-bold tracking-tight">
               <span className="font-mono">{ticker}</span>
               <span>{shortListRow.name}</span>
               <span className="text-base font-normal text-muted-foreground">
@@ -211,7 +211,7 @@ export default async function AdminReportPage({
             </h1>
             <Link
               href={regenerateHref(ticker, requestedMonth)}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted/40"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/40"
             >
               <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
               리포트 재생성
@@ -274,7 +274,7 @@ export default async function AdminReportPage({
           {neighbors.prev ? (
             <Link
               href={reportHref(neighbors.prev.ticker, requestedMonth)}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 hover:bg-muted/40"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors hover:bg-muted/40"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               <span className="text-xs text-muted-foreground">이전</span>
@@ -290,7 +290,7 @@ export default async function AdminReportPage({
           {neighbors.next ? (
             <Link
               href={reportHref(neighbors.next.ticker, requestedMonth)}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 hover:bg-muted/40"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors hover:bg-muted/40"
             >
               <span className="hidden sm:inline">{neighbors.next.name}</span>
               <span className="font-mono">{neighbors.next.ticker}</span>
@@ -376,9 +376,9 @@ function ReportSectionAccordion({
     <details
       id={id}
       open={defaultOpen}
-      className="scroll-mt-24 rounded-lg border bg-card"
+      className="scroll-mt-24 overflow-hidden rounded-2xl border bg-card shadow-toss-sm"
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-base font-semibold [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-base font-semibold transition-colors hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
         <Circle className="h-2 w-2 fill-current" aria-hidden />
         {title}
       </summary>
@@ -433,7 +433,7 @@ function ReportSummaryAiRow({
 //   해당 섹션 jsonb가 비어 있거나(아직 미생성) zod validation 실패 시의 degraded UI다.
 function SectionFallback({ sectionId }: { sectionId: string }) {
   return (
-    <div className="rounded border border-dashed bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
+    <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
       <div className="font-medium">본문 미작성</div>
       <p className="mt-1 text-xs">
         {sectionId} 본문이 아직 생성되지 않았거나 validation에 실패했습니다.
@@ -460,7 +460,7 @@ function Section0View({ data }: { data: ReportSection0 | null }) {
         <MiniBar label="Core 11" agg={data.committeeMini.core} />
         <MiniBar label="Sector" agg={data.committeeMini.sector} />
       </div>
-      <div className="rounded border bg-muted/30 px-3 py-2 text-xs">
+      <div className="rounded-xl border bg-muted/30 px-3 py-2 text-xs">
         <span className="text-muted-foreground">목표가 시나리오</span>
         <div className="mt-1 flex gap-4 font-mono tabular-nums">
           <span>
@@ -501,7 +501,7 @@ function Section1View({ data }: { data: ReportSection1 | null }) {
           {data.keyFacts.map((f) => (
             <div
               key={f.label}
-              className="flex justify-between gap-2 rounded border bg-muted/20 px-2 py-1"
+              className="flex justify-between gap-2 rounded-xl border bg-muted/20 px-2 py-1"
             >
               <dt className="text-muted-foreground">{f.label}</dt>
               <dd className="font-mono tabular-nums">{f.value}</dd>
@@ -617,7 +617,7 @@ function Section5View({ data }: { data: ReportSection5 | null }) {
       <p>{data.summary}</p>
       <ul className="space-y-1.5">
         {data.risks.map((r, i) => (
-          <li key={i} className="rounded border bg-muted/20 px-3 py-2">
+          <li key={i} className="rounded-xl border bg-muted/20 px-3 py-2">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <SeverityDot severity={r.severity} />
               {r.title}
@@ -649,7 +649,7 @@ function Section6View({ data }: { data: ReportSection6 | null }) {
       {/* 5-Signal 상태 */}
       <div className="grid grid-cols-2 gap-1.5 text-xs md:grid-cols-5">
         {data.signals.map((s) => (
-          <div key={s.name} className="rounded border px-2 py-1.5">
+          <div key={s.name} className="rounded-lg border px-2 py-1.5">
             <div className="flex items-center gap-1.5">
               <SignalLed state={s.state} />
               <span className="font-mono">{s.name}</span>
@@ -684,7 +684,7 @@ function Section7View({ data }: { data: ReportSection7 | null }) {
         <div className="mb-1 text-xs font-semibold text-muted-foreground">대안 시나리오 3종</div>
         <div className="grid gap-2 md:grid-cols-3">
           {data.alternatives.map((a, i) => (
-            <div key={i} className="rounded border bg-muted/20 px-3 py-2">
+            <div key={i} className="rounded-xl border bg-muted/20 px-3 py-2">
               <div className="text-sm font-semibold">{a.label}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">{a.detail}</div>
             </div>
@@ -713,7 +713,7 @@ function Section8View({
   //   section_8 존재 시(modern/legacy) 이 pill은 렌더되지 않음.
   if (!data) {
     return (
-      <div className="rounded border border-dashed bg-muted/10 px-3 py-4 text-sm">
+      <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-4 text-sm">
         <span
           className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground"
           title="Tier 1 합의 평가 대기 (투심위 미생성 또는 validation 실패)"
@@ -788,7 +788,7 @@ function Section8ModernView({
 
   return (
     <div className="space-y-4">
-      <div className="rounded border bg-muted/20 px-3 py-2">
+      <div className="rounded-xl border bg-muted/20 px-3 py-2">
         <div className="mb-0.5 text-xs font-semibold text-muted-foreground">
           최종 판정 (Part C — 합의 패널)
         </div>
@@ -837,7 +837,7 @@ function Section8ModernView({
             {data.partA.map((p) => (
               <li
                 key={p.persona_id}
-                className="rounded border bg-muted/10 px-3 py-2 text-sm"
+                className="rounded-xl border bg-muted/10 px-3 py-2 text-sm"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-medium">{p.label}</span>
@@ -853,7 +853,7 @@ function Section8ModernView({
         </div>
       )}
       {data.partA.length === 0 && (
-        <div className="rounded border border-dashed bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
+        <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
           섹터 14인 패널 미활성 — Tier 2 cost gate OFF 또는 ⚪ 케이스. Core 11 평가만 표시.
         </div>
       )}
@@ -866,7 +866,7 @@ function Section8ModernView({
           {data.partD.map((p) => (
             <li
               key={p.persona_id}
-              className="rounded border bg-muted/10 px-3 py-2 text-sm"
+              className="rounded-xl border bg-muted/10 px-3 py-2 text-sm"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-medium">{p.label}</span>
@@ -890,17 +890,17 @@ function Section8ModernView({
             {data.partB.map((b, i) => (
               <li
                 key={i}
-                className="rounded border bg-muted/10 px-3 py-2 text-sm"
+                className="rounded-xl border bg-muted/10 px-3 py-2 text-sm"
               >
                 <div className="font-medium">{b.issue}</div>
                 <div className="mt-1 text-xs">
-                  <span className="text-[color:var(--color-market-up)]">
+                  <span className="text-market-up">
                     찬:
                   </span>{" "}
                   {b.pro_quote}
                 </div>
                 <div className="text-xs">
-                  <span className="text-[color:var(--color-market-down)]">
+                  <span className="text-market-down">
                     반:
                   </span>{" "}
                   {b.con_quote}
@@ -918,7 +918,7 @@ function Section8ModernView({
       )}
 
       {/* B3 정정 — committee_votes 외부 집계는 audit 패널로 분리. drift 시 사용자 확인. */}
-      <details className="rounded border bg-muted/10">
+      <details className="rounded-xl border bg-muted/10">
         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
           ▸ committee_votes audit ({coreVotes.length + sectorVotes.length}건 / Part C와 일치 시 정상)
         </summary>
@@ -960,7 +960,7 @@ function Section8LegacyView({
   const sectorVotes = votes.filter((v) => v.personaLayer === "sector");
   return (
     <div className="space-y-4">
-      <div className="rounded border bg-muted/20 px-3 py-2">
+      <div className="rounded-xl border bg-muted/20 px-3 py-2">
         <div className="mb-0.5 text-xs font-semibold text-muted-foreground">최종 의견</div>
         <p className="font-medium">{data.recommendation}</p>
         <p className="mt-1 text-sm">{data.conclusion}</p>
@@ -980,14 +980,14 @@ function Section8LegacyView({
           {data.keyQuotes.map((q, i) => (
             <li
               key={i}
-              className="rounded border-l-2 bg-muted/10 py-1.5 pl-3 pr-2 text-sm"
+              className="rounded-xl border-l-2 bg-muted/10 py-1.5 pl-3 pr-2 text-sm"
               style={{
                 borderLeftColor:
                   q.side === "pro"
-                    ? "var(--color-market-up)"
+                    ? "var(--market-up)"
                     : q.side === "con"
-                      ? "var(--color-market-down)"
-                      : "var(--color-market-neutral)",
+                      ? "var(--market-down)"
+                      : "var(--market-neutral)",
               }}
             >
               <span className="mr-1 text-[10px] font-semibold uppercase text-muted-foreground">
@@ -999,7 +999,7 @@ function Section8LegacyView({
         </ul>
       </div>
 
-      <details className="rounded border bg-muted/10">
+      <details className="rounded-xl border bg-muted/10">
         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
           ▸ 위원별 개별 투표 보기 ({coreVotes.length + sectorVotes.length}건)
         </summary>
@@ -1045,7 +1045,7 @@ function AppendixView({
           ))}
         </ul>
       </div>
-      <div className="rounded border bg-muted/20 px-3 py-2 text-xs">
+      <div className="rounded-xl border bg-muted/20 px-3 py-2 text-xs">
         <FileText className="-mt-0.5 mr-1 inline h-3.5 w-3.5" aria-hidden />
         리포트 열람 로그: 총 {viewers}건 (1일 1회 dedupe · BL-5 B · G-5 B)
       </div>
@@ -1057,7 +1057,7 @@ function AppendixView({
 
 function ConvictionGauge({ value }: { value: number }) {
   return (
-    <div className="rounded border bg-card px-3 py-2">
+    <div className="rounded-xl border bg-card px-3 py-2">
       <div className="text-[10px] font-semibold uppercase text-muted-foreground">
         Conviction
       </div>
@@ -1086,7 +1086,7 @@ function MiniBar({
   const approvePct = (agg.approve / total) * 100;
   const rejectPct = (agg.reject / total) * 100;
   return (
-    <div className="rounded border bg-card px-3 py-2">
+    <div className="rounded-xl border bg-card px-3 py-2">
       {label && (
         <div className="text-[10px] font-semibold uppercase text-muted-foreground">
           {label}
@@ -1097,22 +1097,22 @@ function MiniBar({
           className="h-full"
           style={{
             width: `${approvePct}%`,
-            backgroundColor: "var(--color-market-up)",
+            backgroundColor: "var(--market-up)",
           }}
         />
         <div
           className="h-full"
           style={{
             width: `${rejectPct}%`,
-            backgroundColor: "var(--color-market-down)",
+            backgroundColor: "var(--market-down)",
           }}
         />
       </div>
       <div className="mt-1 grid grid-cols-3 text-[10px] font-mono tabular-nums">
-        <span style={{ color: "var(--color-market-up)" }}>{agg.approve}</span>
+        <span style={{ color: "var(--market-up)" }}>{agg.approve}</span>
         <span
           className="text-center"
-          style={{ color: "var(--color-market-down)" }}
+          style={{ color: "var(--market-down)" }}
         >
           {agg.reject}
         </span>
@@ -1127,20 +1127,20 @@ function MiniBar({
 function PersonaVoteChip({ vote }: { vote: 'BUY' | 'HOLD' | 'SELL' }) {
   if (vote === 'BUY') {
     return (
-      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+      <span className="shrink-0 rounded-full bg-market-up/10 px-2 py-0.5 text-[10px] font-semibold text-market-up">
         매수
       </span>
     );
   }
   if (vote === 'SELL') {
     return (
-      <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+      <span className="shrink-0 rounded-full bg-market-down/10 px-2 py-0.5 text-[10px] font-semibold text-market-down">
         매도
       </span>
     );
   }
   return (
-    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+    <span className="shrink-0 rounded-full bg-market-neutral/10 px-2 py-0.5 text-[10px] font-semibold text-market-neutral">
       관망
     </span>
   );
@@ -1155,7 +1155,7 @@ function VoteAggCard({
 }) {
   const total = agg.approve + agg.reject + agg.abstain;
   return (
-    <div className="rounded border bg-card px-3 py-2">
+    <div className="rounded-xl border bg-card px-3 py-2">
       <div className="mb-1.5 text-xs font-semibold">{title}</div>
       <MiniBar label="" agg={agg} />
       <div className="mt-1 text-[10px] text-muted-foreground">
@@ -1202,10 +1202,10 @@ function VoteList({
 
 function voteStyle(vote: "approve" | "reject" | "abstain"): React.CSSProperties {
   if (vote === "approve")
-    return { color: "var(--color-market-up)", fontWeight: 600 };
+    return { color: "var(--market-up)", fontWeight: 600 };
   if (vote === "reject")
-    return { color: "var(--color-market-down)", fontWeight: 600 };
-  return { color: "var(--color-market-neutral)" };
+    return { color: "var(--market-down)", fontWeight: 600 };
+  return { color: "var(--market-neutral)" };
 }
 
 function AxisRow({ label, value }: { label: string; value: number }) {
@@ -1226,10 +1226,10 @@ function AxisRow({ label, value }: { label: string; value: number }) {
 function SignalLed({ state }: { state: "on" | "watch" | "off" }) {
   const color =
     state === "on"
-      ? "var(--color-market-up)"
+      ? "var(--market-up)"
       : state === "watch"
-        ? "var(--color-market-neutral)"
-        : "var(--color-market-down)";
+        ? "var(--market-neutral)"
+        : "var(--market-down)";
   return (
     <span
       className="inline-block h-2 w-2 rounded-full"
@@ -1242,10 +1242,10 @@ function SignalLed({ state }: { state: "on" | "watch" | "off" }) {
 function SeverityDot({ severity }: { severity: "high" | "medium" | "low" }) {
   const color =
     severity === "high"
-      ? "var(--color-market-down)"
+      ? "var(--market-down)"
       : severity === "medium"
-        ? "var(--color-market-neutral)"
-        : "var(--color-market-up)";
+        ? "var(--market-neutral)"
+        : "var(--market-up)";
   return (
     <span
       className="inline-block h-2 w-2 rounded-full"
@@ -1258,21 +1258,21 @@ function SeverityDot({ severity }: { severity: "high" | "medium" | "low" }) {
 function DeltaPill({ status }: { status: "new" | "hold" | "removed" }) {
   if (status === "new") {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-[color:var(--color-market-up)]/15 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-market-up)]">
+      <span className="inline-flex items-center gap-1 rounded-full bg-market-up/15 px-2 py-0.5 text-xs font-semibold text-market-up">
         NEW · 신규 편입
       </span>
     );
   }
   if (status === "removed") {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-[color:var(--color-market-down)]/15 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-market-down)]">
+      <span className="inline-flex items-center gap-1 rounded-full bg-market-down/15 px-2 py-0.5 text-xs font-semibold text-market-down">
         <ArrowLeftRight className="h-3 w-3" aria-hidden />
         REMOVED
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
       HOLD
     </span>
   );

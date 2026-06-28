@@ -123,7 +123,7 @@ export function LoginForm() {
       <div
         role="tablist"
         aria-label="로그인 방식"
-        className="mb-4 inline-flex rounded-md border p-1"
+        className="mb-4 inline-flex rounded-xl bg-muted p-1"
       >
         <button
           type="button"
@@ -134,7 +134,7 @@ export function LoginForm() {
             setError("");
             setMagicLinkSent(false);
           }}
-          className={`rounded-sm px-3 py-1 text-xs ${mode === "password" ? "bg-foreground text-background" : "text-muted-foreground"}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${mode === "password" ? "bg-card text-foreground shadow-toss-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
           비밀번호
         </button>
@@ -146,7 +146,7 @@ export function LoginForm() {
             setMode("magic");
             setError("");
           }}
-          className={`rounded-sm px-3 py-1 text-xs ${mode === "magic" ? "bg-foreground text-background" : "text-muted-foreground"}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${mode === "magic" ? "bg-card text-foreground shadow-toss-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
           이메일 링크
         </button>
@@ -155,7 +155,7 @@ export function LoginForm() {
       {error && (
         <div
           role="alert"
-          className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+          className="mb-4 rounded-xl bg-destructive/10 p-3 text-sm text-destructive"
         >
           {error}
         </div>
@@ -201,7 +201,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -219,7 +219,7 @@ export function LoginForm() {
       ) : (
         <form onSubmit={handleMagicLink} className="space-y-4">
           {magicLinkSent ? (
-            <div className="rounded-md border border-[var(--color-market-up)]/40 bg-[var(--color-market-up)]/10 p-3 text-sm text-[var(--color-market-up)]">
+            <div className="rounded-xl border border-market-up/40 bg-market-up/10 p-3 text-sm text-market-up">
               이메일로 로그인 링크를 보냈습니다. 받은편지함을 확인한 뒤 링크를 클릭하세요.
             </div>
           ) : (
@@ -252,7 +252,7 @@ export function LoginForm() {
         아직 계정이 없으신가요?{" "}
         <Link
           href="/signup"
-          className="font-medium text-foreground hover:underline"
+          className="font-medium text-primary hover:underline"
         >
           무료 회원가입
         </Link>

@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { MOCK_MULTIPLES } from "@/lib/data/mock-stocks";
 import type { Stock } from "@/types/stock";
+import { chartColor, CHART_PRIMARY, CHART_GRID, CHART_AXIS } from "@/lib/chart-colors";
 
 interface MultiplesComparisonProps {
   targetTicker: string;
@@ -56,16 +57,16 @@ export function MultiplesComparison({
   return (
     <div className="mt-8 space-y-8">
       <div>
-        <h4 className="text-sm font-medium mb-4">PER 비교</h4>
+        <h4 className="text-sm font-semibold mb-4">PER 비교</h4>
         <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={perData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART_GRID} />
+              <XAxis type="number" tick={{ fontSize: 12, fill: CHART_AXIS }} />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: CHART_AXIS }}
                 width={80}
               />
               <Tooltip
@@ -73,7 +74,7 @@ export function MultiplesComparison({
               />
               <Bar
                 dataKey="PER"
-                fill="#2563eb"
+                fill={CHART_PRIMARY}
                 radius={[0, 4, 4, 0]}
                 barSize={28}
               />
@@ -83,16 +84,16 @@ export function MultiplesComparison({
       </div>
 
       <div>
-        <h4 className="text-sm font-medium mb-4">PBR 비교</h4>
+        <h4 className="text-sm font-semibold mb-4">PBR 비교</h4>
         <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={pbrData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART_GRID} />
+              <XAxis type="number" tick={{ fontSize: 12, fill: CHART_AXIS }} />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: CHART_AXIS }}
                 width={80}
               />
               <Tooltip
@@ -100,7 +101,7 @@ export function MultiplesComparison({
               />
               <Bar
                 dataKey="PBR"
-                fill="#16a34a"
+                fill={chartColor(2)}
                 radius={[0, 4, 4, 0]}
                 barSize={28}
               />

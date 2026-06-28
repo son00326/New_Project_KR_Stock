@@ -8,9 +8,9 @@ import {
 // **advisory only** — Accept 차단/대체 아님. verdict가 reject여도 Accept 동작 무변경(참고용).
 
 const VERDICT_STYLE: Record<RiskVote, string> = {
-  pass: "border-[var(--color-market-up)] bg-[var(--color-market-up)]/10 text-[var(--color-market-up)]",
+  pass: "border-market-up bg-market-up/10 text-market-up",
   conditional: "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-  reject: "border-[var(--color-market-down)] bg-[var(--color-market-down)]/10 text-[var(--color-market-down)]",
+  reject: "border-market-down bg-market-down/10 text-market-down",
 };
 
 const STANCE_LABEL: Record<string, string> = {
@@ -34,7 +34,7 @@ export function RiskDebateAdvisory({
   return (
     <section
       aria-label="위험 재판정 (G3 advisory)"
-      className={`rounded-lg border px-4 py-3 text-sm ${VERDICT_STYLE[assessment.finalVerdict]}`}
+      className={`rounded-2xl border px-5 py-4 text-sm shadow-toss-sm ${VERDICT_STYLE[assessment.finalVerdict]}`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold">
@@ -45,7 +45,7 @@ export function RiskDebateAdvisory({
         </span>
       </div>
       {assessment.votes.length > 0 && (
-        <ul className="mt-2 space-y-1 text-xs font-normal">
+        <ul className="mt-2 space-y-1.5 text-xs font-normal">
           {assessment.votes.map((v) => (
             <li key={v.stance}>
               <strong>{STANCE_LABEL[v.stance] ?? v.stance}</strong>:{" "}

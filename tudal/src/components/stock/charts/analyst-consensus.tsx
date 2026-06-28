@@ -35,34 +35,34 @@ export function AnalystConsensus({ ticker, currentPrice }: AnalystConsensusProps
   return (
     <div className="space-y-6">
       {/* 컨센서스 요약 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-lg border p-3 bg-primary/5 border-primary/20">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border p-3 bg-primary/5 border-primary/20 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">컨센서스 평균 TP</p>
-          <p className="text-xl font-bold text-primary">{avgTP.toLocaleString()}원</p>
-          <p className={`text-xs font-semibold mt-0.5 ${Number(upside) > 0 ? "text-red-600" : "text-blue-600"}`}>
+          <p className="text-xl font-bold text-primary tabular-nums">{avgTP.toLocaleString()}원</p>
+          <p className={`text-xs font-semibold mt-0.5 tabular-nums ${Number(upside) > 0 ? "text-market-up" : "text-market-down"}`}>
             현재가 대비 {Number(upside) > 0 ? "+" : ""}{upside}%
           </p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-xl border p-3 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">국내 평균</p>
-          <p className="text-xl font-bold">{domesticAvg.toLocaleString()}원</p>
-          <p className="text-xs text-muted-foreground">{domesticTPs.length}개 기관</p>
+          <p className="text-xl font-bold tabular-nums">{domesticAvg.toLocaleString()}원</p>
+          <p className="text-xs text-muted-foreground tabular-nums">{domesticTPs.length}개 기관</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-xl border p-3 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">해외 평균</p>
-          <p className="text-xl font-bold">{overseasAvg.toLocaleString()}원</p>
-          <p className="text-xs text-muted-foreground">{overseasTPs.length}개 기관</p>
+          <p className="text-xl font-bold tabular-nums">{overseasAvg.toLocaleString()}원</p>
+          <p className="text-xs text-muted-foreground tabular-nums">{overseasTPs.length}개 기관</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-xl border p-3 shadow-toss-sm">
           <p className="text-xs text-muted-foreground">TP 범위</p>
-          <p className="text-xl font-bold">{minTP.toLocaleString()}~{(maxTP / 10000).toFixed(1)}만</p>
+          <p className="text-xl font-bold tabular-nums">{minTP.toLocaleString()}~{(maxTP / 10000).toFixed(1)}만</p>
           <p className="text-xs text-muted-foreground">최저~최고</p>
         </div>
       </div>
 
       {/* TP 분포 바 */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums">
           <span>최저 {minTP.toLocaleString()}원</span>
           <span>최고 {maxTP.toLocaleString()}원</span>
         </div>
@@ -84,7 +84,7 @@ export function AnalystConsensus({ ticker, currentPrice }: AnalystConsensusProps
             style={{ left: `${((avgTP - minTP) / (maxTP - minTP)) * 100}%` }}
           />
           {/* 그라디언트 */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-200 via-green-200 to-red-200 opacity-50" />
+          <div className="absolute inset-0 bg-gradient-to-r from-market-down/30 via-chart-3/30 to-market-up/30 opacity-70" />
         </div>
       </div>
 
@@ -97,7 +97,7 @@ export function AnalystConsensus({ ticker, currentPrice }: AnalystConsensusProps
               key={r}
               onClick={() => setRegionFilter(r)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                regionFilter === r ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                regionFilter === r ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
               {labels[r]}
@@ -130,10 +130,10 @@ export function AnalystConsensus({ ticker, currentPrice }: AnalystConsensusProps
                     {a.region === "overseas" && <Badge variant="outline" className="ml-1 text-[9px] px-1">해외</Badge>}
                   </td>
                   <td className="py-2 px-2 text-muted-foreground">{a.analyst}</td>
-                  <td className="py-2 px-2 text-right font-semibold">{a.targetPrice.toLocaleString()}원</td>
+                  <td className="py-2 px-2 text-right font-semibold tabular-nums">{a.targetPrice.toLocaleString()}원</td>
                   <td className="py-2 px-2 text-right">
                     {change !== 0 && (
-                      <span className={`inline-flex items-center gap-0.5 ${change > 0 ? "text-red-600" : "text-blue-600"}`}>
+                      <span className={`inline-flex items-center gap-0.5 tabular-nums ${change > 0 ? "text-market-up" : "text-market-down"}`}>
                         {change > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                         {change > 0 ? "+" : ""}{change.toLocaleString()}
                       </span>

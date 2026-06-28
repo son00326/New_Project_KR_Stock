@@ -33,9 +33,9 @@ function fmtPct(n: number | null): string {
 function pctColor(n: number | null): string {
   if (n === null) return "text-muted-foreground";
   return n < 0
-    ? "text-[var(--color-market-down)]"
+    ? "text-market-down"
     : n > 0
-      ? "text-[var(--color-market-up)]"
+      ? "text-market-up"
       : "text-muted-foreground";
 }
 
@@ -79,7 +79,7 @@ function ListCard({
     (summary?.perTicker ?? []).map((p) => [p.ticker, p.returnPct]),
   );
   return (
-    <section className="rounded-lg border bg-card p-4">
+    <section className="rounded-2xl border bg-card p-4 shadow-toss-sm">
       <header className="mb-2">
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
@@ -107,7 +107,7 @@ function ListCard({
             return (
               <li
                 key={`${r.ticker}-${r.bucket}-${r.rank ?? ""}`}
-                className={`flex items-center justify-between gap-2 rounded px-2 py-1 ${onlyHere ? "bg-yellow-500/10" : ""}`}
+                className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${onlyHere ? "bg-yellow-500/10" : ""}`}
               >
                 <span className="truncate">
                   <span className="text-muted-foreground tabular-nums">{r.ticker}</span>{" "}
@@ -182,13 +182,13 @@ export default async function SectorComparisonPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">섹터 추천 비교</h1>
+        <h1 className="text-2xl font-bold tracking-tight">섹터 추천 비교</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           production <strong>B++ 30</strong>(Tier-1 AI 선정) vs Track-2{" "}
           <strong>sector-soft-tilt</strong> top-30(결정론) — 150단계에서 놓친 대형 리더를 주도섹터
           soft re-weight가 더 잡는지 human-in-loop 비교.
         </p>
-        <p className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+        <p className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
           ⚠ soft 비교 전용 — <strong>hard-gate live 적용 영구 금지</strong> · 검증 전 production 자동
           교체 없음 · Track-2 30은 결정론 top-30(AI 선정 아님, 산출 방식이 다름) · 섹터 가설 입력은
           수기/별도 advisor.
@@ -196,7 +196,7 @@ export default async function SectorComparisonPage() {
         {!adminVerified && (
           <p
             role="status"
-            className="mt-2 rounded-md border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
+            className="mt-2 rounded-xl border border-yellow-500 bg-yellow-500/10 px-3 py-2 text-xs font-medium text-yellow-700 dark:text-yellow-400"
           >
             ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 빈 데이터는 권한 검증 실패(RLS deny)일 수
             있습니다.
@@ -205,14 +205,14 @@ export default async function SectorComparisonPage() {
       </header>
 
       {(productionLoadError || shadowLoadError) && (
-        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           데이터 조회 일부 실패 — 읽기 전용 비교 화면이므로 가능한 목록만 표시합니다. 빈 데이터는
           migration/RLS/권한 상태를 확인하세요.
         </p>
       )}
 
       {shadow.length === 0 && (
-        <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           Track-2 shadow 미실행 — 마이그 0039 + 0046 apply + 섹터 가설 사전등록 + Track-2
           generator(`shadow_gen_runner.py --shadow-sector`) 실행 후 비교가 채워집니다. (production 30은
           항상 표시.)

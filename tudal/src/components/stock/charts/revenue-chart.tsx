@@ -9,16 +9,9 @@ import {
 } from "recharts";
 import { formatKRW } from "@/lib/constants";
 import type { RevenueSegment } from "@/types/stock";
+import { CHART_COLORS } from "@/lib/chart-colors";
 
-const COLORS = [
-  "#2563eb", // blue-600
-  "#16a34a", // green-600
-  "#ea580c", // orange-600
-  "#9333ea", // purple-600
-  "#e11d48", // rose-600
-  "#0891b2", // cyan-600
-  "#ca8a04", // yellow-600
-];
+const COLORS = CHART_COLORS;
 
 interface RevenueChartProps {
   segments: RevenueSegment[];
@@ -76,10 +69,10 @@ export function RevenueChart({ segments }: RevenueChartProps) {
               <span className="text-sm">{segment.segmentName}</span>
             </div>
             <div className="flex items-center gap-4 text-sm">
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground tabular-nums">
                 {formatKRW(segment.revenue)}
               </span>
-              <span className="font-medium w-14 text-right">
+              <span className="font-medium w-14 text-right tabular-nums">
                 {segment.proportion.toFixed(1)}%
               </span>
             </div>

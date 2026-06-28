@@ -22,7 +22,7 @@ export default function AdminError({
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 px-4 text-center">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">관리자 페이지에 오류가 발생했습니다</h1>
+        <h1 className="text-2xl font-bold tracking-tight">관리자 페이지에 오류가 발생했습니다</h1>
         <p className="text-sm text-muted-foreground">
           잠시 후 다시 시도해주세요. 문제가 계속되면 콘솔 로그를 확인해주세요.
         </p>

@@ -9,10 +9,10 @@ interface ExecutiveInfoProps {
 }
 
 const OUTLOOK_STYLE = {
-  "안정적": "bg-green-100 text-green-700 border-0",
-  "긍정적": "bg-blue-100 text-blue-700 border-0",
-  "부정적": "bg-red-100 text-red-700 border-0",
-  "관찰": "bg-yellow-100 text-yellow-700 border-0",
+  "안정적": "bg-chart-3/10 text-chart-3 border-0",
+  "긍정적": "bg-chart-1/10 text-chart-1 border-0",
+  "부정적": "bg-chart-2/10 text-chart-2 border-0",
+  "관찰": "bg-chart-5/10 text-chart-5 border-0",
 };
 
 export function ExecutiveInfo({ executives, creditRatings }: ExecutiveInfoProps) {
@@ -25,7 +25,7 @@ export function ExecutiveInfo({ executives, creditRatings }: ExecutiveInfoProps)
           {executives.map((exec) => (
             <div
               key={exec.name}
-              className="flex items-center justify-between rounded-lg border p-3"
+              className="flex items-center justify-between rounded-xl border p-3 transition-colors hover:bg-muted/30"
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -51,7 +51,7 @@ export function ExecutiveInfo({ executives, creditRatings }: ExecutiveInfoProps)
           {creditRatings.map((cr) => (
             <div
               key={cr.agency}
-              className="flex items-center justify-between rounded-lg border p-3"
+              className="flex items-center justify-between rounded-xl border p-3 transition-colors hover:bg-muted/30"
             >
               <div>
                 <span className="text-sm font-medium">{cr.agency}</span>

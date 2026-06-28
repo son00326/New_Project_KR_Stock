@@ -17,7 +17,7 @@ export default async function AdminTrackRecordPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">Track Record</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Track Record</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           누적 성과 (포트폴리오 통계) · 월별 아카이브 (풀 리포트 + 승인 결과)
         </p>

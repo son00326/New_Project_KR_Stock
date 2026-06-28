@@ -14,7 +14,7 @@ export function BriefingCard({ briefing }: BriefingCardProps) {
     return (
       <section
         aria-label="모닝 브리핑"
-        className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/20 p-4 text-sm text-muted-foreground"
+        className="rounded-2xl border border-dashed border-muted-foreground/40 bg-muted/20 p-5 text-sm text-muted-foreground"
       >
         오늘 브리핑이 아직 생성되지 않았습니다 (매일 08:00 KST 자동 생성).
       </section>
@@ -25,9 +25,9 @@ export function BriefingCard({ briefing }: BriefingCardProps) {
     return (
       <section
         aria-label="모닝 브리핑 실패"
-        className="rounded-lg border border-[var(--color-market-down)]/40 bg-[var(--color-market-down)]/10 p-4 text-sm"
+        className="rounded-2xl border border-market-down/40 bg-market-down/10 p-5 text-sm shadow-toss-sm"
       >
-        <div className="font-semibold text-[var(--color-market-down)]">
+        <div className="font-semibold text-market-down">
           ⚠ {briefing.date} 모닝 브리핑 생성 실패
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -48,7 +48,7 @@ export function BriefingCard({ briefing }: BriefingCardProps) {
   return (
     <section
       aria-label="모닝 브리핑"
-      className="rounded-lg border bg-card p-4 shadow-sm"
+      className="rounded-2xl border bg-card p-5 shadow-toss-sm"
     >
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">
@@ -63,7 +63,7 @@ export function BriefingCard({ briefing }: BriefingCardProps) {
       <p className="mt-2 text-sm leading-relaxed text-foreground">
         {briefing.contentSummary}
       </p>
-      <footer className="mt-3 text-xs text-muted-foreground">
+      <footer className="mt-3 text-xs text-muted-foreground tabular-nums">
         생성: {new Date(briefing.generatedAt).toLocaleString("ko-KR")}
         {briefing.viewEvents.length > 0 ? ` · 열람 ${briefing.viewEvents.length}회` : ""}
       </footer>

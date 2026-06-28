@@ -10,10 +10,10 @@ import { LoginForm } from "@/app/(auth)/login/login-form";
 function LoginFormFallback() {
   return (
     <div className="animate-pulse space-y-3">
-      <div className="h-11 rounded-md bg-muted" />
-      <div className="h-11 rounded-md bg-muted" />
-      <div className="mt-6 h-11 rounded-md bg-muted" />
-      <div className="h-11 rounded-md bg-muted" />
+      <div className="h-11 rounded-xl bg-muted" />
+      <div className="h-11 rounded-xl bg-muted" />
+      <div className="mt-6 h-11 rounded-xl bg-muted" />
+      <div className="h-11 rounded-xl bg-muted" />
     </div>
   );
 }

@@ -14,25 +14,25 @@ export function DeltaBanner({ items }: DeltaBannerProps) {
   const removeds = items.filter((r) => r.deltaStatus === "removed");
 
   return (
-    <details className="group rounded-lg border bg-muted/30">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-2xl border bg-muted/30">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl px-4 py-3 text-sm transition-colors hover:bg-muted/50 group-open:rounded-b-none [&::-webkit-details-marker]:hidden">
         <span className="font-semibold">전월 대비 Delta</span>
         <DeltaCount
           label="편입"
           count={news.length}
-          color="var(--color-market-up)"
+          color="var(--market-up)"
           icon={<ArrowUpRight className="h-3.5 w-3.5" aria-hidden />}
         />
         <DeltaCount
           label="유지"
           count={holds.length}
-          color="var(--color-market-neutral)"
+          color="var(--market-neutral)"
           icon={<ArrowRight className="h-3.5 w-3.5" aria-hidden />}
         />
         <DeltaCount
           label="제외"
           count={removeds.length}
-          color="var(--color-market-down)"
+          color="var(--market-down)"
           icon={<ArrowDownRight className="h-3.5 w-3.5" aria-hidden />}
         />
         <span className="ml-auto text-xs text-muted-foreground group-open:hidden">
@@ -46,13 +46,13 @@ export function DeltaBanner({ items }: DeltaBannerProps) {
       <div className="grid gap-4 border-t px-4 py-3 md:grid-cols-2">
         <DeltaList
           title="편입 (NEW)"
-          color="var(--color-market-up)"
+          color="var(--market-up)"
           items={news}
           emptyText="이번 달 신규 편입 없음"
         />
         <DeltaList
           title="제외 (REMOVED)"
-          color="var(--color-market-down)"
+          color="var(--market-down)"
           items={removeds}
           emptyText="이번 달 제외 종목 없음"
         />
