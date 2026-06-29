@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import type { ShortListItem } from "@/types/admin";
+
+// 실 getActiveShortList 반환(ShortListItem)의 컴파일러 결속 subset — 필드 드리프트 시 즉시 표면화.
+type NewsSweepShortlistItem = Pick<ShortListItem, "ticker" | "name" | "bucket">;
 
 const naverMock = vi.hoisted(() => ({
   fetchNaverNews: vi.fn(),
@@ -15,6 +19,10 @@ const serviceRoleMock = vi.hoisted(() => ({
 // Step 2.7b.3: alert_event INSERT mock (news_critical).
 const alertsInsertMock = vi.hoisted(() => ({
   insertAlertEvents: vi.fn(),
+}));
+// 2026-06-29: live 유니버스 = 활성 short_list_30 (3종 하드코딩 대체).
+const shortlistMock = vi.hoisted(() => ({
+  getActiveShortList: vi.fn<() => Promise<NewsSweepShortlistItem[]>>(),
 }));
 
 vi.mock("@/lib/news/naver-api", () => ({
@@ -32,6 +40,9 @@ vi.mock("@/lib/supabase/service-role", () => ({
 }));
 vi.mock("@/lib/data/admin-alerts-insert", () => ({
   insertAlertEvents: alertsInsertMock.insertAlertEvents,
+}));
+vi.mock("@/lib/data/admin-shortlist", () => ({
+  getActiveShortList: shortlistMock.getActiveShortList,
 }));
 
 describe("GET /api/cron/news-sweep", () => {
@@ -52,6 +63,13 @@ describe("GET /api/cron/news-sweep", () => {
     serviceRoleMock.createServiceRoleClient.mockReturnValue(
       serviceRoleMock.client as never,
     );
+    // live 유니버스 기본값 = 활성 short_list_30 (테스트별 override 가능).
+    shortlistMock.getActiveShortList.mockReset();
+    shortlistMock.getActiveShortList.mockResolvedValue([
+      { ticker: "005930", name: "삼성전자", bucket: "short" },
+      { ticker: "000660", name: "SK하이닉스", bucket: "short" },
+      { ticker: "035420", name: "NAVER", bucket: "mid" },
+    ]);
   });
 
   it("fails closed when only one Naver credential is configured", async () => {
@@ -114,6 +132,8 @@ describe("GET /api/cron/news-sweep", () => {
     expect(res.status).toBe(502);
     expect(body.ok).toBe(false);
     expect(body.failedQueries).toBe(2);
+    // 변경 핀: 워치리스트는 활성 short_list_30에서 옴(구 하드코딩이면 호출 0 → fail).
+    expect(shortlistMock.getActiveShortList).toHaveBeenCalledTimes(1);
   });
 
   it("Step 2.7b.1 — non-production + NAVER 키 미설정 → service-role read → mockMode summary", async () => {
@@ -140,9 +160,7 @@ describe("GET /api/cron/news-sweep", () => {
     });
   });
 
-  // Step 2.7b.2 (omxy R1 HIGH-1 + R2 MED-2): live mode는 service-role을 INSERT 위해 1회 lazy
-  // create, READ는 호출 안 함. WRITE only invariant.
-  it("creates service-role client once in live Naver mode (WRITE only, no READ call)", async () => {
+  it("creates service-role client once in live Naver mode and reuses it for universe read and write", async () => {
     process.env.NAVER_CLIENT_ID = "client-id";
     process.env.NAVER_CLIENT_SECRET = "client-secret";
     naverMock.fetchNaverNews.mockResolvedValue([]);
@@ -156,8 +174,133 @@ describe("GET /api/cron/news-sweep", () => {
 
     expect(res.status).toBe(200);
     expect(serviceRoleMock.createServiceRoleClient).toHaveBeenCalledTimes(1);
+    expect(shortlistMock.getActiveShortList).toHaveBeenCalledWith({
+      client: serviceRoleMock.client,
+    });
     expect(adminNewsMock.getRecentNewsEvents).not.toHaveBeenCalled();
     expect(adminNewsMock.insertNewsEvents).toHaveBeenCalledTimes(1);
+    expect(adminNewsMock.insertNewsEvents.mock.calls[0]?.[1]).toEqual({
+      client: serviceRoleMock.client,
+    });
+  });
+
+  // 2026-06-29: live 모드는 활성 short_list_30 유니버스를 쿼리한다 (3종 하드코딩 대체).
+  //   M12a/모닝 브리핑이 실제 선정 30종을 평가하려면 news_event가 그 유니버스로 채워져야 한다.
+  it("live mode queries the active short_list_30 universe (not a hardcoded watchlist)", async () => {
+    process.env.NAVER_CLIENT_ID = "client-id";
+    process.env.NAVER_CLIENT_SECRET = "client-secret";
+    shortlistMock.getActiveShortList.mockResolvedValue([
+      { ticker: "000660", name: "SK하이닉스", bucket: "short" },
+      { ticker: "112610", name: "씨에스윈드", bucket: "long" },
+    ]);
+    naverMock.fetchNaverNews.mockResolvedValue([]);
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(shortlistMock.getActiveShortList).toHaveBeenCalledTimes(1);
+    expect(naverMock.fetchNaverNews).toHaveBeenCalledTimes(2);
+    const queries = naverMock.fetchNaverNews.mock.calls
+      .map((c) => (c[0] as { query: string }).query)
+      .sort();
+    expect(queries).toEqual(["SK하이닉스", "씨에스윈드"]);
+    const tickers = naverMock.fetchNaverNews.mock.calls
+      .map((c) => (c[0] as { ticker: string }).ticker)
+      .sort();
+    expect(tickers).toEqual(["000660", "112610"]);
+    // 순서 핀: 유니버스 read → fetch (service-role → getActiveShortList → fetchNaverNews).
+    expect(
+      shortlistMock.getActiveShortList.mock.invocationCallOrder[0],
+    ).toBeLessThan(naverMock.fetchNaverNews.mock.invocationCallOrder[0]);
+  });
+
+  // 2026-06-29: live 모드 + 빈 유니버스(선정 미시드) → Naver 호출 0 + 200(굶음 graceful) + ops 경고.
+  it("live mode with empty universe → no Naver fetch, ok with fetched 0, warns", async () => {
+    process.env.NAVER_CLIENT_ID = "client-id";
+    process.env.NAVER_CLIENT_SECRET = "client-secret";
+    shortlistMock.getActiveShortList.mockResolvedValue([]);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(naverMock.fetchNaverNews).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(body.fetched).toBe(0);
+    // ops 신호: 키 설정됐는데 유니버스 비어있음 → 구조화 경고.
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("news_sweep_empty_universe"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  // 2026-06-29: 유니버스가 cap(MAX_WATCHLIST_QUERIES=30)보다 크면 Naver 호출은 30으로 제한.
+  it("live mode caps Naver fetch at 30 for an oversized universe", async () => {
+    process.env.NAVER_CLIENT_ID = "client-id";
+    process.env.NAVER_CLIENT_SECRET = "client-secret";
+    const universe: NewsSweepShortlistItem[] = Array.from({ length: 40 }, (_, i) => ({
+      ticker: String(100000 + i),
+      name: `종목${i}`,
+      bucket: i < 20 ? "short" : "long",
+    }));
+    shortlistMock.getActiveShortList.mockResolvedValue(universe);
+    naverMock.fetchNaverNews.mockResolvedValue([]);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(naverMock.fetchNaverNews).toHaveBeenCalledTimes(30);
+    // 무음 절단 방지 핀: 유니버스>cap이면 ops 경고(없으면 silent truncation).
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("news_sweep_universe_truncated"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  // 2026-06-29: 실 유니버스 규모(25종)에서 부분 실패 → 502 + 정확한 failedQueries/totalQueries.
+  it("live mode partial failure at scale → 502 with accurate failed/total counts", async () => {
+    process.env.NAVER_CLIENT_ID = "client-id";
+    process.env.NAVER_CLIENT_SECRET = "client-secret";
+    const universe: NewsSweepShortlistItem[] = Array.from({ length: 25 }, (_, i) => ({
+      ticker: String(200000 + i),
+      name: `종목${i}`,
+      bucket: "short",
+    }));
+    shortlistMock.getActiveShortList.mockResolvedValue(universe);
+    for (let i = 0; i < 20; i++) {
+      naverMock.fetchNaverNews.mockResolvedValueOnce([]);
+    }
+    for (let i = 0; i < 5; i++) {
+      naverMock.fetchNaverNews.mockRejectedValueOnce(new Error("naver fail"));
+    }
+    const { GET } = await import("../route");
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/cron/news-sweep", {
+        headers: { authorization: "Bearer cron-secret" },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(body.failedQueries).toBe(5);
+    expect(body.totalQueries).toBe(25);
   });
 
   // Step 2.7b.2 (plan §Task 4): mock-mode classified events INSERT.
@@ -178,9 +321,9 @@ describe("GET /api/cron/news-sweep", () => {
     expect(opts).toHaveProperty("client", serviceRoleMock.client);
   });
 
-  // Step 2.7b.2 (omxy R2 MED-2 — lazy per branch): live Naver all-fail → 502 early return
-  // + insertNewsEvents NOT called + service-role NOT created.
-  it("live-mode Naver all-fail → 502 early + insertNewsEvents NOT called + service-role NOT created", async () => {
+  // 2026-06-29: live Naver all-fail → 502 early return + insertNewsEvents NOT called.
+  //   유니버스 read를 위해 service-role은 fetch 전에 1회 생성됨(구 lazy-after-fetch invariant 갱신).
+  it("live-mode Naver all-fail → 502 early + insertNewsEvents NOT called (service-role created once for universe read)", async () => {
     process.env.NAVER_CLIENT_ID = "client-id";
     process.env.NAVER_CLIENT_SECRET = "client-secret";
     naverMock.fetchNaverNews
@@ -197,7 +340,10 @@ describe("GET /api/cron/news-sweep", () => {
 
     expect(res.status).toBe(502);
     expect(adminNewsMock.insertNewsEvents).not.toHaveBeenCalled();
-    expect(serviceRoleMock.createServiceRoleClient).not.toHaveBeenCalled();
+    // 유니버스 read용 1회 생성(재사용). insert는 early-return으로 미도달.
+    expect(serviceRoleMock.createServiceRoleClient).toHaveBeenCalledTimes(1);
+    // 변경 핀: fetch 전에 유니버스를 read해야 함(구 하드코딩 코드면 호출 0 → fail).
+    expect(shortlistMock.getActiveShortList).toHaveBeenCalledTimes(1);
   });
 
   // Step 2.7b.2 (plan §0 D3): INSERT 실패 → 502 + dbError audit + alertsEmitted=0 + classified preserved.

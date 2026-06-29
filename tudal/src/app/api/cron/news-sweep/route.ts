@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRecentNewsEvents, insertNewsEvents } from "@/lib/data/admin-news";
 import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
+import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { NewsCandidate } from "@/lib/news/classifier";
 import {
@@ -15,6 +16,9 @@ import type { AlertEvent } from "@/types/admin";
 
 // Vercel Cron daily 00:00 UTC (vercel.json schedule `0 0 * * *`). ServicePlan-Admin §3.10 R3.10-1~3.
 // 네이버 뉴스 API 1차 + 스크래핑 2차(stub) → classifier → dedupe → Critical만 AlertEvent 발행.
+// 2026-06-29: live 워치리스트 = 활성 short_list_30(getActiveShortList) — 구 3종 하드코딩 대체.
+//   news_event를 실 선정 유니버스로 채우는 "수집 단계" 정합(M12a/모닝 브리핑의 전제조건).
+//   ※ M12a의 뉴스 read 윈도(getRecentNewsEvents limit) 자체의 유니버스 per-ticker 커버리지는 별도 follow-up.
 // Step 2.7b.1 (2026-05-28): mock-mode fallback에서 admin-news.getRecentNewsEvents() 호출 시
 // createServiceRoleClient() 주입 → cron context RLS using(is_admin()) 우회 (admin cookie 없음).
 // W-news-cron-service-role-read 완전 해소. PR #48 silent-health 선례 정합.
@@ -48,12 +52,10 @@ function isProductionLike(): boolean {
   );
 }
 
-// Short List 30 기준 쿼리 세트 (실데이터 전환 시 src/lib/data/mock-admin-shortlist에서 ticker+name 조인)
-const WATCHLIST_QUERIES: Array<{ ticker: string; query: string }> = [
-  { ticker: "005930", query: "삼성전자" },
-  { ticker: "000660", query: "SK하이닉스" },
-  { ticker: "035420", query: "NAVER" },
-];
+// 2026-06-29: 워치리스트 = 활성 short_list_30 (M12a/모닝 브리핑이 평가하는 그 선정 종목).
+//   구 3종 하드코딩(삼성전자/SK하이닉스/NAVER)은 실 선정 유니버스와 무관해 29/30 종목 뉴스 굶음 →
+//   getActiveShortList(service-role)로 ticker+name 조인. Naver 일 25,000 쿼터 대비 방어 cap(설계상 ≤30).
+const MAX_WATCHLIST_QUERIES = 30;
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
@@ -75,15 +77,37 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Step 2.7b.2 (plan §0 D3b + R2 MED-2): service-role client는 lazy per branch.
-  // live Naver fetch 실패 / partial failure path는 호출 0건.
+  // service-role client는 분기별 1회 생성 후 재사용.
+  //   live: 워치리스트(short_list_30) read를 위해 fetch 전에 생성 → INSERT에서 재사용.
+  //   mock: READ fallback 직전 생성 → INSERT에서 재사용.
   let serviceRoleClient: SupabaseClient | null = null;
   const naverOn = hasNaverClientId && hasNaverClientSecret;
   let candidates: NewsCandidate[] = [];
 
   if (naverOn) {
+    // 실 유니버스 = 활성 short_list_30. cron context는 service-role read(RLS using(is_admin) 우회).
+    // 이 client는 아래 INSERT에서 재사용(1회 생성 invariant 유지).
+    serviceRoleClient = createServiceRoleClient();
+    const shortlist = await getActiveShortList({ client: serviceRoleClient });
+    if (shortlist.length > MAX_WATCHLIST_QUERIES) {
+      // 무음 절단 방지: 유니버스가 cap을 넘으면 ops 로그로 표면화(M12a/exit-signal은 uncapped 소비 → tail starvation 경보).
+      console.warn(
+        JSON.stringify({
+          event: "news_sweep_universe_truncated",
+          universe: shortlist.length,
+          cap: MAX_WATCHLIST_QUERIES,
+        }),
+      );
+    }
+    const watchlist = shortlist
+      .map((s) => ({ ticker: s.ticker, query: s.name }))
+      .slice(0, MAX_WATCHLIST_QUERIES);
+    if (watchlist.length === 0) {
+      // 키는 설정됐으나 선정 유니버스가 비어있음(미시드/리셋) — 굶음 graceful + ops 신호.
+      console.warn(JSON.stringify({ event: "news_sweep_empty_universe" }));
+    }
     const results = await Promise.allSettled(
-      WATCHLIST_QUERIES.map((w) =>
+      watchlist.map((w) =>
         fetchNaverNews({ query: w.query, ticker: w.ticker, display: 20 }),
       ),
     );
@@ -146,8 +170,8 @@ export async function GET(request: NextRequest) {
   }));
 
   // Step 2.7b.2: classified news_event batch upsert via service-role.
-  // ON CONFLICT (url) DO NOTHING (plan §0 D2). R2 MED-2 — live branch는 INSERT 직전 service-role
-  // 1회 lazy create (Naver 실패 path는 위 early return으로 차단 → 여기 도달 0).
+  // ON CONFLICT (url) DO NOTHING (plan §0 D2). 양 분기 모두 위에서 client를 생성하므로 여기선 non-null;
+  // null 가드는 방어용(미래 분기 추가 대비).
   if (serviceRoleClient === null) {
     serviceRoleClient = createServiceRoleClient();
   }
