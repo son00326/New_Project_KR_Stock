@@ -16,7 +16,7 @@ const serviceRoleState = vi.hoisted(() => ({
   throwOnCreate: null as Error | null,
 }));
 const macroMock = vi.hoisted(() => ({
-  getMacroContextString: vi.fn(() => ""),
+  getMacroContextString: vi.fn(async () => ""),
 }));
 // PR-K Reflection (D32) — getLatestReflectionLog mock: 회고 스냅샷을 track별로 반환(live 배선 회귀 박제).
 const reflectionMock = vi.hoisted(() => ({
@@ -186,7 +186,7 @@ beforeEach(() => {
   delete process.env.NEXT_PUBLIC_APP_ENV;
   serviceRoleState.throwOnCreate = null;
   macroMock.getMacroContextString.mockReset();
-  macroMock.getMacroContextString.mockReturnValue("");
+  macroMock.getMacroContextString.mockResolvedValue("");
   delete process.env.REFLECTION_ENABLED;
   reflectionMock.getLatestReflectionLog.mockReset();
   reflectionMock.getLatestReflectionLog.mockImplementation(async (opts: { track: string }) => ({
@@ -423,7 +423,7 @@ describe("selection-worker run-mutex + result", () => {
 
   it("G4 — live selection route가 macroContextString을 1회 계산해 R1/R2 패널에 동일 주입", async () => {
     const macroContextString = "[거시 컨텍스트] 강세(예측 아님)";
-    macroMock.getMacroContextString.mockReturnValue(macroContextString);
+    macroMock.getMacroContextString.mockResolvedValue(macroContextString);
     await GET(reqAt(MON_NOT_FIRST, { authorization: "Bearer secret-x" }));
     const { makeCallPersonaPanel, makeCallDebatePanel } = await import(
       "@/lib/screening/persona-panel-adapter"

@@ -13,13 +13,16 @@ const SRC = join(process.cwd(), "src");
 // @/lib/macro 를 import 해도 되는 합법 consumer (G4 3 consumer + seam). 상대경로(src 기준).
 // 주의: persona-panel-adapter.ts 는 macroContextString 을 deps 로 전달받아 pass-through 할 뿐
 //   @/lib/macro 를 import 하지 않는다(주입자 = selection-worker). 그래서 allowlist에 없다.
+// 주의: fred-adapter.ts / verdict-builder.ts 는 lib/macro/ 내부 파일이지만 '@/lib/macro/*' 가 아니라
+//   상대경로(./context, ./verdict-builder)로 import 하므로 MACRO_IMPORT_RE에 잡히지 않는다 → allowlist 불필요.
 const ALLOWLIST = new Set(
   [
-    "lib/macro/source.ts", // context distill seam
+    "lib/macro/source.ts", // context distill seam (+ FRED 어댑터 호출)
     "lib/report/report-input-enricher.ts", // 리포트 writer 컨텍스트
     "app/api/cron/morning-briefing/route.ts", // 모닝 브리핑(M11)
     "lib/screening/persona-eval.ts", // Tier1 (dangling runMonthlyPersonaEval — 무해 dormant)
     "app/api/cron/monthly-batch/selection-worker/route.ts", // LIVE 선정 cron (macro 주입자)
+    "lib/report/full-report-batch-worker.ts", // G4: 리포트 batch chunk당 1회 fetch(직접 import)
   ].map((p) => p.split("/").join(sep)),
 );
 
@@ -60,6 +63,8 @@ describe("G4 guardrail — @/lib/macro import allowlist (박제)", () => {
     }
     const unexpected = importers.filter((f) => !ALLOWLIST.has(f));
     expect(unexpected, `Unexpected @/lib/macro importers: ${unexpected.join(", ")}`).toEqual([]);
+    // G4: 외부 importer는 정확히 6개(allowlist 전부 실재). fred-adapter/verdict-builder는 상대경로 import → 비포함.
+    expect(importers.length).toBe(6);
     // LIVE 선정 cron이 실제로 macro를 주입하는지(드리프트 방지) 최소 sanity.
     expect(importers).toContain(
       ["app", "api", "cron", "monthly-batch", "selection-worker", "route.ts"].join(sep),

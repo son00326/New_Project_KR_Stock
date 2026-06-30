@@ -52,7 +52,7 @@ export async function runMonthlyPersonaEval(
   await acquireBatchLock(input.month);
 
   // G4: 거시 컨텍스트 1회 계산(off → ""). 모든 callPersona에 동일 주입 → render가 끝에 조건부 append.
-  const macroContextString = input.macroContextString ?? getMacroContextString();
+  const macroContextString = input.macroContextString ?? (await getMacroContextString());
 
   let callCountDone = 0;
   const byTicker: Record<string, CallPersonaResult[]> = {};

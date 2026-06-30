@@ -35,17 +35,17 @@ describe("isMacroContextEnabled", () => {
   });
 });
 
-describe("getMacroContextString — flag + stale fail-safe", () => {
-  it("returns '' when flag off (dormant default)", () => {
+describe("getMacroContextString — flag + stale fail-safe (async)", () => {
+  it("returns '' when flag off (dormant default) — no fetch/source call", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "");
     expect(
-      getMacroContextString({ now: NOW, source: sourceWithAsOf("2026-04-19T00:00:00Z") }),
+      await getMacroContextString({ now: NOW, source: sourceWithAsOf("2026-04-19T00:00:00Z") }),
     ).toBe("");
   });
 
-  it("returns rendered context with disclaimers when flag on + fresh", () => {
+  it("returns rendered context with disclaimers when flag on + fresh", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
-    const s = getMacroContextString({
+    const s = await getMacroContextString({
       now: NOW,
       maxStaleDays: 7,
       source: sourceWithAsOf("2026-04-18T00:00:00Z"), // 2 days old
@@ -54,9 +54,9 @@ describe("getMacroContextString — flag + stale fail-safe", () => {
     expect(s).toContain("Tier0 스크리닝 팩터 아님");
   });
 
-  it("returns '' when flag on but source is stale (> maxStaleDays)", () => {
+  it("returns '' when flag on but source is stale (> maxStaleDays)", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
-    const s = getMacroContextString({
+    const s = await getMacroContextString({
       now: NOW,
       maxStaleDays: 7,
       source: sourceWithAsOf("2026-04-01T00:00:00Z"), // 19 days old
@@ -64,9 +64,9 @@ describe("getMacroContextString — flag + stale fail-safe", () => {
     expect(s).toBe("");
   });
 
-  it("treats exactly maxStaleDays as fresh (boundary)", () => {
+  it("treats exactly maxStaleDays as fresh (boundary)", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
-    const s = getMacroContextString({
+    const s = await getMacroContextString({
       now: NOW,
       maxStaleDays: 7,
       source: sourceWithAsOf("2026-04-13T00:00:00Z"), // exactly 7 days
@@ -74,18 +74,18 @@ describe("getMacroContextString — flag + stale fail-safe", () => {
     expect(s).not.toBe("");
   });
 
-  it("parses non-Z ISO asOf and respects injected now at the stale boundary", () => {
+  it("parses non-Z ISO asOf and respects injected now at the stale boundary", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
     const boundaryMs = Date.parse("2026-04-18T10:00:00");
     expect(
-      getMacroContextString({
+      await getMacroContextString({
         now: new Date(boundaryMs),
         maxStaleDays: 7,
         source: sourceWithAsOf("2026-04-11T10:00:00"),
       }),
     ).not.toBe("");
     expect(
-      getMacroContextString({
+      await getMacroContextString({
         now: new Date(boundaryMs + 1),
         maxStaleDays: 7,
         source: sourceWithAsOf("2026-04-11T10:00:00"),
@@ -93,24 +93,29 @@ describe("getMacroContextString — flag + stale fail-safe", () => {
     ).toBe("");
   });
 
-  it("returns '' when source asOf cannot be parsed", () => {
+  it("returns '' when source asOf cannot be parsed", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
     expect(
-      getMacroContextString({
+      await getMacroContextString({
         now: NOW,
         maxStaleDays: 7,
         source: sourceWithAsOf("not-a-date"),
       }),
     ).toBe("");
   });
+
+  it("flag on + injected source==null → '' (fail-safe null-guard)", async () => {
+    vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
+    // opts.source 미주입 + FRED_API_KEY 부재 → getMacroContextSource() null → "".
+    delete process.env.FRED_API_KEY;
+    expect(await getMacroContextString({ now: NOW, maxStaleDays: 7 })).toBe("");
+  });
 });
 
-describe("getMacroContextSource (default mock seam)", () => {
-  it("returns a usable indicators + verdict source", () => {
-    const src = getMacroContextSource();
-    expect(Array.isArray(src.indicators)).toBe(true);
-    expect(src.indicators.length).toBeGreaterThan(0);
-    expect(src.verdict.overallSignal).toBeTruthy();
-    expect(src.source).toBe("mock");
+describe("getMacroContextSource (FRED seam, async)", () => {
+  it("returns null when FRED_API_KEY is absent (fail-safe, no throw)", async () => {
+    delete process.env.FRED_API_KEY;
+    const src = await getMacroContextSource();
+    expect(src).toBeNull();
   });
 });
