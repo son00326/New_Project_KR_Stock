@@ -347,7 +347,7 @@ async function nullOnTimeout<T>(
 /**
  * FRED observations(desc) → MacroIndicator + signal.
  * 최신치가 "."이면 window 안의 최신 non-dot 관측치로 건너뛰고, non-dot 부족 시 null(series drop).
- * CPIAUCSL은 latest numeric 14개로 YoY 및 prev YoY 산출 → value=YoY%.
+ * CPIAUCSL은 non-dot 관측치 중 latest + **날짜로 12개월 전 anchor**를 찾아 YoY/prev YoY 산출(중간월 갭 robust).
  */
 export function toMacroIndicator(
   seriesId: string,
@@ -356,21 +356,20 @@ export function toMacroIndicator(
   const spec = SERIES_SPECS[seriesId];
   if (!spec) return null;
   if (seriesId === "CPIAUCSL") {
-    const numeric = latestNumericObservations(obs, 14);
-    if (numeric === null) return null;
+    // 모든 non-dot 관측치(desc). YoY anchor를 인덱스가 아닌 **날짜**로 탐색 → FRED CPIAUCSL의
+    //   중간월 결측("." gap, 실관측 예: 2025-10)으로 인덱스가 어긋나도 정확히 12개월 전을 잡는다.
+    //   (구 index 기반 numeric[12]는 갭이 있으면 13+개월 전 → fail-closed로 CPI를 통째 drop했음.)
+    const numeric = obs.filter((o) => parseNum(o.value) !== null);
+    if (numeric.length < 2) return null;
     const latest = numeric[0];
     const previous = numeric[1];
-    const yearAgo = numeric[12];
-    const previousYearAgo = numeric[13];
-    if (!latest || !previous || !yearAgo || !previousYearAgo) return null;
-    // YoY는 12개월 간격 불변식에 의존. skip-dot로 numeric[12]가 13+개월 전이 되면 YoY가 조용히
-    //   왜곡됨 → 날짜 간격이 정확히 12개월이 아니면 null(fail-closed; 해당 series drop → degrade).
-    if (
-      monthsApart(latest.date, yearAgo.date) !== 12 ||
-      monthsApart(previous.date, previousYearAgo.date) !== 12
-    ) {
-      return null;
-    }
+    // 정확히 12개월 전 obs를 날짜로 탐색(monthsApart는 fredMonthParts strict 검증 — malformed→NaN→미발견).
+    //   anchor가 없으면(해당 월 자체 결측) null(fail-closed; degrade가 흡수).
+    const yearAgo = numeric.find((o) => monthsApart(latest.date, o.date) === 12);
+    const previousYearAgo = numeric.find(
+      (o) => monthsApart(previous.date, o.date) === 12,
+    );
+    if (!yearAgo || !previousYearAgo) return null;
     const i0 = parseNum(latest.value);
     const i1 = parseNum(previous.value);
     const i12 = parseNum(yearAgo.value);
