@@ -20,6 +20,10 @@ const FRED_OBSERVATIONS = "https://api.stlouisfed.org/fred/series/observations";
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 4;
 const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_OBSERVATION_WINDOW = 7;
+const CPI_OBSERVATION_WINDOW = 20;
+const MIN_VALID_INDICATOR_COUNT = 6;
+const DEFAULT_SOURCE_BUDGET_MS = 5000;
 
 export interface FredFetchResult {
   ok: boolean;
@@ -31,6 +35,11 @@ export interface FredObservation {
   date: string;
   value: string;
 }
+
+type FredSeriesResult = {
+  readonly seriesId: string;
+  readonly observations: FredObservation[];
+};
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === "object" && !Array.isArray(v);
@@ -269,23 +278,65 @@ function parseNum(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function latestNumericObservations(
+  obs: readonly FredObservation[],
+  needed: number,
+): FredObservation[] | null {
+  const out: FredObservation[] = [];
+  for (const row of obs) {
+    if (parseNum(row.value) === null) continue;
+    out.push(row);
+    if (out.length === needed) return out;
+  }
+  return null;
+}
+
+function observationLimitForSeries(seriesId: string): number {
+  const base = SERIES_SPECS[seriesId].limit;
+  if (seriesId === "CPIAUCSL") {
+    return Math.max(base, CPI_OBSERVATION_WINDOW);
+  }
+  return Math.max(base, DEFAULT_OBSERVATION_WINDOW);
+}
+
+async function nullOnTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    return await Promise.race([task, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /**
- * FRED observations → MacroIndicator + signal. value '.' / 관측치 부족 → null(series drop).
- * CPIAUCSL은 YoY(=idx[0]/idx[12]-1) 및 prev YoY(=idx[1]/idx[13]-1) 산출 → value=YoY%.
+ * FRED observations(desc) → MacroIndicator + signal.
+ * 최신치가 "."이면 window 안의 최신 non-dot 관측치로 건너뛰고, non-dot 부족 시 null(series drop).
+ * CPIAUCSL은 latest numeric 14개로 YoY 및 prev YoY 산출 → value=YoY%.
  */
 export function toMacroIndicator(
   seriesId: string,
-  obs: FredObservation[],
+  obs: readonly FredObservation[],
 ): MacroIndicator | null {
   const spec = SERIES_SPECS[seriesId];
   if (!spec) return null;
   if (seriesId === "CPIAUCSL") {
-    if (obs.length < 14) return null;
-    const idx = obs.map((o) => parseNum(o.value));
-    const i0 = idx[0],
-      i12 = idx[12],
-      i1 = idx[1],
-      i13 = idx[13];
+    const numeric = latestNumericObservations(obs, 14);
+    if (numeric === null) return null;
+    const latest = numeric[0];
+    const previous = numeric[1];
+    const yearAgo = numeric[12];
+    const previousYearAgo = numeric[13];
+    if (!latest || !previous || !yearAgo || !previousYearAgo) return null;
+    const i0 = parseNum(latest.value);
+    const i1 = parseNum(previous.value);
+    const i12 = parseNum(yearAgo.value);
+    const i13 = parseNum(previousYearAgo.value);
     if (i0 === null || i12 === null || i1 === null || i13 === null || i12 === 0 || i13 === 0) {
       return null;
     }
@@ -302,7 +353,7 @@ export function toMacroIndicator(
       change: f(yoyChange),
       changePercent: yoyPrev !== 0 ? f((yoyChange / Math.abs(yoyPrev)) * 100) : 0,
       unit: spec.unit,
-      updatedAt: `${obs[0].date}T00:00:00Z`,
+      updatedAt: `${latest.date}T00:00:00Z`,
       signal: spec.signal({
         value: yoyNow,
         prev: yoyPrev,
@@ -313,9 +364,13 @@ export function toMacroIndicator(
       description: spec.describe({ value: yoyNow, change: yoyChange, changePercent: 0, yoyChange }),
     };
   }
-  if (obs.length < 2) return null;
-  const value = parseNum(obs[0].value);
-  const prev = parseNum(obs[1].value);
+  const numeric = latestNumericObservations(obs, 2);
+  if (numeric === null) return null;
+  const latest = numeric[0];
+  const previous = numeric[1];
+  if (!latest || !previous) return null;
+  const value = parseNum(latest.value);
+  const prev = parseNum(previous.value);
   if (value === null || prev === null) return null;
   const change = value - prev;
   const changePercent = prev !== 0 ? (change / Math.abs(prev)) * 100 : 0;
@@ -329,7 +384,7 @@ export function toMacroIndicator(
     change: f(change),
     changePercent: f(changePercent),
     unit: spec.unit,
-    updatedAt: `${obs[0].date}T00:00:00Z`,
+    updatedAt: `${latest.date}T00:00:00Z`,
     signal: spec.signal({ value, prev, change, changePercent, yoyChange: null }),
     description: spec.describe({ value, change, changePercent, yoyChange: null }),
   };
@@ -337,7 +392,8 @@ export function toMacroIndicator(
 
 /**
  * 9 series parallel(Promise.all; 9 « 120 req/min FRED IP limit) → MacroContextSource | null.
- * 부분실패(어떤 series fetch throw 또는 drop) → null(부모 제약 '부분실패 → ""': full fail-safe).
+ * 1~3개 series fetch/drop은 degrade(휴일 "."/일시 실패로 전체 블랙아웃 금지).
+ * 유효 지표가 너무 적으면 null(too-sparse full fail-safe).
  *   - asOf = 유효 관측치 중 최신 날짜를 Z-qualified UTC로 → verdict.updatedAt.
  *   - verdict = buildVerdictFromIndicators(결정론 합성).
  */
@@ -346,39 +402,39 @@ export async function buildFredMacroSource(opts?: {
   fetchImpl?: FredFetchImpl;
   sleepImpl?: (ms: number) => Promise<void>;
   timeoutMs?: number;
+  overallTimeoutMs?: number;
 }): Promise<MacroContextSource | null> {
   const apiKey = (opts?.apiKey ?? process.env.FRED_API_KEY ?? "").trim();
   if (!apiKey) return null;
 
-  let observations: Array<FredObservation[]>;
-  try {
-    observations = await Promise.all(
-      FRED_SERIES_IDS.map((sid) =>
-        fetchFredSeries({
-          seriesId: sid,
-          limit: SERIES_SPECS[sid].limit,
-          apiKey,
-          fetchImpl: opts?.fetchImpl,
-          sleepImpl: opts?.sleepImpl,
-          timeoutMs: opts?.timeoutMs,
-        }),
-      ),
-    );
-  } catch {
-    // 어떤 series든 fetch 실패 → 전체 fail-safe(null).
-    return null;
-  }
+  const fetches = Promise.allSettled(
+    FRED_SERIES_IDS.map(async (sid) => ({
+      seriesId: sid,
+      observations: await fetchFredSeries({
+        seriesId: sid,
+        limit: observationLimitForSeries(sid),
+        apiKey,
+        fetchImpl: opts?.fetchImpl,
+        sleepImpl: opts?.sleepImpl,
+        timeoutMs: opts?.timeoutMs,
+      }),
+    })),
+  );
+  const requestedBudgetMs = opts?.overallTimeoutMs ?? DEFAULT_SOURCE_BUDGET_MS;
+  const settled: PromiseSettledResult<FredSeriesResult>[] | null =
+    Number.isFinite(requestedBudgetMs) && requestedBudgetMs > 0
+      ? await nullOnTimeout(fetches, requestedBudgetMs)
+      : await fetches;
+  if (settled === null) return null;
 
   const indicators: MacroIndicator[] = [];
-  for (let i = 0; i < FRED_SERIES_IDS.length; i++) {
-    const ind = toMacroIndicator(FRED_SERIES_IDS[i], observations[i]);
-    if (ind === null) {
-      // 부분실패(value '.'/관측치 부족 등) → 부모 제약상 full fail-safe.
-      return null;
-    }
+  for (const result of settled) {
+    if (result.status === "rejected") continue;
+    const ind = toMacroIndicator(result.value.seriesId, result.value.observations);
+    if (ind === null) continue;
     indicators.push(ind);
   }
-  if (indicators.length === 0) return null;
+  if (indicators.length < MIN_VALID_INDICATOR_COUNT) return null;
 
   // asOf SoT = 유효 지표 중 최신 updatedAt(이미 Z-qualified).
   let asOf = indicators[0].updatedAt;

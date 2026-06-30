@@ -128,7 +128,21 @@ describe("fetchFredSeries", () => {
 });
 
 describe("toMacroIndicator — value '.' / 부족 관측치 skip", () => {
-  it("value '.' (FRED missing) → null", () => {
+  it("latest value '.' (FRED missing) → 최신 non-dot 2개로 계산", () => {
+    const r = toMacroIndicator("VIXCLS", [
+      { date: "2026-06-26", value: "." },
+      { date: "2026-06-25", value: "18.0" },
+      { date: "2026-06-24", value: "16.0" },
+    ]);
+    expect(r).not.toBeNull();
+    expect(r).toMatchObject({
+      value: 18,
+      previousValue: 16,
+      updatedAt: "2026-06-25T00:00:00Z",
+    });
+  });
+
+  it("non-dot 관측치 < 2 → null (change 계산 불가)", () => {
     const r = toMacroIndicator("VIXCLS", [
       { date: "2026-06-26", value: "." },
       { date: "2026-06-25", value: "18.0" },
@@ -262,11 +276,17 @@ describe("buildFredMacroSource — 9 series parallel", () => {
     expect(rendered).not.toMatch(PREDICTION_VOCAB);
   });
 
-  it("부분실패(1 series fetch 실패) → null (full fail-safe)", async () => {
+  it("1 series fetch 실패 → per-series degrade, 나머지 지표로 source 유지", async () => {
     const fetchImpl: FredFetchImpl = async (url) => {
       const sid = new URL(url).searchParams.get("series_id") ?? "";
       if (sid === "DGS10") {
         return { ok: false, status: 500, json: async () => ({}) };
+      }
+      if (sid === "CPIAUCSL") {
+        return obsResult(Array.from({ length: 14 }, (_, i) => ({
+          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
+          value: String(300 - i * 0.1),
+        })));
       }
       return obsResult(TWO_LEVEL);
     };
@@ -275,7 +295,9 @@ describe("buildFredMacroSource — 9 series parallel", () => {
       fetchImpl,
       sleepImpl: async () => {}, // backoff 즉시(실 대기 0).
     });
-    expect(src).toBeNull();
+    expect(src).not.toBeNull();
+    expect(src?.indicators.some((i) => i.id === "us-10y")).toBe(false);
+    expect(src?.indicators.length).toBe(8);
   });
 
   it("api_key 부재 → null (fail-safe, throw 아님)", async () => {
@@ -284,10 +306,54 @@ describe("buildFredMacroSource — 9 series parallel", () => {
     expect(src).toBeNull();
   });
 
-  it("부분 missing-value('.' → series drop)로 일부만 valid → null (부분실패 정책)", async () => {
-    // VIXCLS만 '.' → drop → 9 중 8 valid → 부분실패 → null.
+  it("latest missing-value('.')는 window 안 최신 non-dot로 대체해 source 유지", async () => {
     const fetchImpl = uniformFetch((sid) => {
-      if (sid === "VIXCLS") {
+      if (sid === "DEXKOUS" || sid === "DCOILWTICO" || sid === "T10Y2Y") {
+        return [
+          { date: "2026-06-26", value: "." },
+          { date: "2026-06-25", value: "10" },
+          { date: "2026-06-24", value: "9" },
+        ];
+      }
+      if (sid === "CPIAUCSL") {
+        return Array.from({ length: 14 }, (_, i) => ({
+          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
+          value: String(300 - i * 0.1),
+        }));
+      }
+      return TWO_LEVEL;
+    });
+    const src = await buildFredMacroSource({ apiKey: DUMMY_KEY, fetchImpl });
+    expect(src).not.toBeNull();
+    const usdKrw = src?.indicators.find((i) => i.id === "usd-krw");
+    expect(usdKrw?.updatedAt).toBe("2026-06-25T00:00:00Z");
+  });
+
+  it("FRED 요청 limit은 missing-value 회피용 window로 확대됨", async () => {
+    const limits = new Map<string, string>();
+    const fetchImpl: FredFetchImpl = async (url) => {
+      const u = new URL(url);
+      const sid = u.searchParams.get("series_id") ?? "";
+      limits.set(sid, u.searchParams.get("limit") ?? "");
+      if (sid === "CPIAUCSL") {
+        return obsResult(Array.from({ length: 14 }, (_, i) => ({
+          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
+          value: String(300 - i * 0.1),
+        })));
+      }
+      return obsResult(TWO_LEVEL);
+    };
+    await expect(buildFredMacroSource({ apiKey: DUMMY_KEY, fetchImpl })).resolves.not.toBeNull();
+    expect(limits.get("DEXKOUS")).toBe("7");
+    expect(limits.get("DCOILWTICO")).toBe("7");
+    expect(limits.get("T10Y2Y")).toBe("7");
+    expect(limits.get("CPIAUCSL")).toBe("20");
+  });
+
+  it("유효 지표가 최소치 미만이면 null (too-sparse full fail-safe)", async () => {
+    const validSeries = new Set(["VIXCLS", "DGS10", "CPIAUCSL", "DEXKOUS", "DCOILWTICO"]);
+    const fetchImpl = uniformFetch((sid) => {
+      if (!validSeries.has(sid)) {
         return [
           { date: "2026-06-26", value: "." },
           { date: "2026-06-25", value: "." },
@@ -303,6 +369,23 @@ describe("buildFredMacroSource — 9 series parallel", () => {
     });
     const src = await buildFredMacroSource({ apiKey: DUMMY_KEY, fetchImpl });
     expect(src).toBeNull();
+  });
+
+  it("slow/hung FRED fetch는 overall budget에서 null fail-safe", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl: FredFetchImpl = async () =>
+        new Promise<FredFetchResult>(() => {});
+      const pending = buildFredMacroSource({
+        apiKey: DUMMY_KEY,
+        fetchImpl,
+        overallTimeoutMs: 250,
+      });
+      await vi.advanceTimersByTimeAsync(250);
+      await expect(pending).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
