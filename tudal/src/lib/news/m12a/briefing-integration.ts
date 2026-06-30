@@ -114,7 +114,7 @@ export async function runM12aForBriefing(
   });
   const newsItems: M12aNewsItem[] = news.map((n) => ({
     newsEventId: n.id,
-    ticker: n.ticker as string,
+    ticker: n.ticker,
     title: n.title,
     url: n.url,
   }));

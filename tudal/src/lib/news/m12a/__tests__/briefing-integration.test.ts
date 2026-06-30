@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type AuthUser, type SupabaseClient } from "@supabase/supabase-js";
+import { AuthError } from "@supabase/auth-js";
 import type { M12aTickerLedgerRow } from "@/lib/news/m12a/types";
 
 // ── collaborator mocks (vi.hoisted — vi.mock 팩토리에서 안전 참조) ──
@@ -84,21 +85,32 @@ function autoRemoveJson(ticker = "005930"): string {
 }
 
 const VALID_UUID = "39202d8b-1042-48a6-8da0-df14a52fabea";
-const authGetUserById = vi.fn(async () => ({
-  data: { user: { id: VALID_UUID } },
-  error: null,
-}));
-const client = {
-  from: vi.fn(),
-  auth: { admin: { getUserById: authGetUserById } },
-} as unknown as SupabaseClient;
+const testAuthUser: AuthUser = {
+  id: VALID_UUID,
+  app_metadata: {},
+  user_metadata: {},
+  aud: "authenticated",
+  created_at: "2026-06-26T00:00:00.000Z",
+};
+const client = createClient(
+  "https://example.supabase.co",
+  "test-anon-key",
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  },
+);
+const authGetUserById = vi.spyOn(client.auth.admin, "getUserById");
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
   isAnthropicAvailable.mockReturnValue(true);
   authGetUserById.mockResolvedValue({
-    data: { user: { id: VALID_UUID } },
+    data: { user: testAuthUser },
     error: null,
   });
   callPersona.mockResolvedValue({
@@ -163,8 +175,8 @@ describe("runM12aForBriefing — fail-closed step-0 (go-live 게이트)", () => 
     vi.stubEnv("AI_COST_LOG_REAL_INSERT_ENABLED", "true");
     authGetUserById.mockResolvedValue({
       data: { user: null },
-      error: { message: "not found" },
-    } as never);
+      error: new AuthError("not found", 404, "not_found"),
+    });
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",
