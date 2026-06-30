@@ -77,6 +77,7 @@ const SIGNAL_KO: Record<Signal, string> = {
 export function buildVerdictFromIndicators(
   indicators: MacroIndicator[],
   asOf: string,
+  totalExpected?: number,
 ): MarketVerdict {
   // 라벨 단위로 그룹핑(commodities + fx → "원자재·환율" 1 카테고리). present만.
   const byLabel = new Map<
@@ -123,12 +124,17 @@ export function buildVerdictFromIndicators(
   const score = Math.round(50 + rawScore * 50);
   const overallSignal = bandToSignal(score);
 
+  // 일부 series가 degrade로 빠지면 커버리지를 명시(편중 verdict가 "전체 국면"으로 오독되지 않도록).
+  const coverageNote =
+    totalExpected != null && indicators.length < totalExpected
+      ? ` (유효 지표 ${indicators.length}/${totalExpected})`
+      : "";
   const summary =
     details.length === 0
-      ? `유효 거시 지표 없음. 종합 ${score}/100(중립).`
+      ? `유효 거시 지표 없음. 종합 ${score}/100(중립).${coverageNote}`
       : `종합 ${score}/100. ${details
           .map((d) => `${d.category}(${SIGNAL_KO[d.signal]})`)
-          .join(", ")}.`;
+          .join(", ")}.${coverageNote}`;
 
   return { overallSignal, score, summary, details, updatedAt: asOf };
 }

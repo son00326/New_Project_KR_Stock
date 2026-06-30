@@ -43,6 +43,30 @@ const TWO_LEVEL = [
   { date: "2026-06-25", value: "10" },
 ];
 
+// CPI는 14개 연속 *월간* 관측치(desc) 필요 — toMacroIndicator가 numeric[0]↔[12] 및 [1]↔[13]
+//   간격이 정확히 12개월인지 검증(monthsApart). i=0→2026-06-01, i=12→2025-06-01(= 12개월).
+//   기본 픽스처는 value 단조감소(YoY 산출용 임의값; signal 검증은 cpiMonthlyFromValues 사용).
+function cpiMonthly(): Array<{ date: string; value: string }> {
+  return cpiMonthlyDates().map((date, i) => ({ date, value: String(300 - i * 0.2) }));
+}
+
+// 14개 월간 날짜(desc) — 2026-06-01 ~ 2025-05-01.
+function cpiMonthlyDates(): string[] {
+  return Array.from({ length: 14 }, (_, i) => {
+    const m = 6 - i; // 6,5,...,-7
+    const yy = 2026 + Math.floor((m - 1) / 12);
+    const mm = ((m - 1) % 12 + 12) % 12 + 1;
+    return `${yy}-${String(mm).padStart(2, "0")}-01`;
+  });
+}
+
+// 임의 value 배열(desc, 14개)을 월간 날짜에 매핑 — YoY signal 시나리오용.
+function cpiMonthlyFromValues(
+  vals: readonly number[],
+): Array<{ date: string; value: string }> {
+  return cpiMonthlyDates().map((date, i) => ({ date, value: String(vals[i]) }));
+}
+
 describe("fetchFredSeries", () => {
   it("success → observations[] 반환(desc, value 그대로)", async () => {
     const fetchImpl = uniformFetch(() => TWO_LEVEL);
@@ -230,16 +254,12 @@ describe("toMacroIndicator — signal threshold 경계", () => {
 
   it("CPIAUCSL YoY 둔화(change<0) → bullish", () => {
     // idx[0]/idx[12]-1 = YoY now; idx[1]/idx[13]-1 = YoY prev.
-    // now YoY 작게, prev YoY 크게 → change < 0.
-    const series: Array<{ date: string; value: string }> = [];
-    // 14개 desc. now=315 (12개월 전=310 → 1.61%), prev(idx1)=314.5 (idx13=308 → 2.11%).
-    const vals = [
+    // now YoY 작게, prev YoY 크게 → change < 0. (14개 연속 *월간* 관측치)
+    // now=315 (12개월 전=310 → 1.61%), prev(idx1)=314.5 (idx13=308 → 2.11%).
+    const series = cpiMonthlyFromValues([
       315, 314.5, 314, 313.5, 313, 312.5, 312, 311.5, 311, 310.5, 310.2, 310.1,
       310, 308,
-    ];
-    for (let i = 0; i < vals.length; i++) {
-      series.push({ date: `2026-06-${String(26 - i).padStart(2, "0")}`, value: String(vals[i]) });
-    }
+    ]);
     const r = toMacroIndicator("CPIAUCSL", series);
     expect(r).not.toBeNull();
     expect(r!.id).toBe("us-cpi");
@@ -251,11 +271,8 @@ describe("buildFredMacroSource — 9 series parallel", () => {
   it("전 series success → MacroContextSource (verdict 합성 + render)", async () => {
     const fetchImpl = uniformFetch((sid) => {
       if (sid === "CPIAUCSL") {
-        // 14 관측치 필요.
-        return Array.from({ length: 14 }, (_, i) => ({
-          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
-          value: String(300 - i * 0.1),
-        }));
+        // 14개 연속 월간 관측치 필요.
+        return cpiMonthly();
       }
       return [
         { date: "2026-06-26", value: "10" },
@@ -283,10 +300,7 @@ describe("buildFredMacroSource — 9 series parallel", () => {
         return { ok: false, status: 500, json: async () => ({}) };
       }
       if (sid === "CPIAUCSL") {
-        return obsResult(Array.from({ length: 14 }, (_, i) => ({
-          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
-          value: String(300 - i * 0.1),
-        })));
+        return obsResult(cpiMonthly());
       }
       return obsResult(TWO_LEVEL);
     };
@@ -316,10 +330,7 @@ describe("buildFredMacroSource — 9 series parallel", () => {
         ];
       }
       if (sid === "CPIAUCSL") {
-        return Array.from({ length: 14 }, (_, i) => ({
-          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
-          value: String(300 - i * 0.1),
-        }));
+        return cpiMonthly();
       }
       return TWO_LEVEL;
     });
@@ -336,10 +347,7 @@ describe("buildFredMacroSource — 9 series parallel", () => {
       const sid = u.searchParams.get("series_id") ?? "";
       limits.set(sid, u.searchParams.get("limit") ?? "");
       if (sid === "CPIAUCSL") {
-        return obsResult(Array.from({ length: 14 }, (_, i) => ({
-          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
-          value: String(300 - i * 0.1),
-        })));
+        return obsResult(cpiMonthly());
       }
       return obsResult(TWO_LEVEL);
     };
@@ -360,10 +368,7 @@ describe("buildFredMacroSource — 9 series parallel", () => {
         ];
       }
       if (sid === "CPIAUCSL") {
-        return Array.from({ length: 14 }, (_, i) => ({
-          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
-          value: String(300 - i * 0.1),
-        }));
+        return cpiMonthly();
       }
       return TWO_LEVEL;
     });
@@ -371,15 +376,51 @@ describe("buildFredMacroSource — 9 series parallel", () => {
     expect(src).toBeNull();
   });
 
-  it("slow/hung FRED fetch는 overall budget에서 null fail-safe", async () => {
+  // MIN_VALID_INDICATOR_COUNT(=6) 경계 인접쌍 박제: 정확히 6 → non-null(진행), 5 → null.
+  const DOT_BLACKOUT = [
+    { date: "2026-06-26", value: "." },
+    { date: "2026-06-25", value: "." },
+  ];
+
+  it("유효 지표 정확히 6 → non-null (min-6 경계 하한 통과)", async () => {
+    // 6 series success(TWO_LEVEL) + 3 series 전부 '.' 블랙아웃 → length 6 == MIN → 진행.
+    const valid6 = new Set([
+      "VIXCLS",
+      "DGS10",
+      "T10Y2Y",
+      "FEDFUNDS",
+      "UNRATE",
+      "DTWEXBGS",
+    ]);
+    const fetchImpl = uniformFetch((sid) =>
+      valid6.has(sid) ? TWO_LEVEL : DOT_BLACKOUT,
+    );
+    const src = await buildFredMacroSource({ apiKey: DUMMY_KEY, fetchImpl });
+    expect(src).not.toBeNull();
+    expect(src?.indicators.length).toBe(6);
+  });
+
+  it("유효 지표 5 → null (min-6 경계 직하)", async () => {
+    // 5 series success + 4 series '.' 블랙아웃 → length 5 < MIN → null.
+    const valid5 = new Set(["VIXCLS", "DGS10", "T10Y2Y", "FEDFUNDS", "UNRATE"]);
+    const fetchImpl = uniformFetch((sid) =>
+      valid5.has(sid) ? TWO_LEVEL : DOT_BLACKOUT,
+    );
+    const src = await buildFredMacroSource({ apiKey: DUMMY_KEY, fetchImpl });
+    expect(src).toBeNull();
+  });
+
+  it("slow/hung FRED fetch는 per-series budget에서 null fail-safe", async () => {
     vi.useFakeTimers();
     try {
+      // 9 series 전부 never-resolving → 각 series가 per-series budget(250ms)에서 개별 timeout →
+      //   전부 null drop → 유효 0 < 6 → source null. fake timer로 9 timer 동시 advance.
       const fetchImpl: FredFetchImpl = async () =>
         new Promise<FredFetchResult>(() => {});
       const pending = buildFredMacroSource({
         apiKey: DUMMY_KEY,
         fetchImpl,
-        overallTimeoutMs: 250,
+        perSeriesTimeoutMs: 250,
       });
       await vi.advanceTimersByTimeAsync(250);
       await expect(pending).resolves.toBeNull();
@@ -387,16 +428,45 @@ describe("buildFredMacroSource — 9 series parallel", () => {
       vi.useRealTimers();
     }
   });
+
+  it("degrade로 일부 series drop 시 verdict.summary에 커버리지 노트(유효 지표 N/9)", async () => {
+    // DGS10 1개 실패 → 8/9. buildFredMacroSource가 FRED_SERIES_IDS.length(=9)를 totalExpected로 전달.
+    const fetchImpl: FredFetchImpl = async (url) => {
+      const sid = new URL(url).searchParams.get("series_id") ?? "";
+      if (sid === "DGS10") {
+        return { ok: false, status: 500, json: async () => ({}) };
+      }
+      if (sid === "CPIAUCSL") {
+        return obsResult(cpiMonthly());
+      }
+      return obsResult(TWO_LEVEL);
+    };
+    const src = await buildFredMacroSource({
+      apiKey: DUMMY_KEY,
+      fetchImpl,
+      sleepImpl: async () => {},
+    });
+    expect(src).not.toBeNull();
+    expect(src!.indicators.length).toBe(8);
+    expect(src!.verdict.summary).toContain("유효 지표 8/9");
+  });
+
+  it("9 series 전부 valid면 커버리지 노트 없음", async () => {
+    const fetchImpl = uniformFetch((sid) =>
+      sid === "CPIAUCSL" ? cpiMonthly() : TWO_LEVEL,
+    );
+    const src = await buildFredMacroSource({ apiKey: DUMMY_KEY, fetchImpl });
+    expect(src).not.toBeNull();
+    expect(src!.indicators.length).toBe(9);
+    expect(src!.verdict.summary).not.toContain("유효 지표");
+  });
 });
 
 describe("buildFredMacroSource — 예측 어휘 금지 (guardrail)", () => {
   it("모든 indicator.description / verdict 에 예측 어휘 없음", async () => {
     const fetchImpl = uniformFetch((sid) => {
       if (sid === "CPIAUCSL") {
-        return Array.from({ length: 14 }, (_, i) => ({
-          date: `2026-06-${String(26 - i).padStart(2, "0")}`,
-          value: String(300 - i * 0.1),
-        }));
+        return cpiMonthly();
       }
       return TWO_LEVEL;
     });
