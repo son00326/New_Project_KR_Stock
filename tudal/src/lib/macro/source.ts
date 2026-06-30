@@ -12,8 +12,8 @@ import { buildFredMacroSource } from "@/lib/macro/fred-adapter";
 //
 // 유일한 env/now/source/IO 경계. context.ts는 pure 유지.
 //   - flag off → "" (dormant 기본 · network 호출 0)
-//   - flag on + key → 실 FRED fetch(9 series) → MacroContextSource | null
-//   - 실패/부분실패/timeout/4xx/5xx/파싱오류/key 부재 → null → "" (fail-safe, flag-off byte-identical)
+//   - flag on + key → 실 FRED fetch(9 series; 일부 series degrade 허용) → MacroContextSource | null
+//   - key 부재 / total failure / too-sparse / timeout·4xx·5xx·파싱오류 → null → "" (fail-safe)
 //   - flag on + stale source(asOf > maxStaleDays) → "" (stale fail-safe §1.5)
 // FRED 어댑터 throw는 getMacroContextSource try/catch가 흡수 → consumer엔 ""만 도달(throw 0).
 // ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * 거시 source. flag on + FRED_API_KEY 존재 시 실 FRED(9 series) → MacroContextSource.
- * key 부재 / fetch 실패 / 부분실패 → null(consumer는 ""로 폴백). throw 흡수(fail-safe).
+ * key 부재 / total failure / too-sparse → null(consumer는 ""로 폴백). throw 흡수(fail-safe).
  */
 export async function getMacroContextSource(): Promise<MacroContextSource | null> {
   try {
