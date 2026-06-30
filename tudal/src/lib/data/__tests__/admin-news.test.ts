@@ -272,6 +272,7 @@ function row(over: Partial<NewsEventDbRow> & { id: string }): NewsEventDbRow {
 describe("getRecentNewsEventsForUniverse", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.from.mockReset(); // clearAllMocks는 call history만 리셋 — impl 누수 차단(테스트 격리 하드닝).
   });
 
   it("returns [] without any DB round-trip when tickers is empty", async () => {
@@ -335,6 +336,29 @@ describe("getRecentNewsEventsForUniverse", () => {
       client: { from: mocks.from } as never,
     });
     expect(chain.limit).toHaveBeenCalledWith(2);
+  });
+
+  it("clamps perTickerLimit: fractional truncates, <1 floors to 1, >max caps, non-finite → default 2", async () => {
+    const cases: ReadonlyArray<{ input: number; expected: number }> = [
+      { input: 2.9, expected: 2 },
+      { input: 0, expected: 1 },
+      { input: -5, expected: 1 },
+      { input: 999, expected: 20 }, // PER_TICKER_LIMIT_MAX
+      { input: NaN, expected: 2 },
+      { input: Infinity, expected: 2 },
+    ];
+    for (const { input, expected } of cases) {
+      mocks.from.mockReset();
+      const chain = makeUniverseChain({
+        rowsByTicker: { "005930": [row({ id: "a", ticker: "005930" })] },
+      });
+      mocks.from.mockReturnValue(chain);
+      await getRecentNewsEventsForUniverse(["005930"], {
+        perTickerLimit: input,
+        client: { from: mocks.from } as never,
+      });
+      expect(chain.limit).toHaveBeenCalledWith(expected);
+    }
   });
 
   it("passes severity through (eq) and rejects invalid severity before any DB hit", async () => {
@@ -404,6 +428,21 @@ describe("getRecentNewsEventsForUniverse", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("\"kind\":\"rejected\""),
     );
+    warnSpy.mockRestore();
+  });
+
+  it("throws when every universe ticker query fails (infra failure ≠ silent no-news)", async () => {
+    // 부분 실패는 graceful(위 테스트), 전(全) 실패는 throw — false all-clear(뉴스 없음 오인) 방지.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockUniverseFrom({
+      rowsByTicker: { "005930": [], "000660": [] },
+      errorTickers: new Set(["005930", "000660"]),
+    });
+    await expect(
+      getRecentNewsEventsForUniverse(["005930", "000660"], {
+        client: { from: mocks.from } as never,
+      }),
+    ).rejects.toThrow(/news_event_universe_read_all_failed/);
     warnSpy.mockRestore();
   });
 

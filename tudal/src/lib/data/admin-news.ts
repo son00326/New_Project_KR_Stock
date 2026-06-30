@@ -67,6 +67,9 @@ export function transformNewsEventRow(row: NewsEventDbRow): NewsEvent {
 const NEWS_SELECT_COLUMNS =
   "id, ticker, severity, title, source, url, published_at, fetched_at, classification_reason";
 
+// per-ticker fan-out 행수 상한(= Core-11 평가 비용 driver). 비정상/대형 입력이 와도 read·비용을 bound.
+const PER_TICKER_LIMIT_MAX = 20;
+
 function compareNewsByPublishedAtDesc(a: NewsEvent, b: NewsEvent): number {
   const aMs = Date.parse(a.publishedAt);
   const bMs = Date.parse(b.publishedAt);
@@ -165,7 +168,8 @@ export async function getRecentNewsEvents(
  * - tickers 비면 즉시 [] (0 round-trip, ₩0).
  * - severity 무효면 DB 접근 전 throw (getRecentNewsEvents parity).
  * - 종목별 독립 쿼리(Promise.allSettled) → 한 종목이 다른 종목 슬롯을 잠식 불가(starvation 차단).
- * - 종목 단위 graceful: reject 또는 .error 있는 쿼리는 warn 후 skip(전역 throw 없음 — news-sweep allSettled 선례).
+ * - 종목 단위 graceful: reject/.error 쿼리는 warn 후 skip → 부분 실패는 partial 반환(news-sweep allSettled 선례).
+ * - 단, 전(全) 종목 실패는 throw(news_event_universe_read_all_failed) — infra 장애를 "뉴스 없음"으로 오인 방지.
  * - 반환 행은 전부 ticker != null (eq('ticker',t)로 null 제외) → caller의 .filter(n=>n.ticker) 불필요.
  * - 병합 후 publishedAt desc 재정렬.
  */
@@ -181,7 +185,12 @@ export async function getRecentNewsEventsForUniverse(
   if (options.severity && !SEVERITY_SET.has(options.severity)) {
     throw new Error(`news_event_invalid_severity_filter:${options.severity}`);
   }
-  const per = Math.max(1, Math.trunc(options.perTickerLimit ?? 2));
+  // perTickerLimit 클램프: 유한값은 [1, PER_TICKER_LIMIT_MAX]로 trunc·clamp, 비유한(NaN/Infinity)은 기본값 2.
+  //   (구 Math.max(1, Math.trunc(NaN))=NaN → .limit(NaN), Infinity → unbounded read 결함 fix.)
+  const requestedPer = options.perTickerLimit ?? 2;
+  const per = Number.isFinite(requestedPer)
+    ? Math.min(PER_TICKER_LIMIT_MAX, Math.max(1, Math.trunc(requestedPer)))
+    : 2;
   const uniq = [...new Set(tickers)];
   const supabase = options.client ?? (await createClient());
 
@@ -195,10 +204,7 @@ export async function getRecentNewsEventsForUniverse(
     if (options.severity) {
       query = query.eq("severity", options.severity);
     }
-    return {
-      ticker,
-      response: query.returns<NewsEventDbRow[]>(),
-    };
+    return { ticker, response: query };
   });
   const settled = await Promise.allSettled(queries.map((q) => q.response));
 
@@ -206,10 +212,12 @@ export async function getRecentNewsEventsForUniverse(
     readonly expectedTicker: string;
     readonly row: NewsEventDbRow;
   }> = [];
+  let failureCount = 0;
   for (const [index, result] of settled.entries()) {
     const query = queries[index];
     if (!query) continue;
     if (result.status === "rejected") {
+      failureCount += 1;
       warnUniverseTickerQueryFailure({
         ticker: query.ticker,
         kind: "rejected",
@@ -222,6 +230,7 @@ export async function getRecentNewsEventsForUniverse(
       error: PostgrestError | null;
     } = result.value;
     if (error) {
+      failureCount += 1;
       warnUniverseTickerQueryFailure({
         ticker: query.ticker,
         kind: "error",
@@ -232,6 +241,15 @@ export async function getRecentNewsEventsForUniverse(
     for (const row of data ?? []) {
       rows.push({ expectedTicker: query.ticker, row });
     }
+  }
+
+  // 전(全) 종목 쿼리 실패 = infra 장애. []를 반환하면 M12a가 "뉴스 없음(thesis 정상)"으로 오인하는
+  //   false all-clear가 된다 → throw로 morning-briefing try/catch에 표면화(부분 실패는 위에서 graceful).
+  //   uniq.length>0 가드: 빈 유니버스는 함수 진입부에서 이미 [] 반환됨.
+  if (uniq.length > 0 && failureCount === uniq.length) {
+    throw new Error(
+      `news_event_universe_read_all_failed:${failureCount}/${uniq.length}`,
+    );
   }
 
   return rows
