@@ -13,17 +13,25 @@ import {
   type NewsEventDbRow,
 } from "@/lib/data/admin-news";
 
-interface SelectChain {
+interface SelectResult {
+  data: NewsEventDbRow[] | null;
+  error: { code?: string; message?: string } | null;
+}
+
+interface SelectChain extends PromiseLike<SelectResult> {
   select: (...args: unknown[]) => SelectChain;
   order: (...args: unknown[]) => SelectChain;
   limit: (...args: unknown[]) => SelectChain;
   eq: (...args: unknown[]) => SelectChain;
-  then: <T>(
-    onFulfilled: (value: {
-      data: NewsEventDbRow[] | null;
-      error: { code?: string; message?: string } | null;
-    }) => T,
-  ) => Promise<T>;
+  returns: () => SelectChain;
+  then: <TResult1 = SelectResult, TResult2 = never>(
+    onFulfilled?:
+      | ((value: SelectResult) => TResult1 | PromiseLike<TResult1>)
+      | null,
+    onRejected?:
+      | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+      | null,
+  ) => Promise<TResult1 | TResult2>;
 }
 
 const mocks = vi.hoisted(() => ({
@@ -90,7 +98,9 @@ function makeListChain(): SelectChain {
     order: vi.fn(() => chain),
     limit: vi.fn(() => chain),
     eq: vi.fn(() => chain),
-    then: (onFulfilled) => Promise.resolve(mocks.resolved).then(onFulfilled),
+    returns: vi.fn(() => chain),
+    then: (onFulfilled, onRejected) =>
+      Promise.resolve(mocks.resolved).then(onFulfilled, onRejected),
   };
   return chain;
 }
@@ -205,6 +215,7 @@ describe("getRecentNewsEvents", () => {
 function makeUniverseChain(opts: {
   rowsByTicker: Record<string, NewsEventDbRow[]>;
   errorTickers?: ReadonlySet<string>;
+  rejectTickers?: ReadonlySet<string>;
 }): SelectChain {
   let capturedTicker: string | null = null;
   let capturedLimit = Number.POSITIVE_INFINITY;
@@ -212,24 +223,34 @@ function makeUniverseChain(opts: {
     select: vi.fn(() => chain),
     order: vi.fn(() => chain),
     limit: vi.fn((n: unknown) => {
-      capturedLimit = n as number;
+      if (typeof n === "number") capturedLimit = n;
       return chain;
     }),
     eq: vi.fn((col: unknown, val: unknown) => {
-      if (col === "ticker") capturedTicker = val as string;
+      if (col === "ticker" && typeof val === "string") capturedTicker = val;
       return chain;
     }),
-    then: (onFulfilled) => {
+    returns: vi.fn(() => chain),
+    then: (onFulfilled, onRejected) => {
       const t = capturedTicker ?? "";
+      if (opts.rejectTickers?.has(t)) {
+        return Promise.reject(new Error("ticker query rejected")).then(
+          onFulfilled,
+          onRejected,
+        );
+      }
       if (opts.errorTickers?.has(t)) {
         return Promise.resolve({
           data: null,
           error: { code: "PGRST500", message: "ticker query failed" },
-        }).then(onFulfilled);
+        }).then(onFulfilled, onRejected);
       }
       const all = opts.rowsByTicker[t] ?? [];
       const sliced = all.slice(0, capturedLimit);
-      return Promise.resolve({ data: sliced, error: null }).then(onFulfilled);
+      return Promise.resolve({ data: sliced, error: null }).then(
+        onFulfilled,
+        onRejected,
+      );
     },
   };
   return chain;
@@ -239,6 +260,7 @@ function makeUniverseChain(opts: {
 function mockUniverseFrom(opts: {
   rowsByTicker: Record<string, NewsEventDbRow[]>;
   errorTickers?: ReadonlySet<string>;
+  rejectTickers?: ReadonlySet<string>;
 }): void {
   mocks.from.mockImplementation(() => makeUniverseChain(opts));
 }
@@ -337,6 +359,7 @@ describe("getRecentNewsEventsForUniverse", () => {
   });
 
   it("gracefully skips a ticker whose query errors; other tickers still return", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockUniverseFrom({
       rowsByTicker: {
         "005930": [row({ id: "ok", ticker: "005930" })],
@@ -350,6 +373,38 @@ describe("getRecentNewsEventsForUniverse", () => {
     const tickers = out.map((n) => n.ticker);
     expect(tickers).toContain("005930");
     expect(tickers).not.toContain("000660"); // errored ticker skipped, no global throw
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("news_event_universe_ticker_query_failed"),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("\"ticker\":\"000660\""),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("\"kind\":\"error\""),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("gracefully skips a ticker whose query rejects and warns with ticker context", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockUniverseFrom({
+      rowsByTicker: {
+        "005930": [row({ id: "ok", ticker: "005930" })],
+        "000660": [row({ id: "reject", ticker: "000660" })],
+      },
+      rejectTickers: new Set(["000660"]),
+    });
+    const out = await getRecentNewsEventsForUniverse(["005930", "000660"], {
+      client: { from: mocks.from } as never,
+    });
+    expect(out.map((n) => n.ticker)).toEqual(["005930"]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("\"ticker\":\"000660\""),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("\"kind\":\"rejected\""),
+    );
+    warnSpy.mockRestore();
   });
 
   it("re-sorts the merged multi-ticker result by publishedAt desc", async () => {
@@ -378,6 +433,31 @@ describe("getRecentNewsEventsForUniverse", () => {
     expect(out.map((n) => n.id)).toEqual(["new", "old"]); // desc
   });
 
+  it("sorts offset ISO timestamps by actual time rather than string order", async () => {
+    mockUniverseFrom({
+      rowsByTicker: {
+        "005930": [
+          row({
+            id: "utc-later",
+            ticker: "005930",
+            published_at: "2026-05-27T01:00:00.000Z",
+          }),
+        ],
+        "000660": [
+          row({
+            id: "offset-earlier",
+            ticker: "000660",
+            published_at: "2026-05-27T09:30:00.000+09:00",
+          }),
+        ],
+      },
+    });
+    const out = await getRecentNewsEventsForUniverse(["005930", "000660"], {
+      client: { from: mocks.from } as never,
+    });
+    expect(out.map((n) => n.id)).toEqual(["utc-later", "offset-earlier"]);
+  });
+
   it("returns only ticker-attributed rows (null-ticker market news never queried)", async () => {
     mocks.from.mockReturnValue(
       makeUniverseChain({
@@ -388,6 +468,25 @@ describe("getRecentNewsEventsForUniverse", () => {
       client: { from: mocks.from } as never,
     });
     expect(out.every((n) => n.ticker !== null)).toBe(true);
+  });
+
+  it("warns and skips an unexpected null-ticker row if a client returns one", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.from.mockReturnValue(
+      makeUniverseChain({
+        rowsByTicker: {
+          "005930": [row({ id: "market", ticker: null })],
+        },
+      }),
+    );
+    const out = await getRecentNewsEventsForUniverse(["005930"], {
+      client: { from: mocks.from } as never,
+    });
+    expect(out).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("news_event_universe_ticker_mismatch"),
+    );
+    warnSpy.mockRestore();
   });
 
   it("falls back to session client when no client is injected", async () => {

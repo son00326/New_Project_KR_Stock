@@ -9,7 +9,7 @@
 // SoT: 0006_s5a_automation.sql §news_event (severity check + published_at desc index +
 //      admin RLS) + 0010 RLS 정합.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { NewsEvent, Severity } from "@/types/admin";
 
@@ -30,6 +30,10 @@ export interface NewsEventDbRow {
   fetched_at: string;
   classification_reason: string | null;
 }
+
+export type TickerNewsEvent = Omit<NewsEvent, "ticker"> & {
+  readonly ticker: string;
+};
 
 const SEVERITY_SET: ReadonlySet<Severity> = new Set<Severity>([
   "critical",
@@ -62,6 +66,55 @@ export function transformNewsEventRow(row: NewsEventDbRow): NewsEvent {
 
 const NEWS_SELECT_COLUMNS =
   "id, ticker, severity, title, source, url, published_at, fetched_at, classification_reason";
+
+function compareNewsByPublishedAtDesc(a: NewsEvent, b: NewsEvent): number {
+  const aMs = Date.parse(a.publishedAt);
+  const bMs = Date.parse(b.publishedAt);
+  if (Number.isFinite(aMs) && Number.isFinite(bMs) && aMs !== bMs) {
+    return bMs - aMs;
+  }
+  return b.publishedAt.localeCompare(a.publishedAt);
+}
+
+function toTickerNewsEvent(
+  row: NewsEventDbRow,
+  expectedTicker: string,
+): TickerNewsEvent | null {
+  const event = transformNewsEventRow(row);
+  if (event.ticker !== expectedTicker) {
+    console.warn(
+      JSON.stringify({
+        event: "news_event_universe_ticker_mismatch",
+        expectedTicker,
+        actualTicker: event.ticker,
+        newsEventId: event.id,
+      }),
+    );
+    return null;
+  }
+  return { ...event, ticker: event.ticker };
+}
+
+function warnUniverseTickerQueryFailure(input: {
+  readonly ticker: string;
+  readonly kind: "error" | "rejected";
+  readonly code: string;
+}): void {
+  console.warn(
+    JSON.stringify({
+      event: "news_event_universe_ticker_query_failed",
+      ticker: input.ticker,
+      kind: input.kind,
+      code: input.code,
+    }),
+  );
+}
+
+function rejectionCode(reason: unknown): string {
+  if (reason instanceof Error) return reason.name;
+  if (typeof reason === "string" && reason.length > 0) return reason;
+  return "unknown";
+}
 
 /**
  * 최근 news_event 목록 반환 (published_at desc).
@@ -112,7 +165,7 @@ export async function getRecentNewsEvents(
  * - tickers 비면 즉시 [] (0 round-trip, ₩0).
  * - severity 무효면 DB 접근 전 throw (getRecentNewsEvents parity).
  * - 종목별 독립 쿼리(Promise.allSettled) → 한 종목이 다른 종목 슬롯을 잠식 불가(starvation 차단).
- * - 종목 단위 graceful: reject 또는 .error 있는 쿼리는 skip(전역 throw 없음 — news-sweep allSettled 선례).
+ * - 종목 단위 graceful: reject 또는 .error 있는 쿼리는 warn 후 skip(전역 throw 없음 — news-sweep allSettled 선례).
  * - 반환 행은 전부 ticker != null (eq('ticker',t)로 null 제외) → caller의 .filter(n=>n.ticker) 불필요.
  * - 병합 후 publishedAt desc 재정렬.
  */
@@ -123,44 +176,70 @@ export async function getRecentNewsEventsForUniverse(
     severity?: Severity;
     client?: SupabaseClient;
   } = {},
-): Promise<NewsEvent[]> {
+): Promise<TickerNewsEvent[]> {
   if (tickers.length === 0) return [];
   if (options.severity && !SEVERITY_SET.has(options.severity)) {
     throw new Error(`news_event_invalid_severity_filter:${options.severity}`);
   }
-  const per = Math.max(1, options.perTickerLimit ?? 2);
+  const per = Math.max(1, Math.trunc(options.perTickerLimit ?? 2));
   const uniq = [...new Set(tickers)];
   const supabase = options.client ?? (await createClient());
 
-  const settled = await Promise.allSettled(
-    uniq.map((t) => {
-      let query = supabase
-        .from("news_event")
-        .select(NEWS_SELECT_COLUMNS)
-        .eq("ticker", t)
-        .order("published_at", { ascending: false })
-        .limit(per);
-      if (options.severity) {
-        query = query.eq("severity", options.severity);
-      }
-      return query;
-    }),
-  );
-
-  const rows: NewsEventDbRow[] = [];
-  for (const r of settled) {
-    if (r.status !== "fulfilled") continue; // 종목 쿼리 reject → skip
-    const { data, error } = r.value as {
-      data: NewsEventDbRow[] | null;
-      error: { code?: string } | null;
+  const queries = uniq.map((ticker) => {
+    let query = supabase
+      .from("news_event")
+      .select(NEWS_SELECT_COLUMNS)
+      .eq("ticker", ticker)
+      .order("published_at", { ascending: false })
+      .limit(per);
+    if (options.severity) {
+      query = query.eq("severity", options.severity);
+    }
+    return {
+      ticker,
+      response: query.returns<NewsEventDbRow[]>(),
     };
-    if (error) continue; // 종목 쿼리 .error → skip(전역 throw 없음)
-    for (const row of data ?? []) rows.push(row);
+  });
+  const settled = await Promise.allSettled(queries.map((q) => q.response));
+
+  const rows: Array<{
+    readonly expectedTicker: string;
+    readonly row: NewsEventDbRow;
+  }> = [];
+  for (const [index, result] of settled.entries()) {
+    const query = queries[index];
+    if (!query) continue;
+    if (result.status === "rejected") {
+      warnUniverseTickerQueryFailure({
+        ticker: query.ticker,
+        kind: "rejected",
+        code: rejectionCode(result.reason),
+      });
+      continue;
+    }
+    const { data, error }: {
+      data: NewsEventDbRow[] | null;
+      error: PostgrestError | null;
+    } = result.value;
+    if (error) {
+      warnUniverseTickerQueryFailure({
+        ticker: query.ticker,
+        kind: "error",
+        code: error.code ?? "unknown",
+      });
+      continue;
+    }
+    for (const row of data ?? []) {
+      rows.push({ expectedTicker: query.ticker, row });
+    }
   }
 
   return rows
-    .map((r) => transformNewsEventRow(r))
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+    .flatMap(({ expectedTicker, row }) => {
+      const event = toTickerNewsEvent(row, expectedTicker);
+      return event ? [event] : [];
+    })
+    .sort(compareNewsByPublishedAtDesc);
 }
 
 // 59차 Mock cleanup Step 2.7b.2: news-sweep cron classifier 결과를 news_event 테이블에 batch
