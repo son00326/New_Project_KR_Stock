@@ -23,7 +23,7 @@ const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_OBSERVATION_WINDOW = 7;
 const CPI_OBSERVATION_WINDOW = 20;
 const MIN_VALID_INDICATOR_COUNT = 6;
-const DEFAULT_SOURCE_BUDGET_MS = 5000;
+const DEFAULT_SERIES_BUDGET_MS = 9000;
 
 export interface FredFetchResult {
   ok: boolean;
@@ -38,7 +38,7 @@ export interface FredObservation {
 
 type FredSeriesResult = {
   readonly seriesId: string;
-  readonly observations: FredObservation[];
+  readonly observations: FredObservation[] | null;
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -291,6 +291,13 @@ function latestNumericObservations(
   return null;
 }
 
+// "YYYY-MM-DD" 두 날짜의 월 간격(later - earlier). 음수/NaN(malformed) 가능.
+function monthsApart(laterDate: string, earlierDate: string): number {
+  const [ly, lm] = laterDate.split("-").map(Number);
+  const [ey, em] = earlierDate.split("-").map(Number);
+  return (ly - ey) * 12 + (lm - em);
+}
+
 function observationLimitForSeries(seriesId: string): number {
   const base = SERIES_SPECS[seriesId].limit;
   if (seriesId === "CPIAUCSL") {
@@ -333,6 +340,14 @@ export function toMacroIndicator(
     const yearAgo = numeric[12];
     const previousYearAgo = numeric[13];
     if (!latest || !previous || !yearAgo || !previousYearAgo) return null;
+    // YoY는 12개월 간격 불변식에 의존. skip-dot로 numeric[12]가 13+개월 전이 되면 YoY가 조용히
+    //   왜곡됨 → 날짜 간격이 정확히 12개월이 아니면 null(fail-closed; 해당 series drop → degrade).
+    if (
+      monthsApart(latest.date, yearAgo.date) !== 12 ||
+      monthsApart(previous.date, previousYearAgo.date) !== 12
+    ) {
+      return null;
+    }
     const i0 = parseNum(latest.value);
     const i1 = parseNum(previous.value);
     const i12 = parseNum(yearAgo.value);
@@ -402,36 +417,38 @@ export async function buildFredMacroSource(opts?: {
   fetchImpl?: FredFetchImpl;
   sleepImpl?: (ms: number) => Promise<void>;
   timeoutMs?: number;
-  overallTimeoutMs?: number;
+  perSeriesTimeoutMs?: number;
 }): Promise<MacroContextSource | null> {
   const apiKey = (opts?.apiKey ?? process.env.FRED_API_KEY ?? "").trim();
   if (!apiKey) return null;
 
-  const fetches = Promise.allSettled(
-    FRED_SERIES_IDS.map(async (sid) => ({
-      seriesId: sid,
-      observations: await fetchFredSeries({
+  // per-series budget: 각 series를 개별 budget으로 race → 느린/hung series는 그 series만 drop(null)
+  //   되고 나머지는 degrade로 유지된다. (구 aggregate budget은 단일 느린 series가 전체 source를 null로
+  //   만들어 degrade를 사실상 무력화 — 단일 retry(>=1.5s backoff)만으로도 5s aggregate budget 초과.)
+  const budgetMs = opts?.perSeriesTimeoutMs ?? DEFAULT_SERIES_BUDGET_MS;
+  const useBudget = Number.isFinite(budgetMs) && budgetMs > 0;
+  const settled = await Promise.allSettled(
+    FRED_SERIES_IDS.map(async (sid): Promise<FredSeriesResult> => {
+      const task = fetchFredSeries({
         seriesId: sid,
         limit: observationLimitForSeries(sid),
         apiKey,
         fetchImpl: opts?.fetchImpl,
         sleepImpl: opts?.sleepImpl,
         timeoutMs: opts?.timeoutMs,
-      }),
-    })),
+      });
+      const observations = useBudget ? await nullOnTimeout(task, budgetMs) : await task;
+      return { seriesId: sid, observations };
+    }),
   );
-  const requestedBudgetMs = opts?.overallTimeoutMs ?? DEFAULT_SOURCE_BUDGET_MS;
-  const settled: PromiseSettledResult<FredSeriesResult>[] | null =
-    Number.isFinite(requestedBudgetMs) && requestedBudgetMs > 0
-      ? await nullOnTimeout(fetches, requestedBudgetMs)
-      : await fetches;
-  if (settled === null) return null;
 
   const indicators: MacroIndicator[] = [];
   for (const result of settled) {
-    if (result.status === "rejected") continue;
-    const ind = toMacroIndicator(result.value.seriesId, result.value.observations);
-    if (ind === null) continue;
+    if (result.status === "rejected") continue; // fetch reject(4xx/retry 소진) → drop
+    const { seriesId, observations } = result.value;
+    if (observations === null) continue; // per-series budget timeout → drop(degrade)
+    const ind = toMacroIndicator(seriesId, observations);
+    if (ind === null) continue; // value '.'/관측치 부족/CPI 간격 위반 → drop(degrade)
     indicators.push(ind);
   }
   if (indicators.length < MIN_VALID_INDICATOR_COUNT) return null;
@@ -447,6 +464,6 @@ export async function buildFredMacroSource(opts?: {
     }
   }
 
-  const verdict = buildVerdictFromIndicators(indicators, asOf);
+  const verdict = buildVerdictFromIndicators(indicators, asOf, FRED_SERIES_IDS.length);
   return { indicators, verdict, source: "fred" };
 }

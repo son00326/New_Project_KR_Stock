@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { MarketVerdict } from "@/types/macro";
 import type { MacroContextSource } from "@/lib/macro/context";
+
+// flag-off 시 FRED 경로(buildFredMacroSource → fetch)가 호출되지 않음을 검증하기 위해
+//   fred-adapter를 mock한다. source.ts는 이 모듈의 buildFredMacroSource를 import해 호출.
+const buildFredMacroSourceMock = vi.fn<() => Promise<MacroContextSource | null>>();
+vi.mock("@/lib/macro/fred-adapter", () => ({
+  buildFredMacroSource: () => buildFredMacroSourceMock(),
+}));
+
 import {
   getMacroContextSource,
   isMacroContextEnabled,
@@ -22,6 +30,7 @@ function sourceWithAsOf(asOf: string): MacroContextSource {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  buildFredMacroSourceMock.mockReset();
 });
 
 describe("isMacroContextEnabled", () => {
@@ -38,9 +47,11 @@ describe("isMacroContextEnabled", () => {
 describe("getMacroContextString — flag + stale fail-safe (async)", () => {
   it("returns '' when flag off (dormant default) — no fetch/source call", async () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "");
-    expect(
-      await getMacroContextString({ now: NOW, source: sourceWithAsOf("2026-04-19T00:00:00Z") }),
-    ).toBe("");
+    // opts.source 미주입 → flag on이면 getMacroContextSource()→buildFredMacroSource()를 탔을 것.
+    //   flag off는 isMacroContextEnabled() 첫줄 return이므로 FRED 경로(fetch) 호출 0.
+    buildFredMacroSourceMock.mockResolvedValue(sourceWithAsOf("2026-04-19T00:00:00Z"));
+    expect(await getMacroContextString({ now: NOW })).toBe("");
+    expect(buildFredMacroSourceMock).not.toHaveBeenCalled();
   });
 
   it("returns rendered context with disclaimers when flag on + fresh", async () => {
@@ -108,13 +119,24 @@ describe("getMacroContextString — flag + stale fail-safe (async)", () => {
     vi.stubEnv("MACRO_CONTEXT_ENABLED", "true");
     // opts.source 미주입 + FRED_API_KEY 부재 → getMacroContextSource() null → "".
     delete process.env.FRED_API_KEY;
+    buildFredMacroSourceMock.mockResolvedValue(null);
     expect(await getMacroContextString({ now: NOW, maxStaleDays: 7 })).toBe("");
   });
 });
 
 describe("getMacroContextSource (FRED seam, async)", () => {
-  it("returns null when FRED_API_KEY is absent (fail-safe, no throw)", async () => {
+  it("returns null when buildFredMacroSource yields null (fail-safe, no throw)", async () => {
+    // FRED_API_KEY 부재 시 buildFredMacroSource는 null을 돌려준다(어댑터 단위 테스트가 보증).
+    //   seam은 그 null을 그대로 통과시킨다.
     delete process.env.FRED_API_KEY;
+    buildFredMacroSourceMock.mockResolvedValue(null);
+    const src = await getMacroContextSource();
+    expect(src).toBeNull();
+    expect(buildFredMacroSourceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("buildFredMacroSource throw → seam이 흡수해 null 반환 (throw 0)", async () => {
+    buildFredMacroSourceMock.mockRejectedValue(new Error("fred_fetch_failed:500:DGS10"));
     const src = await getMacroContextSource();
     expect(src).toBeNull();
   });

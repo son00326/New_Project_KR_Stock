@@ -211,6 +211,46 @@ describe("buildVerdictFromIndicators — category aggregation", () => {
   });
 });
 
+describe("buildVerdictFromIndicators — coverage note (totalExpected)", () => {
+  it("indicators.length < totalExpected → summary 끝에 (유효 지표 N/total)", () => {
+    const v = buildVerdictFromIndicators(
+      [
+        ind({ category: "rates", signal: "bullish" }),
+        ind({ category: "sentiment", signal: "bearish" }),
+      ],
+      AS_OF,
+      9,
+    );
+    expect(v.summary).toContain("(유효 지표 2/9)");
+    expect(v.summary.endsWith("(유효 지표 2/9)")).toBe(true);
+  });
+
+  it("indicators.length == totalExpected → 커버리지 노트 없음", () => {
+    const v = buildVerdictFromIndicators(
+      [
+        ind({ category: "rates", signal: "bullish" }),
+        ind({ category: "sentiment", signal: "bearish" }),
+      ],
+      AS_OF,
+      2,
+    );
+    expect(v.summary).not.toContain("유효 지표");
+  });
+
+  it("totalExpected 미전달 → 커버리지 노트 없음 (하위호환)", () => {
+    const v = buildVerdictFromIndicators(
+      [ind({ category: "rates", signal: "bullish" })],
+      AS_OF,
+    );
+    expect(v.summary).not.toContain("유효 지표");
+  });
+
+  it("0 valid indicators + 부분 totalExpected → 커버리지 노트 부착", () => {
+    const v = buildVerdictFromIndicators([], AS_OF, 9);
+    expect(v.summary).toContain("(유효 지표 0/9)");
+  });
+});
+
 describe("buildVerdictFromIndicators — 예측 어휘 금지 (guardrail)", () => {
   it("모든 details.reason / summary 에 예측 어휘 없음", () => {
     const v = buildVerdictFromIndicators(
