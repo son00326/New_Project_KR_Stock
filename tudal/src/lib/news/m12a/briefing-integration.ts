@@ -5,7 +5,7 @@ import {
   makeM12aNewsEvaluator,
   type M12aNewsItem,
 } from "@/lib/news/m12a/evaluator";
-import { getRecentNewsEvents } from "@/lib/data/admin-news";
+import { getRecentNewsEventsForUniverse } from "@/lib/data/admin-news";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import { insertM12aAssessments } from "@/lib/data/admin-m12a";
 import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
@@ -102,16 +102,22 @@ export async function runM12aForBriefing(
   // 가상포트 보유 종목 연결은 D11 운용검증 시(shadow-first: 빈 set).
   const portfolioTickers = new Set<string>();
 
-  // 최근 news_event(회사 귀속만) → M12aNewsItem.
-  const news = await getRecentNewsEvents({ client: input.client, limit: 50 });
-  const newsItems: M12aNewsItem[] = news
-    .filter((n) => n.ticker)
-    .map((n) => ({
-      newsEventId: n.id,
-      ticker: n.ticker as string,
-      title: n.title,
-      url: n.url,
-    }));
+  // 종목별 윈도로 활성 short_list_30 전체 유니버스의 최근 news_event를 읽는다(per-ticker bounded
+  //   read). 구 전역 top-50 윈도는 hot 종목이 윈도를 잠식 → quiet 종목이 0건으로 굶는 tail
+  //   starvation 결함이 있었다. universe read는 종목별 .limit(perTickerLimit)이라 한 종목이 다른
+  //   종목 슬롯을 못 먹고, null-ticker 시장뉴스는 아예 쿼리되지 않는다(모닝 브리핑 topNews 다이제스트는
+  //   설계상 전역 read로 분리 유지). 반환 행은 전부 ticker 귀속 → 구 .filter(n=>n.ticker) 불필요.
+  const universe = [...listTracks.keys()];
+  const news = await getRecentNewsEventsForUniverse(universe, {
+    perTickerLimit: 2,
+    client: input.client,
+  });
+  const newsItems: M12aNewsItem[] = news.map((n) => ({
+    newsEventId: n.id,
+    ticker: n.ticker as string,
+    title: n.title,
+    url: n.url,
+  }));
 
   const evaluate = makeM12aNewsEvaluator({
     callPersona,

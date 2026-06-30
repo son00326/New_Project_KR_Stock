@@ -3,10 +3,12 @@
 // news_event 테이블 SELECT helper 단위 테스트.
 // - transformNewsEventRow: snake → camel 매핑 + severity 검증
 // - getRecentNewsEvents: empty / severity filter / limit / error
+// - getRecentNewsEventsForUniverse: per-ticker bounded read (tail starvation fix)
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getRecentNewsEvents,
+  getRecentNewsEventsForUniverse,
   transformNewsEventRow,
   type NewsEventDbRow,
 } from "@/lib/data/admin-news";
@@ -180,5 +182,223 @@ describe("getRecentNewsEvents", () => {
     await expect(getRecentNewsEvents()).rejects.toThrow(
       /news_event_select_failed/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRecentNewsEventsForUniverse — per-ticker bounded read (tail starvation fix).
+//
+// 결함: getRecentNewsEvents({limit:50})은 전역 published_at desc top-50 1윈도라
+//   hot 종목(005930 등)이 윈도를 잠식 → quiet 종목 28종은 0건으로 굶음(tail starvation).
+// fix: 종목별로 .eq('ticker',t).limit(per) 독립 쿼리 → 한 종목이 다른 종목 슬롯을 못 먹음.
+//
+// 종목별 row map을 resolve하는 per-ticker mock(SelectChain.eq('ticker',...)로 종목 캡처).
+// ---------------------------------------------------------------------------
+
+// 종목별 row 집합을 .eq('ticker',t) 인자로 분기 resolve하는 chain.
+//   - eq('ticker', t)면 현재 종목 캡처
+//   - eq('severity', s)면 severity 필터 캡처(쿼리 분기 없음 — fixture는 이미 종목별로 분리)
+//   - then: 캡처된 종목의 rows를 per-ticker limit으로 잘라 resolve.
+//     errorTickers에 속한 종목은 error를 반환(graceful skip 검증용).
+// ※ 종목별 독립 쿼리를 정확히 모델링하려면 각 .from() 호출이 distinct chain을 반환해야 한다
+//   (공유 chain은 병렬 .eq('ticker') 캡처가 서로 덮어써 마지막 종목으로 수렴). 아래는 한 chain 인스턴스.
+function makeUniverseChain(opts: {
+  rowsByTicker: Record<string, NewsEventDbRow[]>;
+  errorTickers?: ReadonlySet<string>;
+}): SelectChain {
+  let capturedTicker: string | null = null;
+  let capturedLimit = Number.POSITIVE_INFINITY;
+  const chain: SelectChain = {
+    select: vi.fn(() => chain),
+    order: vi.fn(() => chain),
+    limit: vi.fn((n: unknown) => {
+      capturedLimit = n as number;
+      return chain;
+    }),
+    eq: vi.fn((col: unknown, val: unknown) => {
+      if (col === "ticker") capturedTicker = val as string;
+      return chain;
+    }),
+    then: (onFulfilled) => {
+      const t = capturedTicker ?? "";
+      if (opts.errorTickers?.has(t)) {
+        return Promise.resolve({
+          data: null,
+          error: { code: "PGRST500", message: "ticker query failed" },
+        }).then(onFulfilled);
+      }
+      const all = opts.rowsByTicker[t] ?? [];
+      const sliced = all.slice(0, capturedLimit);
+      return Promise.resolve({ data: sliced, error: null }).then(onFulfilled);
+    },
+  };
+  return chain;
+}
+
+// from()이 호출마다 distinct chain을 반환하도록 mock(종목별 독립 쿼리 정확 모델링).
+function mockUniverseFrom(opts: {
+  rowsByTicker: Record<string, NewsEventDbRow[]>;
+  errorTickers?: ReadonlySet<string>;
+}): void {
+  mocks.from.mockImplementation(() => makeUniverseChain(opts));
+}
+
+function row(over: Partial<NewsEventDbRow> & { id: string }): NewsEventDbRow {
+  return { ...baseRow, ...over };
+}
+
+describe("getRecentNewsEventsForUniverse", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns [] without any DB round-trip when tickers is empty", async () => {
+    const out = await getRecentNewsEventsForUniverse([], {
+      client: { from: mocks.from } as never,
+    });
+    expect(out).toEqual([]);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("does not starve a quiet ticker even when a hot ticker has 50 rows in-store", async () => {
+    // hot 종목 005930은 50건, quiet 종목 000660은 1건 — 전역 top-50 윈도였다면 굶었을 것.
+    const hot: NewsEventDbRow[] = Array.from({ length: 50 }, (_, i) =>
+      row({
+        id: `hot-${i}`,
+        ticker: "005930",
+        url: `https://news/hot/${i}`,
+        published_at: `2026-05-27T${String(10 + (i % 12)).padStart(2, "0")}:00:00.000Z`,
+      }),
+    );
+    const quiet: NewsEventDbRow[] = [
+      row({
+        id: "quiet-1",
+        ticker: "000660",
+        title: "SK하이닉스 단신",
+        url: "https://news/quiet/1",
+        published_at: "2026-05-26T00:00:00.000Z",
+      }),
+    ];
+    mockUniverseFrom({ rowsByTicker: { "005930": hot, "000660": quiet } });
+    const out = await getRecentNewsEventsForUniverse(["005930", "000660"], {
+      perTickerLimit: 2,
+      client: { from: mocks.from } as never,
+    });
+    const tickers = out.map((n) => n.ticker);
+    // hot은 perTickerLimit=2로 캡, quiet은 그대로 1건 — quiet이 살아남음.
+    expect(tickers.filter((t) => t === "005930")).toHaveLength(2);
+    expect(tickers).toContain("000660"); // 굶지 않음
+  });
+
+  it("dedupes a duplicate ticker in input (queried once)", async () => {
+    mocks.from.mockReturnValue(
+      makeUniverseChain({
+        rowsByTicker: { "005930": [row({ id: "a", ticker: "005930" })] },
+      }),
+    );
+    const out = await getRecentNewsEventsForUniverse(
+      ["005930", "005930", "005930"],
+      { client: { from: mocks.from } as never },
+    );
+    expect(mocks.from).toHaveBeenCalledTimes(1);
+    expect(out).toHaveLength(1);
+  });
+
+  it("applies default perTickerLimit=2 when option omitted", async () => {
+    const chain = makeUniverseChain({
+      rowsByTicker: { "005930": [row({ id: "a", ticker: "005930" })] },
+    });
+    mocks.from.mockReturnValue(chain);
+    await getRecentNewsEventsForUniverse(["005930"], {
+      client: { from: mocks.from } as never,
+    });
+    expect(chain.limit).toHaveBeenCalledWith(2);
+  });
+
+  it("passes severity through (eq) and rejects invalid severity before any DB hit", async () => {
+    const chain = makeUniverseChain({
+      rowsByTicker: { "005930": [row({ id: "a", ticker: "005930" })] },
+    });
+    mocks.from.mockReturnValue(chain);
+    await getRecentNewsEventsForUniverse(["005930"], {
+      severity: "warning",
+      client: { from: mocks.from } as never,
+    });
+    expect(chain.eq).toHaveBeenCalledWith("severity", "warning");
+
+    mocks.from.mockClear();
+    await expect(
+      getRecentNewsEventsForUniverse(["005930"], {
+        severity: "loud" as never,
+        client: { from: mocks.from } as never,
+      }),
+    ).rejects.toThrow(/news_event_invalid_severity_filter/);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("gracefully skips a ticker whose query errors; other tickers still return", async () => {
+    mockUniverseFrom({
+      rowsByTicker: {
+        "005930": [row({ id: "ok", ticker: "005930" })],
+        "000660": [row({ id: "err", ticker: "000660" })],
+      },
+      errorTickers: new Set(["000660"]),
+    });
+    const out = await getRecentNewsEventsForUniverse(["005930", "000660"], {
+      client: { from: mocks.from } as never,
+    });
+    const tickers = out.map((n) => n.ticker);
+    expect(tickers).toContain("005930");
+    expect(tickers).not.toContain("000660"); // errored ticker skipped, no global throw
+  });
+
+  it("re-sorts the merged multi-ticker result by publishedAt desc", async () => {
+    mockUniverseFrom({
+      rowsByTicker: {
+        "005930": [
+          row({
+            id: "old",
+            ticker: "005930",
+            published_at: "2026-05-20T00:00:00.000Z",
+          }),
+        ],
+        "000660": [
+          row({
+            id: "new",
+            ticker: "000660",
+            published_at: "2026-05-28T00:00:00.000Z",
+          }),
+        ],
+      },
+    });
+    const out = await getRecentNewsEventsForUniverse(["005930", "000660"], {
+      perTickerLimit: 2,
+      client: { from: mocks.from } as never,
+    });
+    expect(out.map((n) => n.id)).toEqual(["new", "old"]); // desc
+  });
+
+  it("returns only ticker-attributed rows (null-ticker market news never queried)", async () => {
+    mocks.from.mockReturnValue(
+      makeUniverseChain({
+        rowsByTicker: { "005930": [row({ id: "a", ticker: "005930" })] },
+      }),
+    );
+    const out = await getRecentNewsEventsForUniverse(["005930"], {
+      client: { from: mocks.from } as never,
+    });
+    expect(out.every((n) => n.ticker !== null)).toBe(true);
+  });
+
+  it("falls back to session client when no client is injected", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    mocks.from.mockReturnValue(
+      makeUniverseChain({
+        rowsByTicker: { "005930": [row({ id: "a", ticker: "005930" })] },
+      }),
+    );
+    await getRecentNewsEventsForUniverse(["005930"]);
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(mocks.from).toHaveBeenCalledWith("news_event");
   });
 });

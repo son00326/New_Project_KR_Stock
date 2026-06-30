@@ -98,6 +98,71 @@ export async function getRecentNewsEvents(
   return (data ?? []).map((r) => transformNewsEventRow(r as NewsEventDbRow));
 }
 
+// universe-aware per-ticker bounded read (M12a tail starvation fix).
+//   결함: getRecentNewsEvents({limit:50})은 전역 published_at desc 1윈도라 hot 종목이 윈도를
+//   잠식 → quiet 종목들이 0건으로 굶음(tail starvation). M12a는 굶은 종목을 thesis-break 평가에서
+//   통째로 누락(evaluator 유니버스 게이트). fix = 종목별 독립 .eq('ticker',t).limit(per) 쿼리 —
+//   한 종목이 다른 종목의 슬롯을 못 먹고, null-ticker 시장뉴스는 아예 쿼리되지 않는다.
+//   각 쿼리는 production partial index news_event_ticker_published_idx (ticker, published_at desc)
+//   WHERE ticker is not null 를 range scan(마이그 0006). 새 마이그/RPC 없이 순수 PostgREST 합성.
+
+/**
+ * 종목 유니버스(활성 short_list_30)별로 최근 news_event를 perTickerLimit 건씩 읽어 병합.
+ *
+ * - tickers 비면 즉시 [] (0 round-trip, ₩0).
+ * - severity 무효면 DB 접근 전 throw (getRecentNewsEvents parity).
+ * - 종목별 독립 쿼리(Promise.allSettled) → 한 종목이 다른 종목 슬롯을 잠식 불가(starvation 차단).
+ * - 종목 단위 graceful: reject 또는 .error 있는 쿼리는 skip(전역 throw 없음 — news-sweep allSettled 선례).
+ * - 반환 행은 전부 ticker != null (eq('ticker',t)로 null 제외) → caller의 .filter(n=>n.ticker) 불필요.
+ * - 병합 후 publishedAt desc 재정렬.
+ */
+export async function getRecentNewsEventsForUniverse(
+  tickers: readonly string[],
+  options: {
+    perTickerLimit?: number;
+    severity?: Severity;
+    client?: SupabaseClient;
+  } = {},
+): Promise<NewsEvent[]> {
+  if (tickers.length === 0) return [];
+  if (options.severity && !SEVERITY_SET.has(options.severity)) {
+    throw new Error(`news_event_invalid_severity_filter:${options.severity}`);
+  }
+  const per = Math.max(1, options.perTickerLimit ?? 2);
+  const uniq = [...new Set(tickers)];
+  const supabase = options.client ?? (await createClient());
+
+  const settled = await Promise.allSettled(
+    uniq.map((t) => {
+      let query = supabase
+        .from("news_event")
+        .select(NEWS_SELECT_COLUMNS)
+        .eq("ticker", t)
+        .order("published_at", { ascending: false })
+        .limit(per);
+      if (options.severity) {
+        query = query.eq("severity", options.severity);
+      }
+      return query;
+    }),
+  );
+
+  const rows: NewsEventDbRow[] = [];
+  for (const r of settled) {
+    if (r.status !== "fulfilled") continue; // 종목 쿼리 reject → skip
+    const { data, error } = r.value as {
+      data: NewsEventDbRow[] | null;
+      error: { code?: string } | null;
+    };
+    if (error) continue; // 종목 쿼리 .error → skip(전역 throw 없음)
+    for (const row of data ?? []) rows.push(row);
+  }
+
+  return rows
+    .map((r) => transformNewsEventRow(r))
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+}
+
 // 59차 Mock cleanup Step 2.7b.2: news-sweep cron classifier 결과를 news_event 테이블에 batch
 // upsert. ON CONFLICT (url) DO NOTHING (news_event_url_uniq) — append-only news, classifier
 // deterministic → 동일 URL 재분류 무의미 (plan §0 D2). service-role client 주입 시 RLS
