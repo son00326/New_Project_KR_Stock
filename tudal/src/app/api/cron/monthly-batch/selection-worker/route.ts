@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
   const cronSystemUserId = process.env.CRON_SYSTEM_USER_ID ?? "";
   // G4 (D33 §4): live Tier1 선정 거시 컨텍스트 1회 계산(flag MACRO_CONTEXT_ENABLED off → "" → R1/R2
   //   패널 프롬프트 byte-identical·선정 무회귀). Tier0 factor 아님·M12a와 범주 분리. R1·R2 동일 값.
-  const macroContextString = getMacroContextString();
+  const macroContextString = await getMacroContextString();
   // M12a (R3.10-7c): 재진입 negative-news 컨텍스트 1회 계산. fetcher 미주입 → "" (dormant → 선정 byte-identical).
   //   M12a ledger 가동(USER 게이트) 후 fetchRecent를 주입하면 직전 악재가 모든 후보 프롬프트에 주입된다. macro와 별개 범주.
   const negativeNewsContextString = await getNegativeNewsContextString();

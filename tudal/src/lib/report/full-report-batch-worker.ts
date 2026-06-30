@@ -20,6 +20,7 @@ import { orchestrateFullReport } from "@/lib/report/full-report-orchestrator";
 import { commitSection8Step, isAiBadge } from "@/lib/report/section8-step";
 import { commitSectorBoardStep } from "@/lib/report/sector-board-step";
 import { enrichReportInput } from "@/lib/report/report-input-enricher";
+import { getMacroContextString } from "@/lib/macro/source";
 import { retryWithBackoff } from "@/lib/report/retry-with-backoff";
 import { preflightHardcap, getMonthlyTotal } from "@/lib/cost/cost-logger";
 import { getOrchestrateBudgetKrw } from "@/lib/ai/model-registry";
@@ -264,6 +265,11 @@ export async function runReportBatchChunk(
   const metaByTicker = new Map<string, ShortListItem>(
     shortList.map((s) => [s.ticker, s]),
   );
+
+  // G4 (D33 §4): 거시 컨텍스트를 chunk(=invocation)당 1회만 fetch. 모든 ticker가 동일 문자열 공유 →
+  //   per-report FRED fetch 금지(낭비/rate-limit). flag off → "" → NO_BASIS(현행 byte-identical).
+  //   serverless-stateless라 durable cache 없음 — 단위는 per-invocation(month-global 아님, 마이그 0).
+  const macroSummary = await getMacroContextString();
 
   // ── P2 (PR5b, omxy R4 BLOCKER 2): enqueue-step reset ──
   // flag-on이면 done/deferred지만 body complete + section_8 null + canonical 배지 non-⚪ 인 job을
@@ -525,7 +531,11 @@ export async function runReportBatchChunk(
         // PR-H scope 2: stub("HOLD"/"🟡"/"") → enrichReportInput(row) 실값 (short_list_30 배지/점수 +
         //   DART 재무, cost 0 SELECT). financials SELECT 에러는 throw → per-ticker isolation(아래 catch).
         //   미캐시 ticker는 graceful. macroSummary는 S7b 전까지 "근거 부족"(enrich 내부 고정).
-        const enrich = await enrichReportInput(meta, { client });
+        const enrich = await enrichReportInput(meta, {
+          client,
+          // G4: chunk당 1회 fetch한 거시 문자열을 closure로 주입(per-report fetch 금지).
+          buildMacroSummary: () => macroSummary,
+        });
         const result = await retryWithBackoff(() =>
           orchestrateFullReport(
             {

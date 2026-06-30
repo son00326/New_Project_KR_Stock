@@ -197,4 +197,13 @@ describe("enrichReportInput — G4 macroSummary seam (dormant default)", () => {
     });
     expect(result.macroSummary).toBe("근거 부족");
   });
+
+  it("async buildMacroSummary(Promise<string>) 주입 → await 후 macroSummary 대체 (batch 1회 fetch 패턴)", async () => {
+    const result = await enrichReportInput(makeItem(), {
+      client: {} as never,
+      fetchFinancials: vi.fn().mockResolvedValue("[005930] 재무 데이터 없음"),
+      buildMacroSummary: async () => "[거시 컨텍스트] 중립(예측 아님)",
+    });
+    expect(result.macroSummary).toBe("[거시 컨텍스트] 중립(예측 아님)");
+  });
 });

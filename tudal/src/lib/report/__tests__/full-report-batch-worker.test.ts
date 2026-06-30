@@ -12,9 +12,14 @@ const insertPipelineHealthMock = vi.fn();
 const emitCostAlertMock = vi.fn();
 const insertAlertEventsMock = vi.fn();
 const enrichMock = vi.fn();
+// G4: 거시 컨텍스트 — chunk당 1회 fetch 검증용 async spy. default "" (dormant).
+const macroMock = vi.hoisted(() => ({ getMacroContextString: vi.fn(async () => "") }));
 
 vi.mock("@/lib/report/report-input-enricher", () => ({
   enrichReportInput: (...a: unknown[]) => enrichMock(...a),
+}));
+vi.mock("@/lib/macro/source", () => ({
+  getMacroContextString: macroMock.getMacroContextString,
 }));
 vi.mock("@/lib/report/full-report-orchestrator", () => ({
   orchestrateFullReport: (...a: unknown[]) => orchestrateMock(...a),
@@ -131,6 +136,8 @@ const ORIG_ENV = { ...process.env };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  macroMock.getMacroContextString.mockReset();
+  macroMock.getMacroContextString.mockResolvedValue(""); // dormant default
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
   process.env.PR5_CRON_AUTO_ENABLED = "true";
   process.env.CRON_SYSTEM_USER_ID = VALID_UUID;
@@ -313,11 +320,15 @@ describe("runReportBatchChunk sequential + skip + isolation", () => {
       client: workerClient(client),
     });
     expect(res.done).toBe(1);
-    // enrich는 claimed ticker마다 호출 (row + service-role client 주입).
+    // enrich는 claimed ticker마다 호출 (row + service-role client + 거시 closure 주입).
     expect(enrichMock).toHaveBeenCalledTimes(1);
-    const [enrichItemArg, enrichOptArg] = enrichMock.mock.calls[0];
+    const [enrichItemArg, enrichOptArg] = enrichMock.mock.calls[0] as [
+      unknown,
+      { client: unknown; buildMacroSummary: () => string | Promise<string> },
+    ];
     expect(enrichItemArg).toMatchObject({ ticker: "005930", name: "삼성전자", sector: "반도체" });
-    expect(enrichOptArg).toEqual({ client });
+    expect(enrichOptArg.client).toBe(client);
+    expect(typeof enrichOptArg.buildMacroSummary).toBe("function");
     // orchestrate payload = enrich 실값 (stub "HOLD"/"🟡"/"" 역회귀 차단).
     expect(orchestrateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -331,6 +342,24 @@ describe("runReportBatchChunk sequential + skip + isolation", () => {
       }),
       { client, callerKind: "cron" },
     );
+  });
+
+  // G4 batch-1-fetch pin — 거시 컨텍스트는 chunk당 1회만 fetch(per-report fetch 금지).
+  it("G4: 멀티-ticker chunk에서 getMacroContextString은 1회만 호출 (per-report fetch 금지)", async () => {
+    const { client } = makeFakeClient({
+      claimedJobs: [
+        { id: "j1", ticker: "005930" },
+        { id: "j2", ticker: "000660" },
+      ],
+    });
+    const res = await runReportBatchChunk({
+      month: "2026-06",
+      client: workerClient(client),
+    });
+    expect(res.done).toBe(2);
+    expect(enrichMock).toHaveBeenCalledTimes(2);
+    // 2 ticker를 처리해도 거시 fetch는 chunk당 1회.
+    expect(macroMock.getMacroContextString).toHaveBeenCalledTimes(1);
   });
 
   it("PR-H enrich: enrich error (financials SELECT) → per-ticker isolation (mark failed, 다음 ticker 계속)", async () => {

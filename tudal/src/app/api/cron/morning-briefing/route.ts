@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
     portfolioSnapshot: null, // mock-mode: null → "어제 포트 데이터 없음" 라인 (Step 2.7 scope)
     attentionTickers: m12a.attentionTickers, // M12a off → [] → 현행 동작
     topNews: pickTopNews(recentNewsEvents),
-    macroContext: getMacroContextString(), // G4 (off/stale → "" → 라인 생략)
+    macroContext: await getMacroContextString(), // G4 (off/stale → "" → 라인 생략) · cron=1회/invocation
   });
 
   // 채널: dashboard(/admin 홈 카드)는 항상 + telegram best-effort.

@@ -95,7 +95,7 @@ export function deriveEnrichFromShortlist(
  * D33 §4: 거시 = 리포트 writer "컨텍스트 입력"(Tier0 factor 아님). DI 가능(테스트).
  * NO_BASIS 폴백은 enrichReportInput 호출부에서 단일화(빈 문자열 → NO_BASIS).
  */
-const defaultMacroSummary = (): string => getMacroContextString();
+const defaultMacroSummary = async (): Promise<string> => await getMacroContextString();
 
 export interface EnrichReportInputOptions {
   client: SupabaseClient;
@@ -104,8 +104,9 @@ export interface EnrichReportInputOptions {
     ticker: string,
     options: { client: SupabaseClient },
   ) => Promise<string>;
-  // G4 DI seam (테스트). default = getMacroContextString() || NO_BASIS (flag off면 NO_BASIS).
-  buildMacroSummary?: () => string;
+  // G4 DI seam (테스트·batch 1회 fetch). default = getMacroContextString() || NO_BASIS (flag off면 NO_BASIS).
+  //   batch worker는 chunk당 1회 fetch한 문자열을 closure(() => prefetched)로 주입(per-report fetch 금지).
+  buildMacroSummary?: () => string | Promise<string>;
 }
 
 /**
@@ -130,6 +131,6 @@ export async function enrichReportInput(
   return {
     ...deriveEnrichFromShortlist(item),
     financialsSummary,
-    macroSummary: buildMacroSummary() || NO_BASIS,
+    macroSummary: (await buildMacroSummary()) || NO_BASIS,
   };
 }
