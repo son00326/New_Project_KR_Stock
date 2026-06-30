@@ -5,7 +5,17 @@ import type { M12aTickerLedgerRow } from "@/lib/news/m12a/types";
 // ── collaborator mocks (vi.hoisted — vi.mock 팩토리에서 안전 참조) ──
 const m = vi.hoisted(() => ({
   getActiveShortList: vi.fn<() => Promise<unknown[]>>(),
-  getRecentNewsEvents: vi.fn<() => Promise<unknown[]>>(),
+  getRecentNewsEventsForUniverse:
+    vi.fn<
+      (
+        tickers: readonly string[],
+        options?: {
+          perTickerLimit?: number;
+          severity?: string;
+          client?: SupabaseClient;
+        },
+      ) => Promise<unknown[]>
+    >(),
   insertM12aAssessments:
     vi.fn<(rows: M12aTickerLedgerRow[]) => Promise<void>>(async () => {}),
   insertAlertEvents: vi.fn<(events: unknown[]) => Promise<void>>(async () => {}),
@@ -21,7 +31,7 @@ vi.mock("@/lib/data/admin-shortlist", () => ({
   getActiveShortList: m.getActiveShortList,
 }));
 vi.mock("@/lib/data/admin-news", () => ({
-  getRecentNewsEvents: m.getRecentNewsEvents,
+  getRecentNewsEventsForUniverse: m.getRecentNewsEventsForUniverse,
 }));
 vi.mock("@/lib/data/admin-m12a", () => ({
   insertM12aAssessments: m.insertM12aAssessments,
@@ -51,7 +61,7 @@ import { runM12aForBriefing } from "@/lib/news/m12a/briefing-integration";
 
 const {
   getActiveShortList,
-  getRecentNewsEvents,
+  getRecentNewsEventsForUniverse,
   insertM12aAssessments,
   insertAlertEvents,
   sendTelegram,
@@ -111,7 +121,7 @@ describe("runM12aForBriefing — dormancy pin", () => {
     });
     expect(res).toEqual({ ran: false, attentionTickers: [] });
     expect(getActiveShortList).not.toHaveBeenCalled();
-    expect(getRecentNewsEvents).not.toHaveBeenCalled();
+    expect(getRecentNewsEventsForUniverse).not.toHaveBeenCalled();
     expect(callPersona).not.toHaveBeenCalled();
     expect(insertM12aAssessments).not.toHaveBeenCalled();
   });
@@ -121,7 +131,7 @@ describe("runM12aForBriefing — fail-closed step-0 (go-live 게이트)", () => 
   beforeEach(() => {
     vi.stubEnv("M12A_NEWS_EVAL_ENABLED", "true");
     getActiveShortList.mockResolvedValue([]);
-    getRecentNewsEvents.mockResolvedValue([]);
+    getRecentNewsEventsForUniverse.mockResolvedValue([]);
   });
 
   it("AI_COST_LOG_REAL_INSERT_ENABLED off → skip(ran:false), 데이터/AI 0", async () => {
@@ -133,6 +143,7 @@ describe("runM12aForBriefing — fail-closed step-0 (go-live 게이트)", () => 
     });
     expect(res).toEqual({ ran: false, attentionTickers: [] });
     expect(getActiveShortList).not.toHaveBeenCalled();
+    expect(getRecentNewsEventsForUniverse).not.toHaveBeenCalled();
     expect(callPersona).not.toHaveBeenCalled();
   });
 
@@ -184,7 +195,7 @@ describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestr
       })),
     ];
     getActiveShortList.mockResolvedValue(universe);
-    getRecentNewsEvents.mockResolvedValue([
+    getRecentNewsEventsForUniverse.mockResolvedValue([
       {
         id: "evt-1",
         ticker: "005930",
@@ -217,8 +228,45 @@ describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestr
     expect(sendTelegram.mock.calls[0][0].text).toContain("(shadow)");
   });
 
+  it("유니버스 read 배선 pin — 활성 short_list_30 전체([...listTracks.keys()]) + {perTickerLimit:2, client}", async () => {
+    await runM12aForBriefing({
+      client,
+      nowIso: "2026-06-26T00:00:00.000Z",
+      adminUserId: VALID_UUID,
+    });
+    expect(getRecentNewsEventsForUniverse).toHaveBeenCalledTimes(1);
+    const [universeArg, optsArg] =
+      getRecentNewsEventsForUniverse.mock.calls[0];
+    // 30종 전부(short 10 + midlong 20) — 전역 top-50 윈도가 아니라 종목별 윈도.
+    expect(universeArg).toHaveLength(30);
+    expect(universeArg).toContain("005930");
+    expect(universeArg).toContain("100000"); // quiet 단기
+    expect(universeArg).toContain("200019"); // quiet 중장기 tail
+    expect(optsArg).toMatchObject({ perTickerLimit: 2, client });
+  });
+
+  it("starvation regression — hot+quiet 동시 뉴스에서 quiet 종목도 Core11 평가에 도달", async () => {
+    // 구 전역 limit:50 윈도였다면 hot 종목 50건이 잠식 → quiet 종목은 0건으로 굶었을 것.
+    // universe read는 종목별 윈도이므로 quiet 종목의 뉴스도 newsItems에 포함 → evaluator 게이트 통과.
+    getRecentNewsEventsForUniverse.mockResolvedValue([
+      { id: "hot", ticker: "005930", title: "삼성 뉴스1", url: "https://n/h1" },
+      { id: "hot2", ticker: "005930", title: "삼성 뉴스2", url: "https://n/h2" },
+      { id: "quiet", ticker: "100000", title: "단기0 단신", url: "https://n/q" },
+    ]);
+    await runM12aForBriefing({
+      client,
+      nowIso: "2026-06-26T00:00:00.000Z",
+      adminUserId: VALID_UUID,
+    });
+    // quiet 종목(100000)에 대해 Core 11 평가가 실제 호출됨(굶지 않음).
+    const quietCalls = callPersona.mock.calls.filter(
+      (c) => (c[0] as { ticker: string }).ticker === "100000",
+    );
+    expect(quietCalls).toHaveLength(11);
+  });
+
   it("뉴스 0건 → preflight skip, ledger/alert 0, ran true", async () => {
-    getRecentNewsEvents.mockResolvedValue([]);
+    getRecentNewsEventsForUniverse.mockResolvedValue([]);
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",

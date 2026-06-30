@@ -18,7 +18,9 @@ import type { AlertEvent } from "@/types/admin";
 // 네이버 뉴스 API 1차 + 스크래핑 2차(stub) → classifier → dedupe → Critical만 AlertEvent 발행.
 // 2026-06-29: live 워치리스트 = 활성 short_list_30(getActiveShortList) — 구 3종 하드코딩 대체.
 //   news_event를 실 선정 유니버스로 채우는 "수집 단계" 정합(M12a/모닝 브리핑의 전제조건).
-//   ※ M12a의 뉴스 read 윈도(getRecentNewsEvents limit) 자체의 유니버스 per-ticker 커버리지는 별도 follow-up.
+//   ※ M12a의 뉴스 read 윈도 per-ticker 유니버스 커버리지: resolved (getRecentNewsEventsForUniverse) —
+//     briefing-integration이 [...listTracks.keys()] 전체에 대해 종목별 .limit(perTickerLimit) 윈도로 읽어
+//     hot 종목이 quiet 종목 슬롯을 잠식하던 tail starvation 해소.
 // Step 2.7b.1 (2026-05-28): mock-mode fallback에서 admin-news.getRecentNewsEvents() 호출 시
 // createServiceRoleClient() 주입 → cron context RLS using(is_admin()) 우회 (admin cookie 없음).
 // W-news-cron-service-role-read 완전 해소. PR #48 silent-health 선례 정합.
