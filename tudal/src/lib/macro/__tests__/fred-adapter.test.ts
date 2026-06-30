@@ -273,6 +273,24 @@ describe("toMacroIndicator — signal threshold 경계", () => {
     series[12] = { ...series[12], date: "2025-06" };
     expect(toMacroIndicator("CPIAUCSL", series)).toBeNull();
   });
+
+  it("CPIAUCSL 중간월 결측(gap)에도 날짜 12개월 anchor로 us-cpi 유지(구 index 기반은 13개월 오인 drop)", () => {
+    // 실 FRED CPIAUCSL 2025-10 결측 재현: 16개월(2026-05 desc) 중 2025-10만 "."(결측).
+    //   12개월 anchor(2025-05/2025-04)는 존재 → 날짜 탐색은 CPI 유지. (구 index numeric[12]는 gap으로
+    //   1칸 밀려 13개월 전을 anchor로 잡아 monthsApart!=12 → fail-closed drop했음.)
+    const obs = Array.from({ length: 16 }, (_, i) => {
+      const m = 5 - i;
+      const yy = 2026 + Math.floor((m - 1) / 12);
+      const mm = (((m - 1) % 12) + 12) % 12 + 1;
+      const date = `${yy}-${String(mm).padStart(2, "0")}-01`;
+      const value = yy === 2025 && mm === 10 ? "." : String(310 - i * 0.3);
+      return { date, value };
+    });
+    const ind = toMacroIndicator("CPIAUCSL", obs);
+    expect(ind).not.toBeNull();
+    expect(ind?.id).toBe("us-cpi");
+    expect(ind?.updatedAt).toBe("2026-05-01T00:00:00Z"); // anchor=2025-05(정확 12개월 전)
+  });
 });
 
 describe("buildFredMacroSource — 9 series parallel", () => {
