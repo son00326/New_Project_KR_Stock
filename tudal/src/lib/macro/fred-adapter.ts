@@ -291,11 +291,34 @@ function latestNumericObservations(
   return null;
 }
 
-// "YYYY-MM-DD" 두 날짜의 월 간격(later - earlier). 음수/NaN(malformed) 가능.
+const FRED_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function fredMonthParts(date: string): { year: number; month: number } | null {
+  const match = FRED_DATE_RE.exec(date);
+  if (match === null) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+  return { year, month };
+}
+
+// "YYYY-MM-DD" 두 날짜의 월 간격(later - earlier). 음수/NaN(malformed/non-FRED date) 가능.
 function monthsApart(laterDate: string, earlierDate: string): number {
-  const [ly, lm] = laterDate.split("-").map(Number);
-  const [ey, em] = earlierDate.split("-").map(Number);
-  return (ly - ey) * 12 + (lm - em);
+  const later = fredMonthParts(laterDate);
+  const earlier = fredMonthParts(earlierDate);
+  if (later === null || earlier === null) return Number.NaN;
+  return (later.year - earlier.year) * 12 + (later.month - earlier.month);
 }
 
 function observationLimitForSeries(seriesId: string): number {

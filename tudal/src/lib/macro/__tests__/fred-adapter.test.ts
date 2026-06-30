@@ -265,6 +265,14 @@ describe("toMacroIndicator — signal threshold 경계", () => {
     expect(r!.id).toBe("us-cpi");
     expect(r!.signal).toBe("bullish");
   });
+
+  it("CPIAUCSL malformed date → null (YoY 간격 fail-closed)", () => {
+    const series = cpiMonthly();
+    // split('-').map(Number)만 쓰면 YYYY-MM도 12개월 간격으로 오인되어 invalid updatedAt까지 전파된다.
+    series[0] = { ...series[0], date: "2026-06" };
+    series[12] = { ...series[12], date: "2025-06" };
+    expect(toMacroIndicator("CPIAUCSL", series)).toBeNull();
+  });
 });
 
 describe("buildFredMacroSource — 9 series parallel", () => {
@@ -424,6 +432,35 @@ describe("buildFredMacroSource — 9 series parallel", () => {
       });
       await vi.advanceTimersByTimeAsync(250);
       await expect(pending).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("한 series만 hung이면 per-series budget으로 해당 series만 drop하고 source 유지", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl: FredFetchImpl = async (url) => {
+        const sid = new URL(url).searchParams.get("series_id") ?? "";
+        if (sid === "DGS10") {
+          return new Promise<FredFetchResult>(() => {});
+        }
+        if (sid === "CPIAUCSL") {
+          return obsResult(cpiMonthly());
+        }
+        return obsResult(TWO_LEVEL);
+      };
+      const pending = buildFredMacroSource({
+        apiKey: DUMMY_KEY,
+        fetchImpl,
+        perSeriesTimeoutMs: 250,
+      });
+      await vi.advanceTimersByTimeAsync(250);
+      const src = await pending;
+      expect(src).not.toBeNull();
+      expect(src?.indicators).toHaveLength(8);
+      expect(src?.indicators.some((i) => i.id === "us-10y")).toBe(false);
+      expect(src?.verdict.summary).toContain("유효 지표 8/9");
     } finally {
       vi.useRealTimers();
     }
