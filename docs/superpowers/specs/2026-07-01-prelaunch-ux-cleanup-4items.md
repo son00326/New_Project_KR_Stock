@@ -1,6 +1,6 @@
 # 출시 전 UX/UI 정리 — 최종 제안 (2026-07-01)
 
-> **상태**: ✅ **WORKTREE-IMPLEMENTED (2026-07-01, `prelaunch-ux-cleanup`)** · 4-스텝 프로세스 CONVERGED(§10) · 게이트 GREEN · **commit/merge/prod deploy는 USER/ship 게이트**(§10). 설계 합의는 OMXY(Codex gpt-5.5 xhigh) 2회 토론 CONVERGED.
+> **상태**: ✅ **MERGED + DEPLOYED (2026-07-01, USER 승인 후) — main `6b3a501`, Vercel prod live·카나리 4/4.** GLM 5.2 primary 활성(Vercel `OPENROUTER_API_KEY` 주입 + 실 검증 통과). 4-스텝 프로세스 CONVERGED(§10) + 디자인 QA(§10 debt 6). 설계 합의는 OMXY(Codex gpt-5.5 xhigh) 2회 토론 CONVERGED. **잔여 = eval-harness 지속 품질 검증 + 라이브 admin 디자인 육안(로그인 필요) + 디자인 폴리시 debt.**
 > **원칙**: 심플·쉬움·사용자 편의. 리팩터링/재설계 아님 = "정리 + 심화 폴리시". 신규 top-level 기능 최소.
 > **대상**: 어드민 3인(본인+친구 2명, 비전문가) 내부 투자 도구. 곧 출시("AI 추천 + 가상 포트 + 알림", 자동매매 제외).
 > **실행 규율(USER 지시)**: 모든 작업은 **부합하는 스킬/에이전트**로 수행(§4 스킬 실행 맵). 디자인은 디자인 스킬로.
@@ -185,11 +185,12 @@ Diff stat은 문서 추가/수정 포함 여부에 따라 변동하므로 고정
 **GLM 실 API 실측 검증**(Claude STEP 3): OpenRouter `z-ai/glm-5.2`가 `reasoning_effort` + `response_format:json_object` 수용(finish_reason=stop, JSON 파싱 정상). GLM=reasoning 모델(reasoning_tokens 소비) → length는 transient 처리. judge/portfolio는 provider 호출 실패 시 Claude fallback, parse/log 실패 후 재호출 금지(중복 과금 위험 축소). 단 provider-call fallback 자체의 운영 관측성(log/metric)은 prod 전 eval-harness/실측 로그로 확인 또는 보강 필요. JSON 역할 responseFormat + 페르소나 `userPrompt.includes('json')` 조건부 responseFormat(OpenRouter "json 키워드" 제약 충족 + 산문 페르소나 미적용).
 
 **남은 debt / go-live USER 게이트**:
-1. **GLM prod 활성 = USER가 Vercel env `OPENROUTER_API_KEY` 주입**(워킹트리 미커밋/미머지·Vercel 키 미주입 상태에서는 prod 미활성, 키 부재 시 `ANTHROPIC_API_KEY`가 있으면 Claude fallback, 둘 다 없으면 fail-closed). 로컬 키가 필요하면 `.env.local`(gitignored)에만.
+1. ✅ **GLM prod 활성 — DONE (2026-07-01).** USER 승인 후 Vercel prod+dev `OPENROUTER_API_KEY` 주입 + 실 검증(프로즈 live smoke 실 provider ₩3.07 + judge/portfolio/persona JSON 스키마) 통과 → main 머지·배포. 키 부재 시 `ANTHROPIC_API_KEY` Claude fallback(무회귀). 로컬 키는 `.env.local`(gitignored)에만.
 2. **GLM 출력 품질 = eval-harness 게이트**(D28 목적함수: judge/portfolio JSON 스키마 준수 + tier1_panel 페르소나 파싱률 + full_report/revise 품질 + fallback 관측성 확인; critic은 GPT 경로 불변). GLM primary go-live 전 필수.
 3. **TriggerFullReportButton orphan**(개별 티커 수동 리포트 트리거) — 배치 생성+regenerate로 커버, 삭제 대신 문서 debt(비파괴, omxy 동의).
-4. **commit/merge/prod deploy(main/Vercel)** — ship 전 `git status --short`로 신규·untracked 파일 포함 확인 + 라이브 `/gstack-design-review`(populated+auth).
+4. ✅ **commit/merge/prod deploy — DONE (2026-07-01).** main `c25c061`(엔진/UX) → `5b058f3`(docs) → `6b3a501`(디자인 폴리시), Vercel prod Ready·카나리 4/4. 잔여 = 라이브 `/gstack-design-review`(populated+auth, admin 인증 뒤라 USER 세션 필요).
 5. `cacheWriteMult`/GLM write 단가 = 추정 상한 → 실 청구서 보정 TODO.
+6. **디자인 QA(2026-07-01, App-UI 감사 · AI-slop B+/A− · HIGH 0) 후속 폴리시 debt** — ✅ 적용(commit `6b3a501`): 홈 focal 정리(h1 "홈" + 장중/브리핑 보조 이동) · 잔여 은어("축 비중"/"(Short)") · 9px→11px 가독성. ⏸ 미적용(taste/다중 컴포넌트, 별도 신중): 시장색 오버로드(빨강/파랑 가격방향+델타상태 이중의미 → 델타 배지 success/muted 분리) · 이모지→lucide(📅👥⚠️🤖, 합의배지 예외) · 카드 border 드리프트(`border`→`border-border/70`) · 배너 본문 착색→foreground.
 
 ## 부록 — OMXY 토론 로그 요약
 
