@@ -190,7 +190,8 @@ Diff stat은 문서 추가/수정 포함 여부에 따라 변동하므로 고정
 3. **TriggerFullReportButton orphan**(개별 티커 수동 리포트 트리거) — 배치 생성+regenerate로 커버, 삭제 대신 문서 debt(비파괴, omxy 동의).
 4. ✅ **commit/merge/prod deploy — DONE (2026-07-01).** main `c25c061`(엔진/UX) → `5b058f3`(docs) → `6b3a501`(디자인 폴리시), Vercel prod Ready·카나리 4/4. 잔여 = 라이브 `/gstack-design-review`(populated+auth, admin 인증 뒤라 USER 세션 필요).
 5. `cacheWriteMult`/GLM write 단가 = 추정 상한 → 실 청구서 보정 TODO.
-6. **디자인 QA(2026-07-01, App-UI 감사 · AI-slop B+/A− · HIGH 0) 후속 폴리시 debt** — ✅ 적용(commit `6b3a501`): 홈 focal 정리(h1 "홈" + 장중/브리핑 보조 이동) · 잔여 은어("축 비중"/"(Short)") · 9px→11px 가독성. ⏸ 미적용(taste/다중 컴포넌트, 별도 신중): 시장색 오버로드(빨강/파랑 가격방향+델타상태 이중의미 → 델타 배지 success/muted 분리) · 이모지→lucide(📅👥⚠️🤖, 합의배지 예외) · 카드 border 드리프트(`border`→`border-border/70`) · 배너 본문 착색→foreground.
+6. ✅ **디자인 QA 후속 폴리시 — DONE (2026-07-01, App-UI 감사 · AI-slop B+/A− · HIGH 0).** 1차(commit `6b3a501`): 홈 focal 정리 · 잔여 은어 · 9px→11px. 2차(commit `93cb3dc`, dynamic workflow → omxy +4 → CONVERGED): **시장색 오버로드 분리**(델타 편입/신규→success · 제외→warning · 유지→muted; market-up/down은 가격[괴리율·수익률·sparkline] 전용 예약) · **이모지→lucide**(⚠️→AlertTriangle · 📅→Calendar · info 배너→Info; 🤖·합의배지 보존, 👥는 반환 문자열이라 제거만) · **카드 border 드리프트**(`border`→`border-border/70`, 중첩카드 rounded-2xl) · **font-mono 카운트→font-bold** · **장문 배너 본문 text-{warning|info}→text-foreground**(색은 아이콘/테두리만). 잔여 = 라이브 `/gstack-design-review`(로그인 필요).
+7. ✅ **사이드바 아코디언 — DONE (2026-07-01).** 실험·연구(commit `bfe2ca1`) + 설정(commit `93cb3dc`) 그룹을 native `<details>` 접이식(기본 접힘·무 JS·Server Component·클라 이동 간 상태 유지). 메인은 flat 상시 노출. nav invariant 테스트에 그룹별 collapsible 불변식 pin. → 비-일상 그룹 declutter로 홈/포트폴리오/성과에 집중.
 
 ## 부록 — OMXY 토론 로그 요약
 
