@@ -18,7 +18,8 @@ export default async function AdminDecisionTreePage() {
         <header>
           <h1 className="text-2xl font-bold tracking-tight">Decision Tree</h1>
           <p className="text-sm text-muted-foreground">
-            CAP Months · 누적 Alpha · Sharpe 게이지 3종 · 복합 AND 판정 (BL-8 A).
+            운영 결과를 확인하는 분석 화면입니다 — 목표 달성 개월 · 초과수익 ·
+            위험 대비 수익 지표를 종합 판정합니다.
           </p>
         </header>
         <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 px-6 py-12 text-center">
@@ -43,7 +44,8 @@ export default async function AdminDecisionTreePage() {
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Decision Tree</h1>
         <p className="text-sm text-muted-foreground">
-          CAP Months · 누적 Alpha · Sharpe 게이지 3종 · 복합 AND 판정 (BL-8 A).
+          운영 결과를 확인하는 분석 화면입니다 — 목표 달성 개월 · 초과수익 ·
+          위험 대비 수익 지표를 종합 판정합니다.
         </p>
       </header>
 
@@ -52,7 +54,12 @@ export default async function AdminDecisionTreePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* CAP Months gauge */}
           <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
-            <p className="text-xs text-muted-foreground">CAP Months</p>
+            <p
+              className="text-xs text-muted-foreground"
+              title="목표를 연속으로 달성한 개월 수"
+            >
+              목표 달성 개월
+            </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">
               {capMonths.currentStreak}/{CAP_MONTHS_TARGET}
             </p>
@@ -71,12 +78,19 @@ export default async function AdminDecisionTreePage() {
 
           {/* Alpha gauge */}
           <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
-            <p className="text-xs text-muted-foreground">누적 Alpha</p>
+            <p
+              className="text-xs text-muted-foreground"
+              title="시장 기준보다 더 낸 수익"
+            >
+              누적 초과수익
+            </p>
             <p
               className={`mt-1 text-2xl font-bold tabular-nums ${
-                snap.cumulativeAlpha >= 0
+                snap.cumulativeAlpha > 0
                   ? "text-market-up"
-                  : "text-market-down"
+                  : snap.cumulativeAlpha < 0
+                    ? "text-market-down"
+                    : "text-market-neutral"
               }`}
             >
               {(snap.cumulativeAlpha * 100).toFixed(2)}%
@@ -88,7 +102,12 @@ export default async function AdminDecisionTreePage() {
 
           {/* Sharpe gauge */}
           <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
-            <p className="text-xs text-muted-foreground">Sharpe</p>
+            <p
+              className="text-xs text-muted-foreground"
+              title="출렁임을 감안한 수익"
+            >
+              위험 대비 수익
+            </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">
               {snap.cumulativeSharpe.toFixed(2)}
             </p>
@@ -106,26 +125,34 @@ export default async function AdminDecisionTreePage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">종합 판정 (복합 AND)</p>
+            <p
+              className="text-xs text-muted-foreground"
+              title="세 기준을 모두 충족해야 통과"
+            >
+              종합 판정
+            </p>
             <p
               className={`mt-1 text-3xl font-bold ${
                 result.overall === "○"
-                  ? "text-market-up"
+                  ? "text-success"
                   : result.overall === "△"
                   ? "text-warning"
-                  : "text-market-down"
+                  : "text-destructive"
               }`}
             >
               {result.overall}
             </p>
           </div>
           <ul className="space-y-1 text-sm">
-            <li>Alpha ≥ 0 {result.breakdown.alpha ? "✅" : "❌"}</li>
-            <li>
-              Sharpe ≥ {SHARPE_THRESHOLD} {result.breakdown.sharpe ? "✅" : "❌"}
+            <li title="시장 기준보다 더 낸 수익이 0 이상">
+              초과수익 0 이상 {result.breakdown.alpha ? "✅" : "❌"}
             </li>
-            <li>
-              MDD ≥ {(MDD_THRESHOLD * 100).toFixed(0)}%{" "}
+            <li title={`위험 대비 수익이 ${SHARPE_THRESHOLD} 이상`}>
+              위험 대비 수익 {SHARPE_THRESHOLD} 이상{" "}
+              {result.breakdown.sharpe ? "✅" : "❌"}
+            </li>
+            <li title={`최대 낙폭이 ${(MDD_THRESHOLD * 100).toFixed(0)}% 이내`}>
+              최대 낙폭 {(MDD_THRESHOLD * 100).toFixed(0)}% 이내{" "}
               {result.breakdown.mdd ? "✅" : "❌"}
             </li>
           </ul>
@@ -167,18 +194,18 @@ export default async function AdminDecisionTreePage() {
           <strong
             className={
               result.overall === "○"
-                ? "text-market-up"
+                ? "text-success"
                 : result.overall === "△"
                 ? "text-warning"
-                : "text-market-down"
+                : "text-destructive"
             }
           >
             {result.overall}
           </strong>
         </p>
         <p className="mt-2 text-xs text-muted-foreground">
-          상세 기준: BusinessPlan §Q4 (내부 문서) · alpha≥0 AND Sharpe≥0.5 AND
-          MDD≥-15% 복합 AND.
+          판정 기준: 초과수익 0 이상 · 위험 대비 수익 0.5 이상 · 최대 낙폭 -15%
+          이내를 모두 충족해야 통과합니다.
         </p>
         <Link
           href="/admin/track-record"

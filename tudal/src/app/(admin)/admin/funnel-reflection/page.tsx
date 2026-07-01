@@ -17,6 +17,25 @@ const STATUS_LABEL: Record<FunnelReflectionRow["status"], string> = {
   rejected: "거절",
 };
 
+const FACTOR_LABEL: Record<string, string> = {
+  trend: "추세",
+  momentum: "모멘텀",
+  size: "규모",
+  supply: "수급",
+  volatility: "변동성",
+  financial: "재무",
+  financials: "재무",
+  quality: "안정성",
+  value: "가치",
+  growth: "성장성",
+};
+
+function formatPeriodLabel(periodKey: string): string {
+  const match = /^(\d{4}-\d{2})_(\d{4}-\d{2})$/.exec(periodKey);
+  if (!match) return "검토 기간";
+  return `${match[1]}~${match[2]} 검토`;
+}
+
 function diffWeights(
   champion: Record<string, number>,
   challenger: Record<string, number>,
@@ -24,6 +43,10 @@ function diffWeights(
   return Object.keys(challenger)
     .filter((k) => challenger[k] !== champion[k])
     .map((k) => ({ factor: k, from: champion[k] ?? 0, to: challenger[k] }));
+}
+
+function formatFactorLabel(factor: string): string {
+  return FACTOR_LABEL[factor] ?? "기타 지표";
 }
 
 export default async function FunnelReflectionPage() {
@@ -42,35 +65,35 @@ export default async function FunnelReflectionPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Tier0 Reflection Lab (G1)</h1>
+        <h1 className="text-2xl font-bold tracking-tight">AI 학습 (실험)</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          B++ funnel 가중치 champion/challenger 회고 제안 — 과거 150/30 + 실현 수익률 진단 기반.
+          과거 추천 결과와 실현 수익률을 되짚어, 종목 선정 가중치를 어떻게 조정할지
+          제안을 살펴보는 참고 화면입니다.
         </p>
-        <p className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning shadow-toss-sm">
-          ⚠ diagnostic only — <strong>자동 적용 영구 금지</strong>(승인=기록만, funnel/production 무변경) ·
-          예측 아님(forward-validate 후에만 채택) · PR-K(prompt 주입 회고)와 <strong>다른 층</strong>(numeric
-          funnel 가중치).
+        <p className="mt-2 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-info shadow-toss-sm">
+          참고용 실험 화면입니다 — 여기서 검토한 내용은 실제 추천/운영에 자동으로
+          반영되지 않습니다. 승인해도 기록만 남습니다.
         </p>
         {!adminVerified && (
           <p
             role="status"
             className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
           >
-            ⚠ 권한 미확인 — admin_emails 등록 확인 필요.
+            ⚠ 권한 미확인 — 관리자 계정 등록을 확인해 주세요.
           </p>
         )}
       </header>
 
       {loadError && (
         <p className="rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning shadow-toss-sm">
-          제안 조회 실패 — 마이그 0047 미적용 또는 권한 문제일 수 있습니다.
+          제안을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
         </p>
       )}
 
       {!loadError && proposals.length === 0 ? (
-        <p className="rounded-2xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground shadow-toss-sm">
-          제안 없음 — 마이그 0047 apply + `FUNNEL_REFLECTION_ENABLED=true` + KRX 키 + funnel reflection
-          job 실행 후 회고 제안이 쌓입니다. (계측 먼저 · 완성 늦게)
+        <p className="rounded-2xl border bg-muted/30 px-6 py-10 text-center text-sm text-muted-foreground shadow-toss-sm">
+          아직 준비 중입니다 — 학습에 필요한 데이터가 쌓이면 조정 제안이 여기에
+          표시됩니다.
         </p>
       ) : (
         <ul className="space-y-3">
@@ -79,7 +102,9 @@ export default async function FunnelReflectionPage() {
             return (
               <li key={p.id} className="rounded-2xl border bg-card p-4 shadow-toss-sm">
                 <header className="flex items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-semibold">{p.periodKey}</h2>
+                  <h2 className="text-sm font-semibold">
+                    {formatPeriodLabel(p.periodKey)}
+                  </h2>
                   <span className="text-xs text-muted-foreground">
                     {STATUS_LABEL[p.status]} ·{" "}
                     {new Date(p.createdAt).toLocaleString("ko-KR", { hour12: false })}
@@ -90,7 +115,7 @@ export default async function FunnelReflectionPage() {
                   <ul className="mt-2 space-y-0.5 text-xs">
                     {diffs.map((d) => (
                       <li key={d.factor} className="tabular-nums">
-                        <strong>{d.factor}</strong>: {d.from} → {d.to}
+                        <strong>{formatFactorLabel(d.factor)}</strong>: {d.from} → {d.to}
                       </li>
                     ))}
                   </ul>

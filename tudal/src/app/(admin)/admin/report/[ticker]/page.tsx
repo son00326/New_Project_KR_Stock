@@ -97,10 +97,10 @@ const SECTION_LIST = [
   { id: "section-3", label: "3 · 밸류에이션", defaultOpen: false },
   { id: "section-4", label: "4 · 성장성", defaultOpen: false },
   { id: "section-5", label: "5 · 리스크", defaultOpen: false },
-  { id: "section-6", label: "6 · 모멘텀 (5-Signal·3축)", defaultOpen: false },
-  { id: "section-7", label: "7 · Exit 조건", defaultOpen: false },
+  { id: "section-6", label: "6 · 모멘텀 (신호·3축)", defaultOpen: false },
+  { id: "section-7", label: "7 · 매도 검토 조건", defaultOpen: false },
   { id: "section-8", label: "8 · 최종 의견 + 투심위", defaultOpen: true },
-  { id: "appendix", label: "Appendix", defaultOpen: false },
+  { id: "appendix", label: "부록", defaultOpen: false },
 ] as const;
 
 export default async function AdminReportPage({
@@ -133,6 +133,12 @@ export default async function AdminReportPage({
   const viewers = await getViewersForReport(report.id);
   const viewerCount = await getDistinctViewerCountForReport(report.id);
   const neighbors = deriveBucketNeighbors(ticker, shortlist);
+  const bucketLabel =
+    shortListRow.bucket === "short"
+      ? "단기"
+      : shortListRow.bucket === "mid"
+        ? "중기"
+        : "장기";
 
   // PR3a — getReportByTicker returns ValidatedStockReport. 각 section은
   // zod safeParse 결과로 ReportSectionX | null. 미구현 본문은 fallback UI 렌더.
@@ -156,7 +162,7 @@ export default async function AdminReportPage({
           className="mb-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          Short List 30
+          이번 달 추천 30
         </Link>
         <nav aria-label="리포트 섹션">
           <ul className="space-y-0.5 border-l">
@@ -173,9 +179,9 @@ export default async function AdminReportPage({
           </ul>
         </nav>
 
-        {/* D15 R3.3-8 2인 열람 게이팅 카운터 */}
+        {/* D15 R3.3-8 2인 열람 확인 카운터 */}
         <div className="mt-4 rounded-xl border bg-muted/30 p-3 text-xs shadow-toss-sm">
-          <div className="mb-0.5 font-semibold">열람 게이팅</div>
+          <div className="mb-0.5 font-semibold">열람 확인</div>
           <div className="tabular-nums">
             {viewerCount}/2명 열람 완료
             {viewerCount >= 2 ? (
@@ -183,7 +189,7 @@ export default async function AdminReportPage({
             ) : null}
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            D15 R3.3-8 · S3 Accept 활성 조건
+            확정 전 2명 이상 열람 필요
           </div>
         </div>
       </aside>
@@ -197,9 +203,9 @@ export default async function AdminReportPage({
             <span>·</span>
             <span>{shortListRow.sector}</span>
             <span>·</span>
-            <span>bucket {shortListRow.bucket}</span>
+            <span>구간 {bucketLabel}</span>
             <span>·</span>
-            <span>rank {shortListRow.rank}</span>
+            <span>순위 {shortListRow.rank}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
             <h1 className="flex flex-wrap items-baseline gap-3 text-2xl font-bold tracking-tight">
@@ -219,11 +225,11 @@ export default async function AdminReportPage({
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             <span>
-              Composite{" "}
+              종합 점수{" "}
               <b className="font-mono tabular-nums">{shortListRow.compositeScore}</b>
             </span>
             <span>
-              Conviction{" "}
+              확신도{" "}
               <b className="font-mono tabular-nums">
                 {section0?.conviction ?? "—"}
               </b>
@@ -285,7 +291,7 @@ export default async function AdminReportPage({
             <span />
           )}
           <span className="text-xs text-muted-foreground">
-            버킷 <b>{shortListRow.bucket}</b> 내 순서
+            구간 <b>{bucketLabel}</b> 내 순서
           </span>
           {neighbors.next ? (
             <Link
@@ -419,8 +425,8 @@ function ReportSummaryAiRow({
       </span>
       <span
         className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
-        title={pending ? "AI 분석 대기 (Tier 0 지표만)" : `합의 배지 ${BADGE_LABEL[badge]}`}
-        aria-label={pending ? "AI 분석 대기" : `합의 배지 ${BADGE_LABEL[badge]}`}
+        title={pending ? "심층 분석 준비 중 (기초 지표만)" : `합의 배지 ${BADGE_LABEL[badge]}`}
+        aria-label={pending ? "심층 분석 준비 중" : `합의 배지 ${BADGE_LABEL[badge]}`}
       >
         <span aria-hidden>{badge}</span>
         <span>{BADGE_LABEL[badge]}</span>
@@ -431,13 +437,12 @@ function ReportSummaryAiRow({
 
 // PR3b MERGED (cf68731) — writer Section 0~7 본문 구현 완료. 이 fallback은 더 이상 '미구현' 상태가 아니라
 //   해당 섹션 jsonb가 비어 있거나(아직 미생성) zod validation 실패 시의 degraded UI다.
-function SectionFallback({ sectionId }: { sectionId: string }) {
+function SectionFallback() {
   return (
     <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-4 text-sm text-muted-foreground">
-      <div className="font-medium">본문 미작성</div>
+      <div className="font-medium">아직 준비 중입니다</div>
       <p className="mt-1 text-xs">
-        {sectionId} 본문이 아직 생성되지 않았거나 validation에 실패했습니다.
-        DB에 해당 섹션 jsonb가 비어 있거나 형식 검증을 통과하지 못한 상태입니다.
+        리포트 본문 생성이 끝나면 표시됩니다.
       </p>
     </div>
   );
@@ -446,7 +451,7 @@ function SectionFallback({ sectionId }: { sectionId: string }) {
 // ─── 섹션별 렌더러 ───────────────────────────────────────────────────────────
 
 function Section0View({ data }: { data: ReportSection0 | null }) {
-  if (!data) return <SectionFallback sectionId="0 · 투자 요약" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-4">
       <h3 className="text-base font-semibold">{data.headline}</h3>
@@ -457,20 +462,20 @@ function Section0View({ data }: { data: ReportSection0 | null }) {
       </ol>
       <div className="grid gap-3 md:grid-cols-3">
         <ConvictionGauge value={data.conviction} />
-        <MiniBar label="Core 11" agg={data.committeeMini.core} />
-        <MiniBar label="Sector" agg={data.committeeMini.sector} />
+        <MiniBar label="핵심 위원" agg={data.committeeMini.core} />
+        <MiniBar label="섹터" agg={data.committeeMini.sector} />
       </div>
       <div className="rounded-xl border bg-muted/30 px-3 py-2 text-xs">
         <span className="text-muted-foreground">목표가 시나리오</span>
         <div className="mt-1 flex gap-4 font-mono tabular-nums">
           <span>
-            Bear <b>{data.priceBands.bear}</b>
+            약세 <b>{data.priceBands.bear}</b>
           </span>
           <span>
-            Base <b>{data.priceBands.base}</b>
+            기준 <b>{data.priceBands.base}</b>
           </span>
           <span>
-            Bull <b>{data.priceBands.bull}</b>
+            강세 <b>{data.priceBands.bull}</b>
           </span>
         </div>
       </div>
@@ -479,7 +484,7 @@ function Section0View({ data }: { data: ReportSection0 | null }) {
 }
 
 function Section1View({ data }: { data: ReportSection1 | null }) {
-  if (!data) return <SectionFallback sectionId="1 · 기업 개요" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-3">
       <p>{data.description}</p>
@@ -514,7 +519,7 @@ function Section1View({ data }: { data: ReportSection1 | null }) {
 }
 
 function Section2View({ data }: { data: ReportSection2 | null }) {
-  if (!data) return <SectionFallback sectionId="2 · 재무 분석" />;
+  if (!data) return <SectionFallback />;
   if (data.revenue.length === 0) {
     return (
       <div className="space-y-2">
@@ -567,7 +572,7 @@ function Section2View({ data }: { data: ReportSection2 | null }) {
 }
 
 function Section3View({ data }: { data: ReportSection3 | null }) {
-  if (!data) return <SectionFallback sectionId="3 · 밸류에이션" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
@@ -600,7 +605,7 @@ function Section3View({ data }: { data: ReportSection3 | null }) {
 }
 
 function Section4View({ data }: { data: ReportSection4 | null }) {
-  if (!data) return <SectionFallback sectionId="4 · 성장성" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-2">
       <p>{data.summary}</p>
@@ -615,7 +620,7 @@ function Section4View({ data }: { data: ReportSection4 | null }) {
 }
 
 function Section5View({ data }: { data: ReportSection5 | null }) {
-  if (!data) return <SectionFallback sectionId="5 · 리스크" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-2">
       <p>{data.summary}</p>
@@ -638,16 +643,16 @@ function Section5View({ data }: { data: ReportSection5 | null }) {
 }
 
 function Section6View({ data }: { data: ReportSection6 | null }) {
-  if (!data) return <SectionFallback sectionId="6 · 모멘텀 (5-Signal·3축)" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
 
       {/* T2.7 3축 게이지 — S1 shortlist-row의 AxisBar 패턴 재사용 */}
       <div className="space-y-1.5">
-        <AxisRow label="추세 (Trend)" value={data.axis.trend} />
-        <AxisRow label="모멘텀 (Momentum)" value={data.axis.momentum} />
-        <AxisRow label="변동성 Quality" value={data.axis.volatility} />
+        <AxisRow label="추세" value={data.axis.trend} />
+        <AxisRow label="모멘텀" value={data.axis.momentum} />
+        <AxisRow label="변동성 안정성" value={data.axis.volatility} />
       </div>
 
       {/* 5-Signal 상태 */}
@@ -672,12 +677,12 @@ function Section6View({ data }: { data: ReportSection6 | null }) {
 }
 
 function Section7View({ data }: { data: ReportSection7 | null }) {
-  if (!data) return <SectionFallback sectionId="7 · Exit 조건" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-3">
       <p>{data.summary}</p>
       <div>
-        <div className="mb-1 text-xs font-semibold text-muted-foreground">Exit 트리거</div>
+        <div className="mb-1 text-xs font-semibold text-muted-foreground">매도 검토 조건</div>
         <ul className="list-disc space-y-0.5 pl-5 text-sm">
           {data.triggers.map((t, i) => (
             <li key={i}>{t}</li>
@@ -720,15 +725,15 @@ function Section8View({
       <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-4 text-sm">
         <span
           className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground"
-          title="Tier 1 합의 평가 대기 (투심위 미생성 또는 validation 실패)"
-          aria-label="Tier 1 평가 대기"
+          title="AI 심층 평가 대기 중"
+          aria-label="AI 심층 평가 대기 중"
         >
           <span aria-hidden>🤖</span>
-          Tier 1 평가 대기
+          AI 심층 평가 대기 중
         </span>
         <p className="mt-2 text-xs text-muted-foreground">
-          최종 의견·투심위(Section 8)가 아직 생성되지 않았거나 validation에 실패했습니다.
-          AI 합의 평가 이후 정상 jsonb가 저장되면 채워집니다.
+          최종 의견과 투자심의 결과가 아직 준비되지 않았습니다.
+          AI 심층 평가가 끝나면 자동으로 채워집니다.
         </p>
       </div>
     );
@@ -794,7 +799,7 @@ function Section8ModernView({
     <div className="space-y-4">
       <div className="rounded-xl border bg-muted/20 px-3 py-2">
         <div className="mb-0.5 text-xs font-semibold text-muted-foreground">
-          최종 판정 (Part C — 합의 패널)
+          최종 판정 (합의 패널)
         </div>
         <p className="font-medium">{verdictLabel}</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
@@ -803,7 +808,7 @@ function Section8ModernView({
           ))}
         </ul>
         <div className="mt-1 text-xs text-muted-foreground">
-          Core 11 재투표: 찬성 {data.partC.core_revote.buy} · 관망{" "}
+          핵심 위원 재투표: 찬성 {data.partC.core_revote.buy} · 관망{" "}
           {data.partC.core_revote.hold} · 반대 {data.partC.core_revote.sell}
           {data.partC.co_chair_unanimous ? " · 위원장 만장일치" : ""}
         </div>
@@ -811,9 +816,9 @@ function Section8ModernView({
 
       {/* B3 정정 — partC authoritative 집계 */}
       <div className="grid gap-3 md:grid-cols-2">
-        <VoteAggCard title="Core Committee (Part C 재투표)" agg={partCCoreAgg} />
+        <VoteAggCard title="핵심 위원 재투표" agg={partCCoreAgg} />
         <VoteAggCard
-          title={`Sector Board — ${sector} (Part C 집계)`}
+          title={`섹터 의견 — ${sector}`}
           agg={partCSectorAgg}
         />
       </div>
@@ -824,7 +829,7 @@ function Section8ModernView({
       {data.partA.length === 14 && (
         <div>
           <div className="text-xs font-semibold text-muted-foreground">
-            섹터 14인 패널 의견 (Part A)
+            섹터 패널 의견
           </div>
           {sectorLensSummary !== null && (
             <div className="mb-1.5 text-xs leading-snug text-muted-foreground">
@@ -858,13 +863,13 @@ function Section8ModernView({
       )}
       {data.partA.length === 0 && (
         <div className="rounded-xl border border-dashed bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
-          섹터 14인 패널 미활성 — Tier 2 cost gate OFF 또는 ⚪ 케이스. Core 11 평가만 표시.
+          섹터 전문가 패널 미포함 — 핵심 위원 평가만 표시합니다.
         </div>
       )}
 
       <div>
         <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
-          Core 11 개별 의견 (Part D)
+          핵심 위원 개별 의견
         </div>
         <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
           {data.partD.map((p) => (
@@ -888,7 +893,7 @@ function Section8ModernView({
       {data.partB.length > 0 && (
         <div>
           <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
-            쟁점 (Part B)
+            쟁점
           </div>
           <ul className="space-y-1.5">
             {data.partB.map((b, i) => (
@@ -924,19 +929,19 @@ function Section8ModernView({
       {/* B3 정정 — committee_votes 외부 집계는 audit 패널로 분리. drift 시 사용자 확인. */}
       <details className="rounded-xl border bg-muted/10">
         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold [&::-webkit-details-marker]:hidden">
-          ▸ committee_votes audit ({coreVotes.length + sectorVotes.length}건 / Part C와 일치 시 정상)
+          ▸ 투표 기록 점검 ({coreVotes.length + sectorVotes.length}건 / 최종 판정과 일치 시 정상)
         </summary>
         <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
-          <VoteAggCard title="Core (committee_votes 집계)" agg={coreAgg} />
+          <VoteAggCard title="핵심 위원 집계" agg={coreAgg} />
           <VoteAggCard
-            title={`Sector — ${sector} (committee_votes 집계)`}
+            title={`섹터 집계 — ${sector}`}
             agg={sectorAgg}
           />
         </div>
         <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
-          <VoteList title="Core" votes={coreVotes} personas={CORE_PERSONAS} />
+          <VoteList title="핵심 위원" votes={coreVotes} personas={CORE_PERSONAS} />
           <VoteList
-            title={`Sector — ${sector}`}
+            title={`섹터 위원 — ${sector}`}
             votes={sectorVotes}
             personas={getSectorPersonas(sector)}
           />
@@ -971,9 +976,9 @@ function Section8LegacyView({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <VoteAggCard title="Core Committee (11명)" agg={coreAgg} />
+        <VoteAggCard title="핵심 위원 집계 (11명)" agg={coreAgg} />
         <VoteAggCard
-          title={`Sector Board — ${sector} (${sectorVotes.length}명)`}
+          title={`섹터 위원 집계 — ${sector} (${sectorVotes.length}명)`}
           agg={sectorAgg}
         />
       </div>
@@ -1008,9 +1013,9 @@ function Section8LegacyView({
           ▸ 위원별 개별 투표 보기 ({coreVotes.length + sectorVotes.length}건)
         </summary>
         <div className="grid gap-3 border-t px-3 py-2 md:grid-cols-2">
-          <VoteList title="Core" votes={coreVotes} personas={CORE_PERSONAS} />
+          <VoteList title="핵심 위원" votes={coreVotes} personas={CORE_PERSONAS} />
           <VoteList
-            title={`Sector — ${sector}`}
+            title={`섹터 위원 — ${sector}`}
             votes={sectorVotes}
             personas={getSectorPersonas(sector)}
           />
@@ -1027,7 +1032,7 @@ function AppendixView({
   data: ReportAppendix | null;
   viewers: number;
 }) {
-  if (!data) return <SectionFallback sectionId="Appendix" />;
+  if (!data) return <SectionFallback />;
   return (
     <div className="space-y-3">
       <div>
@@ -1051,7 +1056,7 @@ function AppendixView({
       </div>
       <div className="rounded-xl border bg-muted/20 px-3 py-2 text-xs">
         <FileText className="-mt-0.5 mr-1 inline h-3.5 w-3.5" aria-hidden />
-        리포트 열람 로그: 총 {viewers}건 (1일 1회 dedupe · BL-5 B · G-5 B)
+        리포트 열람: 총 {viewers}건 (하루 1회 집계)
       </div>
     </div>
   );
@@ -1063,7 +1068,7 @@ function ConvictionGauge({ value }: { value: number }) {
   return (
     <div className="rounded-xl border bg-card px-3 py-2">
       <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-        Conviction
+        확신도
       </div>
       <div className="mt-1 flex items-baseline gap-1 font-mono">
         <span className="text-2xl font-semibold tabular-nums">{value}</span>
@@ -1263,7 +1268,7 @@ function DeltaPill({ status }: { status: "new" | "hold" | "removed" }) {
   if (status === "new") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-market-up/15 px-2 py-0.5 text-xs font-semibold text-market-up">
-        NEW · 신규 편입
+        신규 편입
       </span>
     );
   }
@@ -1271,13 +1276,13 @@ function DeltaPill({ status }: { status: "new" | "hold" | "removed" }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-market-down/15 px-2 py-0.5 text-xs font-semibold text-market-down">
         <ArrowLeftRight className="h-3 w-3" aria-hidden />
-        REMOVED
+        제외
       </span>
     );
   }
   return (
     <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-      HOLD
+      유지
     </span>
   );
 }

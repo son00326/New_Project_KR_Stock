@@ -36,18 +36,18 @@ describe('PR-A follow-up — cost page is_admin gate + totalKrw=0 정직화 (sou
     );
   });
 
-  it("adminVerified ? (기존 'totalKrw=0 정상' 캡션) : (권한 미확인 배너) 분기 — 단정 제거", () => {
+  it("adminVerified ? 실 비용 기록 안내 : 권한 미확인 배너 분기 — 단정 제거", () => {
     expect(source).toMatch(/\{\s*adminVerified\s*\?/);
-    expect(source).toContain('totalKrw=0 (정상)');
+    expect(source).toContain('실 비용 기록을 조회합니다');
     expect(source).toContain('권한 미확인');
-    expect(source).toContain('admin_emails 등록 확인');
-    expect(source).toContain('권한 검증 실패(RLS deny)');
+    expect(source).toContain('관리자 이메일 등록 확인');
+    expect(source).toContain('권한 설정 문제');
   });
 
   it('단정 캡션은 adminVerified=true 가지(분기 true-branch)에만 — source 순서 invariant', () => {
     const ternaryIdx = source.search(/\{\s*adminVerified\s*\?/);
     expect(ternaryIdx).toBeGreaterThanOrEqual(0);
-    const okCaptionIdx = source.indexOf('totalKrw=0 (정상)', ternaryIdx);
+    const okCaptionIdx = source.indexOf('실 비용 기록을 조회합니다', ternaryIdx);
     const bannerIdx = source.indexOf('권한 미확인', ternaryIdx);
     expect(okCaptionIdx).toBeGreaterThan(ternaryIdx);
     expect(bannerIdx).toBeGreaterThan(okCaptionIdx);

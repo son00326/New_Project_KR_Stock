@@ -24,7 +24,8 @@ const m = vi.hoisted(() => ({
     async () => ({ success: true }),
   ),
   callPersona: vi.fn(),
-  isAnthropicAvailable: vi.fn<() => boolean>(() => true),
+  // 항목1 — AI 가용성 토글: 구 isAnthropicAvailable → isRoleProviderAvailable(tier1_panel).
+  isRoleProviderAvailable: vi.fn<() => boolean>(() => true),
   preflightHardcap: vi.fn(async () => ({})),
 }));
 
@@ -42,9 +43,6 @@ vi.mock("@/lib/data/admin-alerts-insert", () => ({
 }));
 vi.mock("@/lib/notify/telegram", () => ({ sendTelegram: m.sendTelegram }));
 vi.mock("@/lib/ai/anthropic-client", () => ({ callPersona: m.callPersona }));
-vi.mock("@/lib/ai/provider", () => ({
-  isAnthropicAvailable: m.isAnthropicAvailable,
-}));
 vi.mock("@/lib/cost/cost-logger", () => ({
   preflightHardcap: m.preflightHardcap,
 }));
@@ -56,6 +54,7 @@ vi.mock("@/lib/ai/prompts/personas", () => ({
 }));
 vi.mock("@/lib/ai/model-registry", () => ({
   getRoleWorstCaseMaxCostPerCallKrw: () => 100,
+  isRoleProviderAvailable: m.isRoleProviderAvailable,
 }));
 
 import { runM12aForBriefing } from "@/lib/news/m12a/briefing-integration";
@@ -67,7 +66,7 @@ const {
   insertAlertEvents,
   sendTelegram,
   callPersona,
-  isAnthropicAvailable,
+  isRoleProviderAvailable,
   preflightHardcap,
 } = m;
 
@@ -108,7 +107,7 @@ const authGetUserById = vi.spyOn(client.auth.admin, "getUserById");
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
-  isAnthropicAvailable.mockReturnValue(true);
+  isRoleProviderAvailable.mockReturnValue(true);
   authGetUserById.mockResolvedValue({
     data: { user: testAuthUser },
     error: null,
@@ -292,7 +291,7 @@ describe("runM12aForBriefing — on-path 연결포인트 (cron→eval→orchestr
   });
 
   it("AI 미가용 → orchestrator skip(ai_unavailable), ran false", async () => {
-    isAnthropicAvailable.mockReturnValue(false);
+    isRoleProviderAvailable.mockReturnValue(false);
     const res = await runM12aForBriefing({
       client,
       nowIso: "2026-06-26T00:00:00.000Z",

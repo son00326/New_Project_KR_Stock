@@ -6,7 +6,25 @@ import { MODEL_PRICING, type AiProviderId } from '@/lib/cost/anthropic-pricing';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { anthropicProvider } from './anthropic-provider';
 import { openaiProvider } from './openai-provider';
-import { isOpenAiAvailable, type LlmProvider } from './provider';
+import { openrouterProvider } from './openrouter-provider';
+import {
+  isAnthropicAvailable,
+  isOpenAiAvailable,
+  isOpenRouterAvailable,
+  type LlmProvider,
+} from './provider';
+
+// 항목1 — provider id → 인스턴스/가용성 맵 (구 삼항식 2곳 대체). 신 provider 추가 = 여기 1줄.
+const PROVIDERS: Record<AiProviderId, LlmProvider> = {
+  anthropic: anthropicProvider,
+  openai: openaiProvider,
+  openrouter: openrouterProvider,
+};
+const PROVIDER_AVAILABLE: Record<AiProviderId, () => boolean> = {
+  anthropic: isAnthropicAvailable,
+  openai: isOpenAiAvailable,
+  openrouter: isOpenRouterAvailable,
+};
 
 export type AiRole =
   | 'tier1_panel'     // Core 11 채점 (현 단발 — W1에서 D28 ① 토론 mix로 진화)
@@ -34,16 +52,20 @@ interface RoleEntry {
 
 const A = (model: string, pricingKey: string = model): ModelBinding => ({ provider: 'anthropic', model, pricingKey });
 const O = (model: string, pricingKey: string = model): ModelBinding => ({ provider: 'openai', model, pricingKey });
+// 항목1 — GLM 5.2 primary 바인딩 헬퍼 (OpenRouter slug "z-ai/glm-5.2", pricingKey='glm-5.2').
+const G = (): ModelBinding => ({ provider: 'openrouter', model: 'z-ai/glm-5.2', pricingKey: 'glm-5.2' });
 
-// D28 B-final 기본 배분. tier1_panel은 W1 토론 mix 배선 전까지 현행(opus-4-7) 유지 — W0 무회귀.
+// 항목1 — 기존 Claude preferred 역할(judge/full_report/revise/portfolio)을 GLM primary + Claude fallback로 재바인딩.
+//   GPT 역할(dual_judge_gpt/critic)·slot GPT는 불변. OPENROUTER 키 부재 시 resolveRole이 fallback(Claude)로 auto-detect.
+//   tier1_panel은 W1 mix 배선 전 비패널 fallback 경로 보존용 — preferred=GLM/fallback=opus-4-7 (Sonnet slot은 resolveTier1PanelSlot).
 export const MODEL_REGISTRY: Record<AiRole, RoleEntry> = {
-  tier1_panel:    { preferred: A('claude-opus-4-7'), calibration: { inputTokens: 1500, outputTokens: 2000 }, maxTokens: 1024 },
-  debate_judge:   { preferred: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 2048 },
+  tier1_panel:    { preferred: G(), fallback: A('claude-opus-4-7'), calibration: { inputTokens: 1500, outputTokens: 2000 }, maxTokens: 3072 },
+  debate_judge:   { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 3072 },
   dual_judge_gpt: { preferred: O('gpt-5.5'), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 2048 },
-  full_report:    { preferred: A('claude-opus-4-8'), calibration: { inputTokens: 3000, outputTokens: 6000 }, maxTokens: 8192 },
-  revise:         { preferred: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 6000 }, maxTokens: 8192 },
+  full_report:    { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 3000, outputTokens: 6000 }, maxTokens: 8192 },
+  revise:         { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 6000 }, maxTokens: 8192 },
   critic:         { preferred: O('gpt-5.4'), fallback: A('claude-haiku-4-5-20251001', 'claude-haiku-4-5'), calibration: { inputTokens: 9000, outputTokens: 2048 }, maxTokens: 2048 },
-  portfolio:      { preferred: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 4000 }, maxTokens: 4096 },
+  portfolio:      { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 4000 }, maxTokens: 6144 },
 };
 
 // 모듈 로드 시 invariant: 모든 binding의 pricingKey가 MODEL_PRICING에 존재 (호출 전 fail-closed —
@@ -64,14 +86,45 @@ export interface ResolvedRole {
   maxTokens: number;
 }
 
-// D28 A: Claude = 필수 primary. ANTHROPIC_API_KEY 부재 = AI 기능 전체 비활성 (caller가
-// 기존 계약대로 'ai_key_unavailable' throw — resolve는 가용성 판단만).
+// 항목1 — provider 선택 일반화: preferred 미가용(env 키 부재)이면 fallback으로. (구 openai-only 삼항 대체.)
+//   GLM primary → OPENROUTER 키 부재 시 Claude fallback / GPT preferred → OPENAI 키 부재 시 Claude fallback.
+function pickBinding(entry: RoleEntry): ModelBinding {
+  if (!PROVIDER_AVAILABLE[entry.preferred.provider]() && entry.fallback) {
+    return entry.fallback;
+  }
+  return entry.preferred;
+}
+
+// resolve는 가용성 판단만 — 실 키 부재 시의 'ai_key_unavailable' throw는 caller 게이트(isRoleProviderAvailable) 책임.
 export function resolveRole(role: AiRole): ResolvedRole {
   const entry = MODEL_REGISTRY[role];
-  const useFallback = entry.preferred.provider === 'openai' && !isOpenAiAvailable() && entry.fallback;
-  const binding = useFallback ? entry.fallback! : entry.preferred;
-  const provider = binding.provider === 'openai' ? openaiProvider : anthropicProvider;
+  const binding = pickBinding(entry);
+  const provider = PROVIDERS[binding.provider];
   return { role, provider, model: binding.model, pricingKey: binding.pricingKey, maxTokens: entry.maxTokens };
+}
+
+export function resolveRoleCandidates(role: AiRole): ResolvedRole[] {
+  const entry = MODEL_REGISTRY[role];
+  const bindings = [entry.preferred, entry.fallback].filter(
+    (binding): binding is ModelBinding =>
+      binding !== undefined && PROVIDER_AVAILABLE[binding.provider](),
+  );
+  return bindings.map((binding) => ({
+    role,
+    provider: PROVIDERS[binding.provider],
+    model: binding.model,
+    pricingKey: binding.pricingKey,
+    maxTokens: entry.maxTokens,
+  }));
+}
+
+// 항목1 — provider-agnostic 게이트 헬퍼. 역할이 실제로 resolve될 provider(preferred 또는 fallback)의
+//   env 키가 있는지 판정. GLM primary 역할이 Claude fallback으로 내려가는 경우도 정상 가용으로 취급
+//   (구 ANTHROPIC_API_KEY 하드 게이트가 GLM-only 배포에서 AI를 거짓 비활성화하던 문제 제거).
+//   preferred·fallback 모두 미가용일 때만 false → caller가 'ai_key_unavailable' throw.
+export function isRoleProviderAvailable(role: AiRole): boolean {
+  const binding = pickBinding(MODEL_REGISTRY[role]);
+  return PROVIDER_AVAILABLE[binding.provider]();
 }
 
 // D28 ③ model-aware reservation: 역할별 (콜수 × 해당 모델 calibration 단가).
@@ -154,20 +207,28 @@ export const W2_TRACK_VOLUME = {
 // ---------------------------------------------------------------------------
 // W1a (D28 ①) — Core 11 혼합 슬롯. CORE_11 배열 index 기준 interleave(가설 기본값 —
 // track-record 적중률 측정 후 여기 1곳 조정):
-//   짝수 idx = Claude Sonnet 4.6 (6 슬롯: 0,2,4,6,8,10) / 홀수 idx = GPT mid (5 슬롯: 1,3,5,7,9).
-//   GPT 미가용(auto-detect) → 해당 슬롯 Sonnet = 전원 Claude (D28 C fallback, GPT-only 미지원).
-//   calibration/maxTokens는 tier1_panel 역할 공유. preferred(opus-4-7)는 비패널 fallback 경로 보존.
+//   짝수 idx = Claude 슬롯 6개(0,2,4,6,8,10) / 홀수 idx = GPT mid 5개(1,3,5,7,9).
+//   항목1: 짝수(Claude) 슬롯 = GLM 5.2 primary → OPENROUTER 키 부재 시 Sonnet 4.6 fallback(auto-detect).
+//   홀수(GPT) 슬롯 = GPT 미가용 시 Sonnet 4.6 fallback (D28 C, GPT-only 미지원) — 불변.
+//   calibration/maxTokens는 tier1_panel 역할 공유.
 // ---------------------------------------------------------------------------
 export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
   if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 10) {
     throw new Error(`tier1_panel_slot_out_of_range:${slotIndex}`);
   }
   const entry = MODEL_REGISTRY.tier1_panel;
-  const useGpt = slotIndex % 2 === 1 && isOpenAiAvailable();
-  const binding: ModelBinding = useGpt
-    ? O(D28_DEBATE_CONFIG.gptMidModel)
-    : A(D28_DEBATE_CONFIG.claudeSonnetModel);
-  const provider = binding.provider === 'openai' ? openaiProvider : anthropicProvider;
+  const isGptSlot = slotIndex % 2 === 1;
+  let binding: ModelBinding;
+  if (isGptSlot) {
+    binding = isOpenAiAvailable()
+      ? O(D28_DEBATE_CONFIG.gptMidModel)
+      : A(D28_DEBATE_CONFIG.claudeSonnetModel);
+  } else if (isOpenRouterAvailable()) {
+    binding = G(); // 항목1 — Claude 슬롯 = GLM primary
+  } else {
+    binding = A(D28_DEBATE_CONFIG.claudeSonnetModel); // OpenRouter 부재 → Sonnet fallback
+  }
+  const provider = PROVIDERS[binding.provider];
   return {
     role: 'tier1_panel',
     provider,
@@ -177,8 +238,6 @@ export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
   };
 }
 
-// W1a (D8) — reservation 보수 단가: mix 슬롯(Sonnet/GPT mid) 중 최고가, env 무관
-//   (GPT-off 시 전원 Sonnet ≤ max → undercount 금지 보존).
 export function getTier1PanelWorstSlotCostKrw(): number {
   const cal = MODEL_REGISTRY.tier1_panel.calibration;
   const usage: TokenUsage = {
@@ -188,6 +247,7 @@ export function getTier1PanelWorstSlotCostKrw(): number {
     output_tokens: cal.outputTokens,
   };
   return Math.max(
+    calculateCostKrw(usage, 'glm-5.2'),
     calculateCostKrw(usage, D28_DEBATE_CONFIG.claudeSonnetModel),
     calculateCostKrw(usage, D28_DEBATE_CONFIG.gptMidModel),
   );

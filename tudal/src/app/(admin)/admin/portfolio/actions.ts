@@ -14,7 +14,7 @@ import { reportExistsForMonth } from "@/lib/data/admin-reports";
 import { isCostLoggingEnabled, preflightHardcap } from "@/lib/cost/cost-logger";
 import {
   getRoleWorstCaseMaxCostPerCallKrw,
-  resolveRole,
+  isRoleProviderAvailable,
 } from "@/lib/ai/model-registry";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 import {
@@ -955,7 +955,9 @@ export async function proposePortfolio(input: {
   if (process.env.PORTFOLIO_AI_PROPOSAL_ENABLED !== "true") {
     return { success: false, error: "proposal_disabled" };
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // 항목1 — provider-agnostic 게이트: portfolio 역할이 resolve될 provider(GLM primary → Claude fallback)의
+  //   키 존재 여부. GLM-only 배포에서 ANTHROPIC_API_KEY 부재만으로 거짓 disabled 되던 문제 제거.
+  if (!isRoleProviderAvailable("portfolio")) {
     return { success: false, error: "proposal_disabled" };
   }
 
@@ -1032,12 +1034,16 @@ export async function proposePortfolio(input: {
   }
 
   let proposal: PortfolioProposal;
+  let proposalModel: string | null = null;
   try {
     proposal = await callPortfolioProposal({
       month: monthYm,
       shortlistSummary: summary,
       adminUserId: user.id,
       costClient: supabase,
+      onResolvedBinding: (binding) => {
+        proposalModel = binding.model;
+      },
     });
   } catch (err) {
     return {
@@ -1058,11 +1064,14 @@ export async function proposePortfolio(input: {
   //   (D5 정책 — 비영속 proposal을 success로 노출 금지). flag-off=영속 0(W3b-1 1:1, proposalId 없음).
   let proposalId: string | undefined;
   if (shouldPersist) {
+    if (!proposalModel) {
+      return { success: false, error: "proposal_model_missing" };
+    }
     try {
       const result = await upsertProposalRpc({
         month: input.month, // 테이블 month=date(YYYY-MM-01) — cost_log의 monthYm(YYYY-MM)과 구분.
         proposal,
-        model: resolveRole("portfolio").model, // callPortfolioProposal과 동일 SoT(하드코딩 금지).
+        model: proposalModel,
         client: supabase,
       });
       proposalId = result.id;

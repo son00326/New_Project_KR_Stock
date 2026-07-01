@@ -12,9 +12,11 @@ import { insertAlertEvents } from "@/lib/data/admin-alerts-insert";
 import { sendTelegram } from "@/lib/notify/telegram";
 import { callPersona } from "@/lib/ai/anthropic-client";
 import { CORE_11_PERSONAS } from "@/lib/ai/prompts/personas";
-import { isAnthropicAvailable } from "@/lib/ai/provider";
 import { preflightHardcap } from "@/lib/cost/cost-logger";
-import { getRoleWorstCaseMaxCostPerCallKrw } from "@/lib/ai/model-registry";
+import {
+  getRoleWorstCaseMaxCostPerCallKrw,
+  isRoleProviderAvailable,
+} from "@/lib/ai/model-registry";
 
 // ---------------------------------------------------------------------------
 // M12a 모닝 브리핑(M11) 통합 — 08:00 KST cron 슬롯에서 M12a를 dormant로 1회 실행.
@@ -131,7 +133,8 @@ export async function runM12aForBriefing(
     month: ledgerMonth,
     runId: `m12a-${ledgerMonth}-${input.nowIso}`,
     nowIso: input.nowIso,
-    aiAvailable: isAnthropicAvailable(),
+    // 항목1 — M12a 뉴스 평가는 callPersona(tier1_panel 역할) 사용 → 해당 역할 provider(GLM→Claude) 가용성.
+    aiAvailable: isRoleProviderAvailable("tier1_panel"),
     listTrackSizes,
     portfolioSize: portfolioTickers.size,
     alertsUrl: input.alertsUrl ?? "/admin/alerts",

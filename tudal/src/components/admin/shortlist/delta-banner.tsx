@@ -16,7 +16,7 @@ export function DeltaBanner({ items }: DeltaBannerProps) {
   return (
     <details className="group rounded-2xl border bg-muted/30">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl px-4 py-3 text-sm transition-colors hover:bg-muted/50 group-open:rounded-b-none [&::-webkit-details-marker]:hidden">
-        <span className="font-semibold">전월 대비 Delta</span>
+        <span className="font-semibold">전월 대비 변화</span>
         <DeltaCount
           label="편입"
           count={news.length}
@@ -45,13 +45,13 @@ export function DeltaBanner({ items }: DeltaBannerProps) {
 
       <div className="grid gap-4 border-t px-4 py-3 md:grid-cols-2">
         <DeltaList
-          title="편입 (NEW)"
+          title="새로 편입"
           color="var(--market-up)"
           items={news}
           emptyText="이번 달 신규 편입 없음"
         />
         <DeltaList
-          title="제외 (REMOVED)"
+          title="이번 달 제외"
           color="var(--market-down)"
           items={removeds}
           emptyText="이번 달 제외 종목 없음"

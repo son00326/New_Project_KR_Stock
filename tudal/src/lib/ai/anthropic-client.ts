@@ -3,7 +3,7 @@ import { getPersonaById } from './prompts/personas';
 import { renderUserPrompt } from './prompts/render-user-prompt';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
-import { resolveRole, type ResolvedRole } from './model-registry';
+import { resolveRole, isRoleProviderAvailable, type ResolvedRole } from './model-registry';
 
 export interface CallPersonaInput {
   personaId: string;
@@ -51,7 +51,13 @@ function isCacheEnabled(): boolean {
 }
 
 export async function callPersona(input: CallPersonaInput): Promise<CallPersonaResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // 항목1 — provider-agnostic 게이트: 주입된 modelBinding(mix slot)의 provider, 미지정 시 tier1_panel
+  //   역할이 resolve될 provider(GLM primary → Claude fallback)의 키 존재 여부. GLM-only 배포에서
+  //   ANTHROPIC_API_KEY 부재만으로 AI 거짓 비활성화되던 문제 제거. preferred·fallback 모두 부재 시만 throw.
+  const providerAvailable = input.modelBinding
+    ? input.modelBinding.provider.isAvailable()
+    : isRoleProviderAvailable('tier1_panel');
+  if (!providerAvailable) {
     throw new Error('ai_key_unavailable');
   }
   const persona = getPersonaById(input.personaId);
@@ -82,6 +88,9 @@ export async function callPersona(input: CallPersonaInput): Promise<CallPersonaR
       systemPrompt: persona.systemPrompt,
       userPrompt,
       enablePromptCache: promptCacheEnabled,
+      ...(userPrompt.toLowerCase().includes('json')
+        ? { responseFormat: 'json_object' as const }
+        : {}),
     });
   } catch (err) {
     // W1a (D9) — transient 분류 보존: worker retryWithBackoff가 재시도 판단 가능하게.

@@ -11,6 +11,8 @@ interface BucketSectionProps {
   // PR4 Task 1 Step 1.3.4.2 (B10 fix omxy R2): optional row action renderer — caller가
   // item별로 TriggerFullReportButton 등을 주입 가능. 기존 caller는 prop 미지정 → 영향 0.
   renderRowAction?: (item: ShortListItem) => ReactNode;
+  // 항목3 — 현재 운영 포트에 편입된 종목코드 set. 해당 row에 "보유 중" 뱃지. 미지정 → 영향 0.
+  heldTickers?: ReadonlySet<string>;
 }
 
 // 3섹션 세로 스택 (M1). T1.3에서 `ShortlistRow`로 행 교체 완료 (M4/M6 충족).
@@ -21,6 +23,7 @@ export function BucketSection({
   weight,
   items,
   renderRowAction,
+  heldTickers,
 }: BucketSectionProps) {
   return (
     <section aria-labelledby={`bucket-${bucket}-heading`}>
@@ -52,6 +55,7 @@ export function BucketSection({
               key={item.id}
               item={item}
               action={renderRowAction?.(item)}
+              held={heldTickers?.has(item.ticker) ?? false}
             />
           ))}
         </div>

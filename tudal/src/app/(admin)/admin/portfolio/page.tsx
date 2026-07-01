@@ -16,12 +16,15 @@ import {
 } from "@/lib/portfolio/shortlist-gate";
 import { computeAcceptGate } from "@/lib/portfolio/gating";
 import { detectSingleAdminStreak } from "@/lib/portfolio/auto-relief";
-import { BucketSection } from "@/components/admin/shortlist/bucket-section";
+import { getCurrentHoldings } from "@/lib/data/admin-snapshots";
+import { CurrentHoldingsCard } from "@/components/admin/dashboard/current-holdings-card";
+import { SectorDistributionLine } from "@/components/admin/dashboard/sector-distribution";
 import { getRiskDebateForMonth } from "@/lib/data/admin-risk-debate";
 import { RiskDebateAdvisory } from "@/components/admin/risk/risk-debate-advisory";
-import { TriggerFullReportButton } from "./trigger-full-report-button";
 import { PortfolioPanel } from "./portfolio-panel";
-import type { BucketKind } from "@/types/admin";
+import type { PortfolioSnapshot } from "@/types/admin";
+import { isRoleProviderAvailable } from "@/lib/ai/model-registry";
+import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
 
 // US-T3.2 / US-T3.4 / US-T3.5 / US-T3.6 / US-T3.8 — /admin/portfolio
 // Server Component: Short List 30 표시 + Accept/Reject 클라이언트 island.
@@ -29,28 +32,6 @@ import type { BucketKind } from "@/types/admin";
 
 // 이번 달 = short_list_30에 INSERT된 가장 최신 month (T7e.2 — DB 기반).
 // Tier 0 스크리너가 월초 외 시점에 INSERT해도 page는 latest를 따라간다.
-const BUCKET_ORDER: BucketKind[] = ["short", "mid", "long"];
-
-const BUCKET_META: Record<
-  BucketKind,
-  { label: string; cadence: string; weight: string }
-> = {
-  short: {
-    label: "단기 (Short)",
-    cadence: "주간 선정",
-    weight: "축 비중 30%",
-  },
-  mid: {
-    label: "중기 (Mid)",
-    cadence: "월간 선정",
-    weight: "축 비중 40%",
-  },
-  long: {
-    label: "장기 (Long)",
-    cadence: "월간 선정",
-    weight: "축 비중 30%",
-  },
-};
 
 function formatMonthLabel(month: string): string {
   if (!month) return "";
@@ -72,26 +53,40 @@ export default async function AdminPortfolioPage() {
     (r) => r.deltaStatus !== "removed",
   );
 
+  let holdings: PortfolioSnapshot[] = [];
+  let holdingsLoadError = false;
+  try {
+    holdings = await getCurrentHoldings();
+  } catch {
+    holdingsLoadError = true;
+    holdings = [];
+  }
+  const holdingsNameByTicker: Record<string, string> = {};
+  for (const item of thisMonthItems) {
+    holdingsNameByTicker[item.ticker] = item.name;
+  }
+
   if (!month || thisMonthItems.length === 0) {
     return (
       <div className="space-y-6">
-        <header className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">이번 달 포트 확정</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              short_list_30 테이블에 활성 종목이 없습니다.
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            ※ T7e.8 Tier 0 seed 후 Accept/Reject가 활성화됩니다
-          </div>
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight">포트폴리오</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            확정 운영 포트폴리오와 이번 달 포트 확정을 관리합니다.
+          </p>
         </header>
 
+        <CurrentHoldingsCard
+          holdings={holdings}
+          basisMonth={holdings[0]?.month ?? month}
+          nameByTicker={holdingsNameByTicker}
+          loadError={holdingsLoadError}
+        />
+
         <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 px-6 py-12 text-center">
-          <p className="text-base font-semibold">포트 확정 대기</p>
+          <p className="text-base font-semibold">아직 준비 중입니다</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Tier 0 스크리너가 Short List 30을 INSERT하면 이 화면에서
-            D+5 게이트와 Accept/Reject를 검증할 수 있습니다.
+            이번 달 추천 종목이 준비되면 이 화면에서 포트를 확정할 수 있습니다.
           </p>
         </div>
       </div>
@@ -183,7 +178,7 @@ export default async function AdminPortfolioPage() {
       const totalMin = Math.ceil(remainingMs / (1000 * 60));
       const hours = Math.floor(totalMin / 60);
       const mins = totalMin % 60;
-      return `⏳ 24h Hold 진행 중 — 남은 ${hours}시간 ${mins}분`;
+      return `24시간 대기 진행 중 — 남은 ${hours}시간 ${mins}분`;
     }
     if (gateResult.reason === "business_days_bypass") {
       const expiresAt = gateResult.holdExpiresAt;
@@ -192,7 +187,7 @@ export default async function AdminPortfolioPage() {
       //   enable될 것처럼 오인하지 않도록 — omxy 권고).
       const viewerNote =
         distinctViewerCount < 2 ? ` · 열람 ${distinctViewerCount}/2명` : "";
-      return `⏳ D+4 영업일 Hold 진행 중 — 만료 ${expiresLabel}${viewerNote}`;
+      return `D+4 영업일 대기 진행 중 — 만료 ${expiresLabel}${viewerNote}`;
     }
     if (gateResult.reason === "viewers_insufficient") {
       const remaining = gateResult.viewersRemaining ?? 0;
@@ -203,13 +198,8 @@ export default async function AdminPortfolioPage() {
 
   const gateMessage = buildGateMessage();
 
-  // 버킷별 그룹
-  const byBucket = BUCKET_ORDER.map((bucket) => ({
-    bucket,
-    items: thisMonthItems
-      .filter((r) => r.bucket === bucket)
-      .sort((a, b) => a.rank - b.rank),
-  }));
+  // 접힌 후보 요약용 섹터 분포(30 전체 재노출 금지 — 상위 5 + 기타 1줄만).
+  const candidateSectors = thisMonthItems.map((r) => r.sector);
 
   // W3b-3 — 영속된 AI 제안(read-only 표시) + 종목 이름 조인용 view model(직렬화 안전: plain object만).
   //   getProposalByMonth는 0034 미적용/오염/조회실패 시 throw → 전부 catch해 null(Server Component crash 금지).
@@ -225,6 +215,15 @@ export default async function AdminPortfolioPage() {
     name: r.name,
     sector: r.sector,
   }));
+  const portfolioProposalEnabled =
+    process.env.PORTFOLIO_AI_PROPOSAL_ENABLED === "true" &&
+    isRoleProviderAvailable("portfolio") &&
+    isCostLoggingEnabled();
+  const reportBatchEnabled =
+    process.env.PR5_CRON_AUTO_ENABLED === "true" &&
+    !!process.env.CRON_SYSTEM_USER_ID &&
+    isCostLoggingEnabled() &&
+    isRoleProviderAvailable("full_report");
 
   return (
     <div className="space-y-6">
@@ -238,7 +237,7 @@ export default async function AdminPortfolioPage() {
       {/* 77차 D31 — 내부도구 완화 게이트 모드 표시 (silent 안전변경 방지·감사성) */}
       {relaxGate && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning shadow-toss-sm">
-          ℹ️ 내부도구 게이트 모드: Accept는 24h Hold만 적용(D+4 영업일 Hold·2인 열람 면제). 멤버 공개 시 <code>PORTFOLIO_ACCEPT_GATE_STRICT=true</code>로 복원.
+          내부도구 게이트 모드: 확정은 24시간 대기만 적용합니다. 영업일 대기와 2인 열람은 면제됩니다.
         </div>
       )}
 
@@ -252,7 +251,7 @@ export default async function AdminPortfolioPage() {
             이번 달 포트 확정 — {monthLabel}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Short List 30 · 편입{" "}
+            이번 달 추천 30 · 편입{" "}
             <span className="font-mono font-semibold tabular-nums text-market-up">
               {newCount}
             </span>{" "}
@@ -273,9 +272,34 @@ export default async function AdminPortfolioPage() {
                 ? "(오늘)"
                 : "(지남)"}
           </span>
-          <span>※ short_list_30 SELECT · seed는 T7e.8 Tier 0 후 채워짐</span>
         </div>
       </header>
+
+      {/* 확정 운영 포트폴리오 — Accept 후 스냅샷. 미확정 시 카드가 "아직 운영 포트 확정 전" 빈 상태. */}
+      <CurrentHoldingsCard
+        holdings={holdings}
+        basisMonth={holdings[0]?.month ?? month}
+        nameByTicker={holdingsNameByTicker}
+        loadError={holdingsLoadError}
+      />
+
+      {/* Accept 전(미확정)일 때만 접힌 후보 요약 — 30 전체 재노출 금지, 분포 1줄만. */}
+      {!isAlreadyFinalized && (
+        <details className="rounded-2xl border border-border/70 bg-card p-4 shadow-toss-sm md:p-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            <span>이번 달 추천 후보 요약</span>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              편입 {newCount} · 유지 {holdCount} · 제외 {removedCount}
+            </span>
+          </summary>
+          <div className="mt-3 space-y-2">
+            <SectorDistributionLine sectors={candidateSectors} />
+            <p className="text-xs text-muted-foreground">
+              전체 추천 목록은 홈 화면 “이번 달 추천 30”에서 확인하세요.
+            </p>
+          </div>
+        </details>
+      )}
 
       {/* Accept/Reject 패널 (client island) — 경고 배너 포함 */}
       <PortfolioPanel
@@ -292,32 +316,9 @@ export default async function AdminPortfolioPage() {
         finalApproval={finalApproval}
         persistedProposal={persistedProposal}
         shortlistView={shortlistView}
+        portfolioProposalEnabled={portfolioProposalEnabled}
+        reportBatchEnabled={reportBatchEnabled}
       />
-
-      {/* Short List 30 표 — 버킷별 섹션 */}
-      <div className="space-y-8">
-        {byBucket.map(({ bucket, items }) => (
-          <BucketSection
-            key={bucket}
-            bucket={bucket}
-            label={BUCKET_META[bucket].label}
-            cadence={BUCKET_META[bucket].cadence}
-            weight={BUCKET_META[bucket].weight}
-            items={items}
-            // PR4 Task 1 Step 1.3.4.3 (B10 fix omxy R2): admin trigger 버튼 주입.
-            // commitFullReport (fast path) wire — Task 2에서 quality path swap.
-            // month는 YYYY-MM-01 → YYYY-MM 변환 (triggerFullReport regex 정합, B3 fix).
-            renderRowAction={(item) => (
-              <TriggerFullReportButton
-                ticker={item.ticker}
-                name={item.name ?? item.ticker}
-                sector={item.sector ?? ""}
-                month={item.month.slice(0, 7)}
-              />
-            )}
-          />
-        ))}
-      </div>
     </div>
   );
 }

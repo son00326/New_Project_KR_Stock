@@ -13,7 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
 import { REVISE_PROMPT_VERSION } from './prompts/revise-prompt';
-import { resolveRole } from './model-registry';
+import { resolveRole, isRoleProviderAvailable } from './model-registry';
 
 // PR4 Task 1 Step 1.1 (B2 fix omxy R1): caller DI seam — AI client options 2nd arg.
 export interface CallReviseOptions {
@@ -43,7 +43,8 @@ export async function callRevise(
   input: CallReviseInput,
   options: CallReviseOptions = {},
 ): Promise<CallReviseResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // 항목1 — provider-agnostic 게이트: revise = GLM primary → Claude fallback. 둘 다 부재 시만 throw.
+  if (!isRoleProviderAvailable('revise')) {
     throw new Error('ai_key_unavailable');
   }
 

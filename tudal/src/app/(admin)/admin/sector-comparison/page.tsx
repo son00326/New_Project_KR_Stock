@@ -30,13 +30,20 @@ function fmtPct(n: number | null): string {
   return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 
+function formatPeriodLabel(periodKey: string | null): string {
+  if (!periodKey) return "—";
+  const monthly = periodKey.match(/^(\d{4})-(\d{2})$/);
+  if (!monthly) return "최근 기준 후보";
+  return `${monthly[1]}년 ${Number(monthly[2])}월 후보`;
+}
+
 function pctColor(n: number | null): string {
-  if (n === null) return "text-muted-foreground";
+  if (n === null) return "text-market-neutral";
   return n < 0
     ? "text-market-down"
     : n > 0
       ? "text-market-up"
-      : "text-muted-foreground";
+      : "text-market-neutral";
 }
 
 // anchor부터 과거로 walk-back하며 첫 "거래일(가격 존재)" 종가 Map 반환 — 휴장/주말/pre-close 보정.
@@ -91,14 +98,14 @@ function ListCard({
           {summary && (
             <span className="text-muted-foreground">
               {" "}
-              · 중앙값 {fmtPct(summary.medianReturnPct)} · {summary.pricedCount}종 산입
+              · 중앙값 <span className={pctColor(summary.medianReturnPct)}>{fmtPct(summary.medianReturnPct)}</span> · {summary.pricedCount}종 산입
               {summary.missingCount > 0 && ` · ${summary.missingCount}종 가격 누락`}
             </span>
           )}
         </p>
       </header>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">데이터 없음.</p>
+        <p className="text-sm text-muted-foreground">아직 준비 중입니다.</p>
       ) : (
         <ol className="space-y-1 text-xs">
           {rows.map((r) => {
@@ -182,47 +189,43 @@ export default async function SectorComparisonPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">섹터 추천 비교</h1>
+        <h1 className="text-2xl font-bold tracking-tight">종목 선정 방식 비교 (실험)</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          production <strong>B++ 30</strong>(Tier-1 AI 선정) vs Track-2{" "}
-          <strong>sector-soft-tilt</strong> top-30(결정론) — 150단계에서 놓친 대형 리더를 주도섹터
-          soft re-weight가 더 잡는지 human-in-loop 비교.
+          AI 추천 30과 섹터 가중 후보 30의 결과를 비교하는 참고 실험입니다.
         </p>
-        <p className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning shadow-toss-sm">
-          ⚠ soft 비교 전용 — <strong>hard-gate live 적용 영구 금지</strong> · 검증 전 production 자동
-          교체 없음 · Track-2 30은 결정론 top-30(AI 선정 아님, 산출 방식이 다름) · 섹터 가설 입력은
-          수기/별도 advisor.
+        <p className="mt-2 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-info shadow-toss-sm">
+          참고용 실험 화면입니다 — 두 방식의 결과를 나란히 살펴보기 위한 비교이며,
+          실제 추천/운영에 자동으로 반영되지 않습니다.
         </p>
         {!adminVerified && (
           <p
             role="status"
             className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
           >
-            ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 빈 데이터는 권한 검증 실패(RLS deny)일 수
-            있습니다.
+            ⚠ 권한 미확인 — 관리자 계정 등록을 확인해 주세요. 빈 데이터는 권한
+            확인 실패 때문일 수 있습니다.
           </p>
         )}
       </header>
 
       {(productionLoadError || shadowLoadError) && (
         <p className="rounded-2xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground shadow-toss-sm">
-          데이터 조회 일부 실패 — 읽기 전용 비교 화면이므로 가능한 목록만 표시합니다. 빈 데이터는
-          migration/RLS/권한 상태를 확인하세요.
+          일부 데이터를 불러오지 못해 가능한 목록만 표시합니다. 잠시 후 다시
+          시도해 주세요.
         </p>
       )}
 
       {shadow.length === 0 && (
-        <p className="rounded-2xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground shadow-toss-sm">
-          Track-2 shadow 미실행 — 마이그 0039 + 0046 apply + 섹터 가설 사전등록 + Track-2
-          generator(`shadow_gen_runner.py --shadow-sector`) 실행 후 비교가 채워집니다. (production 30은
-          항상 표시.)
+        <p className="rounded-2xl border bg-muted/30 px-6 py-8 text-center text-sm text-muted-foreground shadow-toss-sm">
+          아직 비교 데이터가 없습니다 — 섹터 가중 후보가 준비되면 AI 추천 30과
+          나란히 비교됩니다. (AI 추천 30은 항상 표시됩니다.)
         </p>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ListCard
-          title="production B++ 30 (Tier-1 AI)"
-          subtitle={month ? `${month} · short_list_30` : "선정 부재"}
+          title="AI 추천 30"
+          subtitle={month ? `${month.slice(0, 7)} 추천` : "선정 부재"}
           rows={production.map((p) => ({
             ticker: p.ticker,
             name: p.name,
@@ -234,8 +237,8 @@ export default async function SectorComparisonPage() {
           summary={prodReturns}
         />
         <ListCard
-          title="Track-2 sector-soft-tilt 30 (결정론 top-30)"
-          subtitle={periodKey ? `${periodKey} · tier0_candidates_150_shadow` : "—"}
+          title="섹터 가중 후보 30 (자동 계산)"
+          subtitle={formatPeriodLabel(periodKey)}
           rows={shadow.map((s) => ({
             ticker: s.ticker,
             name: s.name ?? s.ticker,
@@ -249,9 +252,9 @@ export default async function SectorComparisonPage() {
       </div>
 
       <footer className="text-xs text-muted-foreground">
-        ※ 노란 배경 = 한쪽에만 있는 종목(어떤 리더를 섹터 tilt가 더/덜 잡았나). 실현 수익률은
-        KRX_OPENAPI_KEY 설정 시에만 계산(미설정 = &quot;—&quot;). PR-A5/PR-B5 통계 verdict는
-        deferred/research.
+        ※ 노란 배경 = 한쪽에만 있는 종목입니다 (두 방식이 서로 다르게 고른 종목).
+        실현 수익률은 시세 데이터가 연결된 경우에만 표시됩니다(미연결 =
+        &quot;—&quot;).
       </footer>
     </div>
   );

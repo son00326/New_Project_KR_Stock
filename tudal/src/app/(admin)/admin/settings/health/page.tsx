@@ -21,15 +21,15 @@ export const dynamic = "force-dynamic";
 
 const SEVERITY_STYLE: Record<Severity, string> = {
   critical:
-    "border-market-down bg-market-down/10 text-market-down",
+    "border-destructive/40 bg-destructive/10 text-destructive",
   warning:
     "border-warning bg-warning/10 text-warning",
-  info: "border-market-up bg-market-up/10 text-market-up",
+  info: "border-success/40 bg-success/10 text-success",
 };
 
 const SEVERITY_LABEL: Record<Severity, string> = {
-  critical: "Critical",
-  warning: "Warning",
+  critical: "심각",
+  warning: "주의",
   info: "정상",
 };
 
@@ -72,17 +72,15 @@ export default async function AdminHealthPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Health 대시보드</h1>
+        <h1 className="text-2xl font-bold tracking-tight">시스템 상태</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          5개 파이프라인 × 최근 {PIPELINE_HEALTH_WINDOW_HOURS}h 성공률. 임계치:
-          Critical &lt; {formatRate(PIPELINE_HEALTH_CRITICAL_THRESHOLD)} ·
-          Warning &lt; {formatRate(PIPELINE_HEALTH_WARNING_THRESHOLD)}. M18
-          R3.12-4 근거.
+          5개 자동 점검의 최근 {PIPELINE_HEALTH_WINDOW_HOURS}시간 성공률입니다.
+          심각 기준 &lt; {formatRate(PIPELINE_HEALTH_CRITICAL_THRESHOLD)} ·
+          주의 기준 &lt; {formatRate(PIPELINE_HEALTH_WARNING_THRESHOLD)}.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          ※ 실 pipeline_health SELECT — 5개 파이프라인 (dart/news/price/ai/alert)
-          run 결과 자동 적재. production pipeline_health 적재 전에는 빈 위젯이며 미확인
-          상태로 Warning 표시.
+          ※ 실 점검 기록을 조회합니다. 점검 기록이 쌓이기 전에는 미확인 상태로
+          표시될 수 있습니다.
         </p>
         {!adminVerified && (
           <p
@@ -90,26 +88,26 @@ export default async function AdminHealthPage() {
             aria-live="polite"
             className="mt-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
           >
-            ⚠ 권한 미확인 — admin_emails 등록 확인 필요. 표시된 0건/Warning은 실제
-            미발생이 아니라 권한 검증 실패(RLS deny)일 수 있습니다.
+            ⚠ 권한 미확인 — 관리자 이메일 등록 확인 필요. 표시된 0건/주의는 실제
+            미발생이 아니라 권한 설정 문제일 수 있습니다.
           </p>
         )}
       </header>
 
       <section
-        aria-label="전체 파이프라인 상태"
+        aria-label="전체 자동 점검 상태"
         className={`rounded-2xl border p-5 text-sm font-medium ${SEVERITY_STYLE[overall]}`}
       >
         전체 상태: {SEVERITY_LABEL[overall]}
         {overall === "critical" && (
           <span className="ml-2 text-xs font-normal">
-            — 95% 미달 파이프라인 존재. 즉시 확인 필요.
+            — 기준 미달 점검이 있습니다. 즉시 확인 필요.
           </span>
         )}
       </section>
 
       <section
-        aria-label="Silent Health 하트비트 (M19)"
+        aria-label="자동 점검 하트비트"
         className={`rounded-2xl border p-5 ${
           heartbeat
             ? heartbeat.status === "red_alert"
@@ -120,7 +118,7 @@ export default async function AdminHealthPage() {
       >
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold">
-            Silent Health 하트비트 (M19)
+            자동 점검 하트비트
           </h2>
           <span className="text-xs">
             {heartbeat
@@ -136,9 +134,9 @@ export default async function AdminHealthPage() {
             <dl className="mt-2 grid grid-cols-2 gap-1 text-xs sm:grid-cols-4">
               <dt>일자</dt>
               <dd className="tabular-nums">{heartbeat.date}</dd>
-              <dt>Critical 알림</dt>
+              <dt>심각 알림</dt>
               <dd className="tabular-nums">{heartbeat.criticalAlertCount}</dd>
-              <dt>Warning 알림</dt>
+              <dt>주의 알림</dt>
               <dd className="tabular-nums">{heartbeat.warningAlertCount}</dd>
               <dt>발송 채널</dt>
               <dd>
@@ -151,14 +149,14 @@ export default async function AdminHealthPage() {
           </>
         ) : (
           <p className="mt-2 text-xs">
-            ※ 매일 24:00 KST silent-health cron이 전일 24h 헬스를 적재합니다. 적재 전에는
+            ※ 매일 24:00 KST에 전일 자동 점검 결과를 적재합니다. 적재 전에는
             기록 대기 상태입니다.
           </p>
         )}
       </section>
 
       <section
-        aria-label="파이프라인별 성공률"
+        aria-label="점검별 성공률"
         className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
       >
         {summaries.map((s) => (
@@ -176,7 +174,7 @@ export default async function AdminHealthPage() {
               {formatRate(s.successRate)}
             </div>
             <dl className="mt-2 grid grid-cols-2 gap-1 text-xs text-foreground/80">
-              <dt>전체 run</dt>
+              <dt>전체 실행</dt>
               <dd className="text-right tabular-nums">{s.total24h}</dd>
               <dt>성공</dt>
               <dd className="text-right tabular-nums">{s.success24h}</dd>
@@ -189,20 +187,20 @@ export default async function AdminHealthPage() {
             </dl>
             {s.lastRun && (
               <div className="mt-2 text-xs text-foreground/70">
-                최근: {formatTime(s.lastRun.startedAt)} · {s.lastRun.status}
+                최근: {formatTime(s.lastRun.startedAt)} · {s.lastRun.status === "success" ? "성공" : "실패"}
               </div>
             )}
           </article>
         ))}
       </section>
 
-      <section aria-label="실패 트레이스" className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
+      <section aria-label="최근 실패 기록" className="rounded-2xl border border-border/60 bg-card p-5 shadow-toss-sm">
         <header className="flex items-baseline justify-between">
           <h2 className="text-sm font-semibold">
-            실패 트레이스 (최근 {failures.length}건)
+            최근 실패 기록 ({failures.length}건)
           </h2>
           <span className="text-xs text-muted-foreground">
-            tail · 24h 외 건 포함
+            최근 기록 기준
           </span>
         </header>
         {failures.length === 0 ? (
@@ -216,7 +214,7 @@ export default async function AdminHealthPage() {
                 <span className="text-muted-foreground">
                   {formatTime(f.startedAt)}
                 </span>{" "}
-                · <strong>{f.pipeline}</strong> · {f.error ?? "(no message)"}
+                · <strong>{PIPELINE_LABEL[f.pipeline]}</strong> · {f.error ?? "메시지 없음"}
               </li>
             ))}
           </ol>
@@ -224,11 +222,7 @@ export default async function AdminHealthPage() {
       </section>
 
       <footer className="text-xs text-muted-foreground">
-        ※ 본 페이지는 M18 DoD{" "}
-        <span>
-          &quot;5개 파이프라인 성공률 + 95% Critical 배너 + 실패 trace&quot;
-        </span>{" "}
-        충족. S6 M19 Silent Health 하트비트에서 주간 롤업 추가 예정.
+        ※ 자동 점검 성공률과 최근 하트비트를 확인하는 운영 화면입니다.
       </footer>
     </div>
   );

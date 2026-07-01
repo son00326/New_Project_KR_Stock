@@ -24,8 +24,8 @@ describe('PR4 Task 4 (PR3a OOS RT#1) — partA render invariant (omxy R2 B36 + R
     expect(source).toMatch(/data\.partA\.length\s*===\s*0/);
   });
 
-  it('page.tsx contains 한국어 section header "섹터 14인 패널 의견 (Part A)"', () => {
-    expect(source).toContain('섹터 14인 패널 의견 (Part A)');
+  it('page.tsx contains 한국어 section header "섹터 패널 의견"', () => {
+    expect(source).toContain('섹터 패널 의견');
   });
 
   it('page.tsx renders partA row fields scoped to data.partA.map block (B37 fix omxy R3)', () => {
@@ -41,8 +41,8 @@ describe('PR4 Task 4 (PR3a OOS RT#1) — partA render invariant (omxy R2 B36 + R
     expect(block).toMatch(/<PersonaVoteChip\s+vote=\{p\.vote\}\s*\/>/);
   });
 
-  it('page.tsx contains Tier 2 inactive fallback text "섹터 14인 패널 미활성"', () => {
-    expect(source).toContain('섹터 14인 패널 미활성');
+  it('page.tsx contains Tier 2 inactive fallback text "섹터 전문가 패널 미포함"', () => {
+    expect(source).toContain('섹터 전문가 패널 미포함');
   });
 
 
@@ -50,7 +50,7 @@ describe('PR4 Task 4 (PR3a OOS RT#1) — partA render invariant (omxy R2 B36 + R
     const partDMapMatch = source.match(/data\.partD\.map\([^)]*\)\s*=>\s*\([\s\S]*?\)\)\}/);
     expect(partDMapMatch).not.toBeNull();
     const block = partDMapMatch![0];
-    expect(source).toContain('Core 11 개별 의견 (Part D)');
+    expect(source).toContain('핵심 위원 개별 의견');
     expect(block).toContain('key={p.persona_id}');
     expect(block).toContain('p.label');
     expect(block).toContain('p.philosophy');

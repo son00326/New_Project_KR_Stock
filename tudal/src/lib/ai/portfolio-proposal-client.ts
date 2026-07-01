@@ -1,12 +1,11 @@
-// W3b-1 (D26 Q2 / D1) — portfolio_proposal AI 자율 제안 (Opus 4.8 `portfolio` role).
-// judge-client.ts 패턴 동형: provider 경유 + cost_log INSERT + W1a transient classifier + zod 파서.
-// AI 호출은 caller(proposePortfolio)가 flag+key+admin 게이트 후에만 — 본 모듈은 ANTHROPIC_API_KEY 가용성만 확인.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { AiProviderId } from '@/lib/cost/anthropic-pricing';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
-import { resolveRole } from './model-registry';
+import { resolveRoleCandidates, type ResolvedRole } from './model-registry';
 import { extractJsonObject } from '@/lib/screening/persona-panel-adapter';
+import type { LlmCallResult } from './provider';
 
 const weightSchema = z.number().gt(0).lte(1).finite();
 
@@ -113,6 +112,7 @@ export interface CallPortfolioProposalInput {
   shortlistSummary: string;
   adminUserId: string;
   costClient?: SupabaseClient;
+  onResolvedBinding?: (binding: { model: string; providerId: AiProviderId }) => void;
 }
 
 const MONTH_YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -124,46 +124,47 @@ export async function callPortfolioProposal(
   if (!MONTH_YM_RE.test(input.month)) {
     throw new Error('invalid_month');
   }
-  // D28 A — Claude 필수 primary 불변.
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error('ai_key_unavailable');
-  }
-  const resolved = resolveRole('portfolio');
+  const candidates = resolveRoleCandidates('portfolio');
+  if (candidates.length === 0) throw new Error('ai_key_unavailable');
   const userPrompt = PORTFOLIO_PROPOSAL_USER_PROMPT.replaceAll(
     '{{MONTH}}',
     input.month,
   ).replaceAll('{{SHORTLIST}}', input.shortlistSummary);
 
-  let result;
-  try {
-    result = await resolved.provider.call({
-      model: resolved.model,
-      maxTokens: resolved.maxTokens,
-      systemPrompt: PORTFOLIO_PROPOSAL_SYSTEM_PROMPT,
-      userPrompt,
-      enablePromptCache: false,
-    });
-  } catch (err) {
-    // W1a (D9) classifier 동일 — transient 분류 보존.
-    const msg = err instanceof Error ? err.message : String(err);
-    const status =
-      (err as { status?: number }).status ?? (err as { statusCode?: number }).statusCode;
-    const transient =
-      status === 429 ||
-      (status !== undefined && status >= 500) ||
-      /\b(?:429|529)\b|rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(
-        msg,
-      );
-    throw new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
+  let lastError: unknown = null;
+  for (const resolved of candidates) {
+    let result: LlmCallResult;
+    try {
+      result = await resolved.provider.call({
+        model: resolved.model,
+        maxTokens: resolved.maxTokens,
+        systemPrompt: PORTFOLIO_PROPOSAL_SYSTEM_PROMPT,
+        userPrompt,
+        enablePromptCache: false,
+        responseFormat: 'json_object',
+      });
+    } catch (err) {
+      lastError = err;
+      if (resolved.provider.id === 'openrouter') continue;
+      throw normalizePortfolioProposalCallError(err);
+    }
+    await logPortfolioProposalCost(resolved, result.usage, input);
+    const proposal = parsePortfolioProposal(result.text);
+    input.onResolvedBinding?.({ model: resolved.model, providerId: resolved.provider.id });
+    return proposal;
   }
+  throw normalizePortfolioProposalCallError(lastError);
+}
 
-  const usage: TokenUsage = result.usage;
+async function logPortfolioProposalCost(
+  resolved: ResolvedRole,
+  usage: TokenUsage,
+  input: CallPortfolioProposalInput,
+) {
   const costKrw = calculateCostKrw(usage, resolved.pricingKey);
   await insertCostLog(
     {
       month: input.month,
-      // portfolio-proposal은 월 단위 aggregate(단일 ticker 없음) — cost_log.ticker(not null, 6자리 컨벤션)에
-      //   sentinel '000000'. 식별자는 persona_id='portfolio-proposal' (downstream은 persona_id+cost_krw 소비).
       ticker: '000000',
       persona_id: 'portfolio-proposal',
       prompt_version: 'portfolio@v1',
@@ -175,6 +176,20 @@ export async function callPortfolioProposal(
     },
     { client: input.costClient },
   );
+}
 
-  return parsePortfolioProposal(result.text);
+function normalizePortfolioProposalCallError(err: unknown): Error {
+  if (err instanceof Error && err.message.startsWith('portfolio_proposal_parse_failed')) {
+    return err;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  const status =
+    (err as { status?: number }).status ?? (err as { statusCode?: number }).statusCode;
+  const transient =
+    status === 429 ||
+    (status !== undefined && status >= 500) ||
+    /\b(?:429|529)\b|rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network|length/i.test(
+      msg,
+    );
+  return new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
 }

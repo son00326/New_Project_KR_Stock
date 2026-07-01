@@ -34,12 +34,14 @@ interface ShortlistRowProps {
   // PR4 Task 1 Step 1.3.4.1 (B10 fix omxy R2): optional action slot — BucketSection이 row 옆에
   // TriggerFullReportButton 등을 주입 가능. 기존 caller는 prop 미지정 → 영향 0.
   action?: ReactNode;
+  // 항목3 — 현재 운영 포트에 편입된 종목이면 "보유 중" 뱃지. 기존 caller 미지정 → 영향 0.
+  held?: boolean;
 }
 
 // T1.3 종목 카드 + T1.5 3줄 근거 팝오버 (M4·M6). Server Component.
 // `<details>`로 접근성·No-JS 동작 보장. 펼침 시 summary_3line + 풀 리포트 링크.
 // 괴리율 색상: 한국 증시 관례 (빨강=상승=+ / 파랑=하락=-).
-export function ShortlistRow({ item, action }: ShortlistRowProps) {
+export function ShortlistRow({ item, action, held = false }: ShortlistRowProps) {
   const isCrisis = item.volatilityScore < CRISIS_VOL_THRESHOLD;
   const divergenceUp = item.divergencePct >= 0;
   const divergenceColor = divergenceUp
@@ -64,7 +66,14 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
 
         {/* ticker + name */}
         <div className="w-28 min-w-28 flex flex-col leading-tight">
-          <span className="font-mono text-sm">{item.ticker}</span>
+          <span className="flex items-center gap-1 font-mono text-sm">
+            {item.ticker}
+            {held ? (
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                보유 중
+              </span>
+            ) : null}
+          </span>
           <span className="truncate text-xs text-muted-foreground">
             {item.name}
           </span>
@@ -81,19 +90,19 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
         {/* 3-axis mini (추세·모멘·변동 Quality) */}
         <div
           className="hidden lg:flex w-28 flex-col gap-0.5"
-          aria-label={`3축 점수: 추세 ${item.trendScore}, 모멘텀 ${item.momentumScore}, 변동성 Quality ${item.volatilityScore}`}
+          aria-label={`3축 점수: 추세 ${item.trendScore}, 모멘텀 ${item.momentumScore}, 변동성 안정성 ${item.volatilityScore}`}
         >
           <AxisBar label="T" value={item.trendScore} />
           <AxisBar label="M" value={item.momentumScore} />
           <AxisBar label="V" value={item.volatilityScore} />
         </div>
 
-        {/* Crisis badge */}
+        {/* 주의 badge */}
         <span className="w-14 text-center">
           {isCrisis ? (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-market-up/10 px-1.5 py-0.5 text-[10px] font-semibold text-market-up">
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
               <AlertTriangle className="h-3 w-3" aria-hidden />
-              Crisis
+              주의
             </span>
           ) : null}
         </span>
@@ -117,10 +126,10 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
         {/* PR-F: 🤖 AI 점수 + 합의 배지 (ADR D-7). null/⚪ = AI 분석 대기 (W-tier1pill). */}
         <AiBadge badge={item.consensusBadge} score={item.aiScore} />
 
-        {/* composite score (🔢 Tier 0) */}
+        {/* 기초 점수 (인디케이터 기반 종합 점수) */}
         <span
           className="w-12 text-right font-mono text-base font-semibold tabular-nums"
-          aria-label={`Tier 0 점수 ${item.compositeScore}`}
+          aria-label={`기초 점수 ${item.compositeScore}`}
         >
           {item.compositeScore}
         </span>
@@ -161,7 +170,7 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
               </div>
             ) : null}
             <div className="mt-2 text-xs text-muted-foreground">
-              Delta: {item.deltaReason}
+              변경 사유: {item.deltaReason}
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-start gap-1.5 md:items-end">
@@ -198,7 +207,7 @@ export function ShortlistRow({ item, action }: ShortlistRowProps) {
                   ) : null}
                   {item.conviction != null ? (
                     <>
-                      <dt className="text-muted-foreground">Conviction</dt>
+                      <dt className="text-muted-foreground">확신도</dt>
                       <dd className="text-right font-mono tabular-nums">
                         {Math.round(item.conviction)}
                       </dd>
@@ -297,20 +306,20 @@ function DeltaBadge({ status }: { status: ShortListItem["deltaStatus"] }) {
   if (status === "new") {
     return (
       <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-market-up/15 text-market-up">
-        NEW
+        신규
       </span>
     );
   }
   if (status === "removed") {
     return (
       <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-market-down/15 text-market-down">
-        REMOVED
+        제외
       </span>
     );
   }
   return (
     <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
-      HOLD
+      유지
     </span>
   );
 }
@@ -327,8 +336,8 @@ function AiBadge({
     return (
       <span
         className="inline-flex w-16 items-center justify-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-        title="AI 분석 대기 (Tier 0 지표만)"
-        aria-label="AI 분석 대기"
+        title="심층 분석 준비 중 (기초 지표만)"
+        aria-label="심층 분석 준비 중"
       >
         ⚪<span className="hidden lg:inline">AI 대기</span>
       </span>

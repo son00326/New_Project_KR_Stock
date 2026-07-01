@@ -3,9 +3,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const providerCall = vi.fn();
 const resolveRoleMock = vi.fn();
-vi.mock('@/lib/ai/model-registry', () => ({
-  resolveRole: (role: string) => resolveRoleMock(role),
-}));
+// 항목1 — resolveRole만 stub, isRoleProviderAvailable 등 나머지는 실제 유지(env 기반 게이트 판정 보존).
+vi.mock('@/lib/ai/model-registry', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/model-registry')>();
+  return {
+    ...actual,
+    resolveRole: (role: string) => resolveRoleMock(role),
+    resolveRoleCandidates: (role: string) => {
+      const resolved = resolveRoleMock(role);
+      const candidates = Array.isArray(resolved) ? resolved : [resolved];
+      return candidates.filter((candidate) => candidate.provider.isAvailable());
+    },
+  };
+});
 vi.mock('@/lib/cost/cost-logger', () => ({
   insertCostLog: vi.fn(),
 }));
@@ -27,12 +37,21 @@ const validProposal = JSON.stringify({
   rationale_kr: '반도체 비중 집중 + 현금 25% 방어',
 });
 
-function stubResolved(model = 'claude-opus-4-8', providerId: 'anthropic' | 'openai' = 'anthropic') {
+function stubResolved(model = 'claude-opus-4-8', providerId: 'anthropic' | 'openai' | 'openrouter' = 'anthropic') {
   return {
     role: 'portfolio',
-    provider: { id: providerId, isAvailable: () => true, call: providerCall },
+    provider: {
+      id: providerId,
+      isAvailable: () =>
+        providerId === 'openai'
+          ? !!process.env.OPENAI_API_KEY
+          : providerId === 'openrouter'
+            ? !!process.env.OPENROUTER_API_KEY
+            : !!process.env.ANTHROPIC_API_KEY,
+      call: providerCall,
+    },
     model,
-    pricingKey: model,
+    pricingKey: providerId === 'openrouter' ? 'glm-5.2' : model,
     maxTokens: 4096,
   };
 }
@@ -40,6 +59,7 @@ function stubResolved(model = 'claude-opus-4-8', providerId: 'anthropic' | 'open
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.ANTHROPIC_API_KEY = 'sk-test';
+  delete process.env.OPENROUTER_API_KEY;
   providerCall.mockResolvedValue({
     text: validProposal,
     usage: {
@@ -162,8 +182,13 @@ describe('callPortfolioProposal', () => {
     const p = await callPortfolioProposal(baseInput);
     expect(p.positions).toHaveLength(2);
     expect(resolveRoleMock).toHaveBeenCalledWith('portfolio');
-    const callArg = providerCall.mock.calls[0][0] as { model: string; userPrompt: string };
+    const callArg = providerCall.mock.calls[0][0] as {
+      model: string;
+      userPrompt: string;
+      responseFormat?: string;
+    };
     expect(callArg.model).toBe('claude-opus-4-8');
+    expect(callArg.responseFormat).toBe('json_object');
     expect(callArg.userPrompt).toContain('2026-06');
     expect(callArg.userPrompt).toContain('삼성전자');
     expect(callArg.userPrompt).not.toContain('{{');
@@ -200,6 +225,59 @@ describe('callPortfolioProposal', () => {
     await expect(callPortfolioProposal(baseInput)).rejects.toThrow('ai_call_failed:transient:429');
     providerCall.mockRejectedValueOnce(Object.assign(new Error('bad'), { status: 400 }));
     await expect(callPortfolioProposal(baseInput)).rejects.toThrow(/^ai_call_failed$/);
+  });
+
+  it('OpenRouter provider 호출 실패 때만 Claude fallback을 사용한다', async () => {
+    process.env.OPENROUTER_API_KEY = 'openrouter-test-key';
+    resolveRoleMock.mockReturnValue([
+      stubResolved('z-ai/glm-5.2', 'openrouter'),
+      stubResolved('claude-opus-4-8', 'anthropic'),
+    ]);
+    providerCall
+      .mockRejectedValueOnce(Object.assign(new Error('rate'), { status: 429 }))
+      .mockResolvedValueOnce({
+        text: validProposal,
+        usage: {
+          input_tokens: 200,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 100,
+        },
+      });
+
+    const result = await callPortfolioProposal(baseInput);
+
+    expect(result.positions).toHaveLength(2);
+    expect(providerCall).toHaveBeenCalledTimes(2);
+    expect(insertCostLog).toHaveBeenCalledTimes(1);
+    expect(insertCostLog).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-opus-4-8' }),
+      expect.anything(),
+    );
+  });
+
+  it('OpenRouter 응답 파싱 실패 뒤에는 추가 provider를 호출하지 않는다', async () => {
+    process.env.OPENROUTER_API_KEY = 'openrouter-test-key';
+    resolveRoleMock.mockReturnValue([
+      stubResolved('z-ai/glm-5.2', 'openrouter'),
+      stubResolved('claude-opus-4-8', 'anthropic'),
+    ]);
+    providerCall.mockResolvedValueOnce({
+      text: '제안 불가',
+      usage: {
+        input_tokens: 200,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        output_tokens: 100,
+      },
+    });
+
+    await expect(callPortfolioProposal(baseInput)).rejects.toThrow(
+      /portfolio_proposal_parse_failed/,
+    );
+
+    expect(providerCall).toHaveBeenCalledTimes(1);
+    expect(insertCostLog).toHaveBeenCalledTimes(1);
   });
 
   it('PORTFOLIO_PROPOSAL_USER_PROMPT placeholder 2종', () => {

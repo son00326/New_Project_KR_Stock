@@ -1,5 +1,6 @@
 // W0 (65차 Q3/D28) — LLM provider 추상화 인터페이스.
-// Claude = 필수 primary / GPT = 선택 secondary / GPT-only 미지원 (D28 A).
+// 항목1(2026-07-01 USER) — GLM 5.2(OpenRouter) = primary / Claude = fallback / GPT = 선택 secondary.
+//   OPENROUTER_API_KEY 부재 시 registry가 Claude fallback로 auto-detect(무회귀). 구 "Claude 필수 primary"(D28 A) supersede.
 import type { TokenUsage } from '@/lib/cost/pricing';
 import type { AiProviderId } from '@/lib/cost/anthropic-pricing';
 
@@ -10,6 +11,7 @@ export interface LlmCallParams {
   userPrompt: string;
   // Anthropic prompt cache opt-in (AI_PROMPT_CACHE_ENABLED). OpenAI는 자동 캐시라 무시.
   enablePromptCache?: boolean;
+  responseFormat?: 'json_object';
 }
 
 export interface LlmCallResult {
@@ -30,4 +32,8 @@ export function isAnthropicAvailable(): boolean {
 }
 export function isOpenAiAvailable(): boolean {
   return !!process.env.OPENAI_API_KEY;
+}
+// 항목1 — GLM 5.2 primary(OpenRouter). auto-detect: OPENROUTER_API_KEY 부재 시 registry가 Claude fallback.
+export function isOpenRouterAvailable(): boolean {
+  return !!process.env.OPENROUTER_API_KEY;
 }

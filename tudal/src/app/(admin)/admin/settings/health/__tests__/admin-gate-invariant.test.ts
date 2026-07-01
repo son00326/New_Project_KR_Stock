@@ -35,7 +35,7 @@ describe('PR-A (a) — health page is_admin gate + 권한 미확인 배너 (sour
   it('!adminVerified 분기로 권한 미확인 배너 조건부 렌더', () => {
     expect(source).toMatch(/\{\s*!adminVerified\s*&&/);
     expect(source).toContain('권한 미확인');
-    expect(source).toContain('admin_emails 등록 확인');
+    expect(source).toContain('관리자 이메일 등록 확인');
   });
 
   it('getRecentPipelineHealth에 동일 session client DI 재사용 (client: supabase)', () => {
@@ -49,10 +49,10 @@ describe('PR-A (a) — health page is_admin gate + 권한 미확인 배너 (sour
     expect(source).toContain('aria-live="polite"');
   });
 
-  it('기존 empty-state/안내 문구 보존 — 무회귀 (전체 상태 배너 + 실패 트레이스 + 적재 안내)', () => {
+  it('기존 empty-state/안내 문구 보존 — 무회귀 (전체 상태 배너 + 실패 기록 + 적재 안내)', () => {
     expect(source).toContain('전체 상태:');
     expect(source).toContain('최근 실패 기록 없음.');
-    expect(source).toContain('production pipeline_health 적재 전에는 빈 위젯');
+    expect(source).toContain('점검 기록이 쌓이기 전에는 미확인 상태로');
   });
 
   it('표시-정직성: is_admin false라도 throw 없이 배너만 (return/throw deny 부재 — 데이터는 RLS 게이트)', () => {

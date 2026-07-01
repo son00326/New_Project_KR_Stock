@@ -3,10 +3,17 @@ import { IntradayBadge } from "@/components/admin/intraday/intraday-badge";
 import { BucketSection } from "@/components/admin/shortlist/bucket-section";
 import { DeltaBanner } from "@/components/admin/shortlist/delta-banner";
 import { MissingCountBanner } from "@/components/admin/shortlist/missing-count-banner";
+import { CurrentHoldingsCard } from "@/components/admin/dashboard/current-holdings-card";
+import { SectorDistributionLine } from "@/components/admin/dashboard/sector-distribution";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
+import { getCurrentHoldings } from "@/lib/data/admin-snapshots";
 import { getBriefingLogForDate } from "@/lib/data/admin-briefing-log";
 import { resolveShortageReason } from "@/lib/admin/shortage-reason";
-import type { BucketKind, IntradayAnomalyEvent } from "@/types/admin";
+import type {
+  BucketKind,
+  IntradayAnomalyEvent,
+  PortfolioSnapshot,
+} from "@/types/admin";
 
 // Mock cleanup Step 1.2 (58차): user-visible mock 4종 제거 — LATEST_BRIEFING / MOCK_ADMIN_INTRADAY_EVENTS /
 // MOCK_ADMIN_SETTINGS / MOCK_ADMIN_TICKER_PREFS / INTRADAY_BADGE_REFERENCE_NOW 하드코딩 4/19.
@@ -64,6 +71,26 @@ export default async function AdminHomePage() {
   // W2a 트랙 분리(단기 주1회 / 중장기 월1회) finalize 시차 → per-bucket 카운트로 track_pending 구분.
   const shortageReason = resolveShortageReason(bucketCounts);
 
+  let holdings: PortfolioSnapshot[] = [];
+  let holdingsLoadError = false;
+  try {
+    holdings = await getCurrentHoldings();
+  } catch {
+    holdingsLoadError = true;
+    holdings = [];
+  }
+  const heldTickers = new Set(
+    holdings.filter((h) => !h.isCash && h.ticker).map((h) => h.ticker as string),
+  );
+  // 보유 종목 이름 조인용 — 이번 달 추천 리스트에 있는 종목명 재사용(신규 조회 없음).
+  const nameByTicker: Record<string, string> = {};
+  for (const item of shortlist) {
+    nameByTicker[item.ticker] = item.name;
+  }
+
+  // 항목4(b) — 추천 30 섹터 분포 입력(활성 종목 sector 태그).
+  const activeSectors = byBucket.flatMap((b) => b.items.map((i) => i.sector));
+
   // M13 장중 이상 감지 — boundary stub (S7c WS alert_event 실 연결 전까지 빈 배지).
   // settings ticker prefs 필터는 events 0건이라 moot — S7c에서 prefMap + alert_event SELECT 동시 wire.
   const visibleIntradayEvents: IntradayAnomalyEvent[] = [];
@@ -80,17 +107,20 @@ export default async function AdminHomePage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">홈 — Short List 30</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {monthLabel} · 단기 주간 · 중·장기 월간 선정 · 단·중·장 각 10종
-          </p>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          ※ short_list_30 SELECT · seed는 T7e.8 Tier 0 인디케이터 후 채워짐
-        </div>
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight">홈 — 이번 달 추천 30</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {monthLabel} · 단기 주간 · 중·장기 월간 선정 · 단·중·장 각 10종
+        </p>
       </header>
+
+      {/* 항목3 섹션1 — 현재 운영 중(확정 운영 포트폴리오). 추천과 시각적으로 분리된 카드. */}
+      <CurrentHoldingsCard
+        holdings={holdings}
+        basisMonth={holdings[0]?.month ?? month}
+        nameByTicker={nameByTicker}
+        loadError={holdingsLoadError}
+      />
 
       {/* M13 장중 이상 감지 배지 — 최상단 (T5b.1). boundary stub: events=[], intradayMode=false, referenceNow=실시간. */}
       <IntradayBadge
@@ -102,29 +132,46 @@ export default async function AdminHomePage() {
       {/* M11 모닝 브리핑 카드 (T5a.2). PR-fix1 (E): 오늘(KST) briefing_log 실 SELECT 결과. 없으면 카드 empty state. */}
       <BriefingCard briefing={briefing} />
 
-      {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
-      <DeltaBanner items={shortlist} />
+      {/* 항목3 섹션2 — 이번 달 추천 30. 섹션1(운영 중)과 구분되는 별도 영역 헤더. */}
+      <section aria-labelledby="recommend-30-heading" className="space-y-4">
+        <div className="border-t border-border/60 pt-6">
+          <h2
+            id="recommend-30-heading"
+            className="text-lg font-bold tracking-tight"
+          >
+            이번 달 추천 30
+          </h2>
+          {/* 항목4(b) — 추천 30 섹터 분포 compact 1줄(상위 5 + 기타) */}
+          <div className="mt-2">
+            <SectorDistributionLine sectors={activeSectors} />
+          </div>
+        </div>
 
-      {/* 30종 미달 경고 — 원인 분리 (T1.6). 30이면 렌더 안 함 */}
-      <MissingCountBanner
-        activeCount={activeCount}
-        reason={shortageReason}
-        fallbackMonth={month}
-      />
+        {/* M5 Delta 배너 — 편입/유지/제외 집계 + 펼침 패널 (T1.4) */}
+        <DeltaBanner items={shortlist} />
 
-      {/* 3섹션 세로 스택 (M1) — 각 버킷은 ShortlistRow로 렌더 (T1.3·T1.5) */}
-      <div className="space-y-8">
-        {byBucket.map(({ bucket, items }) => (
-          <BucketSection
-            key={bucket}
-            bucket={bucket}
-            label={BUCKET_META[bucket].label}
-            cadence={BUCKET_META[bucket].cadence}
-            weight={BUCKET_META[bucket].weight}
-            items={items}
-          />
-        ))}
-      </div>
+        {/* 30종 미달 경고 — 원인 분리 (T1.6). 30이면 렌더 안 함 */}
+        <MissingCountBanner
+          activeCount={activeCount}
+          reason={shortageReason}
+          fallbackMonth={month}
+        />
+
+        {/* 3섹션 세로 스택 (M1) — 각 버킷은 ShortlistRow로 렌더 (T1.3·T1.5) */}
+        <div className="space-y-8">
+          {byBucket.map(({ bucket, items }) => (
+            <BucketSection
+              key={bucket}
+              bucket={bucket}
+              label={BUCKET_META[bucket].label}
+              cadence={BUCKET_META[bucket].cadence}
+              weight={BUCKET_META[bucket].weight}
+              items={items}
+              heldTickers={heldTickers}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

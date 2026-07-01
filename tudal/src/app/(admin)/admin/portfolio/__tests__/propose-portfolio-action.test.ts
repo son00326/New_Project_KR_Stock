@@ -125,7 +125,12 @@ beforeEach(() => {
   getShortlistMock.mockReset();
   getShortlistMock.mockResolvedValue(makeShortlist(30));
   callProposalMock.mockReset();
-  callProposalMock.mockResolvedValue(VALID_PROPOSAL);
+  callProposalMock.mockImplementation(async (input: {
+    onResolvedBinding?: (binding: { model: string; providerId: string }) => void;
+  }) => {
+    input.onResolvedBinding?.({ model: "claude-opus-4-8", providerId: "anthropic" });
+    return VALID_PROPOSAL;
+  });
   isCostLoggingMock.mockReset();
   isCostLoggingMock.mockReturnValue(true);
   preflightMock.mockReset();
@@ -146,6 +151,10 @@ beforeEach(() => {
   });
   process.env.PORTFOLIO_AI_PROPOSAL_ENABLED = "true";
   process.env.ANTHROPIC_API_KEY = "sk-test";
+  // 항목1 — portfolio 게이트는 이제 provider-agnostic(GLM primary → Claude fallback).
+  //   ambient env(.env.local) OPENROUTER/OPENAI 격리해 "키 부재" 게이트 판정 결정론화.
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENAI_API_KEY;
   delete process.env.PORTFOLIO_PROPOSAL_PERSIST_ENABLED; // default off (W3b-1 동작)
   delete process.env.RISK_DEBATE_ENABLED;
 });
@@ -198,12 +207,20 @@ describe("proposePortfolio", () => {
     expect(callProposalMock).not.toHaveBeenCalled();
   });
 
-  it("flag on + key 부재 → proposal_disabled (shortlist/call 미호출, behavior-neutral)", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it("flag on + provider 전무(ANTHROPIC/OPENROUTER 부재) → proposal_disabled (shortlist/call 미호출, behavior-neutral)", async () => {
+    delete process.env.ANTHROPIC_API_KEY; // beforeEach가 OPENROUTER/OPENAI도 이미 delete → GLM primary·Claude fallback 모두 부재
     const res = await proposePortfolio({ month: "2026-06-01" });
     expect(res).toEqual({ success: false, error: "proposal_disabled" });
     expect(getShortlistMock).not.toHaveBeenCalled();
     expect(callProposalMock).not.toHaveBeenCalled();
+  });
+
+  it("항목1: flag on + ANTHROPIC 부재 + OPENROUTER 존재 → 게이트 통과(proposal_disabled 아님, GLM primary 가용)", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    process.env.OPENROUTER_API_KEY = "openrouter-test-key";
+    const res = await proposePortfolio({ month: "2026-06-01" });
+    // GLM primary 가용 → key 게이트 통과. (이후 isCostLoggingEnabled/shortlist 등 downstream 게이트로 진행)
+    expect(res).not.toEqual({ success: false, error: "proposal_disabled" });
   });
 
   it("flag on + key + admin + shortlist 30 → proposal 반환 (call 1회 + month slice + DI)", async () => {
@@ -281,7 +298,7 @@ describe("proposePortfolio", () => {
     };
     expect(up.month).toBe("2026-06-01"); // 테이블 month=date(YYYY-MM-01), cost_log YYYY-MM과 구분
     expect(up.proposal).toEqual(VALID_PROPOSAL);
-    expect(up.model).toBe("claude-opus-4-8"); // resolveRole('portfolio').model
+    expect(up.model).toBe("claude-opus-4-8");
     expect(up.client).toBe(SESSION_CLIENT);
   });
 

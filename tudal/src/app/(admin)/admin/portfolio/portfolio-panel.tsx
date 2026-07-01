@@ -56,6 +56,8 @@ interface PortfolioPanelProps {
   // W3b-3: AI 포트 제안 — 영속 제안(read-only 표시) + 종목 이름 조인용 view model(직렬화 안전).
   persistedProposal?: PersistedPortfolioProposal | null;
   shortlistView?: ShortlistNameItem[];
+  portfolioProposalEnabled: boolean;
+  reportBatchEnabled: boolean;
 }
 
 type ModalKind = "accept" | "reject" | "dispute" | "propose" | null;
@@ -96,6 +98,8 @@ export function PortfolioPanel({
   finalApproval,
   persistedProposal = null,
   shortlistView = [],
+  portfolioProposalEnabled,
+  reportBatchEnabled,
 }: PortfolioPanelProps) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalKind>(null);
@@ -272,10 +276,10 @@ export function PortfolioPanel({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">
-              Reject {reanalysisCount}회 — 전월 포트 유지 중 · CAP Months 미포함 경고
+              재분석 요청 {reanalysisCount}회 — 전월 포트 유지 중 · 성과 집계 미포함 경고
             </p>
             <p className="mt-0.5 text-xs opacity-80">
-              재분석 결과가 도착하면 다시 확정해 주세요. CAP Months 성과 집계에서 이 기간은 제외됩니다.
+              재분석 결과가 도착하면 다시 확정해 주세요. 이 기간은 성과 집계에서 제외됩니다.
             </p>
           </div>
         </div>
@@ -293,7 +297,7 @@ export function PortfolioPanel({
         <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
-            <p className="font-semibold">Reject 2회 달성 — 전월 포트 유지 확정</p>
+            <p className="font-semibold">재분석 요청 2회 달성 — 전월 포트 유지 확정</p>
             <p className="mt-0.5 text-xs opacity-80">
               재분석 횟수(≤1) 초과. 이번 달은 전월 포트폴리오가 유지됩니다.
             </p>
@@ -306,10 +310,10 @@ export function PortfolioPanel({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">
-              Reject 기록 완료 (요청 {banner.reanalysisCount}회)
+              재분석 요청 기록 완료 (요청 {banner.reanalysisCount}회)
             </p>
             <p className="mt-0.5 text-xs opacity-80">
-              아래 “30 재선정 — 실 AI 재실행” 버튼으로 재선정하거나, 매월 1일 자동 배치를 기다립니다. 확정 전까지 전월 포트 유지 상태입니다.
+              정기 선정 배치가 다시 추천을 생성할 때까지 기다립니다. 확정 전까지 전월 포트 유지 상태입니다.
             </p>
           </div>
         </div>
@@ -345,12 +349,12 @@ export function PortfolioPanel({
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <div>
             <p className="font-semibold">
-              리포트 배치 chunk 처리 {banner.processed}건
-              {banner.aborted ? ` · 중단(${banner.aborted})` : ""}
+              리포트 배치 처리 {banner.processed}건
+              {banner.aborted ? " · 중단됨" : ""}
             </p>
             <p className="mt-0.5 text-xs opacity-80">
               {banner.remaining > 0
-                ? `남은 ${banner.remaining}건 — 다시 실행하거나 일일 cron이 이어서 처리합니다.`
+                ? `남은 ${banner.remaining}건 — 잠시 후 다시 실행하거나 다음 정기 실행을 기다려 주세요.`
                 : "남은 작업 없음."}
             </p>
           </div>
@@ -360,14 +364,14 @@ export function PortfolioPanel({
       {banner?.kind === "report_worker_skipped" && (
         <div className="flex items-center gap-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          <span>리포트 배치가 이미 진행 중입니다 (다른 워커 보유).</span>
+          <span>리포트 배치가 이미 진행 중입니다. 잠시 후 다시 시도해 주세요.</span>
         </div>
       )}
 
       {banner?.kind === "report_worker_not_ready" && (
         <div className="flex items-center gap-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          <span>Short List가 아직 30종목이 아닙니다 — W2a 선정 청크를 먼저 완료하세요.</span>
+          <span>이번 달 추천 종목이 아직 30개가 아닙니다. 추천 목록이 완성된 뒤 다시 시도해 주세요.</span>
         </div>
       )}
 
@@ -375,14 +379,14 @@ export function PortfolioPanel({
       {banner?.kind === "dispute_done" && (
         <div className="flex items-center gap-2 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="font-semibold">이의 제기가 접수되었습니다. 48h Hold가 시작됩니다.</span>
+          <span className="font-semibold">이의 제기가 접수되었습니다. 48시간 대기가 시작됩니다.</span>
         </div>
       )}
 
       {banner?.kind === "dispute_resolved" && (
         <div className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success shadow-toss-sm">
           <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="font-semibold">이의가 해결되었습니다. Accept Hold를 다시 계산합니다.</span>
+          <span className="font-semibold">이의가 해결되었습니다. 확정 가능 시점을 다시 계산합니다.</span>
         </div>
       )}
 
@@ -390,7 +394,7 @@ export function PortfolioPanel({
       {disputeBlocked && disputeHoldExpiresAt && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning shadow-toss-sm">
           <span>
-            ⏳ 이의 제기 48h Hold — 만료{" "}
+            이의 제기 48시간 대기 — 만료{" "}
             {disputeHoldExpiresAt.toLocaleString("ko-KR", {
               year: "numeric",
               month: "2-digit",
@@ -426,7 +430,7 @@ export function PortfolioPanel({
             disabled={isPending || !acceptAllowed || disputeBlocked}
             title={!acceptAllowed && gateMessage ? gateMessage : undefined}
           >
-            Accept — 이번 달 포트 확정
+            이번 달 포트폴리오 확정
           </Button>
           <Button
             variant="destructive"
@@ -434,47 +438,61 @@ export function PortfolioPanel({
             onClick={() => setModal("reject")}
             disabled={isPending || disputeBlocked}
           >
-            Reject — 재분석 요청
+            재분석 요청
           </Button>
         </div>
       )}
 
-      {/* PR-H scope 1a+4 — admin 배치 트리거.
-          30 재선정 단발은 W2a 이후 fail-closed; report-worker는 30 풀리포트 생성. */}
+      {/* AI 포트 제안 — 주요 액션(운영 동선). 실 동작은 백엔드 게이트 결정(flag-off=안내, cost 0). */}
       {!isAlreadyFinalized && (
         <div className="flex flex-wrap items-center gap-3 border-t pt-3">
-          <span className="text-xs font-medium text-muted-foreground">
-            관리자 배치 (청크 워커 경로)
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReanalyze}
-            disabled={isPending}
-            title="단발 30 재선정은 W2a 이후 비활성화되었습니다. selection-worker 청크 경로를 사용하세요."
-          >
-            30 재선정 — 청크 경로 사용 필요
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReportWorker}
-            disabled={isPending}
-            title="30 풀리포트 생성 (1 chunk · PR5 flag 활성 필요)"
-          >
-            리포트 배치 생성 (1 chunk)
-          </Button>
-          {/* W3b-3 — AI 포트 제안 생성. 실 동작은 백엔드 게이트 결정(flag-off=proposal_disabled 안내, cost 0). */}
           <Button
             variant="outline"
             size="sm"
             onClick={handlePropose}
-            disabled={isPending}
-            title="선정 30 종목으로 AI(Opus)가 편입·비중·현금을 제안 (flag/키 활성 필요)"
+            disabled={isPending || !portfolioProposalEnabled}
+            title={
+              portfolioProposalEnabled
+                ? "이번 달 추천 30 종목으로 AI가 편입·비중·현금을 제안합니다."
+                : "현재 준비 중입니다."
+            }
           >
-            🤖 AI 포트 제안 받기
+            {portfolioProposalEnabled ? "AI 포트 제안 받기" : "AI 포트 제안 준비 중"}
           </Button>
         </div>
+      )}
+
+      {/* 고급 — 일괄 작업. 기본 동선 아님(접힘). 30 재선정 단발은 현재 비활성(disabled). */}
+      {!isAlreadyFinalized && (
+        <details className="border-t pt-3">
+          <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+            고급 — 일괄 작업
+          </summary>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReanalyze}
+              disabled
+              title="단발 재선정은 현재 사용할 수 없습니다. 정기 선정 배치를 이용하세요."
+            >
+              30 재선정 (준비 중)
+            </Button>
+            <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReportWorker}
+              disabled={isPending || !reportBatchEnabled}
+              title={
+                reportBatchEnabled
+                  ? "추천 30 종목의 리포트를 한 번에 생성합니다."
+                  : "현재 준비 중입니다."
+              }
+            >
+              {reportBatchEnabled ? "리포트 한 번에 생성" : "리포트 일괄 생성 준비 중"}
+            </Button>
+          </div>
+        </details>
       )}
 
       {/* W3b-3 — 영속된 AI 제안 read-only 카드 (page.tsx getProposalByMonth 로드분). */}
@@ -485,11 +503,11 @@ export function PortfolioPanel({
             return (
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
-                  현재 AI 제안 ({summary.positionCount}종목 · 현금{" "}
+                  저장된 AI 제안 ({summary.positionCount}종목 · 현금{" "}
                   {summary.cashPct.toFixed(1)}%)
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  모델 {persistedProposal.model}
+                  저장됨
                 </span>
               </div>
             );
@@ -530,7 +548,7 @@ export function PortfolioPanel({
           <DialogHeader>
             <DialogTitle>포트 확정 — {monthLabel}</DialogTitle>
             <DialogDescription>
-              이 Short List 30을 {monthLabel} 포트폴리오로 확정하시겠습니까?
+              이번 달 추천 30을 {monthLabel} 포트폴리오로 확정하시겠습니까?
             </DialogDescription>
           </DialogHeader>
 
@@ -583,13 +601,13 @@ export function PortfolioPanel({
           <DialogHeader>
             <DialogTitle>재분석 요청 — {monthLabel}</DialogTitle>
             <DialogDescription>
-              Short List 30을 Reject하고 재분석을 요청합니다. 이번 달은 전월 포트가 유지됩니다.
+              이번 달 추천 30에 대해 재분석을 요청합니다. 이번 달은 전월 포트가 유지됩니다.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
             <label htmlFor="reject-reason" className="text-xs font-medium text-muted-foreground">
-              Reject 사유 (선택 · 입력 시 기록됨)
+              재분석 사유 (선택 · 입력 시 기록됨)
             </label>
             <textarea
               id="reject-reason"
@@ -610,7 +628,7 @@ export function PortfolioPanel({
               onClick={handleReject}
               disabled={isPending}
             >
-              {isPending ? "처리 중…" : "Reject"}
+              {isPending ? "처리 중…" : "재분석 요청"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -622,7 +640,7 @@ export function PortfolioPanel({
           <DialogHeader>
             <DialogTitle>이의 제기 — {monthLabel}</DialogTitle>
             <DialogDescription>
-              확정된 포트폴리오에 이의를 제기합니다. 접수 후 48h Hold가 시작되며, 그 동안 Accept/Reject가 비활성화됩니다.
+              확정된 포트폴리오에 이의를 제기합니다. 접수 후 48시간 대기가 시작되며, 그 동안 확정과 재분석 요청이 비활성화됩니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -679,10 +697,9 @@ export function PortfolioPanel({
       >
         <DialogContent showCloseButton>
           <DialogHeader>
-            <DialogTitle>🤖 AI 포트 제안 — {monthLabel}</DialogTitle>
+            <DialogTitle>AI 포트 제안 — {monthLabel}</DialogTitle>
             <DialogDescription>
-              AI(Opus)가 제안한 편입 종목·비중·현금입니다. 확정하려면 위 “포트
-              확정(Accept)”을 사용하세요(제안 비중 반영은 운영자 flag 활성 시).
+              AI가 제안한 편입 종목·비중·현금입니다. 확정하려면 “이번 달 포트폴리오 확정”을 사용하세요.
             </DialogDescription>
           </DialogHeader>
           {generatedProposal ? (

@@ -206,23 +206,25 @@ describe("formatErrorMessage", () => {
         expect(msg).not.toMatch(/^오류:/);
         expect(msg).not.toContain("23514");
       }
-      // proposal_schema_missing은 plain code(직접 매핑).
-      expect(formatErrorMessage("proposal_schema_missing")).toContain("마이그 0034");
-      // S7c — exit_decision_grant_missing은 0045 apply 안내를 포함.
-      expect(formatErrorMessage("exit_decision_grant_missing")).toContain("마이그 0045");
+      const proposalSchemaMessage = formatErrorMessage("proposal_schema_missing");
+      expect(proposalSchemaMessage).toContain("저장 설정");
+      expect(proposalSchemaMessage).not.toContain("마이그");
+      const exitGrantMessage = formatErrorMessage("exit_decision_grant_missing");
+      expect(exitGrantMessage).toContain("권한 설정");
+      expect(exitGrantMessage).not.toContain("마이그");
       expect(formatErrorMessage("exit_decision_write_failed")).toContain("Exit 결정");
     });
 
     it("71차 salvage — unknown_persona_id:/commit_persona_eval_failed: suffix throw 호환 + ai_billing_exhausted (raw 노출 금지)", () => {
       // 실제 throw 형태(suffix 포함)도 한국어로 매핑되고 raw 코드를 노출하지 않는다.
       expect(formatErrorMessage("unknown_persona_id:warren_buffett")).toBe(
-        "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
+        "AI 평가자 설정을 찾을 수 없습니다. 시스템 상태를 확인해 주세요",
       );
       expect(formatErrorMessage("commit_persona_eval_failed:23505")).toBe(
-        "페르소나 평가 저장 실패 — 다시 시도하세요",
+        "AI 평가 저장 실패 — 다시 시도하세요",
       );
       expect(formatErrorMessage("commit_persona_eval_failed:no_success")).toBe(
-        "페르소나 평가 저장 실패 — 다시 시도하세요",
+        "AI 평가 저장 실패 — 다시 시도하세요",
       );
       expect(formatErrorMessage("ai_billing_exhausted")).toContain("결제 한도");
     });
@@ -309,15 +311,17 @@ describe("formatErrorMessage", () => {
   });
 
   describe("unmapped fallback", () => {
-    it("wraps unknown English code as 오류: ${code}", () => {
+    it("hides unknown English code behind a generic operator message", () => {
       expect(formatErrorMessage("future_unknown_code")).toBe(
-        "오류: future_unknown_code",
+        "요청 처리 중 오류가 발생했습니다. 시스템 상태를 확인해 주세요",
       );
     });
 
-    it("wraps DB-like raw error", () => {
+    it("hides DB-like raw error", () => {
       const raw = "relation does not exist";
-      expect(formatErrorMessage(raw)).toBe(`오류: ${raw}`);
+      expect(formatErrorMessage(raw)).toBe(
+        "요청 처리 중 오류가 발생했습니다. 시스템 상태를 확인해 주세요",
+      );
     });
   });
 
@@ -339,7 +343,7 @@ describe("formatErrorMessage", () => {
 
     it("real_persistence_not_configured — production mock 분기 노출", () => {
       expect(formatErrorMessage("real_persistence_not_configured")).toBe(
-        "이 기능은 production 실 저장이 아직 연결되지 않았습니다",
+        "실제 저장 설정이 아직 준비되지 않았습니다",
       );
     });
 
@@ -365,9 +369,8 @@ describe("formatErrorMessage", () => {
 
     it("accept_gate_blocked without colon does NOT trigger prefix handler", () => {
       // 'accept_gate_blocked' (no colon) is not a known code and not Korean,
-      // so it falls through to the generic 오류: ${code} fallback.
       expect(formatErrorMessage("accept_gate_blocked")).toBe(
-        "오류: accept_gate_blocked",
+        "요청 처리 중 오류가 발생했습니다. 시스템 상태를 확인해 주세요",
       );
     });
   });
@@ -390,7 +393,7 @@ describe("formatErrorMessage", () => {
 
     it("consensus_undefined_case — 합의 배지 정의 누락", () => {
       expect(formatErrorMessage("consensus_undefined_case")).toBe(
-        "합의 배지 정의 누락 — D19 spec 확인 필요",
+        "합의 배지 정의가 누락되었습니다 — 시스템 상태를 확인해 주세요",
       );
     });
 
@@ -451,10 +454,10 @@ describe("formatErrorMessage", () => {
   // PR1 — orchestrator + persist + commit_badge_only error codes (54차 §4 omxy R1~R8 CONVERGED)
   describe("PR1 신규 error codes", () => {
     it.each([
-      ["tier1_candidates_must_be_150", "Tier 0 후보 수가 150개가 아닙니다"],
-      ["tier1_screening_failed", "Tier 1 평가에 실패했습니다"],
-      ["shortlist_persist_failed", "Short List 저장에 실패했습니다"],
-      ["commit_badge_only_failed", "배지 commit에 실패했습니다"],
+      ["tier1_candidates_must_be_150", "추천 후보 수가 기대값과 다릅니다"],
+      ["tier1_screening_failed", "AI 심층 평가에 실패했습니다"],
+      ["shortlist_persist_failed", "추천 30 저장에 실패했습니다"],
+      ["commit_badge_only_failed", "평가 배지 저장에 실패했습니다"],
     ])("maps %s to %s", (code, expected) => {
       expect(formatErrorMessage(code)).toBe(expected);
     });
@@ -462,13 +465,13 @@ describe("formatErrorMessage", () => {
     // B10 fix (omxy R2) — suffix throw 호환:
     it("prefix handler: tier1_candidates_must_be_150 (got N)", () => {
       expect(formatErrorMessage("tier1_candidates_must_be_150 (got 0)")).toBe(
-        "Tier 0 후보 수가 150개가 아닙니다",
+        "추천 후보 수가 기대값과 다릅니다",
       );
     });
 
     it("prefix handler: shortlist_persist_failed:<pg-code>", () => {
       expect(formatErrorMessage("shortlist_persist_failed:23505")).toBe(
-        "Short List 저장에 실패했습니다",
+        "추천 30 저장에 실패했습니다",
       );
     });
   });
@@ -476,18 +479,18 @@ describe("formatErrorMessage", () => {
   // MF5 fix (3-track deep-review #8) — orchestrator/persist/lock/alert suffix throw 매핑
   describe("PR1 MF5 — 추가 error code 매핑 + prefix handler", () => {
     it.each([
-      ["tier1_candidates_have_duplicate_tickers", "Tier 0 후보에 중복 종목코드가 있습니다"],
+      ["tier1_candidates_have_duplicate_tickers", "추천 후보에 중복 종목코드가 있습니다"],
       ["assigned_timeframe_null_for_selected", "선정 종목에 시간대 정보가 누락되었습니다"],
       ["batch_lock_acquire_failed", "월간 배치 락 획득에 실패했습니다"],
       ["batch_lock_release_failed", "월간 배치 락 해제에 실패했습니다"],
       ["scheduler_fail_alert_insert_failed", "실패 알림 저장에 실패했습니다"],
-      ["tier0_source_not_wired_pr1_followup", "Tier 0 데이터 소스가 아직 연결되지 않았습니다 (후속 PR)"],
-      ["persona_panel_not_wired_pr1_followup", "AI 페르소나 패널이 아직 연결되지 않았습니다 (후속 PR)"],
-      ["commit_badge_only_not_wired_pr1_followup", "배지 commit RPC가 아직 연결되지 않았습니다 (후속 PR)"],
-      ["cron_caller_requires_service_role", "Cron 호출자는 service-role 권한이 필요합니다"],
+      ["tier0_source_not_wired_pr1_followup", "추천 후보 데이터 소스가 아직 연결되지 않았습니다"],
+      ["persona_panel_not_wired_pr1_followup", "AI 평가가 아직 준비되지 않았습니다"],
+      ["commit_badge_only_not_wired_pr1_followup", "평가 배지 저장 기능이 아직 준비되지 않았습니다"],
+      ["cron_caller_requires_service_role", "시스템 실행 권한이 필요합니다"],
       ["invalid_caller_kind", "잘못된 호출자 종류입니다"],
-      ["service_role_key_missing", "서비스 키 환경 변수가 설정되지 않았습니다"],
-      ["supabase_url_missing", "Supabase URL 환경 변수가 설정되지 않았습니다"],
+      ["service_role_key_missing", "시스템 실행 설정이 준비되지 않았습니다"],
+      ["supabase_url_missing", "시스템 연결 설정이 준비되지 않았습니다"],
     ])("maps exact %s to %s", (code, expected) => {
       expect(formatErrorMessage(code)).toBe(expected);
     });
@@ -495,7 +498,7 @@ describe("formatErrorMessage", () => {
     it("prefix: tier1_candidates_have_duplicate_tickers (distinct=149/150)", () => {
       expect(
         formatErrorMessage("tier1_candidates_have_duplicate_tickers (distinct=149/150)"),
-      ).toBe("Tier 0 후보에 중복 종목코드가 있습니다");
+      ).toBe("추천 후보에 중복 종목코드가 있습니다");
     });
 
     it("prefix: assigned_timeframe_null_for_selected:<ticker>", () => {
@@ -530,27 +533,27 @@ describe("formatErrorMessage", () => {
       );
       expect(msg).toContain("본문");
       expect(msg).toContain("검증");
-      expect(msg).toContain("section_0:conviction");
+      expect(msg).not.toContain("section_0:conviction");
     });
     it("full_report_parse_failed:invalid_json → AI + 파싱 + suffix", () => {
       const msg = formatErrorMessage("full_report_parse_failed:invalid_json");
       expect(msg).toContain("AI");
       expect(msg).toContain("파싱");
-      expect(msg).toContain("invalid_json");
+      expect(msg).not.toContain("invalid_json");
     });
     it("update_report_sections_0_7_failed:42501 → 저장 + suffix", () => {
       const msg = formatErrorMessage(
         "update_report_sections_0_7_failed:42501",
       );
       expect(msg).toContain("저장");
-      expect(msg).toContain("42501");
+      expect(msg).not.toContain("42501");
     });
     it("report_not_found_for_section_0_7_update → 리포트 + 부재", () => {
       const msg = formatErrorMessage(
         "report_not_found_for_section_0_7_update",
       );
       expect(msg).toContain("리포트");
-      expect(msg).toContain("부재");
+      expect(msg).toContain("찾을 수 없습니다");
     });
     // R6 non-blocking catch: cost_log throw 매핑 추가 검증
     it("cost_hardcap_exceeded → 한국어 '월 AI 비용 한도'", () => {
@@ -629,20 +632,20 @@ describe("formatErrorMessage", () => {
   describe("B65-P3 — admin UPSERT RPC error 매핑", () => {
     it("upsert_report_sections_0_7_admin_failed → 본문 저장 실패 (admin UPSERT)", () => {
       expect(formatErrorMessage("upsert_report_sections_0_7_admin_failed")).toBe(
-        "리포트 본문 저장 실패 (admin UPSERT)",
+        "리포트 본문 저장 실패",
       );
     });
     it("upsert_report_sections_0_7_admin_failed_no_returning → returning 부재 안전망", () => {
       expect(
         formatErrorMessage("upsert_report_sections_0_7_admin_failed_no_returning"),
-      ).toBe("리포트 본문 저장 실패 — UPSERT returning 부재 (안전망 발동)");
+      ).toBe("리포트 본문 저장 확인에 실패했습니다");
     });
     it("prefix handler: upsert_report_sections_0_7_admin_failed:<pg-code> → 본문 + suffix", () => {
       const msg = formatErrorMessage(
         "upsert_report_sections_0_7_admin_failed:42501",
       );
-      expect(msg).toContain("admin UPSERT");
-      expect(msg).toContain("42501");
+      expect(msg).toContain("리포트 본문 저장 실패");
+      expect(msg).not.toContain("42501");
     });
   });
 
@@ -651,12 +654,12 @@ describe("formatErrorMessage", () => {
     // AI-ENGINE-CONTRACT-1 — orchestrator throws `tier1_panel_incomplete:<done>/<total>` (PR-G 재선정).
     it("exact: tier1_panel_incomplete → Tier 1 AI 미완료 안내", () => {
       expect(formatErrorMessage("tier1_panel_incomplete")).toBe(
-        "Tier 1 AI 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
+        "AI 심층 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
       );
     });
     it("prefix: tier1_panel_incomplete:149/150 → 동일 메시지 (raw code 미노출)", () => {
       const msg = formatErrorMessage("tier1_panel_incomplete:149/150");
-      expect(msg).toContain("Tier 1 AI 평가");
+      expect(msg).toContain("AI 심층 평가");
       expect(msg).not.toContain("149/150");
     });
 
@@ -669,14 +672,14 @@ describe("formatErrorMessage", () => {
 
     it("exact: monthly_batch_single_shot_deprecated → W2a 청크 경로 안내", () => {
       expect(formatErrorMessage("monthly_batch_single_shot_deprecated")).toBe(
-        "30 재선정 단발 경로는 비활성화되었습니다 — selection-worker 청크 경로를 사용하세요",
+        "이 실행 경로는 비활성화되었습니다 — 시스템 상태에서 최신 실행 경로를 확인해 주세요",
       );
     });
 
     // CRON-REPORT-1 — report-worker 인프라 throw codes.
     it("exact + prefix: short_list_30_invalid_count(:N) → 30선정 미완료 안내", () => {
       expect(formatErrorMessage("short_list_30_invalid_count")).toBe(
-        "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
+        "이번 달 추천 목록이 30종목이 아닙니다 — 먼저 추천 30 선정을 완료하세요",
       );
       const pfx = formatErrorMessage("short_list_30_invalid_count:29");
       expect(pfx).toContain("30종목이 아닙니다");

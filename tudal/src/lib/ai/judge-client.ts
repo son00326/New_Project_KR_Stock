@@ -5,9 +5,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { calculateCostKrw, type TokenUsage } from '@/lib/cost/pricing';
 import { insertCostLog } from '@/lib/cost/cost-logger';
-import { resolveRole, type AiRole } from './model-registry';
+import { resolveRoleCandidates, type AiRole, type ResolvedRole } from './model-registry';
 import { extractJsonObject } from '@/lib/screening/persona-panel-adapter';
 import type { SelectionTrack } from '@/lib/screening/tier1-schema';
+import type { LlmCallResult } from './provider';
 
 const score0to100 = z.number().min(0).max(100).finite();
 
@@ -95,40 +96,44 @@ async function callJudgeRole(
   personaIdForLog: 'debate-judge' | 'dual-judge',
   input: CallJudgeInput,
 ): Promise<JudgeVerdict> {
-  // D28 A — Claude 필수 primary 불변 (GPT-only 미지원).
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const candidates = resolveRoleCandidates(role);
+  if (candidates.length === 0) {
     throw new Error('ai_key_unavailable');
   }
-  const resolved = resolveRole(role);
   const userPrompt = JUDGE_USER_PROMPT.replaceAll('{{TICKER}}', input.ticker)
     .replaceAll('{{TRACK}}', input.track)
     .replaceAll('{{REFLECTION_CONTEXT}}', input.reflectionContext ?? '')
     .replaceAll('{{PEER_ARGUMENTS}}', input.panelSummary);
 
-  let result;
-  try {
-    result = await resolved.provider.call({
-      model: resolved.model,
-      maxTokens: resolved.maxTokens,
-      systemPrompt: JUDGE_SYSTEM_PROMPT,
-      userPrompt,
-      enablePromptCache: false,
-    });
-  } catch (err) {
-    // W1a (D9) classifier 동일 — transient 분류 보존.
-    const msg = err instanceof Error ? err.message : String(err);
-    const status =
-      (err as { status?: number }).status ?? (err as { statusCode?: number }).statusCode;
-    const transient =
-      status === 429 ||
-      (status !== undefined && status >= 500) ||
-      /\b(?:429|529)\b|rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(
-        msg,
-      );
-    throw new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
+  let lastError: unknown = null;
+  for (const resolved of candidates) {
+    let result: LlmCallResult;
+    try {
+      result = await resolved.provider.call({
+        model: resolved.model,
+        maxTokens: resolved.maxTokens,
+        systemPrompt: JUDGE_SYSTEM_PROMPT,
+        userPrompt,
+        enablePromptCache: false,
+        responseFormat: 'json_object',
+      });
+    } catch (err) {
+      lastError = err;
+      if (resolved.provider.id === 'openrouter') continue;
+      throw normalizeJudgeCallError(err);
+    }
+    await logJudgeCost(resolved, result.usage, personaIdForLog, input);
+    return parseJudgeVerdict(result.text);
   }
+  throw normalizeJudgeCallError(lastError);
+}
 
-  const usage: TokenUsage = result.usage;
+async function logJudgeCost(
+  resolved: ResolvedRole,
+  usage: TokenUsage,
+  personaIdForLog: 'debate-judge' | 'dual-judge',
+  input: CallJudgeInput,
+) {
   const costKrw = calculateCostKrw(usage, resolved.pricingKey);
   await insertCostLog(
     {
@@ -144,8 +149,22 @@ async function callJudgeRole(
     },
     { client: input.costClient },
   );
+}
 
-  return parseJudgeVerdict(result.text);
+function normalizeJudgeCallError(err: unknown): Error {
+  if (err instanceof Error && err.message.startsWith('judge_verdict_parse_failed')) {
+    return err;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  const status =
+    (err as { status?: number }).status ?? (err as { statusCode?: number }).statusCode;
+  const transient =
+    status === 429 ||
+    (status !== undefined && status >= 500) ||
+    /\b(?:429|529)\b|rate.?limit|overloaded|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network|length/i.test(
+      msg,
+    );
+  return new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
 }
 
 /** D28 ③ — per-ticker 최종 judge (Opus 4.8). */

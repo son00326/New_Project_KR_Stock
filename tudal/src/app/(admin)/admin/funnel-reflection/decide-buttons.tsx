@@ -23,7 +23,7 @@ export function DecideButtons({ id }: { id: string }) {
         type="button"
         disabled={pending}
         onClick={() => decide("approved")}
-        className="rounded-lg border border-market-up px-2.5 py-1 text-xs font-medium text-market-up transition-colors hover:bg-market-up/10 disabled:opacity-50"
+        className="rounded-lg border border-success/40 px-2.5 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10 disabled:opacity-50"
       >
         승인(기록)
       </button>
@@ -36,10 +36,10 @@ export function DecideButtons({ id }: { id: string }) {
         거절
       </button>
       <span className="text-[10px] text-muted-foreground">
-        ※ 승인=기록만, funnel 자동 적용 아님
+        ※ 승인해도 추천 방식에는 자동 반영되지 않습니다.
       </span>
       {error && (
-        <span role="status" className="text-xs text-market-down">
+        <span role="status" className="text-xs text-destructive">
           {formatErrorMessage(error)}
         </span>
       )}

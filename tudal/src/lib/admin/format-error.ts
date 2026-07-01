@@ -29,7 +29,7 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   pricing_unknown_model: "미등록 AI 모델 단가입니다 — 모델 레지스트리 등록이 필요합니다",
   preflight_reservation_missing: "비용 예약 정보가 누락되어 AI 호출을 차단했습니다 (운영자 확인 필요)",
   preflight_reservation_invalid: "비용 예약 값이 올바르지 않아 AI 호출을 차단했습니다 (운영자 확인 필요)",
-  cost_logging_disabled: "AI 비용 로깅이 비활성화되어 실 AI 호출을 차단했습니다 (운영자: AI_COST_LOG_REAL_INSERT_ENABLED 확인)",
+  cost_logging_disabled: "AI 비용 확인 설정이 준비되지 않아 실행을 막았습니다. 시스템 상태를 확인해 주세요",
   manual_cap_exhausted: "수동 재생성 한도(월 2회)를 모두 사용했습니다",
   report_lookup_failed: "리포트 조회 실패 — 다시 시도해주세요",
   report_not_found: "리포트를 찾을 수 없습니다",
@@ -41,12 +41,12 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // throw 표면이라 별도 매핑(line ~114) 유지, 본 코드는 regenerate caller가 catch 후 반환.
   cost_log_lookup_failed: "비용 한도 조회 실패 — 잠시 후 다시 시도하세요",
   // PR4 Step 2.3 — regenerate orchestrate wire 신규 코드 (omxy R1 B29 fix).
-  shortlist_item_not_found: "이번 달 Short List에서 해당 종목을 찾을 수 없습니다",
+  shortlist_item_not_found: "이번 달 추천 30에서 해당 종목을 찾을 수 없습니다",
   orchestrate_full_report_failed: "풀 리포트 생성에 실패했습니다 — 잠시 후 다시 시도하세요",
   // PR4 Task 9 — 인벤토리 완전성 (track-record/actions.ts triggerMonthlyPersonaEvalAction 박제).
   // dangling caller지만 server action error code 미매핑 = 운영 위험. 방어적 박제.
   admin_required: "어드민 권한이 필요합니다",
-  shortlist_empty: "이번 달 Short List가 비어 있습니다",
+  shortlist_empty: "이번 달 추천 목록이 비어 있습니다",
   // PR4 Task 9 omxy R1 B41 fix — AI client throw (PR4 reachable via triggerFullReport/regenerateReport
   // → orchestrate → callFullReport/callCritic/callRevise). format-error 미매핑 시 UI에 raw 영문 노출.
   ai_key_unavailable: "AI 키가 설정되지 않았습니다 — 운영 환경 변수를 확인하세요",
@@ -57,20 +57,20 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // financials_fetch_failed:* prefix throw + archive 3종 query failures (Server Component error boundary 보호).
   financials_corp_lookup_failed: "재무 데이터 조회 실패 — 잠시 후 다시 시도하세요",
   financials_fetch_failed: "재무 데이터 조회 실패 — 잠시 후 다시 시도하세요",
-  stock_reports_archive_query_failed: "월별 아카이브 조회 실패 (stock_reports)",
-  short_list_30_archive_query_failed: "월별 아카이브 조회 실패 (short_list_30)",
-  portfolio_approval_archive_query_failed: "월별 아카이브 조회 실패 (portfolio_approval)",
+  stock_reports_archive_query_failed: "월별 기록 조회 실패 — 잠시 후 다시 시도하세요",
+  short_list_30_archive_query_failed: "월별 기록 조회 실패 — 잠시 후 다시 시도하세요",
+  portfolio_approval_archive_query_failed: "월별 기록 조회 실패 — 잠시 후 다시 시도하세요",
   // portfolio
   already_finalized: "이미 이번 달 포트가 확정되어 있습니다",
   // W3b-2c (R33 HIGH) — Accept 영속 중 예기치 않은 unique 충돌(스냅샷 스키마 readiness/재진입). already_finalized와 구분.
-  accept_write_conflict: "포트 저장 충돌 — 스키마 상태를 확인하고 다시 시도하세요",
+  accept_write_conflict: "포트 저장 충돌 — 시스템 상태를 확인하고 다시 시도하세요",
   // acceptShortList/proposePortfolio 공통 — active Short List가 30종목 정확히가 아닐 때(부분/초과).
-  shortlist_incomplete: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
+  shortlist_incomplete: "이번 달 추천 목록이 30종목이 아닙니다 — 먼저 추천 30 선정을 완료하세요",
   approval_write_failed: "승인 저장 실패 — 다시 시도하세요",
   approval_lookup_failed: "승인 조회 실패 — 다시 시도해주세요",
   approval_not_found: "해당 승인을 찾을 수 없습니다",
-  shortlist_lookup_failed: "Short List 조회 실패 — 다시 시도해주세요",
-  shortlist_month_not_found: "이번 달 Short List가 아직 생성되지 않았습니다",
+  shortlist_lookup_failed: "추천 목록 조회 실패 — 다시 시도해주세요",
+  shortlist_month_not_found: "이번 달 추천 30이 아직 생성되지 않았습니다",
   entry_price_unavailable: "실 가격 소스 미연동 — 현재는 승인할 수 없습니다",
   reanalysis_limit_reached: "재분석 2회를 초과했습니다 — 전월 포트 유지",
   already_disputed: "이미 이의 제기된 승인입니다",
@@ -85,19 +85,19 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // S7c — Exit 결정 기록 RPC 실배선(record_alert_exit_decision).
   exit_decision_write_failed: "Exit 결정 저장에 실패했습니다 — 다시 시도해주세요",
   exit_decision_grant_missing:
-    "Exit 결정 기록 권한이 적용되지 않았습니다 (운영자: 마이그 0045 apply 확인)",
+    "권한 설정이 아직 준비되지 않았습니다. 시스템 상태를 확인해 주세요",
   // G1 Tier0 Reflection Lab — funnel 회고 제안 승인/거절(기록만).
   funnel_reflection_decide_failed: "회고 제안 처리에 실패했습니다 — 다시 시도해주세요",
   funnel_reflection_not_found_or_decided: "이미 처리되었거나 존재하지 않는 제안입니다",
   // mock-only 액션 (settings/alerts; production에서 isProductionLike() 분기로 노출)
-  real_persistence_not_configured: "이 기능은 production 실 저장이 아직 연결되지 않았습니다",
+  real_persistence_not_configured: "실제 저장 설정이 아직 준비되지 않았습니다",
   unknown_error: "알 수 없는 오류가 발생했습니다",
   // credentials lib 방어 매핑 (lib 레벨도 한국어 직접 반환 — 이중 보호)
   "Invalid id format": "잘못된 ID 형식입니다",
   "pending-s8": "Binance 키 저장은 S8 자동매매에서 활성화됩니다",
   // S7a §11 — 합의 배지·월간 배치·페르소나 평가·AI 호출 에러
   consensus_rank_invalid: "합의 배지 산출 로직 오류 — 어드민에게 보고 필요",
-  consensus_undefined_case: "합의 배지 정의 누락 — D19 spec 확인 필요",
+  consensus_undefined_case: "합의 배지 정의가 누락되었습니다 — 시스템 상태를 확인해 주세요",
   batch_already_running:
     "이번 달 분석이 이미 진행 중입니다. 진행률은 admin 화면에서 확인하세요.",
   batch_already_completed:
@@ -105,48 +105,48 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   persona_eval_fatal: "분석 실행 중 치명적 오류 — 운영자 검토 필요",
   ai_call_failed: "AI 호출 실패 — 분석 결과 ⚪(분석 대기)로 처리됨",
   // PR1 — orchestrator + persist + commit_badge_only error codes (54차 §4 v8)
-  tier1_candidates_must_be_150: "Tier 0 후보 수가 150개가 아닙니다",
+  tier1_candidates_must_be_150: "추천 후보 수가 기대값과 다릅니다",
   // W2b (D27 Q5) — incumbent union + pool range gate
   tier1_candidates_pool_out_of_range:
-    "후보 풀 크기가 트랙 허용 범위를 벗어났습니다 (fresh+incumbent)",
-  incumbents_count_exceeded: "직전 리스트(incumbent) 수가 트랙 허용치를 초과했습니다",
-  incumbents_query_failed: "직전 리스트(incumbent) 조회에 실패했습니다",
+    "추천 후보 풀 크기가 허용 범위를 벗어났습니다",
+  incumbents_count_exceeded: "직전 보유 후보 수가 허용치를 초과했습니다",
+  incumbents_query_failed: "직전 보유 후보 조회에 실패했습니다",
   // W1a (D26 Q4) — mix slot + R2 반박 라운드
-  tier1_panel_slot_out_of_range: "패널 슬롯 인덱스가 범위를 벗어났습니다 (Core 11)",
+  tier1_panel_slot_out_of_range: "AI 평가 설정이 올바르지 않습니다",
   r2_enqueue_failed: "반박 라운드(R2) 작업 등록에 실패했습니다",
   selection_round_schema_missing:
-    "반박 라운드(DB round 컬럼/제약) 마이그레이션이 적용되지 않았습니다",
+    "AI 평가 저장 설정이 아직 준비되지 않았습니다. 시스템 상태를 확인해 주세요",
   debate_r1_panel_missing: "반박 라운드 입력(1차 평가)이 없어 해당 종목을 건너뜁니다",
   debate_r1_prior_missing: "반박 라운드 입력에 일부 위원의 1차 평가가 없습니다",
   // W1b (D28 ③) — judge/dual-judge
   judge_verdict_parse_failed: "최종 판정(judge) 응답 해석에 실패했습니다",
   judge_enqueue_failed: "최종 판정(judge) 작업 등록에 실패했습니다",
   judge_panel_missing: "최종 판정 입력(위원 패널)이 없어 해당 종목을 건너뜁니다",
-  tier1_screening_failed: "Tier 1 평가에 실패했습니다",
-  shortlist_persist_failed: "Short List 저장에 실패했습니다",
-  commit_badge_only_failed: "배지 commit에 실패했습니다",
+  tier1_screening_failed: "AI 심층 평가에 실패했습니다",
+  shortlist_persist_failed: "추천 30 저장에 실패했습니다",
+  commit_badge_only_failed: "평가 배지 저장에 실패했습니다",
   // MF5 fix (3-track deep-review #8): orchestrator/persist/lock/alert throw 코드 매핑 보강.
-  tier1_candidates_have_duplicate_tickers: "Tier 0 후보에 중복 종목코드가 있습니다",
+  tier1_candidates_have_duplicate_tickers: "추천 후보에 중복 종목코드가 있습니다",
   assigned_timeframe_null_for_selected: "선정 종목에 시간대 정보가 누락되었습니다",
   batch_lock_acquire_failed: "월간 배치 락 획득에 실패했습니다",
   batch_lock_release_failed: "월간 배치 락 해제에 실패했습니다",
   scheduler_fail_alert_insert_failed: "실패 알림 저장에 실패했습니다",
-  tier0_source_not_wired_pr1_followup: "Tier 0 데이터 소스가 아직 연결되지 않았습니다 (후속 PR)",
-  persona_panel_not_wired_pr1_followup: "AI 페르소나 패널이 아직 연결되지 않았습니다 (후속 PR)",
-  commit_badge_only_not_wired_pr1_followup: "배지 commit RPC가 아직 연결되지 않았습니다 (후속 PR)",
-  cron_caller_requires_service_role: "Cron 호출자는 service-role 권한이 필요합니다",
+  tier0_source_not_wired_pr1_followup: "추천 후보 데이터 소스가 아직 연결되지 않았습니다",
+  persona_panel_not_wired_pr1_followup: "AI 평가가 아직 준비되지 않았습니다",
+  commit_badge_only_not_wired_pr1_followup: "평가 배지 저장 기능이 아직 준비되지 않았습니다",
+  cron_caller_requires_service_role: "시스템 실행 권한이 필요합니다",
   invalid_caller_kind: "잘못된 호출자 종류입니다",
-  service_role_key_missing: "서비스 키 환경 변수가 설정되지 않았습니다",
-  supabase_url_missing: "Supabase URL 환경 변수가 설정되지 않았습니다",
+  service_role_key_missing: "시스템 실행 설정이 준비되지 않았습니다",
+  supabase_url_missing: "시스템 연결 설정이 준비되지 않았습니다",
   // PR3b — writer Section 0~7 풀 리포트 (omxy R1 P0 #4 fix)
   full_report_llm_failed: "풀 리포트 AI 호출 실패 — 잠시 후 다시 시도하세요",
   full_report_validation_failed: "풀 리포트 본문 검증 실패",
   full_report_parse_failed: "풀 리포트 AI 응답 파싱 실패",
   update_report_sections_0_7_failed: "풀 리포트 본문 저장 실패",
-  report_not_found_for_section_0_7_update: "리포트 row 부재 — Section 0~7 UPDATE 실패 (commit_persona_eval 선행 필요)",
+  report_not_found_for_section_0_7_update: "리포트를 찾을 수 없습니다 — 먼저 리포트 생성을 완료해 주세요",
   // B65-P3 옵션 A — admin-only UPSERT RPC (마이그 0025) error 코드.
-  upsert_report_sections_0_7_admin_failed: "리포트 본문 저장 실패 (admin UPSERT)",
-  upsert_report_sections_0_7_admin_failed_no_returning: "리포트 본문 저장 실패 — UPSERT returning 부재 (안전망 발동)",
+  upsert_report_sections_0_7_admin_failed: "리포트 본문 저장 실패",
+  upsert_report_sections_0_7_admin_failed_no_returning: "리포트 본문 저장 확인에 실패했습니다",
   // PR3b R6 non-blocking catch — cost_log throw 경로 매핑 누락 (preflightHardcap 호출 중 발생 가능)
   // cost_hardcap_exceeded는 이미 regenerate 섹션에 매핑 박제됨 — 본 PR에서 추가 매핑 0.
   cost_log_select_failed: "비용 로그 조회 실패",
@@ -171,44 +171,44 @@ const KOREAN_MAPPINGS: Record<string, string> = {
   // PR-H — report enrich / report-worker admin trigger 신규 표면 코드.
   report_worker_failed: "리포트 배치 실행에 실패했습니다 — 잠시 후 다시 시도하세요",
   enrich_failed: "리포트 입력 보강에 실패했습니다 — 잠시 후 다시 시도하세요",
-  pr5_cron_auto_disabled: "리포트 배치 자동 실행이 비활성화되어 있습니다",
-  cron_system_user_id_invalid: "Cron 시스템 사용자 ID 설정이 올바르지 않습니다",
-  cron_system_user_not_found: "Cron 시스템 사용자를 찾을 수 없습니다",
+  pr5_cron_auto_disabled: "리포트 배치 실행 설정이 꺼져 있습니다",
+  cron_system_user_id_invalid: "시스템 실행 계정 설정이 올바르지 않습니다",
+  cron_system_user_not_found: "시스템 실행 계정을 찾을 수 없습니다",
   // 출시前 launch-readiness 감사 (omxy 교차검증 ROUND 1, 2026-06-03) — 미매핑 server-action error code 보강.
   // AI-ENGINE-CONTRACT-1 — legacy monthly-batch path가 throw하는 `tier1_panel_incomplete:<done>/<total>`
   //   (PR-G 실 AI 재선정 시 150 중 일부 패널 degraded). triggerMonthlyBatch raw 반환 → portfolio-panel 노출.
-  tier1_panel_incomplete: "Tier 1 AI 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
+  tier1_panel_incomplete: "AI 심층 평가가 일부 종목에서 완료되지 못했습니다 — 잠시 후 다시 시도하세요",
   // TRACK-RECORD-1 — triggerMonthlyBatch(portfolio/actions.ts)의 non-Error catch-all fallback 코드.
   //   (format-error엔 'orchestrate_failed'만 있었음 — 'orchestrator_failed'는 별개 미매핑.)
   orchestrator_failed: "월간 배치 실행에 실패했습니다 — 잠시 후 다시 시도하세요",
   // W2a wiring audit — old single-shot monthly-batch path is no longer a viable live selector.
   monthly_batch_single_shot_deprecated:
-    "30 재선정 단발 경로는 비활성화되었습니다 — selection-worker 청크 경로를 사용하세요",
+    "이 실행 경로는 비활성화되었습니다 — 시스템 상태에서 최신 실행 경로를 확인해 주세요",
   // CRON-REPORT-1 — full-report-batch-worker 인프라 throw codes (admin report-worker 트리거 노출 경로).
-  short_list_30_invalid_count: "이번 달 Short List가 30종목이 아닙니다 — 먼저 30선정을 완료하세요",
+  short_list_30_invalid_count: "이번 달 추천 목록이 30종목이 아닙니다 — 먼저 추천 30 선정을 완료하세요",
   report_batch_worker_failed: "리포트 배치 처리에 실패했습니다 — 잠시 후 다시 시도하세요",
   // W3b-1 (D26 Q2) — proposePortfolio AI 자율 포트 제안 error codes.
   proposal_disabled:
-    "AI 포트폴리오 제안이 비활성화되어 있습니다 (운영자: PORTFOLIO_AI_PROPOSAL_ENABLED + ANTHROPIC_API_KEY 확인)",
+    "AI 포트폴리오 제안 설정이 아직 준비되지 않았습니다. 시스템 상태를 확인해 주세요",
   portfolio_proposal_parse_failed: "AI 포트폴리오 제안 응답 해석에 실패했습니다",
   portfolio_proposal_unknown_ticker:
-    "AI 제안에 이번 달 Short List 밖의 종목이 포함되어 있습니다",
+    "AI 제안에 이번 달 추천 목록 밖의 종목이 포함되어 있습니다",
   // W3b-2a (D2/D5) — portfolio_proposal 영속.
   proposal_schema_missing:
-    "포트폴리오 제안 저장 스키마가 적용되지 않았습니다 (운영자: 마이그 0034 apply 확인)",
+    "포트폴리오 제안 저장 설정이 아직 준비되지 않았습니다. 시스템 상태를 확인해 주세요",
   proposal_persist_failed: "AI 포트폴리오 제안 저장에 실패했습니다 — 잠시 후 다시 시도하세요",
   // W3b-2b — Accept가 영속 proposal 소비 시.
   proposal_stale_for_month:
-    "이번 달 포트 제안의 종목이 현재 Short List와 맞지 않습니다 — 제안을 다시 생성해주세요",
+    "이번 달 포트 제안의 종목이 현재 추천 목록과 맞지 않습니다 — 제안을 다시 생성해주세요",
   proposal_lookup_failed: "포트폴리오 제안 조회에 실패했습니다 — 잠시 후 다시 시도하세요",
   // 71차 salvage from PR #2 (50차 §2.C S7a inventory) — net-new codes still emitted on main:
   //   ai_billing_exhausted = persona-eval.ts catch-list 방어 매핑(직접 throw 0건, SDK 결제한도 신호 대비)
   //   unknown_persona_id / commit_persona_eval_failed = 아래 prefix handler에서 suffix throw 호환.
   ai_billing_exhausted:
-    "Anthropic 결제 한도가 소진되었습니다 — billing 충전 후 재시도",
+    "AI 결제 한도가 소진되었습니다 — 충전 후 다시 시도하세요",
   unknown_persona_id:
-    "지정된 페르소나 ID를 찾을 수 없습니다 — D19 SoT 확인 필요",
-  commit_persona_eval_failed: "페르소나 평가 저장 실패 — 다시 시도하세요",
+    "AI 평가자 설정을 찾을 수 없습니다. 시스템 상태를 확인해 주세요",
+  commit_persona_eval_failed: "AI 평가 저장 실패 — 다시 시도하세요",
 };
 
 export function formatErrorMessage(code: string): string {
@@ -231,7 +231,7 @@ export function formatErrorMessage(code: string): string {
   }
   // W2a 트랙 분리 후 fresh pool 50/100 변형 (`tier1_candidates_must_be_50 (got N)` 등) — 일반화 매핑.
   if (code.startsWith("tier1_candidates_must_be_")) {
-    return "Tier 0 후보 수가 트랙 기대치와 다릅니다";
+    return "추천 후보 수가 기대값과 다릅니다";
   }
   // W1a (D26 Q4) — suffix throw 호환 (`:idx` / `:<pg code>` / `:ticker` / `:persona` / `:status` 숨김).
   if (code.startsWith("judge_verdict_parse_failed")) {
@@ -304,37 +304,17 @@ export function formatErrorMessage(code: string): string {
   //   full_report_parse_failed:<reason>
   //   update_report_sections_0_7_failed:<code>
   if (code.startsWith("full_report_validation_failed:")) {
-    return (
-      KOREAN_MAPPINGS["full_report_validation_failed"] +
-      " (" +
-      code.slice("full_report_validation_failed:".length) +
-      ")"
-    );
+    return KOREAN_MAPPINGS["full_report_validation_failed"];
   }
   if (code.startsWith("full_report_parse_failed:")) {
-    return (
-      KOREAN_MAPPINGS["full_report_parse_failed"] +
-      " (" +
-      code.slice("full_report_parse_failed:".length) +
-      ")"
-    );
+    return KOREAN_MAPPINGS["full_report_parse_failed"];
   }
   if (code.startsWith("update_report_sections_0_7_failed:")) {
-    return (
-      KOREAN_MAPPINGS["update_report_sections_0_7_failed"] +
-      " (" +
-      code.slice("update_report_sections_0_7_failed:".length) +
-      ")"
-    );
+    return KOREAN_MAPPINGS["update_report_sections_0_7_failed"];
   }
   // B65-P3 옵션 A — upsert_report_sections_0_7_admin_failed:<pg-code> suffix throw 호환.
   if (code.startsWith("upsert_report_sections_0_7_admin_failed:")) {
-    return (
-      KOREAN_MAPPINGS["upsert_report_sections_0_7_admin_failed"] +
-      " (" +
-      code.slice("upsert_report_sections_0_7_admin_failed:".length) +
-      ")"
-    );
+    return KOREAN_MAPPINGS["upsert_report_sections_0_7_admin_failed"];
   }
   // PR4 Task 9 Track 2 C-3 fix: financials_fetch_failed:* + archive query failed:* prefix handlers.
   if (code.startsWith("financials_corp_lookup_failed:")) {
@@ -439,5 +419,5 @@ export function formatErrorMessage(code: string): string {
   if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
     console.warn("[format-error] 미매핑 코드:", code);
   }
-  return `오류: ${code}`;
+  return "요청 처리 중 오류가 발생했습니다. 시스템 상태를 확인해 주세요";
 }

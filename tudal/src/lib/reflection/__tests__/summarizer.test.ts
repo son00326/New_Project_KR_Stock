@@ -2,9 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const providerCall = vi.fn();
 const resolveRoleMock = vi.fn();
-vi.mock("@/lib/ai/model-registry", () => ({
-  resolveRole: (role: string) => resolveRoleMock(role),
-}));
+// 항목1 — resolveRole만 stub, isRoleProviderAvailable 등 나머지는 실제 유지(env 기반 게이트 판정 보존).
+vi.mock("@/lib/ai/model-registry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ai/model-registry")>();
+  return {
+    ...actual,
+    resolveRole: (role: string) => resolveRoleMock(role),
+  };
+});
 vi.mock("@/lib/cost/cost-logger", () => ({
   insertCostLog: vi.fn(),
 }));
@@ -106,8 +111,13 @@ describe("summarizeReflection", () => {
     expect(providerCall).not.toHaveBeenCalled();
   });
 
-  it("ANTHROPIC_API_KEY 부재 → ai_key_unavailable throw (Claude 필수 primary)", async () => {
+  it("critic provider 전부 부재(GPT/Claude/OpenRouter) → ai_key_unavailable throw", async () => {
+    // 항목1 — 게이트는 critic 역할 provider-agnostic(GPT primary/Claude fallback). ANTHROPIC 하나만
+    //   삭제하면 다른 provider 키 유무에 따라 비결정 → critic이 쓸 수 있는 provider 키를 전부 제거해
+    //   "provider 전무 → throw" 불변식을 명시 검증(vacuous 방지).
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
     await expect(
       summarizeReflection({
         metrics,

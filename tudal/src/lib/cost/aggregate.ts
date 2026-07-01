@@ -30,7 +30,7 @@ export const COST_PURPOSE_ORDER: CostPurpose[] = [
 ];
 
 export const COST_PURPOSE_LABEL: Record<CostPurpose, string> = {
-  shortlist: "Short List 선정",
+  shortlist: "추천 30 선정",
   report: "리포트 본문",
   committee: "투심위 페르소나",
   briefing: "모닝 브리핑",

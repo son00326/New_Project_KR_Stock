@@ -22,10 +22,10 @@ export function StockTabs({ ticker }: StockTabsProps) {
           차트
         </TabsTrigger>
         <TabsTrigger value="fundamental" className={TAB_STYLE}>
-          Fundamental 분석
+          기본적 분석
         </TabsTrigger>
         <TabsTrigger value="technical" className={TAB_STYLE}>
-          Technical 분석
+          기술적 분석
         </TabsTrigger>
         <TabsTrigger value="corporate" className={TAB_STYLE}>
           기업 정보

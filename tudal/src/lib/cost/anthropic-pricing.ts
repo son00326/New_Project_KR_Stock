@@ -12,15 +12,17 @@
 
 import { COST_USD_TO_KRW } from "@/types/admin";
 
-export type AiProviderId = "anthropic" | "openai";
+export type AiProviderId = "anthropic" | "openai" | "openrouter";
 
 export interface ModelPricing {
   provider: AiProviderId;
   inputPerMTokUsd: number;
   outputPerMTokUsd: number;
   // prompt cache 승수 (input 단가 기준):
-  //   anthropic: write(5m) ×1.25 / read ×0.10 (공식 docs 2026-06 재검증)
-  //   openai:    자동 캐시 — write 개념 없음(0) / cached input ×0.10
+  //   anthropic:  write(5m) ×1.25 / read ×0.10 (공식 docs 2026-06 재검증)
+  //   openai:     자동 캐시 — write 개념 없음(0) / cached input ×0.10
+  //   openrouter: GLM 5.2 명시 캐시 — read = $0.18/$0.93 ≈ 0.1935 (실측 slug 단가).
+  //     write 별도 단가 미공시 → 보수적으로 anthropic과 동일 ×1.25 (undercount 금지, fail-closed).
   cacheWriteMult: number;
   cacheReadMult: number;
 }
@@ -36,6 +38,8 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5.5":          { provider: "openai",    inputPerMTokUsd: 5,    outputPerMTokUsd: 30,  cacheWriteMult: 0,    cacheReadMult: 0.1 },
   "gpt-5.4":          { provider: "openai",    inputPerMTokUsd: 2.5,  outputPerMTokUsd: 15,  cacheWriteMult: 0,    cacheReadMult: 0.1 },
   "gpt-5.4-mini":     { provider: "openai",    inputPerMTokUsd: 0.75, outputPerMTokUsd: 4.5, cacheWriteMult: 0,    cacheReadMult: 0.1 },
+  // OpenRouter (항목1 — GLM 5.2 primary. slug "z-ai/glm-5.2" 실측 단가 USD/Mtok: 입력 0.93 / 출력 3.00 / 캐시읽기 0.18)
+  "glm-5.2":          { provider: "openrouter", inputPerMTokUsd: 0.93, outputPerMTokUsd: 3,  cacheWriteMult: 1.25, cacheReadMult: 0.18 / 0.93 },
 };
 
 // 하위호환 alias (기존 import 보존 — 신규 코드는 MODEL_PRICING 사용)

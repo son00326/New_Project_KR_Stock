@@ -48,21 +48,21 @@ export function DecisionTreeTrendChart({ data }: { data: TrendPoint[] }) {
           dataKey="alpha"
           stroke={chartColor(0)}
           strokeWidth={2}
-          name="Alpha"
+          name="초과수익"
         />
         <Line
           type="monotone"
           dataKey="sharpe"
           stroke={chartColor(1)}
           strokeWidth={2}
-          name="Sharpe"
+          name="위험 대비 수익"
         />
         <Line
           type="monotone"
           dataKey="mdd"
           stroke={chartColor(2)}
           strokeWidth={2}
-          name="MDD"
+          name="최대 낙폭"
         />
       </LineChart>
     </ResponsiveContainer>

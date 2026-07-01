@@ -105,8 +105,8 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
 
   it('AI 데이터 없으면(Tier 0 fallback) AI 대기 pill + 크래시 없음 + AI 코멘트 미렌더', () => {
     render(<ShortlistRow item={fixture} />); // fixture에 AI 필드 없음(undefined)
-    expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
-    expect(screen.getByLabelText('AI 분석 대기')).toBeInTheDocument();
+    expect(screen.getByTitle(/심층 분석 준비 중/)).toBeInTheDocument();
+    expect(screen.getByLabelText('심층 분석 준비 중')).toBeInTheDocument();
     expect(screen.queryByText(/AI 코멘트/)).not.toBeInTheDocument();
   });
 
@@ -117,7 +117,7 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
       aiScore: null,
     };
     render(<ShortlistRow item={waitItem} />);
-    expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
+    expect(screen.getByTitle(/심층 분석 준비 중/)).toBeInTheDocument();
   });
 
   // Workflow MED-1: degraded 종목은 persist 시 consensus_badge='⚪' + ai_score=0 (numOrNull 보존)으로 저장됨.
@@ -132,7 +132,7 @@ describe('ShortlistRow PR-F AI 섹션 (ADR D-7)', () => {
       conviction: 0,
     };
     render(<ShortlistRow item={degraded} />);
-    expect(screen.getByTitle(/AI 분석 대기/)).toBeInTheDocument();
+    expect(screen.getByTitle(/심층 분석 준비 중/)).toBeInTheDocument();
     expect(screen.queryByText('🤖 AI 점수')).not.toBeInTheDocument();
     expect(screen.queryByText('AI 선호 시점')).not.toBeInTheDocument();
     expect(screen.queryByText('Conviction')).not.toBeInTheDocument();

@@ -1,13 +1,14 @@
 // PR-K Reflection — (선택) LLM 케이스 요약 호출 (judge-client 패턴 동형).
 //   critic 역할(저가 cross-check 모델)로 과거 실현 성과를 1~2줄 회고 요약.
 //   provider 경유 + cost_log INSERT(persona_id='reflection-summary') + W1a transient classifier.
-//   회고지 예측 아님(미래 수익 예측 금지 — summary-prompt 지시문). Claude 필수 primary(GPT-only 미지원).
+//   회고지 예측 아님(미래 수익 예측 금지 — summary-prompt 지시문). 게이트=critic 역할 provider-agnostic
+//   (GPT primary / Claude fallback) — critic provider 전부 부재 시에만 ai_key_unavailable. 항목1(2026-07-01).
 // SoT: docs/superpowers/specs/2026-06-27-reflection-prk-build.md §4·§6.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateCostKrw, type TokenUsage } from "@/lib/cost/pricing";
 import { insertCostLog } from "@/lib/cost/cost-logger";
-import { resolveRole } from "@/lib/ai/model-registry";
+import { resolveRole, isRoleProviderAvailable } from "@/lib/ai/model-registry";
 import {
   REFLECTION_SUMMARY_SYSTEM_PROMPT,
   buildReflectionSummaryPrompt,
@@ -46,8 +47,9 @@ export async function summarizeReflection(
   if (input.costPreflightReserved !== true) {
     throw new Error("reflection_summary_preflight_required");
   }
-  // D28 A — Claude 필수 primary 불변 (GPT-only 미지원).
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // 항목1 — provider-agnostic 게이트: critic 역할(GPT mid → Haiku/Claude fallback)의 provider 가용성.
+  //   둘 다 부재 시만 ai_key_unavailable.
+  if (!isRoleProviderAvailable("critic")) {
     throw new Error("ai_key_unavailable");
   }
   const resolved = resolveRole("critic");
