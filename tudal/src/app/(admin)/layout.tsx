@@ -1,56 +1,11 @@
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
 import { LogoutButton } from "@/app/(admin)/logout-button";
 import { JoopickLogo } from "@/components/layout/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ADMIN_NAV } from "@/lib/admin-nav";
 import { getUnreadAlertCount } from "@/lib/data/admin-alerts";
 import { createClient } from "@/lib/supabase/server";
-
-// ServicePlan-Admin.md §2 — 메인 sidebar nav.
-// /admin/report/[ticker]는 종목 클릭 전용이라 sidebar에서 제외.
-// 2026-07-01 출시 전 IA 정리: 3구역(메인 / 실험·연구 / 설정)으로 위계 분리.
-//   Track Record·Decision Tree = 영어 유지(USER). 내부코드 (G1)/(M17)/(M18) 제거.
-export interface AdminNavItem {
-  href: string;
-  label: string;
-}
-export interface AdminNavGroup {
-  group: string;
-  items: AdminNavItem[];
-}
-export const ADMIN_NAV: AdminNavGroup[] = [
-  {
-    group: "메인",
-    items: [
-      { href: "/admin", label: "홈" },
-      { href: "/admin/portfolio", label: "포트폴리오" },
-      { href: "/admin/track-record", label: "Track Record" },
-      { href: "/admin/decision-tree", label: "Decision Tree" },
-      { href: "/admin/alerts", label: "알림" },
-    ],
-  },
-  {
-    group: "실험·연구",
-    items: [
-      { href: "/admin/sector-comparison", label: "종목 선정 방식 비교 (실험)" },
-      { href: "/admin/funnel-reflection", label: "AI 학습 (실험)" },
-    ],
-  },
-  {
-    group: "설정",
-    items: [
-      { href: "/admin/settings", label: "설정" },
-      { href: "/admin/settings/notifications", label: "알림 채널" },
-      { href: "/admin/settings/cost", label: "AI 비용" },
-      { href: "/admin/settings/health", label: "시스템 상태" },
-      { href: "/admin/settings/brokerage", label: "증권사 키" },
-      { href: "/admin/settings/binance", label: "거래소 키" },
-    ],
-  },
-];
-export const ADMIN_NAV_FLAT: AdminNavItem[] = ADMIN_NAV.flatMap(
-  (group) => group.items,
-);
 
 export default async function AdminLayout({
   children,
@@ -110,30 +65,47 @@ export default async function AdminLayout({
       <div className="flex-1 flex">
         <aside className="hidden md:block w-60 border-r border-border/70 bg-card shrink-0">
           <nav className="p-3 space-y-4 sticky top-14">
-            {ADMIN_NAV.map((group) => (
-              <div key={group.group} className="space-y-0.5">
-                <p className="px-3.5 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {group.group}
-                </p>
-                {group.items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    <span>{item.label}</span>
-                    {item.href === "/admin/alerts" && unreadCount > 0 && (
-                      <span
-                        className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground tabular-nums"
-                        aria-label={`미확인 ${unreadCount}건`}
-                      >
-                        {unreadLabel}
-                      </span>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            ))}
+            {ADMIN_NAV.map((group) => {
+              const links = group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center justify-between gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <span>{item.label}</span>
+                  {item.href === "/admin/alerts" && unreadCount > 0 && (
+                    <span
+                      className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground tabular-nums"
+                      aria-label={`미확인 ${unreadCount}건`}
+                    >
+                      {unreadLabel}
+                    </span>
+                  )}
+                </Link>
+              ));
+              if (group.collapsible) {
+                return (
+                  <details key={group.group} className="group/nav space-y-0.5">
+                    <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-3.5 pb-1 pt-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                      <span>{group.group}</span>
+                      <ChevronDown
+                        className="h-3.5 w-3.5 transition-transform duration-200 ease-toss group-open/nav:rotate-180"
+                        aria-hidden
+                      />
+                    </summary>
+                    <div className="space-y-0.5 pt-0.5">{links}</div>
+                  </details>
+                );
+              }
+              return (
+                <div key={group.group} className="space-y-0.5">
+                  <p className="px-3.5 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {group.group}
+                  </p>
+                  {links}
+                </div>
+              );
+            })}
           </nav>
         </aside>
 

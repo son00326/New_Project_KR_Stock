@@ -16,7 +16,8 @@ vi.mock("@/lib/data/admin-alerts", () => ({
   getUnreadAlertCount: getUnreadAlertCountMock,
 }));
 
-import AdminLayout, { ADMIN_NAV, ADMIN_NAV_FLAT } from "../layout";
+import { ADMIN_NAV, ADMIN_NAV_FLAT } from "@/lib/admin-nav";
+import AdminLayout from "../layout";
 
 interface ElementProps {
   href?: unknown;
