@@ -38,6 +38,12 @@ const validProposal = JSON.stringify({
 });
 
 function stubResolved(model = 'claude-opus-4-8', providerId: 'anthropic' | 'openai' | 'openrouter' = 'anthropic') {
+  const pricingKey =
+    providerId === 'openrouter' && model.startsWith('openai/')
+      ? model
+      : providerId === 'openrouter'
+        ? 'glm-5.2'
+        : model;
   return {
     role: 'portfolio',
     provider: {
@@ -51,7 +57,7 @@ function stubResolved(model = 'claude-opus-4-8', providerId: 'anthropic' | 'open
       call: providerCall,
     },
     model,
-    pricingKey: providerId === 'openrouter' ? 'glm-5.2' : model,
+    pricingKey,
     maxTokens: 4096,
   };
 }
@@ -59,7 +65,7 @@ function stubResolved(model = 'claude-opus-4-8', providerId: 'anthropic' | 'open
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.ANTHROPIC_API_KEY = 'sk-test';
-  delete process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = 'openrouter-test-key';
   providerCall.mockResolvedValue({
     text: validProposal,
     usage: {
@@ -69,7 +75,7 @@ beforeEach(() => {
       output_tokens: 100,
     },
   });
-  resolveRoleMock.mockReturnValue(stubResolved());
+  resolveRoleMock.mockReturnValue(stubResolved('z-ai/glm-5.2', 'openrouter'));
 });
 
 describe('PortfolioProposalSchema / parsePortfolioProposal', () => {
@@ -178,7 +184,7 @@ describe('callPortfolioProposal', () => {
     adminUserId: 'admin-uuid',
   };
 
-  it('resolveRole(portfolio)=opus-4-8 + 프롬프트 주입 + cost_log(persona_id=portfolio-proposal, prompt_version portfolio@v1)', async () => {
+  it('resolveRole(portfolio)=GLM primary + 프롬프트 주입 + cost_log(persona_id=portfolio-proposal, prompt_version portfolio@v1)', async () => {
     const p = await callPortfolioProposal(baseInput);
     expect(p.positions).toHaveLength(2);
     expect(resolveRoleMock).toHaveBeenCalledWith('portfolio');
@@ -187,7 +193,7 @@ describe('callPortfolioProposal', () => {
       userPrompt: string;
       responseFormat?: string;
     };
-    expect(callArg.model).toBe('claude-opus-4-8');
+    expect(callArg.model).toBe('z-ai/glm-5.2');
     expect(callArg.responseFormat).toBe('json_object');
     expect(callArg.userPrompt).toContain('2026-06');
     expect(callArg.userPrompt).toContain('삼성전자');
@@ -196,7 +202,7 @@ describe('callPortfolioProposal', () => {
       expect.objectContaining({
         persona_id: 'portfolio-proposal',
         prompt_version: 'portfolio@v1',
-        model: 'claude-opus-4-8',
+        model: 'z-ai/glm-5.2',
         month: '2026-06',
         ticker: '000000',
         called_by: 'admin-uuid',
@@ -205,7 +211,8 @@ describe('callPortfolioProposal', () => {
     );
   });
 
-  it('ANTHROPIC_API_KEY 부재 → ai_key_unavailable (provider 미호출)', async () => {
+  it('OPENROUTER+ANTHROPIC 모두 부재 → ai_key_unavailable (provider 미호출)', async () => {
+    delete process.env.OPENROUTER_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     await expect(callPortfolioProposal(baseInput)).rejects.toThrow('ai_key_unavailable');
     expect(providerCall).not.toHaveBeenCalled();

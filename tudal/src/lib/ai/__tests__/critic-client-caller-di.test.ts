@@ -1,9 +1,9 @@
 // PR4 Task 1 Step 1.1.8 — caller DI seam invariant test for callCritic (B2 fix omxy R1).
 // 2 tests: options.client propagation / default { client: undefined }.
-// Option A(2026-07-01): critic = GPT primary / GLM fallback. GPT off → GLM(openrouter Chat Completions).
+// 항목1 후속(2026-07-01): critic = OpenRouter GPT(openai/gpt-5.4) / Claude fallback.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// GLM fallback 경로 = openrouter-provider → client.chat.completions.create.
+// OpenRouter 경로 = openrouter-provider → client.chat.completions.create.
 vi.mock('openai', () => {
   const chatCreate = vi.fn();
   class OpenAI {
@@ -20,7 +20,7 @@ vi.mock('@/lib/cost/cost-logger', () => ({
 describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Option A: GPT off → GLM fallback 가용 (openrouter).
+    // 별도 OpenAI 키 없이 OpenRouter GPT 경로 가용.
     delete process.env.OPENAI_API_KEY;
     process.env.OPENROUTER_API_KEY = 'test-or-key';
   });
@@ -43,7 +43,7 @@ describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
     reader_level: { verdict: 'PASS', reason: 'ok' },
   });
 
-  function glmChatResponse(text: string) {
+  function chatResponse(text: string) {
     return {
       choices: [{ message: { content: text }, finish_reason: 'stop' as const }],
       usage: {
@@ -61,7 +61,7 @@ describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
 
   it('propagates options.client to insertCostLog 2nd arg', async () => {
     const chatCreate = await getChatCreate();
-    chatCreate.mockResolvedValueOnce(glmChatResponse(validCriticJson));
+    chatCreate.mockResolvedValueOnce(chatResponse(validCriticJson));
     const { insertCostLog } = await import('@/lib/cost/cost-logger');
     const { callCritic } = await import('@/lib/ai/critic-client');
     const fakeClient = { tag: 'fake-critic' } as never;
@@ -74,7 +74,7 @@ describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
 
   it('passes { client: undefined } to insertCostLog when options omitted', async () => {
     const chatCreate = await getChatCreate();
-    chatCreate.mockResolvedValueOnce(glmChatResponse(validCriticJson));
+    chatCreate.mockResolvedValueOnce(chatResponse(validCriticJson));
     const { insertCostLog } = await import('@/lib/cost/cost-logger');
     const { callCritic } = await import('@/lib/ai/critic-client');
     await callCritic(baseInput);

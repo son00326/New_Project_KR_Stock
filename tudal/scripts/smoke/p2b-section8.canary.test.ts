@@ -456,11 +456,13 @@ describe('P2b Section8 live canary (REAL AI + REAL prod Supabase)', () => {
         expect(deltaPersonas.has(id), `panel cost row missing for persona ${id}`).toBe(true);
       }
       const deltaModels = new Set(deltaRows.map((r) => r.model));
-      expect(deltaModels.has('claude-opus-4-8')).toBe(true); // full_report writer (D28 ④)
-      // Section8 vote-pass = callPersona without slot binding → registry tier1_panel preferred.
-      expect(deltaModels.has('claude-opus-4-7')).toBe(true);
-      if (process.env.OPENAI_API_KEY) {
-        expect(deltaModels.has('gpt-5.4')).toBe(true); // critic preferred (GPT cross-review, D28 ⑤)
+      if (process.env.OPENROUTER_API_KEY) {
+        expect(deltaModels.has('z-ai/glm-5.2')).toBe(true); // writer + Section8 tier1_panel preferred
+        expect(deltaModels.has('openai/gpt-5.4')).toBe(true); // critic preferred via OpenRouter
+      } else {
+        expect(deltaModels.has('claude-opus-4-8')).toBe(true); // full_report writer fallback
+        expect(deltaModels.has('claude-opus-4-7')).toBe(true); // Section8 tier1_panel fallback
+        expect(deltaModels.has('claude-haiku-4-5-20251001')).toBe(true); // critic fallback
       }
       const spentKrw = deltaRows.reduce((s, r) => s + Number(r.cost_krw), 0);
       expect(spentKrw).toBeGreaterThan(0);

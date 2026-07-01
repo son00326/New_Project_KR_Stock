@@ -14,7 +14,7 @@
 //   upsertShortListTrack(month, track, top) → mark_selection_finalized.
 //
 // COST/TIME (worst-case bounded by worker preflightHardcap @ ₩500,000):
-//   R1  ~150-180 tickers × 11 (Sonnet×6 + GPT-5.4×5, concurrency 4) ≈ ₩13-16k
+//   R1  ~150-180 tickers × 11 (OpenRouter GLM×6 + GPT×5; reservation은 Sonnet/GPT 보수) ≈ ₩13-16k
 //   R2  ~per-track boundary∪variance subset × 11                    ≈ ₩3-7k
 //   judge ~150-180 × 1 Opus-4.8                                     ≈ ₩6-20k
 //   dual-judge ~per-track ±2 boundary (GPT top)                     ≈ small

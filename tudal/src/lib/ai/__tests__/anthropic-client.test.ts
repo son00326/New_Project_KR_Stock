@@ -148,9 +148,9 @@ describe('anthropic-client (Q6)', () => {
     }));
     const binding = {
       role: 'tier1_panel' as const,
-      provider: { id: 'openai' as const, isAvailable: () => true, call: stubCall },
-      model: 'gpt-5.4',
-      pricingKey: 'gpt-5.4',
+      provider: { id: 'openrouter' as const, isAvailable: () => true, call: stubCall },
+      model: 'openai/gpt-5.4',
+      pricingKey: 'openai/gpt-5.4',
       maxTokens: 1024,
     };
     await callPersona({
@@ -162,11 +162,11 @@ describe('anthropic-client (Q6)', () => {
       modelBinding: binding,
     });
     expect(stubCall).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.4', maxTokens: 1024 }),
+      expect.objectContaining({ model: 'openai/gpt-5.4', maxTokens: 1024 }),
     );
     expect(mockMessagesCreate).not.toHaveBeenCalled(); // 기존 SDK 경로 미사용
     expect(insertCostLog).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.4' }),
+      expect.objectContaining({ model: 'openai/gpt-5.4' }),
       expect.anything(),
     );
   });

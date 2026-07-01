@@ -325,9 +325,9 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     const fakeSlot = (i: number): ResolvedRole =>
       ({
         role: "tier1_panel",
-        provider: { id: i % 2 === 1 ? "openai" : "anthropic", isAvailable: () => true, call: vi.fn() },
-        model: i % 2 === 1 ? "gpt-5.4" : "claude-sonnet-4-6",
-        pricingKey: i % 2 === 1 ? "gpt-5.4" : "claude-sonnet-4-6",
+        provider: { id: "openrouter", isAvailable: () => true, call: vi.fn() },
+        model: i % 2 === 1 ? "openai/gpt-5.4" : "z-ai/glm-5.2",
+        pricingKey: i % 2 === 1 ? "openai/gpt-5.4" : "glm-5.2",
         maxTokens: 1024,
       }) as ResolvedRole;
     const panel = makeCallPersonaPanel({
@@ -339,10 +339,10 @@ describe("makeCallPersonaPanel — 11 페르소나 → PersonaScore[]", () => {
     });
     await panel({ ticker: "005930", financials: "f" });
     const models = callPersona.mock.calls.map((c) => c[0].modelBinding?.model);
-    expect(models.filter((m) => m === "claude-sonnet-4-6")).toHaveLength(6);
-    expect(models.filter((m) => m === "gpt-5.4")).toHaveLength(5);
-    expect(callPersona.mock.calls[0][0].modelBinding?.model).toBe("claude-sonnet-4-6");
-    expect(callPersona.mock.calls[1][0].modelBinding?.model).toBe("gpt-5.4");
+    expect(models.filter((m) => m === "z-ai/glm-5.2")).toHaveLength(6);
+    expect(models.filter((m) => m === "openai/gpt-5.4")).toHaveLength(5);
+    expect(callPersona.mock.calls[0][0].modelBinding?.model).toBe("z-ai/glm-5.2");
+    expect(callPersona.mock.calls[1][0].modelBinding?.model).toBe("openai/gpt-5.4");
   });
 
   it("R1: slotResolver 미주입(legacy deps) → modelBinding undefined 무회귀", async () => {

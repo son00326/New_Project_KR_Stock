@@ -304,7 +304,7 @@ export async function GET(request: NextRequest) {
           negativeNewsContext: negativeNewsContextString,
           // PR-K Reflection (D32) — track별 직전 회고 컨텍스트(off/부재→""→무회귀). Q5와 별개 필드.
           reflectionLearningContext: reflectionLearningContextString,
-          // W1a (D28 ①) — per-slot 모델 mix (Sonnet×6 + GPT mid×5, GPT-off 시 전원 Sonnet).
+          // W1a (D28 ①) — per-slot 모델 mix (OpenRouter: GLM×6 + GPT×5, OpenRouter off 시 Sonnet).
           slotResolver: resolveTier1PanelSlot,
         }),
         // W1a (D26 Q4) — R2 반박 라운드 패널 (R1 panel + peer 컨텍스트 주입).

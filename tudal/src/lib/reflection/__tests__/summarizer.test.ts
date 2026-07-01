@@ -34,8 +34,7 @@ const metrics: ReflectionMetrics = {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.ANTHROPIC_API_KEY = "sk-test";
-  // Option A(2026-07-01): critic 게이트 = GPT primary / GLM fallback (ANTHROPIC 비의존).
-  //   GPT off 기본이므로 OPENROUTER(GLM fallback)를 세팅해 isRoleProviderAvailable('critic') 통과.
+  // 항목1 후속(2026-07-01): critic 게이트 = OpenRouter GPT(openai/gpt-5.4) / Claude fallback.
   process.env.OPENROUTER_API_KEY = "test-or-key";
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
   providerCall.mockResolvedValue({
@@ -49,9 +48,9 @@ beforeEach(() => {
   });
   resolveRoleMock.mockReturnValue({
     role: "critic",
-    provider: { id: "openai", isAvailable: () => true, call: providerCall },
-    model: "gpt-5.4",
-    pricingKey: "gpt-5.4",
+    provider: { id: "openrouter", isAvailable: () => true, call: providerCall },
+    model: "openai/gpt-5.4",
+    pricingKey: "openai/gpt-5.4",
     maxTokens: 2048,
   });
 });
@@ -114,8 +113,8 @@ describe("summarizeReflection", () => {
     expect(providerCall).not.toHaveBeenCalled();
   });
 
-  it("critic provider 전부 부재(GPT/Claude/OpenRouter) → ai_key_unavailable throw", async () => {
-    // 항목1 — 게이트는 critic 역할 provider-agnostic(GPT primary/Claude fallback). ANTHROPIC 하나만
+  it("critic provider 전부 부재(OpenRouter+Claude) → ai_key_unavailable throw", async () => {
+    // 항목1 후속 — 게이트는 critic 역할 provider-agnostic(OpenRouter GPT primary/Claude fallback). ANTHROPIC 하나만
     //   삭제하면 다른 provider 키 유무에 따라 비결정 → critic이 쓸 수 있는 provider 키를 전부 제거해
     //   "provider 전무 → throw" 불변식을 명시 검증(vacuous 방지).
     delete process.env.ANTHROPIC_API_KEY;
@@ -189,9 +188,9 @@ describe("summarizeReflection", () => {
       process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
       resolveRoleMock.mockReturnValue({
         role: "critic",
-        provider: { id: "openai", isAvailable: () => true, call: providerCall },
-        model: "gpt-5.4",
-        pricingKey: "gpt-5.4",
+        provider: { id: "openrouter", isAvailable: () => true, call: providerCall },
+        model: "openai/gpt-5.4",
+        pricingKey: "openai/gpt-5.4",
         maxTokens: 2048,
       });
       providerCall.mockResolvedValueOnce({

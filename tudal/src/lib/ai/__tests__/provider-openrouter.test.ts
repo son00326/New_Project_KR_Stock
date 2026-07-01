@@ -12,7 +12,7 @@ vi.mock('openai', () => ({
 
 import { openrouterProvider } from '../openrouter-provider';
 
-describe('openrouterProvider (항목1 — GLM 5.2, OpenRouter Chat Completions)', () => {
+describe('openrouterProvider (항목1 — GLM/GPT, OpenRouter Chat Completions)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.OPENROUTER_API_KEY = 'openrouter-test-key';

@@ -87,13 +87,17 @@ describe('pricing (Q6 + R5 wrapper)', () => {
     expect(actual).toBeCloseTo(expectedKrw, 2);
   });
 
-  it('calculateCostKrw는 openai 모델에서 cacheWrite 0 / cacheRead 0.1 적용', () => {
-    // gpt-5.4: input $2.5/M. cached 1M tok → 2.5 × 0.1 = $0.25 → ×1430 = 357.5
+  it('calculateCostKrw는 OpenRouter GPT slug에서 direct OpenAI와 동일 단가를 적용', () => {
+    // openai/gpt-5.4: input $2.5/M. cached 1M tok → 2.5 × 0.1 = $0.25 → ×1430 = 357.5
     const krw = calculateCostKrw(
       { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 },
-      'gpt-5.4',
+      'openai/gpt-5.4',
     );
     expect(krw).toBe(357.5);
+    expect(krw).toBe(calculateCostKrw(
+      { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 1_000_000, output_tokens: 0 },
+      'gpt-5.4',
+    ));
   });
 });
 
@@ -108,6 +112,10 @@ describe('W0 multi-provider pricing registry (D28)', () => {
     expect(MODEL_PRICING['gpt-5.5']).toMatchObject({ provider: 'openai', inputPerMTokUsd: 5, outputPerMTokUsd: 30, cacheWriteMult: 0, cacheReadMult: 0.1 });
     expect(MODEL_PRICING['gpt-5.4']).toMatchObject({ provider: 'openai', inputPerMTokUsd: 2.5, outputPerMTokUsd: 15 });
     expect(MODEL_PRICING['gpt-5.4-mini']).toMatchObject({ provider: 'openai', inputPerMTokUsd: 0.75, outputPerMTokUsd: 4.5 });
+  });
+  it('registers openai/gpt-5.5 and openai/gpt-5.4 as OpenRouter gateway slugs', () => {
+    expect(MODEL_PRICING['openai/gpt-5.5']).toMatchObject({ provider: 'openrouter', inputPerMTokUsd: 5, outputPerMTokUsd: 30, cacheWriteMult: 0, cacheReadMult: 0.1 });
+    expect(MODEL_PRICING['openai/gpt-5.4']).toMatchObject({ provider: 'openrouter', inputPerMTokUsd: 2.5, outputPerMTokUsd: 15, cacheWriteMult: 0, cacheReadMult: 0.1 });
   });
   it('getPricing throws pricing_unknown_model on unregistered model (D28 ② fail-closed)', () => {
     expect(() => getPricing('not-a-model')).toThrow('pricing_unknown_model:not-a-model');

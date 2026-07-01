@@ -29,9 +29,11 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final + 항목1 GLM p
     expect(MODEL_REGISTRY.portfolio.fallback).toMatchObject({ provider: 'anthropic', model: 'claude-opus-4-8' });
     expect(MODEL_REGISTRY.tier1_panel.preferred).toMatchObject({ provider: 'openrouter', model: 'z-ai/glm-5.2' });
     expect(MODEL_REGISTRY.tier1_panel.fallback).toMatchObject({ provider: 'anthropic', model: 'claude-opus-4-7' });
-    // GPT 역할은 불변 (항목1 scope 밖)
-    expect(MODEL_REGISTRY.critic.preferred).toMatchObject({ provider: 'openai', model: 'gpt-5.4' });
-    expect(MODEL_REGISTRY.dual_judge_gpt.preferred).toMatchObject({ provider: 'openai', model: 'gpt-5.5' });
+    // GPT 역할(항목1 후속 2026-07-01): OpenRouter 경유 실제 GPT(openai/gpt-*) preferred + Claude fallback.
+    expect(MODEL_REGISTRY.critic.preferred).toMatchObject({ provider: 'openrouter', model: 'openai/gpt-5.4', pricingKey: 'openai/gpt-5.4' });
+    expect(MODEL_REGISTRY.critic.fallback).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001', pricingKey: 'claude-haiku-4-5' });
+    expect(MODEL_REGISTRY.dual_judge_gpt.preferred).toMatchObject({ provider: 'openrouter', model: 'openai/gpt-5.5', pricingKey: 'openai/gpt-5.5' });
+    expect(MODEL_REGISTRY.dual_judge_gpt.fallback).toMatchObject({ provider: 'anthropic', model: 'claude-opus-4-8' });
   });
 
   it('항목1: OPENROUTER 키 존재 → GLM primary 역할 resolve = glm-5.2(openrouter)', () => {
@@ -53,29 +55,30 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final + 항목1 GLM p
     expect(resolveRole('tier1_panel').model).toBe('claude-opus-4-7');
   });
 
-  it('Option A: OPENAI_API_KEY 부재 → critic resolve = GLM fallback / dual_judge_gpt = GLM fallback (auto-detect)', () => {
-    vi.stubEnv('OPENAI_API_KEY', '');
+  it('항목1 후속: OPENROUTER 부재 → critic resolve = Claude Haiku fallback / dual_judge_gpt = Claude Opus fallback (auto-detect)', () => {
+    // GPT 역할 preferred = openrouter(GPT 경유) → OPENROUTER 부재 시 anthropic fallback으로 auto-detect.
+    vi.stubEnv('OPENROUTER_API_KEY', '');
     const critic = resolveRole('critic');
-    expect(critic.provider.id).toBe('openrouter');
-    expect(critic.model).toBe('z-ai/glm-5.2');
-    expect(critic.pricingKey).toBe('glm-5.2');
+    expect(critic.provider.id).toBe('anthropic');
+    expect(critic.model).toBe('claude-haiku-4-5-20251001');
+    expect(critic.pricingKey).toBe('claude-haiku-4-5');
 
     const dual = resolveRole('dual_judge_gpt');
-    expect(dual.provider.id).toBe('openrouter');
-    expect(dual.model).toBe('z-ai/glm-5.2');
-    expect(dual.pricingKey).toBe('glm-5.2');
+    expect(dual.provider.id).toBe('anthropic');
+    expect(dual.model).toBe('claude-opus-4-8');
+    expect(dual.pricingKey).toBe('claude-opus-4-8');
   });
 
-  it('OPENAI_API_KEY 존재 → critic resolve = gpt-5.4 (D28 ⑤ GPT mid 교차)', () => {
-    vi.stubEnv('OPENAI_API_KEY', 'sk-test-openai');
+  it('항목1 후속: OPENROUTER 존재 → critic resolve = openai/gpt-5.4 (D28 ⑤ GPT mid 교차, OpenRouter 경유)', () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'openrouter-test-key');
     const critic = resolveRole('critic');
-    expect(critic.provider.id).toBe('openai');
-    expect(critic.model).toBe('gpt-5.4');
-    expect(critic.pricingKey).toBe('gpt-5.4');
+    expect(critic.provider.id).toBe('openrouter');
+    expect(critic.model).toBe('openai/gpt-5.4');
+    expect(critic.pricingKey).toBe('openai/gpt-5.4');
   });
 
-  it('항목1: isRoleProviderAvailable — preferred(GLM) 또는 fallback(Claude) 중 하나라도 키 있으면 true, 둘 다 없으면 false', () => {
-    // GLM only → true
+  it('항목1: isRoleProviderAvailable — preferred 또는 fallback 중 하나라도 키 있으면 true, 둘 다 없으면 false', () => {
+    // GLM 역할(full_report): GLM only → true
     vi.stubEnv('OPENROUTER_API_KEY', 'openrouter-test-key');
     vi.stubEnv('ANTHROPIC_API_KEY', '');
     expect(isRoleProviderAvailable('full_report')).toBe(true);
@@ -87,10 +90,14 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final + 항목1 GLM p
     vi.stubEnv('OPENROUTER_API_KEY', '');
     vi.stubEnv('ANTHROPIC_API_KEY', '');
     expect(isRoleProviderAvailable('full_report')).toBe(false);
-    // critic(GPT preferred): OPENAI/Claude 둘 다 부재 → false
-    vi.stubEnv('OPENAI_API_KEY', '');
+    // critic(GPT preferred=openrouter / fallback=anthropic): 둘 다 부재 → false
     expect(isRoleProviderAvailable('critic')).toBe(false);
-    vi.stubEnv('OPENAI_API_KEY', 'sk-openai');
+    // fallback(anthropic)만 가용 → true
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-test');
+    expect(isRoleProviderAvailable('critic')).toBe(true);
+    // preferred(openrouter, GPT 경유)만 가용 → true
+    vi.stubEnv('ANTHROPIC_API_KEY', '');
+    vi.stubEnv('OPENROUTER_API_KEY', 'openrouter-test-key');
     expect(isRoleProviderAvailable('critic')).toBe(true);
   });
 
@@ -137,29 +144,32 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final + 항목1 GLM p
 // W1a (D28 ①) — tier1 panel slot 배분 + worst-slot reservation 단가
 // ---------------------------------------------------------------------------
 describe('W1a resolveTier1PanelSlot — Core 11 혼합 (D28 ① + 항목1 GLM)', () => {
-  it('interleave (OPENAI 가용 + OPENROUTER 부재): 짝수 idx=Sonnet 4.6 ×6 / 홀수 idx=gpt-5.4 ×5', () => {
+  it('direct-OpenAI 폐기 (OPENAI 가용 + OPENROUTER 부재): 전 슬롯 Sonnet — OPENAI는 tier1 slot resolution 무관', () => {
+    // 항목1 후속: GPT 슬롯도 OpenRouter 경유 → OPENROUTER 부재 시 GPT/Claude 슬롯 모두 Sonnet 안전망.
+    //   OPENAI_API_KEY가 있어도 direct-OpenAI 경로는 폐기되어 tier1 slot resolution에 영향 없음.
     vi.stubEnv('OPENAI_API_KEY', 'sk-test-openai');
     vi.stubEnv('OPENROUTER_API_KEY', '');
     const slots = Array.from({ length: 11 }, (_, i) => resolveTier1PanelSlot(i));
-    expect(slots.filter((s) => s.model === 'claude-sonnet-4-6')).toHaveLength(6);
-    expect(slots.filter((s) => s.model === 'gpt-5.4')).toHaveLength(5);
-    expect(slots[0].model).toBe('claude-sonnet-4-6');
-    expect(slots[1].model).toBe('gpt-5.4');
-    expect(slots[1].provider.id).toBe('openai');
-    expect(slots[0].provider.id).toBe('anthropic');
+    expect(slots.filter((s) => s.model === 'claude-sonnet-4-6')).toHaveLength(11);
+    expect(slots.filter((s) => s.model === 'gpt-5.4')).toHaveLength(0);
+    expect(slots.filter((s) => s.model === 'openai/gpt-5.4')).toHaveLength(0);
+    expect(slots.every((s) => s.provider.id === 'anthropic')).toBe(true);
     expect(slots.every((s) => s.role === 'tier1_panel')).toBe(true);
   });
 
-  it('항목1 (OPENAI + OPENROUTER 가용): 짝수 idx=GLM 5.2 ×6 / 홀수 idx=gpt-5.4 ×5', () => {
+  it('항목1 후속 (OPENAI + OPENROUTER 가용): 짝수 idx=GLM 5.2 ×6 / 홀수 idx=openai/gpt-5.4 ×5 (GPT도 OpenRouter 경유)', () => {
     vi.stubEnv('OPENAI_API_KEY', 'sk-test-openai');
     vi.stubEnv('OPENROUTER_API_KEY', 'openrouter-test-key');
     const slots = Array.from({ length: 11 }, (_, i) => resolveTier1PanelSlot(i));
     expect(slots.filter((s) => s.model === 'z-ai/glm-5.2')).toHaveLength(6);
-    expect(slots.filter((s) => s.model === 'gpt-5.4')).toHaveLength(5);
+    expect(slots.filter((s) => s.model === 'openai/gpt-5.4')).toHaveLength(5);
     expect(slots[0].model).toBe('z-ai/glm-5.2');
     expect(slots[0].provider.id).toBe('openrouter');
     expect(slots[0].pricingKey).toBe('glm-5.2');
-    expect(slots[1].provider.id).toBe('openai');
+    // 항목1 후속: GPT 슬롯 = OpenRouter 경유 실제 GPT(openai/gpt-5.4) — direct OpenAI 아님.
+    expect(slots[1].model).toBe('openai/gpt-5.4');
+    expect(slots[1].provider.id).toBe('openrouter');
+    expect(slots[1].pricingKey).toBe('openai/gpt-5.4');
   });
 
   it('GPT+OPENROUTER 미가용 → 전 슬롯 Sonnet (Claude-only fallback, D28 C)', () => {
@@ -170,15 +180,18 @@ describe('W1a resolveTier1PanelSlot — Core 11 혼합 (D28 ① + 항목1 GLM)',
     expect(slots.every((s) => s.provider.id === 'anthropic')).toBe(true);
   });
 
-  it('Option A (OPENAI 부재 + OPENROUTER 가용): 전 슬롯 GLM 5.2 — 짝수 GLM primary + 홀수 GPT 슬롯도 GLM fallback (구 Sonnet)', () => {
+  it('항목1 후속 (OPENAI 부재 + OPENROUTER 가용): 짝수 GLM 5.2 ×6 / 홀수 GPT 슬롯=openai/gpt-5.4 ×5 (별도 OpenAI 키 불요)', () => {
     vi.stubEnv('OPENAI_API_KEY', '');
     vi.stubEnv('OPENROUTER_API_KEY', 'openrouter-test-key');
     const slots = Array.from({ length: 11 }, (_, i) => resolveTier1PanelSlot(i));
-    expect(slots.filter((s) => s.model === 'z-ai/glm-5.2')).toHaveLength(11);
+    expect(slots.filter((s) => s.model === 'z-ai/glm-5.2')).toHaveLength(6);
+    expect(slots.filter((s) => s.model === 'openai/gpt-5.4')).toHaveLength(5);
     expect(slots.filter((s) => s.model === 'claude-sonnet-4-6')).toHaveLength(0);
-    // 홀수(GPT) 슬롯: OPENAI 부재 → Option A로 GLM fallback (구 Sonnet 안전망 대체).
-    expect(slots[1].model).toBe('z-ai/glm-5.2');
+    // 홀수(GPT) 슬롯: OPENAI 부재라도 OpenRouter 경유 실제 GPT (구 GLM/Sonnet fallback 기대 정정).
+    expect(slots[1].model).toBe('openai/gpt-5.4');
     expect(slots[1].provider.id).toBe('openrouter');
+    expect(slots[1].pricingKey).toBe('openai/gpt-5.4');
+    // 짝수(GLM) + 홀수(GPT) 모두 OpenRouter 게이트웨이 경유.
     expect(slots.every((s) => s.provider.id === 'openrouter')).toBe(true);
   });
 
@@ -200,7 +213,7 @@ describe('W1a getTier1PanelWorstSlotCostKrw (D8)', () => {
     const expected = Math.max(
       calculateCostKrw(cal, 'glm-5.2'),
       calculateCostKrw(cal, 'claude-sonnet-4-6'),
-      calculateCostKrw(cal, 'gpt-5.4'),
+      calculateCostKrw(cal, 'openai/gpt-5.4'),
     );
     vi.stubEnv('OPENAI_API_KEY', '');
     expect(getTier1PanelWorstSlotCostKrw()).toBe(expected);

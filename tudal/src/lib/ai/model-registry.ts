@@ -32,7 +32,7 @@ export type AiRole =
   | 'dual_judge_gpt'  // D28 ③ 경계 ±2 GPT 최고급 dual-judge (W1 소비)
   | 'full_report'     // D28 ④ writer
   | 'revise'          // D28 ④ revise
-  | 'critic'          // D28 ⑤ GPT mid 교차 (GPT off → GLM fallback)
+  | 'critic'          // D28 ⑤ GPT mid 교차 (OpenRouter off → Claude fallback)
   | 'portfolio';      // D28 ⑥ W3 자율 포트 판단 (W3 소비)
 
 interface ModelBinding {
@@ -51,21 +51,25 @@ interface RoleEntry {
 }
 
 const A = (model: string, pricingKey: string = model): ModelBinding => ({ provider: 'anthropic', model, pricingKey });
-const O = (model: string, pricingKey: string = model): ModelBinding => ({ provider: 'openai', model, pricingKey });
-// 항목1 — GLM 5.2 primary 바인딩 헬퍼 (OpenRouter slug "z-ai/glm-5.2", pricingKey='glm-5.2').
-const G = (): ModelBinding => ({ provider: 'openrouter', model: 'z-ai/glm-5.2', pricingKey: 'glm-5.2' });
+// 항목1 후속(2026-07-01) — O = OpenRouter 바인딩(GLM + GPT 모두 OpenRouter 게이트웨이 경유, 키 1개).
+//   구 O(=direct OpenAI)는 이제 미사용 — GPT도 OpenRouter로(openai/gpt-* slug). openaiProvider는 optionality로 존치.
+const R = (model: string, pricingKey: string = model): ModelBinding => ({ provider: 'openrouter', model, pricingKey });
+const G = (): ModelBinding => R('z-ai/glm-5.2', 'glm-5.2'); // GLM 5.2 primary
 
-// 항목1 — 기존 Claude preferred 역할(judge/full_report/revise/portfolio)을 GLM primary + Claude fallback로 재바인딩.
-//   Option A(2026-07-01 USER — Claude 정상운영 제거): GPT 역할(dual_judge_gpt/critic)의 fallback도 Claude → **GLM**로.
-//   GPT preferred는 그대로("GPT는 그대로"). OPENAI 키 부재 시 GPT 역할이 Claude 대신 GLM로 fallback → prod(OPENAI 무·OPENROUTER 유)에서 정상운영 Claude 사용 0.
-//   Claude(A(...))는 이제 GLM primary 역할의 **OpenRouter 장애 안전망**으로만 존재. tier1 GPT slot(홀수)도 GLM fallback = resolveTier1PanelSlot.
+// 항목1 후속(2026-07-01 USER) — 모든 실 추론을 **OpenRouter 게이트웨이 1개 키**로: GLM 역할 = z-ai/glm-5.2,
+//   GPT 역할(dual_judge_gpt/critic/tier1 GPT slot) = openai/gpt-*(OpenRouter 경유 실제 GPT — 별도 OpenAI 키 불요).
+//   → "GPT는 그대로"(교차검증 다양성) 달성 + 정상운영 Claude 0. Claude(A(...))는 안전망:
+//   ① **키/가용성 레벨** — OPENROUTER 키 부재 시 pickBinding이 전 역할을 Claude fallback(공통).
+//   ② **런타임 call-failure 레벨** — 후보 루프(resolveRoleCandidates)로 Claude 재시도하는 건 judge/portfolio-proposal뿐.
+//      critic/full_report/revise/persona/summarizer/risk는 단일 resolved provider 호출 후 throw(pre-existing — 본 변경과 무관, 별도 resilience follow-up).
+//   구 O(direct OpenAI) 바인딩 폐기(openaiProvider는 optionality로 존치·미사용).
 export const MODEL_REGISTRY: Record<AiRole, RoleEntry> = {
   tier1_panel:    { preferred: G(), fallback: A('claude-opus-4-7'), calibration: { inputTokens: 1500, outputTokens: 2000 }, maxTokens: 3072 },
   debate_judge:   { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 3072 },
-  dual_judge_gpt: { preferred: O('gpt-5.5'), fallback: G(), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 2048 },
+  dual_judge_gpt: { preferred: R('openai/gpt-5.5'), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 2048 },
   full_report:    { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 3000, outputTokens: 6000 }, maxTokens: 8192 },
   revise:         { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 6000 }, maxTokens: 8192 },
-  critic:         { preferred: O('gpt-5.4'), fallback: G(), calibration: { inputTokens: 9000, outputTokens: 2048 }, maxTokens: 2048 },
+  critic:         { preferred: R('openai/gpt-5.4'), fallback: A('claude-haiku-4-5-20251001', 'claude-haiku-4-5'), calibration: { inputTokens: 9000, outputTokens: 2048 }, maxTokens: 2048 },
   portfolio:      { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 4000 }, maxTokens: 6144 },
 };
 
@@ -88,7 +92,7 @@ export interface ResolvedRole {
 }
 
 // 항목1 — provider 선택 일반화: preferred 미가용(env 키 부재)이면 fallback으로. (구 openai-only 삼항 대체.)
-//   GLM primary → OPENROUTER 키 부재 시 Claude fallback / GPT preferred → OPENAI 키 부재 시 GLM fallback(Option A).
+//   GLM/GPT preferred 모두 OpenRouter 경유 → OPENROUTER 키 부재 시 Claude fallback.
 function pickBinding(entry: RoleEntry): ModelBinding {
   if (!PROVIDER_AVAILABLE[entry.preferred.provider]() && entry.fallback) {
     return entry.fallback;
@@ -141,7 +145,7 @@ export function getRoleMaxCostPerCallKrw(role: AiRole): number {
   return calculateCostKrw(usage, resolved.pricingKey);
 }
 
-// reservation 보수화: env 가변 resolve(critic GPT↔GLM)에 무관하게 preferred/fallback 중
+// reservation 보수화: env 가변 resolve(critic OpenRouter-GPT↔Claude)에 무관하게 preferred/fallback 중
 // 최고가 기준 — auto-detect로 단가가 더 싼 쪽이 잡혀도 reservation은 undercount 금지.
 export function getRoleWorstCaseMaxCostPerCallKrw(role: AiRole): number {
   const entry = MODEL_REGISTRY[role];
@@ -171,12 +175,12 @@ export function getOrchestrateBudgetKrw(): number {
 // W1(토론 loop)·W3(포트)가 소비. W0에서는 projection 검증에만 사용.
 // ---------------------------------------------------------------------------
 export const D28_DEBATE_CONFIG = {
-  /** D28 ① Core 11 혼합: legacy Claude/Sonnet lane 슬롯 수 (Option A: OpenRouter 가용 시 GLM) */
+  /** D28 ① Core 11 혼합: legacy Claude/Sonnet lane 슬롯 수 (OpenRouter 가용 시 GLM) */
   claudeSonnetSlots: 6,
   /** D28 ① Core 11 혼합: GPT mid 슬롯 수 */
   gptMidSlots: 5,
   claudeSonnetModel: 'claude-sonnet-4-6',
-  gptMidModel: 'gpt-5.4',
+  gptMidModel: 'openai/gpt-5.4', // 항목1 후속 — OpenRouter 경유 GPT slug(별도 OpenAI 키 불요)
   /** D28 ② R2 trigger: 트랙별 top10 경계 ± N */
   r2BoundaryWindow: 5,
   /** D28 ② R2 trigger: persona 점수 분산 상위 비율 */
@@ -210,7 +214,7 @@ export const W2_TRACK_VOLUME = {
 // track-record 적중률 측정 후 여기 1곳 조정):
 //   짝수 idx = legacy Claude lane 6개(0,2,4,6,8,10) / 홀수 idx = GPT mid lane 5개(1,3,5,7,9).
 //   항목1: 짝수 lane = GLM 5.2 primary → OPENROUTER 키 부재 시 Sonnet 4.6 fallback(auto-detect).
-//   Option A: 홀수(GPT) lane = GPT 미가용+OPENROUTER 가용 시 GLM fallback, 둘 다 부재 시 Sonnet 안전망.
+//   항목1 후속: 홀수(GPT) lane = OpenRouter 경유 GPT → OPENROUTER 키 부재 시 Sonnet 안전망.
 //   calibration/maxTokens는 tier1_panel 역할 공유.
 // ---------------------------------------------------------------------------
 export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
@@ -221,14 +225,12 @@ export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
   const isGptSlot = slotIndex % 2 === 1;
   let binding: ModelBinding;
   if (isGptSlot) {
-    // GPT 슬롯: GPT preferred("GPT는 그대로") → OPENAI 부재 시 Option A로 GLM fallback → 둘 다 부재 시 Sonnet 안전망.
-    binding = isOpenAiAvailable()
-      ? O(D28_DEBATE_CONFIG.gptMidModel)
-      : isOpenRouterAvailable()
-        ? G()
-        : A(D28_DEBATE_CONFIG.claudeSonnetModel);
+    // GPT 슬롯: OpenRouter 경유 실제 GPT(openai/gpt-5.4) → OpenRouter 부재 시 Sonnet 안전망(direct OpenAI 폐기).
+    binding = isOpenRouterAvailable()
+      ? R(D28_DEBATE_CONFIG.gptMidModel)
+      : A(D28_DEBATE_CONFIG.claudeSonnetModel);
   } else if (isOpenRouterAvailable()) {
-    binding = G(); // 항목1 — Claude 슬롯 = GLM primary
+    binding = G(); // Claude 슬롯 = GLM primary
   } else {
     binding = A(D28_DEBATE_CONFIG.claudeSonnetModel); // OpenRouter 부재 → Sonnet 안전망
   }
@@ -262,8 +264,8 @@ export interface D28Projection { lines: D28ProjectionLine[]; totalKrw: number }
 
 // D28 B-final 배분 기준 월간 reservation projection (보수적 worst-case, 닫힌 산식).
 // HANDOFF W0 DoD: "실 단가 등록 후 reservation ≤50만 재검증".
-// ⚠️ omxy R1 HIGH fix: env-dependent resolveRole 금지 — CI(OPENAI_API_KEY unset)에서 fallback
-//    단가로 계산되어 D28 기본(두 키 동시) 대비 undercount 가능. 전 라인
+// ⚠️ omxy R1 HIGH fix: env-dependent resolveRole 금지 — CI/preview env의 provider key 부재로 fallback
+//    단가 계산이 달라져 D28 기본(OpenRouter primary + Claude fallback) 대비 undercount 가능. 전 라인
 //    worst-case(getRoleWorstCaseMaxCostPerCallKrw — preferred/fallback 중 최고가) 고정.
 export function projectD28MonthlyReservationKrw(): D28Projection {
   const perCall = (pricingKey: string, inputTokens: number, outputTokens: number) =>

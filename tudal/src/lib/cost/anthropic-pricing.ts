@@ -40,12 +40,17 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5.4-mini":     { provider: "openai",    inputPerMTokUsd: 0.75, outputPerMTokUsd: 4.5, cacheWriteMult: 0,    cacheReadMult: 0.1 },
   // OpenRouter (항목1 — GLM 5.2 primary. slug "z-ai/glm-5.2" 실측 단가 USD/Mtok: 입력 0.93 / 출력 3.00 / 캐시읽기 0.18)
   "glm-5.2":          { provider: "openrouter", inputPerMTokUsd: 0.93, outputPerMTokUsd: 3,  cacheWriteMult: 1.25, cacheReadMult: 0.18 / 0.93 },
+  // OpenRouter 경유 GPT (항목1 후속 2026-07-01 — GPT 역할을 별도 OpenAI 키 없이 OpenRouter로.
+  //   per-token 단가 = OpenAI 직접 list와 동일(실측 slug openai/gpt-5.5=$5/$30, openai/gpt-5.4=$2.5/$15).
+  //   OpenRouter 수수료 ~5%는 크레딧 충전 시점(per-call 아님)이라 per-token 단가엔 미반영.
+  "openai/gpt-5.5":   { provider: "openrouter", inputPerMTokUsd: 5,    outputPerMTokUsd: 30,  cacheWriteMult: 0,    cacheReadMult: 0.1 },
+  "openai/gpt-5.4":   { provider: "openrouter", inputPerMTokUsd: 2.5,  outputPerMTokUsd: 15,  cacheWriteMult: 0,    cacheReadMult: 0.1 },
 };
 
 // 하위호환 alias (기존 import 보존 — 신규 코드는 MODEL_PRICING 사용)
 export const ANTHROPIC_PRICING = MODEL_PRICING;
 
-// dry-run 견적 기본 모델 (settings/cost 견적 화면용 — 실호출 아님). 항목1 Option A: primary=GLM 반영.
+// dry-run 견적 기본 모델 (settings/cost 견적 화면용 — 실호출 아님). GLM primary 역할 기준.
 export const DEFAULT_MODEL = "glm-5.2";
 
 // D28 ② fail-closed: silent fallback 제거 — 미등록 모델 = throw.

@@ -1,5 +1,5 @@
 // W1b (D28 ③ / D2) — debate_judge(GLM primary/Claude fallback 최종 판정)
-// + dual_judge_gpt(GPT primary/GLM fallback 경계 ±2 2차 의견).
+// + dual_judge_gpt(OpenRouter GPT primary/Claude fallback 경계 ±2 2차 의견).
 // anthropic-client.ts 패턴 동형: provider 경유 + cost_log INSERT + W1a transient classifier.
 // judge는 페르소나가 아님 — persona 시스템 프롬프트 미사용, cost_log.persona_id = 'debate-judge'/'dual-judge'.
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -173,7 +173,7 @@ export async function callJudge(input: CallJudgeInput): Promise<JudgeVerdict> {
   return callJudgeRole('debate_judge', 'debate-judge', input);
 }
 
-/** D28 ③ — 경계 ±2 dual-judge (GPT 최고급, GPT-off 시 GLM fallback auto-detect). */
+/** D28 ③ — 경계 ±2 dual-judge (OpenRouter GPT 최고급, OpenRouter off 시 Claude fallback auto-detect). */
 export async function callDualJudge(input: CallJudgeInput): Promise<JudgeVerdict> {
   return callJudgeRole('dual_judge_gpt', 'dual-judge', input);
 }

@@ -36,6 +36,12 @@ const validVerdict = JSON.stringify({
 });
 
 function stubResolved(model: string, providerId: 'anthropic' | 'openai' | 'openrouter') {
+  const pricingKey =
+    providerId === 'openrouter' && model.startsWith('openai/')
+      ? model
+      : providerId === 'openrouter'
+        ? 'glm-5.2'
+        : model;
   return {
     role: 'debate_judge',
     provider: {
@@ -49,7 +55,7 @@ function stubResolved(model: string, providerId: 'anthropic' | 'openai' | 'openr
       call: providerCall,
     },
     model,
-    pricingKey: providerId === 'openrouter' ? 'glm-5.2' : model,
+    pricingKey,
     maxTokens: 2048,
   };
 }
@@ -57,8 +63,8 @@ function stubResolved(model: string, providerId: 'anthropic' | 'openai' | 'openr
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.ANTHROPIC_API_KEY = 'sk-test';
-  process.env.OPENAI_API_KEY = 'openai-test-key';
-  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  process.env.OPENROUTER_API_KEY = 'openrouter-test-key';
   providerCall.mockResolvedValue({
     text: validVerdict,
     usage: {
@@ -70,8 +76,8 @@ beforeEach(() => {
   });
   resolveRoleMock.mockImplementation((role: string) =>
     role === 'dual_judge_gpt'
-      ? stubResolved('gpt-5.5', 'openai')
-      : stubResolved('claude-opus-4-8', 'anthropic'),
+      ? stubResolved('openai/gpt-5.5', 'openrouter')
+      : stubResolved('z-ai/glm-5.2', 'openrouter'),
   );
 });
 
@@ -127,7 +133,7 @@ describe('callJudge / callDualJudge', () => {
       userPrompt: string;
       responseFormat?: string;
     };
-    expect(callArg.model).toBe('claude-opus-4-8');
+    expect(callArg.model).toBe('z-ai/glm-5.2');
     expect(callArg.responseFormat).toBe('json_object');
     expect(callArg.userPrompt).toContain('005930');
     expect(callArg.userPrompt).toContain('트랙: short');
@@ -138,7 +144,7 @@ describe('callJudge / callDualJudge', () => {
       expect.objectContaining({
         persona_id: 'debate-judge',
         prompt_version: 'judge@v1',
-        model: 'claude-opus-4-8',
+        model: 'z-ai/glm-5.2',
         month: '2026-06',
         ticker: '005930',
         called_by: 'admin-uuid',
@@ -151,12 +157,13 @@ describe('callJudge / callDualJudge', () => {
     await callDualJudge(baseInput);
     expect(resolveRoleMock).toHaveBeenCalledWith('dual_judge_gpt');
     expect(insertCostLog).toHaveBeenCalledWith(
-      expect.objectContaining({ persona_id: 'dual-judge', model: 'gpt-5.5' }),
+      expect.objectContaining({ persona_id: 'dual-judge', model: 'openai/gpt-5.5' }),
       expect.anything(),
     );
   });
 
-  it('ANTHROPIC_API_KEY 부재 → ai_key_unavailable (D28 A 불변)', async () => {
+  it('OPENROUTER+ANTHROPIC 모두 부재 → ai_key_unavailable', async () => {
+    delete process.env.OPENROUTER_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     await expect(callJudge(baseInput)).rejects.toThrow('ai_key_unavailable');
     expect(providerCall).not.toHaveBeenCalled();

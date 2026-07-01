@@ -452,10 +452,13 @@ describe('P4 FULL report run (REAL AI + REAL prod Supabase, ≈₩15k, ~95-120mi
       expect(afterCostKrw - baseCostKrw).toBeCloseTo(spentKrw, 1);
       const deltaModels = new Set(newCost.map((r) => r.model));
       if (newCost.length > 0) {
-        expect(deltaModels.has('claude-opus-4-8')).toBe(true); // writer
-        expect(deltaModels.has('claude-opus-4-7')).toBe(true); // Section8 vote-pass (tier1_panel preferred)
-        if (process.env.OPENAI_API_KEY) {
-          expect(deltaModels.has('gpt-5.4')).toBe(true); // critic
+        if (process.env.OPENROUTER_API_KEY) {
+          expect(deltaModels.has('z-ai/glm-5.2')).toBe(true); // writer + Section8 tier1_panel preferred
+          expect(deltaModels.has('openai/gpt-5.4')).toBe(true); // critic via OpenRouter
+        } else {
+          expect(deltaModels.has('claude-opus-4-8')).toBe(true); // writer fallback
+          expect(deltaModels.has('claude-opus-4-7')).toBe(true); // Section8 tier1_panel fallback
+          expect(deltaModels.has('claude-haiku-4-5-20251001')).toBe(true); // critic fallback
         }
       }
 

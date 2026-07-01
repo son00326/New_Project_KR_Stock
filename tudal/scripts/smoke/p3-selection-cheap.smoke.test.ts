@@ -228,12 +228,12 @@ describe('P3 cheap selection smoke (REAL AI + REAL prod Supabase)', () => {
       const calledByOk = (costRows ?? []).every((r) => r.called_by === cronSystemUserId);
       expect(calledByOk).toBe(true);
       const models = new Set((costRows ?? []).map((r) => r.model));
-      // D28 mix: Sonnet x6 always; GPT mid x5 ONLY when OPENAI_API_KEY present
-      // (provider auto-detect). Gating the GPT assertion avoids a false-red on a
-      // Claude-only re-run — it's a plumbing smoke, not an env assertion (BW-2).
-      expect(models.has('claude-sonnet-4-6')).toBe(true);
-      if (process.env.OPENAI_API_KEY) {
-        expect(models.has('gpt-5.4')).toBe(true); // GPT secondary provider wired
+      // D28 mix: OpenRouter 가용이면 짝수=GLM, 홀수=OpenRouter GPT. OpenRouter 부재 시 Sonnet 안전망.
+      if (process.env.OPENROUTER_API_KEY) {
+        expect(models.has('z-ai/glm-5.2')).toBe(true);
+        expect(models.has('openai/gpt-5.4')).toBe(true);
+      } else {
+        expect(models.has('claude-sonnet-4-6')).toBe(true);
       }
       const summedKrw = (costRows ?? []).reduce((s, r) => s + Number(r.cost_krw), 0);
       expect(summedKrw).toBeGreaterThan(0);
