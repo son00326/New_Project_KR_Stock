@@ -2,9 +2,9 @@
 // SoT = docs/superpowers/plans/2026-05-24-pr3c-orchestration-sector-reference.md (v6, omxy R6 CONVERGED).
 // PR3b full-report-client.ts 패턴 follow.
 //
-// W0 (65차 D28 ⑤): critic = GPT mid (gpt-5.4) 교차 — GPT 키 부재 시 Haiku fallback (auto-detect).
+// W0 (65차 D28 ⑤): critic = GPT mid (gpt-5.4) 교차 — GPT 키 부재 시 GLM fallback (auto-detect).
 //   ⚠️ critic은 호출 시점 resolve (모듈 로드 고정 금지 — env 가변). CRITIC_API_MODEL/
-//      CRITIC_PRICING_KEY는 모듈 로드 시점 기본값(편의 export — GPT off=Haiku) 이며 cost 계산은
+//      CRITIC_PRICING_KEY는 모듈 로드 시점 기본값(편의 export — GPT off=GLM) 이며 cost 계산은
 //      callCritic 내부 resolved.pricingKey 사용.
 // B7 fix (omxy R1): reason 한국어 500자 cap (zod max(500)).
 // (d) fix (omxy R2): prompt_version 분리 (cost_log filter UI) — CRITIC_PROMPT_VERSION = 'critic-v1'.
@@ -23,7 +23,7 @@ export interface CallCriticOptions {
   client?: SupabaseClient;
 }
 
-// 모듈 로드 시점 기본값 (편의 export — 실 cost 계산은 callCritic 내부 resolve). GPT 키 부재 시 Haiku.
+// 모듈 로드 시점 기본값 (편의 export — 실 cost 계산은 callCritic 내부 resolve). GPT 키 부재 시 GLM.
 const CRITIC_ROLE_DEFAULT = resolveRole('critic');
 export const CRITIC_API_MODEL = CRITIC_ROLE_DEFAULT.model;
 export const CRITIC_PRICING_KEY = CRITIC_ROLE_DEFAULT.pricingKey;
@@ -65,12 +65,12 @@ export async function callCritic(
   input: CallCriticInput,
   options: CallCriticOptions = {},
 ): Promise<CallCriticResult> {
-  // 항목1 — provider-agnostic 게이트: critic = GPT mid → Haiku(Claude) fallback. 둘 다 부재 시만 throw.
+  // 항목1 — provider-agnostic 게이트: critic = GPT mid → GLM fallback. 둘 다 부재 시만 throw.
   if (!isRoleProviderAvailable('critic')) {
     throw new Error('ai_key_unavailable');
   }
 
-  // W0 (65차 D28 ⑤): critic = GPT mid 교차 / GPT off → Haiku fallback. 호출 시점 resolve (env 가변).
+  // W0 (65차 D28 ⑤): critic = GPT mid 교차 / GPT off → GLM fallback. 호출 시점 resolve (env 가변).
   const resolved = resolveRole('critic');
 
   let aiResult;

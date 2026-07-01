@@ -53,16 +53,17 @@ describe('W0 model-registry — 역할→모델 SoT (D28 B-final + 항목1 GLM p
     expect(resolveRole('tier1_panel').model).toBe('claude-opus-4-7');
   });
 
-  it('OPENAI_API_KEY 부재 → critic resolve = Haiku fallback / dual_judge_gpt = opus-4-8 fallback (D28 C auto-detect)', () => {
+  it('Option A: OPENAI_API_KEY 부재 → critic resolve = GLM fallback / dual_judge_gpt = GLM fallback (auto-detect)', () => {
     vi.stubEnv('OPENAI_API_KEY', '');
     const critic = resolveRole('critic');
-    expect(critic.provider.id).toBe('anthropic');
-    expect(critic.model).toBe('claude-haiku-4-5-20251001');
-    expect(critic.pricingKey).toBe('claude-haiku-4-5');
+    expect(critic.provider.id).toBe('openrouter');
+    expect(critic.model).toBe('z-ai/glm-5.2');
+    expect(critic.pricingKey).toBe('glm-5.2');
 
     const dual = resolveRole('dual_judge_gpt');
-    expect(dual.provider.id).toBe('anthropic');
-    expect(dual.model).toBe('claude-opus-4-8');
+    expect(dual.provider.id).toBe('openrouter');
+    expect(dual.model).toBe('z-ai/glm-5.2');
+    expect(dual.pricingKey).toBe('glm-5.2');
   });
 
   it('OPENAI_API_KEY 존재 → critic resolve = gpt-5.4 (D28 ⑤ GPT mid 교차)', () => {
@@ -169,12 +170,16 @@ describe('W1a resolveTier1PanelSlot — Core 11 혼합 (D28 ① + 항목1 GLM)',
     expect(slots.every((s) => s.provider.id === 'anthropic')).toBe(true);
   });
 
-  it('항목1 (OPENAI 부재 + OPENROUTER 가용): 짝수 GLM, 홀수 GPT 슬롯은 Sonnet fallback', () => {
+  it('Option A (OPENAI 부재 + OPENROUTER 가용): 전 슬롯 GLM 5.2 — 짝수 GLM primary + 홀수 GPT 슬롯도 GLM fallback (구 Sonnet)', () => {
     vi.stubEnv('OPENAI_API_KEY', '');
     vi.stubEnv('OPENROUTER_API_KEY', 'openrouter-test-key');
     const slots = Array.from({ length: 11 }, (_, i) => resolveTier1PanelSlot(i));
-    expect(slots.filter((s) => s.model === 'z-ai/glm-5.2')).toHaveLength(6);
-    expect(slots.filter((s) => s.model === 'claude-sonnet-4-6')).toHaveLength(5);
+    expect(slots.filter((s) => s.model === 'z-ai/glm-5.2')).toHaveLength(11);
+    expect(slots.filter((s) => s.model === 'claude-sonnet-4-6')).toHaveLength(0);
+    // 홀수(GPT) 슬롯: OPENAI 부재 → Option A로 GLM fallback (구 Sonnet 안전망 대체).
+    expect(slots[1].model).toBe('z-ai/glm-5.2');
+    expect(slots[1].provider.id).toBe('openrouter');
+    expect(slots.every((s) => s.provider.id === 'openrouter')).toBe(true);
   });
 
   it('slotIndex 범위 밖(11/-1/소수) → throw tier1_panel_slot_out_of_range', () => {

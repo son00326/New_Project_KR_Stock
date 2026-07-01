@@ -2,7 +2,7 @@
 //   critic 역할(저가 cross-check 모델)로 과거 실현 성과를 1~2줄 회고 요약.
 //   provider 경유 + cost_log INSERT(persona_id='reflection-summary') + W1a transient classifier.
 //   회고지 예측 아님(미래 수익 예측 금지 — summary-prompt 지시문). 게이트=critic 역할 provider-agnostic
-//   (GPT primary / Claude fallback) — critic provider 전부 부재 시에만 ai_key_unavailable. 항목1(2026-07-01).
+//   (GPT primary / GLM fallback) — critic provider 전부 부재 시에만 ai_key_unavailable. 항목1(2026-07-01 Option A).
 // SoT: docs/superpowers/specs/2026-06-27-reflection-prk-build.md §4·§6.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -47,7 +47,7 @@ export async function summarizeReflection(
   if (input.costPreflightReserved !== true) {
     throw new Error("reflection_summary_preflight_required");
   }
-  // 항목1 — provider-agnostic 게이트: critic 역할(GPT mid → Haiku/Claude fallback)의 provider 가용성.
+  // 항목1 — provider-agnostic 게이트: critic 역할(GPT mid → GLM fallback)의 provider 가용성.
   //   둘 다 부재 시만 ai_key_unavailable.
   if (!isRoleProviderAvailable("critic")) {
     throw new Error("ai_key_unavailable");

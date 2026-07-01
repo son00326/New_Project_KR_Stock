@@ -1,14 +1,16 @@
 // PR4 Task 1 Step 1.1.8 — caller DI seam invariant test for callCritic (B2 fix omxy R1).
 // 2 tests: options.client propagation / default { client: undefined }.
+// Option A(2026-07-01): critic = GPT primary / GLM fallback. GPT off → GLM(openrouter Chat Completions).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@anthropic-ai/sdk', () => {
-  const create = vi.fn();
-  class Anthropic {
-    messages = { create };
+// GLM fallback 경로 = openrouter-provider → client.chat.completions.create.
+vi.mock('openai', () => {
+  const chatCreate = vi.fn();
+  class OpenAI {
+    chat = { completions: { create: chatCreate } };
     constructor() {}
   }
-  return { default: Anthropic, __create: create };
+  return { default: OpenAI, __chatCreate: chatCreate };
 });
 
 vi.mock('@/lib/cost/cost-logger', () => ({
@@ -18,7 +20,9 @@ vi.mock('@/lib/cost/cost-logger', () => ({
 describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.ANTHROPIC_API_KEY = 'test-key';
+    // Option A: GPT off → GLM fallback 가용 (openrouter).
+    delete process.env.OPENAI_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-or-key';
   });
 
   const baseInput = {
@@ -39,13 +43,25 @@ describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
     reader_level: { verdict: 'PASS', reason: 'ok' },
   });
 
+  function glmChatResponse(text: string) {
+    return {
+      choices: [{ message: { content: text }, finish_reason: 'stop' as const }],
+      usage: {
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        prompt_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 },
+      },
+    };
+  }
+
+  async function getChatCreate() {
+    const oa = await import('openai');
+    return (oa as unknown as { __chatCreate: ReturnType<typeof vi.fn> }).__chatCreate;
+  }
+
   it('propagates options.client to insertCostLog 2nd arg', async () => {
-    const sdk = await import('@anthropic-ai/sdk');
-    const create = (sdk as unknown as { __create: ReturnType<typeof vi.fn> }).__create;
-    create.mockResolvedValueOnce({
-      content: [{ type: 'text', text: validCriticJson }],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    });
+    const chatCreate = await getChatCreate();
+    chatCreate.mockResolvedValueOnce(glmChatResponse(validCriticJson));
     const { insertCostLog } = await import('@/lib/cost/cost-logger');
     const { callCritic } = await import('@/lib/ai/critic-client');
     const fakeClient = { tag: 'fake-critic' } as never;
@@ -57,12 +73,8 @@ describe('callCritic — caller DI seam (PR4 Task 1 Step 1.1.8)', () => {
   });
 
   it('passes { client: undefined } to insertCostLog when options omitted', async () => {
-    const sdk = await import('@anthropic-ai/sdk');
-    const create = (sdk as unknown as { __create: ReturnType<typeof vi.fn> }).__create;
-    create.mockResolvedValueOnce({
-      content: [{ type: 'text', text: validCriticJson }],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    });
+    const chatCreate = await getChatCreate();
+    chatCreate.mockResolvedValueOnce(glmChatResponse(validCriticJson));
     const { insertCostLog } = await import('@/lib/cost/cost-logger');
     const { callCritic } = await import('@/lib/ai/critic-client');
     await callCritic(baseInput);

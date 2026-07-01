@@ -1,4 +1,5 @@
-// W1b (D28 ③ / D2) — debate_judge(Opus 4.8 per-ticker 최종 판정) + dual_judge_gpt(경계 ±2 2차 의견).
+// W1b (D28 ③ / D2) — debate_judge(GLM primary/Claude fallback 최종 판정)
+// + dual_judge_gpt(GPT primary/GLM fallback 경계 ±2 2차 의견).
 // anthropic-client.ts 패턴 동형: provider 경유 + cost_log INSERT + W1a transient classifier.
 // judge는 페르소나가 아님 — persona 시스템 프롬프트 미사용, cost_log.persona_id = 'debate-judge'/'dual-judge'.
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -167,12 +168,12 @@ function normalizeJudgeCallError(err: unknown): Error {
   return new Error(transient ? `ai_call_failed:transient:${status ?? 'network'}` : 'ai_call_failed');
 }
 
-/** D28 ③ — per-ticker 최종 judge (Opus 4.8). */
+/** D28 ③ — per-ticker 최종 judge (debate_judge role: GLM primary / Claude fallback). */
 export async function callJudge(input: CallJudgeInput): Promise<JudgeVerdict> {
   return callJudgeRole('debate_judge', 'debate-judge', input);
 }
 
-/** D28 ③ — 경계 ±2 dual-judge (GPT 최고급, GPT-off 시 Opus fallback auto-detect). */
+/** D28 ③ — 경계 ±2 dual-judge (GPT 최고급, GPT-off 시 GLM fallback auto-detect). */
 export async function callDualJudge(input: CallJudgeInput): Promise<JudgeVerdict> {
   return callJudgeRole('dual_judge_gpt', 'dual-judge', input);
 }

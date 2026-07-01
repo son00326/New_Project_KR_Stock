@@ -39,7 +39,7 @@ export async function callFullReport(
     throw new Error('ai_key_unavailable');
   }
 
-  // W0 (65차 D28 ④): writer = Opus 4.8. 모델 하드코딩 제거 — full_report 역할로 registry resolve.
+  // W0 (65차 D28 ④): writer = full_report role(GLM primary / Claude fallback). 모델 하드코딩 제거 — registry resolve.
   const resolved = resolveRole('full_report');
 
   let result;

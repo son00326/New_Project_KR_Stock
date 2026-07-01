@@ -32,7 +32,7 @@ export type AiRole =
   | 'dual_judge_gpt'  // D28 ③ 경계 ±2 GPT 최고급 dual-judge (W1 소비)
   | 'full_report'     // D28 ④ writer
   | 'revise'          // D28 ④ revise
-  | 'critic'          // D28 ⑤ GPT mid 교차 (GPT off → Haiku fallback)
+  | 'critic'          // D28 ⑤ GPT mid 교차 (GPT off → GLM fallback)
   | 'portfolio';      // D28 ⑥ W3 자율 포트 판단 (W3 소비)
 
 interface ModelBinding {
@@ -56,15 +56,16 @@ const O = (model: string, pricingKey: string = model): ModelBinding => ({ provid
 const G = (): ModelBinding => ({ provider: 'openrouter', model: 'z-ai/glm-5.2', pricingKey: 'glm-5.2' });
 
 // 항목1 — 기존 Claude preferred 역할(judge/full_report/revise/portfolio)을 GLM primary + Claude fallback로 재바인딩.
-//   GPT 역할(dual_judge_gpt/critic)·slot GPT는 불변. OPENROUTER 키 부재 시 resolveRole이 fallback(Claude)로 auto-detect.
-//   tier1_panel은 W1 mix 배선 전 비패널 fallback 경로 보존용 — preferred=GLM/fallback=opus-4-7 (Sonnet slot은 resolveTier1PanelSlot).
+//   Option A(2026-07-01 USER — Claude 정상운영 제거): GPT 역할(dual_judge_gpt/critic)의 fallback도 Claude → **GLM**로.
+//   GPT preferred는 그대로("GPT는 그대로"). OPENAI 키 부재 시 GPT 역할이 Claude 대신 GLM로 fallback → prod(OPENAI 무·OPENROUTER 유)에서 정상운영 Claude 사용 0.
+//   Claude(A(...))는 이제 GLM primary 역할의 **OpenRouter 장애 안전망**으로만 존재. tier1 GPT slot(홀수)도 GLM fallback = resolveTier1PanelSlot.
 export const MODEL_REGISTRY: Record<AiRole, RoleEntry> = {
   tier1_panel:    { preferred: G(), fallback: A('claude-opus-4-7'), calibration: { inputTokens: 1500, outputTokens: 2000 }, maxTokens: 3072 },
   debate_judge:   { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 3072 },
-  dual_judge_gpt: { preferred: O('gpt-5.5'), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 2048 },
+  dual_judge_gpt: { preferred: O('gpt-5.5'), fallback: G(), calibration: { inputTokens: 4000, outputTokens: 2000 }, maxTokens: 2048 },
   full_report:    { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 3000, outputTokens: 6000 }, maxTokens: 8192 },
   revise:         { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 6000 }, maxTokens: 8192 },
-  critic:         { preferred: O('gpt-5.4'), fallback: A('claude-haiku-4-5-20251001', 'claude-haiku-4-5'), calibration: { inputTokens: 9000, outputTokens: 2048 }, maxTokens: 2048 },
+  critic:         { preferred: O('gpt-5.4'), fallback: G(), calibration: { inputTokens: 9000, outputTokens: 2048 }, maxTokens: 2048 },
   portfolio:      { preferred: G(), fallback: A('claude-opus-4-8'), calibration: { inputTokens: 8000, outputTokens: 4000 }, maxTokens: 6144 },
 };
 
@@ -87,7 +88,7 @@ export interface ResolvedRole {
 }
 
 // 항목1 — provider 선택 일반화: preferred 미가용(env 키 부재)이면 fallback으로. (구 openai-only 삼항 대체.)
-//   GLM primary → OPENROUTER 키 부재 시 Claude fallback / GPT preferred → OPENAI 키 부재 시 Claude fallback.
+//   GLM primary → OPENROUTER 키 부재 시 Claude fallback / GPT preferred → OPENAI 키 부재 시 GLM fallback(Option A).
 function pickBinding(entry: RoleEntry): ModelBinding {
   if (!PROVIDER_AVAILABLE[entry.preferred.provider]() && entry.fallback) {
     return entry.fallback;
@@ -140,7 +141,7 @@ export function getRoleMaxCostPerCallKrw(role: AiRole): number {
   return calculateCostKrw(usage, resolved.pricingKey);
 }
 
-// reservation 보수화: env 가변 resolve(critic GPT↔Haiku)에 무관하게 preferred/fallback 중
+// reservation 보수화: env 가변 resolve(critic GPT↔GLM)에 무관하게 preferred/fallback 중
 // 최고가 기준 — auto-detect로 단가가 더 싼 쪽이 잡혀도 reservation은 undercount 금지.
 export function getRoleWorstCaseMaxCostPerCallKrw(role: AiRole): number {
   const entry = MODEL_REGISTRY[role];
@@ -155,8 +156,8 @@ export function getRoleWorstCaseMaxCostPerCallKrw(role: AiRole): number {
 }
 
 // 풀 리포트 1 ticker worst-case (writer + critic + revise) — 구 pricing.ts
-// Legacy fixed orchestration budget supersede: critic이 GPT mid로 resolve되면 Haiku 고정
-// 상수는 undercount(27.5원 vs 76원) → registry worst-case 합산으로 격상.
+// Legacy fixed orchestration budget supersede: critic 모델/env 분기 시 고정
+// 상수는 undercount 가능 → registry worst-case 합산으로 격상.
 export function getOrchestrateBudgetKrw(): number {
   return (
     getRoleWorstCaseMaxCostPerCallKrw('full_report') +
@@ -170,7 +171,7 @@ export function getOrchestrateBudgetKrw(): number {
 // W1(토론 loop)·W3(포트)가 소비. W0에서는 projection 검증에만 사용.
 // ---------------------------------------------------------------------------
 export const D28_DEBATE_CONFIG = {
-  /** D28 ① Core 11 혼합: Claude Sonnet 4.6 슬롯 수 */
+  /** D28 ① Core 11 혼합: legacy Claude/Sonnet lane 슬롯 수 (Option A: OpenRouter 가용 시 GLM) */
   claudeSonnetSlots: 6,
   /** D28 ① Core 11 혼합: GPT mid 슬롯 수 */
   gptMidSlots: 5,
@@ -207,9 +208,9 @@ export const W2_TRACK_VOLUME = {
 // ---------------------------------------------------------------------------
 // W1a (D28 ①) — Core 11 혼합 슬롯. CORE_11 배열 index 기준 interleave(가설 기본값 —
 // track-record 적중률 측정 후 여기 1곳 조정):
-//   짝수 idx = Claude 슬롯 6개(0,2,4,6,8,10) / 홀수 idx = GPT mid 5개(1,3,5,7,9).
-//   항목1: 짝수(Claude) 슬롯 = GLM 5.2 primary → OPENROUTER 키 부재 시 Sonnet 4.6 fallback(auto-detect).
-//   홀수(GPT) 슬롯 = GPT 미가용 시 Sonnet 4.6 fallback (D28 C, GPT-only 미지원) — 불변.
+//   짝수 idx = legacy Claude lane 6개(0,2,4,6,8,10) / 홀수 idx = GPT mid lane 5개(1,3,5,7,9).
+//   항목1: 짝수 lane = GLM 5.2 primary → OPENROUTER 키 부재 시 Sonnet 4.6 fallback(auto-detect).
+//   Option A: 홀수(GPT) lane = GPT 미가용+OPENROUTER 가용 시 GLM fallback, 둘 다 부재 시 Sonnet 안전망.
 //   calibration/maxTokens는 tier1_panel 역할 공유.
 // ---------------------------------------------------------------------------
 export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
@@ -220,13 +221,16 @@ export function resolveTier1PanelSlot(slotIndex: number): ResolvedRole {
   const isGptSlot = slotIndex % 2 === 1;
   let binding: ModelBinding;
   if (isGptSlot) {
+    // GPT 슬롯: GPT preferred("GPT는 그대로") → OPENAI 부재 시 Option A로 GLM fallback → 둘 다 부재 시 Sonnet 안전망.
     binding = isOpenAiAvailable()
       ? O(D28_DEBATE_CONFIG.gptMidModel)
-      : A(D28_DEBATE_CONFIG.claudeSonnetModel);
+      : isOpenRouterAvailable()
+        ? G()
+        : A(D28_DEBATE_CONFIG.claudeSonnetModel);
   } else if (isOpenRouterAvailable()) {
     binding = G(); // 항목1 — Claude 슬롯 = GLM primary
   } else {
-    binding = A(D28_DEBATE_CONFIG.claudeSonnetModel); // OpenRouter 부재 → Sonnet fallback
+    binding = A(D28_DEBATE_CONFIG.claudeSonnetModel); // OpenRouter 부재 → Sonnet 안전망
   }
   const provider = PROVIDERS[binding.provider];
   return {
@@ -258,8 +262,8 @@ export interface D28Projection { lines: D28ProjectionLine[]; totalKrw: number }
 
 // D28 B-final 배분 기준 월간 reservation projection (보수적 worst-case, 닫힌 산식).
 // HANDOFF W0 DoD: "실 단가 등록 후 reservation ≤50만 재검증".
-// ⚠️ omxy R1 HIGH fix: env-dependent resolveRole 금지 — CI(OPENAI_API_KEY unset)에서 critic=Haiku/
-//    dual_judge=Opus fallback 단가로 계산되어 D28 기본(두 키 동시) 대비 undercount. 전 라인
+// ⚠️ omxy R1 HIGH fix: env-dependent resolveRole 금지 — CI(OPENAI_API_KEY unset)에서 fallback
+//    단가로 계산되어 D28 기본(두 키 동시) 대비 undercount 가능. 전 라인
 //    worst-case(getRoleWorstCaseMaxCostPerCallKrw — preferred/fallback 중 최고가) 고정.
 export function projectD28MonthlyReservationKrw(): D28Projection {
   const perCall = (pricingKey: string, inputTokens: number, outputTokens: number) =>
@@ -299,11 +303,11 @@ export function projectD28MonthlyReservationKrw(): D28Projection {
   const lines: D28ProjectionLine[] = [
     { label: 'R1 (3트랙 pool 60 × mix)', krw: r1Krw },
     { label: 'R2 worst (선택적, 트랙별 22)', krw: r2Krw },
-    { label: 'judge (Opus 4.8, per-ticker)', krw: judgeTotalKrw },
+    { label: 'judge role worst (GLM/Opus, per-ticker)', krw: judgeTotalKrw },
     { label: 'dual-judge (경계 ±2/트랙, GPT top worst)', krw: dualJudgeTotalKrw },
     { label: 'D27 Q5 incumbent context (+2k tok, R1+R2)', krw: incumbentKrw },
     { label: '풀 리포트 30 (writer+critic+revise worst)', krw: W2_TRACK_VOLUME.reportCount * reportKrw },
-    { label: 'W3 포트 판단 (Opus 4.8)', krw: W2_TRACK_VOLUME.portfolioRunsPerMonth * getRoleWorstCaseMaxCostPerCallKrw('portfolio') },
+    { label: 'W3 포트 판단 role worst (GLM/Opus)', krw: W2_TRACK_VOLUME.portfolioRunsPerMonth * getRoleWorstCaseMaxCostPerCallKrw('portfolio') },
   ];
   const totalKrw = Math.round(lines.reduce((s, l) => s + l.krw, 0));
   return { lines, totalKrw };

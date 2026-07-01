@@ -2,7 +2,7 @@
 // SoT = plan v6, omxy R6 CONVERGED. 누적 21 BLOCKERS.
 // PR3b full-report-client.ts + Task 2 critic-client.ts 패턴 follow.
 //
-// W0 (65차 D28 ④): revise = Opus 4.8. 모델 하드코딩 제거 — revise 역할로 registry resolve.
+// W0 (65차 D28 ④): revise = revise role(GLM primary / Claude fallback). 모델 하드코딩 제거 — registry resolve.
 //   REVISE_API_MODEL/REVISE_MAX_TOKENS는 registry 파생값으로 export 유지 (기존 import 호환).
 // max_tokens 8192 (B3 fix omxy R1): full rewrite tolerate, truncation 차단.
 // REVISE input 8000 보수화 (B11 fix omxy R2) — pricing.ts REVISE_MAX_COST_PER_CALL_KRW 정합.
@@ -48,7 +48,7 @@ export async function callRevise(
     throw new Error('ai_key_unavailable');
   }
 
-  // W0 (65차 D28 ④): revise = Opus 4.8. provider 경유 호출 (registry resolve).
+  // W0 (65차 D28 ④): revise role provider 경유 호출 (registry resolve).
   const resolved = resolveRole('revise');
 
   let result;

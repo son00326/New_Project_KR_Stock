@@ -913,9 +913,9 @@ export async function triggerFullReport(input: {
 
 // ---------------------------------------------------------------------------
 // W3b-1/W3b-2a (D26 Q2) — proposePortfolio admin server action.
-// 선정 30 종목에 대해 AI(Opus 4.8 `portfolio` role)가 편입 여부·종목별 비중·현금(0~30%)을 자율 제안.
+// 선정 30 종목에 대해 AI(`portfolio` role: GLM primary / Claude fallback)가 편입 여부·종목별 비중·현금(0~30%)을 자율 제안.
 // 게이트 순서(R19/W3b-2a 반영): input → getUser(auth_unavailable) → is_admin RPC(admin_required) →
-//   flag(PORTFOLIO_AI_PROPOSAL_ENABLED)+key(ANTHROPIC_API_KEY) 이중(proposal_disabled) →
+//   flag(PORTFOLIO_AI_PROPOSAL_ENABLED)+role provider key(OPENROUTER primary / ANTHROPIC fallback) 이중(proposal_disabled) →
 //   isCostLoggingEnabled(cost_logging_disabled) → [persist-on이면 assertProposalPersistenceReady preflight,
 //   schema-missing 시 AI 호출 0] → getActiveShortList(active exact 30, else shortlist_incomplete) →
 //   preflightHardcap(cost_hardcap_exceeded) → callPortfolioProposal → positions ⊆ shortlist 검증 →
@@ -1014,7 +1014,7 @@ export async function proposePortfolio(input: {
     ),
   );
 
-  // R19 HIGH (omxy) — preflight hardcap. 단일 Opus(portfolio) 콜 보수 단가 reservation으로
+  // R19 HIGH (omxy) — preflight hardcap. 단일 portfolio role 콜 보수 단가 reservation으로
   //   50만원/월 hardcap 초과 시 실호출 전 fail-closed. is_admin 게이트 후라 admin cost SUM RPC 정합.
   try {
     await preflightHardcap(

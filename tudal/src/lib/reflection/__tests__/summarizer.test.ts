@@ -34,6 +34,9 @@ const metrics: ReflectionMetrics = {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.ANTHROPIC_API_KEY = "sk-test";
+  // Option A(2026-07-01): critic 게이트 = GPT primary / GLM fallback (ANTHROPIC 비의존).
+  //   GPT off 기본이므로 OPENROUTER(GLM fallback)를 세팅해 isRoleProviderAvailable('critic') 통과.
+  process.env.OPENROUTER_API_KEY = "test-or-key";
   process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
   providerCall.mockResolvedValue({
     text: "회고: p1의 확신이 결과와 잘 정렬됨.",
@@ -182,6 +185,7 @@ describe("summarizeReflection", () => {
     ]) {
       vi.clearAllMocks();
       process.env.ANTHROPIC_API_KEY = "sk-test";
+      process.env.OPENROUTER_API_KEY = "test-or-key";
       process.env.AI_COST_LOG_REAL_INSERT_ENABLED = "true";
       resolveRoleMock.mockReturnValue({
         role: "critic",

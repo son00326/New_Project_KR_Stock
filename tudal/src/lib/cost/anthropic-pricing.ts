@@ -45,8 +45,8 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
 // 하위호환 alias (기존 import 보존 — 신규 코드는 MODEL_PRICING 사용)
 export const ANTHROPIC_PRICING = MODEL_PRICING;
 
-// dry-run 견적 기본 모델 (settings/cost 견적 화면용 — fallback 아님)
-export const DEFAULT_MODEL = "claude-sonnet-4-6";
+// dry-run 견적 기본 모델 (settings/cost 견적 화면용 — 실호출 아님). 항목1 Option A: primary=GLM 반영.
+export const DEFAULT_MODEL = "glm-5.2";
 
 // D28 ② fail-closed: silent fallback 제거 — 미등록 모델 = throw.
 export function getPricing(model: string): ModelPricing {
