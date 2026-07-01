@@ -32,19 +32,19 @@ const BUCKET_META: Record<
   { label: string; cadence: string; weight: string }
 > = {
   short: {
-    label: "단기 (Short)",
+    label: "단기",
     cadence: "주간 선정",
-    weight: "축 비중 30%",
+    weight: "비중 30%",
   },
   mid: {
-    label: "중기 (Mid)",
+    label: "중기",
     cadence: "월간 선정",
-    weight: "축 비중 40%",
+    weight: "비중 40%",
   },
   long: {
-    label: "장기 (Long)",
+    label: "장기",
     cadence: "월간 선정",
-    weight: "축 비중 30%",
+    weight: "비중 30%",
   },
 };
 
@@ -108,9 +108,9 @@ export default async function AdminHomePage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">홈 — 이번 달 추천 30</h1>
+        <h1 className="text-2xl font-bold tracking-tight">홈</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {monthLabel} · 단기 주간 · 중·장기 월간 선정 · 단·중·장 각 10종
+          {monthLabel} 기준 · 현재 운영 중인 포트폴리오와 이번 달 AI 추천 30
         </p>
       </header>
 
@@ -122,16 +122,6 @@ export default async function AdminHomePage() {
         loadError={holdingsLoadError}
       />
 
-      {/* M13 장중 이상 감지 배지 — 최상단 (T5b.1). boundary stub: events=[], intradayMode=false, referenceNow=실시간. */}
-      <IntradayBadge
-        events={visibleIntradayEvents}
-        intradayMode={intradayMode}
-        referenceNow={referenceNow}
-      />
-
-      {/* M11 모닝 브리핑 카드 (T5a.2). PR-fix1 (E): 오늘(KST) briefing_log 실 SELECT 결과. 없으면 카드 empty state. */}
-      <BriefingCard briefing={briefing} />
-
       {/* 항목3 섹션2 — 이번 달 추천 30. 섹션1(운영 중)과 구분되는 별도 영역 헤더. */}
       <section aria-labelledby="recommend-30-heading" className="space-y-4">
         <div className="border-t border-border/60 pt-6">
@@ -141,6 +131,9 @@ export default async function AdminHomePage() {
           >
             이번 달 추천 30
           </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            단기 주간 · 중·장기 월간 선정 · 단·중·장 각 10종
+          </p>
           {/* 항목4(b) — 추천 30 섹터 분포 compact 1줄(상위 5 + 기타) */}
           <div className="mt-2">
             <SectorDistributionLine sectors={activeSectors} />
@@ -171,6 +164,16 @@ export default async function AdminHomePage() {
             />
           ))}
         </div>
+      </section>
+
+      {/* 장중·오늘 브리핑 — 운영/추천 서사 아래 보조 위젯 (T5b.1/T5a.2). boundary stub: intraday events=[]. */}
+      <section aria-label="오늘의 현황" className="space-y-4 border-t border-border/60 pt-6">
+        <IntradayBadge
+          events={visibleIntradayEvents}
+          intradayMode={intradayMode}
+          referenceNow={referenceNow}
+        />
+        <BriefingCard briefing={briefing} />
       </section>
     </div>
   );

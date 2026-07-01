@@ -241,7 +241,7 @@ function AxisBar({ label, value }: { label: string; value: number }) {
   const pct = Math.max(0, Math.min(100, value));
   return (
     <div className="flex items-center gap-1.5">
-      <span className="w-3 text-[9px] font-mono text-muted-foreground">
+      <span className="w-3.5 text-[11px] font-mono text-muted-foreground">
         {label}
       </span>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
@@ -250,7 +250,7 @@ function AxisBar({ label, value }: { label: string; value: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="w-6 text-right text-[9px] font-mono tabular-nums text-muted-foreground">
+      <span className="w-6 text-right text-[11px] font-mono tabular-nums text-muted-foreground">
         {value}
       </span>
     </div>
