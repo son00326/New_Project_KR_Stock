@@ -4,6 +4,7 @@ import {
   type FunnelReflectionRow,
 } from "@/lib/data/admin-funnel-reflection";
 import { DecideButtons } from "@/app/(admin)/admin/funnel-reflection/decide-buttons";
+import { AlertTriangle, Info } from "lucide-react";
 
 // G1 Tier0 Reflection Lab (D33) — B++ funnel 가중치 champion/challenger 제안 검토(USER 승인).
 // diagnostic only · 자동 적용 영구 금지(승인=기록만) · 예측 아님(forward-validate) · PR-K(prompt 주입)와 다른 층.
@@ -70,16 +71,20 @@ export default async function FunnelReflectionPage() {
           과거 추천 결과와 실현 수익률을 되짚어, 종목 선정 가중치를 어떻게 조정할지
           제안을 살펴보는 참고 화면입니다.
         </p>
-        <p className="mt-2 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-info shadow-toss-sm">
-          참고용 실험 화면입니다 — 여기서 검토한 내용은 실제 추천/운영에 자동으로
-          반영되지 않습니다. 승인해도 기록만 남습니다.
+        <p className="mt-2 flex items-start gap-1.5 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-foreground shadow-toss-sm">
+          <Info aria-hidden className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 text-info" />
+          <span>
+            참고용 실험 화면입니다 — 여기서 검토한 내용은 실제 추천/운영에 자동으로
+            반영되지 않습니다. 승인해도 기록만 남습니다.
+          </span>
         </p>
         {!adminVerified && (
           <p
             role="status"
-            className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
+            className="mt-2 flex items-center gap-1.5 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
           >
-            ⚠ 권한 미확인 — 관리자 계정 등록을 확인해 주세요.
+            <AlertTriangle aria-hidden className="inline-block h-3.5 w-3.5 shrink-0" />
+            권한 미확인 — 관리자 계정 등록을 확인해 주세요.
           </p>
         )}
       </header>
@@ -91,7 +96,7 @@ export default async function FunnelReflectionPage() {
       )}
 
       {!loadError && proposals.length === 0 ? (
-        <p className="rounded-2xl border bg-muted/30 px-6 py-10 text-center text-sm text-muted-foreground shadow-toss-sm">
+        <p className="rounded-2xl border border-border/70 bg-muted/30 px-6 py-10 text-center text-sm text-muted-foreground shadow-toss-sm">
           아직 준비 중입니다 — 학습에 필요한 데이터가 쌓이면 조정 제안이 여기에
           표시됩니다.
         </p>
@@ -100,7 +105,7 @@ export default async function FunnelReflectionPage() {
           {proposals.map((p) => {
             const diffs = diffWeights(p.championConfig, p.challengerConfig);
             return (
-              <li key={p.id} className="rounded-2xl border bg-card p-4 shadow-toss-sm">
+              <li key={p.id} className="rounded-2xl border border-border/70 bg-card p-4 shadow-toss-sm">
                 <header className="flex items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold">
                     {formatPeriodLabel(p.periodKey)}

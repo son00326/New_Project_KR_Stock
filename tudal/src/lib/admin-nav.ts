@@ -30,6 +30,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
   },
   {
     group: "설정",
+    collapsible: true,
     items: [
       { href: "/admin/settings", label: "설정" },
       { href: "/admin/settings/notifications", label: "알림 채널" },

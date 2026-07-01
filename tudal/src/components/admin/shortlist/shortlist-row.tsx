@@ -80,7 +80,7 @@ export function ShortlistRow({ item, action, held = false }: ShortlistRowProps) 
         </div>
 
         {/* sector */}
-        <span className="hidden md:inline-flex w-20 items-center rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+        <span className="hidden md:inline-flex w-20 items-center rounded-full border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
           {item.sector}
         </span>
 
@@ -305,14 +305,14 @@ function Sparkline({
 function DeltaBadge({ status }: { status: ShortListItem["deltaStatus"] }) {
   if (status === "new") {
     return (
-      <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-market-up/15 text-market-up">
+      <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-success/10 text-success">
         신규
       </span>
     );
   }
   if (status === "removed") {
     return (
-      <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-market-down/15 text-market-down">
+      <span className="inline-flex w-14 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-warning/10 text-warning">
         제외
       </span>
     );

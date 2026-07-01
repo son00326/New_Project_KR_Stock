@@ -13,6 +13,7 @@ import {
   signalDateToBasDd,
 } from "@/lib/intraday/exit-outcome";
 import { resolveShortlistGeneratedAt } from "@/lib/portfolio/shortlist-gate";
+import { AlertTriangle, Info } from "lucide-react";
 import type { ShortListItem } from "@/types/admin";
 
 // B-1 섹터 추천 비교 메뉴 (출시 전 read-only deliverable).
@@ -86,7 +87,7 @@ function ListCard({
     (summary?.perTicker ?? []).map((p) => [p.ticker, p.returnPct]),
   );
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-toss-sm">
+    <section className="rounded-2xl border border-border/70 bg-card p-4 shadow-toss-sm">
       <header className="mb-2">
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
@@ -193,30 +194,36 @@ export default async function SectorComparisonPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           AI 추천 30과 섹터 가중 후보 30의 결과를 비교하는 참고 실험입니다.
         </p>
-        <p className="mt-2 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-info shadow-toss-sm">
-          참고용 실험 화면입니다 — 두 방식의 결과를 나란히 살펴보기 위한 비교이며,
-          실제 추천/운영에 자동으로 반영되지 않습니다.
+        <p className="mt-2 flex items-start gap-1.5 rounded-2xl border border-info/30 bg-info/10 px-3 py-2 text-xs text-foreground shadow-toss-sm">
+          <Info aria-hidden className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 text-info" />
+          <span>
+            참고용 실험 화면입니다 — 두 방식의 결과를 나란히 살펴보기 위한 비교이며,
+            실제 추천/운영에 자동으로 반영되지 않습니다.
+          </span>
         </p>
         {!adminVerified && (
           <p
             role="status"
-            className="mt-2 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
+            className="mt-2 flex items-start gap-1.5 rounded-2xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning shadow-toss-sm"
           >
-            ⚠ 권한 미확인 — 관리자 계정 등록을 확인해 주세요. 빈 데이터는 권한
-            확인 실패 때문일 수 있습니다.
+            <AlertTriangle aria-hidden className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0" />
+            <span>
+              권한 미확인 — 관리자 계정 등록을 확인해 주세요. 빈 데이터는 권한
+              확인 실패 때문일 수 있습니다.
+            </span>
           </p>
         )}
       </header>
 
       {(productionLoadError || shadowLoadError) && (
-        <p className="rounded-2xl border bg-muted/30 px-3 py-2 text-xs text-muted-foreground shadow-toss-sm">
+        <p className="rounded-2xl border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground shadow-toss-sm">
           일부 데이터를 불러오지 못해 가능한 목록만 표시합니다. 잠시 후 다시
           시도해 주세요.
         </p>
       )}
 
       {shadow.length === 0 && (
-        <p className="rounded-2xl border bg-muted/30 px-6 py-8 text-center text-sm text-muted-foreground shadow-toss-sm">
+        <p className="rounded-2xl border border-border/70 bg-muted/30 px-6 py-8 text-center text-sm text-muted-foreground shadow-toss-sm">
           아직 비교 데이터가 없습니다 — 섹터 가중 후보가 준비되면 AI 추천 30과
           나란히 비교됩니다. (AI 추천 30은 항상 표시됩니다.)
         </p>

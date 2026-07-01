@@ -14,25 +14,25 @@ export function DeltaBanner({ items }: DeltaBannerProps) {
   const removeds = items.filter((r) => r.deltaStatus === "removed");
 
   return (
-    <details className="group rounded-2xl border bg-muted/30">
+    <details className="group rounded-2xl border border-border/70 bg-muted/30">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl px-4 py-3 text-sm transition-colors hover:bg-muted/50 group-open:rounded-b-none [&::-webkit-details-marker]:hidden">
         <span className="font-semibold">전월 대비 변화</span>
         <DeltaCount
           label="편입"
           count={news.length}
-          color="var(--market-up)"
+          color="var(--success)"
           icon={<ArrowUpRight className="h-3.5 w-3.5" aria-hidden />}
         />
         <DeltaCount
           label="유지"
           count={holds.length}
-          color="var(--market-neutral)"
+          color="var(--muted-foreground)"
           icon={<ArrowRight className="h-3.5 w-3.5" aria-hidden />}
         />
         <DeltaCount
           label="제외"
           count={removeds.length}
-          color="var(--market-down)"
+          color="var(--warning)"
           icon={<ArrowDownRight className="h-3.5 w-3.5" aria-hidden />}
         />
         <span className="ml-auto text-xs text-muted-foreground group-open:hidden">
@@ -46,13 +46,13 @@ export function DeltaBanner({ items }: DeltaBannerProps) {
       <div className="grid gap-4 border-t px-4 py-3 md:grid-cols-2">
         <DeltaList
           title="새로 편입"
-          color="var(--market-up)"
+          color="var(--success)"
           items={news}
           emptyText="이번 달 신규 편입 없음"
         />
         <DeltaList
           title="이번 달 제외"
-          color="var(--market-down)"
+          color="var(--warning)"
           items={removeds}
           emptyText="이번 달 제외 종목 없음"
         />
@@ -84,7 +84,7 @@ function DeltaCount({
         {icon}
       </span>
       {label}
-      <b className="font-mono tabular-nums" style={{ color }}>
+      <b className="font-bold tabular-nums" style={{ color }}>
         {count}
       </b>
     </span>

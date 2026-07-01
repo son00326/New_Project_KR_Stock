@@ -45,11 +45,11 @@ export function BucketSection({
       </header>
 
       {items.length === 0 ? (
-        <p className="rounded-2xl border border-dashed bg-muted/20 py-10 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border/70 bg-muted/20 py-10 text-center text-sm text-muted-foreground">
           {label} 섹션에 종목이 없습니다.
         </p>
       ) : (
-        <div className="divide-y overflow-hidden rounded-2xl border bg-card shadow-toss-sm">
+        <div className="divide-y overflow-hidden rounded-2xl border border-border/70 bg-card shadow-toss-sm">
           {items.map((item) => (
             <ShortlistRow
               key={item.id}

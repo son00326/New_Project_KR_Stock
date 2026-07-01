@@ -272,7 +272,7 @@ export function PortfolioPanel({
     <div className="space-y-4">
       {/* 경고 배너 — reanalysisCount >= 1: 전월 포트 유지 경고 */}
       {reanalysisCount >= 1 && !isAlreadyFinalized && (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground shadow-toss-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">
@@ -294,7 +294,7 @@ export function PortfolioPanel({
       )}
 
       {banner?.kind === "reject_done" && banner.portfolioHoldWarning && (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground shadow-toss-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">재분석 요청 2회 달성 — 전월 포트 유지 확정</p>
@@ -306,7 +306,7 @@ export function PortfolioPanel({
       )}
 
       {banner?.kind === "reject_done" && !banner.portfolioHoldWarning && (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-toss-sm">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground shadow-toss-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <div>
             <p className="font-semibold">
@@ -345,8 +345,8 @@ export function PortfolioPanel({
 
       {/* PR-H scope 4 — report-worker chunk 결과 배너 */}
       {banner?.kind === "report_worker_done" && (
-        <div className="flex items-start gap-3 rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm text-info shadow-toss-sm">
-          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <div className="flex items-start gap-3 rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm text-foreground shadow-toss-sm">
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
           <div>
             <p className="font-semibold">
               리포트 배치 처리 {banner.processed}건
@@ -497,7 +497,7 @@ export function PortfolioPanel({
 
       {/* W3b-3 — 영속된 AI 제안 read-only 카드 (page.tsx getProposalByMonth 로드분). */}
       {persistedProposal ? (
-        <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+        <div className="space-y-2 rounded-2xl border border-border/70 bg-card p-3">
           {(() => {
             const summary = computeProposalSummary(persistedProposal.proposal);
             return (
@@ -552,22 +552,22 @@ export function PortfolioPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-3 gap-3 rounded-xl border bg-muted/30 px-4 py-3 text-center text-sm">
+          <div className="grid grid-cols-3 gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 text-center text-sm">
             <div>
               <div className="text-xs text-muted-foreground">신규 편입</div>
-              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-market-up">
+              <div className="mt-1 text-lg font-bold tabular-nums text-success">
                 {newCount}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">유지</div>
-              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-muted-foreground">
+              <div className="mt-1 text-lg font-bold tabular-nums text-muted-foreground">
                 {holdCount}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">제외</div>
-              <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-market-down">
+              <div className="mt-1 text-lg font-bold tabular-nums text-warning">
                 {removedCount}
               </div>
             </div>
@@ -650,7 +650,7 @@ export function PortfolioPanel({
                 이의 사유 (필수 · 20자 이상)
               </label>
               <span
-                className={`text-xs font-mono tabular-nums ${
+                className={`text-xs tabular-nums ${
                   disputeReason.length >= DISPUTE_REASON_MIN_LENGTH
                     ? "text-success"
                     : "text-destructive"

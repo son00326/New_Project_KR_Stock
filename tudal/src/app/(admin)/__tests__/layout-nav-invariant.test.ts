@@ -83,6 +83,16 @@ describe("admin layout nav invariant", () => {
       "실험·연구",
       "설정",
     ]);
+    expect(
+      ADMIN_NAV.map(({ group, collapsible }) => ({
+        group,
+        collapsible: collapsible ?? false,
+      })),
+    ).toEqual([
+      { group: "메인", collapsible: false },
+      { group: "실험·연구", collapsible: true },
+      { group: "설정", collapsible: true },
+    ]);
 
     // 그룹별 항목 (href·label). 실험·연구 = 종목 선정 방식 비교/AI 학습 (실험 톤 + 내부코드 제거).
     const flat = ADMIN_NAV.flatMap((g) => g.items);

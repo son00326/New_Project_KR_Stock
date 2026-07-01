@@ -25,6 +25,7 @@ import { PortfolioPanel } from "./portfolio-panel";
 import type { PortfolioSnapshot } from "@/types/admin";
 import { isRoleProviderAvailable } from "@/lib/ai/model-registry";
 import { isCostLoggingEnabled } from "@/lib/cost/cost-logger";
+import { AlertTriangle, Calendar } from "lucide-react";
 
 // US-T3.2 / US-T3.4 / US-T3.5 / US-T3.6 / US-T3.8 — /admin/portfolio
 // Server Component: Short List 30 표시 + Accept/Reject 클라이언트 island.
@@ -191,7 +192,7 @@ export default async function AdminPortfolioPage() {
     }
     if (gateResult.reason === "viewers_insufficient") {
       const remaining = gateResult.viewersRemaining ?? 0;
-      return `👥 열람 ${remaining}/2명 필요`;
+      return `열람 ${remaining}/2명 필요`;
     }
     return null;
   }
@@ -230,13 +231,14 @@ export default async function AdminPortfolioPage() {
       {/* (c) BL-20 자동 바이패스 배지 (T3.8) — active=true 시 최상단 */}
       {autoReliefActive && (
         <div className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive shadow-toss-sm">
-          ⚠️ 비상 완화 모드: 최근 7일 단일 접속 — {autoReliefAdminId}
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+          <span>비상 완화 모드: 최근 7일 단일 접속 — {autoReliefAdminId}</span>
         </div>
       )}
 
       {/* 77차 D31 — 내부도구 완화 게이트 모드 표시 (silent 안전변경 방지·감사성) */}
       {relaxGate && (
-        <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning shadow-toss-sm">
+        <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-2 text-xs text-foreground shadow-toss-sm">
           내부도구 게이트 모드: 확정은 24시간 대기만 적용합니다. 영업일 대기와 2인 열람은 면제됩니다.
         </div>
       )}
@@ -252,25 +254,28 @@ export default async function AdminPortfolioPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             이번 달 추천 30 · 편입{" "}
-            <span className="font-mono font-semibold tabular-nums text-market-up">
+            <span className="font-bold tabular-nums text-success">
               {newCount}
             </span>{" "}
             · 유지{" "}
-            <span className="font-mono font-semibold tabular-nums">{holdCount}</span> · 제외{" "}
-            <span className="font-mono font-semibold tabular-nums text-market-down">
+            <span className="font-bold tabular-nums">{holdCount}</span> · 제외{" "}
+            <span className="font-bold tabular-nums text-warning">
               {removedCount}
             </span>
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
           {/* (a) D+5 영업일 위젯 (T3.5) */}
-          <span>
-            📅 D+5 영업일: {d5Label}{" "}
-            {d5DiffDays > 0
-              ? `(${d5DiffDays}일 남음)`
-              : d5DiffDays === 0
-                ? "(오늘)"
-                : "(지남)"}
+          <span className="inline-flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              D+5 영업일: {d5Label}{" "}
+              {d5DiffDays > 0
+                ? `(${d5DiffDays}일 남음)`
+                : d5DiffDays === 0
+                  ? "(오늘)"
+                  : "(지남)"}
+            </span>
           </span>
         </div>
       </header>
