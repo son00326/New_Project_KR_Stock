@@ -14,11 +14,26 @@
 
 ## 최근 갱신
 
-> **[65차 supersede 2026-06-04 → 66차 W0 부분 해소]**: AI 엔진 스택은 W0~W3로 재정의됨 — 멀티프로바이더(Claude+GPT, provider auto-detect)/역할별 모델 차등/hardcap **50만**/주간(short)·월간(mid·long) 선정 split/실시간 반박 토론 loop/AI 자율 포트/**D27 Q5 incumbent thesis 재점검**(재선정 후보풀 = fresh Tier0 ∪ incumbents, 직전 리포트·논거 주입 재평가 — W2 union + W1 주입). ~~본 스냅샷의 Anthropic-단일·40만 hardcap 표기~~ → **66차 W0에서 해소됨** (아래 2026-06-04 entry). Core 11 단발 채점·monthly-batch 단일 선정·stateless 재선정(reflectionContext='') 표기는 **W2/W1 구현 시 갱신 예정**(과거 timeline·완료 로그는 역사로 보존). 활성 SoT = `HANDOFF.md §2` + `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + CLAUDE.md.
+> **[65차 supersede 2026-06-04 → 66차 W0 부분 해소]**: AI 엔진 스택은 W0~W3로 재정의됨 — 멀티프로바이더(Claude+GPT, provider auto-detect)/역할별 모델 차등/hardcap **50만**/주간(short)·월간(mid·long) 선정 split/실시간 반박 토론 loop/AI 자율 포트/**D27 Q5 incumbent thesis 재점검**(재선정 후보풀 = fresh Tier0 ∪ incumbents, 직전 리포트·논거 주입 재평가 — W2 union + W1 주입). ~~본 스냅샷의 Anthropic-단일·40만 hardcap 표기~~ → **66차 W0에서 해소됨** (아래 2026-06-04 entry). Core 11 단발 채점·monthly-batch 단일 선정·stateless 재선정(reflectionContext='') 표기는 **W2/W1 구현 시 갱신 예정**(과거 timeline·완료 로그는 역사로 보존). **[D35 2026-07-01 `c25c061`]: 모델 프로바이더 = GLM 5.2(OpenRouter) primary + Claude fallback + GPT via OpenRouter(단일 `OPENROUTER_API_KEY`·direct-OpenAI 폐기) — 구 "Anthropic-first primary"·"Anthropic 단일" 어휘 전면 stale.** 활성 SoT = `HANDOFF.md §2` + `HANDOFF.md ⭐ 65차 MVP 엔진 섹션` + CLAUDE.md.
+
+**2026-07-02** (이번 세션 #127/#128/#129 — test fix + Path-A 로컬 E2E dry-run + cron 스케줄 확장, main `9282a44`):
+- **#127**(`f7e1a0c`) selection-worker 고아 sweep 테스트 시간-앵커 버그 fix. **#128**(`9226bad`) Path-A Track-2 섹터 선정방식 **로컬 E2E dry-run RUN + readiness verdict** — 신규 `scripts/shadow_e2e_local_dryrun.py`(Track-2 generator-shadow 로컬 E2E dry-run SoT). **#129**(`9282a44`) cron 스케줄 확장 — **vercel.json crons 5→8**: `reflection-job`(`30 1`) + `exit-signal`(`30 15`) + `exit-outcome`(`0 16`) 신규 등록. 3종 모두 **flag OFF dormant**(등록돼도 auth+게이트 200 skip이라 무동작).
+
+**2026-07-01** (D35 — GLM 5.2 primary 전환 + 출시 전 UX/UI 정리, main `c25c061`, Vercel prod 배포):
+- **모델 프로바이더 전환**: Claude/Anthropic 호출 → **GLM 5.2(OpenRouter) primary + Claude fallback**(GPT는 OpenRouter 경유 불변, 단일 `OPENROUTER_API_KEY`·direct-OpenAI 폐기). 신규 `tudal/src/lib/ai/openrouter-provider.ts`(Chat Completions·reasoning_effort high·JSON 역할만 `json_object`·apiKey 가드) + `model-registry` provider record 맵 + `MODEL_PRICING glm-5.2`(z-ai/glm-5.2). `OPENROUTER_API_KEY` 부재+`ANTHROPIC_API_KEY` 존재 시 Claude fallback, 둘 다 부재 시 fail-closed. 구 D28 Anthropic-first primary 전제(65차) supersede(목적함수·hardcap·fail-closed 계승).
+- **UX/IA**: 사이드바 3구역 한글화 + 홈 대시보드 재구성(현재 운영 중 + 이번 달 추천 30 + 섹터 분포 + 보유 뱃지) + 포트폴리오 확정 운영뷰 + "종목 선정 방식 비교(실험)" relocate + 제품화면 은어 평이화 + 토스 심화 폴리시. SoT = `docs/superpowers/specs/2026-07-01-prelaunch-ux-cleanup-4items.md` + `2026-07-01-toss-polish-policy.md`.
+
+**2026-06-30** (실 FRED 거시 source(PR #125) + M12a universe-aware read(PR #124) + Naver 활성화):
+- **G4 실 FRED source**: mock-macro → 실 FRED API 9 series(async live-fetch + per-series degrade + 결정론 서술적 verdict·예측 아님). PR #125 main `a3ca400` dormant·무마이그. `FRED_API_KEY` prod 주입(9/9 실측), `MACRO_CONTEXT_ENABLED`=USER 게이트.
+- **M12a universe-aware read**: 전역 `getRecentNewsEvents({limit:50})` → per-ticker `getRecentNewsEventsForUniverse` 교정. PR #124 main `13fa654` 무마이그.
+- **Naver 활성화**: Naver 키 Vercel Production 주입(news-sweep 다음 cron부터 live·USER-only override 주입).
+
+**2026-06-28** (D34 — 토스 전면 리디자인, main `094db3d` production live):
+- 어드민 전 화면 토스 통일(Pretendard self-host + oklch 토큰 + 다크모드 next-themes + 상태 토큰 + 프리미티브 리테마 + chart-colors). 무회귀 test:ci 2513·raw hex 0. Claude 4-lens + omxy CONVERGED + 브라우저 검증. SoT = `project_toss_redesign_d34`.
 
 **2026-06-27** (PR-K Reflection(AI 자가 학습, D32) ✅ shadow-first 빌드·dormant · branch `tier0-bpp-multiregime`):
 - **신규 `tudal/src/lib/reflection/`** (pure core + DI orchestrator): `types.ts` · `config.ts`(FAVORED_CONVICTION_THRESHOLD=50·DEFAULT_CONTEXT_MAX_PERSONAS=5·REFLECTION_PRICE_SOURCE=KRX_EOD) · `flags.ts`(`isReflectionEnabled`/`isReflectionLlmSummaryEnabled` 둘 다 default off·유일 env 경계) · `metrics.ts`(`computeReflectionMetrics` 실현 수익률 + 페르소나 적중률[favored conviction≥50 정렬]·conviction-가중 수익률·overallHitCount raw·가격 누락 fail-soft) · `reflection-context.ts`(`buildReflectionContext` forward-validate 면책·예측어휘 0·빈입력 "") · `ledger.ts`(`buildReflectionLogRow` reflection_kind='retrospective') · `reflection-source.ts`(`getReflectionLearningContextString` flag off→DB read 0·"" + read-error fail-soft) · `orchestrator.ts`(`runReflectionJob` DI: gate→prior cycle→panels→가격(KRX·무비용)→metrics→(선택)LLM 요약[preflight+atomic claim+pricedCount>0 fail-closed·degrade-don't-abort]→reflection_log upsert) · `prices.ts`(`resolveReflectionPrices` KRX EOD entry/current 2-date fail-soft) · `summary-prompt.ts`(`buildReflectionSummaryPrompt` 미래 예측 금지 지시) · `summarizer.ts`(`summarizeReflection` critic 역할 LLM + cost gate[AI_COST_LOG+UUID+costPreflightReserved] + 예측 출력 필터 throw + cost_log INSERT). + `tudal/src/lib/data/admin-reflection.ts`(`insertReflectionLog` idempotent upsert / `claimReflectionLog` atomic insert-claim 23505→false / `getLatestReflectionLog` finalized_at desc / `getPriorFinalizedCycle` finalized_at not null·<now / **`getCyclePanels` 멀티라운드 R2>R1 dedup**[0032/0033 (period_key,ticker,round) unique → double-count 방지]). 12 test files / ~100 unit tests.
-- **마이그 0043 `reflection_log` ✅ production applied (2026-06-27, version `20260627120308`)** + `.rollback.sql` + `scripts/pg_smoke_0043.sh`(docker-free PG16: CHECK[month/track/period_key full 정규식/priced≤selected/hit_rate 0~1/price date·source/reflection_kind='retrospective'] + unique(month,track,period_key) idempotent upsert + write→read round-trip + RLS + cost_log 분리(FK 0) + rollback). cron `/api/cron/reflection-job`(auth + REFLECTION_ENABLED 게이트 200 skip + LLM 요약 fail-closed step-0). **vercel.json 무변경**(write seam schedule = USER go-live; read seam은 selection-worker daily cron).
+- **마이그 0043 `reflection_log` ✅ production applied (2026-06-27, version `20260627120308`)** + `.rollback.sql` + `scripts/pg_smoke_0043.sh`(docker-free PG16: CHECK[month/track/period_key full 정규식/priced≤selected/hit_rate 0~1/price date·source/reflection_kind='retrospective'] + unique(month,track,period_key) idempotent upsert + write→read round-trip + RLS + cost_log 분리(FK 0) + rollback). cron `/api/cron/reflection-job`(auth + REFLECTION_ENABLED 게이트 200 skip + LLM 요약 fail-closed step-0). **~~vercel.json 무변경~~ → 2026-07-02 PR #129가 `reflection-job` schedule `30 1 * * *` 등록**(exit-signal `30 15`·exit-outcome `0 16`와 함께 crons 5→8) — flag OFF라 등록돼도 dormant(200 skip); read seam은 selection-worker daily cron.
 - **배선 (전부 additive·dormant·off→byte-identical)**: `render-user-prompt.ts`/`anthropic-client.ts`/`persona-panel-adapter.ts`에 **신규 `reflectionLearningContext` 필드**(macro→negative-news→reflection 3번째 supplementary block) + LIVE `selection-worker` per-track 주입(track-scoped fetch via getLatestReflectionLog, fail-soft "", off→DB read 0). **D27 Q5 `reflectionContext`(per-ticker thesis, `{{REFLECTION_CONTEXT}}` placeholder)와 별개 필드·별개 블록**(seam 분리 회귀 테스트 + selection-worker route 테스트 박제).
 - **shadow-first**: `REFLECTION_ENABLED` off→선정 prompt byte-identical·회고 미실행·reflection_log mutation 0; LLM 요약 = 별 flag `REFLECTION_LLM_SUMMARY_ENABLED` default off + fail-closed(cost gate + atomic claim re-burn 방지). 회고지 예측 아님(reflection_kind CHECK + 예측 출력 필터).
 - **검증/리뷰**: build/lint 0·0 / test:ci **2345 PASS+5 skip** / tsc 0 / PG smoke 0043. Claude dynamic-workflow **5-lens 적대 리뷰(4 HIGH catch+fix: getCyclePanels round double-count·LLM cost fail-open·CRON_SYSTEM_USER_ID guard·live-wiring 미테스트)** → omxy §2.0a R1 적대 검토(**7 confirmed defect 직접 수정**: LLM fail-closed/atomic claim/예측 출력 필터/now seam/period_key 정규식) → Claude 2차 독립 검증(게이트 green·테스트 substantive·H1 보존) **CONVERGED**. **production: 마이그 0043 applied(empty·dormant), 코드 flag off → 무동작·안전**. USER 활성 게이트 = `REFLECTION_ENABLED`+~~0043 apply~~ ✅+`SELECTION_CRON_AUTO_ENABLED`+`KRX_OPENAPI_KEY`+reflection-job schedule(+선택 LLM 요약 키/비용). **마이그 apply 검증**: 10 CHECK + RLS admin-policy + unique + FK 0 + advisor 신규 finding 0(anon grant = 기존 RLS 테이블 norm). SoT = `docs/superpowers/specs/2026-06-27-reflection-prk-build.md`.
@@ -66,7 +81,7 @@
 **2026-06-10** (74차 — ⭐ P2b Section8 live 검증 + claim over-claim 결함 fix 마이그 0037 production applied):
 - **P2b live canary harness 신설**: `tudal/scripts/smoke/p2b-section8.canary.test.ts`(single-shot $0 pre-guard 6종[stock_reports 0·report_batch_job 월 잔여 0·votes month-scope 0·cost_log report-path 0·lowest-ticker AI 배지·cron user 존재 side-effect-free] + seam A~I + soft-skip 진단 + parse-stub tripwire + DB-side cost watermark + spend ceiling ₩10k post-hoc) + `setup-env-p2b.ts`(`P2B_CANARY_CONFIRM` 전용 게이트 — 미확인 시 비용/flag 게이트 강제 해제 = $0) + `vitest.p2b.config.ts`(`*.canary.test.ts` glob·CI 외·90min timeout). report-worker 실경로(`runGuardedReportChunk`) DI 미러(route 대비 편차 = chunkSize 1뿐).
 - **live 산출(전 seam SQL 검증 CLEAN)**: `stock_reports` 2026-06 3행(000660/000990/007610) section_0~7+appendix+**section_8** 완결 + `committee_votes` 33행(BUY→approve 매핑·core_revote 정합·parse stub 0) + `cost_log` 42행 ₩1,695.83(ticker당 writer opus-4-8/critic gpt-5.4/revise opus-4-8 + Core-11 vote-pass 11×opus-4-7[레지스트리 tier1_panel preferred — slot mix는 selection 전용]) + run-mutex succeeded. **P2b = Section8+committee_votes live 경로(0036 RPC) 검증 완료.** `report_batch_job` 2026-06 = 3 done + 27 pending(P4 자연 resume 큐, prod cron dormant이라 inert).
-- **⭐ 마이그 0037 (`claim_skip_locked_cte_fix`) — canary가 잡은 production 결함 fix + applied**: `claim_next_report_jobs`(0027)·`claim_next_selection_jobs`(0031)의 `where id in (select … limit p_limit for update skip locked)`가 서브쿼리 rescan으로 **p_limit 초과 over-claim**(prod 실증 p_limit=1→3 claim·수동 LIMIT 1→2행, plan-dependent) → 양 RPC를 `with picked as materialized … update … from picked … returning j.*` 단일평가로 교체(semantics 무변경). 로컬 실 PG16 매트릭스(claim 정확·hostile planner·rollback 왕복) PASS → **USER 승인 production apply(ledger `20260610015408`)** + 3-way 사후검증(functiondef verbatim/grants/behavioral LIMIT 1→1). **마이그 0001~0037 전부 applied — dormant 없음.** 신규 claim RPC 패턴 규칙은 HANDOFF §4.
+- **⭐ 마이그 0037 (`claim_skip_locked_cte_fix`) — canary가 잡은 production 결함 fix + applied**: `claim_next_report_jobs`(0027)·`claim_next_selection_jobs`(0031)의 `where id in (select … limit p_limit for update skip locked)`가 서브쿼리 rescan으로 **p_limit 초과 over-claim**(prod 실증 p_limit=1→3 claim·수동 LIMIT 1→2행, plan-dependent) → 양 RPC를 `with picked as materialized … update … from picked … returning j.*` 단일평가로 교체(semantics 무변경). 로컬 실 PG16 매트릭스(claim 정확·hostile planner·rollback 왕복) PASS → **USER 승인 production apply(ledger `20260610015408`)** + 3-way 사후검증(functiondef verbatim/grants/behavioral LIMIT 1→1). **당시 마이그 37개 전부 applied — dormant 없음.** 신규 claim RPC 패턴 규칙은 HANDOFF §4.
 - **신규 blocker B-SEL-CRON**(배선 교차감사 catch, 코드 무변경): selection cron due-gate(short=월요일만/midlong=1일만)+chunk 3+`SELECTION_CRON_SELF_CONTINUE` 기본 off → cron 단독으론 period finalize 불가. `SELECTION_CRON_AUTO_ENABLED` enable 전 선행 fix(HANDOFF §3). deferred LOW: report worker preflight-before-claim attempts 소모.
 - 검토: 사용자 지정 §2.0a 변형(①Claude→②omxy 검토→③Claude 수정→④omxy 재검토) R1~R4 CONVERGED + blind Workflow 교차감사 2회(harness 9-agent confirmed 6/refuted 0 + 배선 8-agent). 게이트 build/lint 0·0/test:ci 1944 무영향/tsc 0/$0 guard.
 
@@ -106,7 +121,7 @@
 - **4 AI client 재배선**: `anthropic-client.ts`(callPersona)/`full-report-client.ts`/`critic-client.ts`/`revise-client.ts` 전부 `resolveRole()` + `provider.call()` 경유 — 하드코딩 MODEL 상수 제거, public 계약(throw 코드 8종/cost_log 필드/DI seam) 보존. critic은 **호출 시점 env-가변 resolve**.
 - **단가표 멀티프로바이더화** (`cost/anthropic-pricing.ts` — 파일명 historical 유지): `MODEL_PRICING` 7모델(+`claude-opus-4-8` $5/$25 · `gpt-5.5` $5/$30 · `gpt-5.4` $2.5/$15 · `gpt-5.4-mini` $0.75/$4.5, per-model cacheWriteMult/cacheReadMult) + **`getPricing` unknown model `pricing_unknown_model` throw**(구 silent Sonnet fallback 제거 — D28 ②).
 - **hardcap 50만**: `HARDCAP_KRW`/`COST_HARDCAP_KRW`=500_000 + `COST_WARNING_THRESHOLD_KRW`=450_000(90% 파생) — pricing/types/UI(settings/cost·alerts×2)/주석/테스트 전 SoT. **throw 키 rename**: `cost_hardcap_40man` → **`cost_hardcap_exceeded`**(cap-agnostic · production row 0 실측 후). `preflightHardcap` **lines[] 역할별 합산**(model-aware reservation — lines는 >0 강제, 단일 legacy 경로 callCount=0 no-op 허용, `preflight_reservation_missing/invalid` throw) + tier1 워커 finalize replay는 callCount>0 게이트로 통과. format-error 신규 한국어 매핑 3종.
-- **env**: `.env.example` + `OPENAI_API_KEY`(선택 secondary — Claude 필수 primary 불변). **smoke**: `__tests__/w0-provider-smoke.live.test.ts`(`W0_LIVE_SMOKE=true` env-gated, CI skip — 실행은 USER 비용 승인 ~20원 미만).
+- **env**: `.env.example` + `OPENAI_API_KEY`(선택 secondary — ~~Anthropic-first primary 불변~~ **[D35 supersede 2026-07-01 `c25c061`]: GLM 5.2(OpenRouter) primary + Claude fallback, GPT는 OpenRouter 경유·direct-OpenAI 폐기]**). **smoke**: `__tests__/w0-provider-smoke.live.test.ts`(`W0_LIVE_SMOKE=true` env-gated, CI skip — 실행은 USER 비용 승인 ~20원 미만).
 - **게이트**: build 26 routes / lint 0 err 0 warn / **test:ci 1658 PASS + 2 skipped / 144+1 files** / tsc clean / 마이그 0 / 실 AI 호출 0. §2.0a omxy R1~R4 CONVERGED(11 catch). plan SoT = `docs/superpowers/plans/2026-06-04-w0-provider-model-registry.md` v4.
 
 **2026-06-03** (출시前 launch-readiness 역추적 감사 + 5-finding fix — PR #84 MERGED in main `a5ee63e`):
@@ -335,7 +350,7 @@
 - `tudal/.env.local` 4 키 교체 (gitignored): URL · ANON · PUBLISHABLE · SERVICE_ROLE 모두 새 JWT/sb_publishable/URL.
 - 신규 파일 (커밋 대상): `tudal/supabase/config.toml` (Supabase CLI 로컬 stack 기본 설정, `supabase init` 산출) + `tudal/supabase/.gitignore` (`.branches`·`.temp`·`.env.local` 패턴).
 - **Supabase CLI**: v2.98.1 설치 (`/usr/local/bin/supabase`, GitHub releases binary 직접 다운로드 — brew는 Xcode 26 요구로 fail). 향후 `supabase db push` 또는 MCP 양쪽으로 마이그 가능.
-- **Supabase MCP 등록**: `~/.claude.json` user-scope · HTTP transport `https://mcp.supabase.com/mcp?project_ref=rbrpcynhphrpljbjirfo` · `Authorization: Bearer sbp_...` (PAT) · `✓ Connected`. PAT는 user-scope 저장이라 repo 미커밋. 향후 세션 자동 로드.
+- **Supabase MCP 등록**: `~/.claude.json` user-scope · HTTP transport `https://mcp.supabase.com/mcp?project_ref=rbrpcynhphrpljbjirfo` · `Authorization: Bearer sbp_...` (PAT) · `✓ Connected`. PAT는 user-scope 저장이라 repo에 커밋하지 않음. 향후 세션 자동 로드.
 - **마이그레이션 9건 적용 (MCP `apply_migration`)**: 0001 sketch skip, 0002~0010 순차 success. 검증 결과 21 테이블 RLS enabled · 9 마이그레이션 (timestamp version) 등록 · `kr_business_days` 2557 row seed (2024~2030).
 - **`admin_emails` 3 row INSERT**: shjang1001@gmail.com (메인) · kevinoh816@gmail.com (어드민 2) · son00326@gmail.com (대표).
 - **3-게이트 회귀 검증 (신 환경)**: build **24 routes** · lint **0** · test:ci **306 pass / 38 files** (이전 248에서 +58, 회귀 0).
@@ -440,15 +455,15 @@
 
 ---
 
-## tudal/ 현재 상태 (2026-05-13 · S7e T7e.8 완료 / 45차 · 46차 P0·P1 + 마이그 0012~0014 + 0015a 적용 · 48차 P3.2 + P3.4 + **마이그 0016 production apply ✅** · **실데이터 I/O 통로 9종 open** (boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
+## tudal/ 현재 상태 (2026-07-02 · main `9282a44` · MVP 엔진 W0~W3 코드 완결 + 실 AI 30선정(`short_list_30` 2026-06)/30 리포트/portfolio_proposal 영속 + Reflection·M12a·G4/FRED shadow-first dormant + **D34 토스 전면 리디자인**·**D35 GLM 5.2(OpenRouter) primary** · **실데이터 I/O 통로 10종 open**(boundary stub 포함) · **Vercel production 배포 ✅ https://tudal-tawny.vercel.app**)
 
 ### 규모
 - TypeScript 파일: `src/` 기준 **~160개+** (S7e에서 `admin-shortlist`·`admin-reports`·`admin-committee`·`admin-approvals`·`admin-snapshots`·`admin-regen-counters`·`admin-access-logs`·`admin-performance`·`admin-decision-tree` 9개 실 I/O wrapper와 테스트 추가; `mock-admin-{regen-counters,access-logs,performance,decision-tree}` 4개 삭제)
-- 라우트: **25개**
+- 라우트: **~32개** (파일 수 기준 = page.tsx 21 + route.ts 10 (api 9 + auth/callback 1) + root `_not-found` · 라우트 그룹 not-found 중복 등으로 `npm run build` route table 재확인 시 ±1 가능)
   - **Main 6**: `/`, `/_not-found`, `/login`, `/signup`, `/macro`, `/stock/[ticker]`
   - **Auth 1**: `/auth/callback`
-  - **Admin 14**: `/admin`, `/admin/portfolio`, `/admin/alerts`, `/admin/alerts/[id]`, `/admin/track-record`, `/admin/decision-tree`, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health`, `/admin/settings/cost`, `/admin/settings/brokerage`, `/admin/settings/binance`, `/admin/report/[ticker]`, `/admin/report/[ticker]/regenerate`
-  - **Cron 4** (Vercel Cron): `/api/cron/monthly-batch`, `/api/cron/morning-briefing`, `/api/cron/news-sweep`, `/api/cron/silent-health`
+  - **Admin 16** (2026-07-01 D35 +2): `/admin`, `/admin/portfolio`, `/admin/alerts`, `/admin/alerts/[id]`, `/admin/track-record`, `/admin/decision-tree`, `/admin/funnel-reflection`, `/admin/sector-comparison`, `/admin/settings`, `/admin/settings/notifications`, `/admin/settings/health`, `/admin/settings/cost`, `/admin/settings/brokerage`, `/admin/settings/binance`, `/admin/report/[ticker]`, `/admin/report/[ticker]/regenerate`
+  - **Cron/API 9 route.ts** (그 중 8건 vercel.json 스케줄링): `/api/cron/monthly-batch/report-worker`(`0 1`) · `/api/cron/monthly-batch/selection-worker`(`0 2`) · `/api/cron/morning-briefing`(`0 23`) · `/api/cron/news-sweep`(`0 0`) · `/api/cron/silent-health`(`0 15`) · `/api/cron/reflection-job`(`30 1`) · `/api/cron/exit-signal`(`30 15`) · `/api/cron/exit-outcome`(`0 16`) + 비스케줄 `/api/cron/monthly-batch`(mock dry-run parent). 신규 3개(reflection-job/exit-signal/exit-outcome)는 flag OFF dormant.
 
 ### 기술 스택
 - Next.js 16.2.3 + React 19.2.4 + TypeScript strict + Tailwind v4
@@ -483,6 +498,12 @@
 - **Supabase**: 프로젝트 `rbrpcynhphrpljbjirfo` (son00326 Org · Seoul · Free). `.env.local`은 URL/anon/publishable/service_role/ADMIN_EMAILS 등 신 프로젝트 기준.
 - **Auth users**: admin 3명 생성. Magic Link UI는 prefetch 의심 이슈로 비밀번호 우회 사용 중.
 
+### 환경변수·플래그 실측 스냅샷 (2026-07-02, Vercel Production)
+> 신규 shadow-first 기능은 코드 머지 완료 + flag OFF dormant 상태 — production 무동작. 활성화는 USER 게이트(external-state owner).
+- **ON (활성)**: `AI_COST_LOG_REAL_INSERT_ENABLED` · `PORTFOLIO_*` 5종(entry_price·AI_PROPOSAL·PROPOSAL_PERSIST·USE_PROPOSAL 등) · `PR4_TRIGGER_UPSERT_ENABLED` · `CRON_SYSTEM_USER_ID`(UUID) · 프로바이더/데이터 키 = `OPENROUTER_API_KEY`(GLM 5.2 primary) · `ANTHROPIC_API_KEY`(Claude fallback) · `KRX_OPENAPI_KEY` · `FRED_API_KEY` · Naver News 키. → 실 AI 30선정/30리포트/proposal 경로 가동.
+- **OFF (dormant)**: `SELECTION_CRON_AUTO_ENABLED`(매달 자동 선정 게이트) · `PR5_CRON_AUTO_ENABLED` · `MACRO_CONTEXT_ENABLED`(G4/FRED) · `M12A_NEWS_EVAL_ENABLED` · `REFLECTION_ENABLED` + `REFLECTION_LLM_SUMMARY_ENABLED` · `RISK_DEBATE_*` · `EXIT_*` · `INTRADAY_*` · `FUNNEL_REFLECTION_*`.
+- **부재 (미주입)**: Telegram Bot 토큰 · KIS(per-admin vault, S7c/S8까지 비블로커).
+
 ### 마이그레이션 (supabase/migrations/)
 | 파일 | 내용 | 상태 |
 |---|---|---|
@@ -496,6 +517,8 @@
 | `0008_s6_hardening.sql` (S6) | cost_log 확장(ticker·persona_id·section + 인덱스 2) + heartbeat_log(UNIQUE date) + RLS 1종 | 실 |
 | `0009_dq7_credentials.sql` (DQ-7 S1) | E9 `brokerage_connection` 재설계(`api_key_ref` 폐기 · `ciphertext/iv/auth_tag` × 2 + `mock_mode`) + E12 `exchange_connection` 신설(동일 구조 + `testnet_mode`) + RLS `*_admin_self` 2종 · `0009_dq7_credentials.rollback.sql` 동반 | **실 적용 완료 (32차)** |
 | `0010_alert_event_rls_hardening.sql` (S7e/DQ-7 후속) | E6 alert_event 신설/강화 + AlertType CHECK 12종 + 4 RPC(`mark_alert_read` 등) + RLS select-all/insert-own/update-own | **실 적용 확인 (36차, version 20260505134639)** |
+
+> **0011~0049 (production applied · 신규 미적용 0)**: 위 표 이후 마이그 전부 원격 apply 완료. 주요 파일 — 0011(S8 슬롯 보존) · 0012~0016(name/sector·DART cache·SECURITY DEFINER lockdown·accept RPC) · 0017(cost_log/monthly_batch_runs S7a) · 0018~0019(Tier2 sub_tags·sector personas RPC) · 0020~0021(shortlist metadata·batch lock v2) · 0027/0031(claim RPC) · 0032~0036(R2 round·judge round·portfolio_proposal·snapshot cash-row idx·Section8 cron RPC) · 0037(`claim_skip_locked_cte_fix` over-claim 결함 fix, 74차) · 0038~0041(Path-A shadow·PR-T2a sector) · 0042(`m12a_ticker_assessment`) · 0043(`reflection_log`, 2026-06-27 applied) · 0044~0049(alert/exit regrant · `0046` tier0 shadow read · `0047` funnel reflection · `0048` risk debate · `0049` sector board reset). **마이그 0001~0049 전부 production applied — dormant 없음.** tip = `0049_reset_sector_board_eligible_jobs.sql`.
 
 ### 타입 정의 (src/types/)
 - `stock.ts`·`corporate.ts`·`macro.ts` (main)
@@ -529,7 +552,9 @@
 - 8 AGENTS.md (deepinit S0 T0.8 · S3에서 vitest.config.ts·test:ci 반영): root · src · src/{app,components,lib,types} · src/lib/{data,supabase}
 
 ### scripts/ 디렉토리 (S3 신설)
-- `scripts/seed_kr_holidays.py` — S5 M10 pykrx 월간 배치용 참조. Homebrew Python 3.14 PEP 668 → venv 필수. `python3 scripts/seed_kr_holidays.py --from YYYY-MM-DD --to YYYY-MM-DD` 로 SQL UPDATE 블록 stdout.
+- `scripts/seed_kr_holidays.py` — S5 M10 pykrx 월간 배치용 참조. Homebrew Python 3.14 PEP 668 → venv 필수(`scripts/.venv`). `python3 scripts/seed_kr_holidays.py --from YYYY-MM-DD --to YYYY-MM-DD` 로 SQL UPDATE 블록 stdout.
+- `scripts/shadow_e2e_local_dryrun.py` (2026-07-02 PR #128 신설) — **Path-A Track-2 generator-shadow 로컬 E2E dry-run SoT**(섹터 선정방식 shadow 검증 RUN + readiness verdict, production 무접촉).
+- (그 외 Tier 0 스크리닝·DART/재시드 스크립트 `dart_signals.py`·`sector_override.json` 등은 `scripts/` 하위, 실행 로그는 상단 최근 갱신 참조.)
 
 ### DQ-7 Credential System 신설 (Session 1·2)
 **Session 1 (Backend·DB)** — `src/lib/crypto/` + `src/lib/credentials/`:
@@ -579,10 +604,10 @@
 > **[65차 supersede 2026-06-04]**: 출시 MVP 기준 = ①30 리스트 정확 ②포트폴리오 정확 ③30 리포트 정확(고도화 아님). Must 19 카운트는 보조 지표로만 해석 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조).
 
 - **Mock 동작**: 19/19 (100% mock fixture)
-- **실데이터 연결**: **0/19** — 전 Must가 mock 의존
-- **실 AI 호출**: **0** — ~~Anthropic wrapper 미구현~~ → **66차 W0 ✅ 구현 MERGED** (LlmProvider + model-registry, Claude+GPT 멀티프로바이더 + provider auto-detect — PR #86). 실 호출 활성 = W1/W2 엔진 + USER 키·비용 게이트 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션)
+- **실데이터 연결**: ~~0/19 — 전 Must가 mock 의존~~ → **STALE** (MVP 3종 실 AI 라이브·cost_log 2026-06 수천 행; 현재 카운트 상세 = ProgressDashboard CURRENT / §규모)
+- **실 AI 호출**: ~~0 (Anthropic wrapper 미구현)~~ → **실 호출 라이브** (73차 풀 P3 선정 + 75차 30 리포트, cost_log 2026-06 실 행) · **66차 W0 ✅ 구현 MERGED** (LlmProvider + model-registry, Claude+GPT 멀티프로바이더 + provider auto-detect — PR #86). 실 호출 활성 = W1/W2 엔진 + USER 키·비용 게이트 (HANDOFF.md ⭐ 65차 MVP 엔진 섹션)
 - **텔레그램 + `/admin` 웹 알림 실 발송/표시**: **0** — Telegram 실 발송 미연결(`/admin` durable event/badge 실검증 대기)
-- **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. app runtime 기준 KIS·Naver·AI(Claude/GPT)·DART UI 표시는 아직 미연결 (65차 Q3 supersede: AI 키 = Anthropic 단일 아님, Claude 필수 + GPT 선택 멀티프로바이더 — HANDOFF.md ⭐ 65차 MVP 엔진 섹션). T7e.8 follow-up production 반영은 Supabase 0013/0014 원격 apply 대기.
+- **외부 API 실 연결**: pykrx/DART는 로컬 Tier 0 스크리닝 스크립트에서 구현됨. **AI 프로바이더 = GLM 5.2(OpenRouter) primary + Claude fallback + GPT via OpenRouter — prod 키(`OPENROUTER_API_KEY`/`ANTHROPIC_API_KEY`) 주입 완료·실 AI 30선정/30리포트 가동**(D35 2026-07-01 `c25c061`; 구 "Anthropic 단일"·"Anthropic-first primary" 전면 stale). KRX Open API·FRED·Naver 키 prod 주입 완료(`MACRO_CONTEXT_ENABLED`/M12a는 flag OFF). KIS·Telegram은 미연결(각 S7c·S7b). ~~Supabase 0013/0014 원격 apply 대기~~ ✅ 적용 완료(마이그 0001~0049 전부 applied).
 - **실 운용 검증**: **0일**
 
 **🎉 출시(launch) 기준** = Mock + 실데이터(S7) + **PR-K Reflection 자가학습 빌드(D32, ✅ shadow-first 빌드 완료·dormant 2026-06-27 — USER 활성화·S9 검증만 잔여)** + 운용 검증(S9, ★ Reflection S9 중 가동·검증) — **자동매매 제외**, "AI 추천 + 가상 포트 + 알림" 도구 (사용자 결정 2026-06-01). **어드민 내부 도구 완성 기준**(출시 후 도달) = 출시 + 자동매매 프레임(S8, 주식 KIS + 바이낸스 선물, 실운용하며 개발) → 둘 다 **미달성**. 진행 경로 = HANDOFF.md §2 Runbook(S7b~S9 후속 PR + 운영).
@@ -597,12 +622,12 @@
 - [x] TypeScript 파일 수 증감 (S0: 70 → S6: ~145 → DQ-7 S2: ~152)
 - [x] 라우트 추가 (S0 17 → S6 22 → DQ-7 S2 24)
 - [x] Supabase `.env.local` 세팅 (S0 완료 · DQ-5 anon key 갱신 해소 2026-04-21)
-- [x] 마이그레이션 0001~0010 + 0012~0016 적용 (production · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 슬롯 = BL-KRIT-8 S8 자동매매 보존 · 0012 = short_list_30 name/sector · 0013/0014 = DART cache · 0015a = SECURITY DEFINER PUBLIC REVOKE 46차 P0.1 · **0016 = `accept_shortlist_with_snapshots` RPC 48차 P3.2 ✅ + anon revoke hotfix**) · advisor anon WARN **0건** / authenticated WARN **4** (intended: is_admin/raise/resolve_portfolio_dispute + accept_shortlist_with_snapshots)
+- [x] 마이그레이션 **0001~0049 전부 production applied** (신규 미적용 0 · tip = `0049_reset_sector_board_eligible_jobs` · 0009 = DQ-7 credential · 0010 = alert RLS · 0011 = S8 슬롯 보존 · 0016 = `accept_shortlist_with_snapshots` RPC · 0037 = `claim_skip_locked_cte_fix` over-claim fix · 0042 = m12a ledger · 0043 = reflection_log) · advisor anon WARN = 신규 SECURITY DEFINER/RLS 테이블에 대한 anon grant는 기존 RLS 테이블 norm(SECURITY DEFINER triad + RLS로 게이트)
 - [x] Vitest 테스트 인프라 (190 → **248 tests pass** · DQ-7 S1 +58)
 - [x] 레거시 코드 제거 (S0 완료 + DQ-7 S1에서 `BrokerageConnection`·`mock-admin-brokerage` 추가 제거)
 
 ### 실데이터 전환 (S7, 진행 중 — S7e T7e.8 + 46차 P0·P1 완료, S7a 진입 대기)
-- [ ] **AI 프로바이더 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — ~~W0 진입 트리거~~ → **66차: W0 코드 ✅ MERGED — 키는 W0 smoke 실행(USER 선택) + W1/W2 실 가동 게이트**. Claude(Anthropic) 키 필수, GPT(OpenAI) 키 선택(provider availability auto-detect — 없으면 Claude-only). HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
+- [x] **AI 프로바이더 키 확보** (BL-KRIT-1, 사용자 액션 B-6) — **prod 주입 완료·실 AI 가동**. **[D35 2026-07-01 `c25c061`]: GLM 5.2(OpenRouter) primary + Claude fallback + GPT via OpenRouter (단일 `OPENROUTER_API_KEY`·direct-OpenAI 폐기)** — `OPENROUTER_API_KEY` 부재+`ANTHROPIC_API_KEY` 존재 시 Claude fallback, 둘 다 부재 시 fail-closed. 구 "Anthropic-first, GPT 선택(없으면 Anthropic-only)" stale. HANDOFF.md ⭐ 65차 MVP 엔진 섹션 참조
 - [ ] **KIS API 계정 발급** (BL-KRIT-2, 사용자 액션 B-10) — S7c WS read-only 본인 1개로 충분 (D18)
 - [x] **Naver News API 키** (BL-KRIT-3) — 2026-04-30 31차 `.env.local` 투입 (Vercel env + rotate는 S7b 직전 · B-8)
 - [x] ~~**Resend 계정 + 도메인 인증** (BL-KRIT-4, 사용자 액션 B-7)~~ — **폐기(72차 사용자 override)**: 이메일/Resend 알림 전역 제거. D10/M15/S7c/S7d는 텔레그램 best-effort + `/admin/alerts` durable event + 대시보드 unread badge로 대체
@@ -620,7 +645,7 @@
 ### 운용 검증 (진행 중)
 - [x] Vercel 프로젝트 생성 + 환경변수 세팅 (DQ-7 Session 3 완료 · production live https://tudal-tawny.vercel.app)
 - [x] origin push (46차 production hotfix push 완료 — ahead 39 + 46차 P0/P1 batch sync, B-15 해소)
-- [ ] Cron 4건 실 실행 검증 (S7b/S7d 진입 시점에 monthly-batch/morning-briefing/news-sweep/silent-health durable write 검증)
+- [ ] Cron 실 실행 검증 (vercel.json 8 crons — selection-worker/report-worker/morning-briefing/news-sweep/silent-health durable write 검증; reflection-job·exit-signal·exit-outcome는 flag OFF dormant이라 활성화 후 검증)
 - [ ] D11 AI 가상 포트 운용 검증 (S7a + S7b 후 어드민 3인 며칠~1주, 30 카드 + 합의 배지 + Section 8 위원 표 가독성)
 - [ ] 어드민 1개월+ 운용 검증 (D11 후속 → S7c·S7d → 🎉 **출시 게이트**; 자동매매 S8은 출시 후 — 2026-06-01)
 
