@@ -1,0 +1,164 @@
+# Tier0 weekly candidate producer (diagnostic funnel)
+# ====================================================
+# cfg1(B++ trend+size) 150 후보를 산출해 tier0_candidates_150에 공급하는 주간/월간 producer.
+# spec: docs/superpowers/specs/2026-07-03-prelaunch-netnew-3-builds.md §1
+#
+# 어휘 고정 (D30): 산출물은 "robust, factor-informed, leader-inclusive candidate
+# shortlist (diagnostic funnel)" 이다. B++ 예측 게이트는 NO-CONFIG-PASSES(미통과) —
+# 워크플로 이름/로그/아티팩트 어디에도 "향후 상승 예측" claim 금지.
+#
+# dormant 게이트 (shadow-first): repo variable TIER0_PRODUCER_ENABLED == 'true' 가
+# 아니면 job 전체 skip (green no-op). secrets/vars 주입 = USER-only (spec §7).
+#   - secrets: KRX_OPENAPI_KEY · SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY
+#              (+ TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID 선택)
+#   - vars:    TIER0_PRODUCER_ENABLED · TIER0_PRODUCER_MODE(apply|dry-run) ·
+#              TIER0_EMIT_FACTOR_RANKS(마이그 0050 apply 후에만 true)
+#
+# 운영 박제:
+# (a) --apply 는 해당 month rows를 delete→upsert로 "파괴적 교체"한다. 쓰기 직전 기존
+#     production rows가 자동 rollback JSON(scripts/out/bpp_cfg1_*.prod-rollback-*.json)
+#     으로 백업되고 아티팩트로 업로드된다. 복원 = scripts/out/_rollback_restore.py
+#     (operator 로컬 helper, gitignored — 아티팩트에서 rollback JSON 내려받아
+#     `python scripts/out/_rollback_restore.py tier0_candidates_150 <month> <backup.json> --apply`).
+# (b) B89 unresolved sector 발생 시 --apply 는 exit 2 로 abort (DB write 이전, 부분쓰기 0)
+#     하며 워크플로가 self-heal 할 수 없다. 해소 = sector review CSV 아티팩트 확인 후
+#     scripts/sector_override.json 에 해당 종목 override를 추가 "커밋".
+# (c) mid-period 덮어쓰기 drift: 미finalize midlong run 도중 주간 150 교체가 일어나면
+#     신규 ticker가 추가 enqueue 될 수 있다. SELF_CONTINUE ON이면 보통 당일 finalize 되어
+#     위험 낮음 (spec §1 리스크 박제 참조).
+# (d) 이 producer는 selection-worker cron(daily 11:00 KST)의 "선행"이다 — 주간 슬롯은
+#     월 07:00 KST(일 22:00 UTC) 시작, KRX ~670콜 + pacing으로 11:00 KST 전 완료가 목표.
+
+name: Tier0 weekly candidate producer (diagnostic funnel)
+
+on:
+  schedule:
+    # 일 22:00 UTC = 월 07:00 KST — selection-worker(11:00 KST)의 선행 주간 슬롯
+    - cron: "0 22 * * 0"
+    # 매월 1일 00:00 UTC = 09:00 KST — midlong m:YYYY-MM 시딩 지연 최소화
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "실행 모드 (apply = production tier0_candidates_150 파괴적 교체 — USER 승인 diagnostic funnel)"
+        type: choice
+        options:
+          - dry-run
+          - apply
+        default: dry-run
+      month:
+        description: "month override (YYYY-MM-01 — 매월 1일만 허용, 미지정 시 KST 기준 당월 1일)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  produce:
+    # dormant 게이트: repo variable 미설정/false → job skip (기존 동작 무접촉)
+    if: vars.TIER0_PRODUCER_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90 # KRX ~670콜 + pacing(0.05s)/재시도 헤드룸
+    concurrency:
+      group: tier0-producer
+      cancel-in-progress: false # 진행 중 run 취소 금지 — 파괴적 교체(delete→upsert) 도중 중단 방지
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          # 로컬 운영 venv(scripts/.venv) = Python 3.14.3 정합.
+          # 스크립트 요구 문법은 builtin generics 등 3.9+ 수준이나 검증된 로컬 버전으로 핀.
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: scripts/requirements-ci.txt
+
+      - name: Install deps (cfg1 minimal — supabase + requests)
+        run: pip install -r scripts/requirements-ci.txt
+
+      - name: Resolve month + mode
+        id: cfg
+        env:
+          INPUT_MONTH: ${{ inputs.month }}
+          INPUT_MODE: ${{ inputs.mode }}
+          VAR_MODE: ${{ vars.TIER0_PRODUCER_MODE }}
+        run: |
+          set -euo pipefail
+          # month: dispatch input 우선, 없으면 KST 기준 당월 1일 (--month 는 YYYY-MM-01 강제).
+          MONTH="${INPUT_MONTH:-$(TZ=Asia/Seoul date +%Y-%m-01)}"
+          # 형식 강제 (fail-fast + csv-backup 경로에 들어가므로 path-traversal 차단):
+          if ! printf '%s' "$MONTH" | grep -Eq '^[0-9]{4}-[0-9]{2}-01$'; then
+            echo "::error::month 는 YYYY-MM-01 형식(매월 1일)이어야 합니다: '$MONTH'"
+            exit 1
+          fi
+          # mode 우선순위: dispatch input > vars.TIER0_PRODUCER_MODE > dry-run.
+          # 'apply' 정확 일치가 아니면 전부 dry-run 강등 (fail-closed).
+          MODE="${INPUT_MODE:-${VAR_MODE:-dry-run}}"
+          if [ "$MODE" != "apply" ]; then MODE="dry-run"; fi
+          echo "month=$MONTH" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "resolved: month=$MONTH mode=$MODE"
+
+      - name: Run Tier0 cfg1 producer (diagnostic funnel candidate shortlist)
+        env:
+          KRX_OPENAPI_KEY: ${{ secrets.KRX_OPENAPI_KEY }}
+          # dry-run에도 SUPABASE 2종 필요 — cfg1은 sector resolve(dart_corp_codes
+          # induty lookup)용 supabase client를 생성한다 (DART HTTP 아님).
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MONTH: ${{ steps.cfg.outputs.month }}
+          MODE: ${{ steps.cfg.outputs.mode }}
+          EMIT_FACTOR_RANKS: ${{ vars.TIER0_EMIT_FACTOR_RANKS }}
+        run: |
+          set -euo pipefail
+          ARGS=(--month "$MONTH" --scoring bpp --emit-candidates
+                --csv-backup "scripts/out/bpp_cfg1_${MONTH}.csv")
+          if [ "$MODE" = "apply" ]; then
+            # D30 토큰 게이트: bpp --apply 는 USER 운영 funnel 승인 토큰 필수
+            # (상승 예측 claim 아님 — diagnostic funnel 교체 승인 의미).
+            ARGS+=(--apply --apply-approval-basis USER_PRODUCTION_FUNNEL_DIAGNOSTIC)
+          else
+            ARGS+=(--dry-run)
+          fi
+          if [ "$EMIT_FACTOR_RANKS" = "true" ]; then
+            # G1 factor exposure 계측 opt-in — tier0_candidates_150.factor_ranks
+            # 컬럼(마이그 0050) production apply 이후에만 USER가 var 활성.
+            ARGS+=(--emit-factor-ranks)
+          fi
+          python scripts/screen_shortlist_tier0.py "${ARGS[@]}"
+
+      # 아티팩트 = CSV + sector review CSV(bpp_cfg1_*_sector_review.csv, *.csv 글롭에 포함)
+      #          + provenance sidecar(diagnostic_funnel:true 박제)
+      #          + rollback JSON(apply에서만 생성 — 복원 가능성 보존)
+      - name: Upload artifacts (CSV + provenance sidecar + rollback JSON)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier0-bpp-cfg1-${{ steps.cfg.outputs.month || 'unresolved' }}-run${{ github.run_id }}
+          path: |
+            scripts/out/bpp_cfg1_*.csv
+            scripts/out/bpp_cfg1_*.provenance.json
+            scripts/out/bpp_cfg1_*.prod-rollback-*.json
+          if-no-files-found: warn
+
+      - name: Telegram alert on failure (best-effort)
+        if: failure()
+        env:
+          # secrets 는 if: 표현식에서 직접 비교 불가 → env로 넘겨 shell empty-check.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MONTH: ${{ steps.cfg.outputs.month }}
+          MODE: ${{ steps.cfg.outputs.mode }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID 미설정 — 알림 skip (best-effort)"
+            exit 0
+          fi
+          curl -sS -m 10 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=[tier0-weekly-producer] FAILED (diagnostic funnel) month=${MONTH:-?} mode=${MODE:-?} ${RUN_URL}" \
+            || echo "telegram send 실패 — 무시 (best-effort)"
