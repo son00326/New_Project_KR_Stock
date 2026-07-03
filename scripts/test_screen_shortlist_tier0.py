@@ -1134,6 +1134,113 @@ class BppFunnelApplyTest(unittest.TestCase):
             self.assertEqual(data["rows"], 150)
 
 
+class FactorRanksEmitTest(unittest.TestCase):
+    """G1 D-1 (마이그 0050) --emit-factor-ranks opt-in: default off는 payload byte-identical,
+    on이면 factor_ranks jsonb(tier0_factors rank + size percentile rank)를 포함. 계측 전용 — 예측 아님."""
+
+    _DEFAULT_DB_KEYS = {
+        "month", "ticker", "name", "sector", "bucket", "rank", "tier0_score", "signal_label",
+    }
+
+    def _selection(self):
+        """60/60/30 Gate-C-PASS selection (BppFunnelApplyTest._gate_c_pass_selection 동형) +
+        시총 변별(size rank) + factor_ranks에 NaN 포함(filter 검증)."""
+        sel = {}
+        n = 0
+        for bucket in MODULE.BUCKETS:
+            picks = []
+            for sleeve, count in (("large", 20), ("mid", 20), ("small", 10)):
+                for i in range(count):
+                    picks.append(MODULE.TF.ScoredStock(
+                        ticker=f"{bucket[0]}{sleeve[0]}{i:03d}",
+                        sector="제조",
+                        market_cap=1e12 + n * 1e9,  # strict 단조 증가 → size rank 변별
+                        sleeve=sleeve,
+                        score=100.0 - n * 0.1,
+                        adv60=5e9,
+                        factor_ranks={
+                            "trend": 80.0 - n * 0.1,
+                            "foreign": 50.0,
+                            "earnings": math.nan,  # NaN → payload 제외 검증
+                            "quality": 50.0,
+                        },
+                    ))
+                    n += 1
+            sel[bucket] = picks
+        return sel
+
+    def test_candidate_db_dict_omits_factor_ranks_by_default(self):
+        row = MODULE.Tier0CandidateRow(
+            month="2026-06-01", ticker="005930", name="삼성전자", sector="반도체",
+            bucket="short", rank=1, tier0_score=88.5, signal_label="모멘텀",
+        )
+        d = MODULE.candidate_row_to_db_dict(row)
+        # byte-identical pin: default(None) → 기존 8키 그대로, factor_ranks 키 자체 부재.
+        self.assertEqual(set(d.keys()), self._DEFAULT_DB_KEYS)
+        self.assertNotIn("factor_ranks", d)
+
+    def test_candidate_db_dict_includes_factor_ranks_when_set(self):
+        row = MODULE.Tier0CandidateRow(
+            month="2026-06-01", ticker="005930", name="삼성전자", sector="반도체",
+            bucket="short", rank=1, tier0_score=88.5, signal_label="모멘텀",
+            factor_ranks={"trend": 91.2, "size": 72.4},
+        )
+        d = MODULE.candidate_row_to_db_dict(row)
+        self.assertEqual(set(d.keys()), self._DEFAULT_DB_KEYS | {"factor_ranks"})
+        self.assertEqual(d["factor_ranks"], {"trend": 91.2, "size": 72.4})
+
+    def test_build_bpp_candidate_rows_default_off_payload_identical(self):
+        sel = self._selection()
+        rows = MODULE.build_bpp_candidate_rows(sel, {}, MODULE.date(2026, 6, 1))
+        self.assertEqual(len(rows), 150)
+        for r in rows:
+            self.assertIsNone(r.factor_ranks)
+            self.assertEqual(set(MODULE.candidate_row_to_db_dict(r).keys()), self._DEFAULT_DB_KEYS)
+
+    def test_build_factor_ranks_payload_size_rank_and_nan_filter(self):
+        sel = self._selection()
+        payload = MODULE.build_factor_ranks_payload(sel)
+        self.assertEqual(len(payload), 150)
+        all_scored = [sc for picks in sel.values() for sc in picks]
+        by_mcap = sorted(all_scored, key=lambda sc: sc.market_cap)
+        lowest, highest = payload[by_mcap[0].ticker], payload[by_mcap[-1].ticker]
+        for ranks in payload.values():
+            # NaN factor(earnings) 제외 + size 포함, 값은 percentile rank 범위.
+            self.assertNotIn("earnings", ranks)
+            for key in ("trend", "foreign", "quality", "size"):
+                self.assertIn(key, ranks)
+                self.assertGreaterEqual(ranks[key], 0.0)
+                self.assertLessEqual(ranks[key], 100.0)
+        # size = 시총 percentile rank (단조: 최저 시총 < 최고 시총).
+        self.assertLess(lowest["size"], highest["size"])
+
+    def test_run_bpp_candidates_emit_flag_adds_csv_column(self):
+        import csv as _csv
+
+        sel = self._selection()
+        uni = [
+            {"ticker": sc.ticker, "name": sc.ticker, "market": "KOSPI"}
+            for picks in sel.values() for sc in picks
+        ]
+        for emit, expect_col in ((False, False), (True, True)):
+            with tempfile.TemporaryDirectory() as td:
+                args = SimpleNamespace(
+                    emit_candidates=True,
+                    apply=False,
+                    apply_approval_basis=None,
+                    csv_backup=str(Path(td) / "bpp.csv"),
+                    sector_review_csv=None,
+                    month=MODULE.date(2026, 6, 1),
+                    emit_factor_ranks=emit,
+                )
+                with patch.object(MODULE, "select_bpp_candidates", return_value=sel):
+                    MODULE.run_bpp_candidates(args, [], {}, uni, dart_available=False)
+                with open(args.csv_backup, newline="", encoding="utf-8") as f:
+                    header = next(_csv.reader(f))
+                self.assertEqual("factor_ranks" in header, expect_col,
+                                 msg=f"emit_factor_ranks={emit} header={header}")
+
+
 class KrxPrefetchRetryTest(unittest.TestCase):
     """B++ 450d prefetch throttle 내성: _fetch_bydd_with_retry는 일시 RuntimeError를 backoff
     재시도하고, 소진 시 None(휴장 취급), 4xx는 전파(키 문제 surface). _krx_get contract 불변."""

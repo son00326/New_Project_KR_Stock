@@ -295,6 +295,9 @@ class Tier0CandidateRow:
     rank: int           # 1..pool_size (보통 50)
     tier0_score: float  # bucket weight 적용 composite score
     signal_label: str
+    # (G1 D-1, 마이그 0050) --emit-factor-ranks opt-in 시에만 채움. None(default) → DB payload/CSV가
+    # 기존과 byte-identical (factor_ranks 키 자체 미포함 — 0050 미적용 환경 upsert 실패 방지).
+    factor_ranks: Optional[dict] = None
 
 
 # ============================================================================
@@ -985,11 +988,38 @@ def select_bpp_candidates(
     return result
 
 
+def build_factor_ranks_payload(
+    selections: dict[str, list["TF.ScoredStock"]],
+) -> dict[str, dict[str, float]]:
+    """(G1 D-1) 선정 150의 per-factor exposure payload — ticker → factor_ranks jsonb 값.
+
+    - tier0_factors rank ensemble의 factor_ranks(trend/foreign/earnings/quality percentile rank
+      0~100) 중 유한값만 포함 (NaN 제외 — cfg1 lock에선 4 factor 모두 존재[neutral 50 포함]).
+    - size = 선정 150 cross-section 내 market_cap percentile rank. G1 champion mirror
+      {trend, size} 정합 — size sleeve(범주형 large/mid/small)의 수치 exposure화. 회고의
+      순위상관은 후보 150 내부 cross-section이므로 150 내 rank가 올바른 exposure 기저.
+    diagnostic 계측 전용(funnel reflection 입력) — 예측 claim 아님.
+    """
+    all_scored = [sc for picks in selections.values() for sc in picks]
+    size_ranks = TF.percentile_rank([sc.market_cap for sc in all_scored])
+    out: dict[str, dict[str, float]] = {}
+    for sc, size_rank in zip(all_scored, size_ranks):
+        ranks = {k: round(v, 4) for k, v in sc.factor_ranks.items() if not _isnan(v)}
+        if not _isnan(size_rank):
+            ranks["size"] = round(size_rank, 4)
+        out[sc.ticker] = ranks
+    return out
+
+
 def build_bpp_candidate_rows(
     selections: dict[str, list["TF.ScoredStock"]],
     name_by_ticker: dict[str, str],
     month: date,
+    emit_factor_ranks: bool = False,
 ) -> list[Tier0CandidateRow]:
+    factor_ranks_by_ticker = (
+        build_factor_ranks_payload(selections) if emit_factor_ranks else {}
+    )
     rows: list[Tier0CandidateRow] = []
     for bucket, ranked in selections.items():
         for idx, sc in enumerate(ranked, start=1):
@@ -1002,6 +1032,9 @@ def build_bpp_candidate_rows(
                 rank=idx,
                 tier0_score=round(sc.score, 2),
                 signal_label=bpp_signal_label(sc),
+                factor_ranks=(
+                    factor_ranks_by_ticker.get(sc.ticker) if emit_factor_ranks else None
+                ),
             ))
     return rows
 
@@ -1383,7 +1416,7 @@ def validate_candidate_rows(
 
 
 def candidate_row_to_db_dict(row: Tier0CandidateRow) -> dict:
-    return {
+    d = {
         "month": row.month,
         "ticker": row.ticker,
         "name": row.name,
@@ -1393,6 +1426,11 @@ def candidate_row_to_db_dict(row: Tier0CandidateRow) -> dict:
         "tier0_score": row.tier0_score,
         "signal_label": row.signal_label,
     }
+    # (G1 D-1) opt-in에서만 키 포함 — default off payload는 기존과 byte-identical
+    # (마이그 0050 미적용 환경에서 unknown-column upsert 실패 방지).
+    if row.factor_ranks is not None:
+        d["factor_ranks"] = row.factor_ranks
+    return d
 
 
 def write_candidates_csv(path: str, rows: list[Tier0CandidateRow]) -> None:
@@ -1476,7 +1514,14 @@ def run_bpp_candidates(
         sys.exit(f"[ABORT] B++ sleeve 쿼터 미달 (무음 truncation 금지 §3A): {exc}")
 
     name_by_ticker = {u["ticker"]: u["name"] for u in universe}
-    rows = build_bpp_candidate_rows(selections, name_by_ticker, args.month)
+    # (G1 D-1) --emit-factor-ranks opt-in — default off는 payload byte-identical(0050 미적용 안전).
+    emit_factor_ranks = bool(getattr(args, "emit_factor_ranks", False))
+    if emit_factor_ranks:
+        print("[info] --emit-factor-ranks: payload에 factor_ranks jsonb 포함 (마이그 0050 적용 필요 — "
+              "funnel reflection 계측 전용, 예측 claim 아님).", file=sys.stderr, flush=True)
+    rows = build_bpp_candidate_rows(
+        selections, name_by_ticker, args.month, emit_factor_ranks=emit_factor_ranks,
+    )
     validate_candidate_rows(rows)
 
     print(f"[6/7] write CSV backup → {args.csv_backup}", file=sys.stderr, flush=True)
@@ -1776,6 +1821,14 @@ def main() -> None:
              "cfg1(trend+size) diagnostic funnel로 교체하는 USER 승인을 의미한다. 미지정 시 bpp --apply 차단.",
     )
     parser.add_argument(
+        "--emit-factor-ranks",
+        action="store_true",
+        help="(G1 D-1, 마이그 0050) --scoring bpp --emit-candidates payload에 per-factor rank exposure"
+             "(factor_ranks jsonb: trend/foreign/earnings/quality + size percentile rank)를 포함한다. "
+             "default off — tier0_candidates_150.factor_ranks 컬럼(0050) 미적용 환경에서 upsert 실패 방지. "
+             "funnel reflection(0047) 계측 전용 — 예측 claim 아님.",
+    )
+    parser.add_argument(
         "--shadow-sector",
         action="store_true",
         help="(Track 2 generator-shadow, PR-B3) sector-aware shadow 150을 tier0_candidates_150_shadow에 "
@@ -1792,6 +1845,12 @@ def main() -> None:
     if getattr(args, "shadow_sector", False) and args.scoring != "bpp":
         parser.error("--shadow-sector 는 --scoring bpp 전용입니다 (Track 2 generator-shadow). "
                      "legacy 경로로 production을 덮어쓰지 않도록 fail-closed.")
+
+    # G1 D-1 fail-closed: --emit-factor-ranks는 bpp emit-candidates 경로에서만 소비된다.
+    #   legacy 경로에서 조용히 무시되면 operator가 계측이 켜진 줄 착각하므로 명시 차단.
+    if getattr(args, "emit_factor_ranks", False) and args.scoring != "bpp":
+        parser.error("--emit-factor-ranks 는 --scoring bpp --emit-candidates 전용입니다 "
+                     "(G1 factor exposure 계측). legacy 경로에선 소비되지 않아 fail-closed.")
 
     # D30 B++ funnel fail-fast (UX): bpp --apply without the USER funnel approval token aborts BEFORE the
     #   multi-minute universe/price fetch. run_bpp_candidates re-checks for correctness/test isolation.
