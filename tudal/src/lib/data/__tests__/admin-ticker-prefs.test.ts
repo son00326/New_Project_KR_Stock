@@ -5,7 +5,9 @@
 // - getCurrentTickerAlertPrefs: empty / non-empty / order / limit / error
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  getAllTickerAlertPrefs,
   getCurrentTickerAlertPrefs,
   transformTickerAlertPrefRow,
   type TickerAlertPrefDbRow,
@@ -151,5 +153,72 @@ describe("getCurrentTickerAlertPrefs", () => {
     await expect(getCurrentTickerAlertPrefs()).rejects.toThrow(
       /ticker_alert_pref_select_failed/,
     );
+  });
+});
+
+// S7c 워커 seam (2026-07-04): 주입 client로 전 어드민 row SELECT — createClient 미사용.
+describe("getAllTickerAlertPrefs", () => {
+  beforeEach(() => {
+    // 앞 describe에서 세션 mock(from)에 누적된 호출 제거 — "미사용" 단언 정확화.
+    mocks.from.mockClear();
+  });
+
+  interface InjectedResolved {
+    data: TickerAlertPrefDbRow[] | null;
+    error: { code?: string; message?: string } | null;
+  }
+
+  function makeInjectedClient(resolved: InjectedResolved) {
+    const spies = {
+      from: vi.fn(),
+      select: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    const chain: SelectChain = {
+      select: spies.select.mockImplementation(() => chain),
+      order: spies.order.mockImplementation(() => chain),
+      limit: spies.limit.mockImplementation(() => chain),
+      then: (onFulfilled) => Promise.resolve(resolved).then(onFulfilled),
+    };
+    spies.from.mockImplementation(() => chain);
+    const client = { from: spies.from } as unknown as SupabaseClient;
+    return { client, spies };
+  }
+
+  it("주입 client 사용 (createClient fallback 없음) + limit 600", async () => {
+    const { client, spies } = makeInjectedClient({
+      data: [
+        baseRow,
+        {
+          ...baseRow,
+          id: "id-2",
+          admin_id: "22222222-2222-2222-2222-222222222222",
+          ticker: "005930",
+          enabled: false,
+        },
+      ],
+      error: null,
+    });
+    const result = await getAllTickerAlertPrefs({ client });
+    expect(result).toHaveLength(2);
+    expect(result[1].adminId).toBe("22222222-2222-2222-2222-222222222222");
+    expect(spies.from).toHaveBeenCalledWith("ticker_alert_pref");
+    expect(spies.limit).toHaveBeenCalledWith(600);
+    // 세션 createClient 경로 미사용 — RLS self-only 오염 방지 pin.
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("0 rows → [] / DB error → throw", async () => {
+    const empty = makeInjectedClient({ data: [], error: null });
+    await expect(getAllTickerAlertPrefs({ client: empty.client })).resolves.toEqual([]);
+
+    const failing = makeInjectedClient({
+      data: null,
+      error: { code: "PGRST301", message: "permission denied" },
+    });
+    await expect(
+      getAllTickerAlertPrefs({ client: failing.client }),
+    ).rejects.toThrow(/ticker_alert_pref_select_failed/);
   });
 });

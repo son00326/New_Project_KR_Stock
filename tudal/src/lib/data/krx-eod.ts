@@ -29,18 +29,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
-/**
- * 시장별 daily 전종목 1콜 → Map<6자리 ISU_CD, 종가>.
- * 빈/누락 OutBlock_1 = 휴장/미갱신(정상 — 빈 Map). 비-list/비-object payload = throw.
- * 4xx 즉시 throw(키 문제 노출 — 값 미포함). 429/5xx backoff 재시도(MAX_RETRIES).
- */
-export async function fetchEodCloseMap(opts: {
+/** KRX 문자열 누적거래량(ACC_TRDVOL, 콤마 포함) → non-negative number. invalid/음수 → null.
+ *  0 허용(거래정지일) — parseKrxClose(>0 강제)와 구분되는 additive 파서 (S7c 워커, 2026-07-04). */
+export function parseKrxVolume(v: unknown): number | null {
+  if (v == null) return null;
+  const s = String(v).trim().replace(/,/g, '');
+  if (s === '' || s === '-' || s.toUpperCase() === 'N/A') return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+interface EodFetchOpts {
   basDd: string;
   market: KrxMarket;
   authKey: string;
   fetchImpl?: KrxFetchImpl;
   sleepImpl?: (ms: number) => Promise<void>;
-}): Promise<Map<string, number>> {
+}
+
+// fetchEodCloseMap/fetchEodQuoteMap 공용 fetch+retry+payload 검증 (동작·오류 문자열 불변 추출).
+async function fetchEodOutBlockRows(
+  opts: EodFetchOpts,
+): Promise<Record<string, unknown>[]> {
   const authKey = opts.authKey.trim();
   if (!authKey) throw new Error('krx_auth_key_missing');
   const fetchImpl =
@@ -69,14 +79,10 @@ export async function fetchEodCloseMap(opts: {
       }
       const rows = payload["OutBlock_1"] ?? [];
       if (!Array.isArray(rows)) throw new Error('krx_eod_payload_invalid:OutBlock_1');
-      const map = new Map<string, number>();
       for (const row of rows) {
         if (!isRecord(row)) throw new Error('krx_eod_payload_invalid:OutBlock_1_row');
-        const code = String(row["ISU_CD"] ?? '').trim();
-        const close = parseKrxClose(row["TDD_CLSPRC"]);
-        if (/^\d{6}$/.test(code) && close !== null) map.set(code, close);
       }
-      return map;
+      return rows as Record<string, unknown>[];
     }
     lastStatus = res.status;
     if (!RETRYABLE.has(res.status)) {
@@ -85,6 +91,57 @@ export async function fetchEodCloseMap(opts: {
     if (attempt < MAX_RETRIES - 1) await sleep(1500 * 2 ** attempt);
   }
   throw new Error(`krx_eod_fetch_failed:retries_exhausted:${lastStatus}`);
+}
+
+/**
+ * 시장별 daily 전종목 1콜 → Map<6자리 ISU_CD, 종가>.
+ * 빈/누락 OutBlock_1 = 휴장/미갱신(정상 — 빈 Map). 비-list/비-object payload = throw.
+ * 4xx 즉시 throw(키 문제 노출 — 값 미포함). 429/5xx backoff 재시도(MAX_RETRIES).
+ */
+export async function fetchEodCloseMap(opts: {
+  basDd: string;
+  market: KrxMarket;
+  authKey: string;
+  fetchImpl?: KrxFetchImpl;
+  sleepImpl?: (ms: number) => Promise<void>;
+}): Promise<Map<string, number>> {
+  const rows = await fetchEodOutBlockRows(opts);
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const code = String(row["ISU_CD"] ?? '').trim();
+    const close = parseKrxClose(row["TDD_CLSPRC"]);
+    if (/^\d{6}$/.test(code) && close !== null) map.set(code, close);
+  }
+  return map;
+}
+
+export interface KrxEodQuote {
+  close: number;
+  /** 누적거래량. 파싱 불가 시 null(가격 컨텍스트는 유지 — 거래량 트리거만 비활성). */
+  volume: number | null;
+}
+
+/**
+ * 시장별 daily 전종목 1콜 → Map<6자리 ISU_CD, {close, volume}> (S7c 워커 컨텍스트용 additive).
+ * 종가 invalid 행은 제외(fetchEodCloseMap과 동일 기준), 거래량 invalid는 volume:null 보존.
+ * fetch/재시도/오류 의미는 fetchEodCloseMap과 동일 (공용 fetchEodOutBlockRows).
+ */
+export async function fetchEodQuoteMap(opts: {
+  basDd: string;
+  market: KrxMarket;
+  authKey: string;
+  fetchImpl?: KrxFetchImpl;
+  sleepImpl?: (ms: number) => Promise<void>;
+}): Promise<Map<string, KrxEodQuote>> {
+  const rows = await fetchEodOutBlockRows(opts);
+  const map = new Map<string, KrxEodQuote>();
+  for (const row of rows) {
+    const code = String(row["ISU_CD"] ?? '').trim();
+    const close = parseKrxClose(row["TDD_CLSPRC"]);
+    if (!/^\d{6}$/.test(code) || close === null) continue;
+    map.set(code, { close, volume: parseKrxVolume(row["ACC_TRDVOL"]) });
+  }
+  return map;
 }
 
 function kstDateAndHour(now: Date): { date: string; hour: number } {

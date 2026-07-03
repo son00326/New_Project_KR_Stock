@@ -15,6 +15,7 @@
 // SoT: 0007_s5b_notifications.sql §2 ticker_alert_pref + RLS "ticker_alert_pref self"
 //      + unique index (admin_id, ticker) + admin_idx (admin_id).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { TickerAlertPref } from "@/types/admin";
 
@@ -68,6 +69,33 @@ export async function getCurrentTickerAlertPrefs(): Promise<TickerAlertPref[]> {
     .select("id, admin_id, ticker, enabled, updated_at")
     .order("updated_at", { ascending: false })
     .limit(PREFS_LIMIT);
+
+  if (error) {
+    throw new Error(`ticker_alert_pref_select_failed:${error.message}`);
+  }
+  if (!data) return [];
+  return (data as TickerAlertPrefDbRow[]).map(transformTickerAlertPrefRow);
+}
+
+// 어드민 3명 × PREFS_LIMIT 200 여유분 — 전 어드민 row 커버.
+const ALL_PREFS_LIMIT = 600;
+
+/**
+ * 전 어드민의 ticker_alert_pref row SELECT — S7c intraday 워커 전용 seam (2026-07-04).
+ *
+ * - `{client}` 필수 주입: service-role client여야 RLS "ticker_alert_pref self"를 우회해
+ *   모든 어드민 row를 읽는다 (session client 주입 시 self rows만 — caller 책임).
+ * - 집계 규칙(어느 한 어드민이라도 ON이거나 row 없음 = enabled)은 순수 함수
+ *   `aggregateTickerPrefs`(lib/intraday/worker-context.ts)가 담당 — 본 함수는 SELECT만.
+ */
+export async function getAllTickerAlertPrefs(options: {
+  client: SupabaseClient;
+}): Promise<TickerAlertPref[]> {
+  const { data, error } = await options.client
+    .from("ticker_alert_pref")
+    .select("id, admin_id, ticker, enabled, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(ALL_PREFS_LIMIT);
 
   if (error) {
     throw new Error(`ticker_alert_pref_select_failed:${error.message}`);
