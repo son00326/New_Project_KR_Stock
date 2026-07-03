@@ -31,10 +31,13 @@ const FACTOR_LABEL: Record<string, string> = {
   growth: "성장성",
 };
 
+// 0047 period_key CHECK 포맷(YYYY-MM | YYYY-Wnn) 정합 — 구 'YYYY-MM_YYYY-MM' regex는 미매치 stale.
 function formatPeriodLabel(periodKey: string): string {
-  const match = /^(\d{4}-\d{2})_(\d{4}-\d{2})$/.exec(periodKey);
-  if (!match) return "검토 기간";
-  return `${match[1]}~${match[2]} 검토`;
+  const month = /^(\d{4})-(\d{2})$/.exec(periodKey);
+  if (month) return `${month[1]}년 ${month[2]}월 검토`;
+  const week = /^(\d{4})-W(\d{2})$/.exec(periodKey);
+  if (week) return `${week[1]}년 ${week[2]}주차 검토`;
+  return "검토 기간";
 }
 
 function diffWeights(
