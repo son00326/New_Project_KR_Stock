@@ -17,3 +17,6 @@ scripts/scripts/
 
 # stray script output dirs (relative-path bug — regenerable, never commit)
 /out/
+
+# tudal scripts output artifacts (B-PARTB backfill backups etc.) — never commit
+tudal/scripts/out/
