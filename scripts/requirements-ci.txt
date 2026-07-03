@@ -1,0 +1,21 @@
+# Tier0 weekly candidate producer (diagnostic funnel) — GitHub Actions CI deps
+# =============================================================================
+# cfg1(B++ trend+size, --scoring bpp --emit-candidates) 경로가 실제 import하는
+# 서드파티만 로컬 venv(scripts/.venv, Python 3.14.3) 버전으로 핀한다.
+#
+# 포함 근거 (2026-07-03 실측):
+# - supabase  — get_supabase_client(): cfg1도 sector resolve(dart_corp_codes
+#               induty lookup)용 client를 생성 + --apply upsert. lazy import이나
+#               cfg1 경로에서 항상 도달.
+# - requests  — scripts/krx_openapi.py top-level import (universe fetch +
+#               가격/거래량 prefetch, cfg1 필수).
+#
+# 제외 근거:
+# - pykrx     — lazy import(fetch_foreign_signal 내부)이며 cfg1 funnel은 외국인
+#               fetch를 end-to-end 생략(screen_shortlist_tier0.py cfg1_funnel
+#               분기) → import 미도달.
+# - pandas/numpy — cfg1 import 체인(screen_shortlist_tier0 / tier0_factors /
+#               canonical_sector_mapper / krx_openapi) 어디에도 import 없음
+#               (tier0_factors는 stdlib math만 사용).
+supabase==2.30.0
+requests==2.34.0
