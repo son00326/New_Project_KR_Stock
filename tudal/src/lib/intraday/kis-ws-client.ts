@@ -306,6 +306,8 @@ export interface KisTickStreamDeps {
 
 export interface KisTickStream {
   close: () => void;
+  /** test-only — 대기 중 close waiter 수 (omxy R2 MEDIUM leak 회귀 pin용). */
+  __waiterCountForTests: () => number;
 }
 
 /**
@@ -333,12 +335,25 @@ export function startKisTickStream(
   let activeSocket: KisWebSocketLike | null = null;
   let attempt = 0;
   // close() 시 진행 중 백오프 sleep을 즉시 이기는 race 신호 (최대 60s 종료 지연 방지).
+  // omxy R2 MEDIUM: sleep이 race를 이기면 resolver를 즉시 제거(finally cleanup) — 장중
+  // 재연결이 반복돼도 waiter가 누적되지 않는다(resolver 미참조 → signal promise GC 가능).
   const closeWaiters: Array<() => void> = [];
-  const closeSignal = () =>
-    new Promise<void>((resolve) => {
-      if (closed) return resolve();
+  const interruptibleBackoff = async (ms: number) => {
+    if (closed) return;
+    let cleanup = () => {};
+    const signal = new Promise<void>((resolve) => {
       closeWaiters.push(resolve);
+      cleanup = () => {
+        const i = closeWaiters.indexOf(resolve);
+        if (i >= 0) closeWaiters.splice(i, 1);
+      };
     });
+    try {
+      await Promise.race([sleep(ms), signal]);
+    } finally {
+      cleanup();
+    }
+  };
 
   const reportError = (err: unknown) => {
     try {
@@ -374,8 +389,13 @@ export function startKisTickStream(
           const result = options.onTick(tick);
           // omxy R1 MEDIUM: async 콜백 rejection도 스트림을 죽이지 않게 catch
           // (sync throw만 잡으면 Promise<void> 계약 절반이 unhandled rejection).
-          if (result instanceof Promise) {
-            void result.then(undefined, reportError);
+          // omxy R2 LOW: instanceof Promise 대신 thenable 판정 — cross-realm/라이브러리
+          // PromiseLike 반환도 Promise.resolve로 감싸 rejection을 흡수.
+          if (
+            result &&
+            typeof (result as PromiseLike<void>).then === "function"
+          ) {
+            void Promise.resolve(result).then(undefined, reportError);
           }
         } catch (err) {
           reportError(err);
@@ -427,7 +447,7 @@ export function startKisTickStream(
       });
       attempt += 1;
       log(`[kis-ws] 재연결 대기 ${delayMs}ms (attempt ${attempt})`);
-      await Promise.race([sleep(delayMs), closeSignal()]);
+      await interruptibleBackoff(delayMs);
     }
     log("[kis-ws] stream 종료(close)");
   };
@@ -444,5 +464,6 @@ export function startKisTickStream(
         // close 중 예외 무시
       }
     },
+    __waiterCountForTests: () => closeWaiters.length,
   };
 }

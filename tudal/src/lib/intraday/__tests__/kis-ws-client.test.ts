@@ -599,6 +599,30 @@ describe("startKisTickStream (상태기계)", () => {
     stream.close();
   });
 
+  // omxy R2 MEDIUM pin: sleep이 race를 이기면 close waiter가 즉시 제거 — 재연결 반복에도 누적 0.
+  it("재연결 반복 시 close waiter 누적 없음 (leak 회귀 pin)", async () => {
+    const h = streamHarness();
+    const stream = startKisTickStream(
+      { tickers: ["005930"], onTick: (t) => {
+        h.ticks.push(t);
+      } },
+      h.deps,
+    );
+    await flushMicrotasks();
+    // 3회 연속 실패/재연결 사이클 — 각 사이클에서 sleep이 race를 이긴다.
+    for (let i = 0; i < 3; i++) {
+      h.sockets[h.sockets.length - 1].emit("close", {});
+      await flushMicrotasks();
+      expect(stream.__waiterCountForTests()).toBe(1); // 대기 중엔 정확히 1
+      h.releaseSleeps();
+      await flushMicrotasks();
+      expect(stream.__waiterCountForTests()).toBe(0); // sleep 승리 후 즉시 정리
+    }
+    expect(h.sockets).toHaveLength(4);
+    stream.close();
+    expect(stream.__waiterCountForTests()).toBe(0);
+  });
+
   // omxy R1 MEDIUM pin: 백오프 sleep 중 close() → race로 즉시 루프 탈출(60s 대기 없음).
   it("백오프 대기 중 close() → sleep 완료를 기다리지 않고 즉시 종료", async () => {
     const h = streamHarness();
