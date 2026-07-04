@@ -243,7 +243,7 @@ export async function loadFunnelReflectionInput(
       return { input: null, meta: { reason: "no_usable_candidates", month } };
     }
 
-    // 실현 수익률 — KRX 키 부재(fetchEodPrices null)/창 미형성 → 빈 Map(표본부족 fail-soft).
+    // 실현 수익률 — KRX 키 부재(fetchEodPrices null)/창 미형성 → 빈 Map.
     let realizedReturns = new Map<string, number>();
     let returnWindow: FunnelReturnWindow | null = null;
     if (deps.fetchEodPrices) {
@@ -258,6 +258,22 @@ export async function loadFunnelReflectionInput(
         ]);
         realizedReturns = computeRealizedReturns(tickers, entryPrices, exitPrices);
       }
+    }
+
+    // omxy R1 HIGH: 실현수익 0건이면 insert하지 않고 skip — 0047 UNIQUE(period_key)는
+    // first-insert-wins라, 빈 표본 제안이 슬롯을 영구 선점하면 KRX 키/창 정상화 후에도
+    // 진짜 수익률 기반 회고로 갱신 불가. skip이면 다음 daily run이 재시도(자연 self-heal).
+    if (realizedReturns.size === 0) {
+      return {
+        input: null,
+        meta: {
+          reason: "no_realized_returns",
+          month,
+          exposureSource,
+          candidateCount: candidates.length,
+          returnWindow,
+        },
+      };
     }
 
     return {

@@ -311,18 +311,24 @@ describe("loadFunnelReflectionInput", () => {
             },
       selectCalls,
     });
+    const fetchEodPrices = vi.fn(async (tickers: readonly string[], basDd: string) => {
+      const price = basDd === "20260602" ? 100 : 110;
+      return new Map(tickers.map((t) => [t, price]));
+    });
     const loaded = await loadFunnelReflectionInput({
       client,
       now: NOW,
       loadBusinessDays: async () => CAL,
-      fetchEodPrices: null,
+      fetchEodPrices,
     });
     expect(selectCalls).toHaveLength(2);
     expect(loaded.input?.championConfig).toEqual({ tier0_score: 0.5 });
     expect(loaded.meta.exposureSource).toBe("tier0_score_fallback");
   });
 
-  it("KRX 키 부재(fetchEodPrices null) → 빈 realizedReturns로도 input 조립(fail-soft)", async () => {
+  // omxy R1 HIGH pin: 실현수익 0건이면 insert용 input을 만들지 않는다 — 빈 표본 제안이
+  // 0047 UNIQUE(period_key) 슬롯을 영구 선점(first-insert-wins)하는 것을 차단.
+  it("KRX 키 부재(fetchEodPrices null) → input null + no_realized_returns skip", async () => {
     const client = mockClient({
       prior: PRIOR_M_2026_06,
       candidates: () => ({ data: DB_ROWS, error: null }),
@@ -333,9 +339,26 @@ describe("loadFunnelReflectionInput", () => {
       loadBusinessDays: async () => CAL,
       fetchEodPrices: null,
     });
-    expect(loaded.input).not.toBeNull();
-    expect(loaded.input?.realizedReturns.size).toBe(0);
-    expect(loaded.meta.returnWindow).toBeNull();
+    expect(loaded.input).toBeNull();
+    expect(loaded.meta.reason).toBe("no_realized_returns");
+    expect(loaded.meta.month).toBe("2026-06");
+    expect(loaded.meta.candidateCount).toBe(2);
+  });
+
+  it("KRX fetch가 빈 Map(가격 미형성) → input null + no_realized_returns skip", async () => {
+    const client = mockClient({
+      prior: PRIOR_M_2026_06,
+      candidates: () => ({ data: DB_ROWS, error: null }),
+    });
+    const loaded = await loadFunnelReflectionInput({
+      client,
+      now: NOW,
+      loadBusinessDays: async () => CAL,
+      fetchEodPrices: async () => new Map<string, number>(),
+    });
+    expect(loaded.input).toBeNull();
+    expect(loaded.meta.reason).toBe("no_realized_returns");
+    expect(loaded.meta.returnWindow).not.toBeNull();
   });
 
   it("finalize된 midlong 사이클 없음 → input null + reason", async () => {

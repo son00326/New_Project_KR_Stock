@@ -318,13 +318,27 @@ export function startKisTickStream(
   deps: KisTickStreamDeps,
 ): KisTickStream {
   const sleep =
-    deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    deps.sleep ??
+    ((ms: number) =>
+      new Promise<void>((r) => {
+        const t = setTimeout(r, ms);
+        // omxy R1 MEDIUM: 백오프 타이머가 프로세스 종료를 붙잡지 않게 unref
+        // (close 후에는 아래 closeSignal race 승자가 루프를 즉시 탈출시킨다).
+        (t as unknown as { unref?: () => void }).unref?.();
+      }));
   const log = deps.log ?? ((m: string) => console.log(m));
   const nowFn = deps.now ?? (() => new Date());
 
   let closed = false;
   let activeSocket: KisWebSocketLike | null = null;
   let attempt = 0;
+  // close() 시 진행 중 백오프 sleep을 즉시 이기는 race 신호 (최대 60s 종료 지연 방지).
+  const closeWaiters: Array<() => void> = [];
+  const closeSignal = () =>
+    new Promise<void>((resolve) => {
+      if (closed) return resolve();
+      closeWaiters.push(resolve);
+    });
 
   const reportError = (err: unknown) => {
     try {
@@ -357,7 +371,12 @@ export function startKisTickStream(
         const tick = mapH0stcnt0Record(record, { now: nowFn() });
         if (!tick) continue;
         try {
-          void options.onTick(tick);
+          const result = options.onTick(tick);
+          // omxy R1 MEDIUM: async 콜백 rejection도 스트림을 죽이지 않게 catch
+          // (sync throw만 잡으면 Promise<void> 계약 절반이 unhandled rejection).
+          if (result instanceof Promise) {
+            void result.then(undefined, reportError);
+          }
         } catch (err) {
           reportError(err);
         }
@@ -408,8 +427,9 @@ export function startKisTickStream(
       });
       attempt += 1;
       log(`[kis-ws] 재연결 대기 ${delayMs}ms (attempt ${attempt})`);
-      await sleep(delayMs);
+      await Promise.race([sleep(delayMs), closeSignal()]);
     }
+    log("[kis-ws] stream 종료(close)");
   };
 
   void runLoop();
@@ -417,6 +437,7 @@ export function startKisTickStream(
   return {
     close: () => {
       closed = true;
+      for (const resolve of closeWaiters.splice(0)) resolve();
       try {
         activeSocket?.close();
       } catch {

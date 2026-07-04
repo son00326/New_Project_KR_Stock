@@ -63,7 +63,8 @@ export async function GET(request: NextRequest) {
       client: supabase,
       now,
       loadBusinessDays: loadKrBusinessDays,
-      // KRX EOD(무비용). 키 부재 → null(로더 fail-soft: 빈 realizedReturns → 표본부족 rationale).
+      // KRX EOD(무비용). 키 부재/창 미형성 → 실현수익 0건 → 로더가 input:null skip
+      // (omxy R1 HIGH — 빈 표본 제안이 period UNIQUE 슬롯을 선점하지 않도록 insert 안 함).
       fetchEodPrices: authKey
         ? (tickers, basDd) => resolveEntryPricesKrw(tickers, { authKey, basDd })
         : null,

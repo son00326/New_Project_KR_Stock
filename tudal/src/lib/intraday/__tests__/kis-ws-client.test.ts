@@ -568,4 +568,58 @@ describe("startKisTickStream (상태기계)", () => {
     expect(h.ticks).toHaveLength(0);
     stream.close();
   });
+
+  // omxy R1 MEDIUM pin: async onTick rejection도 onError로 흡수 — 스트림 계속(unhandled rejection 0).
+  it("async onTick rejection → onError 흡수 + 스트림 유지(후속 tick 계속)", async () => {
+    const errors: Error[] = [];
+    const h = streamHarness();
+    let call = 0;
+    const stream = startKisTickStream(
+      {
+        tickers: ["005930"],
+        onTick: async (t) => {
+          call += 1;
+          if (call === 1) throw new Error("async_ontick_boom");
+          h.ticks.push(t);
+        },
+        onError: (e) => errors.push(e),
+      },
+      h.deps,
+    );
+    await flushMicrotasks();
+    const ws = h.sockets[0];
+    ws.emit("open", {});
+    ws.emit("message", { data: `0|${H0STCNT0_TR_ID}|001|${h0stcnt0Fields().join("^")}` });
+    await flushMicrotasks();
+    expect(errors.some((e) => e.message.includes("async_ontick_boom"))).toBe(true);
+    // 스트림은 죽지 않고 다음 tick을 계속 dispatch.
+    ws.emit("message", { data: `0|${H0STCNT0_TR_ID}|001|${h0stcnt0Fields().join("^")}` });
+    await flushMicrotasks();
+    expect(h.ticks).toHaveLength(1);
+    stream.close();
+  });
+
+  // omxy R1 MEDIUM pin: 백오프 sleep 중 close() → race로 즉시 루프 탈출(60s 대기 없음).
+  it("백오프 대기 중 close() → sleep 완료를 기다리지 않고 즉시 종료", async () => {
+    const h = streamHarness();
+    const stream = startKisTickStream(
+      { tickers: ["005930"], onTick: (t) => {
+        h.ticks.push(t);
+      } },
+      h.deps,
+    );
+    await flushMicrotasks();
+    h.sockets[0].emit("close", {}); // 연결 실패 → 백오프 진입
+    await flushMicrotasks();
+    expect(h.sleeps).toHaveLength(1); // sleep 대기 중 (resolver 미해제 상태)
+    stream.close(); // sleep을 release하지 않고 close만 호출
+    await flushMicrotasks();
+    // 루프가 sleep 해제 없이 즉시 탈출했음을 종료 로그로 pin.
+    expect(
+      (h.deps.log.mock.calls as string[][]).some((c) =>
+        String(c[0]).includes("stream 종료"),
+      ),
+    ).toBe(true);
+    expect(h.sockets).toHaveLength(1); // 재연결 없음
+  });
 });
