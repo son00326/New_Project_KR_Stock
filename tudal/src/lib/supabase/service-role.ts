@@ -9,6 +9,9 @@
 //     - tudal/src/app/api/cron/morning-briefing/** (Step 2.7b.1 SELECT + Step 2.7b.3 INSERT)
 //     - tudal/src/app/api/cron/funnel-reflection/** (G1 D-5: FUNNEL_REFLECTION_ENABLED 게이트 후
 //       로더 SELECT[tier1_selection_run/tier0_candidates_150] + tier0_funnel_reflection 제안 INSERT)
+//     - tudal/src/app/api/cron/reflection-job/** (PR-K D32 — pre-existing 소비자, 2026-07-04 allowlist sweep 추가)
+//     - tudal/src/app/api/cron/exit-signal/** (S7c — pre-existing 소비자, 동 sweep)
+//     - tudal/src/app/api/cron/exit-outcome/** (S7c — pre-existing 소비자, 동 sweep)
 //     - tudal/src/lib/data/admin-batch-runs-cron.ts (PR1 B17 원본)
 //   허용 (DI seam을 통한 cron 호출자 service-role 주입 — admin pages는 session client 유지):
 //     - tudal/src/lib/data/admin-news.ts (Step 2.7a: options.client? SELECT + Step 2.7b.2 INSERT)

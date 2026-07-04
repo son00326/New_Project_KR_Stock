@@ -78,6 +78,7 @@ export async function getCurrentTickerAlertPrefs(): Promise<TickerAlertPref[]> {
 }
 
 // 어드민 3명 × PREFS_LIMIT 200 여유분 — 전 어드민 row 커버.
+// cap 무음절단 금지: limit 도달 시 아래에서 구조화 warn (OFF pref 절단 → default-ON 오승격 위험).
 const ALL_PREFS_LIMIT = 600;
 
 /**
@@ -101,5 +102,14 @@ export async function getAllTickerAlertPrefs(options: {
     throw new Error(`ticker_alert_pref_select_failed:${error.message}`);
   }
   if (!data) return [];
+  if (data.length >= ALL_PREFS_LIMIT) {
+    console.warn(
+      JSON.stringify({
+        event: "ticker_alert_prefs_truncated",
+        limit: ALL_PREFS_LIMIT,
+        hint: "OFF pref 절단 시 default-ON 오승격 위험 — ALL_PREFS_LIMIT 상향 필요",
+      }),
+    );
+  }
   return (data as TickerAlertPrefDbRow[]).map(transformTickerAlertPrefRow);
 }
