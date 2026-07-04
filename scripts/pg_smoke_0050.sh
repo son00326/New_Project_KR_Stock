@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # pg_smoke_0050.sh — docker-free local PG smoke for tier0_candidates_150.factor_ranks (0050).
 #   Asserts: additive jsonb NULL column · 기존 rows/제약(0028) 무영향 · RLS/policy 무변경
-#   · idempotent re-apply · rollback = 컬럼만 제거(테이블/데이터 보존).
+#   · idempotent re-apply · rollback = 컬럼만 제거 — row/테이블 보존, 단 factor_ranks '값'은 소실(활성 후 rollback=계측 데이터 손실).
 #   Requires LOCAL PostgreSQL. NOT production.
 set -euo pipefail
 
@@ -97,7 +97,7 @@ SQL
 psql -v ON_ERROR_STOP=1 -d "$DB" -f "$MIG/0050_tier0_factor_ranks.sql"
 psql -v ON_ERROR_STOP=1 -d "$DB" -c "do \$\$ begin raise notice 'PASS: 0050 idempotent re-apply'; end \$\$;"
 
-# rollback = 컬럼만 제거, 테이블/데이터 보존.
+# rollback = 컬럼만 제거 — row/테이블 보존, factor_ranks 값은 소실(omxy mig R1 정밀화).
 psql -v ON_ERROR_STOP=1 -d "$DB" -f "$MIG/0050_tier0_factor_ranks.rollback.sql"
 psql -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
 do $$
