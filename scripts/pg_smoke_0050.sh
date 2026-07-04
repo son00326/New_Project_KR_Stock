@@ -113,7 +113,7 @@ begin
   ) then raise exception 'FAIL: rollback must not drop table'; end if;
   select count(*) into v_count from public.tier0_candidates_150;
   if v_count <> 3 then raise exception 'FAIL: rollback lost rows (got %, want 3)', v_count; end if;
-  raise notice 'PASS: 0050 rollback clean (column-only, data preserved)';
+  raise notice 'PASS: 0050 rollback clean (column-only — rows/table preserved; factor_ranks VALUES are LOST on drop)';
 end $$;
 SQL
 
