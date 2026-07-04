@@ -83,7 +83,7 @@
 
 | 항목 | USER 액션 |
 |---|---|
-| 마이그 0050 apply | Supabase production apply(+pg_smoke_0050) |
+| ~~마이그 0050 apply~~ | **✅ DONE(2026-07-04, version `20260704120509` — Claude MCP apply·사전/사후 실측[컬럼 11·policy/RLS 불변·non-null 0]·advisor 신규 0·PostgREST reload+REST 200·omxy mig R1~R3 CONVERGED[MED cache 봉쇄+rollback 문구 3곳 정밀화])** |
 | tier0 producer 활성 | **리포 private 전환 확인**(public이면 워크플로가 apply 실행 전 차단 + 아티팩트 skip — production 150/rollback JSON 공개 노출 방지, Claude 리뷰 HIGH) + GH secrets(`KRX_OPENAPI_KEY`·`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`[+`TELEGRAM_*` 선택]) + repo vars(`TIER0_PRODUCER_ENABLED=true`·`TIER0_PRODUCER_MODE=apply`·0050 후 `TIER0_EMIT_FACTOR_RANKS=true`) — dry-run 1회 검증 후 apply 권장 |
 | funnel reflection 활성 | Vercel `FUNNEL_REFLECTION_ENABLED=true`(+`KRX_OPENAPI_KEY` 기주입 ✅) |
 | intraday 워커 가동 | KIS 키(B-10) 발급 → 워커 호스트 env(`KIS_APP_KEY/SECRET`·`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`·`TELEGRAM_*`·`INTRADAY_MONITOR_ENABLED=true`·`INTRADAY_WORKER_CONFIRM=1`) + 프로세스 상시 실행(launchd/pm2) |
