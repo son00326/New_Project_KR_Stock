@@ -67,16 +67,24 @@
 2. **Lane B(Build 1)**: GH 워크플로 yml + requirements-ci.txt (+ Lane A의 factor-ranks var 배선).
 3. **Lane C(Build 3)**: kis-ws-client + krx-eod volume 확장 + worker-context + prefs seam + 워커 셸 + 테스트.
 
-## §6 리뷰 계획
+## §6 리뷰 계획 → 결과 박제 (2026-07-04 as-built)
 
-Claude 다층 적대 리뷰(정확성·dormancy 불변식·연결포인트·보안/키·테스트 vacuous 여부) → fix → §2.0a 4-step omxy 교차검증(orchestrator=Claude, catch-only) → CONVERGED → merge.
+계획: Claude 다층 적대 리뷰 → fix → §2.0a 4-step omxy 교차검증(orchestrator=Claude, catch-only) → CONVERGED → merge.
+
+**결과 (PR #131 MERGED, main `fdc1337`)**:
+- **Claude 6-lens 워크플로**: 보안 lens 완주 — **HIGH 1**(public 리포에서 production 150/rollback JSON이 GH 아티팩트로 공개 노출) → fix `dc5535a`(repo visibility preflight: public+apply 실행 전 차단·public이면 업로드 skip) + LOW 3(B17 allowlist sweep·prefs 절단 warn·README at-rest 보안). 나머지 5 lens는 세션 한도로 부분 → orchestrator가 최우선 항목 직접 교차검증(factor 키 삼자일치·dedup 키 동일 함수·아티팩트 글롭 3종·vercel.json 순수 additive·rank 방향성↔Spearman 정합) 후 omxy가 실질 2차 커버.
+- **omxy(gpt-5.5 xhigh) R-debate R1~R3 CONVERGED**:
+  - R1 catch: **HIGH** 빈 실현수익 제안이 0047 UNIQUE(period_key) first-insert-wins 슬롯 영구 선점(KRX 키 부재+flag on 조합) / **MED** onTick async rejection 미캐치 / **MED** close()가 백오프 sleep 미취소(종료 최대 60s 지연) → fix `a6b3f23`(실현수익 0건 → input:null skip + async rejection 흡수 + closeSignal race + sleep unref).
+  - R2 fresh-eyes: **MED** closeWaiters가 재연결마다 누적(leak) / **LOW** instanceof Promise가 thenable 미커버 → fix `f07f7cf`(interruptibleBackoff finally cleanup + __waiterCountForTests 계측 + thenable 판정·Promise.resolve 래핑).
+  - R3: omxy가 diff 정독 + affected 테스트 직접 실행(37 pass) 후 **결함 0 · SIGNAL: CONVERGED**. 잔여 = KIS 실측 스모크류 외부 WATCH만.
+- 게이트 최종: build/lint/tsc 0 · test:ci **2741 pass/6 skip** · python 53 OK · pg_smoke_0050 PASS · canary 4/4 200.
 
 ## §7 USER 활성 게이트 (빌드 후 잔여 — 본 PR은 전부 dormant 출고)
 
 | 항목 | USER 액션 |
 |---|---|
 | 마이그 0050 apply | Supabase production apply(+pg_smoke_0050) |
-| tier0 producer 활성 | GH secrets(`KRX_OPENAPI_KEY`·`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`[+`TELEGRAM_*` 선택]) + repo vars(`TIER0_PRODUCER_ENABLED=true`·`TIER0_PRODUCER_MODE=apply`·0050 후 `TIER0_EMIT_FACTOR_RANKS=true`) — dry-run 1회 검증 후 apply 권장 |
+| tier0 producer 활성 | **리포 private 전환 확인**(public이면 워크플로가 apply 실행 전 차단 + 아티팩트 skip — production 150/rollback JSON 공개 노출 방지, Claude 리뷰 HIGH) + GH secrets(`KRX_OPENAPI_KEY`·`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`[+`TELEGRAM_*` 선택]) + repo vars(`TIER0_PRODUCER_ENABLED=true`·`TIER0_PRODUCER_MODE=apply`·0050 후 `TIER0_EMIT_FACTOR_RANKS=true`) — dry-run 1회 검증 후 apply 권장 |
 | funnel reflection 활성 | Vercel `FUNNEL_REFLECTION_ENABLED=true`(+`KRX_OPENAPI_KEY` 기주입 ✅) |
 | intraday 워커 가동 | KIS 키(B-10) 발급 → 워커 호스트 env(`KIS_APP_KEY/SECRET`·`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`·`TELEGRAM_*`·`INTRADAY_MONITOR_ENABLED=true`·`INTRADAY_WORKER_CONFIRM=1`) + 프로세스 상시 실행(launchd/pm2) |
 | Telegram(B-9) | 봇 생성 + `TELEGRAM_BOT_TOKEN`+chat_id — Vercel env + 워커 host + GH secrets(선택) |
