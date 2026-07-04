@@ -110,5 +110,12 @@ launchctl list | grep joopick
   boundary(cron allowlist) 오염 방지. 워커는 `@supabase/supabase-js` `createClient` 직생성.
 - KIS/KRX/Supabase/Telegram 키 값은 로그·에러 메시지·리포 파일에 절대 미출력
   (`kis-ws-client.ts` 오류 문자열은 status 코드만 포함).
+- **호스트 env at-rest 보호**: launchd plist에 키를 넣으면 반드시 `chmod 600` — plist는
+  기본 0644라 동일 호스트 타 계정/백업 도구가 service-role 키(RLS 전체 우회)를 읽을 수 있고,
+  `launchctl print gui/$(id -u)/<label>`도 env 전체를 노출한다. pm2 ecosystem 사용 시
+  `pm2 save` dump(`~/.pm2/dump.pm2`)에 env가 평문 잔존하는 점도 동일 — dump 파일 권한 확인.
+- **KIS WS 전송은 공식 평문 `ws://`** (vendor 설계 — 실전 :21000/모의 :31000).
+  approval_key는 read-only 시세 구독용 단기 세션 키라 수용(appkey/secretkey 자체는
+  https REST로만 전송). 수용 결정 기록 — 변경 불가 항목.
 - H0STCNT0 필드 인덱스는 공식 repo(koreainvestment/open-trading-api) 기준 pin —
   KIS 키 주입 후 실 스모크로 실측 재검증(WATCH, kis-ws-client.ts 상단 주석).

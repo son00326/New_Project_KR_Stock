@@ -102,6 +102,29 @@ jobs:
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "resolved: month=$MONTH mode=$MODE"
 
+      # (e) 데이터 노출 가드: 공개 리포의 Actions 아티팩트/로그는 누구나 열람 가능하다.
+      #     production 150 후보 CSV + rollback JSON(기존 rows 전체 덤프)이 아티팩트로 올라가므로
+      #     - 리포가 public이면 apply 를 "실행 전" 차단한다 (rollback JSON을 비공개로 보존할 수
+      #       없어 파괴적 교체의 복원 가능성 계약이 깨짐 + production 데이터 공개 노출).
+      #     - public + dry-run 은 허용하되 아티팩트 업로드를 skip 한다.
+      #     활성화 전 리포 private 전환 = USER 체크리스트 항목 (spec §7).
+      - name: Preflight — repo visibility guard
+        id: vis
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.cfg.outputs.mode }}
+        run: |
+          set -euo pipefail
+          PRIVATE=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .private)
+          echo "private=$PRIVATE" >> "$GITHUB_OUTPUT"
+          if [ "$PRIVATE" != "true" ]; then
+            echo "::warning::리포가 public — production 후보/rollback 데이터 노출 방지를 위해 아티팩트 업로드를 skip합니다."
+            if [ "$MODE" = "apply" ]; then
+              echo "::error::public 리포에서 apply 금지 — rollback JSON 아티팩트가 공개 노출되고 복원 가능성 계약이 깨집니다. 리포를 private로 전환 후 재실행하세요."
+              exit 1
+            fi
+          fi
+
       - name: Run Tier0 cfg1 producer (diagnostic funnel candidate shortlist)
         env:
           KRX_OPENAPI_KEY: ${{ secrets.KRX_OPENAPI_KEY }}
@@ -134,7 +157,8 @@ jobs:
       #          + provenance sidecar(diagnostic_funnel:true 박제)
       #          + rollback JSON(apply에서만 생성 — 복원 가능성 보존)
       - name: Upload artifacts (CSV + provenance sidecar + rollback JSON)
-        if: always()
+        # (e) private 리포에서만 업로드 — public이면 production 데이터 공개 노출 (vis 가드 참조).
+        if: always() && steps.vis.outputs.private == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tier0-bpp-cfg1-${{ steps.cfg.outputs.month || 'unresolved' }}-run${{ github.run_id }}
