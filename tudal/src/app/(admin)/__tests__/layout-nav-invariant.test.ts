@@ -94,7 +94,6 @@ describe("admin layout nav invariant", () => {
       { group: "설정", collapsible: true },
     ]);
 
-    // 그룹별 항목 (href·label). 실험·연구 = 종목 선정 방식 비교/AI 학습 (실험 톤 + 내부코드 제거).
     const flat = ADMIN_NAV.flatMap((g) => g.items);
     expect(ADMIN_NAV_FLAT).toEqual(flat);
     expect(flat).toEqual(
@@ -106,6 +105,7 @@ describe("admin layout nav invariant", () => {
         { href: "/admin/alerts", label: "알림" },
         { href: "/admin/sector-comparison", label: "종목 선정 방식 비교 (실험)" },
         { href: "/admin/funnel-reflection", label: "AI 학습 (실험)" },
+        { href: "/admin/prism", label: "프리즘 (실험)" },
         { href: "/admin/settings", label: "설정" },
         { href: "/admin/settings/notifications", label: "알림 채널" },
         { href: "/admin/settings/cost", label: "AI 비용" },
@@ -135,6 +135,10 @@ describe("admin layout nav invariant", () => {
         expect.objectContaining({
           href: "/admin/funnel-reflection",
           label: "AI 학습 (실험)",
+        }),
+        expect.objectContaining({
+          href: "/admin/prism",
+          label: "프리즘 (실험)",
         }),
       ]),
     );
