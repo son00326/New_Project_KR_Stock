@@ -26,6 +26,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     items: [
       { href: "/admin/sector-comparison", label: "종목 선정 방식 비교 (실험)" },
       { href: "/admin/funnel-reflection", label: "AI 학습 (실험)" },
+      { href: "/admin/prism", label: "프리즘 (실험)" },
     ],
   },
   {
