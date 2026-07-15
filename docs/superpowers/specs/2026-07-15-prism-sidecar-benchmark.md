@@ -53,7 +53,7 @@
 
 - **업스트림 pin**: commit **`b8171a4`** (2026-07-15 HEAD) checkout 배포. 업데이트는 의도적 pull + 스키마 계약 재검증 후에만 (§13).
 - **인스턴스**: t3.large (2 vCPU/8GB) + 30GB gp3 권장 (~$76/월 서울). 절약: t3.medium + 스왑 4GB.
-- **배포**: `docker compose up -d` + **`docker-compose.override.yml`(우리 작성 — 설정이지 코드 아님, AGPL 무관)**. 공식 compose에 없는 필수 마운트/설정(omxy R1 HIGH-1, 업스트림 실파일 대조 확정):
+- **배포**: `docker compose up -d` + **`docker-compose.override.yml`(우리 작성 — 설정이지 코드 아님, AGPL 무관)**. **TZ 불변식 (Phase 2 리뷰 M3)**: 컨테이너 TZ=Asia/Seoul은 업스트림 Dockerfile ENV로 보장되나 override에서 절대 재정의 금지, bare-metal 시 `timedatectl set-timezone Asia/Seoul` 필수 — TZ가 KST가 아니면 naive `generated_at`에 +09:00을 붙이는 순간 snapshot/session date가 밀려 벤치마크 앵커 영구 오염. ingest의 `generated_at↔mtime 45분 교차검증`이 2차 방어선. 공식 compose에 없는 필수 마운트/설정(omxy R1 HIGH-1, 업스트림 실파일 대조 확정):
   - `./examples/dashboard/public` 볼륨 (호스트 ingest가 JSON을 읽을 유일한 경로 — 기본 compose 미마운트)
   - `./trading/config/kis_devlp.yaml` 볼륨 (기본 미마운트 → 재빌드 시 모의키 설정 소실)
   - `/root/.config/prism-insight` 볼륨 (OAuth 토큰 — 기본 미마운트 → 재생성 시 소실)
@@ -85,7 +85,7 @@
 ## §6 ingest 스크립트 (EC2 상주, 신규 자작)
 
 - **형태 확정 (§14-1)**: **Python 3 stdlib 단일 파일** `scripts/prism_ingest.py` (omxy 권고 수용 — EC2에 Python 상존, tsx는 node_modules 필요로 부적합). 의존성 0(urllib + json + hashlib). tudal 레포에 보관, EC2에는 파일+env만 배포.
-- **동작**: JSON 읽기 → **freshness/안정성 검증 (omxy R1 MED-2: 업스트림은 temp+rename 아닌 직접 overwrite)**: ① mtime이 30초 이상 경과(쓰기 완료 대기) ② mtime이 6시간 이내(전일 stale 방지) ③ 2초 간격 2회 크기 동일 확인 → 구조 envelope 검증(필수 top-level 키 존재 + 크기 상한 + **market 교차검증 concrete 규칙(omxy R3 MED-3): `us` ⇒ `payload.market==='US' && currency==='USD'` / `kr` ⇒ `market` absent|'KR' && `currency` absent|'KRW'** — 파일 경로/CLI market 스왑 차단) → sha256 계산 → `upsert_prism_snapshot` RPC(REST) 호출 → typed 결과 로그. 실패/`stale_rejected` = **exit 1 + stderr 구조화 로그**, 선택적 **Telegram 직접 발송**(EC2 env `PRISM_ALERT_TELEGRAM_*` — tudal 무접촉).
+- **동작**: JSON 읽기 → **freshness/안정성 검증 (omxy R1 MED-2: 업스트림은 temp+rename 아닌 직접 overwrite)**: ① mtime이 30초 이상 경과(쓰기 완료 대기) ② mtime이 6시간 이내(전일 stale 방지) ③ 2초 간격 2회 크기 동일 확인 → 구조 envelope 검증(필수 top-level 키 존재 + 크기 상한 + **market 교차검증 concrete 규칙(omxy R3 MED-3): `us` ⇒ `payload.market==='US' && currency==='USD'` / `kr` ⇒ `market` absent|'KR' && `currency` absent|'KRW'** — 파일 경로/CLI market 스왑 차단) → sha256 계산 → `upsert_prism_snapshot` RPC(REST) 호출 → typed 결과 로그. 실패/`stale_rejected` = **exit 1 + stderr 구조화 로그** + **Telegram 직접 발송 구현됨**(EC2 env `PRISM_ALERT_TELEGRAM_BOT_TOKEN`/`_CHAT_ID` 둘 다 설정 시 best-effort, 미설정 시 no-op, 발송 실패가 exit 코드 마스킹 금지 — tudal 무접촉. Phase 2 리뷰 L7: 스냅샷은 6h 창 밖 백필 불가라 주말 장애 무음이 영구 손실로 직결). 런타임 floor = **Python ≥ 3.10**(버전 가드 내장), 테스트 파일은 3.12+.
 - **게이트**: `PRISM_INGEST_CONFIRM=1` boot 게이트(fail-closed) + `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` + `PRISM_SOURCE_COMMIT`. `@/lib/supabase/service-role` import 금지 경계는 Python이므로 자연 충족.
 - **스케줄**: EC2 crontab — KR 11:20/17:25(slot am/pm), US 08:15(slot daily). JSON 생성(11:05/17:10/08:00) +15분.
 - **실패 가시화 (§14-5 확정)**: `pipeline_health` **미사용**(I-P4). ① UI stale 배지(§7) — **고정 age 임계 금지 (omxy R2 HIGH-1: KR 금 pm→월 am 66h·US 토→화 72h 정상 주말 오탐)** → **단일 알고리즘 고정 (omxy R3 MED-4): latest snapshot의 슬롯 시각 이후 "첫 예정 슬롯"을 주말 skip하며 walk-forward로 구해, 그 시각 + grace 12h 초과 시에만 stale**. KR 공휴일은 grace로 흡수(배지는 informational). **DoD 테스트: 금 pm→월 am 경계 / 토 daily→화 daily 경계 / KR am 누락 후 pm 성공 3케이스 필수**. ② ingest exit 1 + EC2 cron 메일/Telegram. 전용 health 테이블은 v1 미도입(스냅샷 자체가 heartbeat).
@@ -153,7 +153,8 @@
 3. ChatGPT OAuth 로그인 1회 + 토큰 EC2 복사.
 4. Perplexity 키(A 선택 시) + Firecrawl 키.
 5. KIS 모의투자 키 — demo 모드, `auto_trading: false`.
-6. `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`/`PRISM_SOURCE_COMMIT`/`PRISM_INGEST_CONFIRM=1`/**`PRISM_OPENAI_AUTH_MODE=chatgpt_oauth`** EC2 주입.
+6. `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`/`PRISM_SOURCE_COMMIT`/`PRISM_INGEST_CONFIRM=1`/**`PRISM_OPENAI_AUTH_MODE=chatgpt_oauth`** EC2 주입. (권장: `PRISM_ALERT_TELEGRAM_BOT_TOKEN`/`_CHAT_ID` — ingest 실패 즉시 알림.)
+6a. **EC2 `python3 --version` ≥ 3.10 확인** (Amazon Linux 2023 기본 3.9는 불가 — ingest가 버전 가드로 명시 거부).
 7. 마이그 0051 production apply.
 8. hardcap 별도 회계 승인.
 9. (3·11월) US 크론 DST 조정.
