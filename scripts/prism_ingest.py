@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
+# Runtime floor: Python 3.10+.
+# Test floor: Python 3.12+ (typing.override).
+
+import sys
+
+if sys.version_info < (3, 10):
+    print('{"level":"error","event":"prism_ingest_failed","error":"python_3_10_required"}', file=sys.stderr)
+    raise SystemExit(1)
 
 import argparse
 import hashlib
+import http.client
 import json
 import math
 import os
 import re
-import sys
 import time
 from urllib import error as url_error, request as url_request
 from collections.abc import Callable, Mapping, Sequence
@@ -90,20 +98,38 @@ def read_stable_file(path: Path, now: datetime, sleep: Callable[[float], None]) 
     sleep(2)
     try:
         second = path.stat()
+    except OSError as error:
+        raise IngestError(f"file_stat_error:{error.__class__.__name__}") from None
+    if second.st_mtime != first.st_mtime:
+        _fail("file_too_young")
+    if first.st_size != second.st_size:
+        _fail("file_size_unstable")
+    if second.st_size > MAX_PAYLOAD_BYTES:
+        _fail("payload_too_large")
+    try:
         raw = path.read_bytes()
     except OSError as error:
         raise IngestError(f"file_read_error:{error.__class__.__name__}") from None
-    if first.st_size != second.st_size:
+    if len(raw) != second.st_size:
         _fail("file_size_unstable")
-    if len(raw) > MAX_PAYLOAD_BYTES:
-        _fail("payload_too_large")
     return raw
+
+
+def _parse_json_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        _fail("invalid_json_number")
+    return parsed
 
 
 def decode_payload(raw: bytes) -> dict[str, object]:
     try:
         decoded = raw.decode("utf-8")
-        value: object = json.loads(decoded, parse_constant=lambda value: _fail(f"invalid_json_constant:{value}"))
+        value: object = json.loads(
+            decoded,
+            parse_constant=lambda value: _fail(f"invalid_json_constant:{value}"),
+            parse_float=_parse_json_float,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise IngestError(f"invalid_json:{error.__class__.__name__}") from None
     return _require_object(value, "payload")
@@ -120,15 +146,12 @@ def validate_envelope(payload: dict[str, object], market: str) -> None:
     currency_value = payload.get("currency")
     if currency_value is not None and not isinstance(currency_value, str):
         _fail("bad_currency_type")
-    match market:
-        case "us":
-            if market_value != "US" or currency_value != "USD":
-                _fail("market_payload_mismatch")
-        case "kr":
-            if market_value not in (None, "KR") or currency_value not in (None, "KRW"):
-                _fail("market_payload_mismatch")
-        case _:
-            _fail("bad_market")
+    if market not in ("kr", "us"):
+        _fail("bad_market")
+    if market == "us" and (market_value != "US" or currency_value != "USD"):
+        _fail("market_payload_mismatch")
+    if market == "kr" and (market_value not in (None, "KR") or currency_value not in (None, "KRW")):
+        _fail("market_payload_mismatch")
 
 
 def parse_generated_at(payload: dict[str, object]) -> datetime:
@@ -142,6 +165,11 @@ def parse_generated_at(payload: dict[str, object]) -> datetime:
     except ValueError:
         _fail("bad_generated_at")
     return parsed.replace(tzinfo=KST)
+
+
+def validate_generated_at_mtime(generated_at: datetime, file_mtime: float) -> None:
+    if abs(generated_at.timestamp() - file_mtime) > 45 * 60:
+        _fail("generated_at_mtime_mismatch")
 
 
 def resolve_session_date(
@@ -160,10 +188,7 @@ def resolve_session_date(
                 continue
             if not isinstance(date_value, str):
                 _fail("bad_market_condition_date_type")
-            try:
-                parsed_dates.append(_parse_iso_date(date_value, "market_condition_date"))
-            except IngestError:
-                continue
+            parsed_dates.append(_parse_iso_date(date_value, "market_condition_date"))
     if len(parsed_dates) == 0:
         session_date, source = nominal, "nominal"
     else:
@@ -223,14 +248,41 @@ def call_rpc(url: str, service_role_key: str, body: dict[str, object]) -> dict[s
         with url_request.urlopen(request, timeout=30) as response:
             raw_response = response.read()
     except url_error.HTTPError as error:
-        raise IngestError(f"http_error:{error.code}") from None
+        if error.fp is None:
+            excerpt = ""
+        else:
+            try:
+                excerpt = error.read(200).decode("utf-8", errors="replace")
+            except (TimeoutError, OSError, http.client.HTTPException) as read_error:
+                excerpt = f"body_read_error:{read_error.__class__.__name__}"
+        raise IngestError(f"http_error:{error.code}:{excerpt}") from None
     except url_error.URLError as error:
         raise IngestError(f"network_error:{error.reason.__class__.__name__}") from None
+    except (TimeoutError, OSError, http.client.HTTPException) as error:
+        raise IngestError(f"network_read_error:{error.__class__.__name__}") from None
     result = decode_payload(raw_response)
     status = result.get("status")
     if status not in ("inserted", "updated", "stale_rejected", "unchanged_noop"):
         _fail("bad_rpc_status")
     return result
+
+
+def _send_telegram_alert(environ: Mapping[str, str], error_message: str) -> None:
+    token = environ.get("PRISM_ALERT_TELEGRAM_BOT_TOKEN")
+    chat_id = environ.get("PRISM_ALERT_TELEGRAM_CHAT_ID")
+    if not isinstance(token, str) or token == "" or not isinstance(chat_id, str) or chat_id == "":
+        return
+    request = url_request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=json.dumps({"chat_id": chat_id, "text": f"PRISM ingest failed: {error_message}"}).encode(),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with url_request.urlopen(request, timeout=10) as response:
+            response.read()
+    except Exception:
+        return
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -251,6 +303,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = decode_payload(raw)
         validate_envelope(payload, args.market)
         generated_at = parse_generated_at(payload)
+        try:
+            file_mtime = args.file.stat().st_mtime
+        except OSError as error:
+            raise IngestError(f"file_stat_error:{error.__class__.__name__}") from None
+        validate_generated_at_mtime(generated_at, file_mtime)
         snapshot_date = generated_at.date()
         session_date, session_source = resolve_session_date(payload, args.market, snapshot_date)
         terminal = extract_terminal_performance(payload, session_date)
@@ -276,8 +333,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps({"level": "info", "event": "prism_ingest", **result}, separators=(",", ":")))
         return 0
     except IngestError as error:
+        error_message = str(error)
         print(
-            json.dumps({"level": "error", "event": "prism_ingest_failed", "error": str(error)}, separators=(",", ":")),
+            json.dumps({"level": "error", "event": "prism_ingest_failed", "error": error_message}, separators=(",", ":")),
+            file=sys.stderr,
+        )
+        _send_telegram_alert(os.environ, error_message)
+        return 1
+    except Exception as error:
+        print(
+            json.dumps({"level": "error", "event": "prism_ingest_failed", "error": f"unexpected_error:{error.__class__.__name__}"}, separators=(",", ":")),
             file=sys.stderr,
         )
         return 1

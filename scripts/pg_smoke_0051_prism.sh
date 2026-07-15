@@ -89,6 +89,7 @@ SIGNATURE="public.upsert_prism_snapshot(text,text,text,text,text,text,jsonb,text
 [ "$(scalar "select has_function_privilege('service_role','$SIGNATURE','execute')")" = "t" ] || fail "service_role EXECUTE missing"
 [ "$(scalar "select has_function_privilege('authenticated','$SIGNATURE','execute')")" = "f" ] || fail "authenticated EXECUTE must be denied"
 [ "$(scalar "select has_function_privilege('anon','$SIGNATURE','execute')")" = "f" ] || fail "anon EXECUTE must be denied"
+assert_raises "perform public.upsert_prism_snapshot('kr','2026-07-15','am','2026-07-15','payload','2026-07-15T11:05:00+09:00','{}'::jsonb,'$HASH_A','$PIN','1',null);" "service_role_required" "owner RPC role gate"
 assert_raises "set local role authenticated; perform public.upsert_prism_snapshot('kr','2026-07-15','am','2026-07-15','payload','2026-07-15T11:05:00+09:00','{}'::jsonb,'$HASH_A','$PIN','1',null);" "permission denied" "authenticated RPC denied"
 assert_raises "set local role anon; perform public.upsert_prism_snapshot('kr','2026-07-15','am','2026-07-15','payload','2026-07-15T11:05:00+09:00','{}'::jsonb,'$HASH_A','$PIN','1',null);" "permission denied" "anon RPC denied"
 
