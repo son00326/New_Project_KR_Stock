@@ -14,8 +14,18 @@ import { cn } from "@/lib/utils";
 
 export type PrismMarket = "kr" | "us";
 
+const PRISM_TABS = [
+  { href: "/admin/prism", label: "대시보드" },
+  { href: "/admin/prism/holdings", label: "AI 보유 분석" },
+  { href: "/admin/prism/trades", label: "거래 내역" },
+  { href: "/admin/prism/watchlist", label: "관심 종목" },
+  { href: "/admin/prism/insights", label: "인사이트" },
+  { href: "/admin/prism/compare", label: "주픽 비교" },
+] as const;
+
 export function resolveMarket(value: string | string[] | undefined): PrismMarket {
-  return value === "us" ? "us" : "kr";
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate === "us" ? "us" : "kr";
 }
 
 export function resolvePage(value: string | string[] | undefined): number {
@@ -41,22 +51,37 @@ export function PrismPageHeader({
   trailing,
 }: PrismPageHeaderProps) {
   return (
-    <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <div className="mb-2 flex items-center gap-2">
-          <FlaskConical aria-hidden="true" className="size-4 text-primary" />
-          <p className="text-xs font-semibold text-primary">외부 엔진 사이드카</p>
+    <div className="space-y-5">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex items-center gap-2">
+            <FlaskConical aria-hidden="true" className="size-4 text-primary" />
+            <p className="text-xs font-semibold text-primary">외부 엔진 사이드카</p>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        {trailing}
-        <MarketToggle market={market} pathname={pathname} />
-      </div>
-    </header>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {trailing}
+          <MarketToggle market={market} pathname={pathname} />
+        </div>
+      </header>
+      <nav aria-label="프리즘 섹션" className="overflow-x-auto">
+        <div className="flex min-w-max gap-1 rounded-2xl border border-border/60 bg-card p-1.5 shadow-toss-sm">
+          {PRISM_TABS.map((tab) => (
+            <Link
+              key={tab.href}
+              className="rounded-xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              href={`${tab.href}?market=${market}`}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </div>
   );
 }
 

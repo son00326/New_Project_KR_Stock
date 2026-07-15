@@ -6,17 +6,13 @@ import {
   getLatestPrismSnapshot,
   getPrismBenchmarkMeta,
   getPrismHistorySeries,
-  joopickFractionToPrismPercent,
-  type PrismHistoryPoint,
-  type PrismMarket,
-  type PrismSnapshot,
 } from "@/lib/data/admin-prism";
 import { getActiveShortList } from "@/lib/data/admin-shortlist";
 
 import { EmptyState, PrismPageHeader, resolveMarket } from "../_components/prism-ui";
-import { getJoopickPerformanceSeries, type JoopickPerformancePoint } from "../_lib/joopick-series";
-import { tickerOf } from "../_lib/section-values";
-import { ComparisonChart, type PrismComparisonPoint } from "./comparison-chart";
+import { actualEntryTickers, buildComparisonSeries, maxDate } from "../_lib/comparison";
+import { getJoopickPerformanceSeries } from "../_lib/joopick-series";
+import { ComparisonChart } from "./comparison-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +45,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     ? maxDate(marketMeta.benchmarkSessionDate, firstJoopickDate)
     : marketMeta.benchmarkSessionDate;
   const chartData = buildComparisonSeries(history, joopick, market, benchmarkStartDate);
-  const prismTickers = actualEntryTickers(snapshot);
+  const prismTickers = actualEntryTickers(snapshot.payload);
   const shortlistByTicker = new Map(shortlist.map((item) => [item.ticker, item.name]));
   const overlap = [...prismTickers]
     .filter((ticker) => shortlistByTicker.has(ticker))
@@ -112,44 +108,6 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       <ComparisonDisclaimers />
     </div>
   );
-}
-
-function buildComparisonSeries(
-  history: readonly PrismHistoryPoint[],
-  joopick: readonly JoopickPerformancePoint[],
-  market: PrismMarket,
-  startDate: string,
-): readonly PrismComparisonPoint[] {
-  const prism = history.filter((point) => point.marketSessionDate >= startDate && point.terminalPerformance !== null);
-  const prismBaseline = prism[0]?.terminalPerformance?.prismSimulatorReturn ?? 0;
-  const joopickAligned = market === "kr" ? joopick.filter((point) => point.date >= startDate) : [];
-  const joopickBaseline = joopickAligned[0] === undefined
-    ? 0
-    : joopickFractionToPrismPercent(joopickAligned[0].totalReturn);
-  return prism.flatMap((point) => {
-    if (point.terminalPerformance === null) return [];
-    const alignedJoopick = joopickAligned
-      .filter((candidate) => candidate.date <= point.marketSessionDate)
-      .at(-1);
-    const base = {
-      date: point.marketSessionDate,
-      prism: point.terminalPerformance.prismSimulatorReturn - prismBaseline,
-      slot: point.snapshotSlot,
-    };
-    return alignedJoopick === undefined ? [base] : [{
-      ...base,
-      joopick: joopickFractionToPrismPercent(alignedJoopick.totalReturn) - joopickBaseline,
-    }];
-  });
-}
-
-function actualEntryTickers(snapshot: PrismSnapshot): ReadonlySet<string> {
-  const entries = [...(snapshot.payload.tradingHistory ?? []), ...(snapshot.payload.holdings ?? [])];
-  return new Set(entries.map(tickerOf).filter((ticker): ticker is string => ticker !== null));
-}
-
-function maxDate(left: string, right: string): string {
-  return left >= right ? left : right;
 }
 
 function ComparisonDisclaimers() {
