@@ -13,13 +13,8 @@ import {
 } from "recharts";
 
 import { CHART_AXIS, CHART_GRID, CHART_LABEL, chartColor } from "@/lib/chart-colors";
-
-export interface PrismComparisonPoint {
-  readonly date: string;
-  readonly prism: number;
-  readonly joopick?: number;
-  readonly slot?: "am" | "pm" | "daily";
-}
+import type { PrismComparisonPoint } from "../_lib/comparison";
+import { formatPrismTooltipName } from "../_lib/comparison-tooltip";
 
 interface ComparisonChartProps {
   readonly data: readonly PrismComparisonPoint[];
@@ -49,9 +44,9 @@ export function ComparisonChart({ data, showJoopick, benchmark }: ComparisonChar
             tickFormatter={(value: number) => `${value.toFixed(0)}%`}
           />
           <Tooltip
-            formatter={(value: unknown, name: unknown) => [
+            formatter={(value: unknown, name: unknown, item: unknown) => [
               typeof value === "number" ? `${value.toFixed(2)}%` : "—",
-              typeof name === "string" ? name : "성과",
+              formatPrismTooltipName(name, item),
             ]}
             labelFormatter={(label: unknown) => String(label)}
             contentStyle={{

@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLatestPrismSnapshot } from "@/lib/data/admin-prism";
@@ -7,6 +10,7 @@ import {
   formatNumber,
   PrismPageHeader,
   resolveMarket,
+  resolvePage,
   SectionFallback,
 } from "../_components/prism-ui";
 import {
@@ -20,15 +24,26 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 20;
+
 interface WatchlistPageProps {
-  readonly searchParams: Promise<{ readonly market?: string | string[] }>;
+  readonly searchParams: Promise<{
+    readonly market?: string | string[];
+    readonly page?: string | string[];
+  }>;
 }
 
 export default async function WatchlistPage({ searchParams }: WatchlistPageProps) {
-  const market = resolveMarket((await searchParams).market);
+  const params = await searchParams;
+  const market = resolveMarket(params.market);
+  const page = resolvePage(params.page);
   const snapshot = await getLatestPrismSnapshot(market);
   const watchlist = snapshot?.payload.watchlist ?? null;
-  const groups = watchlist === null ? [] : groupByDate(watchlist);
+  const pageCount = watchlist === null ? 0 : Math.max(1, Math.ceil(watchlist.length / PAGE_SIZE));
+  const currentPage = pageCount === 0 ? 1 : Math.min(page, pageCount);
+  const visible = watchlist?.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) ?? [];
+  const groups = groupByDate(visible);
+  const remainingCount = watchlist === null ? 0 : watchlist.length - visible.length;
 
   return (
     <div className="space-y-7">
@@ -47,6 +62,12 @@ export default async function WatchlistPage({ searchParams }: WatchlistPageProps
         <EmptyState description="새 후보가 탐지되면 점수와 진입 보류 사유를 함께 표시합니다." title="관찰 중인 후보가 없어요" />
       ) : (
         <div className="space-y-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              총 {watchlist.length.toLocaleString("ko-KR")}건 · 현재 {visible.length}건 표시 · 나머지 {remainingCount.toLocaleString("ko-KR")}건
+            </p>
+            <Badge variant="outline">{currentPage} / {pageCount} 페이지</Badge>
+          </div>
           {groups.map((group) => (
             <section key={group.date} aria-labelledby={`watchlist-${group.date}`} className="space-y-3">
               <div className="flex items-center gap-2">
@@ -80,6 +101,10 @@ export default async function WatchlistPage({ searchParams }: WatchlistPageProps
               </div>
             </section>
           ))}
+          <nav aria-label="관심 종목 페이지" className="flex justify-end gap-2">
+            {currentPage > 1 ? <PageLink direction="previous" market={market} page={currentPage - 1} /> : null}
+            {currentPage < pageCount ? <PageLink direction="next" market={market} page={currentPage + 1} /> : null}
+          </nav>
         </div>
       )}
     </div>
@@ -92,4 +117,22 @@ function groupByDate(records: readonly PrismRecord[]): readonly {
 }[] {
   const dates = [...new Set(records.map(dateOf))].sort((left, right) => right.localeCompare(left));
   return dates.map((date) => ({ date, items: records.filter((record) => dateOf(record) === date) }));
+}
+
+function PageLink({
+  direction,
+  market,
+  page,
+}: {
+  readonly direction: "previous" | "next";
+  readonly market: "kr" | "us";
+  readonly page: number;
+}) {
+  return (
+    <Link className="inline-flex items-center gap-1 rounded-xl border bg-card px-3 py-2 text-sm font-semibold shadow-toss-sm hover:bg-muted" href={`/admin/prism/watchlist?market=${market}&page=${page}`}>
+      {direction === "previous" ? <ChevronLeft aria-hidden="true" className="size-4" /> : null}
+      {direction === "previous" ? "이전" : "다음"}
+      {direction === "next" ? <ChevronRight aria-hidden="true" className="size-4" /> : null}
+    </Link>
+  );
 }

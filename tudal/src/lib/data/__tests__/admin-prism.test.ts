@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getLatestPrismSnapshot,
+  getPrismBenchmarkMeta,
   getPrismHistorySeries,
   getPrismStaleStatus,
   isPrismSnapshotStale,
@@ -11,7 +13,7 @@ import {
 const mocks = vi.hoisted(() => {
   const state: {
     queryResult: {
-      data: unknown[];
+      data: unknown;
       error: { message: string } | null;
     };
   } = {
@@ -22,6 +24,8 @@ const mocks = vi.hoisted(() => {
     eq: vi.fn(),
     in: vi.fn(),
     order: vi.fn(),
+    limit: vi.fn(),
+    maybeSingle: vi.fn(),
     then: vi.fn(),
   };
   return {
@@ -61,6 +65,8 @@ beforeEach(() => {
   mocks.chain.eq.mockReturnValue(mocks.chain);
   mocks.chain.in.mockReturnValue(mocks.chain);
   mocks.chain.order.mockReturnValue(mocks.chain);
+  mocks.chain.limit.mockReturnValue(mocks.chain);
+  mocks.chain.maybeSingle.mockImplementation(async () => mocks.state.queryResult);
   mocks.chain.then.mockImplementation((resolve: (value: unknown) => unknown) =>
     Promise.resolve(mocks.state.queryResult).then(resolve),
   );
@@ -102,6 +108,19 @@ describe("PRISM stale schedule", () => {
     // Then: the previous missing am does not make the recovered stream stale.
     expect(status.nextScheduledAt.toISOString()).toBe("2026-07-21T02:20:00.000Z");
     expect(status.isStale).toBe(false);
+  });
+
+  it("uses the same-day KR pm slot after an am snapshot", () => {
+    // Given: Monday's KR am snapshot.
+    const latest = { market: "kr" as const, snapshotDate: "2026-07-20", snapshotSlot: "am" as const };
+
+    // When: the next scheduled slot and grace boundary are calculated.
+    const status = getPrismStaleStatus(latest, new Date("2026-07-21T05:25:00+09:00"));
+
+    // Then: Monday 17:25 is the heartbeat, not an end-of-day approximation.
+    expect(status.nextScheduledAt.toISOString()).toBe("2026-07-20T08:25:00.000Z");
+    expect(status.isStale).toBe(false);
+    expect(isPrismSnapshotStale(latest, new Date("2026-07-21T05:25:00.001+09:00"))).toBe(true);
   });
 });
 
@@ -153,6 +172,60 @@ describe("parsePrismPayload", () => {
     // Then: only the oversized section falls back.
     expect(parsed.holdings).toBeNull();
     expect(parsed.tradingHistory).toHaveLength(1);
+  });
+
+  it("rejects a US payload stored under the KR snapshot market", () => {
+    // Given: a structurally valid US envelope paired with a KR snapshot row.
+    const payload = { ...validEnvelope, market: "US", currency: "USD" };
+
+    // When/Then: market and currency crossing the storage boundary fail closed.
+    expect(() => parsePrismPayload(payload, "kr")).toThrow(/market mismatch/i);
+  });
+});
+
+describe("PRISM admin selectors", () => {
+  it("fails closed before latest snapshot selection when is_admin is false", async () => {
+    // Given: explicit admin authorization is denied.
+    mocks.rpc.mockResolvedValue({ data: false, error: null });
+
+    // When/Then: latest payload lookup never reaches the table.
+    await expect(getLatestPrismSnapshot("kr")).rejects.toThrow(/admin/i);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before benchmark metadata selection when is_admin is false", async () => {
+    // Given: explicit admin authorization is denied.
+    mocks.rpc.mockResolvedValue({ data: false, error: null });
+
+    // When/Then: benchmark metadata lookup never reaches the table.
+    await expect(getPrismBenchmarkMeta()).rejects.toThrow(/admin/i);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("pins latest lookup to generated_at descending and one maybe-single row", async () => {
+    // Given: one latest KR snapshot row returned by the selector.
+    mocks.state.queryResult = {
+      data: {
+        market: "kr",
+        snapshot_date: "2026-07-15",
+        snapshot_slot: "pm",
+        market_session_date: "2026-07-15",
+        terminal_performance: null,
+        id: "11111111-1111-4111-8111-111111111111",
+        generated_at: "2026-07-15T17:30:00+09:00",
+        payload: validEnvelope,
+      },
+      error: null,
+    };
+
+    // When: the latest snapshot is loaded.
+    const result = await getLatestPrismSnapshot("kr");
+
+    // Then: ordering and cardinality cannot silently drift to an arbitrary row set.
+    expect(mocks.chain.order).toHaveBeenCalledWith("generated_at", { ascending: false });
+    expect(mocks.chain.limit).toHaveBeenCalledWith(1);
+    expect(mocks.chain.maybeSingle).toHaveBeenCalledTimes(1);
+    expect(result?.snapshotSlot).toBe("pm");
   });
 });
 

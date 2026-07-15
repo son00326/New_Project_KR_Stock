@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLatestPrismSnapshot } from "@/lib/data/admin-prism";
@@ -7,6 +10,7 @@ import {
   formatPercent,
   PrismPageHeader,
   resolveMarket,
+  resolvePage,
   SectionFallback,
 } from "../_components/prism-ui";
 import {
@@ -23,11 +27,16 @@ const JOURNAL_VISIBLE_LIMIT = 10;
 export const dynamic = "force-dynamic";
 
 interface InsightsPageProps {
-  readonly searchParams: Promise<{ readonly market?: string | string[] }>;
+  readonly searchParams: Promise<{
+    readonly market?: string | string[];
+    readonly page?: string | string[];
+  }>;
 }
 
 export default async function InsightsPage({ searchParams }: InsightsPageProps) {
-  const market = resolveMarket((await searchParams).market);
+  const params = await searchParams;
+  const market = resolveMarket(params.market);
+  const page = resolvePage(params.page);
   const snapshot = await getLatestPrismSnapshot(market);
   const extra = snapshot?.payload.extraSections;
   const triggers = extra === undefined ? null : readExtraArray(extra, ["trigger_confidence", "trigger_confidences", "trigger_stats"]);
@@ -53,7 +62,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             <InsightPrinciples records={principles} />
             <InsightIntuition record={intuition} />
           </div>
-          <InsightJournal records={journal} />
+          <InsightJournal market={market} page={page} records={journal} />
         </>
       )}
     </div>
@@ -88,17 +97,33 @@ function InsightIntuition({ record }: { readonly record: PrismRecord | null }) {
   return <Card><CardHeader><CardTitle>시장 직관</CardTitle></CardHeader><CardContent className="space-y-3"><Badge variant="outline">{readString(record, ["regime", "market_state", "status"]) ?? "현재 관찰"}</Badge><p className="text-sm leading-6">{readString(record, ["intuition", "summary", "content", "analysis"]) ?? "기록된 직관 내용이 없습니다."}</p></CardContent></Card>;
 }
 
-function InsightJournal({ records }: { readonly records: readonly PrismRecord[] | null }) {
+function InsightJournal({
+  market,
+  page,
+  records,
+}: {
+  readonly market: "kr" | "us";
+  readonly page: number;
+  readonly records: readonly PrismRecord[] | null;
+}) {
   if (records === null) return <SectionFallback title="저널" />;
   if (records.length === 0) return <EmptyState description="외부 엔진의 판단 기록이 쌓이면 시간순으로 표시됩니다." title="저널 기록이 없어요" />;
-  const visible = records.slice(0, JOURNAL_VISIBLE_LIMIT);
-  const overflow = records.slice(JOURNAL_VISIBLE_LIMIT);
+  const pageCount = Math.max(1, Math.ceil(records.length / JOURNAL_VISIBLE_LIMIT));
+  const currentPage = Math.min(page, pageCount);
+  const visible = records.slice(
+    (currentPage - 1) * JOURNAL_VISIBLE_LIMIT,
+    currentPage * JOURNAL_VISIBLE_LIMIT,
+  );
+  const remainingCount = records.length - visible.length;
   return (
     <Card>
-      <CardHeader className="grid grid-cols-[1fr_auto] gap-3"><CardTitle>저널</CardTitle><Badge variant="secondary">최대 {JOURNAL_VISIBLE_LIMIT}건 우선 표시 · 전체 {records.length}건</Badge></CardHeader>
+      <CardHeader className="grid grid-cols-[1fr_auto] gap-3"><CardTitle>저널</CardTitle><Badge variant="secondary">현재 {visible.length}건 · 나머지 {remainingCount}건</Badge></CardHeader>
       <CardContent className="space-y-3">
         {visible.map((record, index) => <JournalEntry key={`${dateOf(record)}-${index}`} record={record} />)}
-        {overflow.length === 0 ? null : <details className="rounded-xl border border-border/60 p-4"><summary className="cursor-pointer text-sm font-semibold">나머지 {overflow.length}건 더보기</summary><div className="mt-4 space-y-3">{overflow.map((record, index) => <JournalEntry key={`${dateOf(record)}-more-${index}`} record={record} />)}</div></details>}
+        <nav aria-label="저널 페이지" className="flex items-center justify-end gap-2 pt-2">
+          {currentPage > 1 ? <JournalPageLink direction="previous" market={market} page={currentPage - 1} /> : null}
+          {currentPage < pageCount ? <JournalPageLink direction="next" market={market} page={currentPage + 1} /> : null}
+        </nav>
       </CardContent>
     </Card>
   );
@@ -106,4 +131,22 @@ function InsightJournal({ records }: { readonly records: readonly PrismRecord[] 
 
 function JournalEntry({ record }: { readonly record: PrismRecord }) {
   return <article className="rounded-xl bg-muted/60 p-4"><p className="text-xs font-medium text-muted-foreground">{dateOf(record)}</p><p className="mt-2 text-sm leading-6">{readString(record, ["content", "note", "reflection", "summary"]) ?? "내용 없음"}</p></article>;
+}
+
+function JournalPageLink({
+  direction,
+  market,
+  page,
+}: {
+  readonly direction: "previous" | "next";
+  readonly market: "kr" | "us";
+  readonly page: number;
+}) {
+  return (
+    <Link className="inline-flex items-center gap-1 rounded-xl border bg-card px-3 py-2 text-sm font-semibold shadow-toss-sm hover:bg-muted" href={`/admin/prism/insights?market=${market}&page=${page}`}>
+      {direction === "previous" ? <ChevronLeft aria-hidden="true" className="size-4" /> : null}
+      {direction === "previous" ? "이전" : "다음"}
+      {direction === "next" ? <ChevronRight aria-hidden="true" className="size-4" /> : null}
+    </Link>
+  );
 }
